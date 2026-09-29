@@ -52,7 +52,7 @@ where
         match self {
             // vsaddu.vv / vsaddu.vx / vsaddu.vi - saturating unsigned add
             Self::VsadduVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -114,7 +114,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -167,7 +167,7 @@ where
                 }
             }
             Self::VsadduVi { vd, vs2, imm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -223,7 +223,7 @@ where
             }
             // vsadd.vv / vsadd.vx / vsadd.vi - saturating signed add
             Self::VsaddVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -285,7 +285,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -338,7 +338,7 @@ where
                 }
             }
             Self::VsaddVi { vd, vs2, imm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -393,7 +393,7 @@ where
             }
             // vssubu.vv / vssubu.vx - saturating unsigned subtract
             Self::VssubuVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -455,7 +455,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -509,7 +509,7 @@ where
             }
             // vssub.vv / vssub.vx - saturating signed subtract
             Self::VssubVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -571,7 +571,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -625,7 +625,7 @@ where
             }
             // vaaddu.vv / vaaddu.vx - averaging unsigned add
             Self::VaadduVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -687,7 +687,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -741,7 +741,7 @@ where
             }
             // vaadd.vv / vaadd.vx - averaging signed add
             Self::VaaddVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -803,7 +803,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -857,7 +857,7 @@ where
             }
             // vasubu.vv / vasubu.vx - averaging unsigned subtract
             Self::VasubuVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -919,7 +919,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -973,7 +973,7 @@ where
             }
             // vasub.vv / vasub.vx - averaging signed subtract
             Self::VasubVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1035,7 +1035,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1089,7 +1089,7 @@ where
             }
             // vsmul.vv / vsmul.vx - fractional multiply with rounding and saturation
             Self::VsmulVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1160,7 +1160,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1223,7 +1223,7 @@ where
             }
             // vssrl.vv / vssrl.vx / vssrl.vi - scaling shift right logical
             Self::VssrlVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1289,7 +1289,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1345,7 +1345,7 @@ where
                 }
             }
             Self::VssrlVi { vd, vs2, imm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1403,7 +1403,7 @@ where
             }
             // vssra.vv / vssra.vx / vssra.vi - scaling shift right arithmetic
             Self::VssraVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1467,7 +1467,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1522,7 +1522,7 @@ where
                 }
             }
             Self::VssraVi { vd, vs2, imm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1578,7 +1578,7 @@ where
             }
             // vnclipu.wv / vnclipu.wx / vnclipu.wi - narrowing unsigned clip
             Self::VnclipuWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1594,9 +1594,13 @@ where
                         ),
                     });
                 };
-                // Destination SEW must be <= 32 so that 2*SEW fits in 64 bits
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1604,19 +1608,26 @@ where
                     group_regs,
                 )?;
                 // vs2 holds 2*SEW elements; its register group is double-width
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    vtype.vlmul(),
-                    sew,
-                    vd,
-                    group_regs,
+                let wide_group_regs = zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<
+                    Reg,
+                    _,
+                    _,
+                >(
+                    program_counter, vs2, vtype.vlmul(), sew, vd, group_regs
                 )?;
                 // vs1 is a normal SEW-wide source for the shift amount
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
@@ -1626,7 +1637,7 @@ where
                         ),
                     });
                 }
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1634,7 +1645,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1647,7 +1658,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1664,7 +1675,12 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1688,7 +1704,7 @@ where
                     });
                 }
                 let scalar = rs1_value.as_u64();
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1696,7 +1712,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1704,7 +1720,7 @@ where
                 }
             }
             Self::VnclipuWi { vd, vs2, imm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1721,7 +1737,12 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1744,7 +1765,7 @@ where
                         ),
                     });
                 }
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1753,7 +1774,7 @@ where
                         // Immediate is the shift amount directly; masking done inside the helper
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1762,7 +1783,7 @@ where
             }
             // vnclip.wv / vnclip.wx / vnclip.wi - narrowing signed clip
             Self::VnclipWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1779,25 +1800,37 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    vtype.vlmul(),
-                    sew,
-                    vd,
-                    group_regs,
+                let wide_group_regs = zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<
+                    Reg,
+                    _,
+                    _,
+                >(
+                    program_counter, vs2, vtype.vlmul(), sew, vd, group_regs
                 )?;
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
@@ -1807,7 +1840,7 @@ where
                         ),
                     });
                 }
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1815,7 +1848,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1828,7 +1861,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1845,7 +1878,12 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1869,7 +1907,7 @@ where
                     });
                 }
                 let scalar = rs1_value.as_u64();
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1877,7 +1915,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
                         },
@@ -1885,7 +1923,7 @@ where
                 }
             }
             Self::VnclipWi { vd, vs2, imm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1902,7 +1940,12 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                zvexx_fixed_point_helpers::check_narrowing_sew::<Reg, _, _>(program_counter, sew)?;
+                // The source is `2*SEW` wide, which must not exceed `ELEN`
+                let widening_sew =
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                        program_counter,
+                        sew,
+                    )?;
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1925,7 +1968,7 @@ where
                         ),
                     });
                 }
-                // SAFETY: sew <= 32 checked; alignment checked above
+                // SAFETY: alignment checked above
                 unsafe {
                     zvexx_fixed_point_helpers::execute_narrowing_clip_op(
                         env,
@@ -1933,7 +1976,7 @@ where
                         vs2,
                         zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),
                         vm,
-                        sew,
+                        widening_sew,
                         |wide, shamt, sew, vxrm, vxsat| {
                             zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
                         },

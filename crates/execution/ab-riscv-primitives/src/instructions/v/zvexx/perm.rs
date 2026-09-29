@@ -141,6 +141,9 @@ where
                     }
                     let rd = Reg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VmvXS { rd, vs2 })
                 }
                 // OPMVX
@@ -161,13 +164,22 @@ where
                 0b000 => {
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VrgatherVv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
                 0b100 => {
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let rs1 = Reg::from_bits(vs1_bits)?;
                     Some(Self::VrgatherVx { vd, vs2, rs1, vm })
                 }
@@ -175,6 +187,9 @@ where
                 0b011 => {
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let uimm = vs1_bits;
                     Some(Self::VrgatherVi { vd, vs2, uimm, vm })
                 }
@@ -187,7 +202,13 @@ where
                     // vrgatherei16.vv
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::Vrgatherei16Vv { vd, vs2, vs1, vm })
                 }
                 // OPIVX
@@ -195,6 +216,9 @@ where
                     // vslideup.vx
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let rs1 = Reg::from_bits(vs1_bits)?;
                     Some(Self::VslideupVx { vd, vs2, rs1, vm })
                 }
@@ -203,6 +227,9 @@ where
                     // vslideup.vi
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let uimm = vs1_bits;
                     Some(Self::VslideupVi { vd, vs2, uimm, vm })
                 }
@@ -211,6 +238,9 @@ where
                     // vslide1up.vx
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let rs1 = Reg::from_bits(vs1_bits)?;
                     Some(Self::Vslide1upVx { vd, vs2, rs1, vm })
                 }
@@ -223,6 +253,9 @@ where
                     // vslidedown.vx
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let rs1 = Reg::from_bits(vs1_bits)?;
                     Some(Self::VslidedownVx { vd, vs2, rs1, vm })
                 }
@@ -231,6 +264,9 @@ where
                     // vslidedown.vi
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let uimm = vs1_bits;
                     Some(Self::VslidedownVi { vd, vs2, uimm, vm })
                 }
@@ -239,6 +275,9 @@ where
                     // vslide1down.vx
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let rs1 = Reg::from_bits(vs1_bits)?;
                     Some(Self::Vslide1downVx { vd, vs2, rs1, vm })
                 }
@@ -256,7 +295,13 @@ where
                     }
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VmergeVvm { vd, vs2, vs1, vm })
                 }
                 // OPMVV: vcompress.vm
@@ -266,7 +311,13 @@ where
                     }
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let vs1 = VReg::from_bits(vs1_bits)?;
+                    if vs1.is_mask(vm) {
+                        None?;
+                    }
                     Some(Self::VcompressVm { vd, vs2, vs1 })
                 }
                 // OPIVI: vmerge.vim / vmv.v.i
@@ -278,6 +329,9 @@ where
                     }
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     // sign-extend 5-bit
                     let simm5 = (vs1_bits.cast_signed() << 3) >> 3;
                     Some(Self::VmergeVim { vd, vs2, simm5, vm })
@@ -291,6 +345,9 @@ where
                     }
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let rs1 = Reg::from_bits(vs1_bits)?;
                     Some(Self::VmergeVxm { vd, vs2, rs1, vm })
                 }
@@ -306,6 +363,9 @@ where
                     }
                     let vd = VReg::from_bits(vd_bits)?;
                     let vs2 = VReg::from_bits(vs2_bits)?;
+                    if vs2.is_mask(vm) {
+                        None?;
+                    }
                     let nr_hint = vs1_bits;
                     match nr_hint {
                         0b00000 => Some(Self::Vmv1rV { vd, vs2 }),

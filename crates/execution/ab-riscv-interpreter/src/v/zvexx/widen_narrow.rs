@@ -54,7 +54,7 @@ where
         match self {
             // vwaddu.vv - 2*SEW = zext(SEW) + zext(SEW)
             Self::VwadduVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -73,27 +73,16 @@ where
                 let sew = vtype.vsew();
                 // Widening requires SEW < 64; 2*SEW must fit in ELEN=64
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -135,7 +124,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_add,
                     );
                 }
@@ -147,7 +136,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -165,27 +154,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -224,14 +202,14 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_add,
                     );
                 }
             }
             // vwadd.vv - 2*SEW = sext(SEW) + sext(SEW)
             Self::VwaddVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -249,27 +227,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -311,7 +278,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_add,
                     );
                 }
@@ -323,7 +290,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -341,27 +308,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -404,14 +360,14 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_add,
                     );
                 }
             }
             // vwsubu.vv - 2*SEW = zext(SEW) - zext(SEW)
             Self::VwsubuVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -429,27 +385,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -491,7 +436,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_sub,
                     );
                 }
@@ -503,7 +448,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -521,27 +466,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -579,14 +513,14 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_sub,
                     );
                 }
             }
             // vwsub.vv - 2*SEW = sext(SEW) - sext(SEW)
             Self::VwsubVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -604,27 +538,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -666,7 +589,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_sub,
                     );
                 }
@@ -678,7 +601,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -696,27 +619,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -758,14 +670,14 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_sub,
                     );
                 }
             }
             // vwaddu.wv - 2*SEW = 2*SEW + zext(SEW)
             Self::VwadduWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -783,27 +695,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -821,6 +722,14 @@ where
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
@@ -846,7 +755,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_add,
                     );
                 }
@@ -858,7 +767,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -875,27 +784,16 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -931,14 +829,14 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_add,
                     );
                 }
             }
             // vwadd.wv - 2*SEW = 2*SEW + sext(SEW)
             Self::VwaddWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -956,27 +854,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -993,6 +880,14 @@ where
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
@@ -1018,7 +913,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_add,
                     );
                 }
@@ -1030,7 +925,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1047,27 +942,16 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1106,14 +990,14 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_add,
                     );
                 }
             }
             // vwsubu.wv - 2*SEW = 2*SEW - zext(SEW)
             Self::VwsubuWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1131,27 +1015,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1168,6 +1041,14 @@ where
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
@@ -1193,7 +1074,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_sub,
                     );
                 }
@@ -1205,7 +1086,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1222,27 +1103,16 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1277,14 +1147,14 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_sub,
                     );
                 }
             }
             // vwsub.wv - 2*SEW = 2*SEW - sext(SEW)
             Self::VwsubWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1302,27 +1172,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1339,6 +1198,14 @@ where
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
@@ -1364,7 +1231,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_sub,
                     );
                 }
@@ -1376,7 +1243,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1393,27 +1260,16 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1452,14 +1308,14 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                         u64::wrapping_sub,
                     );
                 }
             }
             // vnsrl.wv - SEW = (2*SEW) >> SEW (logical)
             Self::VnsrlWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1478,27 +1334,16 @@ where
                 let sew = vtype.vsew();
                 // SEW must be < 64 so that 2*SEW fits in ELEN
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1523,6 +1368,14 @@ where
                     vs1,
                     group_regs,
                 )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
+                )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1539,7 +1392,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                     );
                 }
             }
@@ -1550,7 +1403,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1568,27 +1421,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1625,13 +1467,13 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                     );
                 }
             }
             // vnsrl.wi - SEW = (2*SEW) >> uimm (logical)
             Self::VnsrlWi { vd, vs2, uimm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1649,27 +1491,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1705,13 +1536,13 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
                         vm,
-                        sew,
+                        widening_sew,
                     );
                 }
             }
             // vnsra.wv - SEW = (2*SEW) >> SEW (arithmetic)
             Self::VnsraWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1729,27 +1560,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1774,6 +1594,14 @@ where
                     vs1,
                     group_regs,
                 )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
+                )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1790,7 +1618,7 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
                         vm,
-                        sew,
+                        widening_sew,
                     );
                 }
             }
@@ -1801,7 +1629,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1819,27 +1647,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1876,13 +1693,13 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
                         vm,
-                        sew,
+                        widening_sew,
                     );
                 }
             }
             // vnsra.wi - SEW = (2*SEW) >> uimm (arithmetic)
             Self::VnsraWi { vd, vs2, uimm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1900,27 +1717,16 @@ where
                 };
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
-                let wide_eew = match sew {
-                    Vsew::E8 => Eew::E16,
-                    Vsew::E16 => Eew::E32,
-                    Vsew::E32 => Eew::E64,
-                    Vsew::E64 => {
-                        ::core::hint::cold_path();
-                        return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                            address: PackedAddress::new(
-                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                            ),
-                        });
-                    }
-                };
-                if u32::from(wide_eew.bits_width()) > u32::from(Env::ELEN) {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
+                let wide_eew = Eew::from(widening_sew.wide());
                 let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
                     ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1956,13 +1762,13 @@ where
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
                         vm,
-                        sew,
+                        widening_sew,
                     );
                 }
             }
             // vzext.vf2 - zero-extend SEW/2 -> SEW
             Self::VzextVf2 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1979,24 +1785,22 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                // SEW must be >= 2*8 = 16
-                if u32::from(sew.bits_width()) < 16 {
+                let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F2)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
-                // EMUL for source = LMUL / 2; src_group = max(1, group_regs / 2)
-                let src_group = group_regs.divide_by_factor(VsewFactor::F2);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F2,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2018,14 +1822,13 @@ where
                         vd,
                         vs2,
                         vm,
-                        sew,
-                        VsewFactor::F2,
+                        extension_sew,
                     );
                 }
             }
             // vzext.vf4 - zero-extend SEW/4 -> SEW
             Self::VzextVf4 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2042,23 +1845,22 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                // SEW must be >= 4*8 = 32
-                if u32::from(sew.bits_width()) < 32 {
+                let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F4)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F4);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F4,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2080,14 +1882,13 @@ where
                         vd,
                         vs2,
                         vm,
-                        sew,
-                        VsewFactor::F4,
+                        extension_sew,
                     );
                 }
             }
             // vzext.vf8 - zero-extend SEW/8 -> SEW
             Self::VzextVf8 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2104,23 +1905,22 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                // SEW must be >= 8*8 = 64; only SEW=64 qualifies in Zve64x
-                if u32::from(sew.bits_width()) < 64 {
+                let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F8)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F8);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F8,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2142,14 +1942,13 @@ where
                         vd,
                         vs2,
                         vm,
-                        sew,
-                        VsewFactor::F8,
+                        extension_sew,
                     );
                 }
             }
             // vsext.vf2 - sign-extend SEW/2 -> SEW
             Self::VsextVf2 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2166,22 +1965,22 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) < 16 {
+                let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F2)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F2);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F2,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2203,14 +2002,13 @@ where
                         vd,
                         vs2,
                         vm,
-                        sew,
-                        VsewFactor::F2,
+                        extension_sew,
                     );
                 }
             }
             // vsext.vf4 - sign-extend SEW/4 -> SEW
             Self::VsextVf4 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2227,22 +2025,22 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) < 32 {
+                let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F4)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F4);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F4,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2264,14 +2062,13 @@ where
                         vd,
                         vs2,
                         vm,
-                        sew,
-                        VsewFactor::F4,
+                        extension_sew,
                     );
                 }
             }
             // vsext.vf8 - sign-extend SEW/8 -> SEW
             Self::VsextVf8 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2288,22 +2085,22 @@ where
                     });
                 };
                 let sew = vtype.vsew();
-                if u32::from(sew.bits_width()) < 64 {
+                let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F8)
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
-                let src_group = group_regs.divide_by_factor(VsewFactor::F8);
                 zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
                     program_counter,
                     vs2,
-                    src_group,
                     vd,
                     group_regs,
+                    VsewFactor::F8,
                 )?;
                 zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2325,8 +2122,7 @@ where
                         vd,
                         vs2,
                         vm,
-                        sew,
-                        VsewFactor::F8,
+                        extension_sew,
                     );
                 }
             }

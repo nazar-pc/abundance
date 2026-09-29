@@ -20,7 +20,7 @@ use crate::{
 use ab_riscv_primitives::prelude::*;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
-use core::hint::cold_path;
+use core::hint::{assert_unchecked, cold_path};
 use core::ops::ControlFlow;
 use replace_with::replace_with_or_abort_and_return;
 
@@ -353,19 +353,19 @@ const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemor
         }
     }
 
+    #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read_slice(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
-        let offset = Self::offset(address);
-
-        if offset > self.data.len() as u64 {
-            cold_path();
-            return Err(VirtualMemoryError::OutOfBoundsRead { address });
+        let result = self.read_slice_inner(address, len);
+        if let Ok(bytes) = result {
+            // SAFETY: `read_slice_inner()` returns exactly `len` bytes on success. Asserted here
+            // rather than inside so that callers can rely on it without the implementation being
+            // inlined.
+            unsafe {
+                assert_unchecked(bytes.len() == len as usize);
+            }
         }
-
-        self.data
-            .get(offset as usize..)
-            .and_then(const |data| data.get(..len as usize))
-            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })
+        result
     }
 
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -456,6 +456,23 @@ impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
         }
 
         address.wrapping_sub(BASE_ADDR)
+    }
+
+    /// Implementation of [`VirtualMemory::read_slice()`], returns exactly `len` bytes on success
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    const fn read_slice_inner(&self, address: u64, len: u32) -> Result<&[u8], VirtualMemoryError> {
+        let offset = Self::offset(address);
+
+        if offset > self.data.len() as u64 {
+            cold_path();
+            return Err(VirtualMemoryError::OutOfBoundsRead { address });
+        }
+
+        self.data
+            .get(offset as usize..)
+            .and_then(const |data| data.get(..len as usize))
+            .ok_or(VirtualMemoryError::OutOfBoundsRead { address })
     }
 
     #[cfg(feature = "alloc")]

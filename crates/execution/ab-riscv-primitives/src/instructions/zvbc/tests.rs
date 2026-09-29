@@ -467,3 +467,27 @@ fn display_vclmulh_vx_masked() {
     let decoded = ZvbcInstruction::<Reg<u64>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vclmulh.vx v0, v12, a1, v0.t");
 }
+
+#[test]
+fn masked_v0_data_source_is_reserved() {
+    for (name, funct6, vs2, vs1, funct3) in [
+        ("vclmul.vv vs2", 0b00_1100, 0, 1, 0b010),
+        ("vclmul.vv vs1", 0b00_1100, 1, 0, 0b010),
+        ("vclmulh.vx vs2", 0b00_1101, 0, 1, 0b110),
+    ] {
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
+        assert_eq!(
+            ZvbcInstruction::<Reg<u64>>::try_decode(instruction),
+            None,
+            "{name}"
+        );
+        // Same instruction with `v4` in place of `v0`
+        let vs2 = if vs2 == 0 { 4 } else { vs2 };
+        let vs1 = if vs1 == 0 { 4 } else { vs1 };
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
+        assert!(
+            ZvbcInstruction::<Reg<u64>>::try_decode(instruction).is_some(),
+            "{name}"
+        );
+    }
+}

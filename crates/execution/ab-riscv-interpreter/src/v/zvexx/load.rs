@@ -1,7 +1,7 @@
 //! ZveXx vector load instructions
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 pub mod zvexx_load_helpers;
 
 use crate::v::vector_registers::VectorRegistersExt;
@@ -52,10 +52,20 @@ where
                 vd,
                 rs1: _,
                 nreg,
-                eew: _,
+                eew,
             } => {
                 let nreg = nreg.num_registers();
                 if !env.vector_instructions_allowed() {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                // The element width hint does not affect the result, but `EEW > ELEN` is still
+                // reserved
+                if u32::from(eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -71,30 +81,42 @@ where
                         ),
                     });
                 }
-                let base = rs1_value.as_u64();
-                for reg_off in 0..nreg.get() {
-                    // SAFETY: the decoder guarantees nreg in {1,2,4,8} and vd is nreg-aligned
-                    // (checked above), so vd.to_bits() + nreg - 1 <= 31.
-                    let reg = unsafe { VReg::from_bits(vd.to_bits() + reg_off).unwrap_unchecked() };
-                    let bytes = memory
-                        .read_slice(
-                            base + u64::from(reg_off) * u64::from(Env::VLEN.bytes()),
-                            Env::VLEN.bytes(),
-                        )
-                        .inspect_err(|_error| {
-                            if reg_off > 0 {
-                                env.mark_vs_dirty();
-                                env.reset_vstart();
-                            }
-                        })?;
-                    env.write_vregs().get_mut(reg).copy_from_slice(bytes);
+                // `evl = NREG * VLEN / EEW` elements, regardless of `vtype` and `vl`, which is at
+                // most `8 * 65536 / 8` and never saturates
+                let vl = Vl::new_saturating(
+                    u32::from(nreg.get()) * Env::VLEN.bytes() / u32::from(eew.bytes_width()),
+                );
+                // `vstart >= evl` is reserved
+                if env.vstart() >= vl {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
                 }
-                env.mark_vs_dirty();
-                env.reset_vstart();
+                // SAFETY:
+                // - alignment: `vd % nreg == 0` checked above, so `vd + nreg <= 32`
+                // - `evl = nreg * VLEN.bytes() / eew.bytes()` elements fill the register group
+                //   exactly
+                // - unmasked
+                unsafe {
+                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _>(
+                        env,
+                        memory,
+                        vd,
+                        true,
+                        rs1_value.as_u64(),
+                        eew,
+                        nreg,
+                        Nf::N1,
+                        vl,
+                    )?;
+                }
             }
 
             // Mask load: loads ceil(vl / 8) bytes from base into vd with no masking applied.
-            // Does not require a valid vtype: when vill is set vl is 0, so zero bytes are read.
+            // Illegal with vill set, it depends on vtype indirectly through its constraints on vl.
             Self::Vlm { vd, rs1: _ } => {
                 if !env.vector_instructions_allowed() {
                     ::core::hint::cold_path();
@@ -104,29 +126,48 @@ where
                         ),
                     });
                 }
-                let vl = env.vl();
-                let byte_count = vl.bytes();
-                if byte_count > 0 {
-                    let base = rs1_value.as_u64();
-                    let bytes = memory.read_slice(base, u32::from(byte_count))?;
-                    // SAFETY: `bytes.len() == byte_count = vl.div_ceil(8) <= VLEN / 8 =
-                    // VLEN.bytes()` because `vl <= VLMAX <= VLEN`, so
-                    // `..bytes.len()` is in bounds within the
-                    // `VLEN.bytes()`-byte destination register.
-                    unsafe {
-                        env.write_vregs()
-                            .get_mut(vd)
-                            .get_unchecked_mut(..bytes.len())
-                            .copy_from_slice(bytes);
-                    }
+                if env.vtype().is_none() {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
                 }
-                env.mark_vs_dirty();
-                env.reset_vstart();
+                // `evl = ceil(vl / 8)` elements with `EEW = 8`
+                let vl = Vl::from(env.vl().bytes());
+                // Not within a single register only with `vl` above `VLEN`, which is an
+                // inconsistent vector state
+                if u32::from(vl) > Env::VLEN.bytes() {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                // SAFETY:
+                // - a single register is always aligned and within the register file
+                // - `evl <= VLEN.bytes()` checked above
+                // - unmasked
+                unsafe {
+                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _>(
+                        env,
+                        memory,
+                        vd,
+                        true,
+                        rs1_value.as_u64(),
+                        Eew::E8,
+                        VRegGroupSize::R1,
+                        Nf::N1,
+                        vl,
+                    )?;
+                }
             }
 
             // Unit-stride load.
             //
-            // Destination EMUL = EEW/SEW * LMUL, computed via `index_register_count`. This
+            // Destination EMUL = EEW/SEW * LMUL, computed via `eew_register_count`. This
             // gives `group_regs` such that `VLMAX = group_regs * VLEN.bytes() / eew.bytes()`
             // matches the architectural `vl`.
             Self::Vle {
@@ -151,14 +192,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype
-                    .vlmul()
-                    .index_register_count(eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    })?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -179,6 +220,7 @@ where
                         ),
                     });
                 }
+                let vl = env.vl();
                 // SAFETY:
                 // - alignment: `check_register_group_alignment` verified `vd % group_regs == 0` and
                 //   `vd + group_regs <= 32`, satisfying both the alignment and nf=1 bounds
@@ -197,6 +239,7 @@ where
                         eew,
                         group_regs,
                         Nf::N1,
+                        vl,
                     )?;
                 }
             }
@@ -224,14 +267,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype
-                    .vlmul()
-                    .index_register_count(eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    })?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -252,6 +295,7 @@ where
                         ),
                     });
                 }
+                let vl = env.vl();
                 // SAFETY: preconditions identical to `Vle`; see that arm for the full argument.
                 unsafe {
                     zvexx_load_helpers::execute_unit_stride_load::<true, _, _, _>(
@@ -263,6 +307,7 @@ where
                         eew,
                         group_regs,
                         Nf::N1,
+                        vl,
                     )?;
                 }
             }
@@ -291,14 +336,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype
-                    .vlmul()
-                    .index_register_count(eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    })?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -369,14 +414,13 @@ where
                     });
                 };
                 let data_group_regs = vtype.vlmul().register_count();
-                let index_group_regs = vtype
-                    .vlmul()
-                    .index_register_count(index_eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
+                    ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
-                    })?;
+                    },
+                )?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -475,14 +519,13 @@ where
                     });
                 };
                 let data_group_regs = vtype.vlmul().register_count();
-                let index_group_regs = vtype
-                    .vlmul()
-                    .index_register_count(index_eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
+                    ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
-                    })?;
+                    },
+                )?;
                 zvexx_load_helpers::check_register_group_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -569,14 +612,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype
-                    .vlmul()
-                    .index_register_count(eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    })?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -584,6 +627,7 @@ where
                     group_regs,
                     nf,
                 )?;
+                let vl = env.vl();
                 // SAFETY:
                 // - alignment and nf-group bounds: `validate_segment_registers` verified `vd %
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
@@ -602,6 +646,7 @@ where
                         eew,
                         group_regs,
                         nf,
+                        vl,
                     )?;
                 }
             }
@@ -631,14 +676,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype
-                    .vlmul()
-                    .index_register_count(eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    })?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -646,6 +691,7 @@ where
                     group_regs,
                     nf,
                 )?;
+                let vl = env.vl();
                 // SAFETY: preconditions identical to `Vlseg`; see that arm for the full argument.
                 unsafe {
                     zvexx_load_helpers::execute_unit_stride_load::<true, _, _, _>(
@@ -657,6 +703,7 @@ where
                         eew,
                         group_regs,
                         nf,
+                        vl,
                     )?;
                 }
             }
@@ -687,14 +734,14 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype
-                    .vlmul()
-                    .index_register_count(eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    })?;
+                let group_regs =
+                    vtype
+                        .eew_register_count(eew)
+                        .ok_or(ExecutionError::IllegalInstruction {
+                            address: PackedAddress::new(
+                                program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                            ),
+                        })?;
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -752,14 +799,13 @@ where
                     });
                 };
                 let data_group_regs = vtype.vlmul().register_count();
-                let index_group_regs = vtype
-                    .vlmul()
-                    .index_register_count(index_eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
+                    ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
-                    })?;
+                    },
+                )?;
                 // `validate_segment_registers` is called before the per-field overlap loop so
                 // that `vd.to_bits() + f * data_group_regs < 32` is established for all `f < nf`,
                 // which is required by the `VReg::from_bits` call inside the loop.
@@ -854,14 +900,13 @@ where
                     });
                 };
                 let data_group_regs = vtype.vlmul().register_count();
-                let index_group_regs = vtype
-                    .vlmul()
-                    .index_register_count(index_eew, vtype.vsew())
-                    .ok_or(ExecutionError::IllegalInstruction {
+                let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
+                    ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
-                    })?;
+                    },
+                )?;
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,

@@ -71,6 +71,27 @@ fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
 }
 
 #[test]
+fn vsetvli_avl_above_u32_caps_to_vlmax() {
+    let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
+    // VLMAX = 8, AVL values that are larger than VLMAX, but not when truncated to 32 bits
+    for avl in [1u64 << 32, (1 << 32) + 3, u64::MAX - u64::from(u32::MAX)] {
+        let mut state = initialize_state([ZveXxConfigInstruction::Vsetvli {
+            rd: Reg::A0,
+            rs1: Reg::A1,
+            vtypei,
+            rs2: Reg::Zero,
+        }]);
+        state.env.init_vector_csrs();
+        state.regs.write(Reg::A1, avl);
+
+        execute(&mut state).unwrap();
+
+        assert_eq!(state.regs.read(Reg::A0), 8, "AVL {avl:#x}");
+        assert_eq!(state.env.vl(), Vl::new(8).unwrap(), "AVL {avl:#x}");
+    }
+}
+
+#[test]
 fn vsetvli_avl_zero_gives_vl_zero() {
     let vtypei = encode_vtype(Vsew::E32, Vlmul::M1, false, false);
     let mut state = initialize_state([ZveXxConfigInstruction::Vsetvli {
@@ -293,9 +314,9 @@ fn vsetvli_reserved_vlmul_sets_vill() {
 }
 
 #[test]
-fn vsetvli_vlmax_zero_sets_vill() {
-    // e64 with mf8: VLMAX = 256/(64*8) = 0 -> unsupported
-    let vtypei = encode_vtype(Vsew::E64, Vlmul::Mf8, false, false);
+fn vsetvli_sew_above_fractional_lmul_times_elen_sets_vill() {
+    // e16 with mf8 needs `ELEN >= 128`, even though `VLMAX = 256 / (16 * 8) = 2` is non-zero
+    let vtypei = encode_vtype(Vsew::E16, Vlmul::Mf8, false, false);
     let mut state = initialize_state([ZveXxConfigInstruction::Vsetvli {
         rd: Reg::A0,
         rs1: Reg::A1,
@@ -1258,11 +1279,39 @@ fn vtype_from_raw_rejects_sew_exceeding_elen() {
 }
 
 #[test]
-fn vtype_from_raw_rejects_zero_vlmax() {
-    // e64 mf8 on VLEN=128: VLMAX = 0
-    let raw = u64::from(encode_vtype(Vsew::E64, Vlmul::Mf8, false, false));
-    let result = Vtype::<const { Env::ELEN }, const { Env::VLEN }>::from_raw::<Reg<u64>>(raw);
-    assert!(result.is_none());
+fn vtype_from_raw_requires_sew_within_fractional_lmul_times_elen() {
+    let decodes = |elen: Elen, vsew: Vsew, vlmul: Vlmul| {
+        let raw = u64::from(encode_vtype(vsew, vlmul, false, false));
+        match elen {
+            Elen::L32 => {
+                Vtype::<{ Elen::L32 }, { Vlen::L128 }>::from_raw::<Reg<u64>>(raw).is_some()
+            }
+            Elen::L64 => {
+                Vtype::<{ Elen::L64 }, { Vlen::L128 }>::from_raw::<Reg<u64>>(raw).is_some()
+            }
+            _ => unreachable!("Only ELEN 32 and 64 are tested"),
+        }
+    };
+
+    for (elen, vlmul, max_sew) in [
+        (Elen::L64, Vlmul::Mf2, Some(Vsew::E32)),
+        (Elen::L64, Vlmul::Mf4, Some(Vsew::E16)),
+        (Elen::L64, Vlmul::Mf8, Some(Vsew::E8)),
+        (Elen::L32, Vlmul::Mf2, Some(Vsew::E16)),
+        (Elen::L32, Vlmul::Mf4, Some(Vsew::E8)),
+        // `LMUL < SEWMIN / ELEN` is reserved, even though one `e8` element would fit into 1/8 of
+        // a 128-bit register
+        (Elen::L32, Vlmul::Mf8, None),
+    ] {
+        for vsew in [Vsew::E8, Vsew::E16, Vsew::E32, Vsew::E64] {
+            let expected = max_sew.is_some_and(|max_sew| vsew.bits_width() <= max_sew.bits_width());
+            assert_eq!(
+                decodes(elen, vsew, vlmul),
+                expected,
+                "{elen:?} {vsew} {vlmul}"
+            );
+        }
+    }
 }
 
 // VectorCsr enum tests

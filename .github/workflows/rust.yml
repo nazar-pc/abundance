@@ -849,6 +849,16 @@ jobs:
             sh -c 'make vector-tests && make'
         if: steps.restore-cache.outputs.cache-hit != 'true'
 
+      # TODO: Remove once `ACT4_RELEASE` uses Sail 0.14.1 or newer. Sail 0.13.1 does not treat `vd` of
+      #  `vwmacc*` as a source that must not overlap sources with a different EEW
+      #  (`norm:vreg_source_eew_rsv`), so these tests expect reserved encodings to execute.
+      - name: Skip tests that expect Sail 0.13.1 behavior
+        working-directory: crates/execution/ab-riscv-act4-runner
+        run: |
+          for test in 01 02 04 05 07 08; do
+            find work -path '*/elfs/*' -name "SsstrictSm_VectorInstr-${test}.elf*" -print -delete
+          done
+
       - parallel:
           - name: ACT4 tests RV32
             working-directory: crates/execution/ab-riscv-act4-runner

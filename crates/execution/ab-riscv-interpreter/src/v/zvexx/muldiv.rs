@@ -51,7 +51,7 @@ where
         match self {
             // vmul.vv / vmul.vx - signed multiply, low half
             Self::VmulVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -111,7 +111,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -163,7 +163,7 @@ where
             }
             // vmulh.vv / vmulh.vx - signed×signed multiply, high half
             Self::VmulhVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -234,7 +234,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -297,7 +297,7 @@ where
             }
             // vmulhu.vv / vmulhu.vx - unsigned×unsigned multiply, high half
             Self::VmulhuVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -368,7 +368,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -431,7 +431,7 @@ where
             }
             // vmulhsu.vv / vmulhsu.vx - signed×unsigned multiply, high half
             Self::VmulhsuVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -503,7 +503,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -568,7 +568,7 @@ where
             }
             // vdivu.vv / vdivu.vx - unsigned divide
             Self::VdivuVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -634,7 +634,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -691,7 +691,7 @@ where
             }
             // vdiv.vv / vdiv.vx - signed divide
             Self::VdivVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -751,7 +751,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -803,7 +803,7 @@ where
             }
             // vremu.vv / vremu.vx - unsigned remainder
             Self::VremuVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -873,7 +873,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -934,7 +934,7 @@ where
             }
             // vrem.vv / vrem.vx - signed remainder
             Self::VremVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -994,7 +994,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1046,7 +1046,7 @@ where
             }
             // vwmulu.vv / vwmulu.vx - unsigned widening multiply
             Self::VwmuluVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1064,14 +1064,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 // dest_group_regs encodes EMUL=2*LMUL; None means EMUL>8, which is illegal
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
@@ -1119,8 +1120,7 @@ where
                     dest_group_regs,
                     group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
@@ -1142,7 +1142,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1160,14 +1160,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -1201,9 +1202,8 @@ where
                     dest_group_regs,
                     group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
@@ -1221,7 +1221,7 @@ where
             }
             // vwmulsu.vv / vwmulsu.vx - signed×unsigned widening multiply
             Self::VwmulsuVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1239,14 +1239,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -1292,8 +1293,7 @@ where
                     dest_group_regs,
                     group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
@@ -1317,7 +1317,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1335,14 +1335,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -1376,10 +1377,9 @@ where
                     dest_group_regs,
                     group_regs,
                 )?;
-                let sew = vtype.vsew();
                 // scalar from rs1 is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
@@ -1398,7 +1398,7 @@ where
             }
             // vwmul.vv / vwmul.vx - signed widening multiply
             Self::VwmulVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1416,14 +1416,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -1469,8 +1470,7 @@ where
                     dest_group_regs,
                     group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
@@ -1494,7 +1494,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1512,14 +1512,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -1553,10 +1554,9 @@ where
                     dest_group_regs,
                     group_regs,
                 )?;
-                let sew = vtype.vsew();
                 // scalar from rs1 is sign-extended to XLEN; treat as signed SEW-wide
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
@@ -1575,7 +1575,7 @@ where
             }
             // vmacc.vv / vmacc.vx - vd = vd + vs1 * vs2
             Self::VmaccVv { vd, vs1, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1636,7 +1636,7 @@ where
                 vs2,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1688,7 +1688,7 @@ where
             }
             // vnmsac.vv / vnmsac.vx - vd = vd - vs1 * vs2
             Self::VnmsacVv { vd, vs1, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1749,7 +1749,7 @@ where
                 vs2,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1801,7 +1801,7 @@ where
             }
             // vmadd.vv / vmadd.vx - vd = vs1 * vd + vs2
             Self::VmaddVv { vd, vs1, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1862,7 +1862,7 @@ where
                 vs2,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1915,7 +1915,7 @@ where
             }
             // vnmsub.vv / vnmsub.vx - vd = -(vs1 * vd) + vs2
             Self::VnmsubVv { vd, vs1, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1976,7 +1976,7 @@ where
                 vs2,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2029,7 +2029,7 @@ where
             }
             // vwmaccu.vv / vwmaccu.vx - unsigned widening multiply-add
             Self::VwmaccuVv { vd, vs1, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2047,14 +2047,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -2087,22 +2088,23 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs1,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_op(
                         env,
@@ -2125,7 +2127,7 @@ where
                 vs2,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2143,14 +2145,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -2177,16 +2180,17 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         env,
@@ -2204,7 +2208,7 @@ where
             }
             // vwmacc.vv / vwmacc.vx - signed widening multiply-add
             Self::VwmaccVv { vd, vs1, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2222,14 +2226,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -2261,22 +2266,23 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs1,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_op(
                         env,
@@ -2300,7 +2306,7 @@ where
                 vs2,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2318,14 +2324,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -2352,16 +2359,17 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         env,
@@ -2380,7 +2388,7 @@ where
             }
             // vwmaccsu.vv / vwmaccsu.vx - signed×unsigned widening multiply-add
             Self::VwmaccsuVv { vd, vs1, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2398,14 +2406,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -2437,22 +2446,23 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs1,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_op(
                         env,
@@ -2476,7 +2486,7 @@ where
                 vs2,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2494,14 +2504,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -2528,17 +2539,18 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                let sew = vtype.vsew();
                 // scalar (rs1) is the signed operand; vs2 elements are unsigned
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         env,
@@ -2565,7 +2577,7 @@ where
                 vs2,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2583,14 +2595,15 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                if !zvexx_muldiv_helpers::widening_eew_supported(vtype.vsew(), Env::ELEN) {
+                let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 let group_regs = vtype.vlmul().register_count();
                 let dest_group_regs = vtype.vlmul().widening_register_count().ok_or(
                     ExecutionError::IllegalInstruction {
@@ -2617,17 +2630,18 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                let sew = vtype.vsew();
                 // scalar (rs1) is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment and overlap checked above; 2*SEW <= ELEN checked above
+                // SAFETY: alignment and overlap checked above
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         env,

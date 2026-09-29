@@ -19,7 +19,7 @@ use alloc::vec::Vec;
 use core::ops::ControlFlow;
 
 pub(crate) const TEST_BASE_ADDR: u64 = 0x1000;
-const TRAP_ADDRESS: u64 = 0;
+pub(crate) const TRAP_ADDRESS: u64 = 0;
 
 /// Simple test memory implementation
 pub(crate) struct TestMemory {

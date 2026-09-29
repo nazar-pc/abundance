@@ -50,9 +50,8 @@ where
             // Copies sign-extended element 0 of vs2 (at current SEW) to GPR rd.
             // Requires valid vtype (needs SEW to know element width).
             // Does not use vl or masking; always reads element 0.
-            // Resets vstart per spec §6.3.
             Self::VmvXS { rd, vs2 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -74,7 +73,6 @@ where
                 let raw = unsafe { env.read_vregs().read_element(vs2, 0, sew) };
                 let sign_extended = zvexx_perm_helpers::sign_extend_to_reg::<Reg>(raw, sew);
                 env.mark_vs_dirty();
-                env.reset_vstart();
 
                 return ExecutionResult::Continue {
                     rd,
@@ -83,10 +81,9 @@ where
             }
             // vmv.s.x vd, rs1
             // Copies scalar GPR rs1 (zero-extended / truncated to SEW) into element 0 of vd.
-            // When vl == 0, the write is suppressed but vstart is still reset.
-            // Resets vstart per spec §6.3.
+            // When vl == 0, the write is suppressed.
             Self::VmvSX { vd, rs1: _ } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -104,9 +101,8 @@ where
                 };
                 let sew = vtype.vsew();
                 let vl = env.vl();
-                let vstart = env.vstart();
-                // Per spec §16.1: update only when vstart < vl.
-                if vstart < vl {
+                // Per spec §16.1: update only when `vstart < vl`, and `vstart` is zero here
+                if vl != Vl::ZERO {
                     let scalar = rs1_value.as_i64().cast_unsigned();
                     // SAFETY: element 0 always fits.
                     unsafe {
@@ -114,7 +110,6 @@ where
                     }
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
             // vslideup.vx vd, vs2, rs1: _, vm
             // Slides elements of vs2 up by the scalar offset in rs1.
@@ -127,7 +122,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -179,7 +174,7 @@ where
             // vslideup.vi vd, vs2, uimm, vm
             // Same as vslideup.vx but offset is a 5-bit unsigned immediate.
             Self::VslideupVi { vd, vs2, uimm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -236,7 +231,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -282,7 +277,7 @@ where
             // vslidedown.vi vd, vs2, uimm, vm
             // Same as vslidedown.vx but offset is a 5-bit unsigned immediate.
             Self::VslidedownVi { vd, vs2, uimm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -335,7 +330,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -393,7 +388,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -439,7 +434,7 @@ where
             // vd[i] = (vs1[i] < VLMAX) ? vs2[vs1[i]] : 0
             // vd must not overlap vs1 or vs2.
             Self::VrgatherVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -507,7 +502,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -559,7 +554,7 @@ where
             // vrgather.vi vd, vs2, uimm, vm
             // Same as vrgather.vx but index is a 5-bit unsigned immediate.
             Self::VrgatherVi { vd, vs2, uimm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -613,7 +608,7 @@ where
             // EMUL_vs1 = (16 / SEW) * LMUL; must be in [1/8, 8] else illegal.
             // vd must not overlap vs1 or vs2.
             Self::Vrgatherei16Vv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -672,6 +667,16 @@ where
                     vs1,
                     index_group_regs,
                 )?;
+                // `vs1` is read with EEW=16 and `vs2` with EEW=SEW
+                if vtype.vsew() != Vsew::E16 {
+                    zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                        program_counter,
+                        vs2,
+                        group_regs.get(),
+                        vs1,
+                        index_group_regs.get(),
+                    )?;
+                }
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -704,7 +709,7 @@ where
             //   vd[i] = v0[i] ? vs1[i] : vs2[i]
             //   vd must not overlap v0 (mask source).
             Self::VmergeVvm { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -760,7 +765,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -806,7 +811,7 @@ where
             // When vm=true: vmv.v.i vd, simm5 - broadcast sign-extended immediate.
             // When vm=false: vmerge.vim - vd[i] = v0[i] ? simm5 : vs2[i]
             Self::VmergeVim { vd, vs2, simm5, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -854,7 +859,7 @@ where
             // Always unmasked (vm=1 in encoding); vs1 is the explicit mask operand.
             // vd must not overlap vs1 or vs2.
             Self::VcompressVm { vd, vs2, vs1 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -870,15 +875,6 @@ where
                         ),
                     });
                 };
-                // Spec §16.5: vstart must be zero.
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -904,6 +900,14 @@ where
                     vs1,
                     VRegGroupSize::R1,
                 )?;
+                // `vs1` is a mask with EEW=1 and `vs2` has EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs.get(),
+                    vs1,
+                    1,
+                )?;
                 let sew = vtype.vsew();
                 let vl = env.vl();
                 unsafe {
@@ -912,9 +916,18 @@ where
             }
             // vmv1r.v vd, vs2
             // Whole register move: copies 1 register.
-            // No masking, no vtype/vl dependency.
+            // No masking and no vl dependency, but `EEW = min(VLEN * EMUL, SEW)` depends on vtype,
+            // so it is illegal with vill set.
             Self::Vmv1rV { vd, vs2 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                if env.vtype().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -928,13 +941,20 @@ where
                     zvexx_perm_helpers::execute_whole_reg_move::<1, _>(env.write_vregs(), vd, vs2);
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
             // vmv2r.v vd, vs2
             // Whole register move: copies 2 registers.
             // vd and vs2 must be aligned to 2 (checked here per spec §17.6).
             Self::Vmv2rV { vd, vs2 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                if env.vtype().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -955,12 +975,19 @@ where
                     zvexx_perm_helpers::execute_whole_reg_move::<2, _>(env.write_vregs(), vd, vs2);
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
             // vmv4r.v vd, vs2
             // Whole register move: copies 4 registers.
             Self::Vmv4rV { vd, vs2 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                if env.vtype().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -981,12 +1008,19 @@ where
                     zvexx_perm_helpers::execute_whole_reg_move::<4, _>(env.write_vregs(), vd, vs2);
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
             // vmv8r.v vd, vs2
             // Whole register move: copies 8 registers.
             Self::Vmv8rV { vd, vs2 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
+                }
+                if env.vtype().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1007,7 +1041,6 @@ where
                     zvexx_perm_helpers::execute_whole_reg_move::<8, _>(env.write_vregs(), vd, vs2);
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
         }
 

@@ -25,11 +25,11 @@ pub(in super::super) unsafe fn carry_bit<const VLEN: Vlen>(
     u64::from(mask_bit(v0, i))
 }
 
-/// Execute an element-wise add-with-carry over `vstart..vl`, writing SEW-wide data results into
+/// Execute an element-wise add-with-carry over `0..vl`, writing SEW-wide data results into
 /// `vd`.
 ///
 /// Carry-in for each element is read from `v0[i]` when `WITH_CARRY` is true. All elements in
-/// `vstart..vl` are processed unconditionally (no execution mask).
+/// `0..vl` are processed unconditionally (no execution mask).
 ///
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
@@ -52,8 +52,7 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -85,14 +84,13 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
     }
 
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute an element-wise subtract-with-borrow over `vstart..vl`, writing SEW-wide data results
+/// Execute an element-wise subtract-with-borrow over `0..vl`, writing SEW-wide data results
 /// into `vd`.
 ///
 /// Borrow-in for each element is read from `v0[i]` (always true for vsbc). All elements in
-/// `vstart..vl` are processed unconditionally.
+/// `0..vl` are processed unconditionally.
 ///
 /// # Safety
 /// Same as [`execute_carry_add()`].
@@ -106,8 +104,7 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -134,10 +131,9 @@ where
     }
 
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute an element-wise add-with-carry over `vstart..vl`, writing the carry-out as a single mask
+/// Execute an element-wise add-with-carry over `0..vl`, writing the carry-out as a single mask
 /// bit per element into `vd`.
 ///
 /// When `WITH_CARRY` is true, carry-in for element `i` is read from `v0[i]`. When false, carry-in
@@ -167,10 +163,9 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask = sew_mask(sew);
 
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -202,10 +197,9 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
     }
 
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute an element-wise subtract-with-borrow over `vstart..vl`, writing the borrow-out as a
+/// Execute an element-wise subtract-with-borrow over `0..vl`, writing the borrow-out as a
 /// single mask bit per element into `vd`.
 ///
 /// When `WITH_BORROW` is true, borrow-in for element `i` is read from `v0[i]`. When false,
@@ -231,10 +225,9 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask = sew_mask(sew);
 
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
         // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
@@ -266,5 +259,4 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
     }
 
     env.mark_vs_dirty();
-    env.reset_vstart();
 }

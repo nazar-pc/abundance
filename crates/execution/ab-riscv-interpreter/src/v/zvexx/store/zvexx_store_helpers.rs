@@ -2,7 +2,8 @@
 
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::load::zvexx_load_helpers::{
-    check_register_group_alignment, mask_bit, snapshot_mask,
+    access_wraps, bytes_before_wrap, check_register_group_alignment, effective_address, mask_bit,
+    snapshot_mask,
 };
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, VirtualMemoryError};
@@ -31,13 +32,48 @@ unsafe fn index_buf_to_u64(
 /// Write `eew`-sized data from `buf[..eew.bytes()]` to memory at `addr` (little-endian)
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-fn write_mem_element(
+fn write_mem_element<Reg>(
     memory: &mut impl VirtualMemory,
     addr: u64,
     eew: Eew,
     buf: [u8; const { usize::from(Eew::MAX_BYTES) }],
-) -> Result<(), VirtualMemoryError> {
-    memory.write_slice(addr, &buf[..usize::from(eew.bytes_width())])
+) -> Result<(), VirtualMemoryError>
+where
+    Reg: Register,
+{
+    write_bytes::<Reg, _>(
+        memory,
+        addr,
+        buf.get(..usize::from(eew.bytes_width()))
+            .expect("Element width never exceeds `Eew::MAX_BYTES`; qed"),
+    )
+}
+
+/// Write `src` starting at effective address `address`, wrapping around at the end of the
+/// `XLEN`-bit address space
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn write_bytes<Reg, Memory>(
+    memory: &mut Memory,
+    address: u64,
+    src: &[u8],
+) -> Result<(), VirtualMemoryError>
+where
+    Reg: Register,
+    Memory: VirtualMemory,
+{
+    let before_wrap = bytes_before_wrap::<Reg>(address, src.len());
+    let Some((head, tail)) = src.split_at_checked(before_wrap) else {
+        cold_path();
+        return Err(VirtualMemoryError::OutOfBoundsWrite { address });
+    };
+    memory.write_slice(address, head)?;
+    if !tail.is_empty() {
+        cold_path();
+        memory.write_slice(0, tail)?;
+    }
+    Ok(())
 }
 
 /// Validate a segment store's destination register group.
@@ -83,6 +119,8 @@ where
 /// `base + i * nf * eew.bytes() + f * eew.bytes()`. When `nf == 1` this degenerates to a
 /// plain unit-stride store.
 ///
+/// `vl` is the number of elements to process, the architectural `vl` for regular stores.
+///
 /// # Safety
 /// - `vs3.to_bits() % group_regs == 0`
 /// - `vs3.to_bits() + nf * group_regs <= 32`
@@ -103,6 +141,7 @@ pub unsafe fn execute_unit_stride_store<Reg, Env, Memory>(
     eew: Eew,
     group_regs: VRegGroupSize,
     nf: Nf,
+    vl: Vl,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -111,7 +150,6 @@ where
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = env.vl();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
 
@@ -124,7 +162,7 @@ where
     if vm && nf.fields_per_segment() == 1 && !range.is_empty() {
         let first = *range.start();
         let len = range.len() * usize::from(elem_bytes);
-        let addr = base.wrapping_add(u64::from(first) * u64::from(elem_bytes));
+        let addr = effective_address::<Reg>(base, u64::from(first) * u64::from(elem_bytes));
         let offset = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vs3, first, eew);
         // SAFETY: Elements `vstart..vl` all lie within the register group, which ends within the
         // register file (precondition), so `offset + len <= 32 * VLEN.bytes()`
@@ -134,7 +172,8 @@ where
                 .as_flattened()
                 .get_unchecked(offset..offset + len)
         };
-        if memory.write_slice(addr, data).is_ok() {
+        // A range that wraps around the end of the address space is not contiguous in memory
+        if !access_wraps::<Reg>(addr, len) && memory.write_slice(addr, data).is_ok() {
             env.reset_vstart();
             return Ok(());
         }
@@ -147,9 +186,9 @@ where
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
-        let elem_base = base.wrapping_add(u64::from(i) * segment_stride);
+        let elem_base = effective_address::<Reg>(base, u64::from(i) * segment_stride);
         for f in 0..nf.fields_per_segment() {
-            let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
+            let addr = effective_address::<Reg>(elem_base, u64::from(f * elem_bytes));
             // SAFETY: Guaranteed by function contract
             let field_base_reg =
                 unsafe { VReg::from_bits(vs3.to_bits() + f * group_regs).unwrap_unchecked() };
@@ -173,7 +212,7 @@ where
             };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
-            if let Err(error) = write_mem_element(memory, addr, eew, data) {
+            if let Err(error) = write_mem_element::<Reg>(memory, addr, eew, data) {
                 cold_path();
                 env.set_vstart(Vstart::from(i));
                 return Err(ExecutionError::from(error));
@@ -186,8 +225,8 @@ where
 
 /// Execute a strided or strided-segment store.
 ///
-/// The address of element `i`, field `f` is:
-///   `base.wrapping_add(i.wrapping_mul(stride) as u64).wrapping_add(f * eew.bytes())`
+///   `base + i * stride + f * eew.bytes()`, wrapping around modulo `2^XLEN`
+///   `effective_address::<Reg>(base, i.wrapping_mul(stride) as u64).wrapping_add(f * eew.bytes())`
 ///
 /// `stride` is the raw XLEN register value reinterpreted as a signed integer, matching the RVV
 /// specification where the stride operand is a two's-complement signed offset.
@@ -227,9 +266,10 @@ where
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
-        let elem_base = base.wrapping_add(i64::from(i).wrapping_mul(stride).cast_unsigned());
+        let elem_base =
+            effective_address::<Reg>(base, i64::from(i).wrapping_mul(stride).cast_unsigned());
         for f in 0..nf.fields_per_segment() {
-            let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
+            let addr = effective_address::<Reg>(elem_base, u64::from(f * elem_bytes));
             // SAFETY: Guaranteed by function contract
             let field_base_reg =
                 unsafe { VReg::from_bits(vs3.to_bits() + f * group_regs).unwrap_unchecked() };
@@ -243,7 +283,7 @@ where
             };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
-            if let Err(error) = write_mem_element(memory, addr, eew, data) {
+            if let Err(error) = write_mem_element::<Reg>(memory, addr, eew, data) {
                 cold_path();
                 env.set_vstart(Vstart::from(i));
                 return Err(ExecutionError::from(error));
@@ -313,9 +353,10 @@ where
         };
         // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
         let offset = unsafe { index_buf_to_u64(index_buf, index_eew) };
-        let elem_base = base.wrapping_add(offset);
+        let elem_base = effective_address::<Reg>(base, offset);
         for f in 0..nf.fields_per_segment() {
-            let addr = elem_base.wrapping_add(u64::from(f) * u64::from(data_elem_bytes));
+            let addr =
+                effective_address::<Reg>(elem_base, u64::from(f) * u64::from(data_elem_bytes));
             // SAFETY: Guaranteed by function contract
             let field_base_reg =
                 unsafe { VReg::from_bits(vs3.to_bits() + f * data_group_regs).unwrap_unchecked() };
@@ -329,7 +370,7 @@ where
             };
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
-            if let Err(error) = write_mem_element(memory, addr, data_eew, data) {
+            if let Err(error) = write_mem_element::<Reg>(memory, addr, data_eew, data) {
                 cold_path();
                 env.set_vstart(Vstart::from(i));
                 return Err(ExecutionError::from(error));

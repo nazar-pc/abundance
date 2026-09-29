@@ -1,5 +1,8 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
+use crate::v::zvexx::load::tests::{
+    WRAP_AROUND_HIGH_ADDR, WrapAroundMemory, Zve32Env, execute_with_memory,
+};
 use crate::{
     ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
@@ -71,6 +74,85 @@ fn exec_one(
         Err(error)
     } else {
         Ok(())
+    }
+}
+
+/// Execute a single instruction like [`exec_one()`], but on a Zve32x implementation
+fn exec_one_zve32(
+    state: &mut TestInterpreterState<ZveXxStoreInstruction<Reg<u64>>>,
+    instr: ZveXxStoreInstruction<Reg<u64>>,
+) -> Result<(), ExecutionError<u64>> {
+    let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
+    let rs1rs2_values = Rs1Rs2OperandValues {
+        rs1_value: state.regs.read(rs1),
+        rs2_value: state.regs.read(rs2),
+    };
+    let mut env = Zve32Env(core::mem::take(&mut state.env));
+
+    let result = instr.execute(
+        rs1rs2_values,
+        &mut state.regs,
+        &mut env,
+        &mut state.memory,
+        &mut state.instruction_fetcher,
+    );
+    state.env = env.0;
+
+    if let ExecutionResult::Err(error) = result {
+        Err(error)
+    } else {
+        Ok(())
+    }
+}
+
+#[test]
+fn eew_above_elen_is_illegal() {
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+
+    for eew in [Eew::E32, Eew::E64] {
+        let instructions = [
+            ZveXxStoreInstruction::Vse {
+                vs3: VReg::V2,
+                rs1: Reg::A0,
+                vm: true,
+                eew,
+                rs2: Reg::Zero,
+            },
+            ZveXxStoreInstruction::Vsse {
+                vs3: VReg::V2,
+                rs1: Reg::A0,
+                rs2: Reg::Zero,
+                vm: true,
+                eew,
+            },
+            ZveXxStoreInstruction::Vsuxei {
+                vs3: VReg::V2,
+                rs1: Reg::A0,
+                vs2: VReg::V4,
+                vm: true,
+                eew,
+                rs2: Reg::Zero,
+            },
+            ZveXxStoreInstruction::Vsseg {
+                vs3: VReg::V2,
+                rs1: Reg::A0,
+                eew,
+                vm_nf: SegVmNf::new(true, Nf::N2),
+                rs2: Reg::Zero,
+            },
+        ];
+        for instruction in instructions {
+            let result = exec_one_zve32(&mut state, instruction);
+            if eew == Eew::E32 {
+                assert!(result.is_ok(), "{instruction}: {result:?}");
+            } else {
+                assert!(
+                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                    "{instruction}: {result:?}"
+                );
+            }
+        }
     }
 }
 
@@ -294,16 +376,16 @@ fn vsr_honors_nonzero_vstart() {
 }
 
 #[test]
-fn vsr_vstart_at_or_past_evl_writes_nothing() {
+fn vsr_vstart_at_evl_is_illegal() {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
-    set_vreg(&mut state, VReg::V2, &[0xAA; 16]);
+    set_vreg(&mut state, VReg::V2, &[0xAA; 32]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
-    state.memory.write::<u8>(TEST_BASE_ADDR, 0x55).unwrap();
-    // EVL = 1 * VLENB = 16; vstart = 16 => no-op
-    state.env.set_vstart(Vstart::from(16));
+    state.memory.write::<u8>(TEST_BASE_ADDR + 31, 0x55).unwrap();
+    // `evl = 1 * VLENB = 32`, `vstart >= evl` is reserved
+    state.env.set_vstart(Vstart::from(32));
 
-    exec_one(
+    let result = exec_one(
         &mut state,
         ZveXxStoreInstruction::Vsr {
             vs3: VReg::V2,
@@ -311,11 +393,42 @@ fn vsr_vstart_at_or_past_evl_writes_nothing() {
             nreg: LoadStoreNreg::N1,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
+    );
 
-    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR).unwrap(), 0x55);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+    assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 31).unwrap(), 0x55);
+}
+
+#[test]
+fn vsr_fault_records_faulting_element_in_vstart() {
+    let mut state = initialize_state([]);
+    state.env.init_vector_csrs();
+    set_vreg(&mut state, VReg::V2, &[0xAA; 32]);
+    // Only the first 20 bytes of the register are within memory
+    let end = TEST_BASE_ADDR + 8192;
+    state.regs.write(Reg::A0, end - 20);
+
+    let result = exec_one(
+        &mut state,
+        ZveXxStoreInstruction::Vsr {
+            vs3: VReg::V2,
+            rs1: Reg::A0,
+            nreg: LoadStoreNreg::N1,
+            rs2: Reg::Zero,
+        },
+    );
+
+    assert!(matches!(
+        result,
+        Err(ExecutionError::OutOfBoundsWrite { .. })
+    ));
+    // Elements (bytes) before the faulting one were stored
+    assert_eq!(state.memory.read::<u8>(end - 20).unwrap(), 0xAA);
+    assert_eq!(state.memory.read::<u8>(end - 1).unwrap(), 0xAA);
+    assert_eq!(state.env.vstart(), Vstart::from(20));
 }
 
 #[test]
@@ -441,6 +554,28 @@ fn vsm_vl_exactly_8_writes_one_byte() {
 fn vsm_vector_not_allowed_returns_illegal_instruction() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     state.env.set_vector_allowed(false);
+    state.regs.write(Reg::A0, TEST_BASE_ADDR);
+
+    let result = exec_one(
+        &mut state,
+        ZveXxStoreInstruction::Vsm {
+            vs3: VReg::V0,
+            rs1: Reg::A0,
+            rs2: Reg::Zero,
+        },
+    );
+
+    assert!(matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. })
+    ));
+}
+
+#[test]
+fn vsm_with_vill_is_illegal() {
+    // `vsm.v` depends on vtype indirectly through its constraints on vl, so it respects vill
+    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
+    state.env.set_vtype(None);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     let result = exec_one(
@@ -1556,4 +1691,145 @@ fn vsse_out_of_bounds_write_returns_memory_access_error() {
         result,
         Err(ExecutionError::OutOfBoundsWrite { .. })
     ));
+}
+
+// Address wrap-around tests
+
+#[test]
+fn vsr_wraps_around_end_of_address_space() {
+    // The first register goes to the last 32 bytes of the address space, the second one to the
+    // first 32 bytes
+    let mut state = setup(Vl::new(0).unwrap(), Vsew::E8, Vlmul::M1);
+    state.env.write_vregs().get_mut(VReg::V2).fill(0x11);
+    state.env.write_vregs().get_mut(VReg::V3).fill(0x22);
+    let mut memory = WrapAroundMemory::default();
+    state.regs.write(Reg::A0, WRAP_AROUND_HIGH_ADDR + 32);
+
+    let result = execute_with_memory(
+        &mut state,
+        ZveXxStoreInstruction::Vsr {
+            vs3: VReg::V2,
+            rs1: Reg::A0,
+            nreg: LoadStoreNreg::N2,
+            rs2: Reg::Zero,
+        },
+        &mut memory,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_eq!(memory.high[..32], [0; 32]);
+    assert_eq!(memory.high[32..], [0x11; 32]);
+    assert_eq!(memory.low[..32], [0x22; 32]);
+    assert_eq!(memory.low[32..], [0; 32]);
+}
+
+#[test]
+fn vse_wraps_around_end_of_address_space() {
+    // E8/M1 with vl=32: elements 0..16 go to the end of the address space and 16..32 to its
+    // beginning
+    let mut state = setup(Vl::new(32).unwrap(), Vsew::E8, Vlmul::M1);
+    *state.env.write_vregs().get_mut(VReg::V4) = array::from_fn(|i| i as u8 + 1);
+    let mut memory = WrapAroundMemory::default();
+    state.regs.write(Reg::A0, WRAP_AROUND_HIGH_ADDR + 48);
+
+    let result = execute_with_memory(
+        &mut state,
+        ZveXxStoreInstruction::Vse {
+            vs3: VReg::V4,
+            rs1: Reg::A0,
+            vm: true,
+            eew: Eew::E8,
+            rs2: Reg::Zero,
+        },
+        &mut memory,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_eq!(
+        memory.high[48..],
+        array::from_fn::<u8, 16, _>(|i| i as u8 + 1)
+    );
+    assert_eq!(
+        memory.low[..16],
+        array::from_fn::<u8, 16, _>(|i| i as u8 + 17)
+    );
+}
+
+#[test]
+fn vsm_wraps_around_end_of_address_space() {
+    // vl=32 -> 4 bytes, 2 to the end of the address space and 2 to its beginning
+    let mut state = setup(Vl::new(32).unwrap(), Vsew::E8, Vlmul::M1);
+    state.env.write_vregs().get_mut(VReg::V1)[..4].copy_from_slice(&[1, 2, 3, 4]);
+    let mut memory = WrapAroundMemory::default();
+    state.regs.write(Reg::A0, 0u64.wrapping_sub(2));
+
+    let result = execute_with_memory(
+        &mut state,
+        ZveXxStoreInstruction::Vsm {
+            vs3: VReg::V1,
+            rs1: Reg::A0,
+            rs2: Reg::Zero,
+        },
+        &mut memory,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_eq!(memory.high[62..], [1, 2]);
+    assert_eq!(memory.low[..2], [3, 4]);
+}
+
+#[test]
+fn indexed_store_index_must_not_overlap_data_with_different_eew() {
+    // e32/m1 data, 8-bit indices in a single register
+    for vs2 in [VReg::V2, VReg::V4] {
+        let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
+        state.regs.write(Reg::A0, TEST_BASE_ADDR);
+        let result = exec_one(
+            &mut state,
+            ZveXxStoreInstruction::Vsuxei {
+                vs3: VReg::V2,
+                rs1: Reg::A0,
+                vs2,
+                vm: true,
+                eew: Eew::E8,
+                rs2: Reg::Zero,
+            },
+        );
+        if vs2 == VReg::V2 {
+            assert!(matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. })
+            ));
+        } else {
+            result.unwrap();
+        }
+    }
+}
+
+#[test]
+fn indexed_segment_store_index_must_not_overlap_any_field() {
+    // e32/m1 data with 2 fields in v2..v3, 8-bit indices in `v3` overlap the second field
+    for vs2 in [VReg::V3, VReg::V4] {
+        let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
+        state.regs.write(Reg::A0, TEST_BASE_ADDR);
+        let result = exec_one(
+            &mut state,
+            ZveXxStoreInstruction::Vsuxseg {
+                vs3: VReg::V2,
+                rs1: Reg::A0,
+                vs2,
+                eew: Eew::E8,
+                vm_nf: SegVmNf::new(true, Nf::N2),
+                rs2: Reg::Zero,
+            },
+        );
+        if vs2 == VReg::V3 {
+            assert!(matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. })
+            ));
+        } else {
+            result.unwrap();
+        }
+    }
 }

@@ -156,7 +156,7 @@ impl Vl {
 
 /// Element length
 #[derive(ConstParamTy, Debug, Clone, Copy)]
-#[derive_const(PartialEq, Eq)]
+#[derive_const(PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Elen {
     /// Element length is 8 bits
@@ -198,7 +198,7 @@ const impl From<Elen> for u32 {
 
 /// Vector length
 #[derive(ConstParamTy, Debug, Clone, Copy)]
-#[derive_const(PartialEq, Eq)]
+#[derive_const(PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Vlen {
     /// Vector length is 8 bits
@@ -924,6 +924,21 @@ where
         self.vlmul
     }
 
+    /// Number of registers in a group of elements with effective element width `eew`, where
+    /// `EMUL = (EEW / SEW) * LMUL`.
+    ///
+    /// Returns `None` when `EEW` exceeds `ELEN` or `EMUL` falls outside the legal range
+    /// `[1/8, 8]`, both of which are reserved.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn eew_register_count(&self, eew: Eew) -> Option<VRegGroupSize> {
+        if u32::from(eew.bits_width()) > u32::from(ELEN) {
+            cold_path();
+            return None;
+        }
+        self.vlmul.index_register_count(eew, self.vsew)
+    }
+
     /// Decode from raw register value.
     ///
     /// The `XLEN` is taken from `Reg::XLEN` and must be 32 for RV32 or 64 for RV64. The `vill` bit
@@ -965,7 +980,10 @@ where
             return None;
         }
 
-        if u32::from(vlmul.vlmax::<VLEN>(vsew)) == 0 {
+        // Only `SEW <= LMUL * ELEN` must be supported for fractional `LMUL`, anything beyond that
+        // is reserved and treated as `vill` like in the Sail model. Since `ELEN <= VLEN`,
+        // this also guarantees that at least one element fits and `VLMAX` is non-zero.
+        if u32::from(sew) * 8 > u32::from(ELEN) * vlmul.eighths() {
             cold_path();
             return None;
         }

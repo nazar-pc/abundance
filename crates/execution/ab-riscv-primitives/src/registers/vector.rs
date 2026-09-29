@@ -128,6 +128,15 @@ impl VReg {
     pub const fn is_group_aligned(self, group: VRegGroupSize) -> bool {
         self.to_bits().is_multiple_of(group.get())
     }
+
+    /// Whether this register is the mask of an instruction with mask bit `vm`.
+    ///
+    /// The mask is read with EEW=1, so an encoding that also reads the same register as a regular
+    /// vector source (with EEW of at least 8) is reserved (`norm:vreg_source_eew_rsv`).
+    #[inline(always)]
+    pub const fn is_mask(self, vm: bool) -> bool {
+        !vm && self == Self::V0
+    }
 }
 
 impl fmt::Display for VReg {

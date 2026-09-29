@@ -177,11 +177,17 @@ where
 
         let vd = VReg::from_bits(vd_bits)?;
         let vs2 = VReg::from_bits(vs2_bits)?;
+        if vs2.is_mask(vm) {
+            None?;
+        }
 
         match funct3 {
             // OPIVV
             0b000 => {
                 let vs1 = VReg::from_bits(vs1_bits)?;
+                if vs1.is_mask(vm) {
+                    None?;
+                }
                 match funct6 {
                     0b00_0000 => Some(Self::VaddVv { vd, vs2, vs1, vm }),
                     0b00_0010 => Some(Self::VsubVv { vd, vs2, vs1, vm }),

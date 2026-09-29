@@ -306,6 +306,9 @@ where
             0b01 => {
                 let eew = Eew::from_width(width)?;
                 let vs2 = VReg::from_bits(rs2_bits)?;
+                if vs2.is_mask(vm) {
+                    None?;
+                }
 
                 if !Self::implements_extension::<V<_>>()
                     && Reg::XLEN == u32::BITS as u8
@@ -358,6 +361,9 @@ where
             0b11 => {
                 let eew = Eew::from_width(width)?;
                 let vs2 = VReg::from_bits(rs2_bits)?;
+                if vs2.is_mask(vm) {
+                    None?;
+                }
 
                 if !Self::implements_extension::<V<_>>()
                     && Reg::XLEN == u32::BITS as u8

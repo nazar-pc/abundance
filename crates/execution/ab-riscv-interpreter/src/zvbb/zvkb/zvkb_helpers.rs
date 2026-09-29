@@ -6,7 +6,7 @@ pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_al
 use crate::v::zvexx::load::zvexx_load_helpers::mask_bit;
 use ab_riscv_primitives::prelude::*;
 
-/// Execute element-wise and-not over `vstart..vl`, writing SEW-wide results into `vd`.
+/// Execute element-wise and-not over `0..vl`, writing SEW-wide results into `vd`.
 ///
 /// For each active element i: `vd[i] = ~src[i] & vs2[i]`.
 ///
@@ -34,8 +34,7 @@ pub unsafe fn execute_vandn<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -62,10 +61,9 @@ pub unsafe fn execute_vandn<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute element-wise bit-reversal within bytes over `vstart..vl`, writing results into `vd`.
+/// Execute element-wise bit-reversal within bytes over `0..vl`, writing results into `vd`.
 ///
 /// For each active element i: the bits within each byte of `vs2[i]` are reversed. The byte order
 /// within the element is preserved; only the bit order within each byte changes.
@@ -84,9 +82,8 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let sew_bytes = u32::from(sew.bytes_width());
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -106,10 +103,9 @@ where
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute element-wise byte reversal over `vstart..vl`, writing results into `vd`.
+/// Execute element-wise byte reversal over `0..vl`, writing results into `vd`.
 ///
 /// For each active element i: the bytes within `vs2[i]` are reversed.
 ///
@@ -127,9 +123,8 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let sew_bytes = u32::from(sew.bytes_width());
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -146,10 +141,9 @@ where
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute element-wise rotate-left over `vstart..vl`, writing SEW-wide results into `vd`.
+/// Execute element-wise rotate-left over `0..vl`, writing SEW-wide results into `vd`.
 ///
 /// For each active element i: `vd[i] = rotate_left(vs2[i], src[i] % SEW)`.
 ///
@@ -173,10 +167,9 @@ pub unsafe fn execute_vrol<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let sew_bits = u64::from(sew.bits_width());
     let mask = sew_mask(sew);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -202,10 +195,9 @@ pub unsafe fn execute_vrol<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute element-wise rotate-right over `vstart..vl`, writing SEW-wide results into `vd`.
+/// Execute element-wise rotate-right over `0..vl`, writing SEW-wide results into `vd`.
 ///
 /// For each active element i: `vd[i] = rotate_right(vs2[i], src[i] % SEW)`.
 ///
@@ -231,10 +223,9 @@ pub unsafe fn execute_vror<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let sew_bits = u64::from(sew.bits_width());
     let mask = sew_mask(sew);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -260,5 +251,4 @@ pub unsafe fn execute_vror<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }

@@ -335,12 +335,12 @@ fn test_vsseg2e8() {
 
 #[test]
 fn test_vsseg8e32_masked() {
-    let inst = make_vs(7, 0, 0b00, 0, 0b0_0000, 5, 0b110, 0);
+    let inst = make_vs(7, 0, 0b00, 0, 0b0_0000, 5, 0b110, 8);
     let decoded = ZveXxStoreInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxStoreInstruction::Vsseg {
-            vs3: VReg::V0,
+            vs3: VReg::V8,
             rs1: Reg::T0,
             vm_nf: SegVmNf::new(false, Nf::N8),
             eew: Eew::E32,

@@ -5,27 +5,10 @@ pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
     OpSrc, check_vreg_group_alignment, sew_mask, sign_extend,
 };
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
-use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
+use crate::v::zvexx::zvexx_helpers::{INSTRUCTION_SIZE, WideningSew};
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-
-/// Whether a widening operation is representable for the given `SEW` and `ELEN`.
-///
-/// Widening instructions produce a `2*SEW` result, and an EEW greater than `ELEN` is reserved by
-/// the RISC-V "V" spec §3.4.2 for *every* implementation. This is therefore not an extension-level
-/// restriction like the one on the high-half multiplies in Zve64x: no vector extension makes
-/// `SEW == ELEN` legal for a widening instruction.
-///
-/// This also underpins the safety preconditions of [`execute_widening_op()`],
-/// [`execute_widening_muladd_op()`] and [`execute_widening_muladd_scalar_op()`], because
-/// `ELEN <= 64` means `2*SEW <= 64` and the wide element fits in a `u64`.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn widening_eew_supported(sew: Vsew, elen: Elen) -> bool {
-    u32::from(sew.bits_width()) * 2 <= u32::from(elen)
-}
 
 /// Check that a narrower source register group does not *illegally* overlap the wider destination
 /// group of a widening instruction.
@@ -82,7 +65,7 @@ where
     })
 }
 
-/// Execute a single-width element-wise arithmetic operation over `vstart..vl`.
+/// Execute a single-width element-wise arithmetic operation over `0..vl`.
 ///
 /// `op` receives `(vs2_elem: u64, src_elem: u64, sew: Vsew)` and returns the `u64` result.
 /// Only the low `sew.bytes()` of the result are written back.
@@ -109,9 +92,8 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -129,10 +111,9 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute a single-width widening operation over `vstart..vl`.
+/// Execute a single-width widening operation over `0..vl`.
 ///
 /// Reads SEW-wide elements from `vs2` and `src`, computes `op`, and writes a 2*SEW-wide result
 /// into `vd`.
@@ -141,8 +122,6 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
 /// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
 ///   and non-overlap verified by caller
 /// - `vl <= src_group_regs * VLEN.bytes() / sew_bytes`
-/// - `2*SEW <= ELEN` verified by caller via [`widening_eew_supported()`], so the 2*SEW result fits
-///   in a `u64`; this holds for every implementation because an EEW may not exceed ELEN
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -153,7 +132,7 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
     vs2: VReg,
     src: OpSrc,
     vm: bool,
-    sew: Vsew,
+    sew: WideningSew<{ Env::ELEN }>,
     op: F,
 ) where
     Reg: Register,
@@ -161,12 +140,11 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    // SAFETY: `2 * SEW <= ELEN` is a precondition, so the double width exists
-    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
+    let wide_sew = sew.wide();
+    let sew = sew.narrow();
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -180,13 +158,12 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
         let result = op(a, b, sew);
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them because
         // `vl <= src_group_regs * VLEN.bytes() / sew_bytes` and dest stores at 2*SEW width so
-        // `i < dest_group_regs * VLEN.bytes() / (2*sew_bytes)`; `2*SEW <= ELEN <= 64` by caller
+        // `i < dest_group_regs * VLEN.bytes() / (2*sew_bytes)`
         unsafe {
             env.write_vregs().write_element(vd, i, wide_sew, result);
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a single-width multiply-add where the first multiplier is a vector register group.
@@ -216,9 +193,8 @@ pub unsafe fn execute_muladd_op<Reg, Env, F>(
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -238,7 +214,6 @@ pub unsafe fn execute_muladd_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a single-width multiply-add where the first multiplier is a scalar.
@@ -265,9 +240,8 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -285,7 +259,6 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a widening multiply-add where the first multiplier is a vector register group.
@@ -298,8 +271,6 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
 /// # Safety
 /// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
 ///   and non-overlap verified by caller
-/// - `2*SEW <= ELEN` verified by caller via [`widening_eew_supported()`], so both the accumulator
-///   and the result fit in a `u64`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -310,7 +281,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
     a_reg: VReg,
     src: OpSrc,
     vm: bool,
-    sew: Vsew,
+    sew: WideningSew<{ Env::ELEN }>,
     op: F,
 ) where
     Reg: Register,
@@ -318,18 +289,17 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
-    // SAFETY: `2 * SEW <= ELEN` is a precondition, so the double width exists
-    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
+    let wide_sew = sew.wide();
+    let sew = sew.narrow();
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // Read the existing 2*SEW accumulator from vd
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
-        // `execute_widening_op` for the bound argument); `2*SEW <= ELEN <= 64` by caller
+        // `execute_widening_op` for the bound argument)
         let acc = unsafe { env.read_vregs().read_element(vd, i, wide_sew) };
         // SAFETY: register bounds verified by caller
         let a = unsafe { env.read_vregs().read_element(a_reg, i, sew) };
@@ -345,7 +315,6 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a widening multiply-add where the first multiplier is a scalar.
@@ -363,7 +332,7 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
     scalar: u64,
     src: OpSrc,
     vm: bool,
-    sew: Vsew,
+    sew: WideningSew<{ Env::ELEN }>,
     op: F,
 ) where
     Reg: Register,
@@ -371,17 +340,16 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
-    // SAFETY: `2 * SEW <= ELEN` is a precondition, so the double width exists
-    let wide_sew = unsafe { sew.double_width().unwrap_unchecked() };
+    let wide_sew = sew.wide();
+    let sew = sew.narrow();
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
-        // `execute_widening_op` for the bound argument); `2*SEW <= ELEN <= 64` by caller
+        // `execute_widening_op` for the bound argument)
         let acc = unsafe { env.read_vregs().read_element(vd, i, wide_sew) };
         let b = match src {
             // SAFETY: register bounds verified by caller
@@ -395,7 +363,6 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Signed × signed high half.

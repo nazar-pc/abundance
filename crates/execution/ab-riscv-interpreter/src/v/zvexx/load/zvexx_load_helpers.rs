@@ -1,11 +1,100 @@
 //! Opaque helpers for ZveXx extension
 
+#[cfg(test)]
+mod tests;
+
 use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::cmp::Ordering;
 use core::hint::cold_path;
+
+/// Effective address `base + offset`, wrapping around at the end of the `XLEN`-bit address space
+/// like every memory address computation
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn effective_address<Reg>(base: u64, offset: u64) -> u64
+where
+    Reg: Register,
+{
+    Reg::Type::truncate_from_u64(base.wrapping_add(offset)).as_u64()
+}
+
+/// Number of bytes of a `len`-byte access at `address` that come before the end of the `XLEN`-bit
+/// address space, the rest of the access wraps around to address zero
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub(crate) fn bytes_before_wrap<Reg>(address: u64, len: usize) -> usize
+where
+    Reg: Register,
+{
+    let remaining = (1u128 << Reg::XLEN).saturating_sub(u128::from(address));
+    usize::try_from(remaining).map_or(len, |remaining| remaining.min(len))
+}
+
+/// Whether a `len`-byte access at `address` wraps around the end of the `XLEN`-bit address space
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub(crate) fn access_wraps<Reg>(address: u64, len: usize) -> bool
+where
+    Reg: Register,
+{
+    bytes_before_wrap::<Reg>(address, len) < len
+}
+
+/// Read exactly `dst.len()` bytes at `address` with a single `read_slice()` call
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+fn read_exact(
+    memory: &impl VirtualMemory,
+    address: u64,
+    dst: &mut [u8],
+) -> Result<(), VirtualMemoryError> {
+    let Ok(len) = u32::try_from(dst.len()) else {
+        cold_path();
+        return Err(VirtualMemoryError::OutOfBoundsRead { address });
+    };
+    // Only the requested bytes are used, even if memory returned more
+    let Some(src) = memory.read_slice(address, len)?.get(..dst.len()) else {
+        cold_path();
+        return Err(VirtualMemoryError::OutOfBoundsRead { address });
+    };
+    // Same as `copy_from_slice()`, but without a length check the compiler may fail to prove
+    // redundant
+    for (dst, src) in dst.iter_mut().zip(src) {
+        *dst = *src;
+    }
+    Ok(())
+}
+
+/// Read `dst.len()` bytes starting at effective address `address`, wrapping around at the end of
+/// the `XLEN`-bit address space
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn read_bytes<Reg, Memory>(
+    memory: &Memory,
+    address: u64,
+    dst: &mut [u8],
+) -> Result<(), VirtualMemoryError>
+where
+    Reg: Register,
+    Memory: VirtualMemory,
+{
+    let before_wrap = bytes_before_wrap::<Reg>(address, dst.len());
+    let Some((head, tail)) = dst.split_at_mut_checked(before_wrap) else {
+        cold_path();
+        return Err(VirtualMemoryError::OutOfBoundsRead { address });
+    };
+    read_exact(memory, address, head)?;
+    if !tail.is_empty() {
+        cold_path();
+        read_exact(memory, 0, tail)?;
+    }
+    Ok(())
+}
 
 /// Return whether mask bit `i` is set in the mask byte slice.
 ///
@@ -181,20 +270,22 @@ where
 /// (little-endian)
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-fn read_mem_element(
+fn read_mem_element<Reg>(
     memory: &impl VirtualMemory,
     addr: u64,
     eew: Eew,
-) -> Result<[u8; const { usize::from(Eew::MAX_BYTES) }], VirtualMemoryError> {
-    let source = match memory.read_slice(addr, u32::from(eew.bytes_width())) {
-        Ok(source) => source,
-        Err(err) => {
-            cold_path();
-            return Err(err);
-        }
-    };
+) -> Result<[u8; const { usize::from(Eew::MAX_BYTES) }], VirtualMemoryError>
+where
+    Reg: Register,
+{
     let mut out = [0; _];
-    out[..usize::from(eew.bytes_width())].copy_from_slice(source);
+    let element = out
+        .get_mut(..usize::from(eew.bytes_width()))
+        .expect("Element width never exceeds `Eew::MAX_BYTES`; qed");
+    if let Err(err) = read_bytes::<Reg, _>(memory, addr, element) {
+        cold_path();
+        return Err(err);
+    }
     Ok(out)
 }
 
@@ -206,6 +297,8 @@ fn read_mem_element(
 ///
 /// When `fault_only_first` is set: a memory error at element `i > 0` truncates `vl` to `i`
 /// and returns `Ok`. An error at element `0` always propagates.
+///
+/// `vl` is the number of elements to process, the architectural `vl` for regular loads.
 ///
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0`
@@ -227,6 +320,7 @@ pub unsafe fn execute_unit_stride_load<const FAULT_ONLY_FIRST: bool, Reg, Env, M
     eew: Eew,
     group_regs: VRegGroupSize,
     nf: Nf,
+    vl: Vl,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -235,7 +329,6 @@ where
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = env.vl();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
 
@@ -248,12 +341,15 @@ where
     if vm && nf.fields_per_segment() == 1 && !range.is_empty() {
         let first = *range.start();
         let len = range.len() * usize::from(elem_bytes);
-        let addr = base.wrapping_add(u64::from(first) * u64::from(elem_bytes));
-        let read_result = memory.read_slice(
-            addr,
-            u32::try_from(len).expect("At most 8 registers worth of bytes; qed"),
-        );
-        if let Ok(bytes) = read_result {
+        let addr = effective_address::<Reg>(base, u64::from(first) * u64::from(elem_bytes));
+        // A range that wraps around the end of the address space is not contiguous in memory
+        if !access_wraps::<Reg>(addr, len)
+            && let Ok(bytes) = memory.read_slice(
+                addr,
+                u32::try_from(len).expect("At most 8 registers worth of bytes; qed"),
+            )
+            && let Some(bytes) = bytes.get(..len)
+        {
             let offset = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vd, first, eew);
             // SAFETY: Elements `vstart..vl` all lie within the register group, which ends within
             // the register file (precondition), so `offset + len <= 32 * VLEN.bytes()`
@@ -280,7 +376,7 @@ where
             continue;
         }
 
-        let elem_base = base.wrapping_add(u64::from(i) * segment_stride);
+        let elem_base = effective_address::<Reg>(base, u64::from(i) * segment_stride);
 
         // Read all nf fields into a stack buffer before writing any of them.
         // This ensures a fault on field f>0 leaves the destination registers untouched for the
@@ -295,8 +391,8 @@ where
 
         // `nf <= Nf::MAX`, which is exactly the length of `field_buf`, so every field has a slot
         for (f, field) in (0..nf.fields_per_segment()).zip(&mut field_buf) {
-            let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
-            match read_mem_element(memory, addr, eew) {
+            let addr = effective_address::<Reg>(elem_base, u64::from(f * elem_bytes));
+            match read_mem_element::<Reg>(memory, addr, eew) {
                 Ok(data) => {
                     *field = data;
                 }
@@ -392,11 +488,12 @@ where
             continue;
         }
 
-        let elem_base = base.wrapping_add(i64::from(i).wrapping_mul(stride).cast_unsigned());
+        let elem_base =
+            effective_address::<Reg>(base, i64::from(i).wrapping_mul(stride).cast_unsigned());
 
         for f in 0..nf.fields_per_segment() {
-            let addr = elem_base.wrapping_add(u64::from(f * elem_bytes));
-            let data = match read_mem_element(memory, addr, eew) {
+            let addr = effective_address::<Reg>(elem_base, u64::from(f * elem_bytes));
+            let data = match read_mem_element::<Reg>(memory, addr, eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
                     cold_path();
@@ -498,12 +595,13 @@ where
                 .to_le_bytes()
         };
         let offset = u64::from_le_bytes(index_buf);
-        let elem_addr = base.wrapping_add(offset);
+        let elem_addr = effective_address::<Reg>(base, offset);
 
         let data_elem_bytes = data_eew.bytes_width();
         for f in 0..nf.fields_per_segment() {
-            let addr = elem_addr.wrapping_add(u64::from(f) * u64::from(data_elem_bytes));
-            let data = match read_mem_element(memory, addr, data_eew) {
+            let addr =
+                effective_address::<Reg>(elem_addr, u64::from(f) * u64::from(data_elem_bytes));
+            let data = match read_mem_element::<Reg>(memory, addr, data_eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
                     cold_path();

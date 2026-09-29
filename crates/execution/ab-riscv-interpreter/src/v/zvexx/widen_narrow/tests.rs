@@ -57,6 +57,24 @@ fn exec(
     Ok(())
 }
 
+/// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
+/// `state` without modifying any vector state
+fn assert_rejects_nonzero_vstart(
+    state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>>,
+    instr: ZveXxWidenNarrowInstruction<Reg<u64>>,
+) {
+    let vstart = state.env.vstart();
+    assert_ne!(vstart, Vstart::ZERO);
+    let vregs = *state.env.read_vregs().as_bytes();
+    let result = exec(state, instr);
+    assert!(
+        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        "{instr}: {result:?}"
+    );
+    assert_eq!(state.env.vstart(), vstart, "{instr}");
+    assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
+}
+
 fn read_elem(
     state: &TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>>,
     base_reg: VReg,
@@ -1596,10 +1614,10 @@ fn vsext_vf2_e16_m1_masked_skips_inactive() {
     assert_eq!(read_elem(&state, VReg::V8, 3, Vsew::E16), 0xff80u64);
 }
 
-// vstart
+// Non-zero vstart
 
 #[test]
-fn vwaddu_vv_e8_m1_vstart_skips_early_elements() {
+fn vwaddu_vv_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 1);
@@ -1607,7 +1625,7 @@ fn vwaddu_vv_e8_m1_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V8, i, Vsew::E16, 0xdead);
     }
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxWidenNarrowInstruction::VwadduVv {
             vd: VReg::V8,
@@ -1617,16 +1635,7 @@ fn vwaddu_vv_e8_m1_vstart_skips_early_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0 and 1 skipped (vstart=2), remain sentinel
-    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E16), 0xdeadu64);
-    assert_eq!(read_elem(&state, VReg::V8, 1, Vsew::E16), 0xdeadu64);
-    // Elements 2 and 3 executed
-    assert_eq!(read_elem(&state, VReg::V8, 2, Vsew::E16), 3u64);
-    assert_eq!(read_elem(&state, VReg::V8, 3, Vsew::E16), 3u64);
-    // vstart must be reset to 0 after execution
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 // Illegal instruction: SEW=64 for widening
@@ -2368,4 +2377,119 @@ fn vzext_vf4_e32_m8_vs2_non_high_part_overlap_illegal() {
         },
     );
     assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
+}
+
+// Extension source overlap tests
+
+#[test]
+fn vext_fractional_source_emul_overlapping_destination_is_illegal() {
+    // Source EMUL = LMUL / factor is below 1 in each of these, so the source still occupies a
+    // whole register, but may not overlap the destination at all, not even in its highest part
+    let cases = [
+        // vf4 at LMUL=2: source EMUL=1/2, destination `{v2, v3}`
+        (Vsew::E32, Vlmul::M2, VsewFactor::F4, VReg::V2, VReg::V3),
+        (Vsew::E64, Vlmul::M2, VsewFactor::F4, VReg::V2, VReg::V3),
+        // vf8 at LMUL=2: source EMUL=1/4
+        (Vsew::E64, Vlmul::M2, VsewFactor::F8, VReg::V2, VReg::V3),
+        // vf8 at LMUL=4: source EMUL=1/2, destination `{v4..v7}`
+        (Vsew::E64, Vlmul::M4, VsewFactor::F8, VReg::V4, VReg::V7),
+    ];
+    for (sew, vlmul, factor, vd, vs2) in cases {
+        for sign in [false, true] {
+            let mut state = setup(Vl::new(1).unwrap(), sew, vlmul);
+            let instruction = match (sign, factor) {
+                (false, VsewFactor::F4) => ZveXxWidenNarrowInstruction::VzextVf4 {
+                    vd,
+                    vs2,
+                    vm: true,
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                },
+                (false, _) => ZveXxWidenNarrowInstruction::VzextVf8 {
+                    vd,
+                    vs2,
+                    vm: true,
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                },
+                (true, VsewFactor::F4) => ZveXxWidenNarrowInstruction::VsextVf4 {
+                    vd,
+                    vs2,
+                    vm: true,
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                },
+                (true, _) => ZveXxWidenNarrowInstruction::VsextVf8 {
+                    vd,
+                    vs2,
+                    vm: true,
+                    rs1: Reg::Zero,
+                    rs2: Reg::Zero,
+                },
+            };
+            let result = exec(&mut state, instruction);
+            assert!(
+                matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                "{sew:?} {vlmul:?} {factor:?} sign={sign} vd={vd:?} vs2={vs2:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn vzext_vf2_source_overlapping_high_part_of_destination_is_legal() {
+    // vf2 at LMUL=2: source EMUL=1 is `v3`, the highest register of the `{v2, v3}` destination
+    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M2);
+    write_elem(&mut state, VReg::V3, 0, Vsew::E8, 0xab);
+    write_elem(&mut state, VReg::V3, 1, Vsew::E8, 0xcd);
+    exec(
+        &mut state,
+        ZveXxWidenNarrowInstruction::VzextVf2 {
+            vd: VReg::V2,
+            vs2: VReg::V3,
+            vm: true,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap();
+    assert_eq!(read_elem(&state, VReg::V2, 0, Vsew::E16), 0x00ab);
+    assert_eq!(read_elem(&state, VReg::V2, 1, Vsew::E16), 0x00cd);
+}
+
+#[test]
+fn wv_sources_with_different_eew_must_not_overlap() {
+    // e8/m2: `vs2` is a 4-register 16-bit group v8..v11, `vs1` a 2-register 8-bit group
+    for vs1 in [VReg::V10, VReg::V12] {
+        let expect_illegal = vs1 == VReg::V10;
+        for instr in [
+            ZveXxWidenNarrowInstruction::VwaddWv {
+                vd: VReg::V16,
+                vs2: VReg::V8,
+                vs1,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+            ZveXxWidenNarrowInstruction::VnsrlWv {
+                vd: VReg::V2,
+                vs2: VReg::V8,
+                vs1,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+        ] {
+            let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M2);
+            let result = exec(&mut state, instr);
+            if expect_illegal {
+                assert!(
+                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                    "{instr}"
+                );
+            } else {
+                assert!(result.is_ok(), "{instr}");
+            }
+        }
+    }
 }

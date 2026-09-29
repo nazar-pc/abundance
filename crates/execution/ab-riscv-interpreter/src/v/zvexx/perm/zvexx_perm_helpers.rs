@@ -114,8 +114,8 @@ where
 
 /// Execute a vslideup operation.
 ///
-/// Elements `vstart..min(offset, vl)` in vd are unchanged.
-/// Elements `max(vstart, offset)..vl` where mask is active get vs2[i - offset].
+/// Elements `0..min(offset, vl)` in vd are unchanged.
+/// Elements `offset..vl` where mask is active get vs2[i - offset].
 ///
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
@@ -137,10 +137,8 @@ pub unsafe fn execute_slideup<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
-    // The active range starts at max(vstart, offset).
-    let first = vstart.max(Vstart::from(offset.saturating_truncate::<u16>()));
+    let first = Vstart::from(offset.saturating_truncate::<u16>());
     let range = first.range_to(vl);
 
     // Unmasked slide is a copy of a contiguous element range between two contiguous register
@@ -162,7 +160,6 @@ pub unsafe fn execute_slideup<Reg, Env>(
             ptr::copy(bytes.byte_add(src), bytes.byte_add(dst), len);
         }
         env.mark_vs_dirty();
-        env.reset_vstart();
         return;
     }
 
@@ -180,7 +177,6 @@ pub unsafe fn execute_slideup<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a vslidedown operation.
@@ -208,9 +204,8 @@ pub unsafe fn execute_slidedown<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
 
-    let range = vstart.range_to(vl);
+    let range = Vstart::ZERO.range_to(vl);
 
     // Unmasked slide is a copy of a contiguous element range between two contiguous register
     // groups (or within one), followed by zeroing of the elements whose source is beyond `vlmax`
@@ -244,7 +239,6 @@ pub unsafe fn execute_slidedown<Reg, Env>(
             bytes.get_unchecked_mut(dst + copied_len..dst + len).fill(0);
         }
         env.mark_vs_dirty();
-        env.reset_vstart();
         return;
     }
 
@@ -269,7 +263,6 @@ pub unsafe fn execute_slidedown<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a vslide1up operation.
@@ -298,9 +291,8 @@ pub unsafe fn execute_slide1up<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -316,7 +308,6 @@ pub unsafe fn execute_slide1up<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a vslide1down operation.
@@ -349,9 +340,8 @@ pub unsafe fn execute_slide1down<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    let range = vstart.range_to(vl);
+    let range = Vstart::ZERO.range_to(vl);
     for i in range.clone() {
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -368,7 +358,6 @@ pub unsafe fn execute_slide1down<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute vrgather.vv: `vd[i] = (vs1[i] < vlmax) ? vs2[vs1[i]] : 0`.
@@ -394,9 +383,8 @@ pub unsafe fn execute_rgather_vv<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -414,7 +402,6 @@ pub unsafe fn execute_rgather_vv<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute vrgather.vx / vrgather.vi: all active elements get `vs2[index]` or `0`.
@@ -440,7 +427,6 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     // Pre-compute the gathered value; it's the same for all elements.
     let val = if index < u64::from(vlmax) {
@@ -449,7 +435,7 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
     } else {
         0u64
     };
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -459,7 +445,6 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute vrgatherei16.vv: `vd[i] = (vs1_16[i] < vlmax) ? vs2[vs1_16[i]] : 0`.
@@ -493,7 +478,6 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
 {
     let index_group_regs = index_group_regs.get();
     let vl = env.vl();
-    let vstart = env.vstart();
     // Maximum number of EEW=16 elements the index register group can hold.
     // Each register holds VLEN.bytes() / 2 elements at EEW=16.
     let index_capacity = u32::from(index_group_regs) * (Env::VLEN.bytes() / 2);
@@ -504,7 +488,7 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
         "vl={vl} exceeds vlmax={vlmax} or index_capacity={index_capacity}"
     );
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -524,12 +508,11 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute vmerge.vvm / vmv.v.v.
 ///
-/// When `vm=true` (vmv.v.v): all active elements `vstart..vl` get `vs1[i]`; vs2 unused.
+/// When `vm=true` (vmv.v.v): all active elements `0..vl` get `vs1[i]`; vs2 unused.
 /// When `vm=false` (vmerge.vvm): active elements where `v0[i]=1` get `vs1[i]`,
 /// inactive elements get `vs2[i]`.
 ///
@@ -553,10 +536,9 @@ pub unsafe fn execute_merge_vv<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         let mask_set = mask_bit(&mask_buf, i);
         let val = if mask_set {
             // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
@@ -572,12 +554,11 @@ pub unsafe fn execute_merge_vv<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute vmerge.vxm / vmerge.vim / vmv.v.x / vmv.v.i.
 ///
-/// When `vm=true`: all active elements `vstart..vl` get `scalar`; vs2 unused.
+/// When `vm=true`: all active elements `0..vl` get `scalar`; vs2 unused.
 /// When `vm=false`: active elements where `v0[i]=1` get `scalar`,
 /// inactive elements get `vs2[i]`.
 ///
@@ -601,10 +582,9 @@ pub unsafe fn execute_merge_scalar<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         let val = if mask_bit(&mask_buf, i) {
             scalar
         } else {
@@ -617,7 +597,6 @@ pub unsafe fn execute_merge_scalar<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute vcompress.vm: pack active elements of vs2 (under vs1 mask) sequentially into vd.
@@ -661,7 +640,6 @@ pub unsafe fn execute_compress<Reg, Env>(
         out_idx += 1;
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Copy `COUNT` whole vector registers from `src_base` to `dst_base`.

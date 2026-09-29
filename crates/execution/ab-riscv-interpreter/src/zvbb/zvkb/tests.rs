@@ -51,6 +51,24 @@ fn exec(
     Ok(())
 }
 
+/// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
+/// `state` without modifying any vector state
+fn assert_rejects_nonzero_vstart(
+    state: &mut TestInterpreterState<ZvkbInstruction<Reg<u64>>>,
+    instr: ZvkbInstruction<Reg<u64>>,
+) {
+    let vstart = state.env.vstart();
+    assert_ne!(vstart, Vstart::ZERO);
+    let vregs = *state.env.read_vregs().as_bytes();
+    let result = exec(state, instr);
+    assert!(
+        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        "{instr}: {result:?}"
+    );
+    assert_eq!(state.env.vstart(), vstart, "{instr}");
+    assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
+}
+
 fn write_elem(
     state: &mut TestInterpreterState<ZvkbInstruction<Reg<u64>>>,
     base_reg: VReg,
@@ -1323,12 +1341,11 @@ fn error_misaligned_vs1_lmul_m2() {
     assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
-// vstart partial execution
+// Non-zero vstart
 
 #[test]
-fn vror_vi_vstart_skips_earlier_elements() {
-    // uimm=1 -> vm=false (masked); set v0 mask bits for all elements so active elements
-    // (vstart..vl = 2..4) are written; elements 0,1 are skipped by vstart, not by masking
+fn vror_vi_nonzero_vstart_is_illegal() {
+    // Masked, with all mask bits set in `v0`
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         set_mask_bit(&mut state, VReg::V0, i, true);
@@ -1338,7 +1355,7 @@ fn vror_vi_vstart_skips_earlier_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
     }
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZvkbInstruction::VrorVi {
             vd: VReg::V4,
@@ -1348,15 +1365,7 @@ fn vror_vi_vstart_skips_earlier_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0,1 undisturbed (vstart=2)
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 0xAA);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E8), 0xAA);
-    // Elements 2,3 processed: rotate_right(0x80, 1) = 0x40
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 0x40);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 0x40);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 // vl=0
