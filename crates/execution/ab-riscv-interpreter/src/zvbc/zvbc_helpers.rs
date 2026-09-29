@@ -44,7 +44,7 @@ fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
     }
 }
 
-/// Execute element-wise carry-less multiplication (lower half) over `vstart..vl`.
+/// Execute element-wise carry-less multiplication (lower half) over `0..vl`.
 ///
 /// For each active element i: `vd[i] = lower_sew_bits(clmul(vs2[i], src[i]))`.
 ///
@@ -72,8 +72,7 @@ pub unsafe fn execute_vclmul<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -98,10 +97,9 @@ pub unsafe fn execute_vclmul<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute element-wise carry-less multiplication (upper half) over `vstart..vl`.
+/// Execute element-wise carry-less multiplication (upper half) over `0..vl`.
 ///
 /// For each active element i: `vd[i] = upper_sew_bits(clmul(vs2[i], src[i]))`.
 ///
@@ -125,8 +123,7 @@ pub unsafe fn execute_vclmulh<Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -146,5 +143,4 @@ pub unsafe fn execute_vclmulh<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }

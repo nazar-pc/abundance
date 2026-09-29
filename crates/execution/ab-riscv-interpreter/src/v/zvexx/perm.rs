@@ -50,7 +50,6 @@ where
             // Copies sign-extended element 0 of vs2 (at current SEW) to GPR rd.
             // Requires valid vtype (needs SEW to know element width).
             // Does not use vl or masking; always reads element 0.
-            // Resets vstart per spec §6.3.
             Self::VmvXS { rd, vs2 } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
@@ -74,7 +73,6 @@ where
                 let raw = unsafe { env.read_vregs().read_element(vs2, 0, sew) };
                 let sign_extended = zvexx_perm_helpers::sign_extend_to_reg::<Reg>(raw, sew);
                 env.mark_vs_dirty();
-                env.reset_vstart();
 
                 return ExecutionResult::Continue {
                     rd,
@@ -83,8 +81,7 @@ where
             }
             // vmv.s.x vd, rs1
             // Copies scalar GPR rs1 (zero-extended / truncated to SEW) into element 0 of vd.
-            // When vl == 0, the write is suppressed but vstart is still reset.
-            // Resets vstart per spec §6.3.
+            // When vl == 0, the write is suppressed.
             Self::VmvSX { vd, rs1: _ } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
@@ -104,9 +101,8 @@ where
                 };
                 let sew = vtype.vsew();
                 let vl = env.vl();
-                let vstart = env.vstart();
-                // Per spec §16.1: update only when vstart < vl.
-                if vstart < vl {
+                // Per spec §16.1: update only when `vstart < vl`, and `vstart` is zero here
+                if vl != Vl::ZERO {
                     let scalar = rs1_value.as_i64().cast_unsigned();
                     // SAFETY: element 0 always fits.
                     unsafe {
@@ -114,7 +110,6 @@ where
                     }
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
             // vslideup.vx vd, vs2, rs1: _, vm
             // Slides elements of vs2 up by the scalar offset in rs1.
@@ -946,7 +941,6 @@ where
                     zvexx_perm_helpers::execute_whole_reg_move::<1, _>(env.write_vregs(), vd, vs2);
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
             // vmv2r.v vd, vs2
             // Whole register move: copies 2 registers.
@@ -981,7 +975,6 @@ where
                     zvexx_perm_helpers::execute_whole_reg_move::<2, _>(env.write_vregs(), vd, vs2);
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
             // vmv4r.v vd, vs2
             // Whole register move: copies 4 registers.
@@ -1015,7 +1008,6 @@ where
                     zvexx_perm_helpers::execute_whole_reg_move::<4, _>(env.write_vregs(), vd, vs2);
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
             // vmv8r.v vd, vs2
             // Whole register move: copies 8 registers.
@@ -1049,7 +1041,6 @@ where
                     zvexx_perm_helpers::execute_whole_reg_move::<8, _>(env.write_vregs(), vd, vs2);
                 }
                 env.mark_vs_dirty();
-                env.reset_vstart();
             }
         }
 

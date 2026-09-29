@@ -47,11 +47,10 @@ where
     ) -> ExecutionResult<Self::Reg> {
         match self {
             // Mask-register logical instructions (§16.1).
-            // These compute the body elements [vstart, vl); prestart bits [0, vstart) are
-            // undisturbed and the tail (past vl) is tail-agnostic (realised here as
-            // undisturbed). They still require vtype to be valid (vill=0); any vector
-            // instruction must be rejected when vill is set, regardless of whether it uses
-            // SEW or vl.
+            // These compute the body elements [0, vl), the tail (past vl) is tail-agnostic
+            // (realised here as undisturbed). They still require vtype to be valid (vill=0); any
+            // vector instruction must be rejected when vill is set, regardless of
+            // whether it uses SEW or vl.
             Self::Vmandn { vd, vs2, vs1 } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
@@ -69,9 +68,9 @@ where
                         ),
                     });
                 }
-                // SAFETY: all VReg values are valid indices < 32; `vl <= VLEN` and
-                // `vstart <= vl` are architectural invariants; snapshot-before-write inside
-                // the helper means vd may overlap vs2 or vs1 safely.
+                // SAFETY: all VReg values are valid indices < 32; `vl <= VLEN` is an architectural
+                // invariant; snapshot-before-write inside the helper means vd may overlap vs2 or
+                // vs1 safely.
                 unsafe {
                     zvexx_mask_helpers::execute_mask_logical_op(env, vd, vs2, vs1, |a, b| a && !b);
                 }
@@ -249,7 +248,7 @@ where
                         ),
                     });
                 }
-                // SAFETY: `vl <= VLMAX <= VLEN`; `vstart <= vl` by spec invariant.
+                // SAFETY: `vl <= VLMAX <= VLEN`
                 let rd_value = unsafe { zvexx_mask_helpers::execute_vcpop(env, vs2, vm) };
 
                 return ExecutionResult::Continue {

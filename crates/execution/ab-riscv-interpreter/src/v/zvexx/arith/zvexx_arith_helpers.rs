@@ -111,7 +111,7 @@ pub enum OpSrc {
     Scalar(u64),
 }
 
-/// Execute a single-width element-wise arithmetic operation over `vstart..vl`.
+/// Execute a single-width element-wise arithmetic operation over `0..vl`.
 ///
 /// `op` receives `(vs2_elem: u64, src_elem: u64, sew: Vsew)` and returns the `u64` result (only the
 /// low `sew.bits_width()` are written back).
@@ -181,10 +181,9 @@ unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let vregs = env.write_vregs();
 
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         // `vd` never overlaps `v0` when masked, so the mask can be read in place rather than
         // snapshotted, no write below can modify it
         if !vm && !mask_bit(vregs.get(VReg::V0), i) {
@@ -213,16 +212,15 @@ unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
     }
 
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute a single-width element-wise integer compare over `vstart..vl`, writing one result
+/// Execute a single-width element-wise integer compare over `0..vl`, writing one result
 /// bit per element into the mask register `vd`.
 ///
 /// `op` receives `(vs2_elem: u64, src_elem: u64, sew: Vsew) -> bool`.
 ///
 /// Mask destination tail bits (indices `>= vl`) are always left undisturbed per spec §5.3,
-/// regardless of `vta`. Only bits in `vstart..vl` are written.
+/// regardless of `vta`. Only bits in `0..vl` are written.
 ///
 /// # Safety
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
@@ -247,10 +245,9 @@ pub unsafe fn execute_compare_op<Reg, Env, F>(
     F: Fn(u64, u64, Vsew) -> bool,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         // When masked, inactive elements in the destination mask register are left undisturbed
         // (spec §12.8: "mask register results follow mask-undisturbed policy")
         if !mask_bit(&mask_buf, i) {
@@ -277,7 +274,6 @@ pub unsafe fn execute_compare_op<Reg, Env, F>(
     }
 
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Sign-extend the low `sew.bits_width()` of `val` to a full `i64`

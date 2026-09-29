@@ -37,7 +37,6 @@ pub unsafe fn execute_reduce_op<Reg, Env, F>(
     // must not mark vs dirty.
     if vl == Vl::ZERO {
         cold_path();
-        env.reset_vstart();
         return;
     }
     // SAFETY: element 0 always fits within register vs1
@@ -57,7 +56,6 @@ pub unsafe fn execute_reduce_op<Reg, Env, F>(
         env.write_vregs().write_element(vd, 0, sew, acc);
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a widening integer sum reduction.
@@ -90,7 +88,6 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
     let sew = sew.narrow();
     if vl == Vl::ZERO {
         cold_path();
-        env.reset_vstart();
         return;
     }
     // SAFETY: element 0 always fits within register vs1
@@ -115,5 +112,4 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
         env.write_vregs().write_element(vd, 0, wide_sew, acc);
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }

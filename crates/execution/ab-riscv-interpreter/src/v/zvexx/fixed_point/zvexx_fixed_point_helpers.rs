@@ -412,11 +412,10 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let vxrm = env.vxrm();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut any_sat = false;
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -440,7 +439,6 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
         env.set_vxsat(true);
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a narrowing fixed-point clip operation.
@@ -474,13 +472,12 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
     let wide_sew = sew.wide();
     let sew = sew.narrow();
     let vl = env.vl();
-    let vstart = env.vstart();
     let vxrm = env.vxrm();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
     let shamt_mask = u64::from(sew.bits_width() * 2 - 1);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -505,7 +502,6 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
         env.set_vxsat(true);
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Verify that the destination SEW is valid for narrowing, meaning the `2*SEW` source does not

@@ -317,13 +317,12 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
     F: Fn(u64, u64) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let wide_sew = sew.wide();
     let sew = sew.narrow();
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -363,7 +362,6 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a widening add/subtract where `vs2` is already 2×SEW wide.
@@ -395,13 +393,12 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
     F: Fn(u64, u64) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let wide_sew = sew.wide();
     let sew = sew.narrow();
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -435,7 +432,6 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a narrowing right-shift.
@@ -468,7 +464,6 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let wide_sew = sew.wide();
     let sew = sew.narrow();
     // Shift amount mask: log2(2*SEW) bits = log2(SEW) + 1 bits
@@ -476,7 +471,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -509,7 +504,6 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute an integer extension (vzext/vsext).
@@ -540,13 +534,12 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, Env>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let src_sew = sew.source();
     let sew = sew.dest();
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -563,5 +556,4 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }

@@ -7,7 +7,7 @@ pub use crate::v::zvexx::widen_narrow::zvexx_widen_narrow_helpers::check_vd_wide
 use crate::v::zvexx::zvexx_helpers::WideningSew;
 use ab_riscv_primitives::prelude::*;
 
-/// Execute element-wise full bit-reversal over `vstart..vl`, writing SEW-wide results into `vd`.
+/// Execute element-wise full bit-reversal over `0..vl`, writing SEW-wide results into `vd`.
 ///
 /// For each active element i: all bits within `vs2[i]` are reversed end-to-end
 /// (bit 0 <-> bit SEW-1). This differs from `vbrev8`, which reverses bits within each byte while
@@ -30,8 +30,7 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -51,10 +50,9 @@ where
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute element-wise count-leading-zeros over `vstart..vl`, writing SEW-wide results into `vd`.
+/// Execute element-wise count-leading-zeros over `0..vl`, writing SEW-wide results into `vd`.
 ///
 /// For each active element i: `vd[i] = clz(vs2[i])`, counting within the SEW-wide field. An
 /// all-zero element produces SEW, not 64.
@@ -73,9 +71,8 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let sew_bits = u32::from(sew.bits_width());
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -91,10 +88,9 @@ where
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute element-wise count-trailing-zeros over `vstart..vl`, writing SEW-wide results into `vd`.
+/// Execute element-wise count-trailing-zeros over `0..vl`, writing SEW-wide results into `vd`.
 ///
 /// For each active element i: `vd[i] = ctz(vs2[i])`, counting within the SEW-wide field. An
 /// all-zero element produces SEW, not 64.
@@ -113,9 +109,8 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let sew_bits = u32::from(sew.bits_width());
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -131,10 +126,9 @@ where
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute element-wise population count over `vstart..vl`, writing SEW-wide results into `vd`.
+/// Execute element-wise population count over `0..vl`, writing SEW-wide results into `vd`.
 ///
 /// For each active element i: `vd[i] = popcount(vs2[i])`, in range `[0, SEW]`.
 ///
@@ -152,8 +146,7 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -168,10 +161,9 @@ where
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute element-wise widening shift-left-logical over `vstart..vl`, writing 2*SEW-wide
+/// Execute element-wise widening shift-left-logical over `0..vl`, writing 2*SEW-wide
 /// results into `vd`.
 ///
 /// For each active element i: `vd[i] = zero_extend_to_2SEW(vs2[i]) << (src[i] % (2*SEW))`.
@@ -206,11 +198,10 @@ pub unsafe fn execute_vwsll<Reg, Env>(
     let double_sew = sew.wide();
     let sew = sew.narrow();
     let vl = env.vl();
-    let vstart = env.vstart();
     // `double_sew_bits` is always a power of two (16, 32, or 64); `& (bits - 1)` is equivalent to
     // `% bits` and avoids a division
     let double_sew_bits = u64::from(double_sew.bits_width());
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
@@ -234,5 +225,4 @@ pub unsafe fn execute_vwsll<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }

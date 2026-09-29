@@ -7,14 +7,13 @@ use ab_riscv_primitives::prelude::*;
 
 /// Execute a mask-register logical operation (§16.1).
 ///
-/// Computes the result for the body elements `[vstart, vl)` only. Prestart bits `[0, vstart)`
-/// are left undisturbed, and tail bits `[vl, VLEN)` follow the tail-agnostic policy, realised
-/// here as undisturbed (a permitted agnostic implementation and the one the reference model
-/// produces). `op` receives `(vs2_bit: bool, vs1_bit: bool) -> bool`.
+/// Computes the result for the body elements `[0, vl)` only, tail bits `[vl, VLEN)` follow the
+/// tail-agnostic policy, realised here as undisturbed (a permitted agnostic implementation and the
+/// one the reference model produces). `op` receives `(vs2_bit: bool, vs1_bit: bool) -> bool`.
 ///
 /// # Safety
 /// `vd`, `vs2`, and `vs1` are valid register indices (guaranteed by `VReg`).
-/// `vl <= VLEN`, so `(vl - 1) / 8 < VLEN.bytes()`; `vstart <= vl` by the architectural invariant.
+/// `vl <= VLEN`, so `(vl - 1) / 8 < VLEN.bytes()`.
 /// The operation snapshots both sources before writing, so `vd` may safely overlap either source.
 #[inline(always)]
 #[doc(hidden)]
@@ -32,13 +31,12 @@ pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
     F: Fn(bool, bool) -> bool,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     // Snapshot both sources before writing to handle vd overlapping vs2 or vs1
     let vs2_snap = *env.read_vregs().get(vs2);
     let vs1_snap = *env.read_vregs().get(vs1);
-    // Body elements [vstart, vl): compute the logical operation bit-by-bit. Prestart bits
-    // [0, vstart) and tail bits [vl, VLEN) are left undisturbed.
-    for i in vstart.range_to(vl) {
+    // Body elements [0, vl): compute the logical operation bit-by-bit. Tail bits [vl, VLEN) are
+    // left undisturbed.
+    for i in Vstart::ZERO.range_to(vl) {
         let a = mask_bit(&vs2_snap, i);
         let b = mask_bit(&vs1_snap, i);
         // SAFETY: `i < vl <= VLEN`
@@ -47,18 +45,16 @@ pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute `vcpop.m`: count set bits in vs2 for active elements `Vstart::ZERO.range_to(vl)`, write
+/// Execute `vcpop.m`: count set bits in vs2 for active elements `0..vl`, write
 /// result to `rd`.
 ///
 /// Per spec §16.2: `rd` receives the number of mask bits set in `vs2`, considering only elements
-/// `vstart..vl` that are active under the mask. For elements `< vstart`, they are not counted.
+/// `0..vl` that are active under the mask.
 ///
 /// # Safety
 /// - `vl <= VLEN`
-/// - `vstart <= vl`
 ///
 /// Returns `rd_value`.
 #[inline(always)]
@@ -71,11 +67,10 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_reg = *env.read_vregs().get(vs2);
     let mut count = 0u32;
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -85,7 +80,6 @@ where
     }
 
     env.mark_vs_dirty();
-    env.reset_vstart();
 
     Reg::Type::from(count)
 }
@@ -98,7 +92,6 @@ where
 ///
 /// # Safety
 /// - `vl <= VLEN`
-/// - `vstart <= vl`
 ///
 /// Returns `rd_value`.
 #[inline(always)]
@@ -111,13 +104,12 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_reg = *env.read_vregs().get(vs2);
     // -1 encoded as all-ones for the register width; `Into<u64>` on XLEN-wide type then back
     let not_found = u64::MAX;
     let mut result = not_found;
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -137,14 +129,13 @@ where
         Reg::Type::from(result as u32)
     };
     env.mark_vs_dirty();
-    env.reset_vstart();
 
     rd_value
 }
 
 /// Execute `vmsbf.m`: set all mask bits before (not including) the first set bit of vs2.
 ///
-/// Per spec §16.4: for each element `i` in `vstart..vl`, if no prior active set bit exists in
+/// Per spec §16.4: for each element `i` in `0..vl`, if no prior active set bit exists in
 /// vs2, the destination bit is set; once the first set bit in vs2 is encountered, all subsequent
 /// destination bits are cleared.
 ///
@@ -183,7 +174,6 @@ where
         }
     }
     env.mark_vs_dirty();
-    // vstart is already zero, doesn't need to be reset
 }
 
 /// Execute `vmsof.m`: set only the first set bit position of vs2, clear all others.
@@ -221,7 +211,6 @@ where
         }
     }
     env.mark_vs_dirty();
-    // vstart is already zero, doesn't need to be reset
 }
 
 /// Execute `vmsif.m`: set all mask bits up to and including the first set bit of vs2.
@@ -260,7 +249,6 @@ where
         }
     }
     env.mark_vs_dirty();
-    // vstart is already zero, doesn't need to be reset
 }
 
 /// Execute `viota.m`: for each active element `i`, write the popcount of set bits in vs2 at
@@ -314,11 +302,10 @@ pub unsafe fn execute_viota<Reg, Env>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute `vid.v`: write the element index `i` as a SEW-wide integer into `vd[i]` for each
-/// active element in `vstart..vl`.
+/// active element in `0..vl`.
 ///
 /// Per spec §16.9: inactive elements are left undisturbed (mask-undisturbed policy).
 ///
@@ -337,9 +324,8 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -349,5 +335,4 @@ where
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }

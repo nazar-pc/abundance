@@ -65,7 +65,7 @@ where
     })
 }
 
-/// Execute a single-width element-wise arithmetic operation over `vstart..vl`.
+/// Execute a single-width element-wise arithmetic operation over `0..vl`.
 ///
 /// `op` receives `(vs2_elem: u64, src_elem: u64, sew: Vsew)` and returns the `u64` result.
 /// Only the low `sew.bytes()` of the result are written back.
@@ -92,9 +92,8 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -112,10 +111,9 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
-/// Execute a single-width widening operation over `vstart..vl`.
+/// Execute a single-width widening operation over `0..vl`.
 ///
 /// Reads SEW-wide elements from `vs2` and `src`, computes `op`, and writes a 2*SEW-wide result
 /// into `vd`.
@@ -145,9 +143,8 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
     let wide_sew = sew.wide();
     let sew = sew.narrow();
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -167,7 +164,6 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a single-width multiply-add where the first multiplier is a vector register group.
@@ -197,9 +193,8 @@ pub unsafe fn execute_muladd_op<Reg, Env, F>(
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -219,7 +214,6 @@ pub unsafe fn execute_muladd_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a single-width multiply-add where the first multiplier is a scalar.
@@ -246,9 +240,8 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -266,7 +259,6 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a widening multiply-add where the first multiplier is a vector register group.
@@ -300,9 +292,8 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
     let wide_sew = sew.wide();
     let sew = sew.narrow();
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -324,7 +315,6 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Execute a widening multiply-add where the first multiplier is a scalar.
@@ -353,9 +343,8 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
     let wide_sew = sew.wide();
     let sew = sew.narrow();
     let vl = env.vl();
-    let vstart = env.vstart();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -374,7 +363,6 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
         }
     }
     env.mark_vs_dirty();
-    env.reset_vstart();
 }
 
 /// Signed × signed high half.
