@@ -59,7 +59,7 @@ jobs:
           - ubuntu-26.04
           - ubuntu-26.04-arm
           - macos-26
-          - windows-11-vs2026-arm
+          - windows-11-arm
           - windows-2025
         type:
           - together
@@ -118,7 +118,7 @@ jobs:
             name: Install kache
             uses: kunobi-ninja/kache-action@ad7317540dcdd71c904f7a60a87b620a0c0e67ed # v1
             with:
-              version: v0.22.0
+              version: v0.28.1
               cache-c-cpp: 'true'
               cache-dir: ${{ runner.temp }}/kache
               cache-executables: 'true'
@@ -275,7 +275,7 @@ jobs:
           - ubuntu-26.04
           - ubuntu-26.04-arm
           - macos-26
-          - windows-11-vs2026-arm
+          - windows-11-arm
           - windows-2025
         miri:
           - true
@@ -599,7 +599,7 @@ jobs:
           - ubuntu-26.04
           - ubuntu-26.04-arm
           - macos-26
-          - windows-11-vs2026-arm
+          - windows-11-arm
           - windows-2025
         miri:
           - true
@@ -634,7 +634,7 @@ jobs:
           - ubuntu-26.04
           - ubuntu-26.04-arm
           - macos-26
-          - windows-11-vs2026-arm
+          - windows-11-arm
           - windows-2025
         type:
           - default
