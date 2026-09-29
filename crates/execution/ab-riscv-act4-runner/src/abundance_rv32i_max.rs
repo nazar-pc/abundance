@@ -1,9 +1,17 @@
 use crate::instruction::MachineModePlaceholder;
+use crate::interpreter::{CoreConfig, MISA_A, MISA_B, MISA_I, MISA_M};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::ops::ControlFlow;
+
+/// Configuration of the RV32I-max core
+pub(crate) const ABUNDANCE_RV32I_MAX_CONFIG: CoreConfig = CoreConfig {
+    misa_extensions: MISA_A | MISA_B | MISA_I | MISA_M,
+    zkr: true,
+    zca: true,
+};
 
 /// All instructions supported by the interpreter for RV32I base ISA
 pub(crate) type AbundanceRv32IMaxInstruction = AbundanceRv32IMaxInstructionPrototype<Reg<u32>>;

@@ -1,0 +1,36 @@
+# ACT4 framework top-level config for the abundance RV32I core with Zve32x and Zvbb.
+#
+# This is a minimal counterpart to abundance-rv32i-max: only the base ISA (plus Zicsr, Sm and
+# Ssstrict, which every core here needs) and a narrow set of vector extensions (Zve32x, Zvbb and
+# its Zvkb subset) with VLEN=128 are enabled. M (and Zmmul) is enabled too, since ACT4's vector
+# test generator lists it as required for every vector test (its vector failure reporting code in
+# rvtest_failure_code.h uses `mul`), no vector tests would be selected without it.
+# Zca is enabled too, since ACT4's SsstrictSm tests are broken without it: the compressed
+# instruction sweep relies on its fast trap handler advancing `mepc` by 2, which is impossible
+# with IALIGN=32.
+# TODO: Remove Zca once https://github.com/riscv/riscv-arch-test/issues/2584 is resolved
+# Zifencei is enabled too, since the Sail reference model executes `fence.i` even when it is
+# configured as unsupported, which the SsstrictSm tests check.
+# TODO: Remove Zifencei once https://github.com/riscv/sail-riscv/issues/1984 is resolved
+# Everything else is disabled to avoid mostly repeating
+# the abundance-rv32i-max run, what remains are base ISA tests and vector tests with ELEN=32 and
+# VLEN=128.
+#
+# compiler_exe: riscv64-unknown-elf-gcc on $PATH, targeting ilp32 ABI (no F/D).
+#   The march string must match the extensions in abundance-rv32i-zve32x-zvbb.yaml.
+#
+# ref_model_exe: sail_riscv_sim on $PATH.
+#   Run `sail_riscv_sim --help` to verify the binary name on your system;
+#   some distros install it as `riscv_sim_RV32`.
+#
+# include_priv_tests: true for the same reasons as in abundance-rv32i-max's test_config.yaml,
+#   the same M-mode trap handler is used here (see STANDARD_SM_SUPPORTED in rvmodel_macros.h).
+
+name: abundance-rv32i-zve32x-zvbb
+compiler_exe: riscv64-unknown-elf-gcc
+objdump_exe: riscv64-unknown-elf-objdump
+ref_model_exe: sail_riscv_sim
+udb_config: abundance-rv32i-zve32x-zvbb.yaml
+linker_script: link.ld
+dut_include_dir: .
+include_priv_tests: true
