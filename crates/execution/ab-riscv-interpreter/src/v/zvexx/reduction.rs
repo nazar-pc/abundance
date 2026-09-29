@@ -75,7 +75,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: `vs2` alignment checked; `vstart == 0` checked;
                 // `vs1` and `vd` are single-register scalar operands
                 unsafe {
@@ -116,7 +116,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -156,7 +156,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -196,7 +196,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -236,7 +236,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -279,7 +279,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -327,7 +327,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -370,7 +370,7 @@ where
                     group_regs,
                 )?;
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vredsum`
                 unsafe {
                     zvexx_reduction_helpers::execute_reduce_op(
@@ -435,7 +435,7 @@ where
                     vs1,
                     1,
                 )?;
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: `vs2` alignment checked;
                 // `vstart == 0` checked; `vd` and `vs1` are single-register 2*SEW scalar operands
                 unsafe {
@@ -494,7 +494,7 @@ where
                     vs1,
                     1,
                 )?;
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vwredsumu`
                 unsafe {
                     zvexx_reduction_helpers::execute_widening_reduce_op::<true, _, _, _>(

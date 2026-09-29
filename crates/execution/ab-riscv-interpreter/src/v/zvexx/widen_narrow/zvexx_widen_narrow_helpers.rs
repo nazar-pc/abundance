@@ -298,7 +298,7 @@ fn scalar_signed_for_sew(val: u64, sew: Vsew) -> u64 {
 /// - `vs2` aligned to `group_regs`, fits in `[0,32)` (verified by caller)
 /// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)` (verified by
 ///   caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -319,7 +319,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64) -> u64,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let wide_sew = sew.wide();
     let sew = sew.narrow();
 
@@ -376,7 +376,7 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
 /// - `vd` aligned to `2*group_regs`, fits in `[0,32)`, does not overlap `vs2` or `src`
 /// - `vs2` aligned to `2*group_regs`, fits in `[0,32)` (wide source)
 /// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -397,7 +397,7 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64) -> u64,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let wide_sew = sew.wide();
     let sew = sew.narrow();
 
@@ -451,7 +451,7 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
 ///   permitted per spec §11.7 - reads complete before writes to any overlapping element since the
 ///   destination SEW is half the source SEW
 /// - `src` register (when `OpSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -469,7 +469,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let wide_sew = sew.wide();
     let sew = sew.narrow();
     // Shift amount mask: log2(2*SEW) bits = log2(SEW) + 1 bits
@@ -523,7 +523,7 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
 /// # Safety
 /// - `vd` aligned to `group_regs`, fits in `[0,32)`
 /// - `vs2` aligned to `src_group_regs`, fits in `[0,32)`, does not overlap `vd`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -540,7 +540,7 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let src_sew = sew.source();
     let sew = sew.dest();
 

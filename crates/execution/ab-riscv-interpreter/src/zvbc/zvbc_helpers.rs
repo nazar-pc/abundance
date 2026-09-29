@@ -56,7 +56,7 @@ fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register (if `Vreg`) satisfies the same alignment as `vs2`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -73,7 +73,7 @@ pub unsafe fn execute_vclmul<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
@@ -125,7 +125,7 @@ pub unsafe fn execute_vclmulh<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;

@@ -68,7 +68,7 @@ where
                         ),
                     });
                 };
-                // SAFETY: all VReg values are valid indices < 32 and `config.vl() <= VLMAX <=
+                // SAFETY: all VReg values are valid indices < 32 and `config.vl().get() <= VLMAX <=
                 // VLEN`, so every mask bit is within a register;
                 // snapshot-before-write inside the helper means vd may overlap vs2
                 // or vs1 safely.
@@ -305,7 +305,7 @@ where
                         ),
                     });
                 };
-                // SAFETY: `config.vl() <= VLMAX <= VLEN`
+                // SAFETY: `config.vl().get() <= VLMAX <= VLEN`
                 let rd_value = unsafe { zvexx_mask_helpers::execute_vcpop(env, config, vs2, vm) };
 
                 return ExecutionResult::Continue {
@@ -375,7 +375,7 @@ where
                         ),
                     });
                 }
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: `vd != vs2` checked above; `vd != v0` when masked checked above;
                 // `vstart == 0` checked above; `vl <= VLEN`.
                 unsafe {
@@ -417,7 +417,7 @@ where
                         ),
                     });
                 }
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vmsbf`
                 unsafe {
                     zvexx_mask_helpers::execute_vmsof(env, vd, vs2, vm, vl);
@@ -458,7 +458,7 @@ where
                         ),
                     });
                 }
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vmsbf`
                 unsafe {
                     zvexx_mask_helpers::execute_vmsif(env, vd, vs2, vm, vl);
@@ -517,7 +517,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY: vd alignment checked above; vd group does not overlap vs2 checked above;
                 // `vm=false` implies `vd != v0` checked above; vstart == 0 checked above;
                 // `vl <= VLMAX = group_regs * VLEN.bytes() / sew_bytes`, all element indices valid.

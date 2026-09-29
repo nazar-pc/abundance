@@ -63,7 +63,7 @@ where
     {
         // `rs1=x0, rd=x0`: use current `vl` as `AVL`, which keeps `vl` unchanged since `VLMAX`
         // stays the same
-        VectorConfig::from_avl(new_vtype, old_config.vl())
+        VectorConfig::from_avl(new_vtype, old_config.vl().get())
     } else {
         // `rs1=x0, rd=x0` with `VLMAX` changing (or `vill` set) is reserved, and we set `vill`
         // (conservative choice per spec)
@@ -79,7 +79,7 @@ where
     env.mark_vs_dirty();
     env.reset_vstart();
 
-    Ok(Reg::Type::from(u32::from(new_config.vl())))
+    Ok(Reg::Type::from(u32::from(new_config.vl().get())))
 }
 
 /// Apply `vsetivli` logic.
@@ -116,7 +116,7 @@ where
     let rd_value = if let Some(new_vtype) = Vtype::from_raw::<Reg>(vtype_raw) {
         let new_config = VectorConfig::from_avl(new_vtype, Vl::from(uimm));
         env.set_vector_config(Some(new_config));
-        Reg::Type::from(u32::from(new_config.vl()))
+        Reg::Type::from(u32::from(new_config.vl().get()))
     } else {
         cold_path();
         env.set_vector_config(None);

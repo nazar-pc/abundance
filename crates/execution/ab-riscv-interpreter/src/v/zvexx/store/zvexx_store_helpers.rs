@@ -235,7 +235,7 @@ where
 /// # Safety
 /// - `vs3.to_bits() % group_regs == 0`
 /// - `vs3.to_bits() + nf * group_regs <= 32`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -260,7 +260,7 @@ where
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = config.vl();
+    let vl = config.vl().get();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
@@ -311,7 +311,7 @@ where
 /// - `vs3.to_bits() + nf * data_group_regs <= 32`
 /// - `vs2` register group is aligned and fits within `[0, 32)` (caller must verify via
 ///   `check_register_group_alignment` before calling)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -337,7 +337,7 @@ where
     Memory: VirtualMemory,
 {
     let data_group_regs = data_group_regs.get();
-    let vl = config.vl();
+    let vl = config.vl().get();
     let vstart = env.vstart();
     let data_elem_bytes = data_eew.bytes_width();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);

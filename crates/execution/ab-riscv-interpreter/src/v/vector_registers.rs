@@ -366,7 +366,7 @@ where
         let (vtype_raw, vl_raw) = if let Some(vector_config) = vector_config {
             (
                 vector_config.vtype().to_raw::<Reg>(),
-                Reg::Type::from(u32::from(vector_config.vl())),
+                Reg::Type::from(u32::from(vector_config.vl().get())),
             )
         } else {
             (

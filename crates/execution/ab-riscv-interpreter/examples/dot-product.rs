@@ -187,7 +187,7 @@ impl Csrs<Reg<u64>> for Env {
             VectorCsr::Vcsr => self.vcsr,
             VectorCsr::Vl => self
                 .vector_config
-                .map_or(0, |vector_config| u64::from(vector_config.vl())),
+                .map_or(0, |vector_config| u64::from(vector_config.vl().get())),
             VectorCsr::Vtype => match self.vector_config {
                 Some(vector_config) => vector_config.vtype().to_raw::<Reg<u64>>(),
                 None => Vtype::<{ Elen::L64 }, { Vlen::L512 }>::illegal_raw::<Reg<u64>>(),

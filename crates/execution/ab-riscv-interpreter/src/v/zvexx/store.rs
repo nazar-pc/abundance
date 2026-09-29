@@ -123,19 +123,9 @@ where
                 };
                 // `evl = ceil(vl / 8)` elements with `EEW = 8`
                 let vl = Vl::from(config.vl().bytes());
-                // Not within a single register only with `vl` above `VLEN`, which is an
-                // inconsistent vector state
-                if u32::from(vl) > Env::VLEN.bytes() {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 // SAFETY:
                 // - a single register is always aligned and within the register file
-                // - `evl <= VLEN.bytes()` checked above
+                // - `evl <= VLEN.bytes()` since `vl <= VLEN`
                 // - unmasked
                 unsafe {
                     zvexx_store_helpers::execute_unit_stride_store(
@@ -192,7 +182,7 @@ where
                     vs3,
                     group_regs,
                 )?;
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY:
                 // - alignment: `check_register_group_alignment` verified `vs3 % group_regs == 0`
                 //   and `vs3 + group_regs <= 32`
@@ -464,7 +454,7 @@ where
                     group_regs,
                     nf,
                 )?;
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // SAFETY:
                 // - `validate_segment_store_registers` guarantees `vs3 % group_regs == 0` and `vs3
                 //   + nf * group_regs <= 32`

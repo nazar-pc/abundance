@@ -1134,7 +1134,7 @@ fn vleff_no_fault_behaves_like_vle() {
     assert_eq!(reg[3], 4);
     // vl unchanged
     let config = state.env.vector_config().unwrap();
-    assert_eq!(config.vl(), Vl::new(4).unwrap());
+    assert_eq!(config.vl().get(), Vl::new(4).unwrap());
     assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
@@ -1158,7 +1158,7 @@ fn vleff_fault_at_i0_traps() {
     assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
     // vl must not be modified on a trapped fault
     let config = state.env.vector_config().unwrap();
-    assert_eq!(config.vl(), Vl::new(4).unwrap());
+    assert_eq!(config.vl().get(), Vl::new(4).unwrap());
 }
 
 #[test]
@@ -1188,7 +1188,7 @@ fn vleff_fault_at_i1_truncates_vl_to_1() {
     assert_eq!(vreg_bytes(&state, VReg::V1)[0..4], [0xAA, 0xBB, 0xCC, 0xDD]);
     // vl truncated to 1 (fault at element 1)
     let config = state.env.vector_config().unwrap();
-    assert_eq!(config.vl(), Vl::new(1).unwrap());
+    assert_eq!(config.vl().get(), Vl::new(1).unwrap());
     assert_eq!(state.env.vs_dirty_count(), 1);
     assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
@@ -1218,7 +1218,7 @@ fn vleff_fault_at_i2_truncates_vl_to_2() {
     assert_eq!(vreg_byte(&state, VReg::V3, 0), 0x11);
     assert_eq!(vreg_byte(&state, VReg::V3, 1), 0x22);
     let config = state.env.vector_config().unwrap();
-    assert_eq!(config.vl(), Vl::new(2).unwrap());
+    assert_eq!(config.vl().get(), Vl::new(2).unwrap());
 }
 
 // `Vlse` tests
@@ -1920,7 +1920,7 @@ fn vlsegff_no_fault_loads_all_segments() {
     assert_eq!(vreg_byte(&state, VReg::V2, 2), 5);
     assert_eq!(vreg_byte(&state, VReg::V3, 2), 6);
     let config = state.env.vector_config().unwrap();
-    assert_eq!(config.vl(), Vl::new(3).unwrap());
+    assert_eq!(config.vl().get(), Vl::new(3).unwrap());
 }
 
 #[test]
@@ -1951,7 +1951,7 @@ fn vlsegff_fault_at_segment_1_truncates_vl() {
     assert_eq!(vreg_byte(&state, VReg::V5, 0), 0xBB);
     // vl truncated to 1 (fault at element index 1)
     let config = state.env.vector_config().unwrap();
-    assert_eq!(config.vl(), Vl::new(1).unwrap());
+    assert_eq!(config.vl().get(), Vl::new(1).unwrap());
 }
 
 // `Vlsseg` tests

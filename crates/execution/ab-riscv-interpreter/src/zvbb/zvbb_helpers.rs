@@ -20,7 +20,7 @@ use ab_riscv_primitives::prelude::*;
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -36,7 +36,7 @@ pub unsafe fn execute_vbrev<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
@@ -83,7 +83,7 @@ pub unsafe fn execute_vclz<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let sew_bits = u32::from(sew.bits_width());
     for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
@@ -127,7 +127,7 @@ pub unsafe fn execute_vctz<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let sew_bits = u32::from(sew.bits_width());
     for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
@@ -170,7 +170,7 @@ pub unsafe fn execute_vcpop<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     for i in Vstart::ZERO.range_to(vl) {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
@@ -204,7 +204,7 @@ pub unsafe fn execute_vcpop<Reg, Env>(
 ///   0` and `vd.to_bits() + dest_group_regs <= 32`
 /// - `vs2` register group satisfies alignment for LMUL
 /// - `src` register (if `Vreg`) satisfies the same alignment as `vs2`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -223,7 +223,7 @@ pub unsafe fn execute_vwsll<Reg, Env>(
 {
     let double_sew = sew.wide();
     let sew = sew.narrow();
-    let vl = config.vl();
+    let vl = config.vl().get();
     // `double_sew_bits` is always a power of two (16, 32, or 64); `& (bits - 1)` is equivalent to
     // `% bits` and avoids a division
     let double_sew_bits = u64::from(double_sew.bits_width());

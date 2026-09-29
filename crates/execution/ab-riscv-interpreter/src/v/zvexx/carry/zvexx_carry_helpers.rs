@@ -37,7 +37,7 @@ pub(in super::super) unsafe fn carry_bit<const VLEN: Vlen>(
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register satisfies the same alignment (verified by caller)
 /// - `vd.to_bits() != 0` (vd must not overlap v0, which holds the carry-in)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -53,7 +53,7 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     for i in Vstart::ZERO.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
@@ -111,7 +111,7 @@ pub unsafe fn execute_carry_sub<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     for i in Vstart::ZERO.range_to(vl) {
         // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
         // `i < vl <= group_regs * elems_per_reg`, so
@@ -154,7 +154,7 @@ pub unsafe fn execute_carry_sub<Reg, Env>(
 /// # Safety
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register satisfies the same alignment
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - vd overlap constraints checked by caller
 #[inline(always)]
 #[doc(hidden)]
@@ -171,7 +171,7 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let mask = sew_mask(sew);
 
     for i in Vstart::ZERO.range_to(vl) {
@@ -234,7 +234,7 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let mask = sew_mask(sew);
 
     for i in Vstart::ZERO.range_to(vl) {

@@ -37,7 +37,10 @@ where
         let vlmax_u32 = u32::from(vlmax);
 
         let config = VectorConfig::new(vtype, vlmax).unwrap();
-        assert_eq!(config.vl(), vlmax);
+        assert_eq!(config.vl().get(), vlmax);
+        // `BoundedVl` promises this to unsafe code
+        assert!(u32::from(config.vl().get()) <= u32::from(VLEN), "{vtype:?}");
+        assert!(u32::from(config.vl().bytes()) <= VLEN.bytes(), "{vtype:?}");
         assert_eq!(config.vlmax(), vlmax);
         assert_eq!(config.vtype(), vtype);
         // Not representable at all for the largest `VLMAX`
@@ -56,7 +59,7 @@ where
         ] {
             let config = VectorConfig::from_avl(vtype, Vl::new_saturating(avl));
             assert_eq!(
-                u32::from(config.vl()),
+                u32::from(config.vl().get()),
                 avl.min(vlmax_u32),
                 "{vtype:?} {avl}"
             );
@@ -65,11 +68,11 @@ where
         let config = VectorConfig::from_avl(vtype, Vl::new(3).unwrap());
         let expected = 3.min(vlmax_u32);
         assert_eq!(
-            u32::from(config.with_vl_at_most(Vl::new(2).unwrap()).vl()),
+            u32::from(config.with_vl_at_most(Vl::new(2).unwrap()).vl().get()),
             2.min(expected)
         );
         assert_eq!(
-            u32::from(config.with_vl_at_most(Vl::new(100).unwrap()).vl()),
+            u32::from(config.with_vl_at_most(Vl::new(100).unwrap()).vl().get()),
             expected
         );
     }
@@ -95,7 +98,7 @@ fn vector_config_from_raw_fails_closed() {
     let vill = 1 << 63;
 
     assert_eq!(
-        Config::from_raw::<Reg<u64>>(vtype, 2).map(|config| u32::from(config.vl())),
+        Config::from_raw::<Reg<u64>>(vtype, 2).map(|config| u32::from(config.vl().get())),
         Some(2)
     );
     // `vl` above `VLMAX` is not corrected, it is an inconsistent state

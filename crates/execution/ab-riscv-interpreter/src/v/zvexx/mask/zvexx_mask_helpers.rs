@@ -32,7 +32,7 @@ pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(bool, bool) -> bool,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     // Snapshot both sources before writing to handle vd overlapping vs2 or vs1
     let vs2_snap = *env.read_vregs().get(vs2);
     let vs1_snap = *env.read_vregs().get(vs1);
@@ -56,7 +56,7 @@ pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
 /// `0..vl` that are active under the mask.
 ///
 /// # Safety
-/// - `config.vl() <= VLMAX <= VLEN`
+/// - `config.vl().get() <= VLMAX <= VLEN`
 ///
 /// Returns `rd_value`.
 #[inline(always)]
@@ -73,7 +73,7 @@ where
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_reg = *env.read_vregs().get(vs2);
     let mut count = 0u32;
@@ -98,7 +98,7 @@ where
 /// `-1` (all-ones) if no active element of vs2 is set.
 ///
 /// # Safety
-/// - `config.vl() <= VLMAX <= VLEN`
+/// - `config.vl().get() <= VLMAX <= VLEN`
 ///
 /// Returns `rd_value`.
 #[inline(always)]
@@ -115,7 +115,7 @@ where
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_reg = *env.read_vregs().get(vs2);
     // -1 encoded as all-ones for the register width; `Into<u64>` on XLEN-wide type then back
@@ -324,7 +324,7 @@ pub unsafe fn execute_viota<Reg, Env>(
 /// # Safety
 /// - `vm=false` implies `vd != v0` (checked by caller)
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (checked by caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -339,7 +339,7 @@ pub unsafe fn execute_vid<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {

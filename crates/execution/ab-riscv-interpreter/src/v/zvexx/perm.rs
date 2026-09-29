@@ -102,7 +102,7 @@ where
                 };
                 let vtype = config.vtype();
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 // Per spec §16.1: update only when `vstart < vl`, and `vstart` is zero here
                 if vl != Vl::ZERO {
                     let scalar = rs1_value.as_i64().cast_unsigned();
@@ -936,7 +936,7 @@ where
                     1,
                 )?;
                 let sew = vtype.vsew();
-                let vl = config.vl();
+                let vl = config.vl().get();
                 unsafe {
                     zvexx_perm_helpers::execute_compress(env, vd, vs2, vs1, vl, sew);
                 }

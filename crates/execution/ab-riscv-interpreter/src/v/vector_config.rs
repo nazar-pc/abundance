@@ -4,7 +4,53 @@
 mod tests;
 
 use ab_riscv_primitives::prelude::*;
-use core::hint::cold_path;
+use core::fmt;
+use core::hint::{assert_unchecked, cold_path};
+
+/// Vector length of a [`VectorConfig`], which never exceeds `VLEN`.
+///
+/// `vl <= VLMAX = LMUL * VLEN / SEW <= VLEN`, since `LMUL <= 8` and `SEW >= 8`. Only
+/// [`VectorConfig`] can create an instance, which is what makes the bound hold, so unsafe code can
+/// rely on it for accessing a single vector register, like mask registers with one bit per element.
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+pub struct BoundedVl<const VLEN: Vlen>(Vl);
+
+impl<const VLEN: Vlen> fmt::Display for BoundedVl<VLEN> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+const impl<const VLEN: Vlen> From<BoundedVl<VLEN>> for Vl {
+    #[inline(always)]
+    fn from(value: BoundedVl<VLEN>) -> Self {
+        value.get()
+    }
+}
+
+impl<const VLEN: Vlen> BoundedVl<VLEN> {
+    /// Vector length, which is `<= VLEN`
+    #[inline(always)]
+    pub const fn get(self) -> Vl {
+        // SAFETY: Guaranteed by construction in `VectorConfig`
+        unsafe {
+            assert_unchecked(u32::from(self.0) <= u32::from(VLEN));
+        }
+        self.0
+    }
+
+    /// Vector length in bytes, `ceil(vl / 8)`, which is `<= VLEN.bytes()`
+    #[inline(always)]
+    pub const fn bytes(self) -> u16 {
+        let bytes = self.get().bytes();
+        // SAFETY: `vl <= VLEN` and `VLEN` is a multiple of 8
+        unsafe {
+            assert_unchecked(u32::from(bytes) <= VLEN.bytes());
+        }
+        bytes
+    }
+}
 
 /// Vector configuration: `vtype` together with `vl`, where `vl` never exceeds `VLMAX` of `vtype`.
 ///
@@ -88,10 +134,10 @@ where
         self.vtype
     }
 
-    /// `vl`, which never exceeds [`Self::vlmax()`]
+    /// `vl`, which never exceeds [`Self::vlmax()`] and hence `VLEN`
     #[inline(always)]
-    pub const fn vl(self) -> Vl {
-        self.vl
+    pub const fn vl(self) -> BoundedVl<VLEN> {
+        BoundedVl(self.vl)
     }
 
     /// `VLMAX` of `vtype`

@@ -391,7 +391,7 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
@@ -413,7 +413,7 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let vxrm = env.vxrm();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut any_sat = false;
@@ -451,7 +451,7 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
 /// # Safety
 /// - `vs2.to_bits() % (2 * group_regs) == 0` and `vs2.to_bits() + 2 * group_regs <= 32`
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
@@ -475,7 +475,7 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
 {
     let wide_sew = sew.wide();
     let sew = sew.narrow();
-    let vl = config.vl();
+    let vl = config.vl().get();
     let vxrm = env.vxrm();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut any_sat = false;

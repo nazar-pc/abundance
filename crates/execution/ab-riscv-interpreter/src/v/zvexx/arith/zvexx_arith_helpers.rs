@@ -120,7 +120,7 @@ pub enum OpSrc {
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
@@ -183,7 +183,7 @@ unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let vregs = env.write_vregs();
 
     for i in Vstart::ZERO.range_to(vl) {
@@ -228,7 +228,7 @@ unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
 /// # Safety
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -248,7 +248,7 @@ pub unsafe fn execute_compare_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> bool,
 {
-    let vl = config.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
     for i in Vstart::ZERO.range_to(vl) {

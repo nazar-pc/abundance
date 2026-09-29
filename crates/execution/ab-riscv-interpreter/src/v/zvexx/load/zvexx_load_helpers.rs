@@ -458,7 +458,7 @@ where
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0`
 /// - `vd.to_bits() + nf * group_regs <= 32`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -483,7 +483,7 @@ where
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = config.vl();
+    let vl = config.vl().get();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
 
@@ -550,7 +550,7 @@ where
 /// - `vs2.to_bits() + (vl - 1) / (VLEN.bytes() / index_eew.bytes()) < 32` (all `vl` index elements
 ///   fit within the register file; satisfied when `vs2` is alignment-checked against `EMUL_index`
 ///   and `vl` is the architectural `vl` bounded by `VLMAX`)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -576,7 +576,7 @@ where
     Memory: VirtualMemory,
 {
     let data_group_regs = data_group_regs.get();
-    let vl = config.vl();
+    let vl = config.vl().get();
     let vstart = env.vstart();
     let index_base_reg = vs2;
 
