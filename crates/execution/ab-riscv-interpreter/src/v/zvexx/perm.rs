@@ -672,6 +672,16 @@ where
                     vs1,
                     index_group_regs,
                 )?;
+                // `vs1` is read with EEW=16 and `vs2` with EEW=SEW
+                if vtype.vsew() != Vsew::E16 {
+                    zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                        program_counter,
+                        vs2,
+                        group_regs.get(),
+                        vs1,
+                        index_group_regs.get(),
+                    )?;
+                }
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -903,6 +913,14 @@ where
                     vd,
                     vs1,
                     VRegGroupSize::R1,
+                )?;
+                // `vs1` is a mask with EEW=1 and `vs2` has EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs.get(),
+                    vs1,
+                    1,
                 )?;
                 let sew = vtype.vsew();
                 let vl = env.vl();

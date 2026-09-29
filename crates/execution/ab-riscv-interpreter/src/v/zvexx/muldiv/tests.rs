@@ -2338,3 +2338,39 @@ fn set_mask_bit_helper_works() {
         );
     }
 }
+
+#[test]
+fn vwmacc_vd_must_not_overlap_sources() {
+    // e8/m1: `vd` is a 2-register 16-bit group v8..v9 that is also read, so a source in its
+    // highest-numbered part is not allowed, unlike for other widening instructions
+    for vs2 in [VReg::V9, VReg::V4] {
+        for instr in [
+            ZveXxMulDivInstruction::VwmaccVv {
+                vd: VReg::V8,
+                vs1: VReg::V2,
+                vs2,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+            ZveXxMulDivInstruction::VwmaccVx {
+                vd: VReg::V8,
+                rs1: Reg::A0,
+                vs2,
+                vm: true,
+                rs2: Reg::Zero,
+            },
+        ] {
+            let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+            let result = exec(&mut state, instr);
+            if vs2 == VReg::V9 {
+                assert!(
+                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                    "{instr}"
+                );
+            } else {
+                assert!(result.is_ok(), "{instr}");
+            }
+        }
+    }
+}

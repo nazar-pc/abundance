@@ -2585,3 +2585,30 @@ fn vsaddu_mixed_sat_e16_m1() {
     assert_eq!(read_elem(&state, VReg::V4, 7, Vsew::E16), 0xFFFF);
     assert!(vxsat(&state));
 }
+
+#[test]
+fn vnclip_wv_sources_with_different_eew_must_not_overlap() {
+    // e8/m2: `vs2` is a 4-register 16-bit group v8..v11, `vs1` a 2-register 8-bit group
+    for vs1 in [VReg::V10, VReg::V12] {
+        let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M2);
+        let result = exec(
+            &mut state,
+            ZveXxFixedPointInstruction::VnclipWv {
+                vd: VReg::V2,
+                vs2: VReg::V8,
+                vs1,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+        );
+        if vs1 == VReg::V10 {
+            assert!(matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. })
+            ));
+        } else {
+            result.unwrap();
+        }
+    }
+}

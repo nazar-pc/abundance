@@ -491,6 +491,14 @@ where
                     vs2,
                     group_regs,
                 )?;
+                // `vs1` is read with EEW=2*SEW and `vs2` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs.get(),
+                    vs1,
+                    1,
+                )?;
                 let vl = env.vl();
                 // SAFETY: `vs2` alignment checked;
                 // `vstart == 0` checked; `vd` and `vs1` are single-register 2*SEW scalar operands
@@ -548,6 +556,14 @@ where
                     program_counter,
                     vs2,
                     group_regs,
+                )?;
+                // `vs1` is read with EEW=2*SEW and `vs2` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    group_regs.get(),
+                    vs1,
+                    1,
                 )?;
                 let vl = env.vl();
                 // SAFETY: see `Vwredsumu`

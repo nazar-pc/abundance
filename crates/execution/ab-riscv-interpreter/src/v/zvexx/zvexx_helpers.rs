@@ -3,13 +3,46 @@
 #[cfg(test)]
 mod tests;
 
+use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
+use core::hint::cold_path;
 
 /// Size of an instruction in bytes.
 ///
 /// All instructions here are the same size.
 #[doc(hidden)]
 pub const INSTRUCTION_SIZE: u8 = size_of::<u32>() as u8;
+
+/// Check that two source register groups `[a, a + a_regs)` and `[b, b + b_regs)`, read with
+/// different EEWs, do not overlap.
+///
+/// A vector register cannot provide source operands with more than one EEW in a single
+/// instruction, including at different positions within the two groups, such encodings are
+/// reserved (`norm:vreg_source_eew_rsv`). Sources with the same EEW may overlap freely.
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn check_sources_disjoint<Reg, Memory, PC>(
+    program_counter: &PC,
+    a: VReg,
+    a_regs: u8,
+    b: VReg,
+    b_regs: u8,
+) -> Result<(), ExecutionError<Reg::Type>>
+where
+    Reg: Register,
+    PC: ProgramCounter<Reg::Type, Memory>,
+{
+    let a_start = u16::from(a.to_bits());
+    let b_start = u16::from(b.to_bits());
+    if a_start < b_start + u16::from(b_regs) && b_start < a_start + u16::from(a_regs) {
+        cold_path();
+        return Err(ExecutionError::IllegalInstruction {
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
+        });
+    }
+    Ok(())
+}
 
 /// Element widths of a widening operation: `SEW` of the narrow operands and `2*SEW` of the wide
 /// ones, where `2*SEW <= ELEN`.

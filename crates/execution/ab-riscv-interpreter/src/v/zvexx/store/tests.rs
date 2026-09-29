@@ -1777,3 +1777,59 @@ fn vsm_wraps_around_end_of_address_space() {
     assert_eq!(memory.high[62..], [1, 2]);
     assert_eq!(memory.low[..2], [3, 4]);
 }
+
+#[test]
+fn indexed_store_index_must_not_overlap_data_with_different_eew() {
+    // e32/m1 data, 8-bit indices in a single register
+    for vs2 in [VReg::V2, VReg::V4] {
+        let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
+        state.regs.write(Reg::A0, TEST_BASE_ADDR);
+        let result = exec_one(
+            &mut state,
+            ZveXxStoreInstruction::Vsuxei {
+                vs3: VReg::V2,
+                rs1: Reg::A0,
+                vs2,
+                vm: true,
+                eew: Eew::E8,
+                rs2: Reg::Zero,
+            },
+        );
+        if vs2 == VReg::V2 {
+            assert!(matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. })
+            ));
+        } else {
+            result.unwrap();
+        }
+    }
+}
+
+#[test]
+fn indexed_segment_store_index_must_not_overlap_any_field() {
+    // e32/m1 data with 2 fields in v2..v3, 8-bit indices in `v3` overlap the second field
+    for vs2 in [VReg::V3, VReg::V4] {
+        let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
+        state.regs.write(Reg::A0, TEST_BASE_ADDR);
+        let result = exec_one(
+            &mut state,
+            ZveXxStoreInstruction::Vsuxseg {
+                vs3: VReg::V2,
+                rs1: Reg::A0,
+                vs2,
+                eew: Eew::E8,
+                vm_nf: SegVmNf::new(true, Nf::N2),
+                rs2: Reg::Zero,
+            },
+        );
+        if vs2 == VReg::V3 {
+            assert!(matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. })
+            ));
+        } else {
+            result.unwrap();
+        }
+    }
+}

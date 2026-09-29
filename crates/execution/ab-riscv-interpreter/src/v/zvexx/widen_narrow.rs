@@ -723,6 +723,14 @@ where
                     vs1,
                     group_regs,
                 )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
+                )?;
                 zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -872,6 +880,14 @@ where
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
@@ -1026,6 +1042,14 @@ where
                     vs1,
                     group_regs,
                 )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
+                )?;
                 zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
                     vd,
@@ -1174,6 +1198,14 @@ where
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
                     program_counter,
@@ -1335,6 +1367,14 @@ where
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
@@ -1553,6 +1593,14 @@ where
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();

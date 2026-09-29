@@ -1608,19 +1608,26 @@ where
                     group_regs,
                 )?;
                 // vs2 holds 2*SEW elements; its register group is double-width
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    vtype.vlmul(),
-                    sew,
-                    vd,
-                    group_regs,
+                let wide_group_regs = zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<
+                    Reg,
+                    _,
+                    _,
+                >(
+                    program_counter, vs2, vtype.vlmul(), sew, vd, group_regs
                 )?;
                 // vs1 is a normal SEW-wide source for the shift amount
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
@@ -1805,18 +1812,25 @@ where
                     vd,
                     group_regs,
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    vtype.vlmul(),
-                    sew,
-                    vd,
-                    group_regs,
+                let wide_group_regs = zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<
+                    Reg,
+                    _,
+                    _,
+                >(
+                    program_counter, vs2, vtype.vlmul(), sew, vd, group_regs
                 )?;
                 zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
                     vs1,
                     group_regs,
+                )?;
+                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                    program_counter,
+                    vs2,
+                    wide_group_regs.get(),
+                    vs1,
+                    group_regs.get(),
                 )?;
                 if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();

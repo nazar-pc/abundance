@@ -2447,3 +2447,40 @@ fn vzext_vf2_source_overlapping_high_part_of_destination_is_legal() {
     assert_eq!(read_elem(&state, VReg::V2, 0, Vsew::E16), 0x00ab);
     assert_eq!(read_elem(&state, VReg::V2, 1, Vsew::E16), 0x00cd);
 }
+
+#[test]
+fn wv_sources_with_different_eew_must_not_overlap() {
+    // e8/m2: `vs2` is a 4-register 16-bit group v8..v11, `vs1` a 2-register 8-bit group
+    for vs1 in [VReg::V10, VReg::V12] {
+        let expect_illegal = vs1 == VReg::V10;
+        for instr in [
+            ZveXxWidenNarrowInstruction::VwaddWv {
+                vd: VReg::V16,
+                vs2: VReg::V8,
+                vs1,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+            ZveXxWidenNarrowInstruction::VnsrlWv {
+                vd: VReg::V2,
+                vs2: VReg::V8,
+                vs1,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+        ] {
+            let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M2);
+            let result = exec(&mut state, instr);
+            if expect_illegal {
+                assert!(
+                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                    "{instr}"
+                );
+            } else {
+                assert!(result.is_ok(), "{instr}");
+            }
+        }
+    }
+}

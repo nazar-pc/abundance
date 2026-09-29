@@ -3387,3 +3387,56 @@ fn vslidedown_mf2_e32_offset_zero_copies() {
     .unwrap();
     assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0x1234);
 }
+
+#[test]
+fn vrgatherei16_sources_with_different_eew_must_not_overlap() {
+    // `vs1` is read with EEW=16, which only matches `vs2` with SEW=16
+    for (vsew, expect_illegal) in [(Vsew::E32, true), (Vsew::E16, false)] {
+        let mut state = setup(Vl::new(4).unwrap(), vsew, Vlmul::M1);
+        let result = exec(
+            &mut state,
+            ZveXxPermInstruction::Vrgatherei16Vv {
+                vd: VReg::V4,
+                vs2: VReg::V2,
+                vs1: VReg::V2,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+        );
+        if expect_illegal {
+            assert!(matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. })
+            ));
+        } else {
+            result.unwrap();
+        }
+    }
+}
+
+#[test]
+fn vcompress_mask_must_not_overlap_source() {
+    // e8/m2: `vs2` is v2..v3, the mask `vs1` has EEW=1
+    for vs1 in [VReg::V3, VReg::V1] {
+        let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M2);
+        let result = exec(
+            &mut state,
+            ZveXxPermInstruction::VcompressVm {
+                vd: VReg::V4,
+                vs2: VReg::V2,
+                vs1,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+        );
+        if vs1 == VReg::V3 {
+            assert!(matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. })
+            ));
+        } else {
+            result.unwrap();
+        }
+    }
+}

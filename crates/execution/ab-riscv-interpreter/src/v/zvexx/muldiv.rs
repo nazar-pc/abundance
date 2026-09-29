@@ -2088,19 +2088,21 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs1,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
                 // SAFETY: alignment and overlap checked above
                 unsafe {
@@ -2178,12 +2180,14 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above
@@ -2262,19 +2266,21 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs1,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
                 // SAFETY: alignment and overlap checked above
                 unsafe {
@@ -2353,12 +2359,14 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment and overlap checked above
@@ -2438,19 +2446,21 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs1,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
                 // SAFETY: alignment and overlap checked above
                 unsafe {
@@ -2529,12 +2539,14 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
                 // scalar (rs1) is the signed operand; vs2 elements are unsigned
                 let scalar = rs1_value.as_u64();
@@ -2618,12 +2630,14 @@ where
                         ),
                     });
                 }
-                zvexx_muldiv_helpers::check_no_widening_overlap::<Reg, _, _>(
+                // `vd` is also a source with EEW=2*SEW, so unlike the destination of other
+                // widening instructions it must not overlap SEW-wide sources at all
+                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
                     program_counter,
                     vd,
+                    dest_group_regs.get(),
                     vs2,
-                    dest_group_regs,
-                    group_regs,
+                    group_regs.get(),
                 )?;
                 // scalar (rs1) is the unsigned operand; vs2 elements are signed
                 let scalar = rs1_value.as_u64();

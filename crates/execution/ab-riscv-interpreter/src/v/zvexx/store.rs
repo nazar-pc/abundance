@@ -310,6 +310,17 @@ where
                     vs2,
                     index_group_regs,
                 )?;
+                // The index `vs2` and the data `vs3` are both sources, with different EEWs unless
+                // they happen to match
+                if index_eew != data_eew {
+                    zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                        program_counter,
+                        vs2,
+                        index_group_regs.get(),
+                        vs3,
+                        data_group_regs.get(),
+                    )?;
+                }
                 // SAFETY:
                 // - `vs3` alignment/bounds: `check_register_group_alignment` verified both
                 // - `vs2` alignment/bounds: `check_register_group_alignment` verified both
@@ -379,6 +390,17 @@ where
                     vs2,
                     index_group_regs,
                 )?;
+                // The index `vs2` and the data `vs3` are both sources, with different EEWs unless
+                // they happen to match
+                if index_eew != data_eew {
+                    zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                        program_counter,
+                        vs2,
+                        index_group_regs.get(),
+                        vs3,
+                        data_group_regs.get(),
+                    )?;
+                }
                 // SAFETY: identical precondition argument to `Vsuxei`
                 unsafe {
                     zvexx_store_helpers::execute_indexed_store(
@@ -556,6 +578,17 @@ where
                     vs2,
                     index_group_regs,
                 )?;
+                // The index `vs2` and the data `vs3` are both sources, with different EEWs unless
+                // they happen to match across all fields
+                if index_eew != data_eew {
+                    zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                        program_counter,
+                        vs2,
+                        index_group_regs.get(),
+                        vs3,
+                        nf.fields_per_segment() * data_group_regs.get(),
+                    )?;
+                }
                 // SAFETY:
                 // - `validate_segment_store_registers` covers `vs3` alignment/bounds
                 // - `check_register_group_alignment` covers `vs2` alignment/bounds
@@ -623,6 +656,17 @@ where
                     vs2,
                     index_group_regs,
                 )?;
+                // The index `vs2` and the data `vs3` are both sources, with different EEWs unless
+                // they happen to match across all fields
+                if index_eew != data_eew {
+                    zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                        program_counter,
+                        vs2,
+                        index_group_regs.get(),
+                        vs3,
+                        nf.fields_per_segment() * data_group_regs.get(),
+                    )?;
+                }
                 // SAFETY: identical precondition argument to `Vsuxseg`
                 unsafe {
                     zvexx_store_helpers::execute_indexed_store(

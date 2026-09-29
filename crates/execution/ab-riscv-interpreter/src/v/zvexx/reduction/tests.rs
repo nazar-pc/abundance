@@ -1254,3 +1254,30 @@ fn vwredsumu_vs_vwredsum_differ_on_high_bit() {
     assert_eq!(read_elem(&state_u, VReg::V4, 0, Vsew::E16), 0x0080);
     assert_eq!(read_elem(&state_s, VReg::V4, 0, Vsew::E16), 0xff80);
 }
+
+#[test]
+fn vwredsum_scalar_must_not_overlap_vector_source() {
+    // e8/m2: `vs2` is a 2-register 8-bit group v2..v3, `vs1` is read with EEW=16
+    for vs1 in [VReg::V3, VReg::V1] {
+        let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M2);
+        let result = exec(
+            &mut state,
+            ZveXxReductionInstruction::Vwredsum {
+                vd: VReg::V4,
+                vs2: VReg::V2,
+                vs1,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+        );
+        if vs1 == VReg::V3 {
+            assert!(matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. })
+            ));
+        } else {
+            result.unwrap();
+        }
+    }
+}

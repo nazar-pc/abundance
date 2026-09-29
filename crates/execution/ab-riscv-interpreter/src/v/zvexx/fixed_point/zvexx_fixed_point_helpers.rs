@@ -544,6 +544,8 @@ where
 ///
 /// Per spec §11.7, `vd` may alias only the *low* part of `vs2`'s wider register group (i.e.
 /// `vd == vs2`) - any other overlap (e.g. `vd` aliasing only the high part) is illegal.
+///
+/// Returns the size of the `vs2` register group.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -554,7 +556,7 @@ pub fn check_vs2_narrowing_alignment<Reg, Memory, PC>(
     sew: Vsew,
     vd: VReg,
     group_regs: VRegGroupSize,
-) -> Result<(), ExecutionError<Reg::Type>>
+) -> Result<VRegGroupSize, ExecutionError<Reg::Type>>
 where
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
@@ -580,16 +582,16 @@ where
         });
     };
     let aligned = vs2.is_group_aligned(wide_group);
-    let wide_group = wide_group.get();
+    let wide_group_regs = wide_group.get();
     let vs2_idx = vs2.to_bits();
     let vd_idx = vd.to_bits();
     let group_regs = group_regs.get();
-    let overlaps = vd_idx < vs2_idx + wide_group && vs2_idx < vd_idx + group_regs;
-    if !aligned || vs2_idx + wide_group > 32 || (overlaps && vd_idx != vs2_idx) {
+    let overlaps = vd_idx < vs2_idx + wide_group_regs && vs2_idx < vd_idx + group_regs;
+    if !aligned || vs2_idx + wide_group_regs > 32 || (overlaps && vd_idx != vs2_idx) {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         });
     }
-    Ok(())
+    Ok(wide_group)
 }
