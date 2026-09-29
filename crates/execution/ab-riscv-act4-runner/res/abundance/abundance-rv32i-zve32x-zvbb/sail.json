@@ -357,6 +357,12 @@
     "Zicsr": {
       "supported": true
     },
+    // Zifencei is enabled because the Sail reference model executes `fence.i` even when it is
+    // configured as unsupported
+    // TODO: Remove Zifencei once https://github.com/riscv/sail-riscv/issues/1984 is resolved
+    "Zifencei": {
+      "supported": true
+    },
     "Zvbb": {
       "supported": true
     },
@@ -430,9 +436,6 @@
       "supported": false
     },
     "Zicond": {
-      "supported": false
-    },
-    "Zifencei": {
       "supported": false
     },
     "Zkn": {

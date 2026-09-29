@@ -8,7 +8,11 @@
 # Zca is enabled too, since ACT4's SsstrictSm tests are broken without it: the compressed
 # instruction sweep relies on its fast trap handler advancing `mepc` by 2, which is impossible
 # with IALIGN=32.
-# TODO: Remove Zca once https://github.com/riscv/riscv-arch-test/issues/2584 is resolved Everything else is disabled to avoid mostly repeating
+# TODO: Remove Zca once https://github.com/riscv/riscv-arch-test/issues/2584 is resolved
+# Zifencei is enabled too, since the Sail reference model executes `fence.i` even when it is
+# configured as unsupported, which the SsstrictSm tests check.
+# TODO: Remove Zifencei once https://github.com/riscv/sail-riscv/issues/1984 is resolved
+# Everything else is disabled to avoid mostly repeating
 # the abundance-rv64i-max run, what remains are base ISA tests and vector tests with ELEN=32 and
 # VLEN=128.
 #

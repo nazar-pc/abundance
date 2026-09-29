@@ -14,6 +14,10 @@ implemented_extensions:
   # TODO: Remove Zca once https://github.com/riscv/riscv-arch-test/issues/2584 is resolved
   - { name: Zca,      version: "= 1.0.0" }
   - { name: Zicsr,    version: "= 2.0" }
+  # Zifencei is enabled because the Sail reference model executes `fence.i` even when it is
+  # configured as unsupported, which the SsstrictSm tests check
+  # TODO: Remove Zifencei once https://github.com/riscv/sail-riscv/issues/1984 is resolved
+  - { name: Zifencei, version: "= 2.0" }
   - { name: Zmmul,    version: "= 1.0.0" }
   - { name: Zvbb,     version: "= 1.0.0" }
   - { name: Zve32x,   version: "= 1.0.0" }
