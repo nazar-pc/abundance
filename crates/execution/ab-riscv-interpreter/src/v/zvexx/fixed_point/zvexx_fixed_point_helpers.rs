@@ -392,7 +392,6 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -452,7 +451,6 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
 /// - `vs2.to_bits() % (2 * group_regs) == 0` and `vs2.to_bits() + 2 * group_regs <= 32`
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]

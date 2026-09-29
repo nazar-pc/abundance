@@ -297,11 +297,11 @@ fn vclmulh_vx_basic_unmasked() {
 #[test]
 fn vclmulh_vx_masked_form() {
     // rs1 = a1 (x11)
-    let inst = make_vop(0b00_1101, 0, 12, 11, OPMVX, 0);
+    let inst = make_vop(0b00_1101, 0, 12, 11, OPMVX, 8);
     assert_eq!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst),
         Some(ZvbcInstruction::VclmulhVx {
-            vd: VReg::V0,
+            vd: VReg::V8,
             vs2: VReg::V12,
             rs1: Reg::A1,
             vm: false,
@@ -463,9 +463,9 @@ fn display_vclmulh_vx_unmasked() {
 #[test]
 fn display_vclmulh_vx_masked() {
     // rs1 = a1 (x11)
-    let inst = make_vop(0b00_1101, 0, 12, 11, OPMVX, 0);
+    let inst = make_vop(0b00_1101, 0, 12, 11, OPMVX, 8);
     let decoded = ZvbcInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{decoded}"), "vclmulh.vx v0, v12, a1, v0.t");
+    assert_eq!(format!("{decoded}"), "vclmulh.vx v8, v12, a1, v0.t");
 }
 
 #[test]
@@ -484,6 +484,29 @@ fn masked_v0_data_source_is_reserved() {
         // Same instruction with `v4` in place of `v0`
         let vs2 = if vs2 == 0 { 4 } else { vs2 };
         let vs1 = if vs1 == 0 { 4 } else { vs1 };
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
+        assert!(
+            ZvbcInstruction::<Reg<u64>>::try_decode(instruction).is_some(),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn masked_v0_destination_is_reserved() {
+    for (name, funct6, vs2, vs1, funct3) in [
+        ("vclmul.vv", 0b00_1100, 1, 2, 0b010),
+        ("vclmul.vx", 0b00_1100, 1, 2, 0b110),
+        ("vclmulh.vv", 0b00_1101, 1, 2, 0b010),
+        ("vclmulh.vx", 0b00_1101, 1, 2, 0b110),
+    ] {
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 0);
+        assert_eq!(
+            ZvbcInstruction::<Reg<u64>>::try_decode(instruction),
+            None,
+            "{name}"
+        );
+        // Same instruction with `vd = v8`
         let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
         assert!(
             ZvbcInstruction::<Reg<u64>>::try_decode(instruction).is_some(),

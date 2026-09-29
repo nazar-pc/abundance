@@ -299,7 +299,6 @@ fn scalar_signed_for_sew(val: u64, sew: Vsew) -> u64 {
 /// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)` (verified by
 ///   caller)
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -377,7 +376,6 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
 /// - `vs2` aligned to `2*group_regs`, fits in `[0,32)` (wide source)
 /// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -452,7 +450,6 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
 ///   destination SEW is half the source SEW
 /// - `src` register (when `OpSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -524,7 +521,6 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
 /// - `vd` aligned to `group_regs`, fits in `[0,32)`
 /// - `vs2` aligned to `src_group_regs`, fits in `[0,32)`, does not overlap `vd`
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]

@@ -74,7 +74,6 @@ where
 /// # Safety
 /// - `vd` and source register alignment verified by caller
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -125,7 +124,6 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
 /// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
 ///   and non-overlap verified by caller
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -179,7 +177,6 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
 /// # Safety
 /// - `vd`, `a_reg`, and `src` register alignment verified by caller
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -280,7 +277,6 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
 /// # Safety
 /// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
 ///   and non-overlap verified by caller
-/// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]

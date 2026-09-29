@@ -159,14 +159,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let offset = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified above; vl <= VLMAX.
@@ -211,14 +203,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let offset = u64::from(uimm);
                 // SAFETY: same as VslideupVx.
@@ -263,14 +247,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let vlmax = vtype.vlmax();
                 let offset = rs1_value.as_u64();
@@ -312,14 +288,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let vlmax = vtype.vlmax();
                 let offset = u64::from(uimm);
@@ -374,14 +342,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
@@ -427,14 +387,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment verified; vl <= VLMAX; overlap permitted by spec.
@@ -491,14 +443,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let vlmax = vtype.vlmax();
                 // SAFETY: all alignment and overlap constraints verified above; vl <= VLMAX.
@@ -551,14 +495,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let vlmax = vtype.vlmax();
                 let index = rs1_value.as_u64();
@@ -606,14 +542,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let vlmax = vtype.vlmax();
                 let index = u64::from(uimm);
@@ -699,14 +627,6 @@ where
                         index_group_regs.get(),
                     )?;
                 }
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let vlmax = vtype.vlmax();
                 // SAFETY: all alignment and overlap constraints verified; vl <= VLMAX;
@@ -730,7 +650,7 @@ where
             //   vs2 is ignored; no overlap restriction on vd/vs2.
             // When vm=false: vmerge.vvm vd, vs2, vs1, v0
             //   vd[i] = v0[i] ? vs1[i] : vs2[i]
-            //   vd must not overlap v0 (mask source).
+            //   vd must not overlap v0 (mask source), which the decoder rejects.
             Self::VmergeVvm { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
@@ -761,16 +681,10 @@ where
                     group_regs,
                 )?;
                 if !vm {
-                    // vmerge: vs2 is read, vd must not overlap v0
+                    // vmerge: vs2 is read
                     zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                         program_counter,
                         vs2,
-                        group_regs,
-                    )?;
-                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                        program_counter,
-                        vd,
-                        VReg::V0,
                         group_regs,
                     )?;
                 }
@@ -818,12 +732,6 @@ where
                         vs2,
                         group_regs,
                     )?;
-                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                        program_counter,
-                        vd,
-                        VReg::V0,
-                        group_regs,
-                    )?;
                 }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
@@ -863,12 +771,6 @@ where
                     zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                         program_counter,
                         vs2,
-                        group_regs,
-                    )?;
-                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                        program_counter,
-                        vd,
-                        VReg::V0,
                         group_regs,
                     )?;
                 }

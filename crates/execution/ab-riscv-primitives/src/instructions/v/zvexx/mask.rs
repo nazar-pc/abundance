@@ -154,6 +154,9 @@ where
             0b01_0100 => {
                 let vm = vm_bit == 1;
                 let vd = VReg::from_bits(vd_bits)?;
+                if vd.is_mask(vm) {
+                    None?;
+                }
                 match vs1_bits {
                     0b0_0001 => {
                         let vs2 = VReg::from_bits(vs2_bits)?;

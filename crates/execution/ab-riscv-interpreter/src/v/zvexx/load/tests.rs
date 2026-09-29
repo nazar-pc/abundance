@@ -1022,25 +1022,6 @@ fn vle_vector_not_allowed_is_illegal() {
 }
 
 #[test]
-fn vle_masked_vd_overlapping_v0_is_illegal() {
-    // vm=false with vd=V0 -> overlap with mask register
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-
-    let err = exec_one(
-        &mut state,
-        ZveXxLoadInstruction::Vle {
-            vd: VReg::V0,
-            rs1: Reg::A0,
-            vm: false,
-            eew: Eew::E8,
-            rs2: Reg::Zero,
-        },
-    )
-    .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
 fn vle_eew_wider_than_sew_uses_multiple_registers() {
     // SEW=E32/M1 but EEW=E64 -> EMUL=2, vd needs 2 registers
     // VLMAX (for EEW=E64, EMUL=2) = 2*16/8 = 4 elements
@@ -1708,25 +1689,6 @@ fn vluxei_vd_vs2_no_overlap_is_legal() {
     );
 }
 
-#[test]
-fn vluxei_masked_vd_overlapping_v0_is_illegal() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
-
-    let err = exec_one(
-        &mut state,
-        ZveXxLoadInstruction::Vluxei {
-            vd: VReg::V0,
-            rs1: Reg::A0,
-            vs2: VReg::V4,
-            vm: false,
-            eew: Eew::E32,
-            rs2: Reg::Zero,
-        },
-    )
-    .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
-}
-
 // `Vloxei` tests
 
 #[test]
@@ -1867,24 +1829,6 @@ fn vlseg_register_group_overflow_is_illegal() {
             rs1: Reg::A0,
             eew: Eew::E8,
             vm_nf: SegVmNf::new(true, Nf::N8),
-            rs2: Reg::Zero,
-        },
-    )
-    .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
-fn vlseg_masked_vd_at_v0_is_illegal() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
-
-    let err = exec_one(
-        &mut state,
-        ZveXxLoadInstruction::Vlseg {
-            vd: VReg::V0,
-            rs1: Reg::A0,
-            eew: Eew::E8,
-            vm_nf: SegVmNf::new(false, Nf::N2),
             rs2: Reg::Zero,
         },
     )

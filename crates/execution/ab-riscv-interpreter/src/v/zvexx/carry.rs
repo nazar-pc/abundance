@@ -82,17 +82,8 @@ where
                     vs1,
                     group_regs,
                 )?;
-                // vd must not be v0: v0 holds carry-in
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
-                // SAFETY: alignments checked above; vd != v0 checked above
+                // SAFETY: alignments checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
                         env,
@@ -134,17 +125,9 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments checked above; vd != v0 checked above
+                // SAFETY: alignments checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
                         env,
@@ -186,17 +169,9 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignments checked above; vd != v0 checked above
+                // SAFETY: alignments checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
                         env,
@@ -535,16 +510,8 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
-                // SAFETY: alignments checked above; vd != v0 checked above
+                // SAFETY: alignments checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
                         env,
@@ -586,17 +553,9 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments checked above; vd != v0 checked above
+                // SAFETY: alignments checked above
                 unsafe {
                     zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
                         env,

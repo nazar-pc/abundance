@@ -588,44 +588,6 @@ fn vmsbc_vx_no_borrow() {
 // Error paths
 
 #[test]
-fn error_vadc_vd_is_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxCarryInstruction::VadcVvm {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vs1: VReg::V4,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
-}
-
-#[test]
-fn error_vsbc_vd_is_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxCarryInstruction::VsbcVvm {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vs1: VReg::V4,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
-}
-
-#[test]
 fn error_vector_not_allowed() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     state.env.set_vector_allowed(false);

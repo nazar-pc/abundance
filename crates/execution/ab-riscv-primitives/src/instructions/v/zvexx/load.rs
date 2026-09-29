@@ -243,6 +243,9 @@ where
         }
 
         let vd = VReg::from_bits(vd_bits)?;
+        if vd.is_mask(vm) {
+            None?;
+        }
         let rs1 = Reg::from_bits(rs1_bits)?;
 
         // nf encodes number of fields minus 1 (nf=0 means 1 field)

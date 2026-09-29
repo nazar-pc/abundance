@@ -198,21 +198,6 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm
-                    && zvexx_load_helpers::groups_overlap(
-                        vd,
-                        group_regs,
-                        VReg::V0,
-                        VRegGroupSize::R1,
-                    )
-                {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let vl = config.vl().get();
                 // SAFETY:
                 // - alignment: `check_register_group_alignment` verified `vd % group_regs == 0` and
@@ -275,21 +260,6 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm
-                    && zvexx_load_helpers::groups_overlap(
-                        vd,
-                        group_regs,
-                        VReg::V0,
-                        VRegGroupSize::R1,
-                    )
-                {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let vl = config.vl().get();
                 // SAFETY: preconditions identical to `Vle`; see that arm for the full argument.
                 unsafe {
@@ -346,21 +316,6 @@ where
                     vd,
                     group_regs,
                 )?;
-                if !vm
-                    && zvexx_load_helpers::groups_overlap(
-                        vd,
-                        group_regs,
-                        VReg::V0,
-                        VRegGroupSize::R1,
-                    )
-                {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 // rs2 holds a signed stride; reinterpret the register value as signed
                 let stride = rs2_value.as_i64();
                 // SAFETY:
@@ -442,21 +397,6 @@ where
                     vtype.vsew(),
                     vtype.vlmul(),
                 ) {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                if !vm
-                    && zvexx_load_helpers::groups_overlap(
-                        vd,
-                        data_group_regs,
-                        VReg::V0,
-                        VRegGroupSize::R1,
-                    )
-                {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -555,21 +495,6 @@ where
                         ),
                     });
                 }
-                if !vm
-                    && zvexx_load_helpers::groups_overlap(
-                        vd,
-                        data_group_regs,
-                        VReg::V0,
-                        VRegGroupSize::R1,
-                    )
-                {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 // SAFETY: preconditions identical to `Vluxei`; see that arm for the full
                 // argument.
                 unsafe {
@@ -626,7 +551,6 @@ where
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
-                    vm,
                     group_regs,
                     nf,
                 )?;
@@ -637,8 +561,6 @@ where
                 // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: `group_regs` is the EMUL for
                 //   this `eew` and `vtype`, so this VLMAX equals the architectural VLMAX bounding
                 //   `vl`
-                // - mask overlap with v0: `validate_segment_registers` checked `vd.to_bits() != 0`
-                //   when `vm=false`, ensuring no field group contains v0
                 unsafe {
                     zvexx_load_helpers::execute_unit_stride_load(
                         env,
@@ -692,7 +614,6 @@ where
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
-                    vm,
                     group_regs,
                     nf,
                 )?;
@@ -752,7 +673,6 @@ where
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
-                    vm,
                     group_regs,
                     nf,
                 )?;
@@ -762,8 +682,6 @@ where
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
                 // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: `group_regs` is EMUL for this
                 //   `eew` and `vtype`
-                // - mask overlap: `validate_segment_registers` checked `vd.to_bits() != 0` when
-                //   `vm=false`
                 unsafe {
                     zvexx_load_helpers::execute_strided_load(
                         env,
@@ -821,7 +739,6 @@ where
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
-                    vm,
                     data_group_regs,
                     nf,
                 )?;
@@ -862,9 +779,6 @@ where
                 //   `data_group_regs = LMUL`, so VLMAX = LMUL * VLEN / SEW bounds `vl`
                 // - `vl <= EMUL_index * VLEN.bytes() / index_eew.bytes()`: `index_group_regs`
                 //   (EMUL_index) is defined so this VLMAX_index equals the architectural VLMAX
-                // - mask overlap: `validate_segment_registers` checked `vd.to_bits() != 0` when
-                //   `vm=false`, and no field group starts at 0 since groups are contiguous from
-                //   `vd` which is nonzero
                 unsafe {
                     zvexx_load_helpers::execute_indexed_load(
                         env,
@@ -921,7 +835,6 @@ where
                 zvexx_load_helpers::validate_segment_registers::<Reg, _, _>(
                     program_counter,
                     vd,
-                    vm,
                     data_group_regs,
                     nf,
                 )?;

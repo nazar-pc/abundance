@@ -581,24 +581,6 @@ fn vslideup_overlap_vd_vs2_illegal() {
 }
 
 #[test]
-fn vslideup_masked_vd_v0_illegal() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    state.regs.write(Reg::A0, 1u64);
-    let err = exec(
-        &mut state,
-        ZveXxPermInstruction::VslideupVx {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            rs1: Reg::A0,
-            vm: false,
-            rs2: Reg::Zero,
-        },
-    )
-    .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
 fn vslideup_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..8usize {
@@ -1471,24 +1453,6 @@ fn vmerge_vvm_all_mask_bits_clear_equals_copy_vs2() {
 }
 
 #[test]
-fn vmerge_vvm_vd_overlap_v0_illegal() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    let err = exec(
-        &mut state,
-        ZveXxPermInstruction::VmergeVvm {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vs1: VReg::V1,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    )
-    .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
 fn vmv_v_v_vd_may_equal_v0() {
     // vmv.v.v (vm=true) has no restriction on vd, including vd=v0.
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
@@ -1677,23 +1641,6 @@ fn vmerge_vxm_blends_vs2_and_scalar() {
 }
 
 #[test]
-fn vmerge_vxm_vd_overlap_v0_illegal() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    let err = exec(
-        &mut state,
-        ZveXxPermInstruction::VmergeVxm {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            rs1: Reg::A0,
-            vm: false,
-            rs2: Reg::Zero,
-        },
-    )
-    .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
 fn vmv_v_x_vl_zero_leaves_vd_undisturbed() {
     let mut state = setup(Vl::new(0).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
@@ -1845,24 +1792,6 @@ fn vmerge_vim_blends_vs2_and_immediate() {
     assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E16), 2000);
     // v0[3]=1 -> imm=7
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E16), 7);
-}
-
-#[test]
-fn vmerge_vim_vd_overlap_v0_illegal() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    let err = exec(
-        &mut state,
-        ZveXxPermInstruction::VmergeVim {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            simm5: 1,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    )
-    .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]

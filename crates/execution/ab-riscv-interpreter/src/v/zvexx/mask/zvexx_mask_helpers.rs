@@ -155,7 +155,6 @@ where
 ///
 /// # Safety
 /// - `vd` does not overlap `vs2` (checked by caller)
-/// - `vm=false` implies `vd != v0` (checked by caller)
 /// - `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
@@ -277,7 +276,6 @@ where
 ///
 /// # Safety
 /// - `vd` does not overlap `vs2` (checked by caller)
-/// - `vm=false` implies `vd != v0` (checked by caller)
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (checked by caller)
 /// - `vl <= VLMAX`; `vl <= VLEN`
 #[inline(always)]
@@ -322,7 +320,6 @@ pub unsafe fn execute_viota<Reg, Env>(
 /// Per spec §16.9: inactive elements are left undisturbed (mask-undisturbed policy).
 ///
 /// # Safety
-/// - `vm=false` implies `vd != v0` (checked by caller)
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (checked by caller)
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]

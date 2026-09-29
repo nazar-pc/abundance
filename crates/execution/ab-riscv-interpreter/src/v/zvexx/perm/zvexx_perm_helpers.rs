@@ -121,7 +121,6 @@ where
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -188,7 +187,6 @@ pub unsafe fn execute_slideup<Reg, Env>(
 /// # Safety
 /// - `vd` and `vs2` are validly aligned (verified by caller); overlap is permitted.
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -278,7 +276,6 @@ pub unsafe fn execute_slidedown<Reg, Env>(
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -328,7 +325,6 @@ pub unsafe fn execute_slide1up<Reg, Env>(
 /// # Safety
 /// - `vd` and `vs2` are validly aligned (verified by caller); overlap is permitted.
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -371,7 +367,6 @@ pub unsafe fn execute_slide1down<Reg, Env>(
 /// # Safety
 /// - `vd`, `vs2`, and `vs1` are validly aligned and mutually non-overlapping (verified by caller).
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -417,7 +412,6 @@ pub unsafe fn execute_rgather_vv<Reg, Env>(
 /// # Safety
 /// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -466,7 +460,6 @@ pub unsafe fn execute_rgather_scalar<Reg, Env>(
 /// # Safety
 /// - `vd`, `vs2`, and `vs1` are validly aligned and mutually non-overlapping (verified by caller).
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -528,7 +521,7 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
 ///
 /// # Safety
 /// - `vd` and `vs1` are validly aligned (verified by caller).
-/// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
+/// - When `vm=false`: `vs2` is validly aligned (verified by caller).
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]
@@ -575,7 +568,7 @@ pub unsafe fn execute_merge_vv<Reg, Env>(
 ///
 /// # Safety
 /// - `vd` is validly aligned (verified by caller).
-/// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
+/// - When `vm=false`: `vs2` is validly aligned (verified by caller).
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]

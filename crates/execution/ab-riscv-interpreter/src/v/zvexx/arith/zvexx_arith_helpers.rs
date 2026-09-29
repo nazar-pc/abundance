@@ -121,7 +121,6 @@ pub enum OpSrc {
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -187,7 +186,7 @@ unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
     let vregs = env.write_vregs();
 
     for i in Vstart::ZERO.range_to(vl) {
-        // `vd` never overlaps `v0` when masked, so the mask can be read in place rather than
+        // The decoder rejects masked `vd == v0`, so the mask can be read in place rather than
         // snapshotted, no write below can modify it
         if !vm && !mask_bit(vregs.get(VReg::V0), i) {
             continue;

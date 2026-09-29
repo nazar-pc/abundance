@@ -163,6 +163,9 @@ where
                 // OPIVV
                 0b000 => {
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -176,6 +179,9 @@ where
                 // OPIVX
                 0b100 => {
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -186,6 +192,9 @@ where
                 // OPIVI
                 0b011 => {
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -201,6 +210,9 @@ where
                 0b000 => {
                     // vrgatherei16.vv
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -215,6 +227,9 @@ where
                 0b100 => {
                     // vslideup.vx
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -226,6 +241,9 @@ where
                 0b011 => {
                     // vslideup.vi
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -237,6 +255,9 @@ where
                 0b110 => {
                     // vslide1up.vx
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -252,6 +273,9 @@ where
                 0b100 => {
                     // vslidedown.vx
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -263,6 +287,9 @@ where
                 0b011 => {
                     // vslidedown.vi
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -274,6 +301,9 @@ where
                 0b110 => {
                     // vslide1down.vx
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -294,6 +324,9 @@ where
                         None?;
                     }
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -328,6 +361,9 @@ where
                         None?;
                     }
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;
@@ -344,6 +380,9 @@ where
                         None?;
                     }
                     let vd = VReg::from_bits(vd_bits)?;
+                    if vd.is_mask(vm) {
+                        None?;
+                    }
                     let vs2 = VReg::from_bits(vs2_bits)?;
                     if vs2.is_mask(vm) {
                         None?;

@@ -385,13 +385,13 @@ fn test_vlseg2e8() {
 
 #[test]
 fn test_vlseg8e32_masked() {
-    // vlseg8e32.v v0, (x5), v0.t - nf=7 means 8 fields
-    let inst = make_vl(7, 0, 0b00, 0, 0b0_0000, 5, 0b110, 0);
+    // vlseg8e32.v v8, (x5), v0.t - nf=7 means 8 fields
+    let inst = make_vl(7, 0, 0b00, 0, 0b0_0000, 5, 0b110, 8);
     let decoded = ZveXxLoadInstruction::<Reg<u64>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxLoadInstruction::Vlseg {
-            vd: VReg::V0,
+            vd: VReg::V8,
             rs1: Reg::T0,
             vm_nf: SegVmNf::new(false, Nf::N8),
             eew: Eew::E32,

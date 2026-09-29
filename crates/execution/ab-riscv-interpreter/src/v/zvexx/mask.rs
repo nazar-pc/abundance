@@ -340,7 +340,7 @@ where
                 };
             }
             // vmsbf.m (§16.4): set-before-first mask bit.
-            // Constraints: vd != vs2 (overlap illegal), vm=false implies vd != v0.
+            // Constraints: vd != vs2 (overlap illegal).
             Self::Vmsbf { vd, vs2, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
@@ -367,16 +367,8 @@ where
                         ),
                     });
                 }
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let vl = config.vl().get();
-                // SAFETY: `vd != vs2` checked above; `vd != v0` when masked checked above;
+                // SAFETY: `vd != vs2` checked above;
                 // `vstart == 0` checked above; `vl <= VLEN`.
                 unsafe {
                     zvexx_mask_helpers::execute_vmsbf(env, vd, vs2, vm, vl);
@@ -402,14 +394,6 @@ where
                     });
                 };
                 if vd == vs2 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -443,14 +427,6 @@ where
                     });
                 };
                 if vd == vs2 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                if !vm && vd == VReg::V0 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -508,25 +484,17 @@ where
                         ),
                     });
                 }
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let vl = config.vl().get();
                 // SAFETY: vd alignment checked above; vd group does not overlap vs2 checked above;
-                // `vm=false` implies `vd != v0` checked above; vstart == 0 checked above;
+                // vstart == 0 checked above;
                 // `vl <= VLMAX = group_regs * VLEN.bytes() / sew_bytes`, all element indices valid.
                 unsafe {
                     zvexx_mask_helpers::execute_viota(env, vd, vs2, vm, vl, sew);
                 }
             }
             // vid.v (§16.9): write element index i as SEW-wide integer into vd[i].
-            // Constraints: vm=false implies vd != v0; vd alignment per LMUL.
+            // Constraints: vd alignment per LMUL.
             Self::Vid { vd, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
@@ -554,16 +522,8 @@ where
                         ),
                     });
                 }
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
-                // SAFETY: vd alignment checked above; `vm=false` implies `vd != v0` checked above;
+                // SAFETY: vd alignment checked above;
                 // `vl <= VLMAX = group_regs * VLEN.bytes() / sew_bytes`, all element indices valid.
                 unsafe {
                     zvexx_mask_helpers::execute_vid(env, config, vd, vm, sew);

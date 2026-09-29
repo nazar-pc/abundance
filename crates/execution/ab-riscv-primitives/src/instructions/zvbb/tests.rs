@@ -685,3 +685,38 @@ fn masked_v0_data_source_is_reserved() {
         );
     }
 }
+
+#[test]
+fn masked_v0_destination_is_reserved() {
+    for (name, funct6, vs2, vs1, funct3) in [
+        ("vandn.vv", 0b00_0001, 1, 2, 0b000),
+        ("vandn.vx", 0b00_0001, 1, 2, 0b100),
+        ("vrol.vv", 0b01_0101, 1, 2, 0b000),
+        ("vrol.vx", 0b01_0101, 1, 2, 0b100),
+        ("vror.vv", 0b01_0100, 1, 2, 0b000),
+        ("vror.vx", 0b01_0100, 1, 2, 0b100),
+        ("vror.vi", 0b01_0100, 1, 2, 0b011),
+        ("vwsll.vv", 0b11_0101, 1, 2, 0b000),
+        ("vwsll.vx", 0b11_0101, 1, 2, 0b100),
+        ("vwsll.vi", 0b11_0101, 1, 2, 0b011),
+        ("vbrev.v", 0b01_0010, 1, 0b0_1010, 0b010),
+        ("vbrev8.v", 0b01_0010, 1, 0b0_1000, 0b010),
+        ("vrev8.v", 0b01_0010, 1, 0b0_1001, 0b010),
+        ("vclz.v", 0b01_0010, 1, 0b0_1100, 0b010),
+        ("vctz.v", 0b01_0010, 1, 0b0_1101, 0b010),
+        ("vcpop.v", 0b01_0010, 1, 0b0_1110, 0b010),
+    ] {
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 0);
+        assert_eq!(
+            ZvbbInstruction::<Reg<u64>>::try_decode(instruction),
+            None,
+            "{name}"
+        );
+        // Same instruction with `vd = v8`
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
+        assert!(
+            ZvbbInstruction::<Reg<u64>>::try_decode(instruction).is_some(),
+            "{name}"
+        );
+    }
+}

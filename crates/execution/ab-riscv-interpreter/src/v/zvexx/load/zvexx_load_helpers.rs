@@ -224,8 +224,8 @@ where
     Ok(())
 }
 
-/// Validate segment register layout: all `nf` field groups fit within `[0, 32)`, the base
-/// register is group-aligned, and the first field group does not include `v0` when masked.
+/// Validate segment register layout: all `nf` field groups fit within `[0, 32)` and the base
+/// register is group-aligned.
 ///
 /// Field `f` occupies registers `[vd + f * group_regs, vd + f * group_regs + group_regs)`.
 /// On `Ok`, `vd.to_bits() + nf * group_regs <= 32` is guaranteed.
@@ -235,7 +235,6 @@ where
 pub fn validate_segment_registers<Reg, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
-    vm: bool,
     group_regs: VRegGroupSize,
     nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
@@ -250,15 +249,6 @@ where
     // Per spec, `NFIELDS * EMUL` must not exceed 8 for segment loads/stores, regardless of whether
     // the field groups would otherwise fit within the 32 vector registers
     if !aligned || nf * group_regs > 8 || vd_idx + nf * group_regs > 32 {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    // When masked, no field group may contain v0 (index 0). Since groups are laid out
-    // contiguously from vd and vd is group-aligned, only the first field (f=0) could contain
-    // v0, which happens exactly when vd == 0.
-    if !vm && vd_idx == 0 {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
@@ -308,7 +298,6 @@ where
 /// - `vl <= group_regs * VLEN.bytes() / eew.bytes()` (all `vl` elements fit within the destination
 ///   register group; this holds when `vl` is the architectural `vl` and `group_regs` is the EMUL
 ///   register count for the given `eew` and `vtype`)
-/// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -459,7 +448,6 @@ where
 /// - `vd.to_bits() % group_regs == 0`
 /// - `vd.to_bits() + nf * group_regs <= 32`
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -551,7 +539,6 @@ where
 ///   fit within the register file; satisfied when `vs2` is alignment-checked against `EMUL_index`
 ///   and `vl` is the architectural `vl` bounded by `VLMAX`)
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]

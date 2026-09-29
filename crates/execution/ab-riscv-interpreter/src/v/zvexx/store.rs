@@ -189,8 +189,6 @@ where
                 // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: `group_regs` is the EMUL
                 //   computed for this `eew` and `vtype`, so this VLMAX equals the architectural
                 //   VLMAX that bounds `vl`
-                // - vs3/v0 overlap: stores read vs3 as a source; the spec does not restrict
-                //   source/v0 overlap
                 unsafe {
                     zvexx_store_helpers::execute_unit_stride_store(
                         env,
@@ -323,7 +321,6 @@ where
                 // - `vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()`:
                 //   `eew_register_count` returns the EMUL for the index group, which by the same
                 //   argument bounds `vl`
-                // - vs3/v0 overlap: stores read vs3 as a source; no restriction
                 unsafe {
                     zvexx_store_helpers::execute_indexed_store(
                         env,
@@ -459,7 +456,6 @@ where
                 // - `validate_segment_store_registers` guarantees `vs3 % group_regs == 0` and `vs3
                 //   + nf * group_regs <= 32`
                 // - `vl <= group_regs * VLEN.bytes() / eew.bytes()`: same EMUL argument as `Vse`
-                // - vs3/v0 overlap: stores read vs3 as a source; no restriction
                 unsafe {
                     zvexx_store_helpers::execute_unit_stride_store(
                         env,
@@ -594,7 +590,6 @@ where
                 // - `validate_segment_store_registers` covers `vs3` alignment/bounds
                 // - `check_register_group_alignment` covers `vs2` alignment/bounds
                 // - `vl` bounded by both EMUL groups as in `Vsuxei`
-                // - vs3/v0 overlap: stores read vs3 as a source; no restriction
                 unsafe {
                     zvexx_store_helpers::execute_indexed_store(
                         env,

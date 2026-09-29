@@ -77,11 +77,8 @@ where
     Ok(())
 }
 
-/// Validate a segment store's destination register group.
-///
-/// Like [`validate_segment_registers`] but omits the v0-overlap check, since
-/// segment stores read `vs3` as a source and the source/v0 overlap restriction
-/// applies only to load destinations.
+/// Validate a segment store's source register layout: all `nf` field groups fit within `[0, 32)`
+/// and the base register is group-aligned.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -128,7 +125,6 @@ where
 /// - `vl <= group_regs * VLEN.bytes() / eew.bytes()` (all `vl` elements fit within the source
 ///   register group; this holds when `vl` is the architectural `vl` and `group_regs` is the EMUL
 ///   register count for the given `eew` and `vtype`)
-/// - When `vm=false`: `vs3` does not overlap `v0` (i.e. `vs3.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -236,7 +232,6 @@ where
 /// - `vs3.to_bits() % group_regs == 0`
 /// - `vs3.to_bits() + nf * group_regs <= 32`
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
@@ -312,7 +307,6 @@ where
 /// - `vs2` register group is aligned and fits within `[0, 32)` (caller must verify via
 ///   `check_register_group_alignment` before calling)
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]

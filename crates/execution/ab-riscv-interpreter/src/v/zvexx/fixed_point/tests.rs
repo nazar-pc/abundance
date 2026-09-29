@@ -1910,24 +1910,6 @@ fn vsaddu_masked_skips_inactive_elements() {
 }
 
 #[test]
-fn vsaddu_masked_vd_overlap_v0_illegal() {
-    let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    // vd = v0 with vm=false is illegal
-    let result = exec(
-        &mut state,
-        ZveXxFixedPointInstruction::VsadduVv {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vs1: VReg::V1,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
 fn vssrl_masked_only_active_written() {
     let mut state = setup_with_vxrm(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1, Vxrm::Rdn);
     for i in 0..4usize {

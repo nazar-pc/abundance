@@ -1385,27 +1385,6 @@ fn error_vs2_misaligned_for_m2() {
 }
 
 #[test]
-fn error_masked_arith_vd_is_v0() {
-    // vm=false with vd=v0 is illegal for arithmetic (not compare)
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxArithInstruction::VaddVv {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vs1: VReg::V4,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
-}
-
-#[test]
 fn error_vector_not_allowed_compare() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     state.env.set_vector_allowed(false);

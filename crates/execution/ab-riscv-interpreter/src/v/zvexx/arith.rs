@@ -82,17 +82,9 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above; `vl <= VLMAX = group_regs * VLEN.bytes() /
-                // sew_bytes`; masked vd != v0 checked above.
+                // sew_bytes`.
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
@@ -140,14 +132,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above; scalar source has no register constraints
@@ -193,14 +177,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // Sign-extend imm to u64 so wrapping_add works correctly for all SEW
                 let scalar = i64::from(imm).cast_unsigned();
@@ -253,14 +229,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -310,14 +278,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
@@ -368,14 +328,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // vrsub: result = src - vs2[i]
@@ -422,14 +374,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
@@ -481,14 +425,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -538,14 +474,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
@@ -591,14 +519,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
@@ -650,14 +570,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -707,14 +619,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
@@ -760,14 +664,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
@@ -819,14 +715,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -876,14 +764,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
@@ -929,14 +809,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
                 // SAFETY: alignment checked above
@@ -988,14 +860,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1046,14 +910,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
@@ -1099,14 +955,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // Immediate is already unsigned 5-bit; mask to log2(SEW) here too
                 let shamt = u64::from(uimm) & u64::from(sew.bits_width() - 1);
@@ -1159,14 +1007,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1221,14 +1061,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
@@ -1278,14 +1110,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let shamt = u64::from(uimm) & u64::from(sew.bits_width() - 1);
                 // SAFETY: alignment checked above
@@ -1337,14 +1161,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1398,14 +1214,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
                 // SAFETY: alignment checked above
@@ -1455,14 +1263,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let shamt = u64::from(uimm) & u64::from(sew.bits_width() - 1);
                 // SAFETY: alignment checked above
@@ -1517,14 +1317,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1577,14 +1369,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
@@ -1638,14 +1422,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1703,14 +1479,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
@@ -1770,14 +1538,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1830,14 +1590,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above
@@ -1891,14 +1643,6 @@ where
                     vs1,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 // SAFETY: alignment checked above
                 unsafe {
@@ -1956,14 +1700,6 @@ where
                     vs2,
                     group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment checked above

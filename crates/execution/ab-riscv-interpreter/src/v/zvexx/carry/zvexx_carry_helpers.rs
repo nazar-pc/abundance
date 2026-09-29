@@ -36,7 +36,6 @@ pub(in super::super) unsafe fn carry_bit<const VLEN: Vlen>(
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
 /// - `src` register satisfies the same alignment (verified by caller)
-/// - `vd.to_bits() != 0` (vd must not overlap v0, which holds the carry-in)
 /// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]

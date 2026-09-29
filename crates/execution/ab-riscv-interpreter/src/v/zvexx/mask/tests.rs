@@ -946,26 +946,6 @@ fn vmsbf_vd_eq_vs2_illegal() {
     ));
 }
 
-/// vmsbf rejects vd == v0 when masked
-#[test]
-fn vmsbf_vd_eq_v0_masked_illegal() {
-    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxMaskInstruction::Vmsbf {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
-}
-
 /// Spec §16.4: vmsbf.m with vstart != 0 is a mandatory illegal instruction exception.
 #[test]
 fn vmsbf_nonzero_vstart_illegal() {
@@ -1048,26 +1028,6 @@ fn vmsof_vd_eq_vs2_illegal() {
             vd: VReg::V2,
             vs2: VReg::V2,
             vm: true,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
-}
-
-/// vmsof rejects vd == v0 when masked
-#[test]
-fn vmsof_vd_eq_v0_masked_illegal() {
-    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxMaskInstruction::Vmsof {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vm: false,
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
@@ -1222,26 +1182,6 @@ fn vmsif_vd_eq_vs2_illegal() {
             vd: VReg::V2,
             vs2: VReg::V2,
             vm: true,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
-}
-
-/// vmsif rejects vd == v0 when masked
-#[test]
-fn vmsif_vd_eq_v0_masked_illegal() {
-    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxMaskInstruction::Vmsif {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vm: false,
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
@@ -1503,26 +1443,6 @@ fn viota_vd_eq_vs2_illegal() {
     ));
 }
 
-/// viota rejects vd == v0 when masked
-#[test]
-fn viota_vd_eq_v0_masked_illegal() {
-    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxMaskInstruction::Viota {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
-}
-
 /// viota rejects misaligned vd for the current LMUL
 #[test]
 fn viota_misaligned_vd_illegal() {
@@ -1761,25 +1681,6 @@ fn vid_masked_inactive_undisturbed() {
             );
         }
     }
-}
-
-/// vid.v rejects vd == v0 when masked
-#[test]
-fn vid_vd_eq_v0_masked_illegal() {
-    let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxMaskInstruction::Vid {
-            vd: VReg::V0,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
 }
 
 /// vid.v rejects misaligned vd for the current LMUL

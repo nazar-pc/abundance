@@ -2036,27 +2036,6 @@ fn vd_unaligned_is_illegal() {
 }
 
 #[test]
-fn masked_vd_v0_is_illegal() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E32, Vlmul::M1);
-    // vm=false with vd=V0 is always illegal
-    let result = exec(
-        &mut state,
-        ZveXxMulDivInstruction::VmulVv {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vs1: VReg::V4,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
-}
-
-#[test]
 fn vmul_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {

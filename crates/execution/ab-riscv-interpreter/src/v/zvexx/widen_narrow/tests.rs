@@ -1816,57 +1816,6 @@ fn vzext_vf2_e8_illegal_sew_too_small() {
 
 // Illegal: vm=false and vd=v0
 
-#[test]
-fn vwaddu_vv_masked_vd_v0_illegal() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
-    // vd=V0 with vm=false is always illegal (vd overlaps mask register)
-    let result = exec(
-        &mut state,
-        ZveXxWidenNarrowInstruction::VwadduVv {
-            vd: VReg::V0,
-            vs2: VReg::V4,
-            vs1: VReg::V8,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
-fn vnsrl_masked_vd_v0_illegal() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxWidenNarrowInstruction::VnsrlWi {
-            vd: VReg::V0,
-            vs2: VReg::V4,
-            uimm: 0,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
-fn vzext_vf2_masked_vd_v0_illegal() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxWidenNarrowInstruction::VzextVf2 {
-            vd: VReg::V0,
-            vs2: VReg::V4,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
 // Illegal: vtype not set (vill)
 
 #[test]

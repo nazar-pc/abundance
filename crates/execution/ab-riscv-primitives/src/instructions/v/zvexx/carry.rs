@@ -99,6 +99,11 @@ where
         let funct6 = ((instruction >> 26) & 0b11_1111) as u8;
 
         let vd = VReg::from_bits(vd_bits)?;
+        // `vadc`/`vsbc` (even `funct6`) write regular elements while reading `v0` as carry/borrow
+        // input, `vmadc`/`vmsbc` write a mask
+        if vd.is_mask(vm == 1) && funct6.is_multiple_of(2) {
+            None?;
+        }
         let vs2 = VReg::from_bits(vs2_bits)?;
         if vs2.is_mask(vm == 1) {
             None?;
