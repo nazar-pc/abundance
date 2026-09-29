@@ -822,10 +822,11 @@ where
                     vs2,
                     group_regs,
                 )?;
-                // vs1 is a mask register; check it doesn't overlap vd
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
+                // vs1 is a single mask register, which must not be any register of the vd group
+                zvexx_perm_helpers::check_no_overlap_asymmetric::<Reg, _, _>(
                     program_counter,
                     vd,
+                    group_regs,
                     vs1,
                     VRegGroupSize::R1,
                 )?;

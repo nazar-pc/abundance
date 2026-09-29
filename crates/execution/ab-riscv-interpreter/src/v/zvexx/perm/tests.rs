@@ -2197,6 +2197,24 @@ fn vcompress_vm_vd_overlap_vs1_illegal() {
 }
 
 #[test]
+fn vcompress_vm_vs1_in_high_register_of_vd_illegal() {
+    // With LMUL=2, `vd = v2` is the group `{v2, v3}`, which contains the mask register `v3`
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M2);
+    let err = exec(
+        &mut state,
+        ZveXxPermInstruction::VcompressVm {
+            vd: VReg::V2,
+            vs2: VReg::V4,
+            vs1: VReg::V3,
+            rs1: Reg::Zero,
+            rs2: Reg::Zero,
+        },
+    )
+    .unwrap_err();
+    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+}
+
+#[test]
 fn vcompress_vm_rejects_nonzero_vstart() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
