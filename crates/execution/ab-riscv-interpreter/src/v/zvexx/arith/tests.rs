@@ -1,10 +1,12 @@
-use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
-use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
+use crate::rv64::test_utils::{Env, TestInterpreterState, initialize_state};
+use crate::v::vector_config::VectorConfig;
+use crate::v::vector_registers::{VectorRegisterFile, VectorRegisters, VectorRegistersExt};
 use crate::{
-    ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
-    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
+    CsrError, Csrs, ExecutableInstruction, ExecutableInstructionOperands, ExecutionError,
+    ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::cell::Cell;
 
 /// Encode a raw vtype value (vta=false, vma=false)
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
@@ -20,8 +22,9 @@ fn setup(
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.env.set_vtype(Some(vtype));
-    state.env.set_vl(vl);
+    state
+        .env
+        .set_vector_config(Some(VectorConfig::new(vtype, vl).unwrap()));
     state.env.set_vstart(Vstart::ZERO);
     state
 }
@@ -1322,8 +1325,7 @@ fn error_vill_set_vtype() {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     // vtype = None (vill set)
-    state.env.set_vtype(None);
-    state.env.set_vl(Vl::ZERO);
+    state.env.set_vector_config(None);
     let result = exec(
         &mut state,
         ZveXxArithInstruction::VaddVv {
@@ -1724,4 +1726,123 @@ fn compare_mask_dest_outside_source_group_lmul_gt_1_ok() {
     )
     .unwrap();
     assert_eq!(state.env.read_vregs().get(VReg::V8)[0], 0xFF);
+}
+
+// Inconsistent vector configuration
+
+#[test]
+fn vl_above_vlmax_in_raw_csr_is_treated_as_vill() {
+    // e64/m1: VLMAX = 4 with VLEN = 256. Host code writing a larger `vl` directly into CSR storage
+    // produces a state the architecture can't get into, which must not be executed with.
+    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
+    for vl in [5, 32, 65_536] {
+        Csrs::<Reg<u64>>::write_csr(&mut state.env, VectorCsr::Vl.to_csr_index(), vl).unwrap();
+        assert!(state.env.vector_config().is_none(), "vl={vl}");
+
+        let result = exec(
+            &mut state,
+            ZveXxArithInstruction::VaddVv {
+                vd: VReg::V31,
+                vs2: VReg::V31,
+                vs1: VReg::V31,
+                vm: true,
+                rs1: Reg::Zero,
+                rs2: Reg::Zero,
+            },
+        );
+        assert!(
+            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+            "vl={vl}"
+        );
+    }
+}
+
+/// Environment returning a different, but individually valid, vector configuration on every call
+/// to [`VectorRegistersExt::vector_config()`], which instructions must not be affected by
+struct AlternatingConfigEnv {
+    inner: Env,
+    configs: [VectorConfig<{ Elen::L64 }, { Vlen::L256 }>; 2],
+    calls: Cell<usize>,
+}
+
+impl Csrs<Reg<u64>> for AlternatingConfigEnv {
+    fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError> {
+        self.inner.read_csr(csr_index)
+    }
+
+    fn write_csr(&mut self, csr_index: u16, value: u64) -> Result<(), CsrError> {
+        self.inner.write_csr(csr_index, value)
+    }
+}
+
+impl VectorRegisters for AlternatingConfigEnv {
+    const ELEN: Elen = Elen::L64;
+    const VLEN: Vlen = Vlen::L256;
+
+    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
+        self.inner.read_vregs()
+    }
+
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
+        self.inner.write_vregs()
+    }
+
+    fn vector_instructions_allowed(&self) -> bool {
+        true
+    }
+
+    fn mark_vs_dirty(&mut self) {}
+}
+
+impl VectorRegistersExt<Reg<u64>> for AlternatingConfigEnv {
+    fn vector_config(&self) -> Option<VectorConfig<{ Self::ELEN }, { Self::VLEN }>> {
+        let calls = self.calls.get();
+        self.calls.set(calls + 1);
+        self.configs.get(calls % 2).copied()
+    }
+}
+
+#[test]
+fn instruction_uses_a_single_vector_config() {
+    let e64_m1 = Vtype::from_raw::<Reg<u64>>(encode_vtype(Vsew::E64, Vlmul::M1)).unwrap();
+    let e8_m8 = Vtype::from_raw::<Reg<u64>>(encode_vtype(Vsew::E8, Vlmul::M8)).unwrap();
+    let mut state = setup(Vl::ZERO, Vsew::E8, Vlmul::M1);
+    // `v31` fits `e64, m1` with `vl = 4`, but `vl = 256` of `e8, m8` would reach far past the end
+    // of the register file if the two were combined
+    let mut env = AlternatingConfigEnv {
+        inner: state.env,
+        configs: [
+            VectorConfig::new(e64_m1, Vl::new(4).unwrap()).unwrap(),
+            VectorConfig::new(e8_m8, Vl::new(256).unwrap()).unwrap(),
+        ],
+        calls: Cell::new(0),
+    };
+    for i in 0..4 {
+        env.write_vregs().get_mut(VReg::V31)[i * 8] = 1;
+    }
+
+    let result = ZveXxArithInstruction::VaddVv {
+        vd: VReg::V31,
+        vs2: VReg::V31,
+        vs1: VReg::V31,
+        vm: true,
+        rs1: Reg::Zero,
+        rs2: Reg::Zero,
+    }
+    .execute(
+        Rs1Rs2OperandValues {
+            rs1_value: 0,
+            rs2_value: 0,
+        },
+        &mut state.regs,
+        &mut env,
+        &mut state.memory,
+        &mut state.instruction_fetcher,
+    );
+
+    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_eq!(env.calls.get(), 1);
+    for i in 0..4 {
+        assert_eq!(env.read_vregs().get(VReg::V31)[i * 8], 2);
+    }
 }

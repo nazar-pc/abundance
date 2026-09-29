@@ -1,4 +1,5 @@
 use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::arith::zvexx_arith_helpers::sign_extend;
 use crate::{
@@ -20,8 +21,9 @@ fn setup(
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.env.set_vtype(Some(vtype));
-    state.env.set_vl(vl);
+    state
+        .env
+        .set_vector_config(Some(VectorConfig::new(vtype, vl).unwrap()));
     state.env.set_vstart(Vstart::ZERO);
     state
 }
@@ -2039,7 +2041,7 @@ fn vnclip_vector_not_allowed_faults() {
 #[test]
 fn vsaddu_vtype_none_faults() {
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    state.env.set_vtype(None);
+    state.env.set_vector_config(None);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
@@ -2057,7 +2059,7 @@ fn vsaddu_vtype_none_faults() {
 #[test]
 fn vssrl_vtype_none_faults() {
     let mut state = setup(Vl::new(1).unwrap(), Vsew::E8, Vlmul::M1);
-    state.env.set_vtype(None);
+    state.env.set_vector_config(None);
     let result = exec(
         &mut state,
         ZveXxFixedPointInstruction::VssrlVi {

@@ -1,5 +1,6 @@
 //! Opaque helpers for ZveXx extension
 
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
@@ -119,14 +120,15 @@ pub enum OpSrc {
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes` (all `vl` elements fit within the register
-///   group)
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0` (vd does not overlap v0)
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_arith_op<Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -146,16 +148,16 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
     unsafe {
         match sew {
             Vsew::E8 => {
-                execute_arith_op_const::<{ Vsew::E8 }, _, _, _>(env, vd, vs2, src, vm, op);
+                execute_arith_op_const::<{ Vsew::E8 }, _, _, _>(env, config, vd, vs2, src, vm, op);
             }
             Vsew::E16 => {
-                execute_arith_op_const::<{ Vsew::E16 }, _, _, _>(env, vd, vs2, src, vm, op);
+                execute_arith_op_const::<{ Vsew::E16 }, _, _, _>(env, config, vd, vs2, src, vm, op);
             }
             Vsew::E32 => {
-                execute_arith_op_const::<{ Vsew::E32 }, _, _, _>(env, vd, vs2, src, vm, op);
+                execute_arith_op_const::<{ Vsew::E32 }, _, _, _>(env, config, vd, vs2, src, vm, op);
             }
             Vsew::E64 => {
-                execute_arith_op_const::<{ Vsew::E64 }, _, _, _>(env, vd, vs2, src, vm, op);
+                execute_arith_op_const::<{ Vsew::E64 }, _, _, _>(env, config, vd, vs2, src, vm, op);
             }
         }
     }
@@ -169,6 +171,7 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -180,7 +183,7 @@ unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    let vl = env.vl();
+    let vl = config.vl().get();
     let vregs = env.write_vregs();
 
     for i in Vstart::ZERO.range_to(vl) {
@@ -225,13 +228,14 @@ unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
 /// # Safety
 /// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
 /// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
-/// - `vl <= VLEN` (so every element index fits within the mask register)
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_compare_op<Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -244,7 +248,7 @@ pub unsafe fn execute_compare_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> bool,
 {
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
     for i in Vstart::ZERO.range_to(vl) {

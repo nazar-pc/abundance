@@ -1,5 +1,6 @@
 //! Opaque helpers for ZveXx extension
 
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::load::zvexx_load_helpers::{
     access_wraps, bytes_before_wrap, check_register_group_alignment, effective_address, mask_bit,
@@ -234,7 +235,7 @@ where
 /// # Safety
 /// - `vs3.to_bits() % group_regs == 0`
 /// - `vs3.to_bits() + nf * group_regs <= 32`
-/// - `vl <= group_regs * VLEN.bytes() / eew.bytes()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -242,6 +243,7 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_strided_store<Reg, Env, Memory>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     memory: &mut Memory,
     vs3: VReg,
     vm: bool,
@@ -258,7 +260,7 @@ where
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = env.vl();
+    let vl = config.vl().get();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
@@ -309,8 +311,7 @@ where
 /// - `vs3.to_bits() + nf * data_group_regs <= 32`
 /// - `vs2` register group is aligned and fits within `[0, 32)` (caller must verify via
 ///   `check_register_group_alignment` before calling)
-/// - `vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()`
-/// - `vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()` (caller must verify)
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vs3.to_bits() != 0`
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -318,6 +319,7 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_indexed_store<Reg, Env, Memory>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     memory: &mut Memory,
     vs3: VReg,
     vs2: VReg,
@@ -335,7 +337,7 @@ where
     Memory: VirtualMemory,
 {
     let data_group_regs = data_group_regs.get();
-    let vl = env.vl();
+    let vl = config.vl().get();
     let vstart = env.vstart();
     let data_elem_bytes = data_eew.bytes_width();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);

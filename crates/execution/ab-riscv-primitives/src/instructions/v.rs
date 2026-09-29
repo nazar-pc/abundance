@@ -939,6 +939,13 @@ where
         self.vlmul.index_register_count(eew, self.vsew)
     }
 
+    /// `VLMAX = LMUL * VLEN / SEW`, which is at least 1 for any valid `vtype`
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn vlmax(&self) -> Vl {
+        self.vlmul.vlmax::<VLEN>(self.vsew)
+    }
+
     /// Decode from raw register value.
     ///
     /// The `XLEN` is taken from `Reg::XLEN` and must be 32 for RV32 or 64 for RV64. The `vill` bit

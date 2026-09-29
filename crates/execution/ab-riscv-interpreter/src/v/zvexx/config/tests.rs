@@ -1,4 +1,5 @@
 use crate::rv64::test_utils::{Env, execute, initialize_state};
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{Csrs, ExecutableInstructionCsr, RegisterFile};
 use ab_riscv_primitives::prelude::*;
@@ -44,9 +45,9 @@ fn vsetvli_sets_vl_and_rd_from_avl() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
-    assert!(state.env.vtype().is_some());
-    let vtype = state.env.vtype().unwrap();
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(3).unwrap());
+    let vtype = config.vtype();
     assert_eq!(vtype.vsew(), Vsew::E32);
     assert_eq!(vtype.vlmul(), Vlmul::M1);
 }
@@ -67,7 +68,8 @@ fn vsetvli_avl_exceeds_vlmax_caps_to_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 8);
-    assert_eq!(state.env.vl(), Vl::new(8).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(8).unwrap());
 }
 
 #[test]
@@ -87,7 +89,8 @@ fn vsetvli_avl_above_u32_caps_to_vlmax() {
         execute(&mut state).unwrap();
 
         assert_eq!(state.regs.read(Reg::A0), 8, "AVL {avl:#x}");
-        assert_eq!(state.env.vl(), Vl::new(8).unwrap(), "AVL {avl:#x}");
+        let config = state.env.vector_config().unwrap();
+        assert_eq!(config.vl().get(), Vl::new(8).unwrap(), "AVL {avl:#x}");
     }
 }
 
@@ -106,8 +109,8 @@ fn vsetvli_avl_zero_gives_vl_zero() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 0);
-    assert_eq!(state.env.vl(), Vl::ZERO);
-    assert!(state.env.vtype().is_some());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::ZERO);
 }
 
 #[test]
@@ -126,7 +129,8 @@ fn vsetvli_avl_equals_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 32);
-    assert_eq!(state.env.vl(), Vl::new(32).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(32).unwrap());
 }
 
 #[test]
@@ -146,7 +150,8 @@ fn vsetvli_rd_x0_discards_result() {
     // x0 always reads as 0
     assert_eq!(state.regs.read(Reg::Zero), 0);
     // vl still set correctly
-    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(3).unwrap());
 }
 
 // vsetvli SEW/LMUL combination tests
@@ -167,7 +172,8 @@ fn vsetvli_e8_m8_gives_max_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 256);
-    assert_eq!(state.env.vl(), Vl::new(256).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(256).unwrap());
 }
 
 #[test]
@@ -186,8 +192,9 @@ fn vsetvli_e64_m1() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 1);
-    assert_eq!(state.env.vl(), Vl::new(1).unwrap());
-    let vtype = state.env.vtype().unwrap();
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(1).unwrap());
+    let vtype = config.vtype();
     assert_eq!(vtype.vsew(), Vsew::E64);
 }
 
@@ -207,7 +214,8 @@ fn vsetvli_e32_mf2() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 4);
-    assert_eq!(state.env.vl(), Vl::new(4).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(4).unwrap());
 }
 
 #[test]
@@ -226,7 +234,8 @@ fn vsetvli_e8_mf8() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 1);
-    assert_eq!(state.env.vl(), Vl::new(1).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(1).unwrap());
 }
 
 // vsetvli with vta/vma flags
@@ -245,7 +254,8 @@ fn vsetvli_ta_ma_flags_preserved() {
 
     execute(&mut state).unwrap();
 
-    let vtype = state.env.vtype().unwrap();
+    let config = state.env.vector_config().unwrap();
+    let vtype = config.vtype();
     assert!(vtype.vta());
     assert!(vtype.vma());
     assert_eq!(vtype.vsew(), Vsew::E16);
@@ -266,7 +276,8 @@ fn vsetvli_tu_mu_flags_preserved() {
 
     execute(&mut state).unwrap();
 
-    let vtype = state.env.vtype().unwrap();
+    let config = state.env.vector_config().unwrap();
+    let vtype = config.vtype();
     assert!(!vtype.vta());
     assert!(!vtype.vma());
 }
@@ -288,8 +299,7 @@ fn vsetvli_unsupported_sew_sets_vill() {
 
     execute(&mut state).unwrap();
 
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -308,8 +318,7 @@ fn vsetvli_reserved_vlmul_sets_vill() {
 
     execute(&mut state).unwrap();
 
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -328,8 +337,7 @@ fn vsetvli_sew_above_fractional_lmul_times_elen_sets_vill() {
 
     execute(&mut state).unwrap();
 
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -348,8 +356,7 @@ fn vsetvli_reserved_upper_bits_set_vill() {
 
     execute(&mut state).unwrap();
 
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
 }
 
 // vsetvli rs1=x0 special cases
@@ -369,7 +376,8 @@ fn vsetvli_rs1_x0_rd_nonzero_sets_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 8);
-    assert_eq!(state.env.vl(), Vl::new(8).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(8).unwrap());
 }
 
 #[test]
@@ -387,7 +395,8 @@ fn vsetvli_rs1_x0_rd_nonzero_e8_m8_gives_full_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 256);
-    assert_eq!(state.env.vl(), Vl::new(256).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(256).unwrap());
 }
 
 #[test]
@@ -414,8 +423,9 @@ fn vsetvli_rs1_x0_rd_x0_keeps_vl_when_vlmax_unchanged() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
-    let vtype = state.env.vtype().unwrap();
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(3).unwrap());
+    let vtype = config.vtype();
     assert!(vtype.vta());
     assert!(vtype.vma());
     assert_eq!(vtype.vsew(), Vsew::E32);
@@ -445,8 +455,7 @@ fn vsetvli_rs1_x0_rd_x0_vill_when_vlmax_changes() {
 
     execute(&mut state).unwrap();
 
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
 }
 
 // vsetivli tests
@@ -467,8 +476,8 @@ fn vsetivli_basic() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
-    assert!(state.env.vtype().is_some());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(3).unwrap());
 }
 
 #[test]
@@ -486,8 +495,8 @@ fn vsetivli_avl_zero() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 0);
-    assert_eq!(state.env.vl(), Vl::ZERO);
-    assert!(state.env.vtype().is_some());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::ZERO);
 }
 
 #[test]
@@ -506,7 +515,8 @@ fn vsetivli_max_immediate() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 8);
-    assert_eq!(state.env.vl(), Vl::new(8).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(8).unwrap());
 }
 
 #[test]
@@ -525,7 +535,8 @@ fn vsetivli_avl_within_vlmax() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 20);
-    assert_eq!(state.env.vl(), Vl::new(20).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(20).unwrap());
 }
 
 #[test]
@@ -543,8 +554,7 @@ fn vsetivli_unsupported_sets_vill() {
 
     execute(&mut state).unwrap();
 
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -564,7 +574,8 @@ fn vsetivli_with_ta_ma() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 10);
-    let vtype = state.env.vtype().unwrap();
+    let config = state.env.vector_config().unwrap();
+    let vtype = config.vtype();
     assert!(vtype.vta());
     assert!(vtype.vma());
 }
@@ -587,9 +598,9 @@ fn vsetvl_basic() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 3);
-    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
-    assert!(state.env.vtype().is_some());
-    let vtype = state.env.vtype().unwrap();
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(3).unwrap());
+    let vtype = config.vtype();
     assert_eq!(vtype.vsew(), Vsew::E32);
     assert_eq!(vtype.vlmul(), Vlmul::M1);
 }
@@ -609,7 +620,8 @@ fn vsetvl_rs1_x0_rd_nonzero() {
     execute(&mut state).unwrap();
 
     assert_eq!(state.regs.read(Reg::A0), 4);
-    assert_eq!(state.env.vl(), Vl::new(4).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(4).unwrap());
 }
 
 #[test]
@@ -627,8 +639,7 @@ fn vsetvl_unsupported_raw_sets_vill() {
 
     execute(&mut state).unwrap();
 
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
     assert_eq!(state.regs.read(Reg::A0), 0);
 }
 
@@ -647,8 +658,7 @@ fn vsetvl_high_bits_in_rs2_sets_vill() {
 
     execute(&mut state).unwrap();
 
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
 }
 
 #[test]
@@ -667,12 +677,13 @@ fn vsetvl_context_restore_preserves_vtype() {
 
     execute(&mut state).unwrap();
 
-    let vtype = state.env.vtype().unwrap();
+    let config = state.env.vector_config().unwrap();
+    let vtype = config.vtype();
     assert_eq!(vtype.vsew(), Vsew::E16);
     assert_eq!(vtype.vlmul(), Vlmul::M4);
     assert!(vtype.vta());
     assert!(!vtype.vma());
-    assert_eq!(state.env.vl(), Vl::new(25).unwrap());
+    assert_eq!(config.vl().get(), Vl::new(25).unwrap());
 }
 
 // mark_vs_dirty tracking
@@ -1037,9 +1048,10 @@ fn sequential_vsetvli_overrides_previous() {
 
     // Second instruction should have taken effect
     // VLMAX = (256*2)/8 = 64, AVL = 10 -> vl = 10
-    assert_eq!(state.env.vl(), Vl::new(10).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(10).unwrap());
     assert_eq!(state.regs.read(Reg::A2), 10);
-    let vtype = state.env.vtype().unwrap();
+    let vtype = config.vtype();
     assert_eq!(vtype.vsew(), Vsew::E8);
     assert_eq!(vtype.vlmul(), Vlmul::M2);
     assert!(vtype.vta());
@@ -1070,8 +1082,8 @@ fn vsetvli_after_vill_recovers() {
 
     execute(&mut state).unwrap();
 
-    assert!(state.env.vtype().is_some());
-    assert_eq!(state.env.vl(), Vl::new(2).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(2).unwrap());
     assert_eq!(state.regs.read(Reg::A2), 2);
 }
 
@@ -1101,8 +1113,9 @@ fn vsetivli_followed_by_vsetvl_x0_x0() {
     execute(&mut state).unwrap();
 
     // vl should remain 5
-    assert_eq!(state.env.vl(), Vl::new(5).unwrap());
-    let vtype = state.env.vtype().unwrap();
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(5).unwrap());
+    let vtype = config.vtype();
     assert!(vtype.vta());
     assert!(vtype.vma());
     assert_eq!(vtype.vsew(), Vsew::E16);
@@ -1125,7 +1138,8 @@ fn vsetvli_large_avl_in_register() {
 
     execute(&mut state).unwrap();
 
-    assert_eq!(state.env.vl(), Vl::new(8).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(8).unwrap());
     assert_eq!(state.regs.read(Reg::A0), 8);
 }
 
@@ -1143,8 +1157,7 @@ fn vsetvl_all_bits_set_in_rs2_sets_vill() {
     execute(&mut state).unwrap();
 
     // All bits set means upper bits non-zero -> vill
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
 }
 
 // Vlmul::vlmax unit tests
@@ -1368,7 +1381,12 @@ fn ext_initialize_vector_state() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
     // Dirty it up
-    state.env.set_vl(Vl::new(42).unwrap());
+    let vtype =
+        Vtype::from_raw::<Reg<u64>>(u64::from(encode_vtype(Vsew::E8, Vlmul::M1, false, false)))
+            .unwrap();
+    state.env.set_vector_config(Some(
+        VectorConfig::new(vtype, Vl::new(12).unwrap()).unwrap(),
+    ));
     VectorRegistersExt::<Reg<u64>>::set_vstart(&mut state.env, Vstart::from(7));
     VectorRegistersExt::<Reg<u64>>::set_vxrm(&mut state.env, Vxrm::Rne);
     VectorRegistersExt::<Reg<u64>>::set_vxsat(&mut state.env, true);
@@ -1376,8 +1394,7 @@ fn ext_initialize_vector_state() {
     // Reset
     state.env.init_vector_csrs();
 
-    assert!(state.env.vtype().is_none());
-    assert_eq!(state.env.vl(), Vl::ZERO);
+    assert_eq!(state.env.vector_config(), None);
     assert_eq!(
         VectorRegistersExt::<Reg<u64>>::vstart(&state.env),
         Vstart::ZERO

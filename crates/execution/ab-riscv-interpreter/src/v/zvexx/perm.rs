@@ -59,7 +59,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -67,6 +67,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 // SAFETY: element 0 is always within register vs2, byte offset 0;
                 // VLEN.bytes() >= sew.bytes() for all legal vtype configurations.
@@ -91,7 +92,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -99,8 +100,9 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl().get();
                 // Per spec §16.1: update only when `vstart < vl`, and `vstart` is zero here
                 if vl != Vl::ZERO {
                     let scalar = rs1_value.as_i64().cast_unsigned();
@@ -130,7 +132,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -138,6 +140,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -168,7 +171,7 @@ where
                 let offset = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified above; vl <= VLMAX.
                 unsafe {
-                    zvexx_perm_helpers::execute_slideup(env, vd, vs2, vm, sew, offset);
+                    zvexx_perm_helpers::execute_slideup(env, config, vd, vs2, vm, sew, offset);
                 }
             }
             // vslideup.vi vd, vs2, uimm, vm
@@ -182,7 +185,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -190,6 +193,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -219,7 +223,7 @@ where
                 let offset = u64::from(uimm);
                 // SAFETY: same as VslideupVx.
                 unsafe {
-                    zvexx_perm_helpers::execute_slideup(env, vd, vs2, vm, sew, offset);
+                    zvexx_perm_helpers::execute_slideup(env, config, vd, vs2, vm, sew, offset);
                 }
             }
             // vslidedown.vx vd, vs2, rs1: _, vm
@@ -239,7 +243,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -247,6 +251,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -267,11 +272,13 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 let offset = rs1_value.as_u64();
                 // SAFETY: alignment verified above; vl <= VLMAX; offset clamped in helper.
                 unsafe {
-                    zvexx_perm_helpers::execute_slidedown(env, vd, vs2, vm, sew, vlmax, offset);
+                    zvexx_perm_helpers::execute_slidedown(
+                        env, config, vd, vs2, vm, sew, vlmax, offset,
+                    );
                 }
             }
             // vslidedown.vi vd, vs2, uimm, vm
@@ -285,7 +292,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -293,6 +300,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -313,11 +321,13 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 let offset = u64::from(uimm);
                 // SAFETY: same as VslidedownVx.
                 unsafe {
-                    zvexx_perm_helpers::execute_slidedown(env, vd, vs2, vm, sew, vlmax, offset);
+                    zvexx_perm_helpers::execute_slidedown(
+                        env, config, vd, vs2, vm, sew, vlmax, offset,
+                    );
                 }
             }
             // vslide1up.vx vd, vs2, rs1: _, vm
@@ -338,7 +348,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -346,6 +356,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -375,7 +386,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
                 unsafe {
-                    zvexx_perm_helpers::execute_slide1up(env, vd, vs2, vm, sew, scalar);
+                    zvexx_perm_helpers::execute_slide1up(env, config, vd, vs2, vm, sew, scalar);
                 }
             }
             // vslide1down.vx vd, vs2, rs1: _, vm
@@ -396,7 +407,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -404,6 +415,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -427,7 +439,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment verified; vl <= VLMAX; overlap permitted by spec.
                 unsafe {
-                    zvexx_perm_helpers::execute_slide1down(env, vd, vs2, vm, sew, scalar);
+                    zvexx_perm_helpers::execute_slide1down(env, config, vd, vs2, vm, sew, scalar);
                 }
             }
             // vrgather.vv vd, vs2, vs1, vm
@@ -442,7 +454,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -450,6 +462,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -487,10 +500,12 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 // SAFETY: all alignment and overlap constraints verified above; vl <= VLMAX.
                 unsafe {
-                    zvexx_perm_helpers::execute_rgather_vv(env, vd, vs2, vs1, vm, sew, vlmax);
+                    zvexx_perm_helpers::execute_rgather_vv(
+                        env, config, vd, vs2, vs1, vm, sew, vlmax,
+                    );
                 }
             }
             // vrgather.vx vd, vs2, rs1: _, vm
@@ -510,7 +525,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -518,6 +533,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -544,11 +560,13 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 let index = rs1_value.as_u64();
                 // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
                 unsafe {
-                    zvexx_perm_helpers::execute_rgather_scalar(env, vd, vs2, vm, sew, vlmax, index);
+                    zvexx_perm_helpers::execute_rgather_scalar(
+                        env, config, vd, vs2, vm, sew, vlmax, index,
+                    );
                 }
             }
             // vrgather.vi vd, vs2, uimm, vm
@@ -562,7 +580,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -570,6 +588,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -596,11 +615,13 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 let index = u64::from(uimm);
                 // SAFETY: same as VrgatherVx.
                 unsafe {
-                    zvexx_perm_helpers::execute_rgather_scalar(env, vd, vs2, vm, sew, vlmax, index);
+                    zvexx_perm_helpers::execute_rgather_scalar(
+                        env, config, vd, vs2, vm, sew, vlmax, index,
+                    );
                 }
             }
             // vrgatherei16.vv vd, vs2, vs1, vm
@@ -616,7 +637,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -624,6 +645,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -686,12 +708,13 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vlmax = env.vlmax_for_vtype(vtype);
+                let vlmax = vtype.vlmax();
                 // SAFETY: all alignment and overlap constraints verified; vl <= VLMAX;
                 // vs1 uses EEW=16 with computed index_group_regs.
                 unsafe {
                     zvexx_perm_helpers::execute_rgatherei16(
                         env,
+                        config,
                         vd,
                         vs2,
                         vs1,
@@ -717,7 +740,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -725,6 +748,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -753,7 +777,7 @@ where
                 let sew = vtype.vsew();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
-                    zvexx_perm_helpers::execute_merge_vv(env, vd, vs2, vs1, vm, sew);
+                    zvexx_perm_helpers::execute_merge_vv(env, config, vd, vs2, vs1, vm, sew);
                 }
             }
             // vmerge.vxm / vmv.v.x
@@ -773,7 +797,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -781,6 +805,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -804,7 +829,7 @@ where
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
-                    zvexx_perm_helpers::execute_merge_scalar(env, vd, vs2, vm, sew, scalar);
+                    zvexx_perm_helpers::execute_merge_scalar(env, config, vd, vs2, vm, sew, scalar);
                 }
             }
             // vmerge.vim / vmv.v.i
@@ -819,7 +844,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -827,6 +852,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -851,7 +877,7 @@ where
                 let scalar = i64::from(simm5).cast_unsigned();
                 // SAFETY: alignment and overlap verified above; vl <= VLMAX.
                 unsafe {
-                    zvexx_perm_helpers::execute_merge_scalar(env, vd, vs2, vm, sew, scalar);
+                    zvexx_perm_helpers::execute_merge_scalar(env, config, vd, vs2, vm, sew, scalar);
                 }
             }
             // vcompress.vm vd, vs2, vs1
@@ -867,7 +893,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -875,6 +901,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -909,7 +936,7 @@ where
                     1,
                 )?;
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl().get();
                 unsafe {
                     zvexx_perm_helpers::execute_compress(env, vd, vs2, vs1, vl, sew);
                 }
@@ -927,7 +954,7 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                if env.vector_config().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -954,7 +981,7 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                if env.vector_config().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -987,7 +1014,7 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                if env.vector_config().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1020,7 +1047,7 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                if env.vector_config().is_none() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

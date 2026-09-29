@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VLENB_USIZE, VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, VirtualMemoryError};
@@ -295,8 +296,9 @@ where
 /// `base + i * nf * eew.bytes() + f * eew.bytes()`. When `nf == 1` this degenerates to a
 /// plain unit-stride load.
 ///
-/// When `fault_only_first` is set: a memory error at element `i > 0` truncates `vl` to `i`
-/// and returns `Ok`. An error at element `0` always propagates.
+/// When `fault_only_first` is set to the configuration the instruction executes with: a memory
+/// error at element `i > 0` truncates `vl` to `i` and returns `Ok`. An error at element `0` always
+/// propagates.
 ///
 /// `vl` is the number of elements to process, the architectural `vl` for regular loads.
 ///
@@ -311,7 +313,7 @@ where
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_unit_stride_load<const FAULT_ONLY_FIRST: bool, Reg, Env, Memory>(
+pub unsafe fn execute_unit_stride_load<Reg, Env, Memory>(
     env: &mut Env,
     memory: &Memory,
     vd: VReg,
@@ -321,6 +323,7 @@ pub unsafe fn execute_unit_stride_load<const FAULT_ONLY_FIRST: bool, Reg, Env, M
     group_regs: VRegGroupSize,
     nf: Nf,
     vl: Vl,
+    fault_only_first: Option<VectorConfig<{ Env::ELEN }, { Env::VLEN }>>,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -398,8 +401,10 @@ where
                 }
                 Err(mem_err) => {
                     cold_path();
-                    if FAULT_ONLY_FIRST && i > 0 {
-                        env.set_vl(Vl::from(i));
+                    if let Some(config) = fault_only_first
+                        && i > 0
+                    {
+                        env.set_vector_config(Some(config.with_vl_at_most(Vl::from(i))));
                         env.mark_vs_dirty();
                         env.reset_vstart();
                         return Ok(());
@@ -453,7 +458,7 @@ where
 /// # Safety
 /// - `vd.to_bits() % group_regs == 0`
 /// - `vd.to_bits() + nf * group_regs <= 32`
-/// - `vl <= group_regs * VLEN.bytes() / eew.bytes()`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -461,6 +466,7 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_strided_load<Reg, Env, Memory>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     memory: &Memory,
     vd: VReg,
     vm: bool,
@@ -477,7 +483,7 @@ where
     Memory: VirtualMemory,
 {
     let group_regs = group_regs.get();
-    let vl = env.vl();
+    let vl = config.vl().get();
     let vstart = env.vstart();
     let elem_bytes = eew.bytes_width();
 
@@ -544,8 +550,7 @@ where
 /// - `vs2.to_bits() + (vl - 1) / (VLEN.bytes() / index_eew.bytes()) < 32` (all `vl` index elements
 ///   fit within the register file; satisfied when `vs2` is alignment-checked against `EMUL_index`
 ///   and `vl` is the architectural `vl` bounded by `VLMAX`)
-/// - `vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()` (all `vl` elements fit in a data
-///   group)
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd` does not overlap `v0` (i.e. `vd.to_bits() != 0`)
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -553,6 +558,7 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_indexed_load<Reg, Env, Memory>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     memory: &Memory,
     vd: VReg,
     vs2: VReg,
@@ -570,7 +576,7 @@ where
     Memory: VirtualMemory,
 {
     let data_group_regs = data_group_regs.get();
-    let vl = env.vl();
+    let vl = config.vl().get();
     let vstart = env.vstart();
     let index_base_reg = vs2;
 

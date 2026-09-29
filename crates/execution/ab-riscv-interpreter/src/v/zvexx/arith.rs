@@ -57,7 +57,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -65,6 +65,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -95,6 +96,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -118,7 +120,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -126,6 +128,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -151,6 +154,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -169,7 +173,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -177,6 +181,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -203,6 +208,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -222,7 +228,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -230,6 +236,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -259,6 +266,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -282,7 +290,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -290,6 +298,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -315,6 +324,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -338,7 +348,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -346,6 +356,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -372,6 +383,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -390,7 +402,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -398,6 +410,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -423,6 +436,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -442,7 +456,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -450,6 +464,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -479,6 +494,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -502,7 +518,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -510,6 +526,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -535,6 +552,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -553,7 +571,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -561,6 +579,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -586,6 +605,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -605,7 +625,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -613,6 +633,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -642,6 +663,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -665,7 +687,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -673,6 +695,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -698,6 +721,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -716,7 +740,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -724,6 +748,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -749,6 +774,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -768,7 +794,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -776,6 +802,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -805,6 +832,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -828,7 +856,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -836,6 +864,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -861,6 +890,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -879,7 +909,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -887,6 +917,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -912,6 +943,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -931,7 +963,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -939,6 +971,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -968,6 +1001,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -992,7 +1026,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1000,6 +1034,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1025,6 +1060,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1043,7 +1079,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1051,6 +1087,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1077,6 +1114,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(shamt),
@@ -1096,7 +1134,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1104,6 +1142,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1133,6 +1172,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1161,7 +1201,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1169,6 +1209,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1194,6 +1235,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1216,7 +1258,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1224,6 +1266,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1249,6 +1292,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(shamt),
@@ -1268,7 +1312,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1276,6 +1320,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1305,6 +1350,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1332,7 +1378,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1340,6 +1386,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1365,6 +1412,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1387,7 +1435,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1395,6 +1443,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1420,6 +1469,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(shamt),
@@ -1442,7 +1492,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1450,6 +1500,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1479,6 +1530,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1505,7 +1557,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1513,6 +1565,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1538,6 +1591,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1559,7 +1613,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1567,6 +1621,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1596,6 +1651,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1627,7 +1683,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1635,6 +1691,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1660,6 +1717,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1687,7 +1745,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1695,6 +1753,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1724,6 +1783,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1750,7 +1810,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1758,6 +1818,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1783,6 +1844,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1804,7 +1866,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1812,6 +1874,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1841,6 +1904,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1872,7 +1936,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1880,6 +1944,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1905,6 +1970,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -1932,7 +1998,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1940,6 +2006,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1970,6 +2037,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -1996,7 +2064,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2004,6 +2072,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2022,6 +2091,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2043,7 +2113,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2051,6 +2121,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2069,6 +2140,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2091,7 +2163,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2099,6 +2171,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2127,6 +2200,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2153,7 +2227,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2161,6 +2235,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2179,6 +2254,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2200,7 +2276,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2208,6 +2284,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2226,6 +2303,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2248,7 +2326,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2256,6 +2334,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2284,6 +2363,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2310,7 +2390,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2318,6 +2398,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2336,6 +2417,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2358,7 +2440,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2366,6 +2448,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2394,6 +2477,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2420,7 +2504,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2428,6 +2512,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2446,6 +2531,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2468,7 +2554,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2476,6 +2562,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2504,6 +2591,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2530,7 +2618,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2538,6 +2626,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2556,6 +2645,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2577,7 +2667,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2585,6 +2675,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2610,6 +2701,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2632,7 +2724,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2640,6 +2732,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2668,6 +2761,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Vreg(vs1),
@@ -2694,7 +2788,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2702,6 +2796,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2720,6 +2815,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2741,7 +2837,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2749,6 +2845,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2767,6 +2864,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2794,7 +2892,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2802,6 +2900,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2820,6 +2919,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2841,7 +2941,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2849,6 +2949,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2867,6 +2968,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2894,7 +2996,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2902,6 +3004,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2920,6 +3023,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),
@@ -2941,7 +3045,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2949,6 +3053,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2967,6 +3072,7 @@ where
                 unsafe {
                     zvexx_arith_helpers::execute_compare_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_arith_helpers::OpSrc::Scalar(scalar),

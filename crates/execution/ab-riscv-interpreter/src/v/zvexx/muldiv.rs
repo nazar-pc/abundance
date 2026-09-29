@@ -59,7 +59,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -67,6 +67,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -96,6 +97,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -119,7 +121,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -127,6 +129,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -152,6 +155,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -171,7 +175,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -179,6 +183,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
                 // extension includes them; the arithmetic itself is width-complete because the
                 // 2*SEW product is formed in i128/u128
@@ -219,6 +224,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -242,7 +248,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -250,6 +256,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
                 // extension includes them; the arithmetic itself is width-complete because the
                 // 2*SEW product is formed in i128/u128
@@ -286,6 +293,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -305,7 +313,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -313,6 +321,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
                 // extension includes them; the arithmetic itself is width-complete because the
                 // 2*SEW product is formed in i128/u128
@@ -353,6 +362,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -376,7 +386,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -384,6 +394,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
                 // extension includes them; the arithmetic itself is width-complete because the
                 // 2*SEW product is formed in i128/u128
@@ -420,6 +431,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -439,7 +451,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -447,6 +459,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
                 // extension includes them; the arithmetic itself is width-complete because the
                 // 2*SEW product is formed in i128/u128
@@ -487,6 +500,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -511,7 +525,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -519,6 +533,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Zve64x excludes the high-half multiplies at SEW=64 (spec §18.2). The full "V"
                 // extension includes them; the arithmetic itself is width-complete because the
                 // 2*SEW product is formed in i128/u128
@@ -556,6 +571,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -576,7 +592,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -584,6 +600,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -613,6 +630,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -642,7 +660,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -650,6 +668,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -675,6 +694,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -699,7 +719,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -707,6 +727,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -736,6 +757,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -759,7 +781,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -767,6 +789,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -792,6 +815,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -811,7 +835,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -819,6 +843,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -848,6 +873,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -881,7 +907,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -889,6 +915,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -914,6 +941,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -942,7 +970,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -950,6 +978,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -979,6 +1008,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -1002,7 +1032,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1010,6 +1040,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1035,6 +1066,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_arith_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -1054,7 +1086,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1062,6 +1094,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -1124,6 +1157,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -1150,7 +1184,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1158,6 +1192,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -1207,6 +1242,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -1229,7 +1265,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1237,6 +1273,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -1297,6 +1334,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -1325,7 +1363,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1333,6 +1371,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -1383,6 +1422,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -1406,7 +1446,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1414,6 +1454,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -1474,6 +1515,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs1),
@@ -1502,7 +1544,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1510,6 +1552,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -1560,6 +1603,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_op(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_muldiv_helpers::OpSrc::Scalar(scalar),
@@ -1583,7 +1627,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1591,6 +1635,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1620,6 +1665,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_muladd_op(
                         env,
+                        config,
                         vd,
                         vs1,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -1644,7 +1690,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1652,6 +1698,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1677,6 +1724,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_muladd_scalar_op(
                         env,
+                        config,
                         vd,
                         scalar,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -1696,7 +1744,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1704,6 +1752,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1733,6 +1782,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_muladd_op(
                         env,
+                        config,
                         vd,
                         vs1,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -1757,7 +1807,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1765,6 +1815,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1790,6 +1841,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_muladd_scalar_op(
                         env,
+                        config,
                         vd,
                         scalar,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -1809,7 +1861,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1817,6 +1869,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1846,6 +1899,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_muladd_op(
                         env,
+                        config,
                         vd,
                         vs1,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -1870,7 +1924,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1878,6 +1932,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1903,6 +1958,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_muladd_scalar_op(
                         env,
+                        config,
                         vd,
                         scalar,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -1923,7 +1979,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1931,6 +1987,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -1960,6 +2017,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_muladd_op(
                         env,
+                        config,
                         vd,
                         vs1,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -1984,7 +2042,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1992,6 +2050,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_muldiv_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -2017,6 +2076,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_muladd_scalar_op(
                         env,
+                        config,
                         vd,
                         scalar,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -2037,7 +2097,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2045,6 +2105,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -2108,6 +2169,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_op(
                         env,
+                        config,
                         vd,
                         vs1,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -2135,7 +2197,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2143,6 +2205,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -2194,6 +2257,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         env,
+                        config,
                         vd,
                         scalar,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -2216,7 +2280,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2224,6 +2288,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -2286,6 +2351,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_op(
                         env,
+                        config,
                         vd,
                         vs1,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -2314,7 +2380,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2322,6 +2388,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -2373,6 +2440,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         env,
+                        config,
                         vd,
                         scalar,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -2396,7 +2464,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2404,6 +2472,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -2466,6 +2535,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_op(
                         env,
+                        config,
                         vd,
                         vs1,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -2494,7 +2564,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2502,6 +2572,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -2554,6 +2625,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         env,
+                        config,
                         vd,
                         scalar,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),
@@ -2585,7 +2657,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2593,6 +2665,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
                 let Some(sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
@@ -2645,6 +2718,7 @@ where
                 unsafe {
                     zvexx_muldiv_helpers::execute_widening_muladd_scalar_op(
                         env,
+                        config,
                         vd,
                         scalar,
                         zvexx_muldiv_helpers::OpSrc::Vreg(vs2),

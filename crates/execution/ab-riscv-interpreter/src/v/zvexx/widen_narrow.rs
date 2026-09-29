@@ -62,7 +62,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -70,6 +70,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 // Widening requires SEW < 64; 2*SEW must fit in ELEN=64
                 let group_regs = vtype.vlmul().register_count();
@@ -120,6 +121,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -144,7 +146,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -152,6 +154,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -198,6 +201,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -217,7 +221,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -225,6 +229,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -274,6 +279,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -298,7 +304,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -306,6 +312,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -356,6 +363,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -375,7 +383,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -383,6 +391,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -432,6 +441,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -456,7 +466,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -464,6 +474,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -509,6 +520,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -528,7 +540,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -536,6 +548,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -585,6 +598,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -609,7 +623,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -617,6 +631,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -666,6 +681,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -685,7 +701,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -693,6 +709,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -751,6 +768,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -775,7 +793,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -783,6 +801,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
@@ -825,6 +844,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -844,7 +864,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -852,6 +872,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -909,6 +930,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -933,7 +955,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -941,6 +963,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
@@ -986,6 +1009,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1005,7 +1029,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1013,6 +1037,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -1070,6 +1095,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -1094,7 +1120,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1102,6 +1128,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
@@ -1143,6 +1170,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1162,7 +1190,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1170,6 +1198,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -1227,6 +1256,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -1251,7 +1281,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1259,6 +1289,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
@@ -1304,6 +1335,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1323,7 +1355,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1331,6 +1363,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 // SEW must be < 64 so that 2*SEW fits in ELEN
                 let group_regs = vtype.vlmul().register_count();
@@ -1388,6 +1421,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -1411,7 +1445,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1419,6 +1453,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -1463,6 +1498,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1481,7 +1517,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1489,6 +1525,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -1532,6 +1569,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
@@ -1550,7 +1588,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1558,6 +1596,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -1614,6 +1653,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
@@ -1637,7 +1677,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1645,6 +1685,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -1689,6 +1730,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
@@ -1707,7 +1749,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1715,6 +1757,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let group_regs = vtype.vlmul().register_count();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
@@ -1758,6 +1801,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
@@ -1776,7 +1820,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1784,6 +1828,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F2)
                 else {
@@ -1819,6 +1864,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         vm,
@@ -1836,7 +1882,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1844,6 +1890,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F4)
                 else {
@@ -1879,6 +1926,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         vm,
@@ -1896,7 +1944,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1904,6 +1952,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F8)
                 else {
@@ -1939,6 +1988,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         vm,
@@ -1956,7 +2006,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1964,6 +2014,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F2)
                 else {
@@ -1999,6 +2050,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         vm,
@@ -2016,7 +2068,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2024,6 +2076,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F4)
                 else {
@@ -2059,6 +2112,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         vm,
@@ -2076,7 +2130,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2084,6 +2138,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let sew = vtype.vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F8)
                 else {
@@ -2119,6 +2174,7 @@ where
                 unsafe {
                     zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
                         env,
+                        config,
                         vd,
                         vs2,
                         vm,

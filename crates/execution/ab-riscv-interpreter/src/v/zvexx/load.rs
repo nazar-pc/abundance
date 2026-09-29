@@ -101,7 +101,7 @@ where
                 //   exactly
                 // - unmasked
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load(
                         env,
                         memory,
                         vd,
@@ -111,6 +111,7 @@ where
                         nreg,
                         Nf::N1,
                         vl,
+                        None,
                     )?;
                 }
             }
@@ -126,32 +127,22 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // `evl = ceil(vl / 8)` elements with `EEW = 8`
-                let vl = Vl::from(env.vl().bytes());
-                // Not within a single register only with `vl` above `VLEN`, which is an
-                // inconsistent vector state
-                if u32::from(vl) > Env::VLEN.bytes() {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
+                let vl = Vl::from(config.vl().bytes());
                 // SAFETY:
                 // - a single register is always aligned and within the register file
-                // - `evl <= VLEN.bytes()` checked above
+                // - `evl <= VLEN.bytes()` since `vl <= VLEN`
                 // - unmasked
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load(
                         env,
                         memory,
                         vd,
@@ -161,6 +152,7 @@ where
                         VRegGroupSize::R1,
                         Nf::N1,
                         vl,
+                        None,
                     )?;
                 }
             }
@@ -184,7 +176,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -192,6 +184,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs =
                     vtype
                         .eew_register_count(eew)
@@ -220,7 +213,7 @@ where
                         ),
                     });
                 }
-                let vl = env.vl();
+                let vl = config.vl().get();
                 // SAFETY:
                 // - alignment: `check_register_group_alignment` verified `vd % group_regs == 0` and
                 //   `vd + group_regs <= 32`, satisfying both the alignment and nf=1 bounds
@@ -230,7 +223,7 @@ where
                 //   VLMAX that bounds `vl`
                 // - mask overlap: checked above via `groups_overlap`
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load(
                         env,
                         memory,
                         vd,
@@ -240,6 +233,7 @@ where
                         group_regs,
                         Nf::N1,
                         vl,
+                        None,
                     )?;
                 }
             }
@@ -259,7 +253,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -267,6 +261,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs =
                     vtype
                         .eew_register_count(eew)
@@ -295,10 +290,10 @@ where
                         ),
                     });
                 }
-                let vl = env.vl();
+                let vl = config.vl().get();
                 // SAFETY: preconditions identical to `Vle`; see that arm for the full argument.
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<true, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load(
                         env,
                         memory,
                         vd,
@@ -308,6 +303,7 @@ where
                         group_regs,
                         Nf::N1,
                         vl,
+                        Some(config),
                     )?;
                 }
             }
@@ -328,7 +324,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -336,6 +332,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs =
                     vtype
                         .eew_register_count(eew)
@@ -376,6 +373,7 @@ where
                 unsafe {
                     zvexx_load_helpers::execute_strided_load(
                         env,
+                        config,
                         memory,
                         vd,
                         vm,
@@ -405,7 +403,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -413,6 +411,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let data_group_regs = vtype.vlmul().register_count();
                 let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
                     ExecutionError::IllegalInstruction {
@@ -480,6 +479,7 @@ where
                 unsafe {
                     zvexx_load_helpers::execute_indexed_load(
                         env,
+                        config,
                         memory,
                         vd,
                         vs2,
@@ -510,7 +510,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -518,6 +518,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let data_group_regs = vtype.vlmul().register_count();
                 let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
                     ExecutionError::IllegalInstruction {
@@ -574,6 +575,7 @@ where
                 unsafe {
                     zvexx_load_helpers::execute_indexed_load(
                         env,
+                        config,
                         memory,
                         vd,
                         vs2,
@@ -604,7 +606,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -612,6 +614,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs =
                     vtype
                         .eew_register_count(eew)
@@ -627,7 +630,7 @@ where
                     group_regs,
                     nf,
                 )?;
-                let vl = env.vl();
+                let vl = config.vl().get();
                 // SAFETY:
                 // - alignment and nf-group bounds: `validate_segment_registers` verified `vd %
                 //   group_regs == 0` and `vd + nf * group_regs <= 32`
@@ -637,7 +640,7 @@ where
                 // - mask overlap with v0: `validate_segment_registers` checked `vd.to_bits() != 0`
                 //   when `vm=false`, ensuring no field group contains v0
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<false, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load(
                         env,
                         memory,
                         vd,
@@ -647,6 +650,7 @@ where
                         group_regs,
                         nf,
                         vl,
+                        None,
                     )?;
                 }
             }
@@ -668,7 +672,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -676,6 +680,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs =
                     vtype
                         .eew_register_count(eew)
@@ -691,10 +696,10 @@ where
                     group_regs,
                     nf,
                 )?;
-                let vl = env.vl();
+                let vl = config.vl().get();
                 // SAFETY: preconditions identical to `Vlseg`; see that arm for the full argument.
                 unsafe {
-                    zvexx_load_helpers::execute_unit_stride_load::<true, _, _, _>(
+                    zvexx_load_helpers::execute_unit_stride_load(
                         env,
                         memory,
                         vd,
@@ -704,6 +709,7 @@ where
                         group_regs,
                         nf,
                         vl,
+                        Some(config),
                     )?;
                 }
             }
@@ -726,7 +732,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -734,6 +740,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs =
                     vtype
                         .eew_register_count(eew)
@@ -760,6 +767,7 @@ where
                 unsafe {
                     zvexx_load_helpers::execute_strided_load(
                         env,
+                        config,
                         memory,
                         vd,
                         vm,
@@ -790,7 +798,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -798,6 +806,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let data_group_regs = vtype.vlmul().register_count();
                 let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
                     ExecutionError::IllegalInstruction {
@@ -859,6 +868,7 @@ where
                 unsafe {
                     zvexx_load_helpers::execute_indexed_load(
                         env,
+                        config,
                         memory,
                         vd,
                         vs2,
@@ -891,7 +901,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -899,6 +909,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let data_group_regs = vtype.vlmul().register_count();
                 let index_group_regs = vtype.eew_register_count(index_eew).ok_or(
                     ExecutionError::IllegalInstruction {
@@ -946,6 +957,7 @@ where
                 unsafe {
                     zvexx_load_helpers::execute_indexed_load(
                         env,
+                        config,
                         memory,
                         vd,
                         vs2,

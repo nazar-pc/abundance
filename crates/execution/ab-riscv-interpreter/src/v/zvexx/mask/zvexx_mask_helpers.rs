@@ -1,5 +1,6 @@
 //! Opaque helpers for ZveXx extension
 
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::VectorRegistersExt;
 use crate::v::zvexx::arith::zvexx_arith_helpers::write_mask_bit;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
@@ -20,6 +21,7 @@ use ab_riscv_primitives::prelude::*;
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
@@ -30,7 +32,7 @@ pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(bool, bool) -> bool,
 {
-    let vl = env.vl();
+    let vl = config.vl().get();
     // Snapshot both sources before writing to handle vd overlapping vs2 or vs1
     let vs2_snap = *env.read_vregs().get(vs2);
     let vs1_snap = *env.read_vregs().get(vs1);
@@ -54,19 +56,24 @@ pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
 /// `0..vl` that are active under the mask.
 ///
 /// # Safety
-/// - `vl <= VLEN`
+/// - `config.vl().get() <= VLMAX <= VLEN`
 ///
 /// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vcpop<Reg, Env>(env: &mut Env, vs2: VReg, vm: bool) -> Reg::Type
+pub unsafe fn execute_vcpop<Reg, Env>(
+    env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
+    vs2: VReg,
+    vm: bool,
+) -> Reg::Type
 where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_reg = *env.read_vregs().get(vs2);
     let mut count = 0u32;
@@ -85,25 +92,30 @@ where
 }
 
 /// Execute `vfirst.m`: find the index of the first set bit in vs2 for active elements
-/// `Vstart::ZERO.range_to(vl)`, write result (or -1 if none) to `rd`.
+/// `0..vl`, write result (or -1 if none) to `rd`.
 ///
 /// Per spec §16.3: `rd` receives the element index of the lowest-numbered active set bit, or
 /// `-1` (all-ones) if no active element of vs2 is set.
 ///
 /// # Safety
-/// - `vl <= VLEN`
+/// - `config.vl().get() <= VLMAX <= VLEN`
 ///
 /// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vfirst<Reg, Env>(env: &mut Env, vs2: VReg, vm: bool) -> Reg::Type
+pub unsafe fn execute_vfirst<Reg, Env>(
+    env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
+    vs2: VReg,
+    vm: bool,
+) -> Reg::Type
 where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_reg = *env.read_vregs().get(vs2);
     // -1 encoded as all-ones for the register width; `Into<u64>` on XLEN-wide type then back
@@ -312,18 +324,22 @@ pub unsafe fn execute_viota<Reg, Env>(
 /// # Safety
 /// - `vm=false` implies `vd != v0` (checked by caller)
 /// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (checked by caller)
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
-/// - `vl <= VLEN`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vid<Reg, Env>(env: &mut Env, vd: VReg, vm: bool, sew: Vsew)
-where
+pub unsafe fn execute_vid<Reg, Env>(
+    env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
+    vd: VReg,
+    vm: bool,
+    sew: Vsew,
+) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {

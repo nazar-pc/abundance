@@ -60,19 +60,27 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
-                // SAFETY: all VReg values are valid indices < 32; `vl <= VLEN` is an architectural
-                // invariant; snapshot-before-write inside the helper means vd may overlap vs2 or
-                // vs1 safely.
+                };
+                // SAFETY: all VReg values are valid indices < 32 and `config.vl().get() <= VLMAX <=
+                // VLEN`, so every mask bit is within a register;
+                // snapshot-before-write inside the helper means vd may overlap vs2
+                // or vs1 safely.
                 unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(env, vd, vs2, vs1, |a, b| a && !b);
+                    zvexx_mask_helpers::execute_mask_logical_op(
+                        env,
+                        config,
+                        vd,
+                        vs2,
+                        vs1,
+                        |a, b| a && !b,
+                    );
                 }
             }
             Self::Vmand { vd, vs2, vs1 } => {
@@ -84,17 +92,24 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // SAFETY: see `Vmandn`
                 unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(env, vd, vs2, vs1, |a, b| a & b);
+                    zvexx_mask_helpers::execute_mask_logical_op(
+                        env,
+                        config,
+                        vd,
+                        vs2,
+                        vs1,
+                        |a, b| a & b,
+                    );
                 }
             }
             Self::Vmor { vd, vs2, vs1 } => {
@@ -106,17 +121,24 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // SAFETY: see `Vmandn`
                 unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(env, vd, vs2, vs1, |a, b| a | b);
+                    zvexx_mask_helpers::execute_mask_logical_op(
+                        env,
+                        config,
+                        vd,
+                        vs2,
+                        vs1,
+                        |a, b| a | b,
+                    );
                 }
             }
             Self::Vmxor { vd, vs2, vs1 } => {
@@ -128,17 +150,24 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // SAFETY: see `Vmandn`
                 unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(env, vd, vs2, vs1, |a, b| a ^ b);
+                    zvexx_mask_helpers::execute_mask_logical_op(
+                        env,
+                        config,
+                        vd,
+                        vs2,
+                        vs1,
+                        |a, b| a ^ b,
+                    );
                 }
             }
             Self::Vmorn { vd, vs2, vs1 } => {
@@ -150,17 +179,24 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // SAFETY: see `Vmandn`
                 unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(env, vd, vs2, vs1, |a, b| a || !b);
+                    zvexx_mask_helpers::execute_mask_logical_op(
+                        env,
+                        config,
+                        vd,
+                        vs2,
+                        vs1,
+                        |a, b| a || !b,
+                    );
                 }
             }
             Self::Vmnand { vd, vs2, vs1 } => {
@@ -172,17 +208,24 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // SAFETY: see `Vmandn`
                 unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(env, vd, vs2, vs1, |a, b| !(a & b));
+                    zvexx_mask_helpers::execute_mask_logical_op(
+                        env,
+                        config,
+                        vd,
+                        vs2,
+                        vs1,
+                        |a, b| !(a & b),
+                    );
                 }
             }
             Self::Vmnor { vd, vs2, vs1 } => {
@@ -194,17 +237,24 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // SAFETY: see `Vmandn`
                 unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(env, vd, vs2, vs1, |a, b| !(a | b));
+                    zvexx_mask_helpers::execute_mask_logical_op(
+                        env,
+                        config,
+                        vd,
+                        vs2,
+                        vs1,
+                        |a, b| !(a | b),
+                    );
                 }
             }
             Self::Vmxnor { vd, vs2, vs1 } => {
@@ -216,17 +266,24 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // SAFETY: see `Vmandn`
                 unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(env, vd, vs2, vs1, |a, b| !(a ^ b));
+                    zvexx_mask_helpers::execute_mask_logical_op(
+                        env,
+                        config,
+                        vd,
+                        vs2,
+                        vs1,
+                        |a, b| !(a ^ b),
+                    );
                 }
             }
             // vcpop.m (§16.2): count set bits in vs2 over active elements, write to GPR rd.
@@ -240,16 +297,16 @@ where
                     });
                 }
                 // vcpop/vfirst require a valid vtype to know vl, but do not use SEW.
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
-                // SAFETY: `vl <= VLMAX <= VLEN`
-                let rd_value = unsafe { zvexx_mask_helpers::execute_vcpop(env, vs2, vm) };
+                };
+                // SAFETY: `config.vl().get() <= VLMAX <= VLEN`
+                let rd_value = unsafe { zvexx_mask_helpers::execute_vcpop(env, config, vs2, vm) };
 
                 return ExecutionResult::Continue {
                     rd,
@@ -266,16 +323,16 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // SAFETY: same as `Vcpop`
-                let rd_value = unsafe { zvexx_mask_helpers::execute_vfirst(env, vs2, vm) };
+                let rd_value = unsafe { zvexx_mask_helpers::execute_vfirst(env, config, vs2, vm) };
 
                 return ExecutionResult::Continue {
                     rd,
@@ -293,14 +350,14 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 // Per spec §16.4: vd must not overlap vs2
                 if vd == vs2 {
                     ::core::hint::cold_path();
@@ -318,7 +375,7 @@ where
                         ),
                     });
                 }
-                let vl = env.vl();
+                let vl = config.vl().get();
                 // SAFETY: `vd != vs2` checked above; `vd != v0` when masked checked above;
                 // `vstart == 0` checked above; `vl <= VLEN`.
                 unsafe {
@@ -336,14 +393,14 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 if vd == vs2 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -360,7 +417,7 @@ where
                         ),
                     });
                 }
-                let vl = env.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vmsbf`
                 unsafe {
                     zvexx_mask_helpers::execute_vmsof(env, vd, vs2, vm, vl);
@@ -377,14 +434,14 @@ where
                         ),
                     });
                 }
-                if env.vtype().is_none() {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
                             program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
                         ),
                     });
-                }
+                };
                 if vd == vs2 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -401,7 +458,7 @@ where
                         ),
                     });
                 }
-                let vl = env.vl();
+                let vl = config.vl().get();
                 // SAFETY: see `Vmsbf`
                 unsafe {
                     zvexx_mask_helpers::execute_vmsif(env, vd, vs2, vm, vl);
@@ -422,7 +479,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -430,6 +487,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 if !vd.is_group_aligned(group_regs) || vd.to_bits() + group_regs.get() > 32 {
                     ::core::hint::cold_path();
@@ -459,7 +517,7 @@ where
                     });
                 }
                 let sew = vtype.vsew();
-                let vl = env.vl();
+                let vl = config.vl().get();
                 // SAFETY: vd alignment checked above; vd group does not overlap vs2 checked above;
                 // `vm=false` implies `vd != v0` checked above; vstart == 0 checked above;
                 // `vl <= VLMAX = group_regs * VLEN.bytes() / sew_bytes`, all element indices valid.
@@ -478,7 +536,7 @@ where
                         ),
                     });
                 }
-                let Some(vtype) = env.vtype() else {
+                let Some(config) = env.vector_config() else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -486,6 +544,7 @@ where
                         ),
                     });
                 };
+                let vtype = config.vtype();
                 let group_regs = vtype.vlmul().register_count();
                 if !vd.is_group_aligned(group_regs) || vd.to_bits() + group_regs.get() > 32 {
                     ::core::hint::cold_path();
@@ -507,7 +566,7 @@ where
                 // SAFETY: vd alignment checked above; `vm=false` implies `vd != v0` checked above;
                 // `vl <= VLMAX = group_regs * VLEN.bytes() / sew_bytes`, all element indices valid.
                 unsafe {
-                    zvexx_mask_helpers::execute_vid(env, vd, vm, sew);
+                    zvexx_mask_helpers::execute_vid(env, config, vd, vm, sew);
                 }
             }
         }

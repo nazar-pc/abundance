@@ -2,6 +2,7 @@ use crate::basic::{BasicInstructionFetcher, BasicMemory, BasicRegisters};
 use crate::rv64::test_utils::{
     Env, TEST_BASE_ADDR, TRAP_ADDRESS, TestInterpreterState, initialize_state,
 };
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegisters, VectorRegistersExt};
 use crate::{
     BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutableInstructionOperands, ExecutionError,
@@ -140,8 +141,9 @@ fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxLoadInst
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.env.set_vtype(Some(vtype));
-    state.env.set_vl(vl);
+    state
+        .env
+        .set_vector_config(Some(VectorConfig::new(vtype, vl).unwrap()));
     state.env.set_vstart(Vstart::ZERO);
     state
 }
@@ -762,7 +764,7 @@ fn vlm_honors_vstart_in_byte_units() {
 fn vlm_with_vill_is_illegal() {
     // `vlm.v` depends on vtype indirectly through its constraints on vl, so it respects vill
     let mut state = setup(Vl::new(3).unwrap(), Vsew::E8, Vlmul::M1);
-    state.env.set_vtype(None);
+    state.env.set_vector_config(None);
     write_mem(&mut state, TEST_BASE_ADDR, &[0x07u8]);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
@@ -1131,7 +1133,8 @@ fn vleff_no_fault_behaves_like_vle() {
     assert_eq!(reg[2], 3);
     assert_eq!(reg[3], 4);
     // vl unchanged
-    assert_eq!(state.env.vl(), Vl::new(4).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(4).unwrap());
     assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
 
@@ -1154,7 +1157,8 @@ fn vleff_fault_at_i0_traps() {
     .unwrap_err();
     assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
     // vl must not be modified on a trapped fault
-    assert_eq!(state.env.vl(), Vl::new(4).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(4).unwrap());
 }
 
 #[test]
@@ -1183,7 +1187,8 @@ fn vleff_fault_at_i1_truncates_vl_to_1() {
     // Element 0 was loaded
     assert_eq!(vreg_bytes(&state, VReg::V1)[0..4], [0xAA, 0xBB, 0xCC, 0xDD]);
     // vl truncated to 1 (fault at element 1)
-    assert_eq!(state.env.vl(), Vl::new(1).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(1).unwrap());
     assert_eq!(state.env.vs_dirty_count(), 1);
     assert_eq!(state.env.vstart(), Vstart::ZERO);
 }
@@ -1212,7 +1217,8 @@ fn vleff_fault_at_i2_truncates_vl_to_2() {
 
     assert_eq!(vreg_byte(&state, VReg::V3, 0), 0x11);
     assert_eq!(vreg_byte(&state, VReg::V3, 1), 0x22);
-    assert_eq!(state.env.vl(), Vl::new(2).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(2).unwrap());
 }
 
 // `Vlse` tests
@@ -1913,7 +1919,8 @@ fn vlsegff_no_fault_loads_all_segments() {
     assert_eq!(vreg_byte(&state, VReg::V3, 1), 4);
     assert_eq!(vreg_byte(&state, VReg::V2, 2), 5);
     assert_eq!(vreg_byte(&state, VReg::V3, 2), 6);
-    assert_eq!(state.env.vl(), Vl::new(3).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(3).unwrap());
 }
 
 #[test]
@@ -1943,7 +1950,8 @@ fn vlsegff_fault_at_segment_1_truncates_vl() {
     assert_eq!(vreg_byte(&state, VReg::V4, 0), 0xAA);
     assert_eq!(vreg_byte(&state, VReg::V5, 0), 0xBB);
     // vl truncated to 1 (fault at element index 1)
-    assert_eq!(state.env.vl(), Vl::new(1).unwrap());
+    let config = state.env.vector_config().unwrap();
+    assert_eq!(config.vl().get(), Vl::new(1).unwrap());
 }
 
 // `Vlsseg` tests

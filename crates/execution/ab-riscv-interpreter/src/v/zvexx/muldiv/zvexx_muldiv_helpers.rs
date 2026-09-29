@@ -1,5 +1,6 @@
 //! Opaque helpers for ZveXx extension
 
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::VectorRegistersExt;
 pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
     OpSrc, check_vreg_group_alignment, sew_mask, sign_extend,
@@ -72,13 +73,15 @@ where
 ///
 /// # Safety
 /// - `vd` and source register alignment verified by caller
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_arith_op<Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -91,7 +94,7 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -121,13 +124,15 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
 /// # Safety
 /// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
 ///   and non-overlap verified by caller
-/// - `vl <= src_group_regs * VLEN.bytes() / sew_bytes`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_widening_op<Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     vs2: VReg,
     src: OpSrc,
@@ -142,7 +147,7 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
 {
     let wide_sew = sew.wide();
     let sew = sew.narrow();
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -173,13 +178,15 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
 ///
 /// # Safety
 /// - `vd`, `a_reg`, and `src` register alignment verified by caller
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
+/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 /// - When `vm=false`: `vd.to_bits() != 0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_muladd_op<Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     a_reg: VReg,
     src: OpSrc,
@@ -192,7 +199,7 @@ pub unsafe fn execute_muladd_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -225,8 +232,10 @@ pub unsafe fn execute_muladd_op<Reg, Env, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     scalar: u64,
     src: OpSrc,
@@ -239,7 +248,7 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -275,8 +284,10 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     a_reg: VReg,
     src: OpSrc,
@@ -291,7 +302,7 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
 {
     let wide_sew = sew.wide();
     let sew = sew.narrow();
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {
@@ -326,8 +337,10 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+#[expect(clippy::too_many_arguments, reason = "Internal API")]
 pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
     env: &mut Env,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
     scalar: u64,
     src: OpSrc,
@@ -342,7 +355,7 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
 {
     let wide_sew = sew.wide();
     let sew = sew.narrow();
-    let vl = env.vl();
+    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     for i in Vstart::ZERO.range_to(vl) {
         if !mask_bit(&mask_buf, i) {

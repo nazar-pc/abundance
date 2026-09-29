@@ -155,10 +155,9 @@ struct Env {
     vxrm: Vxrm,
     /// `vxsat` and `vxrm` in the one CSR that shadows both
     vcsr: u64,
-    /// How many elements vector instructions currently operate on
-    vl: Vl,
-    /// How those elements are currently interpreted, `None` while the configuration is invalid
-    vtype: Option<Vtype<{ Elen::L64 }, { Vlen::L512 }>>,
+    /// How many elements vector instructions currently operate on and how they are interpreted,
+    /// `None` while the configuration is invalid
+    vector_config: Option<VectorConfig<{ Elen::L64 }, { Vlen::L512 }>>,
 }
 
 impl Default for Env {
@@ -171,8 +170,7 @@ impl Default for Env {
             vxsat: false,
             vxrm: Vxrm::default(),
             vcsr: 0,
-            vl: Vl::ZERO,
-            vtype: None,
+            vector_config: None,
         }
     }
 }
@@ -187,9 +185,11 @@ impl Csrs<Reg<u64>> for Env {
             VectorCsr::Vxsat => u64::from(self.vxsat),
             VectorCsr::Vxrm => u64::from(self.vxrm.to_bits()),
             VectorCsr::Vcsr => self.vcsr,
-            VectorCsr::Vl => u64::from(self.vl),
-            VectorCsr::Vtype => match self.vtype {
-                Some(vtype) => vtype.to_raw::<Reg<u64>>(),
+            VectorCsr::Vl => self
+                .vector_config
+                .map_or(0, |vector_config| u64::from(vector_config.vl().get())),
+            VectorCsr::Vtype => match self.vector_config {
+                Some(vector_config) => vector_config.vtype().to_raw::<Reg<u64>>(),
                 None => Vtype::<{ Elen::L64 }, { Vlen::L512 }>::illegal_raw::<Reg<u64>>(),
             },
             VectorCsr::Vlenb => u64::from(Self::VLEN.bytes()),
@@ -213,11 +213,10 @@ impl Csrs<Reg<u64>> for Env {
             VectorCsr::Vcsr => {
                 self.vcsr = value;
             }
-            VectorCsr::Vl => {
-                self.vl = Vl::new(value.truncate::<u32>()).unwrap_or_default();
-            }
-            VectorCsr::Vtype => {
-                self.vtype = Vtype::from_raw::<Reg<u64>>(value);
+            VectorCsr::Vl | VectorCsr::Vtype => {
+                cold_path();
+                // Only ever changed through `set_vector_config()`
+                return Err(CsrError::ReadOnly { csr_index });
             }
             VectorCsr::Vlenb => {
                 cold_path();
@@ -296,23 +295,16 @@ impl VectorRegistersExt<Reg<u64>> for Env {
     }
 
     #[inline(always)]
-    fn vl(&self) -> Vl {
-        self.vl
+    fn vector_config(&self) -> Option<VectorConfig<{ Self::ELEN }, { Self::VLEN }>> {
+        self.vector_config
     }
 
     #[inline(always)]
-    fn set_vl(&mut self, vl: Vl) {
-        self.vl = vl;
-    }
-
-    #[inline(always)]
-    fn vtype(&self) -> Option<Vtype<{ Self::ELEN }, { Self::VLEN }>> {
-        self.vtype
-    }
-
-    #[inline(always)]
-    fn set_vtype(&mut self, vtype: Option<Vtype<{ Self::ELEN }, { Self::VLEN }>>) {
-        self.vtype = vtype;
+    fn set_vector_config(
+        &mut self,
+        vector_config: Option<VectorConfig<{ Self::ELEN }, { Self::VLEN }>>,
+    ) {
+        self.vector_config = vector_config;
     }
 }
 

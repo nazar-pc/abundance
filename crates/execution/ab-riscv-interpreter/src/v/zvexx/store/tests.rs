@@ -1,4 +1,5 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
+use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::load::tests::{
     WRAP_AROUND_HIGH_ADDR, WrapAroundMemory, Zve32Env, execute_with_memory,
@@ -24,8 +25,9 @@ fn setup(
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
-    state.env.set_vtype(Some(vtype));
-    state.env.set_vl(vl);
+    state
+        .env
+        .set_vector_config(Some(VectorConfig::new(vtype, vl).unwrap()));
     state.env.set_vstart(Vstart::ZERO);
     state
 }
@@ -296,8 +298,7 @@ fn vsr_ignores_vtype_and_vl() {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     // Leave vtype as illegal (default)
-    state.env.set_vtype(None);
-    state.env.set_vl(Vl::ZERO);
+    state.env.set_vector_config(None);
     let data = array::from_fn::<_, 16, _>(|i| i as u8 + 0xAA);
     set_vreg(&mut state, VReg::V0, &data);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
@@ -575,7 +576,7 @@ fn vsm_vector_not_allowed_returns_illegal_instruction() {
 fn vsm_with_vill_is_illegal() {
     // `vsm.v` depends on vtype indirectly through its constraints on vl, so it respects vill
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
-    state.env.set_vtype(None);
+    state.env.set_vector_config(None);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     let result = exec_one(
@@ -870,7 +871,7 @@ fn vse_masked_vs3_equals_v0_is_legal() {
 fn vse_vtype_illegal_returns_illegal_instruction() {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
-    state.env.set_vtype(None);
+    state.env.set_vector_config(None);
     state.regs.write(Reg::A0, TEST_BASE_ADDR);
 
     let result = exec_one(
