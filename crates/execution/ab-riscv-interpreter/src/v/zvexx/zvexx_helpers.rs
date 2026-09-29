@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::v::vector_registers::VectorRegistersExt;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
@@ -12,6 +13,24 @@ use core::hint::cold_path;
 /// All instructions here are the same size.
 #[doc(hidden)]
 pub const INSTRUCTION_SIZE: u8 = size_of::<u32>() as u8;
+
+/// Whether a vector instruction other than a load, a store or `vset{i}vl{i}` can execute.
+///
+/// Besides vector instructions being enabled, this requires `vstart` to be zero. These
+/// instructions either complete or trap without modifying any state, so a non-zero `vstart` is a
+/// value this implementation never produces for them, which permits raising an illegal instruction
+/// exception for it (`norm:vstart_vtype_dep`). Reductions, `vcompress.vm` and several mask
+/// instructions require that regardless.
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn non_memory_instruction_allowed<Reg, Env>(env: &Env) -> bool
+where
+    Reg: Register,
+    Env: VectorRegistersExt<Reg>,
+{
+    env.vector_instructions_allowed() && env.vstart() == Vstart::ZERO
+}
 
 /// Check that two source register groups `[a, a + a_regs)` and `[b, b + b_regs)`, read with
 /// different EEWs, do not overlap.

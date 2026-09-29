@@ -59,6 +59,24 @@ fn exec(
     Ok(())
 }
 
+/// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
+/// `state` without modifying any vector state
+fn assert_rejects_nonzero_vstart(
+    state: &mut TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>,
+    instr: ZveXxArithInstruction<Reg<u64>>,
+) {
+    let vstart = state.env.vstart();
+    assert_ne!(vstart, Vstart::ZERO);
+    let vregs = *state.env.read_vregs().as_bytes();
+    let result = exec(state, instr);
+    assert!(
+        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        "{instr}: {result:?}"
+    );
+    assert_eq!(state.env.vstart(), vstart, "{instr}");
+    assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
+}
+
 /// Write bytes into a vector register
 fn set_vreg(
     state: &mut TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>,
@@ -1198,10 +1216,10 @@ fn compare_can_write_to_v0_when_masked() {
     assert!(!mask_bit(&state, VReg::V0, 1));
 }
 
-// vstart partial execution
+// Non-zero vstart
 
 #[test]
-fn vstart_skips_elements_before_vstart() {
+fn nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 1);
@@ -1209,9 +1227,8 @@ fn vstart_skips_elements_before_vstart() {
         // Pre-fill vd: sentinel 0xDEAD
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xDEAD);
     }
-    // Start at element 2: elements 0,1 should remain as sentinel
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxArithInstruction::VaddVv {
             vd: VReg::V4,
@@ -1221,22 +1238,11 @@ fn vstart_skips_elements_before_vstart() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // skipped
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xDEAD);
-    // skipped
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xDEAD);
-    // executed
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 2);
-    // executed
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 2);
-    // vstart must be reset to 0
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 #[test]
-fn vstart_skips_elements_before_vstart_compare() {
+fn nonzero_vstart_is_illegal_compare() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, i as u64);
@@ -1245,7 +1251,7 @@ fn vstart_skips_elements_before_vstart_compare() {
     // Pre-fill vd bits with 0
     state.env.write_vregs().get_mut(VReg::V4)[0] = 0x00;
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxArithInstruction::VmseqVv {
             vd: VReg::V4,
@@ -1255,12 +1261,7 @@ fn vstart_skips_elements_before_vstart_compare() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Bits 0,1 undisturbed (0); bits 2,3 written (eq = 1)
-    let vd = state.env.read_vregs().get(VReg::V4)[0];
-    assert_eq!(vd & 0x0F, 0b1100);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 // vl=0: no writes, dirty still incremented

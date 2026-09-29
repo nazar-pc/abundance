@@ -61,7 +61,7 @@ where
         match self {
             // vclmul: vd[i] = lower SEW bits of clmul(vs2[i], vs1[i])
             Self::VclmulVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -130,7 +130,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -191,7 +191,7 @@ where
             }
             // vclmulh: vd[i] = upper SEW bits of clmul(vs2[i], vs1[i])
             Self::VclmulhVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -260,7 +260,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

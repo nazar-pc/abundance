@@ -104,6 +104,9 @@
 //! * Zve64x extension instructions are purposefully restricted to what it is required to be capable
 //!   of, although it would be cheaper to support the fuller feature set only required by V
 //!   extension
+//! * vector instructions other than loads, stores and `vset{i}vl{i}` only accept a zero `vstart`
+//!   and raise an illegal instruction exception otherwise, since they never trap partway through,
+//!   so a non-zero `vstart` is a value this implementation never produces for them
 //!
 //! ### Instruction implementations are assembled, not compiled in place
 //!

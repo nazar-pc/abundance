@@ -63,7 +63,7 @@ where
         match self {
             // vbrev: reverse all bits within each SEW-wide element
             Self::VbrevV { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -106,7 +106,7 @@ where
             }
             // vclz: count leading zeros within each SEW-wide element; result in [0, SEW]
             Self::VclzV { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -149,7 +149,7 @@ where
             }
             // vctz: count trailing zeros within each SEW-wide element; result in [0, SEW]
             Self::VctzV { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -192,7 +192,7 @@ where
             }
             // vcpop: population count (number of set bits) within each SEW-wide element
             Self::VcpopV { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -236,7 +236,7 @@ where
             // vwsll: widening shift-left-logical; vd is 2*SEW wide, vs2/src are SEW wide.
             // SEW=E64 is illegal (cannot double); LMUL=M8 is illegal (EMUL(vd)=16 out of range).
             Self::VwsllVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -320,7 +320,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -396,7 +396,7 @@ where
             }
             // vwsll.vi: standard 5-bit immediate; vm is the normal mask-control bit
             Self::VwsllVi { vd, vs2, uimm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

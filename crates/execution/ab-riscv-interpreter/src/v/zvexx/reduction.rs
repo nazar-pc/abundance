@@ -51,7 +51,7 @@ where
     ) -> ExecutionResult<Self::Reg> {
         match self {
             Self::Vredsum { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -67,15 +67,6 @@ where
                         ),
                     });
                 };
-                // Spec §14: reductions with vstart > 0 are reserved; raise illegal instruction
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -100,7 +91,7 @@ where
                 }
             }
             Self::Vredand { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -116,14 +107,6 @@ where
                         ),
                     });
                 };
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -147,7 +130,7 @@ where
                 }
             }
             Self::Vredor { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -163,14 +146,6 @@ where
                         ),
                     });
                 };
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -194,7 +169,7 @@ where
                 }
             }
             Self::Vredxor { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -210,14 +185,6 @@ where
                         ),
                     });
                 };
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -241,7 +208,7 @@ where
                 }
             }
             Self::Vredminu { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -257,14 +224,6 @@ where
                         ),
                     });
                 };
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -291,7 +250,7 @@ where
                 }
             }
             Self::Vredmin { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -307,14 +266,6 @@ where
                         ),
                     });
                 };
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -346,7 +297,7 @@ where
                 }
             }
             Self::Vredmaxu { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -362,14 +313,6 @@ where
                         ),
                     });
                 };
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -396,7 +339,7 @@ where
                 }
             }
             Self::Vredmax { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -412,14 +355,6 @@ where
                         ),
                     });
                 };
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
                     program_counter,
@@ -451,7 +386,7 @@ where
                 }
             }
             Self::Vwredsumu { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -467,14 +402,6 @@ where
                         ),
                     });
                 };
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let Some(widening_sew) =
                     zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
                 else {
@@ -517,7 +444,7 @@ where
                 }
             }
             Self::Vwredsum { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -533,14 +460,6 @@ where
                         ),
                     });
                 };
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let Some(widening_sew) =
                     zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
                 else {

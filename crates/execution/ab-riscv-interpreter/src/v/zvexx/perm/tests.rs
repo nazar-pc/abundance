@@ -67,6 +67,24 @@ fn exec(
     Ok(())
 }
 
+/// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
+/// `state` without modifying any vector state
+fn assert_rejects_nonzero_vstart(
+    state: &mut crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>>,
+    instr: ZveXxPermInstruction<Reg<u64>>,
+) {
+    let vstart = state.env.vstart();
+    assert_ne!(vstart, Vstart::ZERO);
+    let vregs = *state.env.read_vregs().as_bytes();
+    let result = exec(state, instr);
+    assert!(
+        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        "{instr}: {result:?}"
+    );
+    assert_eq!(state.env.vstart(), vstart, "{instr}");
+    assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
+}
+
 fn read_elem(
     state: &crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>>,
     base_reg: VReg,
@@ -369,40 +387,34 @@ fn vmv_s_x_illegal_when_vector_disabled() {
 }
 
 #[test]
-fn vmv_s_x_vstart_ge_vl_suppresses_write() {
+fn vmv_s_x_nonzero_vstart_at_vl_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     set_vreg_bytes(&mut state, VReg::V4, 0xAA);
     state.regs.write(Reg::A0, 0x1234_5678);
     state.env.set_vstart(Vstart::from(4));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxPermInstruction::VmvSX {
             vd: VReg::V4,
             rs1: Reg::A0,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xAAAA_AAAA);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 #[test]
-fn vmv_s_x_vstart_nonzero_below_vl_still_writes() {
-    // vstart=1, vl=4: vstart < vl, so write proceeds (spec says element 0 is updated).
+fn vmv_s_x_nonzero_vstart_below_vl_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     state.regs.write(Reg::A0, 0x1234_5678);
     state.env.set_vstart(Vstart::from(1));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxPermInstruction::VmvSX {
             vd: VReg::V4,
             rs1: Reg::A0,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0x1234_5678);
+    );
 }
 
 // vslideup
@@ -585,7 +597,7 @@ fn vslideup_masked_vd_v0_illegal() {
 }
 
 #[test]
-fn vslideup_vstart_skips_lower_elements() {
+fn vslideup_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..8usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, (i + 10) as u64);
@@ -593,7 +605,7 @@ fn vslideup_vstart_skips_lower_elements() {
     }
     state.env.set_vstart(Vstart::from(3));
     state.regs.write(Reg::A0, 2u64);
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxPermInstruction::VslideupVx {
             vd: VReg::V4,
@@ -602,21 +614,7 @@ fn vslideup_vstart_skips_lower_elements() {
             vm: true,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0..3 undisturbed (before vstart).
-    for i in 0..3usize {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0xBB, "elem {i}");
-    }
-    // Elements 3..8: vd[i] = vs2[i-2]
-    for i in 3..8usize {
-        assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E8),
-            (i - 2 + 10) as u64,
-            "elem {i}"
-        );
-    }
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 // vslidedown
@@ -1517,7 +1515,7 @@ fn vmv_v_v_vd_may_equal_v0() {
 }
 
 #[test]
-fn vmerge_vvm_vstart_skips_early_elements() {
+fn vmerge_vvm_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, (i * 100) as u64);
@@ -1526,7 +1524,7 @@ fn vmerge_vvm_vstart_skips_early_elements() {
     }
     state.env.write_vregs().get_mut(VReg::V0).fill(0xFF);
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxPermInstruction::VmergeVvm {
             vd: VReg::V4,
@@ -1536,15 +1534,7 @@ fn vmerge_vvm_vstart_skips_early_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0..2: undisturbed.
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xBEEF);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xBEEF);
-    // Elements 2..4: mask=1 so from vs1.
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 21);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 31);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 #[test]
@@ -1895,7 +1885,7 @@ fn vmv_v_i_vd_may_equal_v0_when_unmasked() {
 }
 
 #[test]
-fn vmerge_vim_vstart_skips_early_elements() {
+fn vmerge_vim_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, (i * 100) as u64);
@@ -1903,7 +1893,7 @@ fn vmerge_vim_vstart_skips_early_elements() {
     }
     state.env.write_vregs().get_mut(VReg::V0).fill(0xFF);
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxPermInstruction::VmergeVim {
             vd: VReg::V4,
@@ -1913,13 +1903,7 @@ fn vmerge_vim_vstart_skips_early_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xABCD);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xABCD);
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 42);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 42);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 // Vector-disabled / vtype-invalid
@@ -2019,7 +2003,7 @@ fn vmerge_variants_illegal_when_vtype_invalid() {
 }
 
 #[test]
-fn vmerge_variants_reset_vstart_and_mark_dirty() {
+fn vmerge_variants_mark_vs_dirty_and_reject_nonzero_vstart() {
     let instrs: &[(ZveXxPermInstruction<Reg<u64>>, &str)] = &[
         (
             ZveXxPermInstruction::VmergeVvm {
@@ -2060,19 +2044,17 @@ fn vmerge_variants_reset_vstart_and_mark_dirty() {
             write_elem(&mut state, VReg::V1, i, Vsew::E32, (i + 1) as u64);
         }
         state.regs.write(Reg::A0, 99u64);
-        state.env.set_vstart(Vstart::from(2));
         let before = state.env.vs_dirty_count();
         exec(&mut state, *instr).unwrap();
-        assert_eq!(
-            state.env.vstart(),
-            Vstart::ZERO,
-            "vstart not reset for {name}"
-        );
+        assert_eq!(state.env.vstart(), Vstart::ZERO, "vstart for {name}");
         assert_eq!(
             state.env.vs_dirty_count(),
             before + 1,
             "vs_dirty not incremented for {name}"
         );
+
+        state.env.set_vstart(Vstart::from(2));
+        assert_rejects_nonzero_vstart(&mut state, *instr);
     }
 }
 
@@ -2700,10 +2682,10 @@ fn vslideup_unaligned_group_vd_illegal() {
     assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
 }
 
-// vstart interaction
+// Non-zero vstart
 
 #[test]
-fn vslide1down_vstart_skips_early_elements() {
+fn vslide1down_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, ((i + 1) * 10) as u64);
@@ -2711,7 +2693,7 @@ fn vslide1down_vstart_skips_early_elements() {
     }
     state.env.set_vstart(Vstart::from(2));
     state.regs.write(Reg::A0, 999u64);
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxPermInstruction::Vslide1downVx {
             vd: VReg::V4,
@@ -2720,17 +2702,11 @@ fn vslide1down_vstart_skips_early_elements() {
             vm: true,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xAA);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xAA);
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 40);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 999);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 #[test]
-fn vrgather_vstart_skips_early_elements() {
+fn vrgather_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, (i + 1) as u64);
@@ -2738,7 +2714,7 @@ fn vrgather_vstart_skips_early_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 0xCC);
     }
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxPermInstruction::VrgatherVv {
             vd: VReg::V4,
@@ -2748,20 +2724,14 @@ fn vrgather_vstart_skips_early_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E32), 0xCC);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E32), 0xCC);
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E32), 2);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E32), 1);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
-// vstart reset and vs_dirty invariants (array-based, no macros)
+// Non-zero vstart (array-based, no macros)
 
 #[test]
-fn all_instructions_reset_vstart() {
-    // Each tuple: (instruction, needs_vstart_set)
+fn all_instructions_reject_nonzero_vstart() {
+    // Each tuple: (instruction, name)
     // We use a valid aligned register combination for every instruction.
     let cases = &[
         (
@@ -2914,7 +2884,7 @@ fn all_instructions_reset_vstart() {
             "Vmv8rV",
         ),
     ];
-    for (instr, name) in cases {
+    for (instr, _name) in cases {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
         for i in 0..4usize {
             write_elem(&mut state, VReg::V2, i, Vsew::E32, (i + 1) as u64);
@@ -2923,12 +2893,7 @@ fn all_instructions_reset_vstart() {
         state.env.write_vregs().get_mut(VReg::V1).fill(0xFF);
         state.env.set_vstart(Vstart::from(2));
         state.regs.write(Reg::A0, 1u64);
-        exec(&mut state, *instr).unwrap();
-        assert_eq!(
-            state.env.vstart(),
-            Vstart::ZERO,
-            "vstart not reset for {name}"
-        );
+        assert_rejects_nonzero_vstart(&mut state, *instr);
     }
 }
 

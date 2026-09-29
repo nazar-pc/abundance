@@ -54,7 +54,7 @@ where
         match self {
             // vwaddu.vv - 2*SEW = zext(SEW) + zext(SEW)
             Self::VwadduVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -136,7 +136,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -209,7 +209,7 @@ where
             }
             // vwadd.vv - 2*SEW = sext(SEW) + sext(SEW)
             Self::VwaddVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -290,7 +290,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -367,7 +367,7 @@ where
             }
             // vwsubu.vv - 2*SEW = zext(SEW) - zext(SEW)
             Self::VwsubuVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -448,7 +448,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -520,7 +520,7 @@ where
             }
             // vwsub.vv - 2*SEW = sext(SEW) - sext(SEW)
             Self::VwsubVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -601,7 +601,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -677,7 +677,7 @@ where
             }
             // vwaddu.wv - 2*SEW = 2*SEW + zext(SEW)
             Self::VwadduWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -767,7 +767,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -836,7 +836,7 @@ where
             }
             // vwadd.wv - 2*SEW = 2*SEW + sext(SEW)
             Self::VwaddWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -925,7 +925,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -997,7 +997,7 @@ where
             }
             // vwsubu.wv - 2*SEW = 2*SEW - zext(SEW)
             Self::VwsubuWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1086,7 +1086,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1154,7 +1154,7 @@ where
             }
             // vwsub.wv - 2*SEW = 2*SEW - sext(SEW)
             Self::VwsubWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1243,7 +1243,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1315,7 +1315,7 @@ where
             }
             // vnsrl.wv - SEW = (2*SEW) >> SEW (logical)
             Self::VnsrlWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1403,7 +1403,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1473,7 +1473,7 @@ where
             }
             // vnsrl.wi - SEW = (2*SEW) >> uimm (logical)
             Self::VnsrlWi { vd, vs2, uimm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1542,7 +1542,7 @@ where
             }
             // vnsra.wv - SEW = (2*SEW) >> SEW (arithmetic)
             Self::VnsraWv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1629,7 +1629,7 @@ where
                 rs1: _,
                 vm,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1699,7 +1699,7 @@ where
             }
             // vnsra.wi - SEW = (2*SEW) >> uimm (arithmetic)
             Self::VnsraWi { vd, vs2, uimm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1768,7 +1768,7 @@ where
             }
             // vzext.vf2 - zero-extend SEW/2 -> SEW
             Self::VzextVf2 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1828,7 +1828,7 @@ where
             }
             // vzext.vf4 - zero-extend SEW/4 -> SEW
             Self::VzextVf4 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1888,7 +1888,7 @@ where
             }
             // vzext.vf8 - zero-extend SEW/8 -> SEW
             Self::VzextVf8 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1948,7 +1948,7 @@ where
             }
             // vsext.vf2 - sign-extend SEW/2 -> SEW
             Self::VsextVf2 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2008,7 +2008,7 @@ where
             }
             // vsext.vf4 - sign-extend SEW/4 -> SEW
             Self::VsextVf4 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -2068,7 +2068,7 @@ where
             }
             // vsext.vf8 - sign-extend SEW/8 -> SEW
             Self::VsextVf8 { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

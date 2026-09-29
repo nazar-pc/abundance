@@ -61,7 +61,7 @@ where
         match self {
             // vandn: vd[i] = ~vs1[i] & vs2[i]  (or ~rs1 & vs2[i])
             Self::VandnVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -120,7 +120,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -171,7 +171,7 @@ where
             }
             // vbrev8: reverse bits within each byte of each element
             Self::Vbrev8V { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -214,7 +214,7 @@ where
             }
             // vrev8: reverse bytes within each element
             Self::Vrev8V { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -257,7 +257,7 @@ where
             }
             // vrol: vd[i] = rotate_left(vs2[i], src[i] % SEW)
             Self::VrolVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -316,7 +316,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -367,7 +367,7 @@ where
             }
             // vror: vd[i] = rotate_right(vs2[i], src[i] % SEW)
             Self::VrorVv { vd, vs2, vs1, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -426,7 +426,7 @@ where
                 vs2,
                 rs1: _,
             } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -477,7 +477,7 @@ where
             }
             // vror.vi: 5-bit immediate in vs1[19:15]; bit[25] is the standard vm mask-control bit
             Self::VrorVi { vd, vs2, uimm, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

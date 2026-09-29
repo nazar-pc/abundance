@@ -72,6 +72,24 @@ fn exec(
     Ok(())
 }
 
+/// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
+/// `state` without modifying any vector state
+fn assert_rejects_nonzero_vstart(
+    state: &mut TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
+    instr: ZveXxMulDivInstruction<Reg<u64>>,
+) {
+    let vstart = state.env.vstart();
+    assert_ne!(vstart, Vstart::ZERO);
+    let vregs = *state.env.read_vregs().as_bytes();
+    let result = exec(state, instr);
+    assert!(
+        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        "{instr}: {result:?}"
+    );
+    assert_eq!(state.env.vstart(), vstart, "{instr}");
+    assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
+}
+
 fn read_elem(
     state: &TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
     base_reg: VReg,
@@ -2037,16 +2055,15 @@ fn masked_vd_v0_is_illegal() {
 }
 
 #[test]
-fn vstart_respected_for_mul() {
+fn vmul_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E32, 5);
         write_elem(&mut state, VReg::V4, i, Vsew::E32, 7);
         write_elem(&mut state, VReg::V8, i, Vsew::E32, 0xDEAD);
     }
-    // Only elements 2..4 should be processed
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxMulDivInstruction::VmulVv {
             vd: VReg::V8,
@@ -2056,16 +2073,7 @@ fn vstart_respected_for_mul() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0 and 1 untouched
-    assert_eq!(read_elem(&state, VReg::V8, 0, Vsew::E32), 0xDEAD);
-    assert_eq!(read_elem(&state, VReg::V8, 1, Vsew::E32), 0xDEAD);
-    // Elements 2 and 3 written
-    assert_eq!(read_elem(&state, VReg::V8, 2, Vsew::E32), 35);
-    assert_eq!(read_elem(&state, VReg::V8, 3, Vsew::E32), 35);
-    // vstart reset to 0
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 #[test]

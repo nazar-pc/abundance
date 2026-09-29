@@ -51,6 +51,24 @@ fn exec(
     Ok(())
 }
 
+/// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
+/// `state` without modifying any vector state
+fn assert_rejects_nonzero_vstart(
+    state: &mut TestInterpreterState<ZvbbInstruction<Reg<u64>>>,
+    instr: ZvbbInstruction<Reg<u64>>,
+) {
+    let vstart = state.env.vstart();
+    assert_ne!(vstart, Vstart::ZERO);
+    let vregs = *state.env.read_vregs().as_bytes();
+    let result = exec(state, instr);
+    assert!(
+        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        "{instr}: {result:?}"
+    );
+    assert_eq!(state.env.vstart(), vstart, "{instr}");
+    assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
+}
+
 fn write_elem(
     state: &mut TestInterpreterState<ZvbbInstruction<Reg<u64>>>,
     base_reg: VReg,
@@ -1115,17 +1133,17 @@ fn vwsll_vv_vl_zero_no_writes() {
     assert_eq!(state.env.vs_dirty_count(), 1);
 }
 
-// vstart partial execution
+// Non-zero vstart
 
 #[test]
-fn vclz_v_vstart_skips_earlier_elements() {
+fn vclz_v_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x01);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0xAA);
     }
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZvbbInstruction::VclzV {
             vd: VReg::V4,
@@ -1134,19 +1152,11 @@ fn vclz_v_vstart_skips_earlier_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0,1 undisturbed (vstart=2)
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 0xAA);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E8), 0xAA);
-    // Elements 2,3 processed: clz(0x01) at E8 = 7
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 7);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 7);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 #[test]
-fn vwsll_vv_vstart_skips_earlier_elements() {
+fn vwsll_vv_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 0x01);
@@ -1154,7 +1164,7 @@ fn vwsll_vv_vstart_skips_earlier_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E16, 0xBEEF);
     }
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZvbbInstruction::VwsllVv {
             vd: VReg::V4,
@@ -1164,15 +1174,7 @@ fn vwsll_vv_vstart_skips_earlier_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0,1 undisturbed (vstart=2)
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E16), 0xBEEF);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E16), 0xBEEF);
-    // Elements 2,3 processed: 0x01 << 4 = 0x0010
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E16), 0x0010);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E16), 0x0010);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 // Error paths

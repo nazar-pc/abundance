@@ -69,6 +69,24 @@ fn exec(
     Ok(())
 }
 
+/// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
+/// `state` without modifying any vector state
+fn assert_rejects_nonzero_vstart(
+    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>,
+    instr: ZveXxFixedPointInstruction<Reg<u64>>,
+) {
+    let vstart = state.env.vstart();
+    assert_ne!(vstart, Vstart::ZERO);
+    let vregs = *state.env.read_vregs().as_bytes();
+    let result = exec(state, instr);
+    assert!(
+        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        "{instr}: {result:?}"
+    );
+    assert_eq!(state.env.vstart(), vstart, "{instr}");
+    assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
+}
+
 fn write_elem(
     state: &mut TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>,
     base_reg: VReg,
@@ -1936,19 +1954,18 @@ fn vssrl_masked_only_active_written() {
     assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 0xFF >> 4u8);
 }
 
-// vstart partial execution
+// Non-zero vstart
 
 #[test]
-fn vsaddu_vstart_skips_early_elements() {
+fn vsaddu_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     for i in 0..4usize {
         write_elem(&mut state, VReg::V2, i, Vsew::E8, 200);
         write_elem(&mut state, VReg::V1, i, Vsew::E8, 100);
         write_elem(&mut state, VReg::V4, i, Vsew::E8, 0x55);
     }
-    // Set vstart = 2: skip elements 0 and 1
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxFixedPointInstruction::VsadduVv {
             vd: VReg::V4,
@@ -1958,16 +1975,7 @@ fn vsaddu_vstart_skips_early_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0, 1 are untouched
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E8), 0x55);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E8), 0x55);
-    // Elements 2, 3 are written
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E8), 255);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E8), 255);
-    // vstart is reset to 0 after execution
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 // vector not allowed
@@ -2247,12 +2255,12 @@ fn vs_dirty_increments_per_instruction() {
 }
 
 #[test]
-fn vstart_resets_to_zero_after_execution() {
+fn vsadd_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
     state.env.set_vstart(Vstart::from(2));
     write_elem(&mut state, VReg::V2, 2, Vsew::E8, 1);
     write_elem(&mut state, VReg::V1, 2, Vsew::E8, 1);
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxFixedPointInstruction::VsaddVv {
             vd: VReg::V4,
@@ -2262,12 +2270,6 @@ fn vstart_resets_to_zero_after_execution() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    assert_eq!(
-        state.env.vstart(),
-        Vstart::ZERO,
-        "vstart must be reset to 0"
     );
 }
 

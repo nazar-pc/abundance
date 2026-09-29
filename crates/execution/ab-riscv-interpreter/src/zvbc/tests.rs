@@ -51,6 +51,24 @@ fn exec(
     Ok(())
 }
 
+/// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
+/// `state` without modifying any vector state
+fn assert_rejects_nonzero_vstart(
+    state: &mut TestInterpreterState<ZvbcInstruction<Reg<u64>>>,
+    instr: ZvbcInstruction<Reg<u64>>,
+) {
+    let vstart = state.env.vstart();
+    assert_ne!(vstart, Vstart::ZERO);
+    let vregs = *state.env.read_vregs().as_bytes();
+    let result = exec(state, instr);
+    assert!(
+        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        "{instr}: {result:?}"
+    );
+    assert_eq!(state.env.vstart(), vstart, "{instr}");
+    assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
+}
+
 fn write_elem(
     state: &mut TestInterpreterState<ZvbcInstruction<Reg<u64>>>,
     base_reg: VReg,
@@ -731,10 +749,10 @@ fn vclmulh_vv_and_vx_agree_on_same_operand() {
     assert_eq!(vv_result, vx_result);
 }
 
-// vstart partial execution
+// Non-zero vstart
 
 #[test]
-fn vclmul_vv_vstart_skips_earlier_elements() {
+fn vclmul_vv_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
     for i in 0..4 {
         write_elem(&mut state, VReg::V2, i, Vsew::E64, 0x09);
@@ -742,7 +760,7 @@ fn vclmul_vv_vstart_skips_earlier_elements() {
         write_elem(&mut state, VReg::V4, i, Vsew::E64, 0xAA);
     }
     state.env.set_vstart(Vstart::from(2));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZvbcInstruction::VclmulVv {
             vd: VReg::V4,
@@ -752,15 +770,7 @@ fn vclmul_vv_vstart_skips_earlier_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0,1: undisturbed (below vstart=2)
-    assert_eq!(read_elem(&state, VReg::V4, 0, Vsew::E64), 0xAA);
-    assert_eq!(read_elem(&state, VReg::V4, 1, Vsew::E64), 0xAA);
-    // Elements 2,3: clmul(0x09, 0x09) = 0x41
-    assert_eq!(read_elem(&state, VReg::V4, 2, Vsew::E64), 0x41);
-    assert_eq!(read_elem(&state, VReg::V4, 3, Vsew::E64), 0x41);
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 // vl=0

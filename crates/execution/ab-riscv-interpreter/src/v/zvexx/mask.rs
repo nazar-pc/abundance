@@ -53,7 +53,7 @@ where
             // instruction must be rejected when vill is set, regardless of whether it uses
             // SEW or vl.
             Self::Vmandn { vd, vs2, vs1 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -77,7 +77,7 @@ where
                 }
             }
             Self::Vmand { vd, vs2, vs1 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -99,7 +99,7 @@ where
                 }
             }
             Self::Vmor { vd, vs2, vs1 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -121,7 +121,7 @@ where
                 }
             }
             Self::Vmxor { vd, vs2, vs1 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -143,7 +143,7 @@ where
                 }
             }
             Self::Vmorn { vd, vs2, vs1 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -165,7 +165,7 @@ where
                 }
             }
             Self::Vmnand { vd, vs2, vs1 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -187,7 +187,7 @@ where
                 }
             }
             Self::Vmnor { vd, vs2, vs1 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -209,7 +209,7 @@ where
                 }
             }
             Self::Vmxnor { vd, vs2, vs1 } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -232,7 +232,7 @@ where
             }
             // vcpop.m (§16.2): count set bits in vs2 over active elements, write to GPR rd.
             Self::Vcpop { rd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -259,7 +259,7 @@ where
             }
             // vfirst.m (§16.3): find lowest-numbered active set bit in vs2, write index to rd.
             Self::Vfirst { rd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -286,7 +286,7 @@ where
             // vmsbf.m (§16.4): set-before-first mask bit.
             // Constraints: vd != vs2 (overlap illegal), vm=false implies vd != v0.
             Self::Vmsbf { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -295,16 +295,6 @@ where
                     });
                 }
                 if env.vtype().is_none() {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
-                // exception.
-                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -339,7 +329,7 @@ where
             // vmsof.m (§16.5): set-only-first mask bit.
             // Same overlap constraints as vmsbf.
             Self::Vmsof { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -348,16 +338,6 @@ where
                     });
                 }
                 if env.vtype().is_none() {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
-                // exception.
-                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -390,7 +370,7 @@ where
             // vmsif.m (§16.6): set-including-first mask bit.
             // Same overlap constraints as vmsbf.
             Self::Vmsif { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -399,16 +379,6 @@ where
                     });
                 }
                 if env.vtype().is_none() {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // Spec §16.4: vmsbf/vmsif/vmsof with vstart != 0 raise an illegal instruction
-                // exception.
-                if env.vstart() != Vstart::ZERO {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -445,7 +415,7 @@ where
             // (truncates to SEW), matching the spec's "integer operations wrap around on overflow"
             // rule rather than raising an exception.
             Self::Viota { vd, vs2, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -461,15 +431,6 @@ where
                         ),
                     });
                 };
-                // Spec §16.8: viota.m with vstart != 0 raises an illegal instruction exception.
-                if env.vstart() != Vstart::ZERO {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let group_regs = vtype.vlmul().register_count();
                 if !vd.is_group_aligned(group_regs) || vd.to_bits() + group_regs.get() > 32 {
                     ::core::hint::cold_path();
@@ -510,7 +471,7 @@ where
             // vid.v (§16.9): write element index i as SEW-wide integer into vd[i].
             // Constraints: vm=false implies vd != v0; vd alignment per LMUL.
             Self::Vid { vd, vm } => {
-                if !env.vector_instructions_allowed() {
+                if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

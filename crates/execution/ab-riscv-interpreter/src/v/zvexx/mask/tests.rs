@@ -61,6 +61,24 @@ fn exec(
     Ok(())
 }
 
+/// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
+/// `state` without modifying any vector state
+fn assert_rejects_nonzero_vstart(
+    state: &mut TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>,
+    instr: ZveXxMaskInstruction<Reg<u64>>,
+) {
+    let vstart = state.env.vstart();
+    assert_ne!(vstart, Vstart::ZERO);
+    let vregs = *state.env.read_vregs().as_bytes();
+    let result = exec(state, instr);
+    assert!(
+        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        "{instr}: {result:?}"
+    );
+    assert_eq!(state.env.vstart(), vstart, "{instr}");
+    assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
+}
+
 fn get_vreg(state: &TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
     *state.env.read_vregs().get(reg)
 }
@@ -298,15 +316,15 @@ fn vmand_respects_vl_tail_undisturbed() {
     }
 }
 
-/// Mask-logical ops honor vstart: prestart bits [0, vstart) are undisturbed.
+/// Mask-logical ops reject a non-zero `vstart`
 #[test]
-fn vmand_respects_vstart_prestart_undisturbed() {
+fn vmand_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     set_vreg(&mut state, VReg::V1, [0xFF; 32]);
     set_vreg(&mut state, VReg::V4, [0x00; 32]);
     state.env.set_vstart(Vstart::from(4));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxMaskInstruction::Vmand {
             vd: VReg::V4,
@@ -315,17 +333,7 @@ fn vmand_respects_vstart_prestart_undisturbed() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Bits 0..4 prestart: undisturbed (0)
-    for i in 0..4 {
-        assert!(!mask_bit(&state, VReg::V4, i), "prestart bit {i}");
-    }
-    // Bits 4..8 body: 0xFF & 0xFF = 1
-    for i in 4..8 {
-        assert!(mask_bit(&state, VReg::V4, i), "body bit {i}");
-    }
-    assert_eq!(state.env.vstart(), Vstart::ZERO);
+    );
 }
 
 /// With vl=0, mask-logical ops write nothing; vd is undisturbed but VS is still marked dirty.
@@ -561,13 +569,13 @@ fn vcpop_masked() {
     assert_eq!(state.regs.read(Reg::A0), 4);
 }
 
-/// vcpop with vstart > 0 skips elements before vstart
+/// vcpop.m rejects a non-zero `vstart`
 #[test]
-fn vcpop_vstart_skips_early_elements() {
+fn vcpop_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V2, [0xFF; 32]);
     state.env.set_vstart(Vstart::from(4));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxMaskInstruction::Vcpop {
             rd: Reg::A0,
@@ -576,10 +584,7 @@ fn vcpop_vstart_skips_early_elements() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Only elements 4..8 counted
-    assert_eq!(state.regs.read(Reg::A0), 4);
+    );
 }
 
 /// vcpop requires valid vtype
@@ -765,16 +770,16 @@ fn vfirst_masked_skips_inactive() {
     assert_eq!(state.regs.read(Reg::A0), 4);
 }
 
-/// vfirst with vstart > 0 skips elements before vstart
+/// vfirst.m rejects a non-zero `vstart`
 #[test]
-fn vfirst_vstart_skips_early() {
+fn vfirst_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     // Bits 1 and 5 set
     let mut data = [0u8; 32];
     data[0] = 0b0010_0010;
     set_vreg(&mut state, VReg::V2, data);
     state.env.set_vstart(Vstart::from(3));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxMaskInstruction::Vfirst {
             rd: Reg::A0,
@@ -783,10 +788,7 @@ fn vfirst_vstart_skips_early() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Bit 1 is before vstart=3, so first found is bit 5
-    assert_eq!(state.regs.read(Reg::A0), 5);
+    );
 }
 
 // vmsbf
@@ -1798,13 +1800,13 @@ fn vid_misaligned_vd_illegal() {
     ));
 }
 
-/// vid.v with vstart > 0: elements before vstart are undisturbed
+/// vid.v rejects a non-zero `vstart`
 #[test]
-fn vid_vstart_undisturbed_below() {
+fn vid_nonzero_vstart_is_illegal() {
     let mut state = setup(Vl::new(8).unwrap(), Vsew::E8, Vlmul::M1);
     set_vreg(&mut state, VReg::V4, [0xFF; 32]);
     state.env.set_vstart(Vstart::from(4));
-    exec(
+    assert_rejects_nonzero_vstart(
         &mut state,
         ZveXxMaskInstruction::Vid {
             vd: VReg::V4,
@@ -1812,20 +1814,7 @@ fn vid_vstart_undisturbed_below() {
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         },
-    )
-    .unwrap();
-    // Elements 0..4: undisturbed
-    for i in 0..4usize {
-        assert_eq!(read_elem(&state, VReg::V4, i, Vsew::E8), 0xFF, "elem {i}");
-    }
-    // Elements 4..8: written with index
-    for i in 4..8usize {
-        assert_eq!(
-            read_elem(&state, VReg::V4, i, Vsew::E8),
-            i as u64,
-            "elem {i}"
-        );
-    }
+    );
 }
 
 /// vid.v requires a valid vtype
@@ -1948,12 +1937,10 @@ fn vid_vl_zero() {
 
 // vs_dirty and vstart invariants
 
-/// Every instruction marks VS dirty and resets vstart (for instructions that accept non-zero
-/// vstart)
+/// Every instruction marks VS dirty and rejects a non-zero `vstart`
 #[test]
-fn all_instructions_mark_vs_dirty_and_reset_vstart() {
-    // Instructions that accept vstart != 0
-    let vstart_ok: &[ZveXxMaskInstruction<Reg<u64>>] = &[
+fn all_instructions_mark_vs_dirty_and_reject_nonzero_vstart() {
+    let mask_logical: &[ZveXxMaskInstruction<Reg<u64>>] = &[
         ZveXxMaskInstruction::Vmand {
             vd: VReg::V4,
             vs2: VReg::V2,
@@ -2031,19 +2018,7 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
             rs2: Reg::Zero,
         },
     ];
-    for (idx, &instr) in vstart_ok.iter().enumerate() {
-        let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
-        state.env.set_vstart(Vstart::from(2));
-        exec(&mut state, instr).unwrap();
-        assert_eq!(state.env.vs_dirty_count(), 1, "instruction {idx}: vs_dirty");
-        assert_eq!(
-            state.env.vstart(),
-            Vstart::ZERO,
-            "instruction {idx}: vstart reset"
-        );
-    }
-    // Instructions that trap on vstart != 0 per spec (§16.4, §16.8) - checked with vstart=0
-    let vstart_must_be_zero: &[ZveXxMaskInstruction<Reg<u64>>] = &[
+    let others: &[ZveXxMaskInstruction<Reg<u64>>] = &[
         ZveXxMaskInstruction::Vmsbf {
             vd: VReg::V4,
             vs2: VReg::V2,
@@ -2073,19 +2048,19 @@ fn all_instructions_mark_vs_dirty_and_reset_vstart() {
             rs2: Reg::Zero,
         },
     ];
-    for (idx, &instr) in vstart_must_be_zero.iter().enumerate() {
+    for (idx, &instr) in mask_logical.iter().chain(others).enumerate() {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
         exec(&mut state, instr).unwrap();
-        assert_eq!(
-            state.env.vs_dirty_count(),
-            1,
-            "vstart=0 instruction {idx}: vs_dirty"
-        );
+        assert_eq!(state.env.vs_dirty_count(), 1, "instruction {idx}: vs_dirty");
         assert_eq!(
             state.env.vstart(),
             Vstart::ZERO,
-            "vstart=0 instruction {idx}"
+            "instruction {idx}: vstart"
         );
+
+        let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
+        state.env.set_vstart(Vstart::from(2));
+        assert_rejects_nonzero_vstart(&mut state, instr);
     }
 }
 
