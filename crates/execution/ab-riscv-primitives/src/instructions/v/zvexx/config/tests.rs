@@ -5,6 +5,7 @@ use crate::instructions::test_utils::{make_i_type, make_r_type};
 use crate::instructions::v::zvexx::config::ZveXxConfigInstruction;
 use crate::registers::general_purpose::Reg;
 use alloc::format;
+use core::assert_matches;
 
 // vsetvli: I-type encoding
 // [0|zimm[10:0]|rs1|111|rd|1010111]
@@ -301,10 +302,7 @@ fn test_vsetvli_bit31_clear() {
     // imm = 0b0_111_1111_1111 = 0x7ff => vtypei = 0x7ff
     let inst = make_i_type(0b101_0111, 1, 0b111, 2, 0x7ff);
     let decoded = ZveXxConfigInstruction::<Reg<u64>>::try_decode(inst);
-    assert!(matches!(
-        decoded,
-        Some(ZveXxConfigInstruction::Vsetvli { .. })
-    ));
+    assert_matches!(decoded, Some(ZveXxConfigInstruction::Vsetvli { .. }));
 }
 
 #[test]
@@ -312,10 +310,7 @@ fn test_vsetivli_bits_31_30_set() {
     // imm with bits[11:10]=11 => vsetivli
     let inst = make_i_type(0b101_0111, 1, 0b111, 2, 0xc00);
     let decoded = ZveXxConfigInstruction::<Reg<u64>>::try_decode(inst);
-    assert!(matches!(
-        decoded,
-        Some(ZveXxConfigInstruction::Vsetivli { .. })
-    ));
+    assert_matches!(decoded, Some(ZveXxConfigInstruction::Vsetivli { .. }));
 }
 
 #[test]

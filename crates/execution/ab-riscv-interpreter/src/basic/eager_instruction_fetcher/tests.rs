@@ -14,6 +14,7 @@ use crate::basic::eager_instruction_fetcher::{
 use crate::{ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
+use core::assert_matches;
 use core::ops::ControlFlow;
 
 const MEMORY_BASE_ADDRESS: u64 = 0x1000;
@@ -144,8 +145,9 @@ fn forward_and_backward_branches_move_within_the_stream() {
     let instructions = new_instructions(0);
     let mut fetcher = new_fetcher(&instructions);
 
-    assert!(
-        matches!(branch(&mut fetcher, 8), Ok(ControlFlow::Continue(()))),
+    assert_matches!(
+        branch(&mut fetcher, 8),
+        Ok(ControlFlow::Continue(())),
         "Expected Continue"
     );
     assert_eq!(
@@ -154,8 +156,9 @@ fn forward_and_backward_branches_move_within_the_stream() {
     );
 
     // Now branching from `BASE_ADDR + 8`, back to the very first instruction
-    assert!(
-        matches!(branch(&mut fetcher, -8), Ok(ControlFlow::Continue(()))),
+    assert_matches!(
+        branch(&mut fetcher, -8),
+        Ok(ControlFlow::Continue(())),
         "Expected Continue"
     );
     assert_eq!(ProgramCounter::<u64, Memory>::get_pc(&fetcher), BASE_ADDR);
@@ -166,8 +169,9 @@ fn branch_to_the_last_instruction_stays_in_bounds() {
     let instructions = new_instructions(0);
     let mut fetcher = new_fetcher(&instructions);
 
-    assert!(
-        matches!(branch(&mut fetcher, 12), Ok(ControlFlow::Continue(()))),
+    assert_matches!(
+        branch(&mut fetcher, 12),
+        Ok(ControlFlow::Continue(())),
         "Expected Continue"
     );
     assert_eq!(
@@ -184,8 +188,9 @@ fn branch_to_a_trap_below_the_stream_stops_execution() {
 
     // From `BASE_ADDR + 4` down to address 0
     let offset = -i32::try_from(BASE_ADDR + 4).unwrap();
-    assert!(
-        matches!(branch(&mut fetcher, offset), Ok(ControlFlow::Break(()))),
+    assert_matches!(
+        branch(&mut fetcher, offset),
+        Ok(ControlFlow::Break(())),
         "Expected Break"
     );
 }
@@ -196,8 +201,9 @@ fn branch_to_a_trap_above_the_stream_stops_execution() {
     let mut fetcher = new_fetcher(&instructions);
 
     let offset = i32::try_from(END_ADDR + 4 - (BASE_ADDR + 4)).unwrap();
-    assert!(
-        matches!(branch(&mut fetcher, offset), Ok(ControlFlow::Break(()))),
+    assert_matches!(
+        branch(&mut fetcher, offset),
+        Ok(ControlFlow::Break(())),
         "Expected Break"
     );
 }
@@ -208,8 +214,9 @@ fn branch_past_the_end_of_the_stream_is_out_of_bounds() {
     let mut fetcher = new_fetcher(&instructions);
 
     let error = branch(&mut fetcher, 1024).unwrap_err();
-    assert!(
-        matches!(error, ExecutionError::OutOfBoundsRead { address } if address.get() == BASE_ADDR + 4 + 1024),
+    assert_matches!(
+        error,
+        ExecutionError::OutOfBoundsRead { address } if address.get() == BASE_ADDR + 4 + 1024,
         "Unexpected error {error:?}"
     );
 }
@@ -221,8 +228,9 @@ fn branch_off_the_start_of_the_stream_is_out_of_bounds() {
 
     // Lands below `BASE_ADDR`, which underflows the stream rather than wrapping into it
     let error = branch(&mut fetcher, -1024).unwrap_err();
-    assert!(
-        matches!(error, ExecutionError::OutOfBoundsRead { address } if address.get() == BASE_ADDR + 4 - 1024),
+    assert_matches!(
+        error,
+        ExecutionError::OutOfBoundsRead { address } if address.get() == BASE_ADDR + 4 - 1024,
         "Unexpected error {error:?}"
     );
 }
@@ -237,8 +245,9 @@ fn branch_to_an_unaligned_target_is_rejected() {
     let mut fetcher = new_fetcher(&instructions);
 
     let error = branch(&mut fetcher, 3).unwrap_err();
-    assert!(
-        matches!(error, ExecutionError::UnalignedInstruction { address } if address.get() == BASE_ADDR + 7),
+    assert_matches!(
+        error,
+        ExecutionError::UnalignedInstruction { address } if address.get() == BASE_ADDR + 7,
         "Unexpected error {error:?}"
     );
 }
@@ -253,8 +262,9 @@ fn branch_into_the_middle_of_an_instruction_is_rejected() {
     let mut fetcher = new_fetcher(&instructions);
 
     let error = branch(&mut fetcher, 2).unwrap_err();
-    assert!(
-        matches!(error, ExecutionError::UnalignedInstruction { address } if address.get() == BASE_ADDR + 6),
+    assert_matches!(
+        error,
+        ExecutionError::UnalignedInstruction { address } if address.get() == BASE_ADDR + 6,
         "Unexpected error {error:?}"
     );
 }
@@ -266,8 +276,9 @@ fn branch_that_wraps_around_the_address_space_is_out_of_bounds() {
 
     // Far enough back that the guest address itself wraps around zero
     let error = branch(&mut fetcher, i32::MIN).unwrap_err();
-    assert!(
-        matches!(error, ExecutionError::OutOfBoundsRead { address: _ }),
+    assert_matches!(
+        error,
+        ExecutionError::OutOfBoundsRead { address: _ },
         "Unexpected error {error:?}"
     );
 }

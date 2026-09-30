@@ -3,6 +3,7 @@ use crate::basic::BasicMemory;
 use crate::v::zvexx::load::zvexx_load_helpers::{access_wraps, effective_address, read_bytes};
 use crate::v::zvexx::store::zvexx_store_helpers::write_bytes;
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 /// Last 64 bytes of the 32-bit address space
 const RV32_HIGH_ADDR: u64 = (1 << 32) - 64;
@@ -42,10 +43,10 @@ fn rv32_read_bytes_wraps_to_address_zero() {
     // The remaining bytes come from address zero, not from above 4 GiB, which this memory does not
     // have either
     let mut dst = [0; 17];
-    assert!(matches!(
+    assert_matches!(
         read_bytes::<Reg<u32>, _>(&memory, RV32_HIGH_ADDR + 48, &mut dst),
         Err(VirtualMemoryError::OutOfBoundsRead { address: 0 })
-    ));
+    );
 }
 
 #[test]
@@ -58,8 +59,8 @@ fn rv32_write_bytes_wraps_to_address_zero() {
         [0xaa; 16]
     );
 
-    assert!(matches!(
+    assert_matches!(
         write_bytes::<Reg<u32>, _>(&mut memory, RV32_HIGH_ADDR + 48, &[0xbb; 17]),
         Err(VirtualMemoryError::OutOfBoundsWrite { address: 0 })
-    ));
+    );
 }

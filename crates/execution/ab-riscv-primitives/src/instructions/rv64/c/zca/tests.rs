@@ -5,6 +5,7 @@ use crate::instructions::Instruction;
 use crate::instructions::rv64::c::zca::Rv64ZcaInstruction;
 use crate::instructions::utils::I24;
 use crate::registers::general_purpose::{EReg, Reg};
+use core::assert_matches;
 
 /// Build a CIW (C.ADDI4SPN) encoding.
 /// nzuimm\[5:4] = inst\[12:11], nzuimm\[9:6] = inst\[10:7], nzuimm\[2] = inst\[6],
@@ -1021,7 +1022,7 @@ fn test_cmv_rs2_0_decodes_as_cjr() {
     // rs2=0 with bit12=0 is C.JR, not C.MV
     let inst = make_cr_q10(0b100, 0, 10, 0);
     let decoded = Rv64ZcaInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
-    assert!(matches!(decoded, Rv64ZcaInstruction::CJr { .. }));
+    assert_matches!(decoded, Rv64ZcaInstruction::CJr { .. });
 }
 
 #[test]

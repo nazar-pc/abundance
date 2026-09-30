@@ -65,46 +65,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above; `vl <= VLMAX = group_regs * VLEN.bytes() /
-                // sew_bytes`; masked vd != v0 checked above.
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, _| a.wrapping_add(b),
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, _| a.wrapping_add(b),
+                );
             }
             Self::VaddVx {
                 vd,
@@ -128,41 +116,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above; scalar source has no register constraints
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| a.wrapping_add(b),
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| a.wrapping_add(b),
+                );
             }
             Self::VaddVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -181,42 +157,30 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 // Sign-extend imm to u64 so wrapping_add works correctly for all SEW
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| a.wrapping_add(b),
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| a.wrapping_add(b),
+                );
             }
             // vsub / vrsub
             Self::VsubVv { vd, vs2, vs1, vm } => {
@@ -236,45 +200,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, _| a.wrapping_sub(b),
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, _| a.wrapping_sub(b),
+                );
             }
             Self::VsubVx {
                 vd,
@@ -298,41 +251,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| a.wrapping_sub(b),
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| a.wrapping_sub(b),
+                );
             }
             Self::VrsubVx {
                 vd,
@@ -356,42 +297,30 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
                 // vrsub: result = src - vs2[i]
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| b.wrapping_sub(a),
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| b.wrapping_sub(a),
+                );
             }
             Self::VrsubVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -410,41 +339,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| b.wrapping_sub(a),
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| b.wrapping_sub(a),
+                );
             }
             // vand
             Self::VandVv { vd, vs2, vs1, vm } => {
@@ -464,45 +381,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, _| a & b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, _| a & b,
+                );
             }
             Self::VandVx {
                 vd,
@@ -526,41 +432,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| a & b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| a & b,
+                );
             }
             Self::VandVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -579,41 +473,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| a & b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| a & b,
+                );
             }
             // vor
             Self::VorVv { vd, vs2, vs1, vm } => {
@@ -633,45 +515,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, _| a | b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, _| a | b,
+                );
             }
             Self::VorVx {
                 vd,
@@ -695,41 +566,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| a | b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| a | b,
+                );
             }
             Self::VorVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -748,41 +607,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| a | b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| a | b,
+                );
             }
             // vxor
             Self::VxorVv { vd, vs2, vs1, vm } => {
@@ -802,45 +649,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, _| a ^ b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, _| a ^ b,
+                );
             }
             Self::VxorVx {
                 vd,
@@ -864,41 +700,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| a ^ b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| a ^ b,
+                );
             }
             Self::VxorVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -917,41 +741,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, _| a ^ b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, _| a ^ b,
+                );
             }
             // vsll
             Self::VsllVv { vd, vs2, vs1, vm } => {
@@ -971,46 +783,35 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        // Shift amount masked to log2(SEW) bits per spec §12.6
-                        |a, b, sew| a << (b & u64::from(sew.bits_width() - 1)),
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    // Shift amount masked to log2(SEW) bits per spec §12.6
+                    |a, b, sew| a << (b & u64::from(sew.bits_width() - 1)),
+                );
             }
             Self::VsllVx {
                 vd,
@@ -1034,41 +835,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| a << (b & u64::from(sew.bits_width() - 1)),
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| a << (b & u64::from(sew.bits_width() - 1)),
+                );
             }
             Self::VsllVi { vd, vs2, uimm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -1087,42 +876,30 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 // Immediate is already unsigned 5-bit; mask to log2(SEW) here too
                 let shamt = u64::from(uimm) & u64::from(sew.bits_width() - 1);
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(shamt),
-                        vm,
-                        sew,
-                        |a, b, _| a << b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(shamt),
+                    vm,
+                    sew,
+                    |a, b, _| a << b,
+                );
             }
             // vsrl
             Self::VsrlVv { vd, vs2, vs1, vm } => {
@@ -1142,50 +919,39 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        // Logical right shift; operate on the SEW-wide portion only
-                        |a, b, sew| {
-                            let mask = zvexx_arith_helpers::sew_mask(sew);
-                            let shamt = b & u64::from(sew.bits_width() - 1);
-                            (a & mask) >> shamt
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    // Logical right shift; operate on the SEW-wide portion only
+                    |a, b, sew| {
+                        let mask = zvexx_arith_helpers::sew_mask(sew);
+                        let shamt = b & u64::from(sew.bits_width() - 1);
+                        (a & mask) >> shamt
+                    },
+                );
             }
             Self::VsrlVx {
                 vd,
@@ -1209,45 +975,33 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            let mask = zvexx_arith_helpers::sew_mask(sew);
-                            let shamt = b & u64::from(sew.bits_width() - 1);
-                            (a & mask) >> shamt
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        let mask = zvexx_arith_helpers::sew_mask(sew);
+                        let shamt = b & u64::from(sew.bits_width() - 1);
+                        (a & mask) >> shamt
+                    },
+                );
             }
             Self::VsrlVi { vd, vs2, uimm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -1266,41 +1020,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let shamt = u64::from(uimm) & u64::from(sew.bits_width() - 1);
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(shamt),
-                        vm,
-                        sew,
-                        |a, b, sew| (a & zvexx_arith_helpers::sew_mask(sew)) >> b,
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(shamt),
+                    vm,
+                    sew,
+                    |a, b, sew| (a & zvexx_arith_helpers::sew_mask(sew)) >> b,
+                );
             }
             // vsra
             Self::VsraVv { vd, vs2, vs1, vm } => {
@@ -1320,49 +1062,38 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            let shamt = b & u64::from(sew.bits_width() - 1);
-                            let signed = zvexx_arith_helpers::sign_extend(a, sew);
-                            (signed >> shamt).cast_unsigned()
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        let shamt = b & u64::from(sew.bits_width() - 1);
+                        let signed = zvexx_arith_helpers::sign_extend(a, sew);
+                        (signed >> shamt).cast_unsigned()
+                    },
+                );
             }
             Self::VsraVx {
                 vd,
@@ -1386,45 +1117,33 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            let shamt = b & u64::from(sew.bits_width() - 1);
-                            let signed = zvexx_arith_helpers::sign_extend(a, sew);
-                            (signed >> shamt).cast_unsigned()
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        let shamt = b & u64::from(sew.bits_width() - 1);
+                        let signed = zvexx_arith_helpers::sign_extend(a, sew);
+                        (signed >> shamt).cast_unsigned()
+                    },
+                );
             }
             Self::VsraVi { vd, vs2, uimm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -1443,44 +1162,32 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let shamt = u64::from(uimm) & u64::from(sew.bits_width() - 1);
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(shamt),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            let signed = zvexx_arith_helpers::sign_extend(a, sew);
-                            (signed >> b).cast_unsigned()
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(shamt),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        let signed = zvexx_arith_helpers::sign_extend(a, sew);
+                        (signed >> b).cast_unsigned()
+                    },
+                );
             }
             // vminu / vmin
             Self::VminuVv { vd, vs2, vs1, vm } => {
@@ -1500,48 +1207,37 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            let mask = zvexx_arith_helpers::sew_mask(sew);
-                            if a & mask <= b & mask { a } else { b }
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        let mask = zvexx_arith_helpers::sew_mask(sew);
+                        if a & mask <= b & mask { a } else { b }
+                    },
+                );
             }
             Self::VminuVx {
                 vd,
@@ -1565,44 +1261,32 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            let mask = zvexx_arith_helpers::sew_mask(sew);
-                            if a & mask <= b & mask { a } else { b }
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        let mask = zvexx_arith_helpers::sew_mask(sew);
+                        if a & mask <= b & mask { a } else { b }
+                    },
+                );
             }
             Self::VminVv { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -1621,53 +1305,42 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            if zvexx_arith_helpers::sign_extend(a, sew)
-                                <= zvexx_arith_helpers::sign_extend(b, sew)
-                            {
-                                a
-                            } else {
-                                b
-                            }
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        if zvexx_arith_helpers::sign_extend(a, sew)
+                            <= zvexx_arith_helpers::sign_extend(b, sew)
+                        {
+                            a
+                        } else {
+                            b
+                        }
+                    },
+                );
             }
             Self::VminVx {
                 vd,
@@ -1691,49 +1364,37 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            if zvexx_arith_helpers::sign_extend(a, sew)
-                                <= zvexx_arith_helpers::sign_extend(b, sew)
-                            {
-                                a
-                            } else {
-                                b
-                            }
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        if zvexx_arith_helpers::sign_extend(a, sew)
+                            <= zvexx_arith_helpers::sign_extend(b, sew)
+                        {
+                            a
+                        } else {
+                            b
+                        }
+                    },
+                );
             }
             // vmaxu / vmax
             Self::VmaxuVv { vd, vs2, vs1, vm } => {
@@ -1753,48 +1414,37 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            let mask = zvexx_arith_helpers::sew_mask(sew);
-                            if a & mask >= b & mask { a } else { b }
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        let mask = zvexx_arith_helpers::sew_mask(sew);
+                        if a & mask >= b & mask { a } else { b }
+                    },
+                );
             }
             Self::VmaxuVx {
                 vd,
@@ -1818,44 +1468,32 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            let mask = zvexx_arith_helpers::sew_mask(sew);
-                            if a & mask >= b & mask { a } else { b }
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        let mask = zvexx_arith_helpers::sew_mask(sew);
+                        if a & mask >= b & mask { a } else { b }
+                    },
+                );
             }
             Self::VmaxVv { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -1874,53 +1512,42 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            if zvexx_arith_helpers::sign_extend(a, sew)
-                                >= zvexx_arith_helpers::sign_extend(b, sew)
-                            {
-                                a
-                            } else {
-                                b
-                            }
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        if zvexx_arith_helpers::sign_extend(a, sew)
+                            >= zvexx_arith_helpers::sign_extend(b, sew)
+                        {
+                            a
+                        } else {
+                            b
+                        }
+                    },
+                );
             }
             Self::VmaxVx {
                 vd,
@@ -1944,49 +1571,37 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_arith_helpers::execute_arith_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            if zvexx_arith_helpers::sign_extend(a, sew)
-                                >= zvexx_arith_helpers::sign_extend(b, sew)
-                            {
-                                a
-                            } else {
-                                b
-                            }
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_arith_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        if zvexx_arith_helpers::sign_extend(a, sew)
+                            >= zvexx_arith_helpers::sign_extend(b, sew)
+                        {
+                            a
+                        } else {
+                            b
+                        }
+                    },
+                );
             }
             // vmseq
             Self::VmseqVv { vd, vs2, vs1, vm } => {
@@ -2006,49 +1621,41 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: `vs2`/`vs1` alignment and `vd` mask-destination overlap checked
-                // above; `vl <= VLMAX <= VLEN` so all element indices fit within the mask
-                // register
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                == (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            == (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             Self::VmseqVx {
                 vd,
@@ -2072,37 +1679,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                == (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            == (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             Self::VmseqVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -2121,37 +1722,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                == (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            == (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             // vmsne
             Self::VmsneVv { vd, vs2, vs1, vm } => {
@@ -2171,47 +1766,41 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                != (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            != (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             Self::VmsneVx {
                 vd,
@@ -2235,37 +1824,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                != (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            != (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             Self::VmsneVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -2284,37 +1867,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                != (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            != (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             // vmsltu (unsigned <)
             Self::VmsltuVv { vd, vs2, vs1, vm } => {
@@ -2334,47 +1911,41 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                < (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            < (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             Self::VmsltuVx {
                 vd,
@@ -2398,37 +1969,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                < (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            < (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             // vmslt (signed <)
             Self::VmsltVv { vd, vs2, vs1, vm } => {
@@ -2448,47 +2013,41 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            zvexx_arith_helpers::sign_extend(a, sew)
-                                < zvexx_arith_helpers::sign_extend(b, sew)
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        zvexx_arith_helpers::sign_extend(a, sew)
+                            < zvexx_arith_helpers::sign_extend(b, sew)
+                    },
+                );
             }
             Self::VmsltVx {
                 vd,
@@ -2512,37 +2071,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            zvexx_arith_helpers::sign_extend(a, sew)
-                                < zvexx_arith_helpers::sign_extend(b, sew)
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        zvexx_arith_helpers::sign_extend(a, sew)
+                            < zvexx_arith_helpers::sign_extend(b, sew)
+                    },
+                );
             }
             // vmsleu (unsigned <=)
             Self::VmsleuVv { vd, vs2, vs1, vm } => {
@@ -2562,47 +2115,41 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                <= (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            <= (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             Self::VmsleuVx {
                 vd,
@@ -2626,37 +2173,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                <= (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            <= (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             Self::VmsleuVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -2675,20 +2216,18 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 // Per spec §12.8: for vmsleu.vi, the immediate is sign-extended to XLEN
                 // then the comparison is unsigned. A negative i8 immediate sign-extends to
                 // a large u64 (e.g. -1 -> 0xFFFF...FF). Both operands are masked to SEW
@@ -2697,22 +2236,18 @@ where
                 // zve64x_arith_helpers::sew_mask (the maximum SEW-wide unsigned value). This means
                 // vs2[i] <= imm is always true for SEW < XLEN when imm < 0.
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                <= (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            <= (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             // vmsle (signed <=)
             Self::VmsleVv { vd, vs2, vs1, vm } => {
@@ -2732,47 +2267,41 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            zvexx_arith_helpers::sign_extend(a, sew)
-                                <= zvexx_arith_helpers::sign_extend(b, sew)
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        zvexx_arith_helpers::sign_extend(a, sew)
+                            <= zvexx_arith_helpers::sign_extend(b, sew)
+                    },
+                );
             }
             Self::VmsleVx {
                 vd,
@@ -2796,37 +2325,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            zvexx_arith_helpers::sign_extend(a, sew)
-                                <= zvexx_arith_helpers::sign_extend(b, sew)
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        zvexx_arith_helpers::sign_extend(a, sew)
+                            <= zvexx_arith_helpers::sign_extend(b, sew)
+                    },
+                );
             }
             Self::VmsleVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -2845,37 +2368,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            zvexx_arith_helpers::sign_extend(a, sew)
-                                <= zvexx_arith_helpers::sign_extend(b, sew)
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        zvexx_arith_helpers::sign_extend(a, sew)
+                            <= zvexx_arith_helpers::sign_extend(b, sew)
+                    },
+                );
             }
             // vmsgtu (unsigned >): no vv form; vx and vi only
             Self::VmsgtuVx {
@@ -2900,37 +2417,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                > (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            > (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             Self::VmsgtuVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -2949,37 +2460,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            (a & zvexx_arith_helpers::sew_mask(sew))
-                                > (b & zvexx_arith_helpers::sew_mask(sew))
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        (a & zvexx_arith_helpers::sew_mask(sew))
+                            > (b & zvexx_arith_helpers::sew_mask(sew))
+                    },
+                );
             }
             // vmsgt (signed >): no vv form; vx and vi only
             Self::VmsgtVx {
@@ -3004,37 +2509,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            zvexx_arith_helpers::sign_extend(a, sew)
-                                > zvexx_arith_helpers::sign_extend(b, sew)
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        zvexx_arith_helpers::sign_extend(a, sew)
+                            > zvexx_arith_helpers::sign_extend(b, sew)
+                    },
+                );
             }
             Self::VmsgtVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -3053,37 +2552,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_arith_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: see `VmseqVv` (mask-destination overlap checked above)
-                unsafe {
-                    zvexx_arith_helpers::execute_compare_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_arith_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew| {
-                            zvexx_arith_helpers::sign_extend(a, sew)
-                                > zvexx_arith_helpers::sign_extend(b, sew)
-                        },
-                    );
-                }
+                zvexx_arith_helpers::execute_compare_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_arith_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew| {
+                        zvexx_arith_helpers::sign_extend(a, sew)
+                            > zvexx_arith_helpers::sign_extend(b, sew)
+                    },
+                );
             }
         }
 

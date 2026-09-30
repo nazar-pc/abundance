@@ -6,6 +6,7 @@ use crate::instructions::v::zvexx::carry::ZveXxCarryInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
 use alloc::format;
+use core::assert_matches;
 
 /// Build a carry-class OP-V instruction word.
 ///
@@ -37,7 +38,7 @@ fn vadc_vvm_not_falsely_decoded_as_vfirst_m() {
     // funct6=0b01_0000, vm=0, vs2=v9, vs1=v17 (0b10001), OPIVV, vd=v12
     let inst = make_vop(0b01_0000, 0, 9, 17, OPIVV, 12);
     let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
-    assert!(matches!(
+    assert_matches!(
         decoded,
         Some(ZveXxCarryInstruction::VadcVvm {
             vd: VReg::V12,
@@ -45,7 +46,7 @@ fn vadc_vvm_not_falsely_decoded_as_vfirst_m() {
             vs1: VReg::V17,
             ..
         })
-    ));
+    );
 }
 
 // vadc

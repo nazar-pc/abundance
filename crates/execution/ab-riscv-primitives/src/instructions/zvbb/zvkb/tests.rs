@@ -6,6 +6,7 @@ use crate::instructions::zvbb::zvkb::ZvkbInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
 use alloc::format;
+use core::assert_matches;
 
 /// Build an OP-V instruction word.
 ///
@@ -313,14 +314,14 @@ fn vrev8_v_masked_form() {
 fn vbrev8_and_vrev8_sub_opcodes_do_not_alias() {
     let inst_brev8 = make_vop(0b01_0010, 1, 4, 0b01000, OPMVV, 2);
     let inst_rev8 = make_vop(0b01_0010, 1, 4, 0b01001, OPMVV, 2);
-    assert!(matches!(
+    assert_matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst_brev8),
         Some(ZvkbInstruction::Vbrev8V { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst_rev8),
         Some(ZvkbInstruction::Vrev8V { .. })
-    ));
+    );
 }
 // vrol.vv
 
@@ -409,11 +410,11 @@ fn vror_vv_basic_unmasked() {
 
 #[test]
 fn vror_vv_masked_form() {
-    let inst = make_vop(0b01_0100, 0, 14, 15, OPIVV, 0);
+    let inst = make_vop(0b01_0100, 0, 14, 15, OPIVV, 8);
     assert_eq!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVv {
-            vd: VReg::V0,
+            vd: VReg::V8,
             vs2: VReg::V14,
             vs1: VReg::V15,
             vm: false,
@@ -429,14 +430,14 @@ fn vror_vv_masked_form() {
 fn vrol_and_vror_funct6_do_not_alias() {
     let inst_rol = make_vop(0b01_0101, 1, 2, 3, OPIVV, 1);
     let inst_ror = make_vop(0b01_0100, 1, 2, 3, OPIVV, 1);
-    assert!(matches!(
+    assert_matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst_rol),
         Some(ZvkbInstruction::VrolVv { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst_ror),
         Some(ZvkbInstruction::VrorVv { .. })
-    ));
+    );
 }
 
 // vror.vx
@@ -459,11 +460,11 @@ fn vror_vx_basic_unmasked() {
 
 #[test]
 fn vror_vx_masked_form() {
-    let inst = make_vop(0b01_0100, 0, 16, 11, OPIVX, 0);
+    let inst = make_vop(0b01_0100, 0, 16, 11, OPIVX, 8);
     assert_eq!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVx {
-            vd: VReg::V0,
+            vd: VReg::V8,
             vs2: VReg::V16,
             rs1: Reg::A1,
             vm: false,
@@ -773,16 +774,16 @@ fn display_vrol_vv_masked() {
 
 #[test]
 fn display_vror_vv_masked() {
-    let inst = make_vop(0b01_0100, 0, 14, 15, OPIVV, 0);
+    let inst = make_vop(0b01_0100, 0, 14, 15, OPIVV, 8);
     let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{decoded}"), "vror.vv v0, v14, v15, v0.t");
+    assert_eq!(format!("{decoded}"), "vror.vv v8, v14, v15, v0.t");
 }
 
 #[test]
 fn display_vror_vx_masked() {
-    let inst = make_vop(0b01_0100, 0, 16, 11, OPIVX, 0);
+    let inst = make_vop(0b01_0100, 0, 16, 11, OPIVX, 8);
     let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
-    assert_eq!(format!("{decoded}"), "vror.vx v0, v16, a1, v0.t");
+    assert_eq!(format!("{decoded}"), "vror.vx v8, v16, a1, v0.t");
 }
 
 // vror.vi: uimm >= 32 (bit[25]=1) -> unmasked -> no ", v0.t" suffix

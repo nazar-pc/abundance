@@ -1,6 +1,7 @@
 use crate::instructions::Instruction;
 use crate::instructions::rv32::zk::zkn::zknd::{Rv32AesBs, Rv32ZkndInstruction};
 use crate::registers::general_purpose::Reg;
+use core::assert_matches;
 
 const FUNCT5_DSI: u32 = 0b10101;
 const FUNCT5_DSMI: u32 = 0b10111;
@@ -132,14 +133,8 @@ fn test_aes32dsi_and_aes32dsmi_distinct_funct5() {
     let inst_dsmi = make_rv32_zknd(FUNCT5_DSMI, 1, 1, 2, 1);
     let dec_dsi = Rv32ZkndInstruction::<Reg<u32>>::try_decode(inst_dsi);
     let dec_dsmi = Rv32ZkndInstruction::<Reg<u32>>::try_decode(inst_dsmi);
-    assert!(matches!(
-        dec_dsi,
-        Some(Rv32ZkndInstruction::Aes32Dsi { .. })
-    ));
-    assert!(matches!(
-        dec_dsmi,
-        Some(Rv32ZkndInstruction::Aes32Dsmi { .. })
-    ));
+    assert_matches!(dec_dsi, Some(Rv32ZkndInstruction::Aes32Dsi { .. }));
+    assert_matches!(dec_dsmi, Some(Rv32ZkndInstruction::Aes32Dsmi { .. }));
 }
 
 #[test]

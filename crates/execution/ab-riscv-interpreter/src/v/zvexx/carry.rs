@@ -65,44 +65,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                // vd must not be v0: v0 holds carry-in
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above; vd != v0 checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Vreg(vs1),
+                );
             }
 
             Self::VadcVxm { vd, vs2, rs1: _ } => {
@@ -122,39 +109,26 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments checked above; vd != v0 checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Scalar(scalar),
+                );
             }
 
             Self::VadcVim { vd, vs2, imm } => {
@@ -174,39 +148,26 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignments checked above; vd != v0 checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_add::<true, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Scalar(scalar),
+                );
             }
 
             // vmadc: add and write carry-out mask
@@ -227,42 +188,36 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Vreg(vs1),
+                    sew,
+                );
             }
 
             Self::VmadcVxm { vd, vs2, rs1: _ } => {
@@ -282,32 +237,26 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Scalar(scalar),
+                    sew,
+                );
             }
 
             Self::VmadcVim { vd, vs2, imm } => {
@@ -327,32 +276,26 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_add_mask::<true, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Scalar(scalar),
+                    sew,
+                );
             }
 
             Self::VmadcVv { vd, vs2, vs1 } => {
@@ -372,42 +315,36 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Vreg(vs1),
+                    sew,
+                );
             }
 
             Self::VmadcVx { vd, vs2, rs1: _ } => {
@@ -427,32 +364,26 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Scalar(scalar),
+                    sew,
+                );
             }
 
             Self::VmadcVi { vd, vs2, imm } => {
@@ -472,32 +403,26 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_add_mask::<false, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Scalar(scalar),
+                    sew,
+                );
             }
 
             // vsbc: subtract with borrow-in from v0, data result
@@ -518,43 +443,31 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above; vd != v0 checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Vreg(vs1),
+                );
             }
 
             Self::VsbcVxm { vd, vs2, rs1: _ } => {
@@ -574,39 +487,26 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments checked above; vd != v0 checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_sub::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Scalar(scalar),
+                );
             }
 
             // vmsbc: subtract and write borrow-out mask
@@ -627,42 +527,36 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Vreg(vs1),
+                    sew,
+                );
             }
 
             Self::VmsbcVxm { vd, vs2, rs1: _ } => {
@@ -682,32 +576,26 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_sub_mask::<true, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Scalar(scalar),
+                    sew,
+                );
             }
 
             Self::VmsbcVv { vd, vs2, vs1 } => {
@@ -727,42 +615,36 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Vreg(vs1),
+                    sew,
+                );
             }
 
             Self::VmsbcVx { vd, vs2, rs1: _ } => {
@@ -782,32 +664,26 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_carry_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, _, _>(
+                zvexx_carry_helpers::check_mask_dest_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    group_regs,
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments and mask-destination overlap checked above
-                unsafe {
-                    zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_carry_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                    );
-                }
+                zvexx_carry_helpers::execute_carry_sub_mask::<false, Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_carry_helpers::OpSrc::Scalar(scalar),
+                    sew,
+                );
             }
         }
 

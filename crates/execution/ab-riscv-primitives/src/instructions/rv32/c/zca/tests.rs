@@ -5,6 +5,7 @@ use crate::instructions::Instruction;
 use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
 use crate::instructions::utils::I24;
 use crate::registers::general_purpose::{EReg, Reg};
+use core::assert_matches;
 
 /// Build a CIW (C.ADDI4SPN) encoding.
 /// nzuimm\[5:4] = inst\[12:11], nzuimm\[9:6] = inst\[10:7], nzuimm\[2] = inst\[6], nzuimm\[3] =
@@ -354,7 +355,7 @@ fn test_caddiw_does_not_exist_in_rv32() {
     // funct3=001 is C.JAL in RV32, not C.ADDIW
     let inst = make_cj(0b001, 4);
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
-    assert!(matches!(decoded, Rv32ZcaInstruction::CJal { .. }));
+    assert_matches!(decoded, Rv32ZcaInstruction::CJal { .. });
 }
 
 #[test]
@@ -940,7 +941,7 @@ fn test_cmv_rs2_0_decodes_as_cjr() {
     // rs2=0 with bit12=0 is C.JR, not C.MV
     let inst = make_cr_q10(0b100, 0, 10, 0);
     let decoded = Rv32ZcaInstruction::<Reg<u32>>::try_decode(u32::from(inst)).unwrap();
-    assert!(matches!(decoded, Rv32ZcaInstruction::CJr { .. }));
+    assert_matches!(decoded, Rv32ZcaInstruction::CJr { .. });
 }
 
 #[test]

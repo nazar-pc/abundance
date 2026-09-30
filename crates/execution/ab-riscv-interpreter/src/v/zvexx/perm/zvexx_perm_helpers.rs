@@ -1,80 +1,9 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_config::VectorConfig;
-use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
-pub use crate::v::zvexx::arith::zvexx_arith_helpers::check_vreg_group_alignment;
+use crate::v::vector_registers::{VRegGroup, VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
-use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
-use core::hint::{assert_unchecked, cold_path};
-use core::ptr;
-
-/// Check that register groups `[a, a+count)` and `[b, b+count)` do not overlap.
-///
-/// Both groups must have the same size `count`. For groups of different sizes use
-/// [`check_no_overlap_asymmetric`].
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_no_overlap<Reg, Memory, PC>(
-    program_counter: &PC,
-    a: VReg,
-    b: VReg,
-    count: VRegGroupSize,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    let a_start = u16::from(a.to_bits());
-    let b_start = u16::from(b.to_bits());
-    let count = u16::from(count.get());
-    // Intervals [a_start, a_start+count) and [b_start, b_start+count) overlap iff
-    // each starts before the other ends. Arithmetic is widened to u16 to avoid u8 overflow
-    // (e.g., b_start=30 + count=8 = 38, which overflows u8).
-    if a_start < b_start + count && b_start < a_start + count {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
-}
-
-/// Check that register group `[a, a+a_count)` does not overlap `[b, b+b_count)`.
-///
-/// Unlike [`check_no_overlap`], the two groups are allowed to have different sizes.
-/// Used for `vrgatherei16.vv` where vd/vs2 use LMUL-derived `group_regs` and vs1
-/// uses EEW=16-derived `index_group_regs`.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_no_overlap_asymmetric<Reg, Memory, PC>(
-    program_counter: &PC,
-    a: VReg,
-    a_count: VRegGroupSize,
-    b: VReg,
-    b_count: VRegGroupSize,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    let a_start = u16::from(a.to_bits());
-    let b_start = u16::from(b.to_bits());
-    let a_count = u16::from(a_count.get());
-    let b_count = u16::from(b_count.get());
-    // Intervals [a_start, a_start+a_count) and [b_start, b_start+b_count) overlap iff
-    // each starts before the other ends.
-    if a_start < b_start + b_count && b_start < a_start + a_count {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
-}
+use core::hint::cold_path;
 
 /// Sign-extend the low `sew.bits_width()` of `val` to the register type width.
 ///
@@ -118,65 +47,65 @@ where
 /// Elements `0..min(offset, vl)` in vd are unchanged.
 /// Elements `offset..vl` where mask is active get vs2[i - offset].
 ///
-/// # Safety
-/// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
+/// Both register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slideup<Reg, Env>(
+pub fn execute_slideup<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vm: bool,
-    sew: Vsew,
     offset: u64,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
-    // Per spec §16.3.1: elements 0..offset are never written (vd keeps its value).
-    let first = Vstart::from(offset.saturating_truncate::<u16>());
-    let range = first.range_to(vl);
-
+    let vl = vd.vl();
+    let Some(vs2) = vs2.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     // Unmasked slide is a copy of a contiguous element range between two contiguous register
-    // groups
-    if vm && !range.is_empty() {
-        let len = range.len() * usize::from(sew.bytes_width());
-        // `first >= offset`, hence the truncation is lossless
-        let src_first = *range.start() - offset.saturating_truncate::<u16>();
-        let src = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vs2, src_first, sew);
-        let dst = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vd, *range.start(), sew);
-        let bytes = env.write_vregs().as_bytes_mut().as_flattened_mut();
-        // SAFETY: Elements `first..vl` of `vd` and `first - offset..vl - offset` of `vs2` lie
-        // within their register groups, which end within the register file (precondition), so
-        // both ranges are within `bytes`. Overlapping ranges are fine for `ptr::copy()`. Both
-        // pointers derive from the same mutable one, a separate shared one would be invalidated
-        // by it.
-        unsafe {
-            let bytes = bytes.as_mut_ptr();
-            ptr::copy(bytes.byte_add(src), bytes.byte_add(dst), len);
+    // groups, elements `offset..vl` of `vd` get elements `0..vl - offset` of `vs2`
+    if vm {
+        if let Some(count) = u64::from(u32::from(vl.get())).checked_sub(offset)
+            && let Ok(dst_first) = u16::try_from(offset)
+            && let Ok(count) = u32::try_from(count)
+            && !env
+                .write_vregs()
+                .copy_elements(vd, dst_first, vs2, 0, count)
+        {
+            // Can't happen for groups of the same instruction, see
+            // `VectorRegisterFile::copy_elements()`
+            cold_path();
         }
         env.mark_vs_dirty();
         return;
     }
+    // Per spec §16.3.1: elements `0..offset` are never written (vd keeps its value)
+    let Ok(offset) = u16::try_from(offset) else {
+        env.mark_vs_dirty();
+        return;
+    };
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in range {
+    for i in vl.indices() {
+        let Some(src_i) = i.checked_sub(offset) else {
+            continue;
+        };
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        let src_idx = i - offset.saturating_truncate::<u16>();
-        // SAFETY: src_idx < vl <= group_regs * elems_per_reg, so source element is in range
-        let val = unsafe { env.read_vregs().read_element(vs2, src_idx, sew) };
-        // SAFETY: i < vl <= group_regs * elems_per_reg, so dest element is in range
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, val);
-        }
+        let val = env
+            .read_vregs()
+            .read(vs2, src_i)
+            .expect("`src_i <= i < vl`, which is the same for `vs2`, checked above; qed");
+        env.write_vregs()
+            .write(vd, i, val)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -185,86 +114,69 @@ pub unsafe fn execute_slideup<Reg, Env>(
 ///
 /// Element `vd[i] = vs2[i + offset]` if `i + offset < vlmax`, else `0`.
 ///
-/// # Safety
-/// - `vd` and `vs2` are validly aligned (verified by caller); overlap is permitted.
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
+/// Both register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_slidedown<Reg, Env>(
+pub fn execute_slidedown<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vm: bool,
-    sew: Vsew,
-    vlmax: Vl,
     offset: u64,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
-
-    let range = Vstart::ZERO.range_to(vl);
+    let vl = vd.vl();
+    let Some(vs2) = vs2.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
 
     // Unmasked slide is a copy of a contiguous element range between two contiguous register
     // groups (or within one), followed by zeroing of the elements whose source is beyond `vlmax`
-    if vm && !range.is_empty() {
-        let elem_bytes = usize::from(sew.bytes_width());
-        let first = *range.start();
+    if vm {
+        let vl_len = u32::from(vl.get());
         // Elements `i` with `i + offset < vlmax` have a source, the rest are zeroed
-        let with_source = u64::from(vlmax)
+        let copied = u64::from(u32::from(vs2.vlmax()))
             .saturating_sub(offset)
-            .saturating_sub(u64::from(first));
-        let copied = usize::try_from(with_source)
-            .map_or(range.len(), |with_source| with_source.min(range.len()));
-        let copied_len = copied * elem_bytes;
-        let len = range.len() * elem_bytes;
-        let dst = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vd, first, sew);
-        let bytes = env.write_vregs().as_bytes_mut().as_flattened_mut();
-        // SAFETY: Elements `first..vl` of `vd` lie within its register group, which ends within
-        // the register file (precondition), so `dst..dst + len` is within `bytes`. So do elements
-        // `first + offset..vlmax` of `vs2` when there are any to copy: `copied > 0` implies
-        // `first + offset < vlmax`, hence the truncation of `offset` is lossless and
-        // `src..src + copied_len` is within the group. Overlapping ranges are fine for
-        // `ptr::copy()`. Both pointers derive from the same mutable one, a separate shared one
-        // would be invalidated by it.
-        unsafe {
-            if copied > 0 {
-                let src_first = first + offset.saturating_truncate::<u16>();
-                let src = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vs2, src_first, sew);
-                let bytes = bytes.as_mut_ptr();
-                ptr::copy(bytes.byte_add(src), bytes.byte_add(dst), copied_len);
-            }
-            bytes.get_unchecked_mut(dst + copied_len..dst + len).fill(0);
+            .min(u64::from(vl_len));
+        let copied = u32::try_from(copied).unwrap_or(vl_len);
+        let vregs = env.write_vregs();
+        if copied > 0
+            && let Ok(src_first) = u16::try_from(offset)
+            && !vregs.copy_elements(vd, 0, vs2, src_first, copied)
+        {
+            // Can't happen for groups of the same instruction, see
+            // `VectorRegisterFile::copy_elements()`
+            cold_path();
+        }
+        if let Ok(first_zeroed) = u16::try_from(copied)
+            && let Some(bytes) = vregs.elements_bytes_mut(vd, first_zeroed, vl_len - copied)
+        {
+            bytes.fill(0);
         }
         env.mark_vs_dirty();
         return;
     }
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in range {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // Use checked_add to guard against offset being so large that i + offset overflows u64.
-        // Any value that wraps past u64::MAX is trivially >= vlmax, so the spec requires vd[i]=0.
-        let val = if let Some(src_idx) = u64::from(i).checked_add(offset)
-            && src_idx < u64::from(vlmax)
-        {
-            // SAFETY: src_idx < vlmax <= group_regs * elems_per_reg, so element is in range
-            unsafe { env.read_vregs().read_element(vs2, src_idx as u16, sew) }
-        } else {
-            0
-        };
-        // SAFETY: i < vl <= vlmax <= group_regs * elems_per_reg
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, val);
-        }
+        // Any source index that doesn't fit is beyond `vlmax`, where the spec requires `vd[i] = 0`
+        let val = u64::from(i)
+            .checked_add(offset)
+            .and_then(|src_idx| u16::try_from(src_idx).ok())
+            .and_then(|src_idx| env.read_vregs().read_up_to_vlmax(vs2, src_idx))
+            .unwrap_or_default();
+        env.write_vregs()
+            .write(vd, i, val)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -275,42 +187,42 @@ pub unsafe fn execute_slidedown<Reg, Env>(
 /// Element `i` for `1 <= i < vl` gets `vs2[i - 1]`.
 /// vd must not overlap vs2.
 ///
-/// # Safety
-/// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
+/// Both register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slide1up<Reg, Env>(
+pub fn execute_slide1up<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vm: bool,
-    sew: Vsew,
     scalar: u64,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let Some(vs2) = vs2.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        let val = if i == 0 {
-            scalar
-        } else {
-            // SAFETY: i - 1 < vl <= group_regs * elems_per_reg
-            unsafe { env.read_vregs().read_element(vs2, i - 1, sew) }
+        let val = match i.checked_sub(1) {
+            Some(src_idx) => env
+                .read_vregs()
+                .read(vs2, src_idx)
+                .expect("`i - 1 < vl`, which is the same for `vs2`, checked above; qed"),
+            None => scalar,
         };
-        // SAFETY: i < vl <= group_regs * elems_per_reg
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, val);
-        }
+        env.write_vregs()
+            .write(vd, i, val)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -325,199 +237,149 @@ pub unsafe fn execute_slide1up<Reg, Env>(
 /// ranges are adjacent and non-overlapping, so writing element `i` never corrupts the source bytes
 /// of element `i+1`.
 ///
-/// # Safety
-/// - `vd` and `vs2` are validly aligned (verified by caller); overlap is permitted.
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
+/// Both register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_slide1down<Reg, Env>(
+pub fn execute_slide1down<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vm: bool,
-    sew: Vsew,
     scalar: u64,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let Some(vs2) = vs2.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    let range = Vstart::ZERO.range_to(vl);
-    for i in range.clone() {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        let val = if i < *range.end() {
-            // SAFETY: i + 1 < vl <= group_regs * elems_per_reg
-            unsafe { env.read_vregs().read_element(vs2, i + 1, sew) }
-        } else {
-            scalar
-        };
-        // SAFETY: i < vl <= group_regs * elems_per_reg
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, val);
-        }
+        // The last element has no source in `vs2`, which `read()` reports as `None`
+        let val = i
+            .checked_add(1)
+            .and_then(|src_idx| env.read_vregs().read(vs2, src_idx))
+            .unwrap_or(scalar);
+        env.write_vregs()
+            .write(vd, i, val)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
 
 /// Execute vrgather.vv: `vd[i] = (vs1[i] < vlmax) ? vs2[vs1[i]] : 0`.
 ///
-/// # Safety
-/// - `vd`, `vs2`, and `vs1` are validly aligned and mutually non-overlapping (verified by caller).
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_rgather_vv<Reg, Env>(
+pub fn execute_rgather_vv<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    vs1: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    vs1: VRegGroup<{ Env::VLEN }>,
     vm: bool,
-    sew: Vsew,
-    vlmax: Vl,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let Some(vs1) = vs1.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-        let index = unsafe { env.read_vregs().read_element(vs1, i, sew) };
-        let val = if index < u64::from(vlmax) {
-            // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { env.read_vregs().read_element(vs2, index as u16, sew) }
-        } else {
-            0u64
-        };
-        // SAFETY: i < vl <= group_regs * elems_per_reg for vd
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, val);
-        }
+        let index = env
+            .read_vregs()
+            .read(vs1, i)
+            .expect("`vs1` has the same `vl` as `vd`, checked above; qed");
+        let val = gather_element(env.read_vregs(), vs2, index);
+        env.write_vregs()
+            .write(vd, i, val)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
 
-/// Execute vrgather.vx / vrgather.vi: all active elements get `vs2[index]` or `0`.
-///
-/// # Safety
-/// - `vd` and `vs2` are validly aligned and non-overlapping (verified by caller).
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
+/// Execute vrgather.vx / vrgather.vi: all active elements get `vs2[index]` or `0`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_rgather_scalar<Reg, Env>(
+pub fn execute_rgather_scalar<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vm: bool,
-    sew: Vsew,
-    vlmax: Vl,
     index: u64,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     // Pre-compute the gathered value; it's the same for all elements.
-    let val = if index < u64::from(vlmax) {
-        // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-        unsafe { env.read_vregs().read_element(vs2, index as u16, sew) }
-    } else {
-        0u64
-    };
-    for i in Vstart::ZERO.range_to(vl) {
+    let val = gather_element(env.read_vregs(), vs2, index);
+    for i in vd.vl().indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: i < vl <= group_regs * elems_per_reg for vd
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, val);
-        }
+        env.write_vregs()
+            .write(vd, i, val)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
 
 /// Execute vrgatherei16.vv: `vd[i] = (vs1_16[i] < vlmax) ? vs2[vs1_16[i]] : 0`.
 ///
-/// `vs1` always uses EEW=16 regardless of SEW. `vl` must not exceed the index register group
-/// capacity, i.e. `vl <= index_group_regs * VLEN.bytes() / 2` (VLEN.bytes() / 2 = elems per
-/// register at EEW=16).
+/// `vs1` always uses EEW=16 regardless of SEW.
 ///
-/// # Safety
-/// - `vd`, `vs2`, and `vs1` are validly aligned and mutually non-overlapping (verified by caller).
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`.
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_rgatherei16<Reg, Env>(
+pub fn execute_rgatherei16<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    vs1: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    vs1: VRegGroup<{ Env::VLEN }>,
     vm: bool,
-    sew: Vsew,
-    vlmax: Vl,
-    index_group_regs: VRegGroupSize,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let index_group_regs = index_group_regs.get();
-    let vl = config.vl().get();
-    // Maximum number of EEW=16 elements the index register group can hold.
-    // Each register holds VLEN.bytes() / 2 elements at EEW=16.
-    let index_capacity = u32::from(index_group_regs) * (Env::VLEN.bytes() / 2);
-    // `vl` must not exceed either the data VLMAX or the index register group capacity.
-    // Both bounds are guaranteed by the caller; this debug assertion catches misuse early.
-    debug_assert!(
-        vl <= vlmax && u32::from(vl) <= index_capacity,
-        "vl={vl} exceeds vlmax={vlmax} or index_capacity={index_capacity}"
-    );
-    let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
-        if !mask_bit(&mask_buf, i) {
-            continue;
-        }
-        // Read 16-bit index from vs1; EEW=16 always.
-        // SAFETY: i < vl <= index_capacity = index_group_regs * (VLEN.bytes() / 2), so element i
-        // fits within the index register group.
-        let index = unsafe { env.read_vregs().read_element(vs1, i, Vsew::E16) };
-        let val = if index < u64::from(vlmax) {
-            // SAFETY: index < vlmax <= group_regs * elems_per_reg for vs2
-            unsafe { env.read_vregs().read_element(vs2, index as u16, sew) }
-        } else {
-            0u64
-        };
-        // SAFETY: i < vl <= group_regs * elems_per_reg for vd
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, val);
-        }
-    }
-    env.mark_vs_dirty();
+    execute_rgather_vv::<Reg, Env>(env, vd, vs2, vs1, vm);
+}
+
+/// Element `index` of `vs2` if it is below `VLMAX`, `0` otherwise, which is what `vrgather`
+/// produces
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+fn gather_element<const VLEN: Vlen>(
+    vregs: &VectorRegisterFile<VLEN>,
+    vs2: VRegGroup<VLEN>,
+    index: u64,
+) -> u64 {
+    u16::try_from(index)
+        .ok()
+        .and_then(|index| vregs.read_up_to_vlmax(vs2, index))
+        .unwrap_or_default()
 }
 
 /// Execute vmerge.vvm / vmv.v.v.
@@ -526,43 +388,39 @@ pub unsafe fn execute_rgatherei16<Reg, Env>(
 /// When `vm=false` (vmerge.vvm): active elements where `v0[i]=1` get `vs1[i]`,
 /// inactive elements get `vs2[i]`.
 ///
-/// # Safety
-/// - `vd` and `vs1` are validly aligned (verified by caller).
-/// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_merge_vv<Reg, Env>(
+pub fn execute_merge_vv<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    vs1: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    vs1: VRegGroup<{ Env::VLEN }>,
     vm: bool,
-    sew: Vsew,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(vs2), Some(vs1)) = (vs2.with_same_vl(vl), vs1.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     // For vmv.v.v (vm=true) the mask is all-ones so snapshot_mask is still valid.
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
-        let mask_set = mask_bit(&mask_buf, i);
-        let val = if mask_set {
-            // SAFETY: i < vl <= group_regs * elems_per_reg for vs1
-            unsafe { env.read_vregs().read_element(vs1, i, sew) }
-        } else {
-            // mask_set=false only reachable when vm=false (vmerge path).
-            // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { env.read_vregs().read_element(vs2, i, sew) }
-        };
-        // SAFETY: i < vl <= group_regs * elems_per_reg for vd
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, val);
-        }
+    for i in vl.indices() {
+        // mask_set=false only reachable when vm=false (vmerge path)
+        let source = if mask_bit(&mask_buf, i) { vs1 } else { vs2 };
+        let val = env
+            .read_vregs()
+            .read(source, i)
+            .expect("`vs1` and `vs2` have the same `vl` as `vd`, checked above; qed");
+        env.write_vregs()
+            .write(vd, i, val)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -573,40 +431,40 @@ pub unsafe fn execute_merge_vv<Reg, Env>(
 /// When `vm=false`: active elements where `v0[i]=1` get `scalar`,
 /// inactive elements get `vs2[i]`.
 ///
-/// # Safety
-/// - `vd` is validly aligned (verified by caller).
-/// - When `vm=false`: `vs2` is validly aligned and `vd` does not overlap v0 (verified by caller).
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// Both register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_merge_scalar<Reg, Env>(
+pub fn execute_merge_scalar<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vm: bool,
-    sew: Vsew,
     scalar: u64,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let Some(vs2) = vs2.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         let val = if mask_bit(&mask_buf, i) {
             scalar
         } else {
-            // SAFETY: i < vl <= group_regs * elems_per_reg for vs2
-            unsafe { env.read_vregs().read_element(vs2, i, sew) }
+            env.read_vregs()
+                .read(vs2, i)
+                .expect("`vs2` has the same `vl` as `vd`, checked above; qed")
         };
-        // SAFETY: i < vl <= group_regs * elems_per_reg for vd
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, val);
-        }
+        env.write_vregs()
+            .write(vd, i, val)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -617,39 +475,45 @@ pub unsafe fn execute_merge_scalar<Reg, Env>(
 /// The output write index increments only for elements where `vs1[i]` is set.
 /// vd must not overlap vs1 or vs2.
 ///
-/// # Safety
-/// - `vd`, `vs2` are validly aligned and non-overlapping (verified by caller).
-/// - `vs1` does not overlap `vd` (verified by caller).
-/// - `vl <= VLMAX`.
+/// Both register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_compress<Reg, Env>(
+pub fn execute_compress<Reg, Env>(
     env: &mut Env,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vs1: VReg,
-    vl: Vl,
-    sew: Vsew,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
+    let vl = vd.vl();
+    let Some(vs2) = vs2.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     // The whole register is copied, which needs no bounds check, only bits below `vl` are read
     let vs1_buf = *env.read_vregs().get(vs1);
-    let mut out_idx = 0;
-    for i in Vstart::ZERO.range_to(vl) {
+    let mut out_indices = vl.indices();
+    for i in vl.indices() {
         if !mask_bit(&vs1_buf, i) {
             continue;
         }
-        // SAFETY: i < vl <= group_regs * elems_per_reg
-        let val = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        // SAFETY: out_idx <= popcount(vs1[0..vl)) <= vl
-        unsafe {
-            env.write_vregs().write_element(vd, out_idx, sew, val);
-        }
-        out_idx += 1;
+        let val = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        // There are as many output indices as input indices, and output only advances when
+        // input does
+        let Some(out_idx) = out_indices.next() else {
+            break;
+        };
+        env.write_vregs()
+            .write(vd, out_idx, val)
+            .expect("`out_idx < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -660,34 +524,24 @@ pub unsafe fn execute_compress<Reg, Env>(
 /// a stack buffer before any destination registers are written, giving correct memmove-style
 /// behaviour for all overlap patterns (including partial overlap such as src=V0, dst=V1, count=2).
 ///
-/// # Safety
-/// - `dst_base + COUNT <= 32` and `src_base + COUNT <= 32` (verified by caller via alignment
-///   checks).
-/// - `dst_base % COUNT == 0` and `src_base % COUNT == 0` (verified by caller).
+/// Returns `None` if either register group doesn't fit into the register file, which doesn't
+/// happen for groups aligned to `COUNT`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_whole_reg_move<const COUNT: usize, const VLEN: Vlen>(
+pub fn execute_whole_reg_move<const COUNT: usize, const VLEN: Vlen>(
     vregs: &mut VectorRegisterFile<VLEN>,
     dst_base: VReg,
     src_base: VReg,
-) {
-    let src_base = usize::from(src_base.to_bits());
-    let dst_base = usize::from(dst_base.to_bits());
-    // SAFETY: Guaranteed by function contract
-    unsafe {
-        assert_unchecked(src_base <= 32 - COUNT);
-        assert_unchecked(dst_base <= 32 - COUNT);
-    }
+) -> Option<()> {
     let registers = vregs.as_bytes_mut();
     // Snapshot all source registers before writing any destination registers.
     // This is correct for all overlap patterns without direction-dependent logic.
     let src = *registers
-        .get(src_base..)
-        .and_then(<[_]>::first_chunk::<COUNT>)
-        .expect("Source register group is within the register file; qed");
+        .get(usize::from(src_base.to_bits())..)?
+        .first_chunk::<COUNT>()?;
     *registers
-        .get_mut(dst_base..)
-        .and_then(<[_]>::first_chunk_mut::<COUNT>)
-        .expect("Destination register group is within the register file; qed") = src;
+        .get_mut(usize::from(dst_base.to_bits())..)?
+        .first_chunk_mut::<COUNT>()? = src;
+    Some(())
 }

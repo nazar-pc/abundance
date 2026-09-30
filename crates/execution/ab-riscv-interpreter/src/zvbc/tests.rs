@@ -63,8 +63,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -78,13 +79,12 @@ fn write_elem(
     sew: Vsew,
     value: u64,
 ) {
-    // SAFETY: Test elements are always within the register group
-    unsafe {
-        state
-            .env
-            .write_vregs()
-            .write_element(base_reg, u16::try_from(elem_i).unwrap(), sew, value);
-    }
+    let vregs = state.env.write_vregs();
+    let vlenb = vregs.get(VReg::V0).len();
+    let width = usize::from(sew.bytes_width());
+    let offset = usize::from(base_reg.to_bits()) * vlenb + elem_i * width;
+    vregs.as_bytes_mut().as_flattened_mut()[offset..offset + width]
+        .copy_from_slice(&value.to_le_bytes()[..width]);
 }
 
 fn read_elem(
@@ -93,13 +93,13 @@ fn read_elem(
     elem_i: usize,
     sew: Vsew,
 ) -> u64 {
-    // SAFETY: Test elements are always within the register group
-    unsafe {
-        state
-            .env
-            .read_vregs()
-            .read_element(base_reg, u16::try_from(elem_i).unwrap(), sew)
-    }
+    let vregs = state.env.read_vregs();
+    let vlenb = vregs.get(VReg::V0).len();
+    let width = usize::from(sew.bytes_width());
+    let offset = usize::from(base_reg.to_bits()) * vlenb + elem_i * width;
+    let mut bytes = [0; 8];
+    bytes[..width].copy_from_slice(&vregs.as_bytes().as_flattened()[offset..offset + width]);
+    u64::from_le_bytes(bytes)
 }
 
 fn set_mask_bit(
@@ -943,69 +943,3 @@ fn error_vclmulh_misaligned_vd_lmul_m2() {
 
 // vm=false with vd==v0 is illegal: a masked instruction's destination must not overlap the
 // mask register v0.
-
-#[test]
-fn error_vclmul_vv_masked_dest_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZvbcInstruction::VclmulVv {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vs1: VReg::V1,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
-fn error_vclmul_vx_masked_dest_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZvbcInstruction::VclmulVx {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            rs1: Reg::Zero,
-            vm: false,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
-fn error_vclmulh_vv_masked_dest_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZvbcInstruction::VclmulhVv {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vs1: VReg::V1,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
-fn error_vclmulh_vx_masked_dest_v0() {
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E64, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZvbcInstruction::VclmulhVx {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            rs1: Reg::Zero,
-            vm: false,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}

@@ -1,11 +1,11 @@
 //! Opaque helpers for Zvkb extension
 
-use crate::v::vector_config::VectorConfig;
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VRegGroup, VectorRegistersExt};
+pub use crate::v::zvexx::arith::zvexx_arith_helpers::OpSrc;
 use crate::v::zvexx::arith::zvexx_arith_helpers::sew_mask;
-pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_alignment};
 use crate::v::zvexx::load::zvexx_load_helpers::mask_bit;
 use ab_riscv_primitives::prelude::*;
+use core::hint::cold_path;
 
 /// Execute element-wise and-not over `0..vl`, writing SEW-wide results into `vd`.
 ///
@@ -14,53 +14,48 @@ use ab_riscv_primitives::prelude::*;
 /// When `vm=true` all elements are active. When `vm=false` the mask register `v0` gates each
 /// element; masked-off elements are left undisturbed (undisturbed policy).
 ///
-/// # Safety
-/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
-/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
-/// - `src` register (if `Vreg`) satisfies the same alignment as `vs2`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vandn<Reg, Env>(
+pub fn execute_vandn<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
-    sew: Vsew,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
-    for i in Vstart::ZERO.range_to(vl) {
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
+    for i in vl.indices() {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
-        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
-        // `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let b = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: caller verified that the vs1 register group satisfies the same alignment
-                // constraint as vs2; the index argument is identical, so the same bound holds
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
-            }
-            OpSrc::Scalar(val) => val,
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let b = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
-        // `a` is zero-extended to SEW bits by `read_element_u64`; `!b` may have high bits set, but
-        // AND with `a` (whose upper bits are zero) zeros them out naturally
+        // `a` is zero-extended to SEW bits by `VectorRegisterFile::read()`; `!b` may have high bits
+        // set, but AND with `a` (whose upper bits are zero) zeros them out naturally
         let result = !b & a;
-        // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32` (caller precondition);
-        // `i < vl <= group_regs * elems_per_reg`, so
-        // `vd + i / elems_per_reg < vd + group_regs <= 32`
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -72,16 +67,15 @@ pub unsafe fn execute_vandn<Reg, Env>(
 ///
 /// When `vm=false`, masked-off elements are left undisturbed.
 ///
-/// # Safety
-/// Same register-group constraints as [`execute_vandn`], minus the `src` constraint.
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vbrev8<Reg, Env>(
+pub fn execute_vbrev8<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     sew: Vsew,
     vm: bool,
 ) where
@@ -89,26 +83,31 @@ pub unsafe fn execute_vbrev8<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let Some(vs2) = vs2.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let sew_bytes = u32::from(sew.bytes_width());
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
-        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
+        let elem = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
         // Decompose into bytes (LE = index 0 is least-significant), reverse bits within each active
-        // byte, then reassemble; bytes beyond sew_bytes are already zero because `read_element_u64`
-        // zero-extends to u64
+        // byte, then reassemble; bytes beyond sew_bytes are already zero because
+        // `VectorRegisterFile::read()` zero-extends to u64
         let mut bytes = elem.to_le_bytes();
         for byte in &mut bytes[..sew_bytes as usize] {
             *byte = byte.reverse_bits();
         }
         let result = u64::from_le_bytes(bytes);
-        // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -119,16 +118,15 @@ pub unsafe fn execute_vbrev8<Reg, Env>(
 ///
 /// When `vm=false`, masked-off elements are left undisturbed.
 ///
-/// # Safety
-/// Same register-group constraints as [`execute_vandn`], minus the `src` constraint.
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vrev8<Reg, Env>(
+pub fn execute_vrev8<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     sew: Vsew,
     vm: bool,
 ) where
@@ -136,23 +134,28 @@ pub unsafe fn execute_vrev8<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let Some(vs2) = vs2.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let sew_bytes = u32::from(sew.bytes_width());
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
-        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
+        let elem = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
         // Reverse the byte slice covering exactly the SEW-wide element; bytes beyond sew_bytes are
         // zero (from zero-extension) and are left untouched
         let mut bytes = elem.to_le_bytes();
         bytes[..sew_bytes as usize].reverse();
         let result = u64::from_le_bytes(bytes);
-        // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -163,17 +166,16 @@ pub unsafe fn execute_vrev8<Reg, Env>(
 ///
 /// When `vm=false`, masked-off elements are left undisturbed.
 ///
-/// # Safety
-/// Same register-group constraints as [`execute_vandn`].
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vrol<Reg, Env>(
+pub fn execute_vrol<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     sew: Vsew,
     vm: bool,
 ) where
@@ -181,21 +183,27 @@ pub unsafe fn execute_vrol<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let sew_bits = u64::from(sew.bits_width());
     let mask = sew_mask(sew);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
-        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let amount = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: same alignment constraint as vs2; same index bound
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
-            }
-            OpSrc::Scalar(val) => val,
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let amount = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         // `shift < sew_bits`, so `a << shift` never shifts by >= 64 and is safe.
         // When shift == 0, `sew_bits - shift` == sew_bits; `unbounded_shr` defines
@@ -204,10 +212,9 @@ pub unsafe fn execute_vrol<Reg, Env>(
         let hi = (a << shift) & mask;
         let lo = a.unbounded_shr(sew_bits as u32 - shift);
         let result = hi | lo;
-        // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -220,17 +227,16 @@ pub unsafe fn execute_vrol<Reg, Env>(
 ///
 /// When `vm=false`, masked-off elements are left undisturbed.
 ///
-/// # Safety
-/// Same register-group constraints as [`execute_vandn`].
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vror<Reg, Env>(
+pub fn execute_vror<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     sew: Vsew,
     vm: bool,
 ) where
@@ -238,21 +244,27 @@ pub unsafe fn execute_vror<Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let sew_bits = u64::from(sew.bits_width());
     let mask = sew_mask(sew);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !vm && !mask_bit(env.read_vregs().get(VReg::V0), i) {
             continue;
         }
-        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32`; `i < vl`
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let amount = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: same alignment constraint as vs2; same index bound
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
-            }
-            OpSrc::Scalar(val) => val,
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let amount = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         // `shift < sew_bits`, so `a >> shift` never shifts by >= 64 and is safe.
         // When shift == 0, `sew_bits - shift` == sew_bits; `unbounded_shl` defines
@@ -261,10 +273,9 @@ pub unsafe fn execute_vror<Reg, Env>(
         let lo = a >> shift;
         let hi = a.unbounded_shl(sew_bits as u32 - shift) & mask;
         let result = lo | hi;
-        // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32`; `i < vl`
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }

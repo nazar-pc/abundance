@@ -3,12 +3,19 @@
 Breaking changes:
 
 * Minor changes in `InstructionFetcher` API for improved performance of threaded execution
+* `vtype` and `vl` are stored and accessed together as `VectorConfig`, which keeps `vl <= VLMAX` by construction:
+  `VectorRegistersExt::vector_config()` and `set_vector_config()` replace the separate `vl`/`vtype` accessors and
+  setters, and `VectorRegisters::compute_vl()` and `vlmax_for_vtype()` are removed (`VLMAX` is `Vtype::vlmax()` now)
+* `BasicRegister` is a safe trait, and `BasicEagerInstructions::fetcher()` (returns `None` for a program counter that
+  is not a decoded instruction) and `OpaqueThreadedExecutionResult::new()` are safe functions
 
 New features:
 
 * `BasicEagerInstructions` and `BasicEagerInstructionFetcher` (behind the `alloc` feature): a high-performance generic
   instruction fetcher that decodes the whole program upfront into a single heap allocation
 * Several examples with various levels of complexity
+* `VectorRegisterFile` has safe element accessors through register groups validated against the vector configuration
+  (`VRegGroup`), whose bounds checks the compiler eliminates
 
 Improvements:
 
@@ -17,10 +24,27 @@ Improvements:
   comparison instead of two on every memory access, with identical behavior as long as the memory region doesn't reach
   the end of the address space, which is now asserted at compile time (`BASE_ADDR + SIZE` must fit into `u64`)
 * Improved performance and APIs for vector extensions
+* Most `unsafe` code is gone, including all of it in vector instruction implementations outside of the register file,
+  with absence of panics still verified by the `no-panic` feature
+* Non-memory vector instructions raise an illegal instruction exception for a non-zero `vstart`, which they never
+  produce, as the spec permits
 
 Fixes:
 
 * Forward all `VectorRegistersExt` methods in `impl_vector_registers_for_mut_ref` macro
+* Undefined behavior reachable from safe code: an inconsistent `vl`/`vtype` pair or an overridden `vlmax_for_vtype()`
+  in an environment, a `VirtualMemory::read_slice()` implementation returning more bytes than requested in `vlm.v`, and
+  widening instructions with `ELEN` above 64
+* Ssstrict fixes (all matching Sail):
+    * Vector memory addresses wrap around modulo `2^XLEN` (previously modulo `2^64`, which is wrong on RV32)
+    * `vsetvl{i}` saturates AVL instead of truncating it to 32 bits
+    * `vlm.v`, `vsm.v` and `vmv<nr>r.v` raise an illegal instruction exception with `vill` set
+    * Whole register and mask loads/stores honor `vstart`
+    * Vector loads and stores with `EEW` above `ELEN` are rejected
+    * `vwsll` checks `ELEN` and destination overlap
+    * `vzext`/`vsext` reject any destination overlap with a fractional source `EMUL`
+    * Overlapping vector sources with different EEWs are rejected
+    * `vcompress.vm` rejects a mask register in any register of the destination group, not only in the first one
 
 # 0.2.0
 

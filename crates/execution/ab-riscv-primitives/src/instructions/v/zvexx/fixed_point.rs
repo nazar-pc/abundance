@@ -116,6 +116,9 @@ where
         let funct6 = ((instruction >> 26) & 0b11_1111) as u8;
 
         let vd = VReg::from_bits(vd_bits)?;
+        if vd.is_mask(vm) {
+            None?;
+        }
         let vs2 = VReg::from_bits(vs2_bits)?;
         if vs2.is_mask(vm) {
             None?;

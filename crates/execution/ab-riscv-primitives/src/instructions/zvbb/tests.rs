@@ -5,6 +5,7 @@ use crate::instructions::zvbb::ZvbbInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
 use alloc::format;
+use core::assert_matches;
 
 /// Build an OP-V instruction word.
 ///
@@ -212,10 +213,10 @@ fn vbrev_does_not_alias_vbrev8_or_vrev8() {
         ZvbbInstruction::<Reg<u64>>::try_decode(inst_rev8),
         Some(ZvbbInstruction::VbrevV { .. })
     ));
-    assert!(matches!(
+    assert_matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst_brev),
         Some(ZvbbInstruction::VbrevV { .. })
-    ));
+    );
 }
 
 // vclz.v
@@ -336,22 +337,22 @@ fn vbrev_vclz_vctz_vcpop_sub_opcodes_do_not_alias() {
     let inst_clz = make_vop(0b01_0010, 1, 4, 0b01100, OPMVV, 2);
     let inst_ctz = make_vop(0b01_0010, 1, 4, 0b01101, OPMVV, 2);
     let inst_cpop = make_vop(0b01_0010, 1, 4, 0b01110, OPMVV, 2);
-    assert!(matches!(
+    assert_matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst_brev),
         Some(ZvbbInstruction::VbrevV { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst_clz),
         Some(ZvbbInstruction::VclzV { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst_ctz),
         Some(ZvbbInstruction::VctzV { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst_cpop),
         Some(ZvbbInstruction::VcpopV { .. })
-    ));
+    );
 }
 
 // vwsll.vv
@@ -440,14 +441,14 @@ fn vwsll_vx_masked_form() {
 fn vwsll_vv_and_vx_do_not_alias() {
     let inst_vv = make_vop(0b11_0101, 1, 4, 5, OPIVV, 2);
     let inst_vx = make_vop(0b11_0101, 1, 4, 5, OPIVX, 2);
-    assert!(matches!(
+    assert_matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst_vv),
         Some(ZvbbInstruction::VwsllVv { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvbbInstruction::<Reg<u64>>::try_decode(inst_vx),
         Some(ZvbbInstruction::VwsllVx { .. })
-    ));
+    );
 }
 
 // vwsll.vi - uimm=0, smallest shift amount
@@ -678,6 +679,41 @@ fn masked_v0_data_source_is_reserved() {
         // Same instruction with `v4` in place of `v0`
         let vs2 = if vs2 == 0 { 4 } else { vs2 };
         let vs1 = if vs1 == 0 { 4 } else { vs1 };
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
+        assert!(
+            ZvbbInstruction::<Reg<u64>>::try_decode(instruction).is_some(),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn masked_v0_destination_is_reserved() {
+    for (name, funct6, vs2, vs1, funct3) in [
+        ("vandn.vv", 0b00_0001, 1, 2, 0b000),
+        ("vandn.vx", 0b00_0001, 1, 2, 0b100),
+        ("vrol.vv", 0b01_0101, 1, 2, 0b000),
+        ("vrol.vx", 0b01_0101, 1, 2, 0b100),
+        ("vror.vv", 0b01_0100, 1, 2, 0b000),
+        ("vror.vx", 0b01_0100, 1, 2, 0b100),
+        ("vror.vi", 0b01_0100, 1, 2, 0b011),
+        ("vwsll.vv", 0b11_0101, 1, 2, 0b000),
+        ("vwsll.vx", 0b11_0101, 1, 2, 0b100),
+        ("vwsll.vi", 0b11_0101, 1, 2, 0b011),
+        ("vbrev.v", 0b01_0010, 1, 0b0_1010, 0b010),
+        ("vbrev8.v", 0b01_0010, 1, 0b0_1000, 0b010),
+        ("vrev8.v", 0b01_0010, 1, 0b0_1001, 0b010),
+        ("vclz.v", 0b01_0010, 1, 0b0_1100, 0b010),
+        ("vctz.v", 0b01_0010, 1, 0b0_1101, 0b010),
+        ("vcpop.v", 0b01_0010, 1, 0b0_1110, 0b010),
+    ] {
+        let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 0);
+        assert_eq!(
+            ZvbbInstruction::<Reg<u64>>::try_decode(instruction),
+            None,
+            "{name}"
+        );
+        // Same instruction with `vd = v8`
         let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
         assert!(
             ZvbbInstruction::<Reg<u64>>::try_decode(instruction).is_some(),

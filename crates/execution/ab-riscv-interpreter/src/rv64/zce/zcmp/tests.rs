@@ -1,6 +1,7 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 // CM.PUSH
 
@@ -350,8 +351,5 @@ fn test_cm_push_oob_memory() {
     }]);
     state.regs.write(Reg::Sp, 4);
     let result = execute(&mut state);
-    assert!(matches!(
-        result,
-        Err(ExecutionError::OutOfBoundsWrite { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::OutOfBoundsWrite { .. }));
 }

@@ -69,8 +69,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -83,13 +84,13 @@ fn read_elem(
     elem_i: usize,
     sew: Vsew,
 ) -> u64 {
-    // SAFETY: Test elements are always within the register group
-    unsafe {
-        state
-            .env
-            .read_vregs()
-            .read_element(base_reg, u16::try_from(elem_i).unwrap(), sew)
-    }
+    let vregs = state.env.read_vregs();
+    let vlenb = vregs.get(VReg::V0).len();
+    let width = usize::from(sew.bytes_width());
+    let offset = usize::from(base_reg.to_bits()) * vlenb + elem_i * width;
+    let mut bytes = [0; 8];
+    bytes[..width].copy_from_slice(&vregs.as_bytes().as_flattened()[offset..offset + width]);
+    u64::from_le_bytes(bytes)
 }
 
 fn write_elem(
@@ -99,13 +100,12 @@ fn write_elem(
     sew: Vsew,
     value: u64,
 ) {
-    // SAFETY: Test elements are always within the register group
-    unsafe {
-        state
-            .env
-            .write_vregs()
-            .write_element(base_reg, u16::try_from(elem_i).unwrap(), sew, value);
-    }
+    let vregs = state.env.write_vregs();
+    let vlenb = vregs.get(VReg::V0).len();
+    let width = usize::from(sew.bytes_width());
+    let offset = usize::from(base_reg.to_bits()) * vlenb + elem_i * width;
+    vregs.as_bytes_mut().as_flattened_mut()[offset..offset + width]
+        .copy_from_slice(&value.to_le_bytes()[..width]);
 }
 
 fn write_mask(state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>>, bits: u32) {
@@ -1816,57 +1816,6 @@ fn vzext_vf2_e8_illegal_sew_too_small() {
 
 // Illegal: vm=false and vd=v0
 
-#[test]
-fn vwaddu_vv_masked_vd_v0_illegal() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
-    // vd=V0 with vm=false is always illegal (vd overlaps mask register)
-    let result = exec(
-        &mut state,
-        ZveXxWidenNarrowInstruction::VwadduVv {
-            vd: VReg::V0,
-            vs2: VReg::V4,
-            vs1: VReg::V8,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
-fn vnsrl_masked_vd_v0_illegal() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E8, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxWidenNarrowInstruction::VnsrlWi {
-            vd: VReg::V0,
-            vs2: VReg::V4,
-            uimm: 0,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
-#[test]
-fn vzext_vf2_masked_vd_v0_illegal() {
-    let mut state = setup(Vl::new(2).unwrap(), Vsew::E16, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxWidenNarrowInstruction::VzextVf2 {
-            vd: VReg::V0,
-            vs2: VReg::V4,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
-}
-
 // Illegal: vtype not set (vill)
 
 #[test]
@@ -2430,8 +2379,9 @@ fn vext_fractional_source_emul_overlapping_destination_is_illegal() {
                 },
             };
             let result = exec(&mut state, instruction);
-            assert!(
-                matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+            assert_matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. }),
                 "{sew:?} {vlmul:?} {factor:?} sign={sign} vd={vd:?} vs2={vs2:?}"
             );
         }
@@ -2485,8 +2435,9 @@ fn wv_sources_with_different_eew_must_not_overlap() {
             let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M2);
             let result = exec(&mut state, instr);
             if expect_illegal {
-                assert!(
-                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                assert_matches!(
+                    result,
+                    Err(ExecutionError::IllegalInstruction { .. }),
                     "{instr}"
                 );
             } else {

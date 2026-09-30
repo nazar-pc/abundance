@@ -4,6 +4,7 @@ use crate::rv32::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
+use core::assert_matches;
 
 // Arithmetic Instructions
 
@@ -936,10 +937,7 @@ fn test_ecall_unsupported() {
 
     let result = execute(&mut state);
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::EcallUnsupported { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::EcallUnsupported { .. }));
 }
 
 #[test]
@@ -951,10 +949,7 @@ fn test_unimp() {
 
     let result = execute(&mut state);
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Error Conditions
@@ -973,10 +968,7 @@ fn test_out_of_bounds_read() {
 
     let result = execute(&mut state);
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::OutOfBoundsRead { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::OutOfBoundsRead { .. }));
 }
 
 #[test]
@@ -993,10 +985,7 @@ fn test_out_of_bounds_write() {
 
     let result = execute(&mut state);
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::OutOfBoundsWrite { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::OutOfBoundsWrite { .. }));
 }
 
 // Register Zero Tests

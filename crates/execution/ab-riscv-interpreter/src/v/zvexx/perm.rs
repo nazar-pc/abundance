@@ -69,9 +69,10 @@ where
                 };
                 let vtype = config.vtype();
                 let sew = vtype.vsew();
-                // SAFETY: element 0 is always within register vs2, byte offset 0;
-                // VLEN.bytes() >= sew.bytes() for all legal vtype configurations.
-                let raw = unsafe { env.read_vregs().read_element(vs2, 0, sew) };
+                let raw = env
+                    .read_vregs()
+                    .read_first(vs2, sew.as_eew())
+                    .expect("SEW never exceeds `ELEN`, which never exceeds `VLEN`; qed");
                 let sign_extended = zvexx_perm_helpers::sign_extend_to_reg::<Reg>(raw, sew);
                 env.mark_vs_dirty();
 
@@ -106,10 +107,9 @@ where
                 // Per spec §16.1: update only when `vstart < vl`, and `vstart` is zero here
                 if vl != Vl::ZERO {
                     let scalar = rs1_value.as_i64().cast_unsigned();
-                    // SAFETY: element 0 always fits.
-                    unsafe {
-                        env.write_vregs().write_element(vd, 0, sew, scalar);
-                    }
+                    env.write_vregs()
+                        .write_first(vd, sew.as_eew(), scalar)
+                        .expect("SEW never exceeds `ELEN`, which never exceeds `VLEN`; qed");
                 }
                 env.mark_vs_dirty();
             }
@@ -140,39 +140,23 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
                 // vd must not overlap vs2
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    vs2,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs2)?;
                 let offset = rs1_value.as_u64();
-                // SAFETY: alignment and no-overlap verified above; vl <= VLMAX.
-                unsafe {
-                    zvexx_perm_helpers::execute_slideup(env, config, vd, vs2, vm, sew, offset);
-                }
+                zvexx_perm_helpers::execute_slideup(env, vd, vs2, vm, offset);
             }
             // vslideup.vi vd, vs2, uimm, vm
             // Same as vslideup.vx but offset is a 5-bit unsigned immediate.
@@ -193,38 +177,23 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    vs2,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
+                // vd must not overlap vs2
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs2)?;
                 let offset = u64::from(uimm);
-                // SAFETY: same as VslideupVx.
-                unsafe {
-                    zvexx_perm_helpers::execute_slideup(env, config, vd, vs2, vm, sew, offset);
-                }
+                zvexx_perm_helpers::execute_slideup(env, vd, vs2, vm, offset);
             }
             // vslidedown.vx vd, vs2, rs1: _, vm
             // Element vd[i] = vs2[i + offset] if i + offset < VLMAX, else 0.
@@ -251,35 +220,21 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                let vlmax = vtype.vlmax();
                 let offset = rs1_value.as_u64();
-                // SAFETY: alignment verified above; vl <= VLMAX; offset clamped in helper.
-                unsafe {
-                    zvexx_perm_helpers::execute_slidedown(
-                        env, config, vd, vs2, vm, sew, vlmax, offset,
-                    );
-                }
+                zvexx_perm_helpers::execute_slidedown(env, vd, vs2, vm, offset);
             }
             // vslidedown.vi vd, vs2, uimm, vm
             // Same as vslidedown.vx but offset is a 5-bit unsigned immediate.
@@ -300,35 +255,21 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                let vlmax = vtype.vlmax();
                 let offset = u64::from(uimm);
-                // SAFETY: same as VslidedownVx.
-                unsafe {
-                    zvexx_perm_helpers::execute_slidedown(
-                        env, config, vd, vs2, vm, sew, vlmax, offset,
-                    );
-                }
+                zvexx_perm_helpers::execute_slidedown(env, vd, vs2, vm, offset);
             }
             // vslide1up.vx vd, vs2, rs1: _, vm
             // Element 0 of vd gets the scalar value rs1 (written at SEW width).
@@ -356,38 +297,23 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    vs2,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
+                // vd must not overlap vs2
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs2)?;
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
-                unsafe {
-                    zvexx_perm_helpers::execute_slide1up(env, config, vd, vs2, vm, sew, scalar);
-                }
+                zvexx_perm_helpers::execute_slide1up(env, vd, vs2, vm, scalar);
             }
             // vslide1down.vx vd, vs2, rs1: _, vm
             // Element vd[i] = vs2[i + 1] for 0 <= i < vl - 1.
@@ -415,32 +341,21 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment verified; vl <= VLMAX; overlap permitted by spec.
-                unsafe {
-                    zvexx_perm_helpers::execute_slide1down(env, config, vd, vs2, vm, sew, scalar);
-                }
+                zvexx_perm_helpers::execute_slide1down(env, vd, vs2, vm, scalar);
             }
             // vrgather.vv vd, vs2, vs1, vm
             // vd[i] = (vs1[i] < VLMAX) ? vs2[vs1[i]] : 0
@@ -462,51 +377,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    vs2,
-                    group_regs,
-                )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    vs1,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                let vlmax = vtype.vlmax();
-                // SAFETY: all alignment and overlap constraints verified above; vl <= VLMAX.
-                unsafe {
-                    zvexx_perm_helpers::execute_rgather_vv(
-                        env, config, vd, vs2, vs1, vm, sew, vlmax,
-                    );
-                }
+                // vd must not overlap either source
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs2)?;
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs1)?;
+                zvexx_perm_helpers::execute_rgather_vv(env, vd, vs2, vs1, vm);
             }
             // vrgather.vx vd, vs2, rs1: _, vm
             // All active elements of vd get vs2[rs1] if rs1 < VLMAX, else 0.
@@ -533,41 +426,23 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    vs2,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                let vlmax = vtype.vlmax();
+                // vd must not overlap vs2
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs2)?;
                 let index = rs1_value.as_u64();
-                // SAFETY: alignment and no-overlap verified; vl <= VLMAX.
-                unsafe {
-                    zvexx_perm_helpers::execute_rgather_scalar(
-                        env, config, vd, vs2, vm, sew, vlmax, index,
-                    );
-                }
+                zvexx_perm_helpers::execute_rgather_scalar(env, vd, vs2, vm, index);
             }
             // vrgather.vi vd, vs2, uimm, vm
             // Same as vrgather.vx but index is a 5-bit unsigned immediate.
@@ -588,41 +463,23 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    vs2,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                let vlmax = vtype.vlmax();
+                // vd must not overlap vs2
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs2)?;
                 let index = u64::from(uimm);
-                // SAFETY: same as VrgatherVx.
-                unsafe {
-                    zvexx_perm_helpers::execute_rgather_scalar(
-                        env, config, vd, vs2, vm, sew, vlmax, index,
-                    );
-                }
+                zvexx_perm_helpers::execute_rgather_scalar(env, vd, vs2, vm, index);
             }
             // vrgatherei16.vv vd, vs2, vs1, vm
             // Like vrgather.vv but vs1 always uses EEW=16 (regardless of SEW).
@@ -645,92 +502,44 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                // Compute EMUL for vs1 index register (EEW=16).
-                let index_group_regs = vtype
-                    .vlmul()
-                    .index_register_count(
-                        ab_riscv_primitives::instructions::v::Eew::E16,
-                        vtype.vsew(),
-                    )
-                    .ok_or(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    })?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    index_group_regs,
+                    Eew::E16,
                 )?;
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    vs2,
-                    group_regs,
-                )?;
-                // vd and vs1 have different group sizes (group_regs vs index_group_regs),
-                // so the symmetric helper would use the wrong size for one of the intervals.
-                zvexx_perm_helpers::check_no_overlap_asymmetric::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    group_regs,
-                    vs1,
-                    index_group_regs,
-                )?;
+                // vd must not overlap either source
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs2)?;
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs1)?;
                 // `vs1` is read with EEW=16 and `vs2` with EEW=SEW
-                if vtype.vsew() != Vsew::E16 {
-                    zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                if sew != Vsew::E16 {
+                    zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(
                         program_counter,
                         vs2,
-                        group_regs.get(),
                         vs1,
-                        index_group_regs.get(),
                     )?;
                 }
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                let vlmax = vtype.vlmax();
-                // SAFETY: all alignment and overlap constraints verified; vl <= VLMAX;
-                // vs1 uses EEW=16 with computed index_group_regs.
-                unsafe {
-                    zvexx_perm_helpers::execute_rgatherei16(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        sew,
-                        vlmax,
-                        index_group_regs,
-                    );
-                }
+                zvexx_perm_helpers::execute_rgatherei16(env, vd, vs2, vs1, vm);
             }
             // vmerge.vvm / vmv.v.v
             // When vm=true: vmv.v.v vd, vs1 - broadcast all active elements from vs1.
             //   vs2 is ignored; no overlap restriction on vd/vs2.
             // When vm=false: vmerge.vvm vd, vs2, vs1, v0
             //   vd[i] = v0[i] ? vs1[i] : vs2[i]
-            //   vd must not overlap v0 (mask source).
+            //   vd must not overlap v0 (mask source), which the decoder rejects.
             Self::VmergeVvm { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
                     ::core::hint::cold_path();
@@ -748,37 +557,28 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm {
-                    // vmerge: vs2 is read, vd must not overlap v0
-                    zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                        program_counter,
-                        vs2,
-                        group_regs,
-                    )?;
-                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                        program_counter,
-                        vd,
-                        VReg::V0,
-                        group_regs,
-                    )?;
-                }
-                let sew = vtype.vsew();
-                // SAFETY: alignment and overlap verified above; vl <= VLMAX.
-                unsafe {
-                    zvexx_perm_helpers::execute_merge_vv(env, config, vd, vs2, vs1, vm, sew);
-                }
+                // Unmasked, this is `vmv.v.v`, for which the encoding fixes `vs2` to `v0`, which is
+                // a valid register group that is not read
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    sew.as_eew(),
+                )?;
+                zvexx_perm_helpers::execute_merge_vv(env, vd, vs2, vs1, vm);
             }
             // vmerge.vxm / vmv.v.x
             // When vm=true: vmv.v.x vd, rs1 - broadcast scalar to all active elements.
@@ -805,32 +605,23 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm {
-                    zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                        program_counter,
-                        vs2,
-                        group_regs,
-                    )?;
-                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                        program_counter,
-                        vd,
-                        VReg::V0,
-                        group_regs,
-                    )?;
-                }
-                let sew = vtype.vsew();
+                // Unmasked, this is `vmv.v.x`/`vmv.v.i`, for which the encoding fixes `vs2` to
+                // `v0`, which is a valid register group that is not read
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    sew.as_eew(),
+                )?;
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment and overlap verified above; vl <= VLMAX.
-                unsafe {
-                    zvexx_perm_helpers::execute_merge_scalar(env, config, vd, vs2, vm, sew, scalar);
-                }
+                zvexx_perm_helpers::execute_merge_scalar(env, vd, vs2, vm, scalar);
             }
             // vmerge.vim / vmv.v.i
             // When vm=true: vmv.v.i vd, simm5 - broadcast sign-extended immediate.
@@ -852,33 +643,23 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                if !vm {
-                    zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                        program_counter,
-                        vs2,
-                        group_regs,
-                    )?;
-                    zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                        program_counter,
-                        vd,
-                        VReg::V0,
-                        group_regs,
-                    )?;
-                }
-                let sew = vtype.vsew();
-                // Sign-extend imm to u64 so the low sew_bytes are correct for all SEW.
+                // Unmasked, this is `vmv.v.x`/`vmv.v.i`, for which the encoding fixes `vs2` to
+                // `v0`, which is a valid register group that is not read
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    sew.as_eew(),
+                )?;
                 let scalar = i64::from(simm5).cast_unsigned();
-                // SAFETY: alignment and overlap verified above; vl <= VLMAX.
-                unsafe {
-                    zvexx_perm_helpers::execute_merge_scalar(env, config, vd, vs2, vm, sew, scalar);
-                }
+                zvexx_perm_helpers::execute_merge_scalar(env, vd, vs2, vm, scalar);
             }
             // vcompress.vm vd, vs2, vs1
             // Packs active elements of vs2 (where vs1 mask bit is set) sequentially into vd.
@@ -901,45 +682,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_perm_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                // vs1 is always a single mask register (no LMUL grouping)
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
-                    program_counter,
-                    vd,
-                    vs2,
-                    group_regs,
-                )?;
-                // vs1 is a mask register; check it doesn't overlap vd
-                zvexx_perm_helpers::check_no_overlap::<Reg, _, _>(
+                // vd must not overlap vs2
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vd, vs2)?;
+                // vs1 is a single mask register, which must not be one of the registers of vd
+                zvexx_helpers::check_register_outside_group::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    VRegGroupSize::R1,
                 )?;
                 // `vs1` is a mask with EEW=1 and `vs2` has EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                zvexx_helpers::check_register_outside_group::<Reg, Env, _, _>(
                     program_counter,
                     vs2,
-                    group_regs.get(),
                     vs1,
-                    1,
                 )?;
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                unsafe {
-                    zvexx_perm_helpers::execute_compress(env, vd, vs2, vs1, vl, sew);
-                }
+                zvexx_perm_helpers::execute_compress(env, vd, vs2, vs1);
             }
             // vmv1r.v vd, vs2
             // Whole register move: copies 1 register.
@@ -962,10 +732,15 @@ where
                         ),
                     });
                 }
-                // SAFETY: both vd.to_bits() and vs2.to_bits() are always in [0, 32) by VReg
-                // invariant; copying 1 register always fits.
-                unsafe {
-                    zvexx_perm_helpers::execute_whole_reg_move::<1, _>(env.write_vregs(), vd, vs2);
+                if zvexx_perm_helpers::execute_whole_reg_move::<1, _>(env.write_vregs(), vd, vs2)
+                    .is_none()
+                {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
                 }
                 env.mark_vs_dirty();
             }
@@ -997,9 +772,15 @@ where
                         ),
                     });
                 }
-                // SAFETY: alignment verified; 2 registers from aligned base always stay in [0, 32).
-                unsafe {
-                    zvexx_perm_helpers::execute_whole_reg_move::<2, _>(env.write_vregs(), vd, vs2);
+                if zvexx_perm_helpers::execute_whole_reg_move::<2, _>(env.write_vregs(), vd, vs2)
+                    .is_none()
+                {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
                 }
                 env.mark_vs_dirty();
             }
@@ -1030,9 +811,15 @@ where
                         ),
                     });
                 }
-                // SAFETY: alignment verified; 4 registers from aligned base always stay in [0, 32).
-                unsafe {
-                    zvexx_perm_helpers::execute_whole_reg_move::<4, _>(env.write_vregs(), vd, vs2);
+                if zvexx_perm_helpers::execute_whole_reg_move::<4, _>(env.write_vregs(), vd, vs2)
+                    .is_none()
+                {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
                 }
                 env.mark_vs_dirty();
             }
@@ -1063,9 +850,15 @@ where
                         ),
                     });
                 }
-                // SAFETY: alignment verified; 8 registers from aligned base always stay in [0, 32).
-                unsafe {
-                    zvexx_perm_helpers::execute_whole_reg_move::<8, _>(env.write_vregs(), vd, vs2);
+                if zvexx_perm_helpers::execute_whole_reg_move::<8, _>(env.write_vregs(), vd, vs2)
+                    .is_none()
+                {
+                    ::core::hint::cold_path();
+                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
+                        address: PackedAddress::new(
+                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
+                        ),
+                    });
                 }
                 env.mark_vs_dirty();
             }

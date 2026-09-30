@@ -1,90 +1,27 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_config::VectorConfig;
-use crate::v::vector_registers::VectorRegistersExt;
-pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
-    OpSrc, check_vreg_group_alignment, sew_mask, sign_extend,
-};
+use crate::v::vector_registers::{VRegGroup, VectorRegistersExt};
+pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, sew_mask, sign_extend};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
-use crate::v::zvexx::zvexx_helpers::{INSTRUCTION_SIZE, WideningSew};
-use crate::{ExecutionError, PackedAddress, ProgramCounter};
+use crate::v::zvexx::zvexx_helpers::WideningSew;
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-
-/// Check that a narrower source register group does not *illegally* overlap the wider destination
-/// group of a widening instruction.
-///
-/// For widening instructions `vd` occupies `dest_group_regs` registers (which is
-/// [`widening_dest_register_count()`] of the source LMUL); `vs` occupies `src_group_regs`.
-///
-/// Per the RISC-V "V" spec §5.2, because the destination EEW (`2*SEW`) is greater than the source
-/// EEW (`SEW`), the source group *may* overlap the destination group, but only when both of the
-/// following hold:
-/// - the source EMUL is at least 1, and
-/// - the overlap is in the highest-numbered part of the destination register group, i.e. the source
-///   occupies exactly the top `src_group_regs` registers of the destination group.
-///
-/// When the source EMUL is at least 1, `dest_group_regs == 2 * src_group_regs`, so
-/// `dest_group_regs > src_group_regs` is an equivalent test for "source EMUL >= 1": a fractional
-/// source EMUL (`< 1`) yields `dest_group_regs == src_group_regs == 1`, in which case no overlap is
-/// ever legal. Any overlap that is not the legal "source in the highest-numbered part" form is
-/// rejected as an illegal instruction.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_no_widening_overlap<Reg, Memory, PC>(
-    program_counter: &PC,
-    vd: VReg,
-    vs: VReg,
-    dest_group_regs: VRegGroupSize,
-    src_group_regs: VRegGroupSize,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    let dest_group_regs = dest_group_regs.get();
-    let src_group_regs = src_group_regs.get();
-    let vd_start = vd.to_bits();
-    let vd_end = vd_start + dest_group_regs;
-    let vs_start = vs.to_bits();
-    let vs_end = vs_start + src_group_regs;
-    // Disjoint register groups are always fine
-    if vs_start >= vd_end || vd_start >= vs_end {
-        return Ok(());
-    }
-    // The groups overlap. This is legal only when the source EMUL is at least 1
-    // (`dest_group_regs > src_group_regs`) and the source occupies exactly the highest-numbered
-    // part of the destination group (`vs_start == vd_end - src_group_regs`).
-    if dest_group_regs > src_group_regs && vs_start == vd_end - src_group_regs {
-        return Ok(());
-    }
-
-    cold_path();
-    Err(ExecutionError::IllegalInstruction {
-        address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-    })
-}
 
 /// Execute a single-width element-wise arithmetic operation over `0..vl`.
 ///
 /// `op` receives `(vs2_elem: u64, src_elem: u64, sew: Vsew)` and returns the `u64` result.
 /// Only the low `sew.bytes()` of the result are written back.
 ///
-/// # Safety
-/// - `vd` and source register alignment verified by caller
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_arith_op<Reg, Env, F>(
+pub fn execute_arith_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: Vsew,
     op: F,
@@ -94,24 +31,31 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: register bounds verified by caller
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let b = match src {
-            // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(vs1_base) => unsafe { env.read_vregs().read_element(vs1_base, i, sew) },
-            OpSrc::Scalar(val) => val,
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let b = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         let result = op(a, b, sew);
-        // SAFETY: register bounds verified by caller
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -121,21 +65,16 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
 /// Reads SEW-wide elements from `vs2` and `src`, computes `op`, and writes a 2*SEW-wide result
 /// into `vd`.
 ///
-/// # Safety
-/// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
-///   and non-overlap verified by caller
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_widening_op<Reg, Env, F>(
+pub fn execute_widening_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: WideningSew<{ Env::ELEN }>,
     op: F,
@@ -145,28 +84,32 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    let wide_sew = sew.wide();
     let sew = sew.narrow();
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: register bounds verified by caller
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let b = match src {
-            // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(vs1_base) => unsafe { env.read_vregs().read_element(vs1_base, i, sew) },
-            OpSrc::Scalar(val) => val,
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let b = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         let result = op(a, b, sew);
-        // SAFETY: vd has dest_group_regs registers; element `i` fits within them because
-        // `vl <= src_group_regs * VLEN.bytes() / sew_bytes` and dest stores at 2*SEW width so
-        // `i < dest_group_regs * VLEN.bytes() / (2*sew_bytes)`
-        unsafe {
-            env.write_vregs().write_element(vd, i, wide_sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -176,20 +119,16 @@ pub unsafe fn execute_widening_op<Reg, Env, F>(
 /// `op` receives `(acc: u64, a: u64, b: u64, sew: Vsew)` where `acc` is the current `vd[i]`,
 /// `a` is the element from `a_reg`, and `b` is the element from `src`. Returns the new `vd[i]`.
 ///
-/// # Safety
-/// - `vd`, `a_reg`, and `src` register alignment verified by caller
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - When `vm=false`: `vd.to_bits() != 0`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_muladd_op<Reg, Env, F>(
+pub fn execute_muladd_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    a_reg: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    a_reg: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: Vsew,
     op: F,
@@ -199,26 +138,32 @@ pub unsafe fn execute_muladd_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(a_reg), Some(src)) = (a_reg.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: register bounds verified by caller
-        let acc = unsafe { env.read_vregs().read_element(vd, i, sew) };
-        // SAFETY: register bounds verified by caller
-        let a = unsafe { env.read_vregs().read_element(a_reg, i, sew) };
-        let b = match src {
-            // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe { env.read_vregs().read_element(b_reg, i, sew) },
-            OpSrc::Scalar(val) => val,
+        let acc = env.read_vregs().read(vd, i).expect("`i < vl` of `vd`; qed");
+        let a = env
+            .read_vregs()
+            .read(a_reg, i)
+            .expect("`a_reg` has the same `vl` as `vd`, checked above; qed");
+        let b = match src.vreg {
+            Some(b_reg) => env
+                .read_vregs()
+                .read(b_reg, i)
+                .expect("`b_reg` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         let result = op(acc, a, b, sew);
-        // SAFETY: register bounds verified by caller
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -227,18 +172,16 @@ pub unsafe fn execute_muladd_op<Reg, Env, F>(
 ///
 /// Analogous to [`execute_muladd_op`] but `a` is a fixed scalar instead of a register element.
 ///
-/// # Safety
-/// Same as [`execute_muladd_op`], minus constraints on `a_reg`.
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
+pub fn execute_muladd_scalar_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
     scalar: u64,
-    src: OpSrc,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: Vsew,
     op: F,
@@ -248,24 +191,28 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let Some(src) = src.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: register bounds verified by caller
-        let acc = unsafe { env.read_vregs().read_element(vd, i, sew) };
-        let b = match src {
-            // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe { env.read_vregs().read_element(b_reg, i, sew) },
-            OpSrc::Scalar(val) => val,
+        let acc = env.read_vregs().read(vd, i).expect("`i < vl` of `vd`; qed");
+        let b = match src.vreg {
+            Some(b_reg) => env
+                .read_vregs()
+                .read(b_reg, i)
+                .expect("`b_reg` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         let result = op(acc, scalar, b, sew);
-        // SAFETY: register bounds verified by caller
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -277,20 +224,16 @@ pub unsafe fn execute_muladd_scalar_op<Reg, Env, F>(
 ///
 /// `op` receives `(acc: u64, a: u64, b: u64, sew: Vsew)`.
 ///
-/// # Safety
-/// - `vd` uses `dest_group_regs` registers (result of `widening_dest_register_count()`); alignment
-///   and non-overlap verified by caller
-/// - When `vm=false`: `vd.to_bits() != 0`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
+pub fn execute_widening_muladd_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    a_reg: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    a_reg: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: WideningSew<{ Env::ELEN }>,
     op: F,
@@ -300,30 +243,34 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
-    let wide_sew = sew.wide();
     let sew = sew.narrow();
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(a_reg), Some(src)) = (a_reg.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // Read the existing 2*SEW accumulator from vd
-        // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
-        // `execute_widening_op` for the bound argument)
-        let acc = unsafe { env.read_vregs().read_element(vd, i, wide_sew) };
-        // SAFETY: register bounds verified by caller
-        let a = unsafe { env.read_vregs().read_element(a_reg, i, sew) };
-        let b = match src {
-            // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe { env.read_vregs().read_element(b_reg, i, sew) },
-            OpSrc::Scalar(val) => val,
+        let acc = env.read_vregs().read(vd, i).expect("`i < vl` of `vd`; qed");
+        let a = env
+            .read_vregs()
+            .read(a_reg, i)
+            .expect("`a_reg` has the same `vl` as `vd`, checked above; qed");
+        let b = match src.vreg {
+            Some(b_reg) => env
+                .read_vregs()
+                .read(b_reg, i)
+                .expect("`b_reg` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         let result = op(acc, a, b, sew);
-        // SAFETY: same as acc read above
-        unsafe {
-            env.write_vregs().write_element(vd, i, wide_sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -332,18 +279,16 @@ pub unsafe fn execute_widening_muladd_op<Reg, Env, F>(
 ///
 /// Analogous to [`execute_widening_muladd_op`] but `a` is a fixed scalar.
 ///
-/// # Safety
-/// Same as [`execute_widening_muladd_op`], minus constraints on `a_reg`.
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
+pub fn execute_widening_muladd_scalar_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
     scalar: u64,
-    src: OpSrc,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: WideningSew<{ Env::ELEN }>,
     op: F,
@@ -353,27 +298,29 @@ pub unsafe fn execute_widening_muladd_scalar_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
-    let wide_sew = sew.wide();
     let sew = sew.narrow();
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let Some(src) = src.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: vd has dest_group_regs registers; element `i` fits within them (see
-        // `execute_widening_op` for the bound argument)
-        let acc = unsafe { env.read_vregs().read_element(vd, i, wide_sew) };
-        let b = match src {
-            // SAFETY: register bounds verified by caller
-            OpSrc::Vreg(b_reg) => unsafe { env.read_vregs().read_element(b_reg, i, sew) },
-            OpSrc::Scalar(val) => val,
+        let acc = env.read_vregs().read(vd, i).expect("`i < vl` of `vd`; qed");
+        let b = match src.vreg {
+            Some(b_reg) => env
+                .read_vregs()
+                .read(b_reg, i)
+                .expect("`b_reg` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         let result = op(acc, scalar, b, sew);
-        // SAFETY: same as acc read above
-        unsafe {
-            env.write_vregs().write_element(vd, i, wide_sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }

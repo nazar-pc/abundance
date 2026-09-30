@@ -6,6 +6,7 @@ use crate::{
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
@@ -64,13 +65,13 @@ fn read_elem(
     elem_i: usize,
     sew: Vsew,
 ) -> u64 {
-    // SAFETY: Test elements are always within the register group
-    unsafe {
-        state
-            .env
-            .read_vregs()
-            .read_element(base_reg, u16::try_from(elem_i).unwrap(), sew)
-    }
+    let vregs = state.env.read_vregs();
+    let vlenb = vregs.get(VReg::V0).len();
+    let width = usize::from(sew.bytes_width());
+    let offset = usize::from(base_reg.to_bits()) * vlenb + elem_i * width;
+    let mut bytes = [0; 8];
+    bytes[..width].copy_from_slice(&vregs.as_bytes().as_flattened()[offset..offset + width]);
+    u64::from_le_bytes(bytes)
 }
 
 fn write_elem(
@@ -80,13 +81,12 @@ fn write_elem(
     sew: Vsew,
     value: u64,
 ) {
-    // SAFETY: Test elements are always within the register group
-    unsafe {
-        state
-            .env
-            .write_vregs()
-            .write_element(base_reg, u16::try_from(elem_i).unwrap(), sew, value);
-    }
+    let vregs = state.env.write_vregs();
+    let vlenb = vregs.get(VReg::V0).len();
+    let width = usize::from(sew.bytes_width());
+    let offset = usize::from(base_reg.to_bits()) * vlenb + elem_i * width;
+    vregs.as_bytes_mut().as_flattened_mut()[offset..offset + width]
+        .copy_from_slice(&value.to_le_bytes()[..width]);
 }
 
 fn set_mask_bit(
@@ -938,10 +938,7 @@ fn vwredsumu_e64_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -958,10 +955,7 @@ fn vwredsum_e64_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // guard rails
@@ -981,10 +975,7 @@ fn reduction_vector_not_allowed() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1002,10 +993,7 @@ fn reduction_invalid_vtype_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1022,10 +1010,7 @@ fn reduction_misaligned_vs2_m2_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Spec §14: reductions with non-zero vstart are reserved. Raise illegal instruction
@@ -1045,10 +1030,7 @@ fn reduction_nonzero_vstart_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1066,10 +1048,7 @@ fn widening_reduction_nonzero_vstart_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1274,10 +1253,7 @@ fn vwredsum_scalar_must_not_overlap_vector_source() {
             },
         );
         if vs1 == VReg::V3 {
-            assert!(matches!(
-                result,
-                Err(ExecutionError::IllegalInstruction { .. })
-            ));
+            assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
         } else {
             result.unwrap();
         }

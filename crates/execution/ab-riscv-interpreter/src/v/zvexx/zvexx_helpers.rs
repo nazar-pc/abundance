@@ -3,9 +3,11 @@
 #[cfg(test)]
 mod tests;
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_config::VectorConfig;
+use crate::v::vector_registers::{VRegGroup, VRegSegmentGroup, VectorRegistersExt};
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
+use core::cmp::Ordering;
 use core::hint::cold_path;
 
 /// Size of an instruction in bytes.
@@ -32,29 +34,168 @@ where
     env.vector_instructions_allowed() && env.vstart() == Vstart::ZERO
 }
 
-/// Check that two source register groups `[a, a + a_regs)` and `[b, b + b_regs)`, read with
-/// different EEWs, do not overlap.
+/// Error of [`vreg_group()`] and [`vreg_segment_group()`], an illegal instruction at `address`.
 ///
-/// A vector register cannot provide source operands with more than one EEW in a single
-/// instruction, including at different positions within the two groups, such encodings are
-/// reserved (`norm:vreg_source_eew_rsv`). Sources with the same EEW may overlap freely.
+/// Unlike a whole [`ExecutionError`], this is fully initialized. A group and an `ExecutionError`
+/// sharing a `Result` makes the compiler carry bytes of groups from earlier instructions around the
+/// interpreter loop into the partially initialized error, which made register allocation of the
+/// loop explode.
+#[derive(Debug, Clone, Copy)]
+struct InvalidRegisterGroup<Address>
+where
+    Address: Copy,
+{
+    address: PackedAddress<Address>,
+}
+
+const impl<Address> From<InvalidRegisterGroup<Address>> for ExecutionError<Address>
+where
+    Address: Copy,
+{
+    #[inline(always)]
+    fn from(error: InvalidRegisterGroup<Address>) -> Self {
+        Self::IllegalInstruction {
+            address: error.address,
+        }
+    }
+}
+
+/// Register group starting at `base` with elements of width `eew` under `config`.
+///
+/// Raises an illegal instruction exception if [`VRegGroup::new()`] rejects it.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_sources_disjoint<Reg, Memory, PC>(
+pub fn vreg_group<Reg, Env, Memory, PC>(
     program_counter: &PC,
-    a: VReg,
-    a_regs: u8,
-    b: VReg,
-    b_regs: u8,
+    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
+    base: VReg,
+    eew: Eew,
+) -> Result<VRegGroup<{ Env::VLEN }>, impl Into<ExecutionError<Reg::Type>>>
+where
+    Reg: Register,
+    Env: VectorRegistersExt<Reg>,
+    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    PC: ProgramCounter<Reg::Type, Memory>,
+{
+    let Some(group) = VRegGroup::new(config, base, eew) else {
+        cold_path();
+        return Err(InvalidRegisterGroup {
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
+        });
+    };
+    Ok(group)
+}
+
+/// Segment group of `nf` fields, the first of which is `first`.
+///
+/// Raises an illegal instruction exception if [`VRegSegmentGroup::new()`] rejects it.
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn vreg_segment_group<Reg, Env, Memory, PC>(
+    program_counter: &PC,
+    first: VRegGroup<{ Env::VLEN }>,
+    nf: Nf,
+) -> Result<VRegSegmentGroup<{ Env::VLEN }>, impl Into<ExecutionError<Reg::Type>>>
+where
+    Reg: Register,
+    Env: VectorRegistersExt<Reg>,
+    PC: ProgramCounter<Reg::Type, Memory>,
+{
+    let Some(group) = VRegSegmentGroup::new(first, nf) else {
+        cold_path();
+        return Err(InvalidRegisterGroup {
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
+        });
+    };
+    Ok(group)
+}
+
+/// Check that destination `vd` overlaps source `vs` only in a way the spec permits for groups with
+/// different EEWs (spec §5.2):
+///
+/// - the EEWs are equal, then any overlap is fine;
+/// - the destination EEW is smaller and the overlap is in the lowest-numbered part of the source
+///   group, i.e. the destination starts at the source's base register (`vnsrl.wv v2, v2, v6`);
+/// - the destination EEW is larger, the source `EMUL` is at least 1 and the overlap is in the
+///   highest-numbered part of the destination group, i.e. both groups end at the same register
+///   (`vwsubu.wv v2, v14, v3` with `LMUL=1`, where the narrow `v3` aliases the high register of the
+///   wide `{v2, v3}` destination).
+///
+/// Any other overlap is illegal, in particular any overlap at all with a fractional source `EMUL`
+/// when the destination EEW is larger, even though such a source still occupies a whole register.
+/// Instructions that forbid overlaps that this permits check that separately.
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn check_destination_overlap<Reg, Env, Memory, PC>(
+    program_counter: &PC,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs: VRegGroup<{ Env::VLEN }>,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
+    Env: VectorRegistersExt<Reg>,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let a_start = u16::from(a.to_bits());
-    let b_start = u16::from(b.to_bits());
-    if a_start < b_start + u16::from(b_regs) && b_start < a_start + u16::from(a_regs) {
+    let allowed = !vd.overlaps(vs)
+        || match vd.eew().bytes_width().cmp(&vs.eew().bytes_width()) {
+            Ordering::Equal => true,
+            Ordering::Less => vd.base() == vs.base(),
+            Ordering::Greater => {
+                !vs.emul().is_fractional()
+                    && vd.base().to_bits() + vd.group_regs().get()
+                        == vs.base().to_bits() + vs.group_regs().get()
+            }
+        };
+    if !allowed {
+        cold_path();
+        return Err(ExecutionError::IllegalInstruction {
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
+        });
+    }
+    Ok(())
+}
+
+/// Check that register groups `a` and `b` don't overlap
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn check_groups_disjoint<Reg, Env, Memory, PC>(
+    program_counter: &PC,
+    a: VRegGroup<{ Env::VLEN }>,
+    b: VRegGroup<{ Env::VLEN }>,
+) -> Result<(), ExecutionError<Reg::Type>>
+where
+    Reg: Register,
+    Env: VectorRegistersExt<Reg>,
+    PC: ProgramCounter<Reg::Type, Memory>,
+{
+    if a.overlaps(b) {
+        cold_path();
+        return Err(ExecutionError::IllegalInstruction {
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
+        });
+    }
+    Ok(())
+}
+
+/// Check that single register `reg`, like a mask register, is not one of the registers of `group`
+#[inline(always)]
+#[doc(hidden)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub fn check_register_outside_group<Reg, Env, Memory, PC>(
+    program_counter: &PC,
+    group: VRegGroup<{ Env::VLEN }>,
+    reg: VReg,
+) -> Result<(), ExecutionError<Reg::Type>>
+where
+    Reg: Register,
+    Env: VectorRegistersExt<Reg>,
+    PC: ProgramCounter<Reg::Type, Memory>,
+{
+    if group.contains(reg) {
         cold_path();
         return Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),

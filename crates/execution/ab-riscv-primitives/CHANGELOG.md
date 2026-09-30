@@ -5,10 +5,18 @@ Breaking changes:
 * `Instruction::alignment()` is replaced by the `Instruction::ALIGNMENT` associated constant
 * Changed APIs around vector extensions for better type safety and performance
 
+New features:
+
+* `Vtype::vlmax()` and `Vtype::eew_register_count()`
+
 Fixes:
 
 * Hidden `EReg::Phantom` and `Reg::Phantom` variants are now truly uninhabited, previously they could be constructed
   from safe code, resulting in undefined behavior in `Display` implementations and elsewhere
+* Ssstrict fixes (all matching Sail):
+    * Masked vector instructions that read `v0`, the mask, as a data source are reserved and no longer decode
+    * Masked vector instructions that write `v0` with an element width other than 1 are reserved and no longer decode
+    * `vtype` with `SEW` above `LMUL * ELEN` for fractional `LMUL` sets `vill`
 
 # 0.2.0
 

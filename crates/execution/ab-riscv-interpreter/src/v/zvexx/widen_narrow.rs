@@ -70,10 +70,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                // Widening requires SEW < 64; 2*SEW must fit in ELEN=64
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -83,53 +80,44 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs1,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    Some(vs1),
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
+                    vd,
                     vs1,
-                    group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_add,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_add,
+                );
             }
             // vwaddu.vx - 2*SEW = zext(SEW) + zext(xlen->SEW)
             Self::VwadduVx {
@@ -154,9 +142,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -166,50 +152,35 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    None,
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 // Scalar is zero-extended to 2*SEW; the low SEW bits are what matter
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_add,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_add,
+                );
             }
             // vwadd.vv - 2*SEW = sext(SEW) + sext(SEW)
             Self::VwaddVv { vd, vs2, vs1, vm } => {
@@ -229,9 +200,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -241,53 +210,44 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs1,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    Some(vs1),
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
+                    vd,
                     vs1,
-                    group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_add,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_add,
+                );
             }
             // vwadd.vx - 2*SEW = sext(SEW) + sext(rs1)
             Self::VwaddVx {
@@ -312,9 +272,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -324,54 +282,39 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    None,
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 // Scalar is sign-extended from XLEN to 64 bits
                 let scalar = zvexx_widen_narrow_helpers::sign_extend_bits(
                     rs1_value.as_u64(),
                     Vsew::from_xlen::<Reg>(),
                 )
                 .cast_unsigned();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_add,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_add,
+                );
             }
             // vwsubu.vv - 2*SEW = zext(SEW) - zext(SEW)
             Self::VwsubuVv { vd, vs2, vs1, vm } => {
@@ -391,9 +334,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -403,53 +344,44 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs1,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    Some(vs1),
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
+                    vd,
                     vs1,
-                    group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_sub,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_sub,
+                );
             }
             // vwsubu.vx - 2*SEW = zext(SEW) - zext(rs1)
             Self::VwsubuVx {
@@ -474,9 +406,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -486,49 +416,34 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    None,
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_sub,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_op::<true, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_sub,
+                );
             }
             // vwsub.vv - 2*SEW = sext(SEW) - sext(SEW)
             Self::VwsubVv { vd, vs2, vs1, vm } => {
@@ -548,9 +463,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -560,53 +473,44 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs1,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    Some(vs1),
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
+                    vd,
                     vs1,
-                    group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_sub,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_sub,
+                );
             }
             // vwsub.vx - 2*SEW = sext(SEW) - sext(rs1)
             Self::VwsubVx {
@@ -631,9 +535,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -643,53 +545,38 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.narrow().as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    None,
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let scalar = zvexx_widen_narrow_helpers::sign_extend_bits(
                     rs1_value.as_u64(),
                     Vsew::from_xlen::<Reg>(),
                 )
                 .cast_unsigned();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_sub,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_op::<false, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_sub,
+                );
             }
             // vwaddu.wv - 2*SEW = 2*SEW + zext(SEW)
             Self::VwadduWv { vd, vs2, vs1, vm } => {
@@ -709,9 +596,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -721,62 +606,42 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
-                // vs2 is the wide source; vs1 is narrow
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    wide_group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    wide_group_regs.get(),
-                    vs1,
-                    group_regs.get(),
-                )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                // `vs2` and `vs1` are read with different EEWs
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vs2, vs1)?;
+                // The wide destination may only overlap the narrow source in its highest-numbered
+                // part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    None,
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_add,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_add,
+                );
             }
             // vwaddu.wx - 2*SEW = 2*SEW + zext(rs1)
             Self::VwadduWx {
@@ -801,8 +666,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -812,47 +676,28 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
-                // For .wx scalar variants vd may alias vs2 (same wide group); no narrow vs1
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    wide_group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _>(
-                    program_counter,
+                    config,
                     vd,
-                    wide_group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_add,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_add,
+                );
             }
             // vwadd.wv - 2*SEW = 2*SEW + sext(SEW)
             Self::VwaddWv { vd, vs2, vs1, vm } => {
@@ -872,9 +717,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -884,61 +727,42 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    wide_group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    wide_group_regs.get(),
-                    vs1,
-                    group_regs.get(),
-                )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                // `vs2` and `vs1` are read with different EEWs
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vs2, vs1)?;
+                // The wide destination may only overlap the narrow source in its highest-numbered
+                // part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    None,
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_add,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_add,
+                );
             }
             // vwadd.wx - 2*SEW = 2*SEW + sext(rs1)
             Self::VwaddWx {
@@ -963,8 +787,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -974,50 +797,32 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    wide_group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _>(
-                    program_counter,
+                    config,
                     vd,
-                    wide_group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
                 let scalar = zvexx_widen_narrow_helpers::sign_extend_bits(
                     rs1_value.as_u64(),
                     Vsew::from_xlen::<Reg>(),
                 )
                 .cast_unsigned();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_add,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_add,
+                );
             }
             // vwsubu.wv - 2*SEW = 2*SEW - zext(SEW)
             Self::VwsubuWv { vd, vs2, vs1, vm } => {
@@ -1037,9 +842,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1049,61 +852,42 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    wide_group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    wide_group_regs.get(),
-                    vs1,
-                    group_regs.get(),
-                )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                // `vs2` and `vs1` are read with different EEWs
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vs2, vs1)?;
+                // The wide destination may only overlap the narrow source in its highest-numbered
+                // part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    None,
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_sub,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_sub,
+                );
             }
             // vwsubu.wx - 2*SEW = 2*SEW - zext(rs1)
             Self::VwsubuWx {
@@ -1128,8 +912,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1139,46 +922,28 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    wide_group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _>(
-                    program_counter,
+                    config,
                     vd,
-                    wide_group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_sub,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_w_op::<true, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_sub,
+                );
             }
             // vwsub.wv - 2*SEW = 2*SEW - sext(SEW)
             Self::VwsubWv { vd, vs2, vs1, vm } => {
@@ -1198,9 +963,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1210,61 +973,42 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    wide_group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    wide_group_regs.get(),
-                    vs1,
-                    group_regs.get(),
-                )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                // `vs2` and `vs1` are read with different EEWs
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vs2, vs1)?;
+                // The wide destination may only overlap the narrow source in its highest-numbered
+                // part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs1,
-                    None,
-                    group_regs,
-                    wide_group_regs,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_sub,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_sub,
+                );
             }
             // vwsub.wx - 2*SEW = 2*SEW - sext(rs1)
             Self::VwsubWx {
@@ -1289,8 +1033,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1300,50 +1043,32 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
-                )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    wide_group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vd_widen_no_src_check::<Reg, _, _>(
-                    program_counter,
+                    config,
                     vd,
-                    wide_group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
                 let scalar = zvexx_widen_narrow_helpers::sign_extend_bits(
                     rs1_value.as_u64(),
                     Vsew::from_xlen::<Reg>(),
                 )
                 .cast_unsigned();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        u64::wrapping_sub,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_widen_w_op::<false, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    u64::wrapping_sub,
+                );
             }
             // vnsrl.wv - SEW = (2*SEW) >> SEW (logical)
             Self::VnsrlWv { vd, vs2, vs1, vm } => {
@@ -1363,10 +1088,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                // SEW must be < 64 so that 2*SEW fits in ELEN
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1376,59 +1098,39 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
                     vs2,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    wide_group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
-                    program_counter,
+                // `vs2` and `vs1` are read with different EEWs
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vs2, vs1)?;
+                zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
+                    env,
+                    vd,
                     vs2,
-                    wide_group_regs.get(),
-                    vs1,
-                    group_regs.get(),
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                    );
-                }
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                );
             }
             // vnsrl.wx - SEW = (2*SEW) >> rs1 (logical)
             Self::VnsrlWx {
@@ -1453,9 +1155,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1465,47 +1165,32 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
                     vs2,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    wide_group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                );
             }
             // vnsrl.wi - SEW = (2*SEW) >> uimm (logical)
             Self::VnsrlWi { vd, vs2, uimm, vm } => {
@@ -1525,9 +1210,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1537,46 +1220,31 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
                     vs2,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
-                    program_counter,
+                zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
+                    env,
+                    vd,
                     vs2,
-                    wide_group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<false, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
-                        vm,
-                        widening_sew,
-                    );
-                }
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
+                    vm,
+                    widening_sew,
+                );
             }
             // vnsra.wv - SEW = (2*SEW) >> SEW (arithmetic)
             Self::VnsraWv { vd, vs2, vs1, vm } => {
@@ -1596,9 +1264,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1608,59 +1274,39 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
                     vs2,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    wide_group_regs,
-                )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
-                    program_counter,
+                // `vs2` and `vs1` are read with different EEWs
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vs2, vs1)?;
+                zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
+                    env,
+                    vd,
                     vs2,
-                    wide_group_regs.get(),
-                    vs1,
-                    group_regs.get(),
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                    );
-                }
+                    zvexx_widen_narrow_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                );
             }
             // vnsra.wx - SEW = (2*SEW) >> rs1 (arithmetic)
             Self::VnsraWx {
@@ -1685,9 +1331,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1697,47 +1341,32 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
                     vs2,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    wide_group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                );
             }
             // vnsra.wi - SEW = (2*SEW) >> uimm (arithmetic)
             Self::VnsraWi { vd, vs2, uimm, vm } => {
@@ -1757,9 +1386,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
-                let group_regs = vtype.vlmul().register_count();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -1769,46 +1396,31 @@ where
                         ),
                     });
                 };
-                let wide_eew = Eew::from(widening_sew.wide());
-                let wide_group_regs = vtype.vlmul().data_register_count(wide_eew, sew).ok_or(
-                    ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    },
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.narrow().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vd_narrow_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
                     vs2,
-                    wide_group_regs,
                 )?;
-                zvexx_widen_narrow_helpers::check_vs_wide_alignment::<Reg, _, _>(
-                    program_counter,
+                zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
+                    env,
+                    vd,
                     vs2,
-                    wide_group_regs,
-                )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_narrow_shift::<true, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
-                        vm,
-                        widening_sew,
-                    );
-                }
+                    zvexx_widen_narrow_helpers::OpSrc::Scalar(u64::from(uimm)),
+                    vm,
+                    widening_sew,
+                );
             }
             // vzext.vf2 - zero-extend SEW/2 -> SEW
             Self::VzextVf2 { vd, vs2, vm } => {
@@ -1828,8 +1440,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F2)
                 else {
                     ::core::hint::cold_path();
@@ -1839,38 +1450,31 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    extension_sew.dest().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    vd,
-                    group_regs,
-                    VsewFactor::F2,
+                    extension_sew.source().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                // The destination may only overlap the narrow source in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
+                    vs2,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vm,
-                        extension_sew,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    vm,
+                    extension_sew,
+                );
             }
             // vzext.vf4 - zero-extend SEW/4 -> SEW
             Self::VzextVf4 { vd, vs2, vm } => {
@@ -1890,8 +1494,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F4)
                 else {
                     ::core::hint::cold_path();
@@ -1901,38 +1504,31 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    extension_sew.dest().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    vd,
-                    group_regs,
-                    VsewFactor::F4,
+                    extension_sew.source().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                // The destination may only overlap the narrow source in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
+                    vs2,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vm,
-                        extension_sew,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    vm,
+                    extension_sew,
+                );
             }
             // vzext.vf8 - zero-extend SEW/8 -> SEW
             Self::VzextVf8 { vd, vs2, vm } => {
@@ -1952,8 +1548,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F8)
                 else {
                     ::core::hint::cold_path();
@@ -1963,38 +1558,31 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    extension_sew.dest().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    vd,
-                    group_regs,
-                    VsewFactor::F8,
+                    extension_sew.source().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                // The destination may only overlap the narrow source in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
+                    vs2,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vm,
-                        extension_sew,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_extension::<false, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    vm,
+                    extension_sew,
+                );
             }
             // vsext.vf2 - sign-extend SEW/2 -> SEW
             Self::VsextVf2 { vd, vs2, vm } => {
@@ -2014,8 +1602,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F2)
                 else {
                     ::core::hint::cold_path();
@@ -2025,38 +1612,31 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    extension_sew.dest().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    vd,
-                    group_regs,
-                    VsewFactor::F2,
+                    extension_sew.source().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                // The destination may only overlap the narrow source in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
+                    vs2,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vm,
-                        extension_sew,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    vm,
+                    extension_sew,
+                );
             }
             // vsext.vf4 - sign-extend SEW/4 -> SEW
             Self::VsextVf4 { vd, vs2, vm } => {
@@ -2076,8 +1656,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F4)
                 else {
                     ::core::hint::cold_path();
@@ -2087,38 +1666,31 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    extension_sew.dest().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    vd,
-                    group_regs,
-                    VsewFactor::F4,
+                    extension_sew.source().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                // The destination may only overlap the narrow source in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
+                    vs2,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vm,
-                        extension_sew,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    vm,
+                    extension_sew,
+                );
             }
             // vsext.vf8 - sign-extend SEW/8 -> SEW
             Self::VsextVf8 { vd, vs2, vm } => {
@@ -2138,8 +1710,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(extension_sew) = zvexx_helpers::ExtensionSew::new(sew, VsewFactor::F8)
                 else {
                     ::core::hint::cold_path();
@@ -2149,38 +1720,31 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_widen_narrow_helpers::check_vs_ext_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
+                    vd,
+                    extension_sew.dest().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
                     vs2,
-                    vd,
-                    group_regs,
-                    VsewFactor::F8,
+                    extension_sew.source().as_eew(),
                 )?;
-                zvexx_widen_narrow_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                // The destination may only overlap the narrow source in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
+                    vs2,
                 )?;
-                if !vm && vd == VReg::V0 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // SAFETY: alignment/overlap/SEW checked above
-                unsafe {
-                    zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vm,
-                        extension_sew,
-                    );
-                }
+                zvexx_widen_narrow_helpers::execute_extension::<true, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    vm,
+                    extension_sew,
+                );
             }
         }
 

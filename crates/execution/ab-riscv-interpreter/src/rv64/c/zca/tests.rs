@@ -1,6 +1,7 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{ExecutionError, ProgramCounter, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 // C.ADDI4SPN
 
@@ -572,10 +573,7 @@ fn test_clw_out_of_bounds() {
     }]);
     state.regs.write(Reg::A0, 0);
     let result = execute(&mut state);
-    assert!(matches!(
-        result,
-        Err(ExecutionError::OutOfBoundsRead { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::OutOfBoundsRead { .. }));
 }
 
 #[test]
@@ -587,10 +585,7 @@ fn test_csd_out_of_bounds() {
     }]);
     state.regs.write(Reg::A0, 0);
     let result = execute(&mut state);
-    assert!(matches!(
-        result,
-        Err(ExecutionError::OutOfBoundsWrite { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::OutOfBoundsWrite { .. }));
 }
 
 #[test]
@@ -602,8 +597,5 @@ fn test_cunimp() {
 
     let result = execute(&mut state);
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }

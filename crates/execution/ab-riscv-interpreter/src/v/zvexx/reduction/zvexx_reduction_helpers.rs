@@ -1,5 +1,5 @@
 //! Opaque helpers for ZveXx extension
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VRegGroup, VectorRegistersExt};
 use crate::v::zvexx::arith::zvexx_arith_helpers::sign_extend;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::WideningSew;
@@ -8,22 +8,17 @@ use core::hint::cold_path;
 
 /// Execute a single-width integer reduction.
 ///
-/// # Safety
-/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
-/// - `vstart == 0` (verified by caller; reductions with non-zero vstart are illegal)
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
-/// - `vl <= VLEN`
+/// `vd` and `vs1` are single registers regardless of `LMUL`, element 0 of which holds the scalar
+/// operand and result.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_reduce_op<Reg, Env, F>(
+pub fn execute_reduce_op<Reg, Env, F>(
     env: &mut Env,
     vd: VReg,
-    vs2: VReg,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vs1: VReg,
     vm: bool,
-    vl: Vl,
     sew: Vsew,
     op: F,
 ) where
@@ -35,47 +30,46 @@ pub unsafe fn execute_reduce_op<Reg, Env, F>(
     // Spec §5.4: when vstart >= vl, no element of vd is updated. For reductions this means
     // vl == 0 (since caller has verified vstart == 0). In that case we must not write vd and
     // must not mark vs dirty.
-    if vl == Vl::ZERO {
+    let vl = vs2.vl();
+    if vl.get() == Vl::ZERO {
         cold_path();
         return;
     }
-    // SAFETY: element 0 always fits within register vs1
-    let init = unsafe { env.read_vregs().read_element(vs1, 0, sew) };
+    let init = env
+        .read_vregs()
+        .read_first(vs1, sew.as_eew())
+        .expect("Element width never exceeds `ELEN`, which never exceeds `VLEN`; qed");
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut acc = init;
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: `vs2 % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`
-        let elem = unsafe { env.read_vregs().read_element(vs2, i, sew) };
+        let elem = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`i < vl` of `vs2`; qed");
         acc = op(acc, elem, sew);
     }
-    // SAFETY: element 0 always fits within register vd
-    unsafe {
-        env.write_vregs().write_element(vd, 0, sew, acc);
-    }
+    env.write_vregs()
+        .write_first(vd, sew.as_eew(), acc)
+        .expect("Element width never exceeds `ELEN`, which never exceeds `VLEN`; qed");
     env.mark_vs_dirty();
 }
 
 /// Execute a widening integer sum reduction.
 ///
-/// # Safety
-/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
-/// - `vstart == 0` (verified by caller)
-/// - `vl <= group_regs * VLEN.bytes() / sew_bytes`
-/// - `vl <= VLEN`
+/// `vd` and `vs1` are single registers regardless of `LMUL`, element 0 of which holds the scalar
+/// operand and result.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, F>(
+pub fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, F>(
     env: &mut Env,
     vd: VReg,
-    vs2: VReg,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vs1: VReg,
     vm: bool,
-    vl: Vl,
     sew: WideningSew<{ Env::ELEN }>,
     op: F,
 ) where
@@ -86,20 +80,25 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
 {
     let wide_sew = sew.wide();
     let sew = sew.narrow();
-    if vl == Vl::ZERO {
+    let vl = vs2.vl();
+    if vl.get() == Vl::ZERO {
         cold_path();
         return;
     }
-    // SAFETY: element 0 always fits within register vs1
-    let init = unsafe { env.read_vregs().read_element(vs1, 0, wide_sew) };
+    let init = env
+        .read_vregs()
+        .read_first(vs1, wide_sew.as_eew())
+        .expect("Element width never exceeds `ELEN`, which never exceeds `VLEN`; qed");
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut acc = init;
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: same bounds argument as `execute_reduce_op`
-        let raw = unsafe { env.read_vregs().read_element(vs2, i, sew) };
+        let raw = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`i < vl` of `vs2`; qed");
         let elem = if SIGN_EXTEND_SRC {
             sign_extend(raw, sew).cast_unsigned()
         } else {
@@ -107,9 +106,8 @@ pub unsafe fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, 
         };
         acc = op(acc, elem, wide_sew);
     }
-    // SAFETY: element 0 always fits within register vd
-    unsafe {
-        env.write_vregs().write_element(vd, 0, wide_sew, acc);
-    }
+    env.write_vregs()
+        .write_first(vd, wide_sew.as_eew(), acc)
+        .expect("Element width never exceeds `ELEN`, which never exceeds `VLEN`; qed");
     env.mark_vs_dirty();
 }

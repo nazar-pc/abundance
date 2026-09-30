@@ -9,7 +9,7 @@ use crate::{
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, VirtualMemory,
 };
 use ab_riscv_primitives::prelude::*;
-use core::array;
+use core::{array, assert_matches};
 
 // With TEST_VLEN=256 and TEST_VLENB=32:
 //   E8/M1  VLMAX=32, E16/M1 VLMAX=16, E32/M1 VLMAX=8, E64/M1 VLMAX=4
@@ -149,8 +149,9 @@ fn eew_above_elen_is_illegal() {
             if eew == Eew::E32 {
                 assert!(result.is_ok(), "{instruction}: {result:?}");
             } else {
-                assert!(
-                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                assert_matches!(
+                    result,
+                    Err(ExecutionError::IllegalInstruction { .. }),
                     "{instruction}: {result:?}"
                 );
             }
@@ -286,10 +287,7 @@ fn vsr_misaligned_register_returns_illegal_instruction() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -335,10 +333,7 @@ fn vsr_vector_not_allowed_returns_illegal_instruction() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -396,10 +391,7 @@ fn vsr_vstart_at_evl_is_illegal() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
     assert_eq!(state.memory.read::<u8>(TEST_BASE_ADDR + 31).unwrap(), 0x55);
 }
 
@@ -422,10 +414,7 @@ fn vsr_fault_records_faulting_element_in_vstart() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::OutOfBoundsWrite { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::OutOfBoundsWrite { .. }));
     // Elements (bytes) before the faulting one were stored
     assert_eq!(state.memory.read::<u8>(end - 20).unwrap(), 0xAA);
     assert_eq!(state.memory.read::<u8>(end - 1).unwrap(), 0xAA);
@@ -566,10 +555,7 @@ fn vsm_vector_not_allowed_returns_illegal_instruction() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -588,10 +574,7 @@ fn vsm_with_vill_is_illegal() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -885,10 +868,7 @@ fn vse_vtype_illegal_returns_illegal_instruction() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -908,10 +888,7 @@ fn vse_vector_not_allowed_returns_illegal_instruction() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Vsse (strided store)
@@ -1256,10 +1233,7 @@ fn vsuxei_misaligned_data_register_returns_illegal() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Vsseg (unit-stride segment store)
@@ -1355,10 +1329,7 @@ fn vsseg_register_group_out_of_bounds_returns_illegal() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1663,10 +1634,7 @@ fn vse_out_of_bounds_write_returns_memory_access_error() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::OutOfBoundsWrite { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::OutOfBoundsWrite { .. }));
 }
 
 #[test]
@@ -1688,10 +1656,7 @@ fn vsse_out_of_bounds_write_returns_memory_access_error() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::OutOfBoundsWrite { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::OutOfBoundsWrite { .. }));
 }
 
 // Address wrap-around tests
@@ -1717,7 +1682,7 @@ fn vsr_wraps_around_end_of_address_space() {
         &mut memory,
     );
 
-    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_matches!(result, ExecutionResult::ContinueNoWrite);
     assert_eq!(memory.high[..32], [0; 32]);
     assert_eq!(memory.high[32..], [0x11; 32]);
     assert_eq!(memory.low[..32], [0x22; 32]);
@@ -1745,7 +1710,7 @@ fn vse_wraps_around_end_of_address_space() {
         &mut memory,
     );
 
-    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_matches!(result, ExecutionResult::ContinueNoWrite);
     assert_eq!(
         memory.high[48..],
         array::from_fn::<u8, 16, _>(|i| i as u8 + 1)
@@ -1774,7 +1739,7 @@ fn vsm_wraps_around_end_of_address_space() {
         &mut memory,
     );
 
-    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_matches!(result, ExecutionResult::ContinueNoWrite);
     assert_eq!(memory.high[62..], [1, 2]);
     assert_eq!(memory.low[..2], [3, 4]);
 }
@@ -1797,10 +1762,7 @@ fn indexed_store_index_must_not_overlap_data_with_different_eew() {
             },
         );
         if vs2 == VReg::V2 {
-            assert!(matches!(
-                result,
-                Err(ExecutionError::IllegalInstruction { .. })
-            ));
+            assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
         } else {
             result.unwrap();
         }
@@ -1825,10 +1787,7 @@ fn indexed_segment_store_index_must_not_overlap_any_field() {
             },
         );
         if vs2 == VReg::V3 {
-            assert!(matches!(
-                result,
-                Err(ExecutionError::IllegalInstruction { .. })
-            ));
+            assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
         } else {
             result.unwrap();
         }

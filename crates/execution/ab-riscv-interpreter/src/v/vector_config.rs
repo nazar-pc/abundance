@@ -9,9 +9,9 @@ use core::hint::{assert_unchecked, cold_path};
 
 /// Vector length of a [`VectorConfig`], which never exceeds `VLEN`.
 ///
-/// `vl <= VLMAX = LMUL * VLEN / SEW <= VLEN`, since `LMUL <= 8` and `SEW >= 8`. Only
-/// [`VectorConfig`] can create an instance, which is what makes the bound hold, so unsafe code can
-/// rely on it for accessing a single vector register, like mask registers with one bit per element.
+/// `vl <= VLMAX = LMUL * VLEN / SEW <= VLEN`, since `LMUL <= 8` and `SEW >= 8`. Constructors
+/// enforce the bound, so unsafe code can rely on it for accessing a single vector register, like
+/// mask registers with one bit per element.
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 pub struct BoundedVl<const VLEN: Vlen>(Vl);
@@ -30,6 +30,17 @@ const impl<const VLEN: Vlen> From<BoundedVl<VLEN>> for Vl {
 }
 
 impl<const VLEN: Vlen> BoundedVl<VLEN> {
+    /// Create a new instance, returns `None` if `vl` exceeds `VLEN`
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn new(vl: Vl) -> Option<Self> {
+        if u32::from(vl) > u32::from(VLEN) {
+            cold_path();
+            return None;
+        }
+        Some(Self(vl))
+    }
+
     /// Vector length, which is `<= VLEN`
     #[inline(always)]
     pub const fn get(self) -> Vl {
@@ -38,6 +49,17 @@ impl<const VLEN: Vlen> BoundedVl<VLEN> {
             assert_unchecked(u32::from(self.0) <= u32::from(VLEN));
         }
         self.0
+    }
+
+    /// Element indices `0..vl`.
+    ///
+    /// Unlike a range of `u16`, which can't represent `vl = 65536` as an exclusive bound, this
+    /// lets the compiler see that every index is below `vl` and `VLEN`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub fn indices(self) -> impl Iterator<Item = u16> {
+        // `vl <= VLEN <= 65536`, so every index below it fits into `u16`
+        (0..u32::from(self.get())).map(u32::truncate)
     }
 
     /// Vector length in bytes, `ceil(vl / 8)`, which is `<= VLEN.bytes()`

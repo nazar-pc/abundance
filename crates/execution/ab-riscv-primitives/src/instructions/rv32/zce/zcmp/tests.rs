@@ -3,6 +3,7 @@
 use crate::instructions::Instruction;
 use crate::instructions::rv32::zce::zcmp::{Rv32ZcmpOnlyInstruction, ZcmpUrlist};
 use crate::registers::general_purpose::{EReg, Reg};
+use core::assert_matches;
 
 /// Build a Zcmp push/pop instruction word.
 ///
@@ -299,26 +300,26 @@ fn test_push_pop_op_sel_distinct_variants() {
     let urlist = 4u16;
     let spimm = 0u16;
 
-    assert!(matches!(
+    assert_matches!(
         Rv32ZcmpOnlyInstruction::<Reg<u32>>::try_decode(make_push_pop(OP_PUSH, urlist, spimm))
             .unwrap(),
         Rv32ZcmpOnlyInstruction::CmPush { .. }
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         Rv32ZcmpOnlyInstruction::<Reg<u32>>::try_decode(make_push_pop(OP_POP, urlist, spimm))
             .unwrap(),
         Rv32ZcmpOnlyInstruction::CmPop { .. }
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         Rv32ZcmpOnlyInstruction::<Reg<u32>>::try_decode(make_push_pop(OP_POPRETZ, urlist, spimm))
             .unwrap(),
         Rv32ZcmpOnlyInstruction::CmPopretz { .. }
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         Rv32ZcmpOnlyInstruction::<Reg<u32>>::try_decode(make_push_pop(OP_POPRET, urlist, spimm))
             .unwrap(),
         Rv32ZcmpOnlyInstruction::CmPopret { .. }
-    ));
+    );
 }
 
 // CM.MVA01S

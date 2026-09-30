@@ -1,7 +1,7 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_config::VectorConfig;
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_config::{BoundedVl, VectorConfig};
+use crate::v::vector_registers::{VRegGroup, VectorRegistersExt};
 use crate::v::zvexx::arith::zvexx_arith_helpers::write_mask_bit;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use ab_riscv_primitives::prelude::*;
@@ -12,14 +12,11 @@ use ab_riscv_primitives::prelude::*;
 /// tail-agnostic policy, realised here as undisturbed (a permitted agnostic implementation and the
 /// one the reference model produces). `op` receives `(vs2_bit: bool, vs1_bit: bool) -> bool`.
 ///
-/// # Safety
-/// `vd`, `vs2`, and `vs1` are valid register indices (guaranteed by `VReg`).
-/// `vl <= VLEN`, so `(vl - 1) / 8 < VLEN.bytes()`.
-/// The operation snapshots both sources before writing, so `vd` may safely overlap either source.
+/// Both sources are snapshotted before writing, so `vd` may overlap either of them.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
+pub fn execute_mask_logical_op<Reg, Env, F>(
     env: &mut Env,
     config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
@@ -32,19 +29,17 @@ pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(bool, bool) -> bool,
 {
-    let vl = config.vl().get();
+    let vl = config.vl();
     // Snapshot both sources before writing to handle vd overlapping vs2 or vs1
     let vs2_snap = *env.read_vregs().get(vs2);
     let vs1_snap = *env.read_vregs().get(vs1);
     // Body elements [0, vl): compute the logical operation bit-by-bit. Tail bits [vl, VLEN) are
     // left undisturbed.
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         let a = mask_bit(&vs2_snap, i);
         let b = mask_bit(&vs1_snap, i);
-        // SAFETY: `i < vl <= VLEN`
-        unsafe {
-            write_mask_bit(env.write_vregs(), vd, i, op(a, b));
-        }
+        write_mask_bit(env.write_vregs(), vd, i, op(a, b))
+            .expect("`i < vl <= VLEN`, so the mask bit is within `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -55,14 +50,11 @@ pub unsafe fn execute_mask_logical_op<Reg, Env, F>(
 /// Per spec §16.2: `rd` receives the number of mask bits set in `vs2`, considering only elements
 /// `0..vl` that are active under the mask.
 ///
-/// # Safety
-/// - `config.vl().get() <= VLMAX <= VLEN`
-///
 /// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vcpop<Reg, Env>(
+pub fn execute_vcpop<Reg, Env>(
     env: &mut Env,
     config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vs2: VReg,
@@ -97,14 +89,11 @@ where
 /// Per spec §16.3: `rd` receives the element index of the lowest-numbered active set bit, or
 /// `-1` (all-ones) if no active element of vs2 is set.
 ///
-/// # Safety
-/// - `config.vl().get() <= VLMAX <= VLEN`
-///
 /// Returns `rd_value`.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vfirst<Reg, Env>(
+pub fn execute_vfirst<Reg, Env>(
     env: &mut Env,
     config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vs2: VReg,
@@ -152,16 +141,16 @@ where
 /// destination bits are cleared.
 ///
 /// Inactive elements (masked off) are left undisturbed. Tail elements are undisturbed.
-///
-/// # Safety
-/// - `vd` does not overlap `vs2` (checked by caller)
-/// - `vm=false` implies `vd != v0` (checked by caller)
-/// - `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vmsbf<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, vm: bool, vl: Vl)
-where
+pub fn execute_vmsbf<Reg, Env>(
+    env: &mut Env,
+    vd: VReg,
+    vs2: VReg,
+    vm: bool,
+    vl: BoundedVl<{ Env::VLEN }>,
+) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
@@ -169,7 +158,7 @@ where
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
     let mut found_first = false;
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         // Inactive elements: undisturbed
         if !mask_bit(&mask_buf, i) {
             continue;
@@ -180,10 +169,8 @@ where
         if vs2_bit {
             found_first = true;
         }
-        // SAFETY: `i < vl <= VLEN`
-        unsafe {
-            write_mask_bit(env.write_vregs(), vd, i, result);
-        }
+        write_mask_bit(env.write_vregs(), vd, i, result)
+            .expect("`i < vl <= VLEN`, so the mask bit is within `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -192,14 +179,16 @@ where
 ///
 /// Per spec §16.5: the destination bit is set only at the lowest-numbered active element where
 /// vs2 has a set bit. All other active destination bits are cleared.
-///
-/// # Safety
-/// Same as [`execute_vmsbf`].
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vmsof<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, vm: bool, vl: Vl)
-where
+pub fn execute_vmsof<Reg, Env>(
+    env: &mut Env,
+    vd: VReg,
+    vs2: VReg,
+    vm: bool,
+    vl: BoundedVl<{ Env::VLEN }>,
+) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
@@ -207,7 +196,7 @@ where
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
     let mut found_first = false;
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -217,10 +206,8 @@ where
         if vs2_bit && !found_first {
             found_first = true;
         }
-        // SAFETY: `i < vl <= VLEN`
-        unsafe {
-            write_mask_bit(env.write_vregs(), vd, i, result);
-        }
+        write_mask_bit(env.write_vregs(), vd, i, result)
+            .expect("`i < vl <= VLEN`, so the mask bit is within `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -230,14 +217,16 @@ where
 /// Per spec §16.6: for each active element, the destination bit is set if no prior active set bit
 /// in vs2 has been seen yet *or* the current element itself is set; it is cleared once a set bit
 /// has been seen and the current element is past it.
-///
-/// # Safety
-/// Same as [`execute_vmsbf`].
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vmsif<Reg, Env>(env: &mut Env, vd: VReg, vs2: VReg, vm: bool, vl: Vl)
-where
+pub fn execute_vmsif<Reg, Env>(
+    env: &mut Env,
+    vd: VReg,
+    vs2: VReg,
+    vm: bool,
+    vl: BoundedVl<{ Env::VLEN }>,
+) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
@@ -245,7 +234,7 @@ where
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
     let mut found_first = false;
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
@@ -255,10 +244,8 @@ where
         if vs2_bit {
             found_first = true;
         }
-        // SAFETY: `i < vl <= VLEN`
-        unsafe {
-            write_mask_bit(env.write_vregs(), vd, i, result);
-        }
+        write_mask_bit(env.write_vregs(), vd, i, result)
+            .expect("`i < vl <= VLEN`, so the mask bit is within `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -271,44 +258,33 @@ where
 /// policy (here implemented as undisturbed, which is a permitted realisation).
 ///
 /// If SEW is too narrow to hold the prefix count, the value wraps (truncates to SEW) via
-/// [`write_element_u64()`]; the spec does not raise an exception for this case.
+/// [`VectorRegisterFile::write()`](crate::v::vector_registers::VectorRegisterFile::write); the spec
+/// does not raise an exception for this case.
 ///
 /// The caller must reject `vstart != 0` before invocation (spec §16.8 mandatory trap).
-///
-/// # Safety
-/// - `vd` does not overlap `vs2` (checked by caller)
-/// - `vm=false` implies `vd != v0` (checked by caller)
-/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (checked by caller)
-/// - `vl <= VLMAX`; `vl <= VLEN`
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_viota<Reg, Env>(
-    env: &mut Env,
-    vd: VReg,
-    vs2: VReg,
-    vm: bool,
-    vl: Vl,
-    sew: Vsew,
-) where
+pub fn execute_viota<Reg, Env>(env: &mut Env, vd: VRegGroup<{ Env::VLEN }>, vs2: VReg, vm: bool)
+where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
+    let vl = vd.vl();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
     // Per spec §16.8: inactive vs2 elements are treated as zero for the prefix sum.
     // The prefix count advances only when the execution mask is active AND the
     // corresponding vs2 bit is set.
     let mut prefix_count = 0u64;
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, prefix_count);
-        }
+        env.write_vregs()
+            .write(vd, i, prefix_count)
+            .expect("`i < vl` of `vd`; qed");
         if mask_bit(&vs2_snap, i) {
             prefix_count += 1;
         }
@@ -321,34 +297,26 @@ pub unsafe fn execute_viota<Reg, Env>(
 ///
 /// Per spec §16.9: inactive elements are left undisturbed (mask-undisturbed policy).
 ///
-/// # Safety
-/// - `vm=false` implies `vd != v0` (checked by caller)
-/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (checked by caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_vid<Reg, Env>(
-    env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vm: bool,
-    sew: Vsew,
-) where
+pub fn execute_vid<Reg, Env>(env: &mut Env, vd: VRegGroup<{ Env::VLEN }>, vm: bool)
+where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: `vd + i / elems_per_reg < 32` by caller's alignment + vl preconditions
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, u64::from(i));
-        }
+        env.write_vregs()
+            .write(vd, i, u64::from(i))
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }

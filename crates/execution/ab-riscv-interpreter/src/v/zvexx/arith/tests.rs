@@ -6,6 +6,7 @@ use crate::{
     ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 use core::cell::Cell;
 
 /// Encode a raw vtype value (vta=false, vma=false)
@@ -72,8 +73,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -103,13 +105,13 @@ fn read_elem(
     elem_i: usize,
     sew: Vsew,
 ) -> u64 {
-    // SAFETY: Test elements are always within the register group
-    unsafe {
-        state
-            .env
-            .read_vregs()
-            .read_element(base_reg, u16::try_from(elem_i).unwrap(), sew)
-    }
+    let vregs = state.env.read_vregs();
+    let vlenb = vregs.get(VReg::V0).len();
+    let width = usize::from(sew.bytes_width());
+    let offset = usize::from(base_reg.to_bits()) * vlenb + elem_i * width;
+    let mut bytes = [0; 8];
+    bytes[..width].copy_from_slice(&vregs.as_bytes().as_flattened()[offset..offset + width]);
+    u64::from_le_bytes(bytes)
 }
 
 /// Write element `i` into a register group, given SEW
@@ -120,13 +122,12 @@ fn write_elem(
     sew: Vsew,
     value: u64,
 ) {
-    // SAFETY: Test elements are always within the register group
-    unsafe {
-        state
-            .env
-            .write_vregs()
-            .write_element(base_reg, u16::try_from(elem_i).unwrap(), sew, value);
-    }
+    let vregs = state.env.write_vregs();
+    let vlenb = vregs.get(VReg::V0).len();
+    let width = usize::from(sew.bytes_width());
+    let offset = usize::from(base_reg.to_bits()) * vlenb + elem_i * width;
+    vregs.as_bytes_mut().as_flattened_mut()[offset..offset + width]
+        .copy_from_slice(&value.to_le_bytes()[..width]);
 }
 
 /// Read mask bit `i` from an arbitrary vector register
@@ -1314,10 +1315,7 @@ fn error_vector_instructions_not_allowed() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1337,10 +1335,7 @@ fn error_vill_set_vtype() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1358,10 +1353,7 @@ fn error_vd_misaligned_for_m2() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1378,31 +1370,7 @@ fn error_vs2_misaligned_for_m2() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
-}
-
-#[test]
-fn error_masked_arith_vd_is_v0() {
-    // vm=false with vd=v0 is illegal for arithmetic (not compare)
-    let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
-    let result = exec(
-        &mut state,
-        ZveXxArithInstruction::VaddVv {
-            vd: VReg::V0,
-            vs2: VReg::V2,
-            vs1: VReg::V4,
-            vm: false,
-            rs1: Reg::Zero,
-            rs2: Reg::Zero,
-        },
-    );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1420,10 +1388,7 @@ fn error_vector_not_allowed_compare() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Cross-SEW correctness (each SEW for a representative op)
@@ -1635,10 +1600,7 @@ fn error_compare_mask_dest_overlaps_vs2_non_base_lmul_gt_1() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1655,10 +1617,7 @@ fn error_compare_mask_dest_overlaps_vs1_non_base_lmul_gt_1() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1750,8 +1709,9 @@ fn vl_above_vlmax_in_raw_csr_is_treated_as_vill() {
                 rs2: Reg::Zero,
             },
         );
-        assert!(
-            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        assert_matches!(
+            result,
+            Err(ExecutionError::IllegalInstruction { .. }),
             "vl={vl}"
         );
     }
@@ -1840,7 +1800,7 @@ fn instruction_uses_a_single_vector_config() {
         &mut state.instruction_fetcher,
     );
 
-    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_matches!(result, ExecutionResult::ContinueNoWrite);
     assert_eq!(env.calls.get(), 1);
     for i in 0..4 {
         assert_eq!(env.read_vregs().get(VReg::V31)[i * 8], 2);

@@ -3,6 +3,7 @@
 use crate::instructions::Instruction;
 use crate::instructions::rv64::zce::zcb::Rv64ZcbOnlyInstruction;
 use crate::registers::general_purpose::Reg;
+use core::assert_matches;
 
 /// Build a Q00 Zcb load/store: funct3=100, sub=bits\[12:10].
 /// `rs1p` and `rd_rs2p` are 3-bit prime register fields (0=x8).
@@ -301,7 +302,7 @@ fn test_unary_all_prime_regs() {
     for r in 0..8 {
         let inst = make_zcb_q01(r, 0b11, 0b101);
         let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
-        assert!(matches!(decoded, Rv64ZcbOnlyInstruction::CNot { .. }));
+        assert_matches!(decoded, Rv64ZcbOnlyInstruction::CNot { .. });
     }
 }
 
@@ -341,7 +342,7 @@ fn test_cmul_all_prime_reg_pairs() {
         for rs2 in 0..8 {
             let inst = make_zcb_q01(rd, 0b10, rs2);
             let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
-            assert!(matches!(decoded, Rv64ZcbOnlyInstruction::CMul { .. }));
+            assert_matches!(decoded, Rv64ZcbOnlyInstruction::CMul { .. });
         }
     }
 }
