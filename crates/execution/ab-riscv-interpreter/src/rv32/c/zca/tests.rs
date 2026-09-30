@@ -545,10 +545,7 @@ fn test_cunimp() {
 
     let result = execute(&mut state);
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Memory errors
@@ -562,8 +559,8 @@ fn test_clw_oob() {
         rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0);
-    assert!(matches!(
+    assert_matches!(
         execute(&mut state),
         Err(ExecutionError::OutOfBoundsRead { .. })
-    ));
+    );
 }

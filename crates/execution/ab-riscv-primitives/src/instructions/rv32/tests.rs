@@ -7,6 +7,7 @@ use crate::instructions::test_utils::{
 };
 use crate::instructions::utils::{I24, I24WithZeroedBits};
 use crate::registers::general_purpose::{EReg, Reg};
+use core::assert_matches;
 
 // R-type
 
@@ -1148,8 +1149,9 @@ fn test_all_registers_rv32i() {
     for reg_num in 0..32 {
         let inst = make_r_type(0b011_0011, reg_num, 0b000, 1, 2, 0b000_0000);
         let decoded = Rv32Instruction::<Reg<u32>>::try_decode(inst).unwrap();
-        assert!(
-            matches!(decoded, Rv32Instruction::Add { .. }),
+        assert_matches!(
+            decoded,
+            Rv32Instruction::Add { .. },
             "Register {reg_num} should be valid for RV32I"
         );
     }
@@ -1161,8 +1163,9 @@ fn test_all_registers_rv32e() {
     for reg_num in 0..16 {
         let inst = make_r_type(0b011_0011, reg_num, 0b000, 1, 2, 0b000_0000);
         let decoded = Rv32Instruction::<EReg<u32>>::try_decode(inst).unwrap();
-        assert!(
-            matches!(decoded, Rv32Instruction::Add { .. }),
+        assert_matches!(
+            decoded,
+            Rv32Instruction::Add { .. },
             "Register {reg_num} should be valid for RV32E"
         );
     }

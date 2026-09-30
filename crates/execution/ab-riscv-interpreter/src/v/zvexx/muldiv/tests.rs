@@ -8,6 +8,7 @@ use crate::{
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 // With TEST_VLEN=256, VLENB=32:
 //   E8/M1  -> VLMAX=32, 1 reg
@@ -84,8 +85,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -392,10 +394,7 @@ fn vmulh_illegal_for_sew64() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // vmulhu (unsigned×unsigned high half)
@@ -455,10 +454,7 @@ fn vmulhu_illegal_for_sew64() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // vmulhsu (signed×unsigned high half)
@@ -519,10 +515,7 @@ fn vmulhsu_illegal_for_sew64() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // High-half multiply helpers at SEW=64.
@@ -1098,10 +1091,7 @@ fn vwmulu_illegal_for_sew64() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1119,10 +1109,7 @@ fn vwmulu_overlap_rejected() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1140,10 +1127,7 @@ fn vwmulu_m8_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1216,10 +1200,7 @@ fn vwmulu_mf2_overlap_still_rejected() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1238,10 +1219,7 @@ fn vwmulu_m1_overlap_uses_2_dest_regs() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1323,10 +1301,7 @@ fn vwmulu_m1_vs2_in_lower_dest_reg_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1346,10 +1321,7 @@ fn vwmulu_m2_lower_half_overlap_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1986,10 +1958,7 @@ fn vector_instructions_not_allowed() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2008,10 +1977,7 @@ fn vtype_not_configured_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2029,10 +1995,7 @@ fn vd_unaligned_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -2110,8 +2073,9 @@ fn widening_mul_illegal_for_sew64() {
         },
     ] {
         let result = exec(&mut state, instr);
-        assert!(
-            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        assert_matches!(
+            result,
+            Err(ExecutionError::IllegalInstruction { .. }),
             "expected illegal for {instr:?}"
         );
     }
@@ -2147,8 +2111,9 @@ fn widening_muladd_illegal_for_sew64() {
         },
     ] {
         let result = exec(&mut state, instr);
-        assert!(
-            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        assert_matches!(
+            result,
+            Err(ExecutionError::IllegalInstruction { .. }),
             "expected illegal for {instr:?}"
         );
     }
@@ -2212,8 +2177,9 @@ fn widening_vx_illegal_for_sew64() {
         },
     ] {
         let result = exec(&mut state, instr);
-        assert!(
-            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        assert_matches!(
+            result,
+            Err(ExecutionError::IllegalInstruction { .. }),
             "expected illegal for {instr:?}"
         );
     }
@@ -2353,8 +2319,9 @@ fn vwmacc_vd_must_not_overlap_sources() {
             let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
             let result = exec(&mut state, instr);
             if vs2 == VReg::V9 {
-                assert!(
-                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                assert_matches!(
+                    result,
+                    Err(ExecutionError::IllegalInstruction { .. }),
                     "{instr}"
                 );
             } else {

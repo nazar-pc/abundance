@@ -3,6 +3,7 @@ extern crate alloc;
 use crate::basic::BasicMemory;
 use crate::*;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
+use core::assert_matches;
 
 /// `?` on a memory access inside a function returning [`ExecutionResult`], in const context,
 /// which is what instruction bodies need
@@ -18,14 +19,14 @@ where
 fn question_mark_converts_memory_errors() {
     let memory = BasicMemory::<0x1000, 128>::default();
 
-    assert!(matches!(
+    assert_matches!(
         load(&memory, 0x1000),
         ExecutionResult::Continue { rd: Reg::A0, .. }
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         load(&memory, 0xdead_0000),
         ExecutionResult::Err(ExecutionError::OutOfBoundsRead { .. })
-    ));
+    );
 }
 
 /// Round-trip one outcome through the opaque form and compare against the original, which is only

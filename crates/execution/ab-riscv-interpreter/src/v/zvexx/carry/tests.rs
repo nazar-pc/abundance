@@ -6,6 +6,7 @@ use crate::{
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
@@ -68,8 +69,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -601,10 +603,7 @@ fn error_vector_not_allowed() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -622,10 +621,7 @@ fn error_vill_vtype() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -676,10 +672,7 @@ fn error_vmadc_vd_overlaps_vs2_non_base_lmul_gt_1() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -695,10 +688,7 @@ fn error_vadc_vs2_misaligned_m2() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Non-zero vstart

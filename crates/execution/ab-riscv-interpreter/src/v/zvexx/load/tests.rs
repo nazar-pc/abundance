@@ -10,7 +10,7 @@ use crate::{
     VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
-use core::array;
+use core::{array, assert_matches};
 
 // With TEST_VLEN=256 and TEST_VLENB=32, the VLMAX values are:
 //   E8/M1=32, E16/M1=16, E32/M1=8, E64/M1=4
@@ -331,8 +331,9 @@ fn eew_above_elen_is_illegal() {
             if eew == Eew::E32 {
                 assert!(result.is_ok(), "{instruction}: {result:?}");
             } else {
-                assert!(
-                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                assert_matches!(
+                    result,
+                    Err(ExecutionError::IllegalInstruction { .. }),
                     "{instruction}: {result:?}"
                 );
             }
@@ -521,10 +522,7 @@ fn vlr_vstart_at_evl_is_illegal() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
     assert_eq!(vreg_bytes(&state, VReg::V1), [0xAA; 32]);
 }
 
@@ -549,10 +547,7 @@ fn vlr_fault_records_faulting_element_in_vstart() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::OutOfBoundsRead { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::OutOfBoundsRead { .. }));
     assert_eq!(vreg_bytes(&state, VReg::V2)[..], data[..32]);
     assert_eq!(vreg_bytes(&state, VReg::V3)[..8], data[32..]);
     assert_eq!(state.env.vstart(), Vstart::from(10));
@@ -574,7 +569,7 @@ fn vlr_misaligned_vd_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -595,7 +590,7 @@ fn vlr_out_of_bounds_memory_returns_error() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
+    assert_matches!(err, ExecutionError::OutOfBoundsRead { .. });
 }
 
 // `Vlm` tests
@@ -727,7 +722,7 @@ fn vlm_only_uses_requested_bytes_of_longer_slice() {
         &mut instruction_fetcher,
     );
 
-    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_matches!(result, ExecutionResult::ContinueNoWrite);
     let mut expected = [0; 32];
     expected[..2].fill(0xff);
     assert_eq!(vreg_bytes(&state, VReg::V30), expected);
@@ -777,10 +772,7 @@ fn vlm_with_vill_is_illegal() {
         },
     );
 
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
     assert_eq!(vreg_byte(&state, VReg::V0, 0), 0);
 }
 
@@ -798,7 +790,7 @@ fn vlm_vector_not_allowed_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 // `Vle` tests
@@ -999,7 +991,7 @@ fn vle_vtype_vill_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -1018,7 +1010,7 @@ fn vle_vector_not_allowed_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -1065,7 +1057,7 @@ fn vle_misaligned_vd_for_emul2_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -1085,7 +1077,7 @@ fn vle_memory_fault_propagates() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
+    assert_matches!(err, ExecutionError::OutOfBoundsRead { .. });
 }
 
 // `Vleff` tests
@@ -1136,7 +1128,7 @@ fn vleff_fault_at_i0_traps() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
+    assert_matches!(err, ExecutionError::OutOfBoundsRead { .. });
     // vl must not be modified on a trapped fault
     let config = state.env.vector_config().unwrap();
     assert_eq!(config.vl().get(), Vl::new(4).unwrap());
@@ -1630,7 +1622,7 @@ fn vluxei_vd_vs2_overlap_larger_data_eew_not_top_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -1653,7 +1645,7 @@ fn vluxei_vd_vs2_overlap_larger_data_eew_fractional_index_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -1833,7 +1825,7 @@ fn vlseg_register_group_overflow_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 // `Vlsegff` tests
@@ -1985,7 +1977,7 @@ fn vlsseg_fault_at_f1_of_i0_marks_vs_dirty_and_sets_vstart() {
     )
     .unwrap_err();
 
-    assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
+    assert_matches!(err, ExecutionError::OutOfBoundsRead { .. });
     // f>0 at the fault point: field 0 of element 0 was written
     assert_eq!(state.env.vs_dirty_count(), 1, "VS must be marked dirty");
     assert_eq!(
@@ -2026,7 +2018,7 @@ fn vlsseg_fault_at_i1_f0_marks_vs_dirty_and_sets_vstart() {
     )
     .unwrap_err();
 
-    assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
+    assert_matches!(err, ExecutionError::OutOfBoundsRead { .. });
     assert_eq!(state.env.vs_dirty_count(), 1);
     assert_eq!(state.env.vstart(), Vstart::from(2));
 }
@@ -2116,7 +2108,7 @@ fn vluxseg_field_vs2_overlap_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 // `Vloxseg` tests
@@ -2458,7 +2450,7 @@ fn vle_fault_after_first_element_marks_vs_dirty() {
     )
     .unwrap_err();
 
-    assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
+    assert_matches!(err, ExecutionError::OutOfBoundsRead { .. });
     // Elements 0 and 1 were committed before the fault at element 2.
     assert_eq!(vreg_byte(&state, VReg::V1, 0), 0xAA, "element 0 committed");
     assert_eq!(vreg_byte(&state, VReg::V1, 1), 0xBB, "element 1 committed");
@@ -2491,7 +2483,7 @@ fn vle_fault_after_first_element_sets_vstart_to_faulting_index() {
     )
     .unwrap_err();
 
-    assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
+    assert_matches!(err, ExecutionError::OutOfBoundsRead { .. });
     assert_eq!(
         state.env.vstart(),
         Vstart::from(2),
@@ -2518,7 +2510,7 @@ fn vle_fault_at_first_element_does_not_mark_vs_dirty() {
     )
     .unwrap_err();
 
-    assert!(matches!(err, ExecutionError::OutOfBoundsRead { .. }));
+    assert_matches!(err, ExecutionError::OutOfBoundsRead { .. });
     assert_eq!(
         state.env.vs_dirty_count(),
         0,
@@ -2586,7 +2578,7 @@ fn vlr_wraps_around_end_of_address_space() {
         &mut memory,
     );
 
-    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_matches!(result, ExecutionResult::ContinueNoWrite);
     assert_eq!(vreg_bytes(&state, VReg::V2), [0x11; 32]);
     assert_eq!(vreg_bytes(&state, VReg::V3), [0x22; 32]);
 }
@@ -2614,7 +2606,7 @@ fn vle_wraps_around_end_of_address_space() {
         &mut memory,
     );
 
-    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_matches!(result, ExecutionResult::ContinueNoWrite);
     let expected = array::from_fn::<u8, 32, _>(|i| {
         if i < 16 {
             48 + i as u8
@@ -2644,7 +2636,7 @@ fn vlm_wraps_around_end_of_address_space() {
         &mut memory,
     );
 
-    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_matches!(result, ExecutionResult::ContinueNoWrite);
     let mut expected = [0; 32];
     expected[..4].copy_from_slice(&[0x11, 0x11, 0x22, 0x22]);
     assert_eq!(vreg_bytes(&state, VReg::V1), expected);

@@ -63,8 +63,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -1345,8 +1346,9 @@ fn vwsll_vv_source_overlapping_low_part_of_destination_is_illegal() {
                 rs2: Reg::Zero,
             },
         );
-        assert!(
-            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        assert_matches!(
+            result,
+            Err(ExecutionError::IllegalInstruction { .. }),
             "vs2={vs2:?} vs1={vs1:?}"
         );
     }
@@ -1366,10 +1368,7 @@ fn vwsll_vi_source_overlapping_low_part_of_destination_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1409,8 +1408,5 @@ fn vwsll_at_sew_equal_to_elen_is_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }

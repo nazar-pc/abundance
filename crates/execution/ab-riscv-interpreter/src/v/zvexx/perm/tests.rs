@@ -6,6 +6,7 @@ use crate::{
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 // With TEST_VLEN=256, VLENB=32:
 //   E8/M1   -> VLMAX=32, 1 reg,  32 elems/reg
@@ -79,8 +80,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -272,7 +274,7 @@ fn vmv_x_s_illegal_when_vector_disabled() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -289,7 +291,7 @@ fn vmv_x_s_illegal_when_vtype_invalid() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 // vmv.s.x
@@ -385,7 +387,7 @@ fn vmv_s_x_illegal_when_vector_disabled() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -577,7 +579,7 @@ fn vslideup_overlap_vd_vs2_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -827,7 +829,7 @@ fn vslide1up_overlap_vd_vs2_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -1047,7 +1049,7 @@ fn vrgather_vv_vd_overlap_vs2_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -1065,7 +1067,7 @@ fn vrgather_vv_vd_overlap_vs1_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -1206,7 +1208,7 @@ fn vrgather_vx_vd_overlap_vs2_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 // vrgatherei16.vv
@@ -1298,7 +1300,7 @@ fn vrgatherei16_vv_vd_overlap_vs2_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 // vmerge.vvm / vmv.v.v
@@ -1879,8 +1881,9 @@ fn vmerge_variants_illegal_when_vector_disabled() {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
         state.env.set_vector_allowed(false);
         let err = exec(&mut state, *instr).unwrap_err();
-        assert!(
-            matches!(err, ExecutionError::IllegalInstruction { .. }),
+        assert_matches!(
+            err,
+            ExecutionError::IllegalInstruction { .. },
             "expected IllegalInstruction for {name}"
         );
     }
@@ -1926,8 +1929,9 @@ fn vmerge_variants_illegal_when_vtype_invalid() {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E32, Vlmul::M1);
         state.env.set_vector_config(None);
         let err = exec(&mut state, *instr).unwrap_err();
-        assert!(
-            matches!(err, ExecutionError::IllegalInstruction { .. }),
+        assert_matches!(
+            err,
+            ExecutionError::IllegalInstruction { .. },
             "expected IllegalInstruction for {name}"
         );
     }
@@ -2176,7 +2180,7 @@ fn vcompress_vm_vd_overlap_vs2_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2193,7 +2197,7 @@ fn vcompress_vm_vd_overlap_vs1_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2211,7 +2215,7 @@ fn vcompress_vm_vs1_in_high_register_of_vd_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2233,7 +2237,7 @@ fn vcompress_vm_rejects_nonzero_vstart() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2341,7 +2345,7 @@ fn vmv2r_v_misaligned_vd_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2357,7 +2361,7 @@ fn vmv2r_v_misaligned_vs2_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2411,7 +2415,7 @@ fn vmv4r_v_misaligned_vd_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2428,7 +2432,7 @@ fn vmv4r_v_misaligned_vs2_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2480,7 +2484,7 @@ fn vmv8r_v_misaligned_vd_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2497,7 +2501,7 @@ fn vmv8r_v_misaligned_vs2_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 #[test]
@@ -2517,7 +2521,7 @@ fn vmvr_with_vill_is_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
     assert_eq!(get_vreg_bytes(&state, VReg::V4), [0x00; 32]);
 }
 
@@ -2628,7 +2632,7 @@ fn vslideup_unaligned_group_vd_illegal() {
         },
     )
     .unwrap_err();
-    assert!(matches!(err, ExecutionError::IllegalInstruction { .. }));
+    assert_matches!(err, ExecutionError::IllegalInstruction { .. });
 }
 
 // Non-zero vstart
@@ -3194,8 +3198,9 @@ fn all_instructions_illegal_when_vector_disabled() {
         }
         state.regs.write(Reg::A0, 1u64);
         let err = exec(&mut state, *instr).unwrap_err();
-        assert!(
-            matches!(err, ExecutionError::IllegalInstruction { .. }),
+        assert_matches!(
+            err,
+            ExecutionError::IllegalInstruction { .. },
             "expected IllegalInstruction for {name}, got {err:?}"
         );
     }
@@ -3319,10 +3324,7 @@ fn vrgatherei16_sources_with_different_eew_must_not_overlap() {
             },
         );
         if expect_illegal {
-            assert!(matches!(
-                result,
-                Err(ExecutionError::IllegalInstruction { .. })
-            ));
+            assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
         } else {
             result.unwrap();
         }
@@ -3345,10 +3347,7 @@ fn vcompress_mask_must_not_overlap_source() {
             },
         );
         if vs1 == VReg::V3 {
-            assert!(matches!(
-                result,
-                Err(ExecutionError::IllegalInstruction { .. })
-            ));
+            assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
         } else {
             result.unwrap();
         }

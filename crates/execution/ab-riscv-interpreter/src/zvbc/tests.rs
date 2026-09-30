@@ -63,8 +63,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");

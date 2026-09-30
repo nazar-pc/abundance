@@ -6,6 +6,7 @@ use crate::{
     ExecutionResult, RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 use core::cell::Cell;
 
 /// Encode a raw vtype value (vta=false, vma=false)
@@ -72,8 +73,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -1314,10 +1316,7 @@ fn error_vector_instructions_not_allowed() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1337,10 +1336,7 @@ fn error_vill_set_vtype() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1358,10 +1354,7 @@ fn error_vd_misaligned_for_m2() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1378,10 +1371,7 @@ fn error_vs2_misaligned_for_m2() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1399,10 +1389,7 @@ fn error_vector_not_allowed_compare() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // Cross-SEW correctness (each SEW for a representative op)
@@ -1614,10 +1601,7 @@ fn error_compare_mask_dest_overlaps_vs2_non_base_lmul_gt_1() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1634,10 +1618,7 @@ fn error_compare_mask_dest_overlaps_vs1_non_base_lmul_gt_1() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 #[test]
@@ -1729,8 +1710,9 @@ fn vl_above_vlmax_in_raw_csr_is_treated_as_vill() {
                 rs2: Reg::Zero,
             },
         );
-        assert!(
-            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        assert_matches!(
+            result,
+            Err(ExecutionError::IllegalInstruction { .. }),
             "vl={vl}"
         );
     }
@@ -1819,7 +1801,7 @@ fn instruction_uses_a_single_vector_config() {
         &mut state.instruction_fetcher,
     );
 
-    assert!(matches!(result, ExecutionResult::ContinueNoWrite));
+    assert_matches!(result, ExecutionResult::ContinueNoWrite);
     assert_eq!(env.calls.get(), 1);
     for i in 0..4 {
         assert_eq!(env.read_vregs().get(VReg::V31)[i * 8], 2);

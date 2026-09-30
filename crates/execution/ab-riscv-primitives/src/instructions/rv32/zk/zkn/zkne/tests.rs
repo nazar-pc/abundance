@@ -2,6 +2,7 @@ use crate::instructions::Instruction;
 use crate::instructions::rv32::zk::zkn::zknd::Rv32AesBs;
 use crate::instructions::rv32::zk::zkn::zkne::Rv32ZkneInstruction;
 use crate::registers::general_purpose::Reg;
+use core::assert_matches;
 
 const FUNCT5_ESI: u32 = 0b10001;
 const FUNCT5_ESMI: u32 = 0b10011;
@@ -134,14 +135,8 @@ fn test_aes32esi_and_aes32esmi_distinct_funct5() {
     let inst_esmi = make_rv32_zkne(FUNCT5_ESMI, 1, 1, 2, 1);
     let dec_esi = Rv32ZkneInstruction::<Reg<u32>>::try_decode(inst_esi);
     let dec_esmi = Rv32ZkneInstruction::<Reg<u32>>::try_decode(inst_esmi);
-    assert!(matches!(
-        dec_esi,
-        Some(Rv32ZkneInstruction::Aes32Esi { .. })
-    ));
-    assert!(matches!(
-        dec_esmi,
-        Some(Rv32ZkneInstruction::Aes32Esmi { .. })
-    ));
+    assert_matches!(dec_esi, Some(Rv32ZkneInstruction::Aes32Esi { .. }));
+    assert_matches!(dec_esmi, Some(Rv32ZkneInstruction::Aes32Esmi { .. }));
 }
 
 #[test]

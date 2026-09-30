@@ -6,6 +6,7 @@ use crate::instructions::zvbb::zvkb::ZvkbInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
 use alloc::format;
+use core::assert_matches;
 
 /// Build an OP-V instruction word.
 ///
@@ -313,14 +314,14 @@ fn vrev8_v_masked_form() {
 fn vbrev8_and_vrev8_sub_opcodes_do_not_alias() {
     let inst_brev8 = make_vop(0b01_0010, 1, 4, 0b01000, OPMVV, 2);
     let inst_rev8 = make_vop(0b01_0010, 1, 4, 0b01001, OPMVV, 2);
-    assert!(matches!(
+    assert_matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst_brev8),
         Some(ZvkbInstruction::Vbrev8V { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst_rev8),
         Some(ZvkbInstruction::Vrev8V { .. })
-    ));
+    );
 }
 // vrol.vv
 
@@ -429,14 +430,14 @@ fn vror_vv_masked_form() {
 fn vrol_and_vror_funct6_do_not_alias() {
     let inst_rol = make_vop(0b01_0101, 1, 2, 3, OPIVV, 1);
     let inst_ror = make_vop(0b01_0100, 1, 2, 3, OPIVV, 1);
-    assert!(matches!(
+    assert_matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst_rol),
         Some(ZvkbInstruction::VrolVv { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvkbInstruction::<Reg<u64>>::try_decode(inst_ror),
         Some(ZvkbInstruction::VrorVv { .. })
-    ));
+    );
 }
 
 // vror.vx

@@ -16,6 +16,7 @@ use crate::{
 use ab_riscv_primitives::prelude::*;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::assert_matches;
 
 /// Whether threaded dispatch can run here at all.
 ///
@@ -33,11 +34,9 @@ where
 
     let mut state = initialize_state(vec![]);
 
-    assert!(
-        matches!(
-            execute_threaded::<Rv64Instruction<Reg<u64>>>(&mut state).outcome,
-            Err(ExecutionError::UnsupportedPlatform)
-        ),
+    assert_matches!(
+        execute_threaded::<Rv64Instruction<Reg<u64>>>(&mut state).outcome,
+        Err(ExecutionError::UnsupportedPlatform),
         "Threaded dispatch must say why it did not run"
     );
 
@@ -285,10 +284,10 @@ fn threaded_reports_the_error_it_stopped_on() {
     }]);
     state.regs.write(Reg::A0, 0xdead_0000);
 
-    assert!(matches!(
+    assert_matches!(
         execute_threaded(&mut state).outcome,
         Err(ExecutionError::OutOfBoundsRead { .. })
-    ));
+    );
 }
 
 #[test]

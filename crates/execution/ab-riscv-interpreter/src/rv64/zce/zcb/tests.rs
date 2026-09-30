@@ -1,6 +1,7 @@
 use crate::rv64::test_utils::{TEST_BASE_ADDR, execute, initialize_state};
 use crate::{ExecutionError, RegisterFile, VirtualMemory};
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 // C.LBU
 
@@ -44,10 +45,10 @@ fn test_clbu_oob() {
         rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0);
-    assert!(matches!(
+    assert_matches!(
         execute(&mut state),
         Err(ExecutionError::OutOfBoundsRead { .. })
-    ));
+    );
 }
 
 // C.LHU
@@ -91,10 +92,10 @@ fn test_clhu_oob() {
         rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0);
-    assert!(matches!(
+    assert_matches!(
         execute(&mut state),
         Err(ExecutionError::OutOfBoundsRead { .. })
-    ));
+    );
 }
 
 // C.LH
@@ -138,10 +139,10 @@ fn test_clh_oob() {
         rs2: Reg::Zero,
     }]);
     state.regs.write(Reg::A0, 0);
-    assert!(matches!(
+    assert_matches!(
         execute(&mut state),
         Err(ExecutionError::OutOfBoundsRead { .. })
-    ));
+    );
 }
 
 // C.SB
@@ -168,10 +169,10 @@ fn test_csb_oob() {
         uimm: 0,
     }]);
     state.regs.write(Reg::A0, 0);
-    assert!(matches!(
+    assert_matches!(
         execute(&mut state),
         Err(ExecutionError::OutOfBoundsWrite { .. })
-    ));
+    );
 }
 
 // C.SH
@@ -198,10 +199,10 @@ fn test_csh_oob() {
         uimm: 0,
     }]);
     state.regs.write(Reg::A0, 0);
-    assert!(matches!(
+    assert_matches!(
         execute(&mut state),
         Err(ExecutionError::OutOfBoundsWrite { .. })
-    ));
+    );
 }
 
 // C.ZEXT.B

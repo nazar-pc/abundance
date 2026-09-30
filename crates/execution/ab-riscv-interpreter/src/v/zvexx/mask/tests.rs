@@ -6,6 +6,7 @@ use crate::{
     RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands,
 };
 use ab_riscv_primitives::prelude::*;
+use core::assert_matches;
 
 // With TEST_VLEN=256, VLENB=32:
 //   E8/M1 -> VLMAX=32, 1 reg
@@ -73,8 +74,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -473,10 +475,7 @@ fn vmand_vector_not_allowed() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // vcpop
@@ -604,10 +603,7 @@ fn vcpop_invalid_vtype() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// vcpop requires vector instructions to be allowed
@@ -625,10 +621,7 @@ fn vcpop_vector_not_allowed() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// vcpop with a sparse pattern to verify exact bit-counting
@@ -940,10 +933,7 @@ fn vmsbf_vd_eq_vs2_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// Spec §16.4: vmsbf.m with vstart != 0 is a mandatory illegal instruction exception.
@@ -961,10 +951,7 @@ fn vmsbf_nonzero_vstart_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // vmsof
@@ -1032,10 +1019,7 @@ fn vmsof_vd_eq_vs2_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// vmsof with mask: inactive elements are undisturbed
@@ -1089,10 +1073,7 @@ fn vmsof_nonzero_vstart_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // vmsif
@@ -1186,10 +1167,7 @@ fn vmsif_vd_eq_vs2_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// Spec §16.4: vmsif.m with vstart != 0 is a mandatory illegal instruction exception.
@@ -1207,10 +1185,7 @@ fn vmsif_nonzero_vstart_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// Cross-check: vmsbf, vmsof, and vmsif on the same input give the expected relationship.
@@ -1417,10 +1392,7 @@ fn viota_nonzero_vstart_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// viota rejects vd == vs2
@@ -1437,10 +1409,7 @@ fn viota_vd_eq_vs2_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// viota rejects misaligned vd for the current LMUL
@@ -1458,10 +1427,7 @@ fn viota_misaligned_vd_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// viota.m never raises an illegal-instruction exception because of a narrow SEW. Per spec §16.8
@@ -1697,10 +1663,7 @@ fn vid_misaligned_vd_illegal() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// vid.v rejects a non-zero `vstart`
@@ -1734,10 +1697,7 @@ fn vid_invalid_vtype() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 /// vid.v requires vector instructions to be allowed
@@ -1754,10 +1714,7 @@ fn vid_vector_not_allowed() {
             rs2: Reg::Zero,
         },
     );
-    assert!(matches!(
-        result,
-        Err(ExecutionError::IllegalInstruction { .. })
-    ));
+    assert_matches!(result, Err(ExecutionError::IllegalInstruction { .. }));
 }
 
 // vl=0 edge cases
@@ -2033,8 +1990,9 @@ fn mask_logical_invalid_vtype() {
         let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M1);
         state.env.set_vector_config(None);
         let result = exec(&mut state, op);
-        assert!(
-            matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+        assert_matches!(
+            result,
+            Err(ExecutionError::IllegalInstruction { .. }),
             "op {idx} should reject vill=1"
         );
     }

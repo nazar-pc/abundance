@@ -6,6 +6,7 @@ use crate::instructions::zvbc::ZvbcInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
 use alloc::format;
+use core::assert_matches;
 
 /// Build an OP-V instruction word.
 ///
@@ -334,14 +335,14 @@ fn vclmulh_vx_sp_register() {
 fn vclmul_and_vclmulh_vv_funct6_do_not_alias() {
     let inst_clmul = make_vop(0b00_1100, 1, 2, 3, OPMVV, 1);
     let inst_clmulh = make_vop(0b00_1101, 1, 2, 3, OPMVV, 1);
-    assert!(matches!(
+    assert_matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst_clmul),
         Some(ZvbcInstruction::VclmulVv { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst_clmulh),
         Some(ZvbcInstruction::VclmulhVv { .. })
-    ));
+    );
 }
 
 // Same aliasing check in the OPMVX space.
@@ -349,14 +350,14 @@ fn vclmul_and_vclmulh_vv_funct6_do_not_alias() {
 fn vclmul_and_vclmulh_vx_funct6_do_not_alias() {
     let inst_clmul = make_vop(0b00_1100, 1, 4, 10, OPMVX, 6);
     let inst_clmulh = make_vop(0b00_1101, 1, 4, 10, OPMVX, 6);
-    assert!(matches!(
+    assert_matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst_clmul),
         Some(ZvbcInstruction::VclmulVx { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst_clmulh),
         Some(ZvbcInstruction::VclmulhVx { .. })
-    ));
+    );
 }
 
 // VV and VX variants share funct6 but differ by funct3 (OPMVV vs OPMVX); must not alias.
@@ -364,14 +365,14 @@ fn vclmul_and_vclmulh_vx_funct6_do_not_alias() {
 fn vclmul_vv_and_vx_funct3_do_not_alias() {
     let inst_vv = make_vop(0b00_1100, 1, 8, 3, OPMVV, 2);
     let inst_vx = make_vop(0b00_1100, 1, 8, 3, OPMVX, 2);
-    assert!(matches!(
+    assert_matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst_vv),
         Some(ZvbcInstruction::VclmulVv { .. })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         ZvbcInstruction::<Reg<u64>>::try_decode(inst_vx),
         Some(ZvbcInstruction::VclmulVx { .. })
-    ));
+    );
 }
 
 // vm field orthogonality

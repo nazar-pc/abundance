@@ -69,8 +69,9 @@ fn assert_rejects_nonzero_vstart(
     assert_ne!(vstart, Vstart::ZERO);
     let vregs = *state.env.read_vregs().as_bytes();
     let result = exec(state, instr);
-    assert!(
-        matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+    assert_matches!(
+        result,
+        Err(ExecutionError::IllegalInstruction { .. }),
         "{instr}: {result:?}"
     );
     assert_eq!(state.env.vstart(), vstart, "{instr}");
@@ -2379,8 +2380,9 @@ fn vext_fractional_source_emul_overlapping_destination_is_illegal() {
                 },
             };
             let result = exec(&mut state, instruction);
-            assert!(
-                matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+            assert_matches!(
+                result,
+                Err(ExecutionError::IllegalInstruction { .. }),
                 "{sew:?} {vlmul:?} {factor:?} sign={sign} vd={vd:?} vs2={vs2:?}"
             );
         }
@@ -2434,8 +2436,9 @@ fn wv_sources_with_different_eew_must_not_overlap() {
             let mut state = setup(Vl::new(4).unwrap(), Vsew::E8, Vlmul::M2);
             let result = exec(&mut state, instr);
             if expect_illegal {
-                assert!(
-                    matches!(result, Err(ExecutionError::IllegalInstruction { .. })),
+                assert_matches!(
+                    result,
+                    Err(ExecutionError::IllegalInstruction { .. }),
                     "{instr}"
                 );
             } else {
