@@ -68,20 +68,9 @@ where
                         ),
                     });
                 };
-                // SAFETY: all VReg values are valid indices < 32 and `config.vl().get() <= VLMAX <=
-                // VLEN`, so every mask bit is within a register;
-                // snapshot-before-write inside the helper means vd may overlap vs2
-                // or vs1 safely.
-                unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vs1,
-                        |a, b| a && !b,
-                    );
-                }
+                zvexx_mask_helpers::execute_mask_logical_op(env, config, vd, vs2, vs1, |a, b| {
+                    a && !b
+                });
             }
             Self::Vmand { vd, vs2, vs1 } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -100,17 +89,9 @@ where
                         ),
                     });
                 };
-                // SAFETY: see `Vmandn`
-                unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vs1,
-                        |a, b| a & b,
-                    );
-                }
+                zvexx_mask_helpers::execute_mask_logical_op(env, config, vd, vs2, vs1, |a, b| {
+                    a & b
+                });
             }
             Self::Vmor { vd, vs2, vs1 } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -129,17 +110,9 @@ where
                         ),
                     });
                 };
-                // SAFETY: see `Vmandn`
-                unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vs1,
-                        |a, b| a | b,
-                    );
-                }
+                zvexx_mask_helpers::execute_mask_logical_op(env, config, vd, vs2, vs1, |a, b| {
+                    a | b
+                });
             }
             Self::Vmxor { vd, vs2, vs1 } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -158,17 +131,9 @@ where
                         ),
                     });
                 };
-                // SAFETY: see `Vmandn`
-                unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vs1,
-                        |a, b| a ^ b,
-                    );
-                }
+                zvexx_mask_helpers::execute_mask_logical_op(env, config, vd, vs2, vs1, |a, b| {
+                    a ^ b
+                });
             }
             Self::Vmorn { vd, vs2, vs1 } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -187,17 +152,9 @@ where
                         ),
                     });
                 };
-                // SAFETY: see `Vmandn`
-                unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vs1,
-                        |a, b| a || !b,
-                    );
-                }
+                zvexx_mask_helpers::execute_mask_logical_op(env, config, vd, vs2, vs1, |a, b| {
+                    a || !b
+                });
             }
             Self::Vmnand { vd, vs2, vs1 } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -216,17 +173,9 @@ where
                         ),
                     });
                 };
-                // SAFETY: see `Vmandn`
-                unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vs1,
-                        |a, b| !(a & b),
-                    );
-                }
+                zvexx_mask_helpers::execute_mask_logical_op(env, config, vd, vs2, vs1, |a, b| {
+                    !(a & b)
+                });
             }
             Self::Vmnor { vd, vs2, vs1 } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -245,17 +194,9 @@ where
                         ),
                     });
                 };
-                // SAFETY: see `Vmandn`
-                unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vs1,
-                        |a, b| !(a | b),
-                    );
-                }
+                zvexx_mask_helpers::execute_mask_logical_op(env, config, vd, vs2, vs1, |a, b| {
+                    !(a | b)
+                });
             }
             Self::Vmxnor { vd, vs2, vs1 } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -274,17 +215,9 @@ where
                         ),
                     });
                 };
-                // SAFETY: see `Vmandn`
-                unsafe {
-                    zvexx_mask_helpers::execute_mask_logical_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        vs1,
-                        |a, b| !(a ^ b),
-                    );
-                }
+                zvexx_mask_helpers::execute_mask_logical_op(env, config, vd, vs2, vs1, |a, b| {
+                    !(a ^ b)
+                });
             }
             // vcpop.m (§16.2): count set bits in vs2 over active elements, write to GPR rd.
             Self::Vcpop { rd, vs2, vm } => {
@@ -305,8 +238,7 @@ where
                         ),
                     });
                 };
-                // SAFETY: `config.vl().get() <= VLMAX <= VLEN`
-                let rd_value = unsafe { zvexx_mask_helpers::execute_vcpop(env, config, vs2, vm) };
+                let rd_value = zvexx_mask_helpers::execute_vcpop(env, config, vs2, vm);
 
                 return ExecutionResult::Continue {
                     rd,
@@ -331,8 +263,7 @@ where
                         ),
                     });
                 };
-                // SAFETY: same as `Vcpop`
-                let rd_value = unsafe { zvexx_mask_helpers::execute_vfirst(env, config, vs2, vm) };
+                let rd_value = zvexx_mask_helpers::execute_vfirst(env, config, vs2, vm);
 
                 return ExecutionResult::Continue {
                     rd,
@@ -367,12 +298,8 @@ where
                         ),
                     });
                 }
-                let vl = config.vl().get();
-                // SAFETY: `vd != vs2` checked above;
-                // `vstart == 0` checked above; `vl <= VLEN`.
-                unsafe {
-                    zvexx_mask_helpers::execute_vmsbf(env, vd, vs2, vm, vl);
-                }
+                let vl = config.vl();
+                zvexx_mask_helpers::execute_vmsbf(env, vd, vs2, vm, vl);
             }
             // vmsof.m (§16.5): set-only-first mask bit.
             // Same overlap constraints as vmsbf.
@@ -401,11 +328,8 @@ where
                         ),
                     });
                 }
-                let vl = config.vl().get();
-                // SAFETY: see `Vmsbf`
-                unsafe {
-                    zvexx_mask_helpers::execute_vmsof(env, vd, vs2, vm, vl);
-                }
+                let vl = config.vl();
+                zvexx_mask_helpers::execute_vmsof(env, vd, vs2, vm, vl);
             }
             // vmsif.m (§16.6): set-including-first mask bit.
             // Same overlap constraints as vmsbf.
@@ -434,11 +358,8 @@ where
                         ),
                     });
                 }
-                let vl = config.vl().get();
-                // SAFETY: see `Vmsbf`
-                unsafe {
-                    zvexx_mask_helpers::execute_vmsif(env, vd, vs2, vm, vl);
-                }
+                let vl = config.vl();
+                zvexx_mask_helpers::execute_vmsif(env, vd, vs2, vm, vl);
             }
             // viota.m (§16.8): write prefix popcount of vs2 bits as SEW-wide elements into vd.
             // Constraints: vd must not overlap vs2 or v0 (when masked); vd alignment per LMUL;
@@ -463,20 +384,16 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                if !vd.is_group_aligned(group_regs) || vd.to_bits() + group_regs.get() > 32 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    config.vtype().vsew().as_eew(),
+                )?;
                 // vd must not overlap vs2; vs2 is always a single mask register (group size 1).
-                let vd_start = u32::from(vd.to_bits());
-                let vs2_start = u32::from(vs2.to_bits());
-                if vd_start < vs2_start + 1 && vs2_start < vd_start + u32::from(group_regs.get()) {
+                let vs2_start = vs2.to_bits();
+                let vd_start = vd.base().to_bits();
+                if vd_start <= vs2_start && vs2_start < vd_start + vd.group_regs().get() {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -484,14 +401,7 @@ where
                         ),
                     });
                 }
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                // SAFETY: vd alignment checked above; vd group does not overlap vs2 checked above;
-                // vstart == 0 checked above;
-                // `vl <= VLMAX = group_regs * VLEN.bytes() / sew_bytes`, all element indices valid.
-                unsafe {
-                    zvexx_mask_helpers::execute_viota(env, vd, vs2, vm, vl, sew);
-                }
+                zvexx_mask_helpers::execute_viota(env, vd, vs2, vm);
             }
             // vid.v (§16.9): write element index i as SEW-wide integer into vd[i].
             // Constraints: vd alignment per LMUL.
@@ -512,22 +422,13 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                if !vd.is_group_aligned(group_regs) || vd.to_bits() + group_regs.get() > 32 {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                let sew = vtype.vsew();
-                // SAFETY: vd alignment checked above;
-                // `vl <= VLMAX = group_regs * VLEN.bytes() / sew_bytes`, all element indices valid.
-                unsafe {
-                    zvexx_mask_helpers::execute_vid(env, config, vd, vm, sew);
-                }
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    config.vtype().vsew().as_eew(),
+                )?;
+                zvexx_mask_helpers::execute_vid(env, vd, vm);
             }
         }
 

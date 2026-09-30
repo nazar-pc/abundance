@@ -67,29 +67,22 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                // SAFETY: `vs2` alignment checked; `vstart == 0` checked;
-                // `vs1` and `vd` are single-register scalar operands
-                unsafe {
-                    zvexx_reduction_helpers::execute_reduce_op(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        sew,
-                        |acc, elem, _sew| acc.wrapping_add(elem),
-                    );
-                }
+                zvexx_reduction_helpers::execute_reduce_op(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    sew,
+                    |acc, elem, _sew| acc.wrapping_add(elem),
+                );
             }
             Self::Vredand { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -108,28 +101,22 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                // SAFETY: see `Vredsum`
-                unsafe {
-                    zvexx_reduction_helpers::execute_reduce_op(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        sew,
-                        |acc, elem, _sew| acc & elem,
-                    );
-                }
+                zvexx_reduction_helpers::execute_reduce_op(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    sew,
+                    |acc, elem, _sew| acc & elem,
+                );
             }
             Self::Vredor { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -148,28 +135,22 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                // SAFETY: see `Vredsum`
-                unsafe {
-                    zvexx_reduction_helpers::execute_reduce_op(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        sew,
-                        |acc, elem, _sew| acc | elem,
-                    );
-                }
+                zvexx_reduction_helpers::execute_reduce_op(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    sew,
+                    |acc, elem, _sew| acc | elem,
+                );
             }
             Self::Vredxor { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -188,28 +169,22 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                // SAFETY: see `Vredsum`
-                unsafe {
-                    zvexx_reduction_helpers::execute_reduce_op(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        sew,
-                        |acc, elem, _sew| acc ^ elem,
-                    );
-                }
+                zvexx_reduction_helpers::execute_reduce_op(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    sew,
+                    |acc, elem, _sew| acc ^ elem,
+                );
             }
             Self::Vredminu { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -228,31 +203,25 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                // SAFETY: see `Vredsum`
-                unsafe {
-                    zvexx_reduction_helpers::execute_reduce_op(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        sew,
-                        |acc, elem, sew| {
-                            let mask = zvexx_arith_helpers::sew_mask(sew);
-                            if elem & mask < acc & mask { elem } else { acc }
-                        },
-                    );
-                }
+                zvexx_reduction_helpers::execute_reduce_op(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    sew,
+                    |acc, elem, sew| {
+                        let mask = zvexx_arith_helpers::sew_mask(sew);
+                        if elem & mask < acc & mask { elem } else { acc }
+                    },
+                );
             }
             Self::Vredmin { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -271,36 +240,30 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                // SAFETY: see `Vredsum`
-                unsafe {
-                    zvexx_reduction_helpers::execute_reduce_op(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        sew,
-                        |acc, elem, sew| {
-                            if zvexx_arith_helpers::sign_extend(elem, sew)
-                                < zvexx_arith_helpers::sign_extend(acc, sew)
-                            {
-                                elem
-                            } else {
-                                acc
-                            }
-                        },
-                    );
-                }
+                zvexx_reduction_helpers::execute_reduce_op(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    sew,
+                    |acc, elem, sew| {
+                        if zvexx_arith_helpers::sign_extend(elem, sew)
+                            < zvexx_arith_helpers::sign_extend(acc, sew)
+                        {
+                            elem
+                        } else {
+                            acc
+                        }
+                    },
+                );
             }
             Self::Vredmaxu { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -319,31 +282,25 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                // SAFETY: see `Vredsum`
-                unsafe {
-                    zvexx_reduction_helpers::execute_reduce_op(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        sew,
-                        |acc, elem, sew| {
-                            let mask = zvexx_arith_helpers::sew_mask(sew);
-                            if elem & mask > acc & mask { elem } else { acc }
-                        },
-                    );
-                }
+                zvexx_reduction_helpers::execute_reduce_op(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    sew,
+                    |acc, elem, sew| {
+                        let mask = zvexx_arith_helpers::sew_mask(sew);
+                        if elem & mask > acc & mask { elem } else { acc }
+                    },
+                );
             }
             Self::Vredmax { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -362,36 +319,30 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                let vl = config.vl().get();
-                // SAFETY: see `Vredsum`
-                unsafe {
-                    zvexx_reduction_helpers::execute_reduce_op(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        sew,
-                        |acc, elem, sew| {
-                            if zvexx_arith_helpers::sign_extend(elem, sew)
-                                > zvexx_arith_helpers::sign_extend(acc, sew)
-                            {
-                                elem
-                            } else {
-                                acc
-                            }
-                        },
-                    );
-                }
+                zvexx_reduction_helpers::execute_reduce_op(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    sew,
+                    |acc, elem, sew| {
+                        if zvexx_arith_helpers::sign_extend(elem, sew)
+                            > zvexx_arith_helpers::sign_extend(acc, sew)
+                        {
+                            elem
+                        } else {
+                            acc
+                        }
+                    },
+                );
             }
             Self::Vwredsumu { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -410,9 +361,8 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
                 let Some(widening_sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -421,36 +371,28 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    widening_sew.narrow().as_eew(),
                 )?;
                 // `vs1` is read with EEW=2*SEW and `vs2` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                zvexx_helpers::check_register_outside_group::<Reg, Env, _, _>(
                     program_counter,
                     vs2,
-                    group_regs.get(),
                     vs1,
-                    1,
                 )?;
-                let vl = config.vl().get();
-                // SAFETY: `vs2` alignment checked;
-                // `vstart == 0` checked; `vd` and `vs1` are single-register 2*SEW scalar operands
-                unsafe {
-                    zvexx_reduction_helpers::execute_widening_reduce_op::<false, _, _, _>(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        widening_sew,
-                        // Zero-extend vs2 elements then accumulate
-                        |acc, elem, _sew| acc.wrapping_add(elem),
-                    );
-                }
+                zvexx_reduction_helpers::execute_widening_reduce_op::<false, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    widening_sew,
+                    // Zero-extend vs2 elements then accumulate
+                    |acc, elem, _sew| acc.wrapping_add(elem),
+                );
             }
             Self::Vwredsum { vd, vs2, vs1, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -469,9 +411,8 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
                 let Some(widening_sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(vtype.vsew())
+                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -480,35 +421,28 @@ where
                         ),
                     });
                 };
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_arith_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    widening_sew.narrow().as_eew(),
                 )?;
                 // `vs1` is read with EEW=2*SEW and `vs2` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
+                zvexx_helpers::check_register_outside_group::<Reg, Env, _, _>(
                     program_counter,
                     vs2,
-                    group_regs.get(),
                     vs1,
-                    1,
                 )?;
-                let vl = config.vl().get();
-                // SAFETY: see `Vwredsumu`
-                unsafe {
-                    zvexx_reduction_helpers::execute_widening_reduce_op::<true, _, _, _>(
-                        env,
-                        vd,
-                        vs2,
-                        vs1,
-                        vm,
-                        vl,
-                        widening_sew,
-                        // Sign-extend vs2 elements then accumulate
-                        |acc, elem, _sew| acc.wrapping_add(elem),
-                    );
-                }
+                zvexx_reduction_helpers::execute_widening_reduce_op::<true, _, _, _>(
+                    env,
+                    vd,
+                    vs2,
+                    vs1,
+                    vm,
+                    widening_sew,
+                    // Sign-extend vs2 elements then accumulate
+                    |acc, elem, _sew| acc.wrapping_add(elem),
+                );
             }
         }
 

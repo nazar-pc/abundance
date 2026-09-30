@@ -1,7 +1,7 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_config::VectorConfig;
-use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
+use crate::v::vector_config::BoundedVl;
+use crate::v::vector_registers::{VRegGroup, VectorRegisterFile, VectorRegistersExt};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
@@ -10,28 +10,6 @@ use core::hint::cold_path;
 
 /// Effective element width of a register operand at `SEW`
 const SEW_EEW<const SEW: Vsew>: Eew = SEW.as_eew();
-
-/// Check that `vreg` (`vd`/`vs`) is aligned to `group_regs` and fits within `[0, 32)`
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vreg_group_alignment<Reg, Memory, PC>(
-    program_counter: &PC,
-    vreg: VReg,
-    group_regs: VRegGroupSize,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    if !vreg.is_group_aligned(group_regs) || vreg.to_bits() + group_regs.get() > 32 {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
-}
 
 /// Check mask-destination / source overlap constraint for compare/carry instructions.
 ///
@@ -50,26 +28,21 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_mask_dest_overlap<Reg, Memory, PC>(
+pub fn check_mask_dest_overlap<Reg, Env, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
-    src_base: VReg,
-    group_regs: VRegGroupSize,
+    src: VRegGroup<{ Env::VLEN }>,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
+    Env: VectorRegistersExt<Reg>,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    let group_regs = group_regs.get();
-    if group_regs > 1 {
-        let vd_idx = vd.to_bits();
-        let src = src_base.to_bits();
-        if vd_idx > src && vd_idx < src + group_regs {
-            cold_path();
-            return Err(ExecutionError::IllegalInstruction {
-                address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-            });
-        }
+    if src.contains(vd) && vd != src.base() {
+        cold_path();
+        return Err(ExecutionError::IllegalInstruction {
+            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
+        });
     }
     Ok(())
 }
@@ -80,36 +53,64 @@ where
 /// Only the target bit is modified; all other bits are undisturbed (tail-undisturbed semantics
 /// required for mask destinations per spec §5.3).
 ///
-/// # Safety
-/// `elem_i / 8 < VLEN.bytes()` must hold, i.e. `elem_i < VLEN`. This is guaranteed when
-/// `elem_i < vl <= VLMAX <= VLEN`.
+/// Returns `None` if `elem_i` is not below `VLEN`, which never happens for `elem_i < vl`.
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(in super::super) unsafe fn write_mask_bit<const VLEN: Vlen>(
+pub(in super::super) fn write_mask_bit<const VLEN: Vlen>(
     vregs: &mut VectorRegisterFile<VLEN>,
     vd: VReg,
     elem_i: u16,
     result: bool,
-) {
+) -> Option<()> {
     let byte_idx = usize::from(elem_i / u8::BITS as u16);
     let bit_idx = elem_i % u8::BITS as u16;
-    // SAFETY: `byte_idx < VLEN.bytes()` by the caller's precondition
-    let byte = unsafe { vregs.get_mut(vd).get_unchecked_mut(byte_idx) };
+    let byte = vregs.get_mut(vd).get_mut(byte_idx)?;
     if result {
         *byte |= 1 << bit_idx;
     } else {
         *byte &= !(1 << bit_idx);
     }
+    Some(())
 }
 
 /// Operand source
 #[derive(Debug)]
 #[doc(hidden)]
-pub enum OpSrc {
-    /// Vector-vector: source register index
-    Vreg(VReg),
+pub enum OpSrc<V> {
+    /// Vector-vector: source register group
+    Vreg(V),
     /// Vector-scalar: scalar value (sign- or zero-extended to u64)
     Scalar(u64),
+}
+
+impl<const VLEN: Vlen> OpSrc<VRegGroup<VLEN>> {
+    /// The same source if a vector register group source has `vl` of `vl`, `None` otherwise, see
+    /// [`VRegGroup::with_same_vl()`]
+    #[inline(always)]
+    #[doc(hidden)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub fn with_same_vl(self, vl: BoundedVl<VLEN>) -> Option<SameVlOpSrc<VLEN>> {
+        match self {
+            Self::Vreg(group) => Some(SameVlOpSrc {
+                vreg: Some(group.with_same_vl(vl)?),
+                scalar: 0,
+            }),
+            Self::Scalar(scalar) => Some(SameVlOpSrc { vreg: None, scalar }),
+        }
+    }
+}
+
+/// [`OpSrc`] with a vector register group source of a known `vl`, see [`OpSrc::with_same_vl()`].
+///
+/// Unlike an enum, the group doesn't share storage with the scalar, which would otherwise hide
+/// from the optimizer that the group's `vl` is the one it was rebound to.
+#[derive(Debug, Clone, Copy)]
+#[doc(hidden)]
+pub struct SameVlOpSrc<const VLEN: Vlen> {
+    /// Vector-vector: source register group
+    pub vreg: Option<VRegGroup<VLEN>>,
+    /// Vector-scalar: scalar value (sign- or zero-extended to u64), used when `vreg` is `None`
+    pub scalar: u64,
 }
 
 /// Execute a single-width element-wise arithmetic operation over `0..vl`.
@@ -117,20 +118,16 @@ pub enum OpSrc {
 /// `op` receives `(vs2_elem: u64, src_elem: u64, sew: Vsew)` and returns the `u64` result (only the
 /// low `sew.bits_width()` are written back).
 ///
-/// # Safety
-/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
-/// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have element width `sew` and the same `vl`, which holds for groups
+/// created from the same configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_arith_op<Reg, Env, F>(
+pub fn execute_arith_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: Vsew,
     op: F,
@@ -142,38 +139,30 @@ pub unsafe fn execute_arith_op<Reg, Env, F>(
 {
     // Dispatch on the element width once, so that the loop below is compiled for each width
     // separately, with element loads and stores of a constant size
-    //
-    // SAFETY: Guaranteed by the caller's precondition
-    unsafe {
-        match sew {
-            Vsew::E8 => {
-                execute_arith_op_const::<{ Vsew::E8 }, _, _, _>(env, config, vd, vs2, src, vm, op);
-            }
-            Vsew::E16 => {
-                execute_arith_op_const::<{ Vsew::E16 }, _, _, _>(env, config, vd, vs2, src, vm, op);
-            }
-            Vsew::E32 => {
-                execute_arith_op_const::<{ Vsew::E32 }, _, _, _>(env, config, vd, vs2, src, vm, op);
-            }
-            Vsew::E64 => {
-                execute_arith_op_const::<{ Vsew::E64 }, _, _, _>(env, config, vd, vs2, src, vm, op);
-            }
+    match sew {
+        Vsew::E8 => {
+            execute_arith_op_const::<{ Vsew::E8 }, _, _, _>(env, vd, vs2, src, vm, op);
+        }
+        Vsew::E16 => {
+            execute_arith_op_const::<{ Vsew::E16 }, _, _, _>(env, vd, vs2, src, vm, op);
+        }
+        Vsew::E32 => {
+            execute_arith_op_const::<{ Vsew::E32 }, _, _, _>(env, vd, vs2, src, vm, op);
+        }
+        Vsew::E64 => {
+            execute_arith_op_const::<{ Vsew::E64 }, _, _, _>(env, vd, vs2, src, vm, op);
         }
     }
 }
 
 /// [`execute_arith_op()`] with the element width known at compile time
-///
-/// # Safety
-/// Same as [`execute_arith_op()`]
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
+fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     op: F,
 ) where
@@ -182,35 +171,45 @@ unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> u64,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let src_eew_matches = match src {
+        OpSrc::Vreg(vs1) => vs1.eew() == SEW_EEW::<SEW>,
+        OpSrc::Scalar(_) => true,
+    };
+    if vd.eew() != SEW_EEW::<SEW> || vs2.eew() != SEW_EEW::<SEW> || !src_eew_matches {
+        cold_path();
+        return;
+    }
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
+
     let vregs = env.write_vregs();
 
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         // The decoder rejects masked `vd == v0`, so the mask can be read in place rather than
         // snapshotted, no write below can modify it
         if !vm && !mask_bit(vregs.get(VReg::V0), i) {
             continue;
         }
 
-        // SAFETY: `vs2 % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { vregs.read_element_const::<{ SEW_EEW::<SEW> }>(vs2, i) };
+        let a = vregs
+            .read_const::<{ SEW_EEW::<SEW> }>(vs2, i)
+            .expect("`vs2` has element width `SEW` and `vl` checked above; qed");
 
-        let b = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: same argument as vs2
-                unsafe { vregs.read_element_const::<{ SEW_EEW::<SEW> }>(vs1_base, i) }
-            }
-            OpSrc::Scalar(val) => val,
+        let b = match src.vreg {
+            Some(vs1) => vregs
+                .read_const::<{ SEW_EEW::<SEW> }>(vs1, i)
+                .expect("`vs1` has element width `SEW` and `vl` checked above; qed"),
+            None => src.scalar,
         };
 
         let result = op(a, b, SEW);
 
-        // SAFETY: `vd % group_regs == 0` and `i < vl <= group_regs * elems_per_reg`, so
-        // `vd + i / elems_per_reg < vd + group_regs <= 32`
-        unsafe {
-            vregs.write_element_const::<{ SEW_EEW::<SEW> }>(vd, i, result);
-        }
+        vregs
+            .write_const::<{ SEW_EEW::<SEW> }>(vd, i, result)
+            .expect("`vd` has element width `SEW` and `vl` checked above; qed");
     }
 
     env.mark_vs_dirty();
@@ -224,20 +223,16 @@ unsafe fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
 /// Mask destination tail bits (indices `>= vl`) are always left undisturbed per spec §5.3,
 /// regardless of `vta`. Only bits in `0..vl` are written.
 ///
-/// # Safety
-/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32` (verified by caller)
-/// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// Source register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_compare_op<Reg, Env, F>(
+pub fn execute_compare_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: Vsew,
     op: F,
@@ -247,33 +242,38 @@ pub unsafe fn execute_compare_op<Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64, Vsew) -> bool,
 {
-    let vl = config.vl().get();
+    let vl = vs2.vl();
+    let Some(src) = src.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
+
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         // When masked, inactive elements in the destination mask register are left undisturbed
         // (spec §12.8: "mask register results follow mask-undisturbed policy")
         if !mask_bit(&mask_buf, i) {
             continue;
         }
 
-        // SAFETY: same argument as in `execute_arith_op`
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`i < vl` of `vs2`; qed");
 
-        let b = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: same argument as vs2
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
-            }
-            OpSrc::Scalar(val) => val,
+        let b = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vs2`, checked above; qed"),
+            None => src.scalar,
         };
 
         let result = op(a, b, sew);
 
-        // SAFETY: `i < vl <= VLMAX <= VLEN`, so `i / 8 < VLEN / 8 = VLEN.bytes()`
-        unsafe {
-            write_mask_bit(env.write_vregs(), vd, i, result);
-        }
+        write_mask_bit(env.write_vregs(), vd, i, result)
+            .expect("`i < vl <= VLEN`, so the mask bit is within `vd`; qed");
     }
 
     env.mark_vs_dirty();

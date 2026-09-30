@@ -1,226 +1,12 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_config::VectorConfig;
-use crate::v::vector_registers::VectorRegistersExt;
-pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_vreg_group_alignment};
+use crate::v::vector_registers::{VRegGroup, VectorRegistersExt};
+pub use crate::v::zvexx::arith::zvexx_arith_helpers::OpSrc;
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
-use crate::v::zvexx::zvexx_helpers::{ExtensionSew, INSTRUCTION_SIZE, WideningSew};
-use crate::{ExecutionError, PackedAddress, ProgramCounter};
+use crate::v::zvexx::zvexx_helpers::{ExtensionSew, WideningSew};
 use ab_riscv_primitives::instructions::v::Vsew;
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-
-/// Check that a widening destination `vd` is aligned to `wide_group_regs` and fits within
-/// `[0,32)`, without any source overlap check
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vd_widen_no_src_check<Reg, Memory, PC>(
-    program_counter: &PC,
-    vd: VReg,
-    wide_group_regs: VRegGroupSize,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    if !vd.is_group_aligned(wide_group_regs) || vd.to_bits() + wide_group_regs.get() > 32 {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
-}
-
-/// Check that an extension source `vs2`, which has `EMUL = LMUL / factor`, is aligned to its
-/// register group, fits in `[0,32)`, and only overlaps `vd` (which occupies `group_regs` registers)
-/// in a manner permitted by the spec.
-///
-/// Per the vector spec §5.2, the destination EEW (SEW) of an extension is greater than the source
-/// EEW (SEW/factor), so the destination may overlap the source only when the source EMUL is at
-/// least 1 and the overlap is in the highest-numbered part of the destination register group (e.g.
-/// `vzext.vf4 v0, v6` with LMUL=8, where the narrow source `{v6,v7}` aliases the high registers of
-/// the wide `{v0..v7}` destination). Any other overlap is illegal, in particular any overlap at all
-/// with a fractional source EMUL, even though such a source still occupies a whole register.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vs_ext_alignment<Reg, Memory, PC>(
-    program_counter: &PC,
-    vs2: VReg,
-    vd: VReg,
-    group_regs: VRegGroupSize,
-    factor: VsewFactor,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    let src_group_regs = group_regs.divide_by_factor(factor);
-    let aligned = vs2.is_group_aligned(src_group_regs);
-    let src_emul_at_least_one = group_regs.get() >= factor.factor();
-    let src_group_regs = src_group_regs.get();
-    let group_regs = group_regs.get();
-    let vs2_idx = vs2.to_bits();
-    let vd_idx = vd.to_bits();
-    if !aligned || vs2_idx + src_group_regs > 32 {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    let overlap_illegal = if src_emul_at_least_one {
-        widen_src_overlap_illegal(vd_idx, group_regs, vs2_idx, src_group_regs)
-    } else {
-        ranges_overlap(vd_idx, group_regs, vs2_idx, src_group_regs)
-    };
-    if overlap_illegal {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
-}
-
-/// Check that a widening destination `vd` is aligned to `wide_group_regs`, fits within `[0, 32)`,
-/// and only overlaps the `group_regs`-register narrow source(s) starting at `vs_a`/`vs_b` in a
-/// manner permitted by the spec.
-///
-/// `wide_group_regs` is the pre-computed register count for the wide EMUL (2*LMUL), obtained via
-/// `Vlmul::index_register_count(wide_eew, sew)`. `group_regs` is the narrow LMUL register count.
-///
-/// Per the vector spec §5.2, a destination whose EEW (2*SEW) is greater than a source's EEW (SEW)
-/// may overlap that source only when the source EMUL is at least 1 and the overlap is in the
-/// highest-numbered part of the destination register group (e.g. `vwsubu.wv v2, v14, v3` with
-/// LMUL=1, where the narrow `v3` aliases the high register of the wide `{v2, v3}` destination).
-/// Any other overlap is illegal.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vd_widen_alignment<Reg, Memory, PC>(
-    program_counter: &PC,
-    vd: VReg,
-    vs_a: VReg,
-    vs_b_opt: Option<VReg>,
-    group_regs: VRegGroupSize,
-    wide_group_regs: VRegGroupSize,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    let aligned = vd.is_group_aligned(wide_group_regs);
-    let wide_group_regs = wide_group_regs.get();
-    let group_regs = group_regs.get();
-    let vd_idx = vd.to_bits();
-    if !aligned || vd_idx + wide_group_regs > 32 {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    if widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_a.to_bits(), group_regs) {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    if let Some(vs_b) = vs_b_opt
-        && widen_src_overlap_illegal(vd_idx, wide_group_regs, vs_b.to_bits(), group_regs)
-    {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
-}
-
-/// Returns `true` when a narrow source group of `group_regs` registers starting at `vs_idx`
-/// overlaps the wide destination group (`wide_group_regs` registers starting at `vd_idx`) in a way
-/// that is *not* permitted by the spec.
-///
-/// Overlap is only legal when the source EMUL is at least 1 - which, on widening, is exactly when
-/// the destination register count strictly exceeds the narrow source count (for fractional LMUL
-/// both counts collapse to 1) - and the source occupies the highest-numbered registers of the
-/// destination group.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-fn widen_src_overlap_illegal(vd_idx: u8, wide_group_regs: u8, vs_idx: u8, group_regs: u8) -> bool {
-    if !ranges_overlap(vd_idx, wide_group_regs, vs_idx, group_regs) {
-        return false;
-    }
-    let high_part_overlap =
-        wide_group_regs > group_regs && vs_idx == vd_idx + wide_group_regs - group_regs;
-    !high_part_overlap
-}
-
-/// Check that a widening source `vs2` that is already 2×SEW wide is aligned to `wide_group_regs`
-/// and fits within `[0, 32)`.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vs_wide_alignment<Reg, Memory, PC>(
-    program_counter: &PC,
-    vs: VReg,
-    wide_group_regs: VRegGroupSize,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    if !vs.is_group_aligned(wide_group_regs) || vs.to_bits() + wide_group_regs.get() > 32 {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
-}
-
-/// Check that a narrowing destination `vd` is aligned to `group_regs`, fits within `[0, 32)`, and
-/// only overlaps the wide source `vs2` (which occupies `wide_group_regs` registers starting at
-/// `vs2`) in a manner permitted by the spec.
-///
-/// Per spec §11.7, narrowing instructions permit `vd` to alias the *low* half of the wide `vs2`
-/// register group (i.e. `vd == vs2`) - any other overlap (e.g. `vd` aliasing only the high part of
-/// `vs2`'s group) is illegal.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vd_narrow_alignment<Reg, Memory, PC>(
-    program_counter: &PC,
-    vd: VReg,
-    group_regs: VRegGroupSize,
-    vs2: VReg,
-    wide_group_regs: VRegGroupSize,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    let aligned = vd.is_group_aligned(group_regs);
-    let group_regs = group_regs.get();
-    let vd_idx = vd.to_bits();
-    let vs2_idx = vs2.to_bits();
-    let overlaps = ranges_overlap(vd_idx, group_regs, vs2_idx, wide_group_regs.get());
-    if !aligned || vd_idx + group_regs > 32 || (overlaps && vd_idx != vs2_idx) {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
-}
-
-/// Returns `true` when `[a_start, a_start+a_len)` overlaps `[b_start, b_start+b_len)`.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-fn ranges_overlap(a_start: u8, a_len: u8, b_start: u8, b_len: u8) -> bool {
-    a_start < b_start + b_len && b_start < a_start + a_len
-}
 
 /// Sign-extend the low `sew.bits_width()` of `val` to `i64`.
 #[inline(always)]
@@ -292,23 +78,16 @@ fn scalar_signed_for_sew(val: u64, sew: Vsew) -> u64 {
 ///
 /// `op` receives `(wide_a: u64, wide_b: u64) -> u64`.
 ///
-/// # Safety
-/// - `vd` aligned to `2*group_regs`, fits in `[0,32)`, does not overlap `vs2` or `src` (verified by
-///   caller)
-/// - `vs2` aligned to `group_regs`, fits in `[0,32)` (verified by caller)
-/// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)` (verified by
-///   caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
+pub fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: WideningSew<{ Env::ELEN }>,
     op: F,
@@ -318,50 +97,52 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64) -> u64,
 {
-    let vl = config.vl().get();
-    let wide_sew = sew.wide();
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let sew = sew.narrow();
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: `vs2` aligned to `group_regs`;
-        // `i < vl <= group_regs * (VLEN.bytes() / sew.bytes_width())`
-        let raw_a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
+        let raw_a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
         let wide_a = if ZERO_EXTEND_AB {
             raw_a
         } else {
             sign_extend_bits(raw_a, sew).cast_unsigned()
         };
-        let wide_b = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: same argument as vs2
-                let raw_b = unsafe { env.read_vregs().read_element(vs1_base, i, sew) };
+        let wide_b = match src.vreg {
+            Some(vs1) => {
+                let raw_b = env
+                    .read_vregs()
+                    .read(vs1, i)
+                    .expect("`vs1` has the same `vl` as `vd`, checked above; qed");
                 if ZERO_EXTEND_AB {
                     raw_b
                 } else {
                     sign_extend_bits(raw_b, sew).cast_unsigned()
                 }
             }
-            OpSrc::Scalar(val) => {
+            None => {
                 if ZERO_EXTEND_AB {
-                    scalar_unsigned_for_sew(val, sew)
+                    scalar_unsigned_for_sew(src.scalar, sew)
                 } else {
-                    scalar_signed_for_sew(val, sew)
+                    scalar_signed_for_sew(src.scalar, sew)
                 }
             }
         };
         let result = op(wide_a, wide_b);
-        // SAFETY: `vd` aligned to `2*group_regs`;
-        // `i < vl <= group_regs * (VLEN.bytes() / sew.bytes_width())` so
-        // `i < 2*group_regs * (VLEN.bytes() / wide_sew.bytes_width())` - element fits in the wide
-        // group
-        unsafe {
-            env.write_vregs().write_element(vd, i, wide_sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -371,21 +152,16 @@ pub unsafe fn execute_widen_op<const ZERO_EXTEND_AB: bool, Reg, Env, F>(
 /// `vs2` is read at `wide_sew.bytes_width()`; `src` (narrow) is read at `sew.bytes_width()` and
 /// widened. `ZERO_EXTEND_B` selects unsigned vs signed widening for the narrow source operand.
 ///
-/// # Safety
-/// - `vd` aligned to `2*group_regs`, fits in `[0,32)`, does not overlap `vs2` or `src`
-/// - `vs2` aligned to `2*group_regs`, fits in `[0,32)` (wide source)
-/// - `src` register (when `WidenSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
+pub fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: WideningSew<{ Env::ELEN }>,
     op: F,
@@ -395,44 +171,48 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     F: Fn(u64, u64) -> u64,
 {
-    let vl = config.vl().get();
-    let wide_sew = sew.wide();
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let sew = sew.narrow();
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // vs2 is already 2×SEW; read at wide width
-        // SAFETY: `vs2` aligned to `2*group_regs`; element `i` fits within it
-        let wide_a = unsafe { env.read_vregs().read_element(vs2, i, wide_sew) };
-        let wide_b = match src {
-            OpSrc::Vreg(vs1) => {
-                // SAFETY: `vs1` is aligned to `group_regs` and fits within `[0, 32)`,
-                // verified by caller; `i < vl <= group_regs * (VLEN.bytes() / sew.bytes_width())`,
-                // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
-                let raw_b = unsafe { env.read_vregs().read_element(vs1, i, sew) };
+        let wide_a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let wide_b = match src.vreg {
+            Some(vs1) => {
+                let raw_b = env
+                    .read_vregs()
+                    .read(vs1, i)
+                    .expect("`vs1` has the same `vl` as `vd`, checked above; qed");
                 if ZERO_EXTEND_B {
                     raw_b
                 } else {
                     sign_extend_bits(raw_b, sew).cast_unsigned()
                 }
             }
-            OpSrc::Scalar(val) => {
+            None => {
                 if ZERO_EXTEND_B {
-                    scalar_unsigned_for_sew(val, sew)
+                    scalar_unsigned_for_sew(src.scalar, sew)
                 } else {
-                    scalar_signed_for_sew(val, sew)
+                    scalar_signed_for_sew(src.scalar, sew)
                 }
             }
         };
         let result = op(wide_a, wide_b);
-        // SAFETY: same as `execute_widen_op` for vd
-        unsafe {
-            env.write_vregs().write_element(vd, i, wide_sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -443,22 +223,16 @@ pub unsafe fn execute_widen_w_op<const ZERO_EXTEND_B: bool, Reg, Env, F>(
 /// The shift amount is masked to `log2(2*SEW)` bits per spec §12.6.
 /// `ARITHMETIC` selects sign-extending (true) vs zero-extending (false) before shifting.
 ///
-/// # Safety
-/// - `vd` aligned to `group_regs`, fits in `[0,32)`
-/// - `vs2` aligned to `wide_group_regs`, fits in `[0,32)`; aliasing with the low half of `vs2` is
-///   permitted per spec §11.7 - reads complete before writes to any overlapping element since the
-///   destination SEW is half the source SEW
-/// - `src` register (when `OpSrc::Vreg`) aligned to `group_regs`, fits in `[0,32)`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
+pub fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: WideningSew<{ Env::ELEN }>,
 ) where
@@ -466,7 +240,11 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let wide_sew = sew.wide();
     let sew = sew.narrow();
     // Shift amount mask: log2(2*SEW) bits = log2(SEW) + 1 bits
@@ -474,22 +252,24 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: `vs2` is the wide source group
-        let wide_val = unsafe { env.read_vregs().read_element(vs2, i, wide_sew) };
-        let shamt = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: `vs1` is aligned to `group_regs` and fits within `[0, 32)`,
-                // verified by caller; `i < vl <= group_regs * (VLEN.bytes() / sew.bytes_width())`,
-                // so `vs1_base + i / elems_per_reg < vs1_base + group_regs <= 32`
-                let raw = unsafe { env.read_vregs().read_element(vs1_base, i, sew) };
+        let wide_val = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let shamt = match src.vreg {
+            Some(vs1) => {
+                let raw = env
+                    .read_vregs()
+                    .read(vs1, i)
+                    .expect("`vs1` has the same `vl` as `vd`, checked above; qed");
                 raw & shamt_mask
             }
             // Scalar shift amount: only the low log2(2*SEW) bits are used per spec
-            OpSrc::Scalar(val) => val & shamt_mask,
+            None => src.scalar & shamt_mask,
         };
         let result_wide = if ARITHMETIC {
             // Sign-extend to i64 first, then shift arithmetically as i64 to
@@ -501,10 +281,9 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
         };
         // Truncate to SEW bits
         let result = result_wide & ((1u64 << sew.bits_width()) - 1);
-        // SAFETY: `vd` is the narrow destination group
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }
@@ -517,18 +296,15 @@ pub unsafe fn execute_narrow_shift<const ARITHMETIC: bool, Reg, Env>(
 /// The source EMUL = LMUL / factor; the source register group is `max(1, group_regs / factor)`
 /// registers.
 ///
-/// # Safety
-/// - `vd` aligned to `group_regs`, fits in `[0,32)`
-/// - `vs2` aligned to `src_group_regs`, fits in `[0,32)`, does not overlap `vd`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_extension<const SIGN: bool, Reg, Env>(
+pub fn execute_extension<const SIGN: bool, Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vm: bool,
     sew: ExtensionSew,
 ) where
@@ -536,27 +312,31 @@ pub unsafe fn execute_extension<const SIGN: bool, Reg, Env>(
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let Some(vs2) = vs2.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let src_sew = sew.source();
-    let sew = sew.dest();
 
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
 
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: vs2 group covers `vl` narrow elements
-        let raw = unsafe { env.read_vregs().read_element(vs2, i, src_sew) };
+        let raw = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
         let result = if SIGN {
             sign_extend_bits(raw, src_sew).cast_unsigned()
         } else {
             raw
         };
-        // SAFETY: vd group covers `vl` wide elements
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     env.mark_vs_dirty();
 }

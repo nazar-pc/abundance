@@ -68,39 +68,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_addu(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_addu(a, b, sew, vxsat),
+                );
             }
             Self::VsadduVx {
                 vd,
@@ -124,35 +119,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_addu(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_addu(a, b, sew, vxsat),
+                );
             }
             Self::VsadduVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -171,37 +160,32 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 // Per v-spec §12.1 / §11.1: the 5-bit immediate is sign-extended to SEW,
                 // then interpreted as an unsigned SEW-wide value for the saturating add.
                 // Sign-extend i8 -> i64 -> bit-cast to u64; sat_addu masks to SEW internally.
                 let scalar = i64::from(imm).cast_unsigned();
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_addu(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_addu(a, b, sew, vxsat),
+                );
             }
             // vsadd.vv / vsadd.vx / vsadd.vi - saturating signed add
             Self::VsaddVv { vd, vs2, vs1, vm } => {
@@ -221,39 +205,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_add(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_add(a, b, sew, vxsat),
+                );
             }
             Self::VsaddVx {
                 vd,
@@ -277,35 +256,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_add(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_add(a, b, sew, vxsat),
+                );
             }
             Self::VsaddVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -324,36 +297,30 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 // Sign-extend 5-bit immediate for signed sat add
                 let scalar = i64::from(imm).cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_add(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_add(a, b, sew, vxsat),
+                );
             }
             // vssubu.vv / vssubu.vx - saturating unsigned subtract
             Self::VssubuVv { vd, vs2, vs1, vm } => {
@@ -373,39 +340,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_subu(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_subu(a, b, sew, vxsat),
+                );
             }
             Self::VssubuVx {
                 vd,
@@ -429,35 +391,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_subu(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_subu(a, b, sew, vxsat),
+                );
             }
             // vssub.vv / vssub.vx - saturating signed subtract
             Self::VssubVv { vd, vs2, vs1, vm } => {
@@ -477,39 +433,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_sub(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_sub(a, b, sew, vxsat),
+                );
             }
             Self::VssubVx {
                 vd,
@@ -533,35 +484,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, _vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::sat_sub(a, b, sew, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, _vxrm, vxsat| zvexx_fixed_point_helpers::sat_sub(a, b, sew, vxsat),
+                );
             }
             // vaaddu.vv / vaaddu.vx - averaging unsigned add
             Self::VaadduVv { vd, vs2, vs1, vm } => {
@@ -581,39 +526,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            zvexx_fixed_point_helpers::avg_addu(a, b, sew, vxrm)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| zvexx_fixed_point_helpers::avg_addu(a, b, sew, vxrm),
+                );
             }
             Self::VaadduVx {
                 vd,
@@ -637,35 +577,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            zvexx_fixed_point_helpers::avg_addu(a, b, sew, vxrm)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| zvexx_fixed_point_helpers::avg_addu(a, b, sew, vxrm),
+                );
             }
             // vaadd.vv / vaadd.vx - averaging signed add
             Self::VaaddVv { vd, vs2, vs1, vm } => {
@@ -685,39 +619,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            zvexx_fixed_point_helpers::avg_add(a, b, sew, vxrm)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| zvexx_fixed_point_helpers::avg_add(a, b, sew, vxrm),
+                );
             }
             Self::VaaddVx {
                 vd,
@@ -741,35 +670,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            zvexx_fixed_point_helpers::avg_add(a, b, sew, vxrm)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| zvexx_fixed_point_helpers::avg_add(a, b, sew, vxrm),
+                );
             }
             // vasubu.vv / vasubu.vx - averaging unsigned subtract
             Self::VasubuVv { vd, vs2, vs1, vm } => {
@@ -789,39 +712,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            zvexx_fixed_point_helpers::avg_subu(a, b, sew, vxrm)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| zvexx_fixed_point_helpers::avg_subu(a, b, sew, vxrm),
+                );
             }
             Self::VasubuVx {
                 vd,
@@ -845,35 +763,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            zvexx_fixed_point_helpers::avg_subu(a, b, sew, vxrm)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| zvexx_fixed_point_helpers::avg_subu(a, b, sew, vxrm),
+                );
             }
             // vasub.vv / vasub.vx - averaging signed subtract
             Self::VasubVv { vd, vs2, vs1, vm } => {
@@ -893,39 +805,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            zvexx_fixed_point_helpers::avg_sub(a, b, sew, vxrm)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| zvexx_fixed_point_helpers::avg_sub(a, b, sew, vxrm),
+                );
             }
             Self::VasubVx {
                 vd,
@@ -949,35 +856,29 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            zvexx_fixed_point_helpers::avg_sub(a, b, sew, vxrm)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| zvexx_fixed_point_helpers::avg_sub(a, b, sew, vxrm),
+                );
             }
             // vsmul.vv / vsmul.vx - fractional multiply with rounding and saturation
             Self::VsmulVv { vd, vs2, vs1, vm } => {
@@ -997,9 +898,9 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
+                let sew = config.vtype().vsew();
                 // Not supported for SEW=64 in Zve64x (would need 128-bit result)
-                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
+                if !Self::implements_extension::<V<_>>() && sew == Vsew::E64 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1007,38 +908,35 @@ where
                         ),
                     });
                 }
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::smul(a, b, sew, vxrm, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, vxsat| {
+                        zvexx_fixed_point_helpers::smul(a, b, sew, vxrm, vxsat)
+                    },
+                );
             }
             Self::VsmulVx {
                 vd,
@@ -1062,9 +960,9 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
+                let sew = config.vtype().vsew();
                 // Not supported for SEW=64 in Zve64x (would need 128-bit result)
-                if !Self::implements_extension::<V<_>>() && vtype.vsew() == Vsew::E64 {
+                if !Self::implements_extension::<V<_>>() && sew == Vsew::E64 {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -1072,34 +970,30 @@ where
                         ),
                     });
                 }
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::smul(a, b, sew, vxrm, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, vxsat| {
+                        zvexx_fixed_point_helpers::smul(a, b, sew, vxrm, vxsat)
+                    },
+                );
             }
             // vssrl.vv / vssrl.vx / vssrl.vi - scaling shift right logical
             Self::VssrlVv { vd, vs2, vs1, vm } => {
@@ -1119,43 +1013,40 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            // Shift amount masked to log2(SEW) bits per spec §12.7
-                            let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
-                            let masked_a = a & zvexx_fixed_point_helpers::sew_mask(sew);
-                            zvexx_fixed_point_helpers::rounded_srl(masked_a, shamt, vxrm)
-                                & zvexx_fixed_point_helpers::sew_mask(sew)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| {
+                        // Shift amount masked to log2(SEW) bits per spec §12.7
+                        let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
+                        let masked_a = a & zvexx_fixed_point_helpers::sew_mask(sew);
+                        zvexx_fixed_point_helpers::rounded_srl(masked_a, shamt, vxrm)
+                            & zvexx_fixed_point_helpers::sew_mask(sew)
+                    },
+                );
             }
             Self::VssrlVx {
                 vd,
@@ -1179,38 +1070,34 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
-                            let masked_a = a & zvexx_fixed_point_helpers::sew_mask(sew);
-                            zvexx_fixed_point_helpers::rounded_srl(masked_a, shamt, vxrm)
-                                & zvexx_fixed_point_helpers::sew_mask(sew)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| {
+                        let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
+                        let masked_a = a & zvexx_fixed_point_helpers::sew_mask(sew);
+                        zvexx_fixed_point_helpers::rounded_srl(masked_a, shamt, vxrm)
+                            & zvexx_fixed_point_helpers::sew_mask(sew)
+                    },
+                );
             }
             Self::VssrlVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -1229,39 +1116,35 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 // Immediate is unsigned 5-bit; mask to log2(SEW) here too
                 let shamt = (u64::from(imm) & u64::from(sew.bits_width() - 1)) as u32;
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            let shamt = b as u32;
-                            let masked_a = a & zvexx_fixed_point_helpers::sew_mask(sew);
-                            zvexx_fixed_point_helpers::rounded_srl(masked_a, shamt, vxrm)
-                                & zvexx_fixed_point_helpers::sew_mask(sew)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| {
+                        let shamt = b as u32;
+                        let masked_a = a & zvexx_fixed_point_helpers::sew_mask(sew);
+                        zvexx_fixed_point_helpers::rounded_srl(masked_a, shamt, vxrm)
+                            & zvexx_fixed_point_helpers::sew_mask(sew)
+                    },
+                );
             }
             // vssra.vv / vssra.vx / vssra.vi - scaling shift right arithmetic
             Self::VssraVv { vd, vs2, vs1, vm } => {
@@ -1281,41 +1164,38 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
-                            zvexx_fixed_point_helpers::rounded_sra(a, shamt, vxrm, sew)
-                                & zvexx_fixed_point_helpers::sew_mask(sew)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| {
+                        let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
+                        zvexx_fixed_point_helpers::rounded_sra(a, shamt, vxrm, sew)
+                            & zvexx_fixed_point_helpers::sew_mask(sew)
+                    },
+                );
             }
             Self::VssraVx {
                 vd,
@@ -1339,37 +1219,33 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
-                            zvexx_fixed_point_helpers::rounded_sra(a, shamt, vxrm, sew)
-                                & zvexx_fixed_point_helpers::sew_mask(sew)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| {
+                        let shamt = (b & u64::from(sew.bits_width() - 1)) as u32;
+                        zvexx_fixed_point_helpers::rounded_sra(a, shamt, vxrm, sew)
+                            & zvexx_fixed_point_helpers::sew_mask(sew)
+                    },
+                );
             }
             Self::VssraVi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -1388,37 +1264,33 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let shamt = (u64::from(imm) & u64::from(sew.bits_width() - 1)) as u32;
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_fixed_point_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
-                        vm,
-                        sew,
-                        |a, b, sew, vxrm, _vxsat| {
-                            let shamt = b as u32;
-                            zvexx_fixed_point_helpers::rounded_sra(a, shamt, vxrm, sew)
-                                & zvexx_fixed_point_helpers::sew_mask(sew)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_fixed_point_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(shamt)),
+                    vm,
+                    sew,
+                    |a, b, sew, vxrm, _vxsat| {
+                        let shamt = b as u32;
+                        zvexx_fixed_point_helpers::rounded_sra(a, shamt, vxrm, sew)
+                            & zvexx_fixed_point_helpers::sew_mask(sew)
+                    },
+                );
             }
             // vnclipu.wv / vnclipu.wx / vnclipu.wi - narrowing unsigned clip
             Self::VnclipuWv { vd, vs2, vs1, vm } => {
@@ -1438,57 +1310,51 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
                     zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
                 // vs2 holds 2*SEW elements; its register group is double-width
-                let wide_group_regs = zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<
-                    Reg,
-                    _,
-                    _,
-                >(
-                    program_counter, vs2, vtype.vlmul(), sew, vd, group_regs
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
+                    program_counter,
+                    vd,
+                    vs2,
                 )?;
                 // vs1 is a normal SEW-wide source for the shift amount
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
                 // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
-                    program_counter,
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vs2, vs1)?;
+                zvexx_fixed_point_helpers::execute_narrowing_clip_op(
+                    env,
+                    vd,
                     vs2,
-                    wide_group_regs.get(),
-                    vs1,
-                    group_regs.get(),
-                )?;
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        |wide, shamt, sew, vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
-                        },
-                    );
-                }
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    |wide, shamt, sew, vxrm, vxsat| {
+                        zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
+                    },
+                );
             }
             Self::VnclipuWx {
                 vd,
@@ -1512,44 +1378,42 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
                     zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    vtype.vlmul(),
-                    sew,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
+                    program_counter,
                     vd,
-                    group_regs,
+                    vs2,
                 )?;
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        |wide, shamt, sew, vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_narrowing_clip_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    |wide, shamt, sew, vxrm, vxsat| {
+                        zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
+                    },
+                );
             }
             Self::VnclipuWi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -1568,44 +1432,42 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
                     zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    vtype.vlmul(),
-                    sew,
-                    vd,
-                    group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        // Immediate is the shift amount directly; masking done inside the helper
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),
-                        vm,
-                        widening_sew,
-                        |wide, shamt, sew, vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
-                        },
-                    );
-                }
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
+                    program_counter,
+                    vd,
+                    vs2,
+                )?;
+                zvexx_fixed_point_helpers::execute_narrowing_clip_op(
+                    env,
+                    vd,
+                    vs2,
+                    // Immediate is the shift amount directly; masking done inside the helper
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),
+                    vm,
+                    widening_sew,
+                    |wide, shamt, sew, vxrm, vxsat| {
+                        zvexx_fixed_point_helpers::nclipu(wide, shamt, sew, vxrm, vxsat)
+                    },
+                );
             }
             // vnclip.wv / vnclip.wx / vnclip.wi - narrowing signed clip
             Self::VnclipWv { vd, vs2, vs1, vm } => {
@@ -1625,55 +1487,50 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
                     zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    sew.as_eew(),
+                )?;
+                // vs2 holds 2*SEW elements; its register group is double-width
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
-                    group_regs,
+                    vs2,
                 )?;
-                let wide_group_regs = zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<
-                    Reg,
-                    _,
-                    _,
-                >(
-                    program_counter, vs2, vtype.vlmul(), sew, vd, group_regs
-                )?;
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
                 // `vs2` is read with EEW=2*SEW and `vs1` with EEW=SEW
-                zvexx_helpers::check_sources_disjoint::<Reg, _, _>(
-                    program_counter,
+                zvexx_helpers::check_groups_disjoint::<Reg, Env, _, _>(program_counter, vs2, vs1)?;
+                zvexx_fixed_point_helpers::execute_narrowing_clip_op(
+                    env,
+                    vd,
                     vs2,
-                    wide_group_regs.get(),
-                    vs1,
-                    group_regs.get(),
-                )?;
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
-                        vm,
-                        widening_sew,
-                        |wide, shamt, sew, vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
-                        },
-                    );
-                }
+                    zvexx_fixed_point_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                    widening_sew,
+                    |wide, shamt, sew, vxrm, vxsat| {
+                        zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
+                    },
+                );
             }
             Self::VnclipWx {
                 vd,
@@ -1697,44 +1554,42 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
                     zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    vtype.vlmul(),
-                    sew,
+                    widening_sew.wide().as_eew(),
+                )?;
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
+                    program_counter,
                     vd,
-                    group_regs,
+                    vs2,
                 )?;
                 let scalar = rs1_value.as_u64();
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
-                        vm,
-                        widening_sew,
-                        |wide, shamt, sew, vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
-                        },
-                    );
-                }
+                zvexx_fixed_point_helpers::execute_narrowing_clip_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                    widening_sew,
+                    |wide, shamt, sew, vxrm, vxsat| {
+                        zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
+                    },
+                );
             }
             Self::VnclipWi { vd, vs2, imm, vm } => {
                 if !zvexx_helpers::non_memory_instruction_allowed::<Reg, _>(env) {
@@ -1753,43 +1608,41 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
                     zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
-                let group_regs = vtype.vlmul().register_count();
-                zvexx_fixed_point_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvexx_fixed_point_helpers::check_vs2_narrowing_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    vtype.vlmul(),
-                    sew,
-                    vd,
-                    group_regs,
+                    widening_sew.wide().as_eew(),
                 )?;
-                // SAFETY: alignment checked above
-                unsafe {
-                    zvexx_fixed_point_helpers::execute_narrowing_clip_op(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),
-                        vm,
-                        widening_sew,
-                        |wide, shamt, sew, vxrm, vxsat| {
-                            zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
-                        },
-                    );
-                }
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
+                    program_counter,
+                    vd,
+                    vs2,
+                )?;
+                zvexx_fixed_point_helpers::execute_narrowing_clip_op(
+                    env,
+                    vd,
+                    vs2,
+                    zvexx_fixed_point_helpers::OpSrc::Scalar(u64::from(imm)),
+                    vm,
+                    widening_sew,
+                    |wide, shamt, sew, vxrm, vxsat| {
+                        zvexx_fixed_point_helpers::nclip(wide, shamt, sew, vxrm, vxsat)
+                    },
+                );
             }
         }
 

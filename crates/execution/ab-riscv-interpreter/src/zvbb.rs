@@ -79,23 +79,20 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvbb_helpers::execute_vbrev::<Reg, _>(env, config, vd, vs2, sew, vm);
-                }
+                zvbb_helpers::execute_vbrev::<Reg, _>(env, vd, vs2, sew, vm);
             }
             // vclz: count leading zeros within each SEW-wide element; result in [0, SEW]
             Self::VclzV { vd, vs2, vm } => {
@@ -115,23 +112,20 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvbb_helpers::execute_vclz::<Reg, _>(env, config, vd, vs2, sew, vm);
-                }
+                zvbb_helpers::execute_vclz::<Reg, _>(env, vd, vs2, sew, vm);
             }
             // vctz: count trailing zeros within each SEW-wide element; result in [0, SEW]
             Self::VctzV { vd, vs2, vm } => {
@@ -151,23 +145,20 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvbb_helpers::execute_vctz::<Reg, _>(env, config, vd, vs2, sew, vm);
-                }
+                zvbb_helpers::execute_vctz::<Reg, _>(env, vd, vs2, sew, vm);
             }
             // vcpop: population count (number of set bits) within each SEW-wide element
             Self::VcpopV { vd, vs2, vm } => {
@@ -187,23 +178,20 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvbb_helpers::execute_vcpop::<Reg, _>(env, config, vd, vs2, sew, vm);
-                }
+                zvbb_helpers::execute_vcpop::<Reg, _>(env, vd, vs2, vm);
             }
             // vwsll: widening shift-left-logical; vd is 2*SEW wide, vs2/src are SEW wide.
             // SEW=E64 is illegal (cannot double); LMUL=M8 is illegal (EMUL(vd)=16 out of range).
@@ -224,8 +212,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -235,50 +222,43 @@ where
                         ),
                     });
                 };
-                let double_sew = widening_sew.wide();
-                let group_regs = vtype.vlmul().register_count();
-                let Some(dest_group_regs) =
-                    vtype.vlmul().data_register_count(double_sew.as_eew(), sew)
-                else {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                };
-                // Also rejects overlaps of the wide destination with narrow sources that widening
-                // instructions do not allow
-                zvbb_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    sew.as_eew(),
+                )?;
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs1,
+                    sew.as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    Some(vs1),
-                    group_regs,
-                    dest_group_regs,
                 )?;
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
-                    vs2,
-                    group_regs,
-                )?;
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
+                    vd,
                     vs1,
-                    group_regs,
                 )?;
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvbb_helpers::execute_vwsll::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvbb_helpers::OpSrc::Vreg(vs1),
-                        widening_sew,
-                        vm,
-                    );
-                }
+                zvbb_helpers::execute_vwsll::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvbb_helpers::OpSrc::Vreg(vs1),
+                    widening_sew,
+                    vm,
+                );
             }
             Self::VwsllVx {
                 vm,
@@ -302,8 +282,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -313,46 +292,33 @@ where
                         ),
                     });
                 };
-                let double_sew = widening_sew.wide();
-                let group_regs = vtype.vlmul().register_count();
-                let Some(dest_group_regs) =
-                    vtype.vlmul().data_register_count(double_sew.as_eew(), sew)
-                else {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                };
-                // Also rejects overlaps of the wide destination with narrow sources that widening
-                // instructions do not allow
-                zvbb_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    sew.as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    None,
-                    group_regs,
-                    dest_group_regs,
-                )?;
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
-                    vs2,
-                    group_regs,
                 )?;
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvbb_helpers::execute_vwsll::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvbb_helpers::OpSrc::Scalar(scalar),
-                        widening_sew,
-                        vm,
-                    );
-                }
+                zvbb_helpers::execute_vwsll::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvbb_helpers::OpSrc::Scalar(scalar),
+                    widening_sew,
+                    vm,
+                );
             }
             // vwsll.vi: standard 5-bit immediate; vm is the normal mask-control bit
             Self::VwsllVi { vd, vs2, uimm, vm } => {
@@ -372,8 +338,7 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let sew = vtype.vsew();
+                let sew = config.vtype().vsew();
                 let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
                 else {
                     ::core::hint::cold_path();
@@ -383,45 +348,32 @@ where
                         ),
                     });
                 };
-                let double_sew = widening_sew.wide();
-                let group_regs = vtype.vlmul().register_count();
-                let Some(dest_group_regs) =
-                    vtype.vlmul().data_register_count(double_sew.as_eew(), sew)
-                else {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                };
-                // Also rejects overlaps of the wide destination with narrow sources that widening
-                // instructions do not allow
-                zvbb_helpers::check_vd_widen_alignment::<Reg, _, _>(
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vd,
+                    widening_sew.wide().as_eew(),
+                )?;
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
+                    program_counter,
+                    config,
+                    vs2,
+                    sew.as_eew(),
+                )?;
+                // The wide destination may only overlap narrow sources in its highest-numbered part
+                zvexx_helpers::check_destination_overlap::<Reg, Env, _, _>(
                     program_counter,
                     vd,
                     vs2,
-                    None,
-                    group_regs,
-                    dest_group_regs,
                 )?;
-                zvbb_helpers::check_vreg_group_alignment::<Reg, _, _>(
-                    program_counter,
+                zvbb_helpers::execute_vwsll::<Reg, _>(
+                    env,
+                    vd,
                     vs2,
-                    group_regs,
-                )?;
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvbb_helpers::execute_vwsll::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvbb_helpers::OpSrc::Scalar(u64::from(uimm)),
-                        widening_sew,
-                        vm,
-                    );
-                }
+                    zvbb_helpers::OpSrc::Scalar(u64::from(uimm)),
+                    widening_sew,
+                    vm,
+                );
             }
         }
         ExecutionResult::ContinueNoWrite

@@ -1,34 +1,12 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_config::VectorConfig;
-use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
+use crate::v::vector_registers::{VRegGroup, VRegSegmentGroup, VectorRegistersExt};
 use crate::v::zvexx::load::zvexx_load_helpers::{
-    access_wraps, bytes_before_wrap, check_register_group_alignment, effective_address, mask_bit,
-    snapshot_mask,
+    access_wraps, bytes_before_wrap, effective_address, mask_bit, snapshot_mask,
 };
-use crate::v::zvexx::zvexx_helpers::INSTRUCTION_SIZE;
-use crate::{ExecutionError, PackedAddress, ProgramCounter, VirtualMemory, VirtualMemoryError};
+use crate::{ExecutionError, VirtualMemory, VirtualMemoryError};
 use ab_riscv_primitives::prelude::*;
 use core::hint::cold_path;
-
-/// Interpret `buf[..index_eew.bytes()]` as a little-endian unsigned integer and return it as
-/// `u64`. Used to convert a packed index element into a byte offset.
-///
-/// # Safety
-/// `index_eew.bytes() <= Eew::MAX_BYTES`, which is always true by construction.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-unsafe fn index_buf_to_u64(
-    buf: [u8; const { usize::from(Eew::MAX_BYTES) }],
-    index_eew: Eew,
-) -> u64 {
-    match index_eew {
-        Eew::E8 => u64::from(buf[0]),
-        Eew::E16 => u64::from(u16::from_le_bytes([buf[0], buf[1]])),
-        Eew::E32 => u64::from(u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]])),
-        Eew::E64 => u64::from_le_bytes(buf),
-    }
-}
 
 /// Write `eew`-sized data from `buf[..eew.bytes()]` to memory at `addr` (little-endian)
 #[inline(always)]
@@ -77,68 +55,23 @@ where
     Ok(())
 }
 
-/// Validate a segment store's source register layout: all `nf` field groups fit within `[0, 32)`
-/// and the base register is group-aligned.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn validate_segment_store_registers<Reg, Memory, PC>(
-    program_counter: &PC,
-    vs3: VReg,
-    group_regs: VRegGroupSize,
-    nf: Nf,
-) -> Result<(), ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    if let Err(error) =
-        check_register_group_alignment::<Reg, _, _>(program_counter, vs3, group_regs)
-    {
-        cold_path();
-        return Err(error);
-    }
-    let nf_group_regs = u32::from(nf.fields_per_segment()) * u32::from(group_regs.get());
-    let total = u32::from(vs3.to_bits()) + nf_group_regs;
-    // Per spec, `NFIELDS * EMUL` must not exceed 8 for segment loads/stores, regardless of whether
-    // the field groups would otherwise fit within the 32 vector registers
-    if nf_group_regs > 8 || total > 32 {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(())
-}
-
 /// Execute a unit-stride or unit-stride segment store.
 ///
 /// Segment stride between elements is `nf * eew.bytes()`. Field `f` for element `i` is at
 /// `base + i * nf * eew.bytes() + f * eew.bytes()`. When `nf == 1` this degenerates to a
 /// plain unit-stride store.
 ///
-/// `vl` is the number of elements to process, the architectural `vl` for regular stores.
-///
-/// # Safety
-/// - `vs3.to_bits() % group_regs == 0`
-/// - `vs3.to_bits() + nf * group_regs <= 32`
-/// - `vl <= group_regs * VLEN.bytes() / eew.bytes()` (all `vl` elements fit within the source
-///   register group; this holds when `vl` is the architectural `vl` and `group_regs` is the EMUL
-///   register count for the given `eew` and `vtype`)
+/// Elements `vstart..vl` of `vs3` are stored, where `vl` is the architectural one for regular
+/// stores.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_unit_stride_store<Reg, Env, Memory>(
+pub fn execute_unit_stride_store<Reg, Env, Memory>(
     env: &mut Env,
     memory: &mut Memory,
-    vs3: VReg,
+    vs3: VRegSegmentGroup<{ Env::VLEN }>,
     vm: bool,
     base: u64,
-    eew: Eew,
-    group_regs: VRegGroupSize,
-    nf: Nf,
-    vl: Vl,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -146,31 +79,28 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
 {
-    let group_regs = group_regs.get();
+    let vl = vs3.first().vl();
     let vstart = env.vstart();
+    let eew = vs3.first().eew();
     let elem_bytes = eew.bytes_width();
-
-    let range = vstart.range_to(vl);
+    let nf = vs3.nf();
 
     // Unmasked non-segment store is a plain copy of the contiguous element range of the register
     // group into a contiguous memory range, as long as the whole range is writable. If it is not,
     // the element-wise path below is what determines the faulting element and writes everything
     // before it, which is the same outcome a partially written copy would have.
-    if vm && nf.fields_per_segment() == 1 && !range.is_empty() {
-        let first = *range.start();
-        let len = range.len() * usize::from(elem_bytes);
+    if vm
+        && nf.fields_per_segment() == 1
+        && let Some(count) = u32::from(vl.get()).checked_sub(u32::from(u16::from(vstart)))
+        && count > 0
+    {
+        let first = u16::from(vstart);
         let addr = effective_address::<Reg>(base, u64::from(first) * u64::from(elem_bytes));
-        let offset = VectorRegisterFile::<{ Env::VLEN }>::element_offset(vs3, first, eew);
-        // SAFETY: Elements `vstart..vl` all lie within the register group, which ends within the
-        // register file (precondition), so `offset + len <= 32 * VLEN.bytes()`
-        let data = unsafe {
-            env.read_vregs()
-                .as_bytes()
-                .as_flattened()
-                .get_unchecked(offset..offset + len)
-        };
         // A range that wraps around the end of the address space is not contiguous in memory
-        if !access_wraps::<Reg>(addr, len) && memory.write_slice(addr, data).is_ok() {
+        if let Some(data) = env.read_vregs().elements_bytes(vs3.first(), first, count)
+            && !access_wraps::<Reg>(addr, data.len())
+            && memory.write_slice(addr, data).is_ok()
+        {
             env.reset_vstart();
             return Ok(());
         }
@@ -179,34 +109,16 @@ where
 
     let segment_stride = u64::from(nf.fields_per_segment() * elem_bytes);
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in range {
+    for element in vs3.elements(u16::from(vstart)) {
+        let i = element.index();
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
         let elem_base = effective_address::<Reg>(base, u64::from(i) * segment_stride);
-        for f in 0..nf.fields_per_segment() {
+        let fields = element.read_fields(env.read_vregs());
+        for (f, field) in (0..nf.fields_per_segment()).zip(fields) {
             let addr = effective_address::<Reg>(elem_base, u64::from(f * elem_bytes));
-            // SAFETY: Guaranteed by function contract
-            let field_base_reg =
-                unsafe { VReg::from_bits(vs3.to_bits() + f * group_regs).unwrap_unchecked() };
-            // SAFETY: need `field_base_reg + i / (VLEN.bytes() / elem_bytes) < 32`.
-            //
-            // Let `elems_per_reg = VLEN.bytes() / elem_bytes`.
-            // `i < vl <= group_regs * elems_per_reg` (precondition), so
-            // `i / elems_per_reg < group_regs`.
-            //
-            // `field_base_reg = vs3.to_bits() + f * group_regs`. Since `f < nf` and the
-            // precondition guarantees `vs3.to_bits() + nf * group_regs <= 32`:
-            // `field_base_reg + group_regs <= vs3.to_bits() + (f+1) * group_regs
-            //                             <= vs3.to_bits() + nf * group_regs <= 32`.
-            //
-            // Therefore,
-            // `field_base_reg + i / elems_per_reg < field_base_reg + group_regs <= 32`.
-            let data = unsafe {
-                env.read_vregs()
-                    .read_element(field_base_reg, i, eew)
-                    .to_le_bytes()
-            };
+            let data = field.to_le_bytes();
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element::<Reg>(memory, addr, eew, data) {
@@ -227,26 +139,16 @@ where
 ///
 /// `stride` is the raw XLEN register value reinterpreted as a signed integer, matching the RVV
 /// specification where the stride operand is a two's-complement signed offset.
-///
-/// # Safety
-/// - `vs3.to_bits() % group_regs == 0`
-/// - `vs3.to_bits() + nf * group_regs <= 32`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_strided_store<Reg, Env, Memory>(
+pub fn execute_strided_store<Reg, Env, Memory>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     memory: &mut Memory,
-    vs3: VReg,
+    vs3: VRegSegmentGroup<{ Env::VLEN }>,
     vm: bool,
     base: u64,
     stride: i64,
-    eew: Eew,
-    group_regs: VRegGroupSize,
-    nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -254,30 +156,21 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
 {
-    let group_regs = group_regs.get();
-    let vl = config.vl().get();
     let vstart = env.vstart();
+    let eew = vs3.first().eew();
     let elem_bytes = eew.bytes_width();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for element in vs3.elements(u16::from(vstart)) {
+        let i = element.index();
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
         let elem_base =
             effective_address::<Reg>(base, i64::from(i).wrapping_mul(stride).cast_unsigned());
-        for f in 0..nf.fields_per_segment() {
+        let fields = element.read_fields(env.read_vregs());
+        for (f, field) in (0..vs3.nf().fields_per_segment()).zip(fields) {
             let addr = effective_address::<Reg>(elem_base, u64::from(f * elem_bytes));
-            // SAFETY: Guaranteed by function contract
-            let field_base_reg =
-                unsafe { VReg::from_bits(vs3.to_bits() + f * group_regs).unwrap_unchecked() };
-            // SAFETY: same argument as `execute_unit_stride_store`; `field_base_reg +
-            // i / elems_per_reg < field_base_reg + group_regs <= vs3.to_bits() + nf *
-            // group_regs <= 32`.
-            let data = unsafe {
-                env.read_vregs()
-                    .read_element(field_base_reg, i, eew)
-                    .to_le_bytes()
-            };
+            let data = field.to_le_bytes();
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element::<Reg>(memory, addr, eew, data) {
@@ -296,33 +189,20 @@ where
 /// The effective address of element `i`, field `f` is:
 ///   `base + index[i] + f * eew.bytes()`
 /// where `index[i]` is element `i` of the index register group `vs2`, interpreted as an
-/// unsigned integer of width `index_eew`.
+/// unsigned integer of its element width.
 ///
-/// `data_eew` is the element width of the data being stored (from `vtype.vsew`).
-/// `index_eew` is the element width of the indices (from the instruction encoding).
-///
-/// # Safety
-/// - `vs3.to_bits() % data_group_regs == 0`
-/// - `vs3.to_bits() + nf * data_group_regs <= 32`
-/// - `vs2` register group is aligned and fits within `[0, 32)` (caller must verify via
-///   `check_register_group_alignment` before calling)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// `vs2` must have the same `vl` as `vs3`, which holds for groups created from the same
+/// configuration, nothing is stored otherwise.
 #[inline(always)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_indexed_store<Reg, Env, Memory>(
+pub fn execute_indexed_store<Reg, Env, Memory>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     memory: &mut Memory,
-    vs3: VReg,
-    vs2: VReg,
+    vs3: VRegSegmentGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
     vm: bool,
     base: u64,
-    data_eew: Eew,
-    index_eew: Eew,
-    data_group_regs: VRegGroupSize,
-    nf: Nf,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
@@ -330,40 +210,27 @@ where
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
     Memory: VirtualMemory,
 {
-    let data_group_regs = data_group_regs.get();
-    let vl = config.vl().get();
+    let Some(indexed) = vs3.with_index(vs2) else {
+        cold_path();
+        return Ok(());
+    };
     let vstart = env.vstart();
+    let data_eew = vs3.first().eew();
     let data_elem_bytes = data_eew.bytes_width();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
-    for i in vstart.range_to(vl) {
+    for indexed in indexed.elements(u16::from(vstart)) {
+        let element = indexed.element();
+        let i = element.index();
         if !vm && !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: `i < vl <= index_group_regs * VLEN.bytes() / index_eew.bytes()` (precondition),
-        // so `vs2.to_bits() + i / (VLEN.bytes() / index_eew.bytes()) <
-        //     vs2.to_bits() + index_group_regs <= 32`
-        let index_buf = unsafe {
-            env.read_vregs()
-                .read_element(vs2, i, index_eew)
-                .to_le_bytes()
-        };
-        // SAFETY: `index_eew.bytes() <= Eew::MAX_BYTES` always holds.
-        let offset = unsafe { index_buf_to_u64(index_buf, index_eew) };
+        let offset = indexed.read_index(env.read_vregs());
         let elem_base = effective_address::<Reg>(base, offset);
-        for f in 0..nf.fields_per_segment() {
+        let fields = element.read_fields(env.read_vregs());
+        for (f, field) in (0..vs3.nf().fields_per_segment()).zip(fields) {
             let addr =
                 effective_address::<Reg>(elem_base, u64::from(f) * u64::from(data_elem_bytes));
-            // SAFETY: Guaranteed by function contract
-            let field_base_reg =
-                unsafe { VReg::from_bits(vs3.to_bits() + f * data_group_regs).unwrap_unchecked() };
-            // SAFETY: `i < vl <= data_group_regs * VLEN.bytes() / data_eew.bytes()` (precondition),
-            // so `field_base_reg + i / elems_per_reg < field_base_reg + data_group_regs
-            //                                    <= vs3.to_bits() + nf * data_group_regs <= 32`.
-            let data = unsafe {
-                env.read_vregs()
-                    .read_element(field_base_reg, i, data_eew)
-                    .to_le_bytes()
-            };
+            let data = field.to_le_bytes();
             // Record the current element index in `vstart` so that, on a memory fault, the failing
             // element can be identified and the operation can be restarted
             if let Err(error) = write_mem_element::<Reg>(memory, addr, data_eew, data) {

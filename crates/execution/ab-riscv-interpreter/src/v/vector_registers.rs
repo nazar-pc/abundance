@@ -495,7 +495,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// register group `[base_reg, base_reg + group_regs)` that ends within the register file,
     /// since `vl <= group_regs * VLENB / eew.bytes_width()`.
     #[inline(always)]
-    pub const unsafe fn read_element<W>(&self, base_reg: VReg, elem_i: u16, eew: W) -> u64
+    const unsafe fn read_element<W>(&self, base_reg: VReg, elem_i: u16, eew: W) -> u64
     where
         W: [const] Into<Eew> + [const] Destruct,
     {
@@ -516,7 +516,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// # Safety
     /// Same as [`Self::read_element()`]
     #[inline(always)]
-    pub const unsafe fn write_element<W>(&mut self, base_reg: VReg, elem_i: u16, eew: W, value: u64)
+    const unsafe fn write_element<W>(&mut self, base_reg: VReg, elem_i: u16, eew: W, value: u64)
     where
         W: [const] Into<Eew> + [const] Destruct,
     {
@@ -537,7 +537,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// # Safety
     /// Same as [`Self::read_element()`]
     #[inline(always)]
-    pub const unsafe fn read_element_const<const EEW: Eew>(&self, base_reg: VReg, elem_i: u16) -> u64 {
+    const unsafe fn read_element_const<const EEW: Eew>(&self, base_reg: VReg, elem_i: u16) -> u64 {
         let offset = Self::element_offset(base_reg, elem_i, EEW);
         // SAFETY: `offset + EEW.bytes_width() <= 32 * VLENB` by the caller's precondition
         let element = unsafe {
@@ -560,7 +560,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// # Safety
     /// Same as [`Self::read_element()`]
     #[inline(always)]
-    pub const unsafe fn write_element_const<const EEW: Eew>(
+    const unsafe fn write_element_const<const EEW: Eew>(
         &mut self,
         base_reg: VReg,
         elem_i: u16,

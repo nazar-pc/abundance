@@ -1,11 +1,8 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_config::VectorConfig;
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VRegGroup, VectorRegistersExt};
 use crate::v::zvexx::arith::zvexx_arith_helpers::sign_extend;
-pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
-    OpSrc, check_vreg_group_alignment, sew_mask,
-};
+pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, sew_mask};
 use crate::v::zvexx::load::zvexx_load_helpers::{mask_bit, snapshot_mask};
 use crate::v::zvexx::zvexx_helpers::{INSTRUCTION_SIZE, WideningSew};
 use crate::{ExecutionError, PackedAddress, ProgramCounter};
@@ -388,20 +385,16 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 /// `op` receives `(vs2_elem, src_elem, sew, vxrm)` and returns `(result, saturated)`.
 /// The helper ORs any saturation flag into `vxsat` after the loop.
 ///
-/// # Safety
-/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32` (verified by caller)
-/// - `src` register (when `OpSrc::Vreg`) satisfies the same alignment (verified by caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
+pub fn execute_fixed_point_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: Vsew,
     op: F,
@@ -412,28 +405,33 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
 {
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let vxrm = env.vxrm();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut any_sat = false;
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
-        // SAFETY: alignment and bounds checked by caller
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let b = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: same argument as vs2
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
-            }
-            OpSrc::Scalar(val) => val,
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let b = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         let result = op(a, b, sew, vxrm, &mut any_sat);
-        // SAFETY: alignment and bounds checked by caller
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     if any_sat {
         // vxsat is sticky: OR in the new saturation flag
@@ -447,20 +445,16 @@ pub unsafe fn execute_fixed_point_op<Reg, Env, F>(
 /// `vs2` holds a double-width register group (2x `group_regs` registers). `vd` holds the
 /// single-width destination. `src` provides the shift amount (Vreg or Scalar).
 ///
-/// # Safety
-/// - `vs2.to_bits() % (2 * group_regs) == 0` and `vs2.to_bits() + 2 * group_regs <= 32`
-/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-#[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
+pub fn execute_narrowing_clip_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     vm: bool,
     sew: WideningSew<{ Env::ELEN }>,
     op: F,
@@ -471,34 +465,40 @@ pub unsafe fn execute_narrowing_clip_op<Reg, Env, F>(
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
 {
-    let wide_sew = sew.wide();
     let sew = sew.narrow();
-    let vl = config.vl().get();
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
     let vxrm = env.vxrm();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let mut any_sat = false;
     // Mask shift amount to log2(2*SEW) bits per spec §12.11
     let shamt_mask = u64::from(sew.bits_width() * 2 - 1);
-    for i in Vstart::ZERO.range_to(vl) {
+    for i in vl.indices() {
         if !mask_bit(&mask_buf, i) {
             continue;
         }
         // Read 2*SEW-wide source element
-        // SAFETY: `vs2` double-width alignment checked by caller
-        let wide_a = unsafe { env.read_vregs().read_element(vs2, i, wide_sew) };
-        let shamt = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: vs1 SEW-wide alignment checked by caller
-                let raw = unsafe { env.read_vregs().read_element(vs1_base, i, sew) };
+        let wide_a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let shamt = match src.vreg {
+            Some(vs1) => {
+                let raw = env
+                    .read_vregs()
+                    .read(vs1, i)
+                    .expect("`vs1` has the same `vl` as `vd`, checked above; qed");
                 (raw & shamt_mask) as u32
             }
-            OpSrc::Scalar(val) => (val & shamt_mask) as u32,
+            None => (src.scalar & shamt_mask) as u32,
         };
         let result = op(wide_a, shamt, sew, vxrm, &mut any_sat);
-        // SAFETY: `vd` alignment checked by caller
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
     if any_sat {
         env.set_vxsat(true);
@@ -527,69 +527,4 @@ where
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
         }
     })
-}
-
-/// Check that the double-width source `vs2` of a narrowing instruction is aligned to its register
-/// group, fits in `[0, 32)`, and only overlaps the narrow destination `vd` (which occupies
-/// `group_regs` registers) in a manner permitted by the spec.
-///
-/// The source operand has `EEW = 2*SEW`, so its `EMUL = 2*LMUL`. Per v-spec §5.2 the group must be
-/// aligned to `EMUL` registers, and `EMUL` outside the legal range `[1/8, 8]` (e.g. `LMUL=8`, which
-/// would need `EMUL=16`) is reserved. Unlike `2 * register_count()`, this correctly yields a single
-/// register with no alignment constraint for fractional `LMUL` (where `2*LMUL <= 1`).
-///
-/// `sew` is the destination (narrow) SEW, see [`check_narrowing_sew()`].
-///
-/// Per spec §11.7, `vd` may alias only the *low* part of `vs2`'s wider register group (i.e.
-/// `vd == vs2`) - any other overlap (e.g. `vd` aliasing only the high part) is illegal.
-///
-/// Returns the size of the `vs2` register group.
-#[inline(always)]
-#[doc(hidden)]
-#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_vs2_narrowing_alignment<Reg, Memory, PC>(
-    program_counter: &PC,
-    vs2: VReg,
-    vlmul: Vlmul,
-    sew: Vsew,
-    vd: VReg,
-    group_regs: VRegGroupSize,
-) -> Result<VRegGroupSize, ExecutionError<Reg::Type>>
-where
-    Reg: Register,
-    PC: ProgramCounter<Reg::Type, Memory>,
-{
-    // Source EEW is double the destination SEW. SEW=64 is rejected earlier by
-    // `check_narrowing_sew`.
-    let wide_eew = match sew {
-        Vsew::E8 => Eew::E16,
-        Vsew::E16 => Eew::E32,
-        Vsew::E32 => Eew::E64,
-        Vsew::E64 => {
-            cold_path();
-            return Err(ExecutionError::IllegalInstruction {
-                address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-            });
-        }
-    };
-    // `EMUL = 2*LMUL`; `None` when reserved (e.g. LMUL=8 -> EMUL=16).
-    let Some(wide_group) = vlmul.data_register_count(wide_eew, sew) else {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    };
-    let aligned = vs2.is_group_aligned(wide_group);
-    let wide_group_regs = wide_group.get();
-    let vs2_idx = vs2.to_bits();
-    let vd_idx = vd.to_bits();
-    let group_regs = group_regs.get();
-    let overlaps = vd_idx < vs2_idx + wide_group_regs && vs2_idx < vd_idx + group_regs;
-    if !aligned || vs2_idx + wide_group_regs > 32 || (overlaps && vd_idx != vs2_idx) {
-        cold_path();
-        return Err(ExecutionError::IllegalInstruction {
-            address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),
-        });
-    }
-    Ok(wide_group)
 }

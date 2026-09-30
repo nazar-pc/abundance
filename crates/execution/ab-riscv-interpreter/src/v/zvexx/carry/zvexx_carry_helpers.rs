@@ -1,24 +1,18 @@
 //! Opaque helpers for ZveXx extension
 
-use crate::v::vector_config::VectorConfig;
-use crate::v::vector_registers::{VectorRegisterFile, VectorRegistersExt};
-pub use crate::v::zvexx::arith::zvexx_arith_helpers::{
-    OpSrc, check_mask_dest_overlap, check_vreg_group_alignment,
-};
+use crate::v::vector_registers::{VRegGroup, VectorRegisterFile, VectorRegistersExt};
+pub use crate::v::zvexx::arith::zvexx_arith_helpers::{OpSrc, check_mask_dest_overlap};
 use crate::v::zvexx::arith::zvexx_arith_helpers::{sew_mask, write_mask_bit};
 use crate::v::zvexx::load::zvexx_load_helpers::mask_bit;
 use ab_riscv_primitives::prelude::*;
+use core::hint::cold_path;
 
-// TODO: Safety comment here doesn't make sense
 /// Read a single mask bit from vector register `v0` at element index `i`.
 ///
 /// Used to retrieve the per-element carry-in or borrow-in for vadc/vsbc.
-///
-/// # Safety
-/// `i / 8 < VLEN.bytes()` must hold, guaranteed when `i < vl <= VLEN`.
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(in super::super) unsafe fn carry_bit<const VLEN: Vlen>(
+pub(in super::super) fn carry_bit<const VLEN: Vlen>(
     vregs: &VectorRegisterFile<VLEN>,
     i: u16,
 ) -> u64 {
@@ -32,56 +26,49 @@ pub(in super::super) unsafe fn carry_bit<const VLEN: Vlen>(
 /// Carry-in for each element is read from `v0[i]` when `WITH_CARRY` is true. All elements in
 /// `0..vl` are processed unconditionally (no execution mask).
 ///
-/// # Safety
-/// - `vd.to_bits() % group_regs == 0` and `vd.to_bits() + group_regs <= 32`
-/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
-/// - `src` register satisfies the same alignment (verified by caller)
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
+pub fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
-    sew: Vsew,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
-    for i in Vstart::ZERO.range_to(vl) {
-        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
-        // `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let b = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: caller verified that the vs1 register group satisfies the same alignment
-                // constraint as vs2; the index argument is identical, so the same bound holds:
-                // `vs1_base + i / elems_per_reg < 32`
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
-            }
-            OpSrc::Scalar(val) => val,
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
+    for i in vl.indices() {
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let b = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
         let c = if WITH_CARRY {
-            // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-            unsafe { carry_bit(env.read_vregs(), i) }
+            carry_bit(env.read_vregs(), i)
         } else {
             0
         };
 
-        // Wrap naturally: write_element_u64 writes only the low sew_bytes
+        // Wrap naturally: `VectorRegisterFile::write()` writes only the low `SEW` bits
         let result = a.wrapping_add(b).wrapping_add(c);
-        // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32` (caller precondition);
-        // `i < vl <= group_regs * elems_per_reg`, so
-        // `vd + i / elems_per_reg < vd + group_regs <= 32`
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
 
     env.mark_vs_dirty();
@@ -93,48 +80,44 @@ pub unsafe fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
 /// Borrow-in for each element is read from `v0[i]` (always true for vsbc). All elements in
 /// `0..vl` are processed unconditionally.
 ///
-/// # Safety
-/// Same as [`execute_carry_add()`].
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_carry_sub<Reg, Env>(
+pub fn execute_carry_sub<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
-    vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
-    sew: Vsew,
+    vd: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
-    for i in Vstart::ZERO.range_to(vl) {
-        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
-        // `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let b = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: caller verified that the vs1 register group satisfies the same alignment
-                // constraint as vs2; the index argument is identical, so the same bound holds:
-                // `vs1_base + i / elems_per_reg < 32`
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
-            }
-            OpSrc::Scalar(val) => val,
+    let vl = vd.vl();
+    let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
+        cold_path();
+        return;
+    };
+    for i in vl.indices() {
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`vs2` has the same `vl` as `vd`, checked above; qed");
+        let b = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vd`, checked above; qed"),
+            None => src.scalar,
         };
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-        let borrow = unsafe { carry_bit(env.read_vregs(), i) };
+        let borrow = carry_bit(env.read_vregs(), i);
 
         let result = a.wrapping_sub(b).wrapping_sub(borrow);
-        // SAFETY: `vd % group_regs == 0` and `vd + group_regs <= 32` (caller precondition);
-        // `i < vl <= group_regs * elems_per_reg`, so
-        // `vd + i / elems_per_reg < vd + group_regs <= 32`
-        unsafe {
-            env.write_vregs().write_element(vd, i, sew, result);
-        }
+        env.write_vregs()
+            .write(vd, i, result)
+            .expect("`i < vl` of `vd`; qed");
     }
 
     env.mark_vs_dirty();
@@ -150,46 +133,43 @@ pub unsafe fn execute_carry_sub<Reg, Env>(
 ///
 /// Tail mask bits (indices `>= vl`) are left undisturbed per spec §5.3.
 ///
-/// # Safety
-/// - `vs2.to_bits() % group_regs == 0` and `vs2.to_bits() + group_regs <= 32`
-/// - `src` register satisfies the same alignment
-/// - Register groups are checked against `config.vtype()`, which bounds `config.vl().get()`
-/// - vd overlap constraints checked by caller
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
+pub fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     sew: Vsew,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vs2.vl();
+    let Some(src) = src.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let mask = sew_mask(sew);
 
-    for i in Vstart::ZERO.range_to(vl) {
-        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
-        // `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let b = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: caller verified that the vs1 register group satisfies the same alignment
-                // constraint as vs2; the index argument is identical, so the same bound holds:
-                // `vs1_base + i / elems_per_reg < 32`
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
-            }
-            OpSrc::Scalar(val) => val,
+    for i in vl.indices() {
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`i < vl` of `vs2`; qed");
+        let b = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vs2`, checked above; qed"),
+            None => src.scalar,
         };
         let c = if WITH_CARRY {
-            // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-            unsafe { carry_bit(env.read_vregs(), i) }
+            carry_bit(env.read_vregs(), i)
         } else {
             0
         };
@@ -198,10 +178,8 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
         let sum = u128::from(a & mask) + u128::from(b & mask) + u128::from(c);
         let carry_out = (sum >> sew.bits_width()) & 1 != 0;
 
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-        unsafe {
-            write_mask_bit(env.write_vregs(), vd, i, carry_out);
-        }
+        write_mask_bit(env.write_vregs(), vd, i, carry_out)
+            .expect("`i < vl <= VLEN`, so the mask bit is within `vd`; qed");
     }
 
     env.mark_vs_dirty();
@@ -216,43 +194,43 @@ pub unsafe fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
 /// Borrow-out is 1 when the subtraction underflows unsigned:
 /// `borrow_out = (b + borrow_in) > a` (compared as SEW-wide unsigned values).
 ///
-/// # Safety
-/// Same as [`execute_carry_add_mask()`].
+/// All register groups must have the same `vl`, which holds for groups created from the same
+/// configuration, nothing is written otherwise.
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
+pub fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
     vd: VReg,
-    vs2: VReg,
-    src: OpSrc,
+    vs2: VRegGroup<{ Env::VLEN }>,
+    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
     sew: Vsew,
 ) where
     Reg: Register,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
 {
-    let vl = config.vl().get();
+    let vl = vs2.vl();
+    let Some(src) = src.with_same_vl(vl) else {
+        cold_path();
+        return;
+    };
     let mask = sew_mask(sew);
 
-    for i in Vstart::ZERO.range_to(vl) {
-        // SAFETY: `vs2 % group_regs == 0` and `vs2 + group_regs <= 32` (caller precondition);
-        // `i < vl <= group_regs * elems_per_reg`, so
-        // `vs2 + i / elems_per_reg < vs2 + group_regs <= 32`
-        let a = unsafe { env.read_vregs().read_element(vs2, i, sew) };
-        let b = match src {
-            OpSrc::Vreg(vs1_base) => {
-                // SAFETY: caller verified that the vs1 register group satisfies the same alignment
-                // constraint as vs2; the index argument is identical, so the same bound holds:
-                // `vs1_base + i / elems_per_reg < 32`
-                unsafe { env.read_vregs().read_element(vs1_base, i, sew) }
-            }
-            OpSrc::Scalar(val) => val,
+    for i in vl.indices() {
+        let a = env
+            .read_vregs()
+            .read(vs2, i)
+            .expect("`i < vl` of `vs2`; qed");
+        let b = match src.vreg {
+            Some(vs1) => env
+                .read_vregs()
+                .read(vs1, i)
+                .expect("`vs1` has the same `vl` as `vs2`, checked above; qed"),
+            None => src.scalar,
         };
         let borrow_in = if WITH_BORROW {
-            // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-            unsafe { carry_bit(env.read_vregs(), i) }
+            carry_bit(env.read_vregs(), i)
         } else {
             0
         };
@@ -261,10 +239,8 @@ pub unsafe fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
         let rhs = u128::from(b & mask) + u128::from(borrow_in);
         let borrow_out = a_m < rhs;
 
-        // SAFETY: `i < vl <= VLEN`, so `i / 8 < VLEN.bytes()`
-        unsafe {
-            write_mask_bit(env.write_vregs(), vd, i, borrow_out);
-        }
+        write_mask_bit(env.write_vregs(), vd, i, borrow_out)
+            .expect("`i < vl <= VLEN`, so the mask bit is within `vd`; qed");
     }
 
     env.mark_vs_dirty();

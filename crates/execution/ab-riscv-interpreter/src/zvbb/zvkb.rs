@@ -77,36 +77,32 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvkb_helpers::execute_vandn::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvkb_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                        vm,
-                    );
-                }
+                zvkb_helpers::execute_vandn::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvkb_helpers::OpSrc::Vreg(vs1),
+                    vm,
+                );
             }
             Self::VandnVx {
                 vm,
@@ -130,32 +126,27 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvkb_helpers::execute_vandn::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvkb_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                        vm,
-                    );
-                }
+                zvkb_helpers::execute_vandn::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvkb_helpers::OpSrc::Scalar(scalar),
+                    vm,
+                );
             }
             // vbrev8: reverse bits within each byte of each element
             Self::Vbrev8V { vd, vs2, vm } => {
@@ -175,23 +166,20 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvkb_helpers::execute_vbrev8::<Reg, _>(env, config, vd, vs2, sew, vm);
-                }
+                zvkb_helpers::execute_vbrev8::<Reg, _>(env, vd, vs2, sew, vm);
             }
             // vrev8: reverse bytes within each element
             Self::Vrev8V { vd, vs2, vm } => {
@@ -211,23 +199,20 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvkb_helpers::execute_vrev8::<Reg, _>(env, config, vd, vs2, sew, vm);
-                }
+                zvkb_helpers::execute_vrev8::<Reg, _>(env, vd, vs2, sew, vm);
             }
             // vrol: vd[i] = rotate_left(vs2[i], src[i] % SEW)
             Self::VrolVv { vd, vs2, vs1, vm } => {
@@ -247,36 +232,33 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvkb_helpers::execute_vrol::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvkb_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                        vm,
-                    );
-                }
+                zvkb_helpers::execute_vrol::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvkb_helpers::OpSrc::Vreg(vs1),
+                    sew,
+                    vm,
+                );
             }
             Self::VrolVx {
                 vm,
@@ -300,32 +282,28 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvkb_helpers::execute_vrol::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvkb_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                        vm,
-                    );
-                }
+                zvkb_helpers::execute_vrol::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvkb_helpers::OpSrc::Scalar(scalar),
+                    sew,
+                    vm,
+                );
             }
             // vror: vd[i] = rotate_right(vs2[i], src[i] % SEW)
             Self::VrorVv { vd, vs2, vs1, vm } => {
@@ -345,36 +323,33 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs1 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs1,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvkb_helpers::execute_vror::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvkb_helpers::OpSrc::Vreg(vs1),
-                        sew,
-                        vm,
-                    );
-                }
+                zvkb_helpers::execute_vror::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvkb_helpers::OpSrc::Vreg(vs1),
+                    sew,
+                    vm,
+                );
             }
             Self::VrorVx {
                 vm,
@@ -398,32 +373,28 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
                 let scalar = rs1_value.as_i64().cast_unsigned();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvkb_helpers::execute_vror::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvkb_helpers::OpSrc::Scalar(scalar),
-                        sew,
-                        vm,
-                    );
-                }
+                zvkb_helpers::execute_vror::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvkb_helpers::OpSrc::Scalar(scalar),
+                    sew,
+                    vm,
+                );
             }
             // vror.vi: 5-bit immediate in vs1[19:15]; bit[25] is the standard vm mask-control bit
             Self::VrorVi { vd, vs2, uimm, vm } => {
@@ -443,31 +414,27 @@ where
                         ),
                     });
                 };
-                let vtype = config.vtype();
-                let group_regs = vtype.vlmul().register_count();
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let sew = config.vtype().vsew();
+                let vd = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vd,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                zvkb_helpers::check_vreg_group_alignment::<Reg, _, _>(
+                let vs2 = zvexx_helpers::vreg_group::<Reg, Env, _, _>(
                     program_counter,
+                    config,
                     vs2,
-                    group_regs,
+                    sew.as_eew(),
                 )?;
-                let sew = vtype.vsew();
-                // SAFETY: alignments checked above
-                unsafe {
-                    zvkb_helpers::execute_vror::<Reg, _>(
-                        env,
-                        config,
-                        vd,
-                        vs2,
-                        zvkb_helpers::OpSrc::Scalar(u64::from(uimm)),
-                        sew,
-                        vm,
-                    );
-                }
+                zvkb_helpers::execute_vror::<Reg, _>(
+                    env,
+                    vd,
+                    vs2,
+                    zvkb_helpers::OpSrc::Scalar(u64::from(uimm)),
+                    sew,
+                    vm,
+                );
             }
         }
         ExecutionResult::ContinueNoWrite
