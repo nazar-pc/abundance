@@ -684,49 +684,18 @@ where
     }
 }
 
-const impl<Reg> FromResidual<Result<!, ExecutionError<Reg::Type>>> for ExecutionResult<Reg>
+const impl<Reg, E> FromResidual<Result<!, E>> for ExecutionResult<Reg>
 where
     Reg: Register,
+    E: [const] Into<ExecutionError<Reg::Type>> + [const] Destruct,
 {
     #[inline(always)]
-    fn from_residual(residual: Result<!, ExecutionError<Reg::Type>>) -> Self {
+    fn from_residual(residual: Result<!, E>) -> Self {
         match residual {
             Ok(never) => match never {},
             Err(error) => {
                 cold_path();
-                Self::Err(error)
-            }
-        }
-    }
-}
-
-const impl<Reg> FromResidual<Result<!, VirtualMemoryError>> for ExecutionResult<Reg>
-where
-    Reg: Register,
-{
-    #[inline(always)]
-    fn from_residual(residual: Result<!, VirtualMemoryError>) -> Self {
-        match residual {
-            Ok(never) => match never {},
-            Err(error) => {
-                cold_path();
-                Self::Err(ExecutionError::from(error))
-            }
-        }
-    }
-}
-
-const impl<Reg> FromResidual<Result<!, CsrError>> for ExecutionResult<Reg>
-where
-    Reg: Register,
-{
-    #[inline(always)]
-    fn from_residual(residual: Result<!, CsrError>) -> Self {
-        match residual {
-            Ok(never) => match never {},
-            Err(error) => {
-                cold_path();
-                Self::Err(ExecutionError::from(error))
+                Self::Err(error.into())
             }
         }
     }

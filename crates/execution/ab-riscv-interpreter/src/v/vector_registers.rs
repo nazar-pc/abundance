@@ -1,13 +1,210 @@
 //! Vector registers
 
+mod segment;
+#[cfg(test)]
+mod tests;
+
 use crate::Csrs;
-use crate::v::vector_config::VectorConfig;
+use crate::v::vector_config::{BoundedVl, VectorConfig};
 use ab_riscv_primitives::prelude::*;
+use core::hint::{assert_unchecked, cold_path};
 use core::marker::Destruct;
+use core::ptr;
+
+pub use segment::{
+    IndexedSegmentElement, IndexedSegmentGroup, SegmentElement, SegmentField, VRegSegmentGroup,
+};
 
 pub(crate) const VLENB_USIZE<const VLEN: Vlen>: usize = VLEN.bytes() as usize;
 /// Element width in bytes as `usize`
 const EEW_BYTES<const EEW: Eew>: usize = EEW.bytes_width() as usize;
+
+/// Register group of elements of width `EEW` that lies within the vector register file.
+///
+/// Created from a [`VectorConfig`] with `EMUL = LMUL * EEW / SEW`, it holds `VLMAX` elements, the
+/// first `vl` of which are the body. This makes the element accesses of
+/// [`VectorRegisterFile::read()`] and friends safe, since the group carries the bounds they check
+/// indices against.
+#[derive(Debug, Clone, Copy)]
+pub struct VRegGroup<const VLEN: Vlen> {
+    base: VReg,
+    emul: Vlmul,
+    eew: Eew,
+    // Invariant: `vl <= vlmax` and `vlmax` elements of `eew` starting at `base` end within the
+    // register file
+    vl: BoundedVl<VLEN>,
+    vlmax: Vl,
+}
+
+impl<const VLEN: Vlen> VRegGroup<VLEN> {
+    /// Register group starting at `base` with elements of width `eew` under `config`.
+    ///
+    /// Returns `None` if `eew` exceeds `ELEN`, `EMUL = LMUL * EEW / SEW` is outside `[1/8, 8]` or
+    /// `base` is not aligned to `EMUL`, each of which makes an instruction illegal.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn new<const ELEN: Elen>(
+        config: VectorConfig<ELEN, VLEN>,
+        base: VReg,
+        eew: Eew,
+    ) -> Option<Self>
+    where
+        [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+    {
+        if u32::from(eew.bits_width()) > u32::from(ELEN) {
+            cold_path();
+            return None;
+        }
+        let vtype = config.vtype();
+        let emul = vtype.vlmul().emul(eew, vtype.vsew())?;
+        if !base.is_group_aligned(emul.register_count()) {
+            cold_path();
+            return None;
+        }
+
+        let vl = config.vl();
+        let vlmax = config.vlmax();
+        // Both always hold for a legal `EMUL`, but are checked here rather than derived from how
+        // `VectorConfig` and `Vlmul` compute them, since unsafe code relies on the invariant
+        let group_end = u32::from(base.to_bits()) * VLEN.bytes()
+            + u32::from(vlmax) * u32::from(eew.bytes_width());
+        if u32::from(vl.get()) > u32::from(vlmax) || group_end > 32 * VLEN.bytes() {
+            cold_path();
+            return None;
+        }
+
+        Some(Self {
+            base,
+            emul,
+            eew,
+            vl,
+            vlmax,
+        })
+    }
+
+    /// Register group of `group_regs` whole registers starting at `base` with elements of width
+    /// `eew`, regardless of `vtype`, like the one of whole register loads, stores and moves.
+    ///
+    /// Both `vl` and `VLMAX` are the number of elements the registers hold. Returns `None` if
+    /// `base` is not aligned to `group_regs` or `eew` is wider than `VLEN`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn whole_registers(base: VReg, group_regs: VRegGroupSize, eew: Eew) -> Option<Self> {
+        if !base.is_group_aligned(group_regs) {
+            cold_path();
+            return None;
+        }
+        let emul = match group_regs {
+            VRegGroupSize::R1 => Vlmul::M1,
+            VRegGroupSize::R2 => Vlmul::M2,
+            VRegGroupSize::R4 => Vlmul::M4,
+            VRegGroupSize::R8 => Vlmul::M8,
+        };
+        let elements = u32::from(group_regs.get()) * VLEN.bytes() / u32::from(eew.bytes_width());
+        let vlmax = Vl::new(elements)?;
+        // At most `8 * VLEN / 8`, hence never above `VLEN`
+        let vl = BoundedVl::new(vlmax)?;
+
+        Some(Self {
+            base,
+            emul,
+            eew,
+            vl,
+            vlmax,
+        })
+    }
+
+    /// The same group with `vl` reduced to `vl`, returns `None` if `vl` is above the current one
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn with_vl(self, vl: Vl) -> Option<Self> {
+        if u32::from(vl) > u32::from(self.vl.get()) {
+            cold_path();
+            return None;
+        }
+        let vl = BoundedVl::new(vl)?;
+
+        Some(Self { vl, ..self })
+    }
+
+    /// The same group if its `vl` is `vl`, `None` otherwise.
+    ///
+    /// The returned group carries `vl` itself, so that a check of an element index against it is
+    /// trivially the same as a check against `vl` that loops over body elements do anyway, which
+    /// is what makes groups of the same instruction interchangeable for the compiler.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn with_same_vl(self, vl: BoundedVl<VLEN>) -> Option<Self> {
+        if self.vl != vl {
+            cold_path();
+            return None;
+        }
+        Some(Self { vl, ..self })
+    }
+
+    /// First register of the group
+    #[inline(always)]
+    pub const fn base(self) -> VReg {
+        self.base
+    }
+
+    /// Effective multiplier `EMUL` of the group
+    #[inline(always)]
+    pub const fn emul(self) -> Vlmul {
+        self.emul
+    }
+
+    /// Number of registers in the group, which is one for fractional `EMUL` too
+    #[inline(always)]
+    pub const fn group_regs(self) -> VRegGroupSize {
+        self.emul.register_count()
+    }
+
+    /// Element width
+    #[inline(always)]
+    pub const fn eew(self) -> Eew {
+        self.eew
+    }
+
+    /// Number of body elements, which is `vl`
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn vl(self) -> BoundedVl<VLEN> {
+        // SAFETY: Invariant of `VRegGroup`
+        unsafe {
+            assert_unchecked(u32::from(self.vl.get()) <= u32::from(self.vlmax));
+        }
+        self.vl
+    }
+
+    /// Whether `reg` is one of the registers of this group
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn contains(self, reg: VReg) -> bool {
+        let (start, reg) = (self.base.to_bits(), reg.to_bits());
+        start <= reg && reg < start + self.group_regs().get()
+    }
+
+    /// Whether the registers of this group and `other` overlap
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn overlaps(self, other: Self) -> bool {
+        let (start, other_start) = (self.base.to_bits(), other.base.to_bits());
+        start < other_start + other.group_regs().get()
+            && other_start < start + self.group_regs().get()
+    }
+
+    /// Number of elements the group holds, which is `VLMAX` and at least [`Self::vl()`]
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn vlmax(self) -> Vl {
+        // SAFETY: Invariant of `VRegGroup`
+        unsafe {
+            assert_unchecked(u32::from(self.vl.get()) <= u32::from(self.vlmax));
+        }
+        self.vlmax
+    }
+}
 
 /// Alignment wrapper for vector registers
 #[derive(Debug, Clone, Copy)]
@@ -63,12 +260,231 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Element widths divide `VLENB`, so elements never straddle registers and a register group
     /// is one contiguous array of elements.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn element_offset<W>(base_reg: VReg, elem_i: u16, eew: W) -> usize
     where
-        W: [const] Into<Eew>,
+        W: [const] Into<Eew> + [const] Destruct,
     {
         usize::from(base_reg.to_bits()) * VLENB_USIZE::<VLEN>
             + usize::from(elem_i) * usize::from(eew.into().bytes_width())
+    }
+
+    /// Read body element `elem_i` of `group`, zero-extended.
+    ///
+    /// Returns `None` if `elem_i` is not below [`VRegGroup::vl()`].
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn read(&self, group: VRegGroup<VLEN>, elem_i: u16) -> Option<u64> {
+        if u32::from(elem_i) >= u32::from(group.vl.get()) {
+            cold_path();
+            return None;
+        }
+        // SAFETY: `elem_i < vl <= vlmax`, and `vlmax` elements of the group lie within the
+        // register file by the invariant of `VRegGroup`
+        Some(unsafe { self.read_element(group.base, elem_i, group.eew) })
+    }
+
+    /// Write the low bits of `value` into body element `elem_i` of `group`.
+    ///
+    /// Returns `None` if `elem_i` is not below [`VRegGroup::vl()`].
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn write(&mut self, group: VRegGroup<VLEN>, elem_i: u16, value: u64) -> Option<()> {
+        if u32::from(elem_i) >= u32::from(group.vl.get()) {
+            cold_path();
+            return None;
+        }
+        // SAFETY: `elem_i < vl <= vlmax`, and `vlmax` elements of the group lie within the
+        // register file by the invariant of `VRegGroup`
+        unsafe {
+            self.write_element(group.base, elem_i, group.eew, value);
+        }
+        Some(())
+    }
+
+    /// Read any element `elem_i` of `group`, including those past `vl`, zero-extended.
+    ///
+    /// This is for instructions that index a source by data, like `vrgather`. Returns `None` if
+    /// `elem_i` is not below [`VRegGroup::vlmax()`].
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn read_up_to_vlmax(&self, group: VRegGroup<VLEN>, elem_i: u16) -> Option<u64> {
+        if u32::from(elem_i) >= u32::from(group.vlmax) {
+            cold_path();
+            return None;
+        }
+        // SAFETY: `elem_i < vlmax`, and `vlmax` elements of the group lie within the register
+        // file by the invariant of `VRegGroup`
+        Some(unsafe { self.read_element(group.base, elem_i, group.eew) })
+    }
+
+    /// Copy `count` elements starting at `src_first` of `src` to elements starting at `dst_first`
+    /// of `dst`, like `memmove`, so the two ranges may overlap.
+    ///
+    /// Destination elements must be body elements, source elements may be any elements below
+    /// [`VRegGroup::vlmax()`], like for `vslidedown`. Returns `false` without writing anything if
+    /// either range is out of bounds or the groups have different element widths.
+    #[inline(always)]
+    #[must_use]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub fn copy_elements(
+        &mut self,
+        dst: VRegGroup<VLEN>,
+        dst_first: u16,
+        src: VRegGroup<VLEN>,
+        src_first: u16,
+        count: u32,
+    ) -> bool {
+        if dst.eew != src.eew
+            || u32::from(dst_first) + count > u32::from(dst.vl.get())
+            || u32::from(src_first) + count > u32::from(src.vlmax)
+        {
+            cold_path();
+            return false;
+        }
+        let dst_offset = Self::element_offset(dst.base, dst_first, dst.eew);
+        let src_offset = Self::element_offset(src.base, src_first, src.eew);
+        let Ok(count) = usize::try_from(count) else {
+            cold_path();
+            return false;
+        };
+        let len = count * usize::from(dst.eew.bytes_width());
+        let bytes = self.as_bytes_mut().as_flattened_mut().as_mut_ptr();
+        // SAFETY: Both element ranges were checked above to lie within `vlmax` elements of their
+        // groups, which lie within the register file by the invariant of `VRegGroup`. Overlapping
+        // ranges are fine for `ptr::copy()`, and both pointers derive from the same mutable one.
+        unsafe {
+            ptr::copy(bytes.byte_add(src_offset), bytes.byte_add(dst_offset), len);
+        }
+        true
+    }
+
+    /// Bytes of `count` body elements starting at `first` of `group`.
+    ///
+    /// Returns `None` if the range is not within [`VRegGroup::vl()`].
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub fn elements_bytes(&self, group: VRegGroup<VLEN>, first: u16, count: u32) -> Option<&[u8]> {
+        if u32::from(first) + count > u32::from(group.vl().get()) {
+            cold_path();
+            return None;
+        }
+        let offset = Self::element_offset(group.base, first, group.eew);
+        let len = usize::try_from(count).ok()? * usize::from(group.eew.bytes_width());
+        // SAFETY: The element range was checked above to lie within `vl` elements of the group,
+        // which lie within the register file by the invariant of `VRegGroup`
+        Some(unsafe {
+            self.as_bytes()
+                .as_flattened()
+                .get_unchecked(offset..offset + len)
+        })
+    }
+
+    /// Mutable bytes of `count` body elements starting at `first` of `group`.
+    ///
+    /// Returns `None` if the range is not within [`VRegGroup::vl()`].
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub fn elements_bytes_mut(
+        &mut self,
+        group: VRegGroup<VLEN>,
+        first: u16,
+        count: u32,
+    ) -> Option<&mut [u8]> {
+        if u32::from(first) + count > u32::from(group.vl().get()) {
+            cold_path();
+            return None;
+        }
+        let offset = Self::element_offset(group.base, first, group.eew);
+        let len = usize::try_from(count).ok()? * usize::from(group.eew.bytes_width());
+        // SAFETY: The element range was checked above to lie within `vl` elements of the group,
+        // which lie within the register file by the invariant of `VRegGroup`
+        Some(unsafe {
+            self.as_bytes_mut()
+                .as_flattened_mut()
+                .get_unchecked_mut(offset..offset + len)
+        })
+    }
+
+    /// Read element 0 of register `reg` with width `eew`, zero-extended.
+    ///
+    /// This is the scalar operand of reductions and scalar moves, which is a single register
+    /// regardless of `LMUL`. Returns `None` if `eew` is wider than `VLEN`, which never happens for
+    /// an element width that doesn't exceed `ELEN`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn read_first(&self, reg: VReg, eew: Eew) -> Option<u64> {
+        if u32::from(eew.bytes_width()) > VLEN.bytes() {
+            cold_path();
+            return None;
+        }
+        // SAFETY: Element 0 of `reg` occupies the first `eew.bytes_width() <= VLEN.bytes()` bytes
+        // of the register, which is within the register file
+        Some(unsafe { self.read_element(reg, 0, eew) })
+    }
+
+    /// Write the low bits of `value` into element 0 of register `reg` with width `eew`.
+    ///
+    /// Returns `None` if `eew` is wider than `VLEN`, see [`Self::read_first()`].
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn write_first(&mut self, reg: VReg, eew: Eew, value: u64) -> Option<()> {
+        if u32::from(eew.bytes_width()) > VLEN.bytes() {
+            cold_path();
+            return None;
+        }
+        // SAFETY: Element 0 of `reg` occupies the first `eew.bytes_width() <= VLEN.bytes()` bytes
+        // of the register, which is within the register file
+        unsafe {
+            self.write_element(reg, 0, eew, value);
+        }
+        Some(())
+    }
+
+    /// [`Self::read()`] with the element width known at compile time, which makes the access a
+    /// fixed-size load.
+    ///
+    /// Returns `None` if `EEW` is not the element width of `group` or `elem_i` is not below
+    /// [`VRegGroup::vl()`].
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn read_const<const EEW: Eew>(
+        &self,
+        group: VRegGroup<VLEN>,
+        elem_i: u16,
+    ) -> Option<u64> {
+        if group.eew != EEW || u32::from(elem_i) >= u32::from(group.vl.get()) {
+            cold_path();
+            return None;
+        }
+        // SAFETY: `elem_i < vl <= vlmax`, and `vlmax` elements of `EEW` of the group lie within
+        // the register file by the invariant of `VRegGroup`
+        Some(unsafe { self.read_element_const::<EEW>(group.base, elem_i) })
+    }
+
+    /// [`Self::write()`] with the element width known at compile time, which makes the access a
+    /// fixed-size store.
+    ///
+    /// Returns `None` if `EEW` is not the element width of `group` or `elem_i` is not below
+    /// [`VRegGroup::vl()`].
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn write_const<const EEW: Eew>(
+        &mut self,
+        group: VRegGroup<VLEN>,
+        elem_i: u16,
+        value: u64,
+    ) -> Option<()> {
+        if group.eew != EEW || u32::from(elem_i) >= u32::from(group.vl.get()) {
+            cold_path();
+            return None;
+        }
+        // SAFETY: `elem_i < vl <= vlmax`, and `vlmax` elements of `EEW` of the group lie within
+        // the register file by the invariant of `VRegGroup`
+        unsafe {
+            self.write_element_const::<EEW>(group.base, elem_i, value);
+        }
+        Some(())
     }
 
     /// Read element `elem_i` of the register group starting at `base_reg`, with `eew`-wide
@@ -79,7 +495,6 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// register group `[base_reg, base_reg + group_regs)` that ends within the register file,
     /// since `vl <= group_regs * VLENB / eew.bytes_width()`.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const unsafe fn read_element<W>(&self, base_reg: VReg, elem_i: u16, eew: W) -> u64
     where
         W: [const] Into<Eew> + [const] Destruct,
@@ -101,7 +516,6 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// # Safety
     /// Same as [`Self::read_element()`]
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const unsafe fn write_element<W>(&mut self, base_reg: VReg, elem_i: u16, eew: W, value: u64)
     where
         W: [const] Into<Eew> + [const] Destruct,
@@ -123,12 +537,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// # Safety
     /// Same as [`Self::read_element()`]
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const unsafe fn read_element_const<const EEW: Eew>(
-        &self,
-        base_reg: VReg,
-        elem_i: u16,
-    ) -> u64 {
+    pub const unsafe fn read_element_const<const EEW: Eew>(&self, base_reg: VReg, elem_i: u16) -> u64 {
         let offset = Self::element_offset(base_reg, elem_i, EEW);
         // SAFETY: `offset + EEW.bytes_width() <= 32 * VLENB` by the caller's precondition
         let element = unsafe {
@@ -151,7 +560,6 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// # Safety
     /// Same as [`Self::read_element()`]
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const unsafe fn write_element_const<const EEW: Eew>(
         &mut self,
         base_reg: VReg,
