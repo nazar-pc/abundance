@@ -1,0 +1,136 @@
+#![feature(core_io_borrowed_buf)]
+
+use ab_contract_file::{
+    CONTRACT_FILE_MAGIC, ContractFile, ContractFileHeader, ContractFileMethodMetadata,
+};
+use ab_contracts_common::metadata::ContractMetadataKind;
+use ab_io_type::trivial_type::TrivialType;
+use std::io::BorrowedBuf;
+
+/// `c.li a0, 0`
+const LI_A0_0: [u8; 2] = 0x4501_u16.to_le_bytes();
+/// `c.jr ra`
+const RET: [u8; 2] = 0x8082_u16.to_le_bytes();
+
+/// Trait metadata with stateless view methods without arguments
+fn trait_metadata(trait_name: &str, method_names: &[&str]) -> Vec<u8> {
+    let mut metadata = vec![
+        ContractMetadataKind::Trait as u8,
+        u8::try_from(trait_name.len()).unwrap(),
+    ];
+    metadata.extend_from_slice(trait_name.as_bytes());
+    metadata.push(u8::try_from(method_names.len()).unwrap());
+    for method_name in method_names {
+        metadata.push(ContractMetadataKind::ViewStateless as u8);
+        metadata.push(u8::try_from(method_name.len()).unwrap());
+        metadata.extend_from_slice(method_name.as_bytes());
+        // Number of arguments
+        metadata.push(0);
+    }
+    metadata
+}
+
+/// Contract file with read-only section consisting of `.rodata` followed by metadata, and code
+/// consisting of methods placed one after another
+fn contract_file(
+    rodata: &[u8],
+    metadata: &[u8],
+    read_only_padding: u32,
+    methods: &[Vec<u8>],
+) -> Vec<u8> {
+    let num_methods = u16::try_from(methods.len()).unwrap();
+    let read_only_offset =
+        ContractFileHeader::SIZE + u32::from(num_methods) * ContractFileMethodMetadata::SIZE;
+    let read_only_section_file_size = u32::try_from(rodata.len() + metadata.len()).unwrap();
+
+    let header = ContractFileHeader {
+        magic: CONTRACT_FILE_MAGIC,
+        read_only_section_file_size,
+        read_only_section_memory_size: read_only_section_file_size + read_only_padding,
+        metadata_offset: read_only_offset + u32::try_from(rodata.len()).unwrap(),
+        metadata_size: u16::try_from(metadata.len()).unwrap(),
+        num_methods,
+        host_call_fn_offset: 0,
+    };
+
+    let mut file = header.as_bytes().to_vec();
+    let mut method_offset = read_only_offset + read_only_section_file_size;
+    for method in methods {
+        let size = u32::try_from(method.len()).unwrap();
+        let method_metadata = ContractFileMethodMetadata {
+            offset: method_offset,
+            size,
+        };
+        file.extend_from_slice(method_metadata.as_bytes());
+        method_offset += size;
+    }
+    file.extend_from_slice(rodata);
+    file.extend_from_slice(metadata);
+    file.extend(methods.iter().flatten());
+    file
+}
+
+#[test]
+fn method_addresses() {
+    let rodata = [0xaa; 13];
+    let metadata = trait_metadata("Test", &["first", "second", "third"]);
+    let methods = [
+        [LI_A0_0, RET].concat(),
+        RET.to_vec(),
+        [LI_A0_0, LI_A0_0, RET].concat(),
+    ];
+    // Similar to what `lld` produces when it places code on a separate page, results in code
+    // starting at an even address
+    let read_only_padding = 0x1001;
+    let file = contract_file(&rodata, &metadata, read_only_padding, &methods);
+
+    let mut parsed_methods = Vec::new();
+    let contract_file = ContractFile::parse(&file, |method| {
+        parsed_methods.push((
+            method.method_metadata_item.method_name,
+            method.address,
+            method.size,
+        ));
+        Ok(())
+    })
+    .unwrap();
+
+    // Contract memory contains read-only data, padding and code, so method addresses are offsets
+    // within code shifted by the size of read-only data and padding
+    let code_address = contract_file.header().read_only_section_memory_size;
+    assert_eq!(
+        code_address,
+        u32::try_from(rodata.len() + metadata.len()).unwrap() + read_only_padding
+    );
+    let expected_methods = [
+        (b"first".as_slice(), code_address, 4),
+        (b"second".as_slice(), code_address + 4, 2),
+        (b"third".as_slice(), code_address + 6, 6),
+    ];
+    assert_eq!(parsed_methods, expected_methods);
+
+    let iterated_methods = contract_file
+        .iterate_methods()
+        .map(|method| {
+            (
+                method.method_metadata_item.method_name,
+                method.address,
+                method.size,
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(iterated_methods, expected_methods);
+
+    let mut contract_memory = vec![0; contract_file.contract_memory_size() as usize];
+    assert!(
+        contract_file.initialize_contract_memory(
+            BorrowedBuf::from(contract_memory.as_mut_slice()).unfilled()
+        )
+    );
+    for ((_, address, size), method) in expected_methods.into_iter().zip(&methods) {
+        assert_eq!(
+            &contract_memory[address as usize..][..size as usize],
+            method.as_slice()
+        );
+    }
+}

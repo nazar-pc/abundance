@@ -815,6 +815,8 @@ impl<'a> ContractFile<'a> {
             }
         });
 
+        let read_only_section_offset = ContractFileHeader::SIZE
+            + u32::from(self.num_methods) * ContractFileMethodMetadata::SIZE;
         let read_only_padding_size =
             self.read_only_section_memory_size - self.read_only_section_file_size;
         // SAFETY: Protected internal invariant checked in constructor
@@ -842,7 +844,8 @@ impl<'a> ContractFile<'a> {
                 .expect("Protected internal invariant checked in constructor; qed");
 
             ContractFileMethod {
-                address: contract_file_method_metadata.offset + read_only_padding_size,
+                address: contract_file_method_metadata.offset - read_only_section_offset
+                    + read_only_padding_size,
                 size: contract_file_method_metadata.size,
                 method_metadata_item,
                 method_metadata_bytes,
