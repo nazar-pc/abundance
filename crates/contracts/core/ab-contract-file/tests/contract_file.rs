@@ -2,9 +2,11 @@
 
 use ab_contract_file::{
     CONTRACT_FILE_MAGIC, ContractFile, ContractFileHeader, ContractFileMethodMetadata,
+    ContractFileParseError,
 };
 use ab_contracts_common::metadata::ContractMetadataKind;
 use ab_io_type::trivial_type::TrivialType;
+use std::assert_matches;
 use std::io::BorrowedBuf;
 
 /// `c.li a0, 0`
@@ -133,4 +135,73 @@ fn method_addresses() {
             method.as_slice()
         );
     }
+}
+
+#[test]
+fn method_range_overflow() {
+    let metadata = trait_metadata("Test", &["first"]);
+    let read_only_padding = u32::try_from(metadata.len() % 2).unwrap();
+    let mut file = contract_file(&[], &metadata, read_only_padding, &[RET.to_vec()]);
+    ContractFile::parse(&file, |_| Ok(())).unwrap();
+
+    // Method offset and size that overflow `u32` when added together
+    let code_offset = u32::try_from(file.len() - RET.len()).unwrap();
+    let method_metadata = ContractFileMethodMetadata {
+        offset: code_offset,
+        size: u32::MAX,
+    };
+    file[ContractFileHeader::SIZE as usize..][..ContractFileMethodMetadata::SIZE as usize]
+        .copy_from_slice(method_metadata.as_bytes());
+
+    assert_matches!(
+        ContractFile::parse(&file, |_| Ok(())),
+        Err(ContractFileParseError::FileTooSmall {
+            num_methods: _,
+            read_only_section_size: _,
+            file_size: _
+        })
+    );
+}
+
+#[test]
+fn contract_memory_size_limit() {
+    let metadata = trait_metadata("Test", &["first"]);
+    let methods = [RET.to_vec()];
+    let read_only_section_file_size = u32::try_from(metadata.len()).unwrap();
+    let code_size = u32::try_from(RET.len()).unwrap();
+    // The largest contract memory where the method still starts at an even address
+    let largest_read_only_section_memory_size = (u32::MAX - code_size) & !1;
+    let largest_read_only_padding =
+        largest_read_only_section_memory_size - read_only_section_file_size;
+
+    let file = contract_file(&[], &metadata, largest_read_only_padding, &methods);
+    // Contract memory no longer fits into `u32`
+    let too_large_file = contract_file(&[], &metadata, largest_read_only_padding + 2, &methods);
+
+    let mut parsed_addresses = Vec::new();
+    let contract_file = ContractFile::parse(&file, |method| {
+        parsed_addresses.push(method.address);
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(parsed_addresses, [largest_read_only_section_memory_size]);
+    assert_eq!(
+        contract_file
+            .iterate_methods()
+            .map(|method| method.address)
+            .collect::<Vec<_>>(),
+        [largest_read_only_section_memory_size]
+    );
+    assert_eq!(
+        contract_file.contract_memory_size(),
+        largest_read_only_section_memory_size + code_size
+    );
+
+    assert_matches!(
+        ContractFile::parse(&too_large_file, |_| Ok(())),
+        Err(ContractFileParseError::ContractMemoryTooLarge {
+            read_only_section_memory_size: _,
+            code_size: _
+        })
+    );
 }

@@ -229,6 +229,17 @@ pub enum ContractFileParseError {
         /// Size of the read-only section in bytes as will be written to memory during execution
         memory_size: u32,
     },
+    /// Contract memory size doesn't fit into `u32`
+    #[error(
+        "Contract memory size doesn't fit into `u32`: read_only_section_memory_size \
+        {read_only_section_memory_size}, code_size {code_size}"
+    )]
+    ContractMemoryTooLarge {
+        /// Size of the read-only section in bytes as will be written to memory during execution
+        read_only_section_memory_size: u32,
+        /// Size of the code section in bytes
+        code_size: u32,
+    },
     /// There are not enough methods in the header to match the number of methods in the actual
     /// metadata
     #[error(
@@ -356,6 +367,29 @@ impl<'a> ContractFile<'a> {
         let code_section_offset =
             read_only_section_offset.saturating_add(header.read_only_section_file_size);
 
+        let Some(code_size) = file_size
+            .checked_sub(code_section_offset)
+            .filter(|&code_size| code_size > 0)
+        else {
+            return Err(ContractFileParseError::FileTooSmall {
+                num_methods: header.num_methods,
+                read_only_section_size: header.read_only_section_file_size,
+                file_size,
+            });
+        };
+
+        // Addresses within contract memory are calculated as `u32` below
+        if header
+            .read_only_section_memory_size
+            .checked_add(code_size)
+            .is_none()
+        {
+            return Err(ContractFileParseError::ContractMemoryTooLarge {
+                read_only_section_memory_size: header.read_only_section_memory_size,
+                code_size,
+            });
+        }
+
         {
             let mut contract_file_methods_metadata_iter = {
                 let mut file_contract_metadata_bytes = after_header_bytes;
@@ -375,8 +409,10 @@ impl<'a> ContractFile<'a> {
                         )
                     };
 
-                    if (contract_file_method_metadata.offset + contract_file_method_metadata.size)
-                        > file_size
+                    if contract_file_method_metadata
+                        .offset
+                        .checked_add(contract_file_method_metadata.size)
+                        .is_none_or(|method_end| method_end > file_size)
                     {
                         return Err(ContractFileParseError::FileTooSmall {
                             num_methods: header.num_methods,
@@ -460,14 +496,6 @@ impl<'a> ContractFile<'a> {
                     metadata_num_methods,
                 });
             }
-        }
-
-        if code_section_offset >= file_size {
-            return Err(ContractFileParseError::FileTooSmall {
-                num_methods: header.num_methods,
-                read_only_section_size: header.read_only_section_file_size,
-                file_size,
-            });
         }
 
         if header.host_call_fn_offset != 0 {
