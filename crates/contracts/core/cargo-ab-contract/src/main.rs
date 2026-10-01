@@ -2,6 +2,7 @@ use ab_cli_utils::init_logger;
 use ab_contract_file::ContractFile;
 use ab_contracts_tooling::build::{BuildOptions, build_cdylib};
 use ab_contracts_tooling::convert::convert;
+use ab_contracts_tooling::recover::recover;
 use ab_contracts_tooling::target_specification::TargetSpecification;
 use anyhow::Context;
 use clap::Parser;
@@ -134,10 +135,27 @@ pub fn main() -> anyhow::Result<()> {
             Ok(())
         }
         Cli::Recover {
-            input_file: _,
-            output_file: _,
+            input_file,
+            output_file,
         } => {
-            unimplemented!("Recovering of ELF files is not implemented yet");
+            println!("Recovering:");
+            println!("  Input file: {}", input_file.display());
+            println!("  Output file: {}", output_file.display());
+            let input_bytes = read(input_file).context("Failed to read input file")?;
+            let output_bytes = recover(&input_bytes)?;
+            let converted_bytes = convert(&output_bytes).context(
+                "Failed to convert recovered ELF file back into contract file, this is an \
+                implementation bug",
+            )?;
+            if converted_bytes != input_bytes {
+                return Err(anyhow::anyhow!(
+                    "Recovered ELF file doesn't convert back into the same contract file, this is \
+                    an implementation bug"
+                ));
+            }
+            write(output_file, output_bytes).context("Failed to write output file")?;
+            println!("Recovery successful");
+            Ok(())
         }
     }
 }
