@@ -12,10 +12,11 @@
 //! * code section: contains only valid/supported RISC-V instructions or 16-bit zero padding, always
 //!   ending with some kind of jump instruction
 //!
-//! This file is created from an ELF source file and can, technically, be converted back to it. Note
-//! that due to the intentional lack of the `.bss` section equivalent and many other features, only
-//! simple RISC-V ELF shared library files can be converted into the contract file. Supporting more
-//! complex capabilities would be much more complex and error-prone.
+//! This file is created from an ELF source file and can be converted back to it, though only the
+//! details stored in the contract file are preserved. Note that due to the intentional lack of the
+//! `.bss` section equivalent and many other features, only simple RISC-V ELF shared library files
+//! can be converted into the contract file. Supporting more complex capabilities would be much more
+//! complex and error-prone.
 //!
 //! ELF file is expected to have at most a single export for host calls, whose address is stored in
 //! the header and jumps to that address are intercepted by the runtime.
@@ -24,8 +25,8 @@
 //! be trivially loaded into a normal RISC-V process for debugging purposes using traditional tools
 //! like gdb.
 //!
-//! `ab-contracts-tooling` crate exists that can build and convert contracts to this format both
-//! programmatically and using CLI interface.
+//! `ab-contracts-tooling` crate exists that can build and convert contracts to this format and back
+//! both programmatically and using CLI interface.
 
 #![expect(incomplete_features, reason = "explicit_tail_calls")]
 #![feature(
