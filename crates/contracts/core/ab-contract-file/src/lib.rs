@@ -111,6 +111,8 @@ pub struct ContractFileMethodMetadata {
 pub struct ContractFileMethod<'a> {
     /// Address of the method in the contract memory
     pub address: u32,
+    /// Size of the method code in bytes
+    pub size: u32,
     /// Method metadata item
     pub method_metadata_item: MethodMetadataItem<'a>,
     /// Method metadata bytes.
@@ -298,9 +300,10 @@ impl<'a> ContractFile<'a> {
     /// Parse file bytes and verify that internal invariants are valid.
     ///
     /// `contract_method` argument is an optional callback called for each method in the contract
-    /// file with its method address in the contract memory, metadata item, and corresponding
-    /// metadata bytes. This can be used to collect available methods during parsing and avoid extra
-    /// iteration later using [`Self::iterate_methods()`] to compute [`MethodFingerprint`], etc.
+    /// file with its method address in the contract memory, method size, metadata item, and
+    /// corresponding metadata bytes. This can be used to collect available methods during parsing
+    /// and avoid extra iteration later using [`Self::iterate_methods()`] to compute
+    /// [`MethodFingerprint`], etc.
     ///
     /// [`MethodFingerprint`]: ab_contracts_common::method::MethodFingerprint
     pub fn parse<CM>(
@@ -444,6 +447,7 @@ impl<'a> ContractFile<'a> {
 
                     contract_method(ContractFileMethod {
                         address,
+                        size: contract_file_method_metadata.size,
                         method_metadata_item,
                         method_metadata_bytes,
                     })?;
@@ -839,6 +843,7 @@ impl<'a> ContractFile<'a> {
 
             ContractFileMethod {
                 address: contract_file_method_metadata.offset + read_only_padding_size,
+                size: contract_file_method_metadata.size,
                 method_metadata_item,
                 method_metadata_bytes,
             }
