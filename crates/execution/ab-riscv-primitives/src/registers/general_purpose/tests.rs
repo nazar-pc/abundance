@@ -157,3 +157,12 @@ fn test_ereg_to_reg_conversion() {
     assert_eq!(Reg::<u64>::from(EReg::<u64>::A4), Reg::A4);
     assert_eq!(Reg::<u64>::from(EReg::<u64>::A5), Reg::A5);
 }
+
+#[test]
+fn test_rve() {
+    // RVE variant is exactly the one that doesn't have registers `x16..=x31`
+    assert_eq!(Reg::<u32>::RVE, Reg::<u32>::from_bits(16).is_none());
+    assert_eq!(Reg::<u64>::RVE, Reg::<u64>::from_bits(16).is_none());
+    assert_eq!(EReg::<u32>::RVE, EReg::<u32>::from_bits(16).is_none());
+    assert_eq!(EReg::<u64>::RVE, EReg::<u64>::from_bits(16).is_none());
+}

@@ -17,35 +17,25 @@ use core::marker::{Destruct, PhantomData};
 ///
 /// # Safety
 /// [`Register::from_bits()`] must return `Some()` for:
-/// * `1`, `8`, `9` and `18..=27` if `Self::RVE = false`
-/// * `1`, `8` and `9` if `Self::RVE = true`
+/// * `1`, `8`, `9` and `18..=27` if [`Register::RVE`] is `false`
+/// * `1`, `8` and `9` if [`Register::RVE`] is `true`
 pub const unsafe trait ZcmpRegister
 where
     Self: [const] Register,
 {
-    /// Whether this is RVE variant with the number of general purpose registers reduced to 16
-    const RVE: bool;
 }
 
 // SAFETY: [`Reg::from_bits()`] returns Some for all valid register numbers
-const unsafe impl ZcmpRegister for Reg<u32> {
-    const RVE: bool = false;
-}
+const unsafe impl ZcmpRegister for Reg<u32> {}
 
 // SAFETY: [`Reg::from_bits()`] returns Some for all valid register numbers
-const unsafe impl ZcmpRegister for Reg<u64> {
-    const RVE: bool = false;
-}
+const unsafe impl ZcmpRegister for Reg<u64> {}
 
 // SAFETY: [`EReg::from_bits()`] returns Some for all valid register numbers
-const unsafe impl ZcmpRegister for EReg<u32> {
-    const RVE: bool = true;
-}
+const unsafe impl ZcmpRegister for EReg<u32> {}
 
 // SAFETY: [`EReg::from_bits()`] returns Some for all valid register numbers
-const unsafe impl ZcmpRegister for EReg<u64> {
-    const RVE: bool = true;
-}
+const unsafe impl ZcmpRegister for EReg<u64> {}
 
 /// Values 0..=3 are reserved by the spec; only 4..=15 are valid.
 /// Construct via [`ZcmpUrlist::try_from_raw`].

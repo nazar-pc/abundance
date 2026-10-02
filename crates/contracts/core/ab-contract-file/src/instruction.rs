@@ -156,6 +156,7 @@ impl fmt::Debug for ContractRegister {
 }
 
 const impl Register for ContractRegister {
+    const RVE: bool = false;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -202,9 +203,7 @@ const impl Register for ContractRegister {
 }
 
 /// SAFETY: `Self::from_bits()` returns `Some()` for `1`, `8`, `9` and `18..=27`
-const unsafe impl ZcmpRegister for ContractRegister {
-    const RVE: bool = false;
-}
+const unsafe impl ZcmpRegister for ContractRegister {}
 
 /// An instruction type used by contracts
 #[instruction(
