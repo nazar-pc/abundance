@@ -28,6 +28,7 @@ use std::fs::OpenOptions;
 use std::hint::black_box;
 use std::io::Write;
 use std::num::NonZeroU64;
+use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::{env, fs, slice};
 
@@ -38,7 +39,7 @@ const MAX_PIECES_IN_SECTOR: u16 = 1000;
 pub fn criterion_benchmark(c: &mut Criterion) {
     println!("Initializing...");
     let base_path = env::var("BASE_PATH").map_or_else(
-        |_error| env::temp_dir(),
+        |_error| PathBuf::from(env!("CARGO_TARGET_TMPDIR")),
         |base_path| base_path.parse().unwrap(),
     );
     let pieces_in_sector = env::var("PIECES_IN_SECTOR").map_or_else(
