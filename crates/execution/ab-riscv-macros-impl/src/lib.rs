@@ -82,7 +82,13 @@ use proc_macro::TokenStream;
 /// `inherit` is used both for dependencies (`Zve64x` depends on `Zicsr`) and for direct inclusion
 /// during composition (`B` contains `Zba`, `Zbb` and `Zbs`).
 ///
-/// `ignore` can be used to create subsets of extensions (`Zmmul` is a multiply-only subset of `M`).
+/// `ignore` can be used to exclude individual instructions or whole enums from a custom instruction
+/// set (like `ecall` from an instruction set that doesn't support system calls). It should not be
+/// used for modeling relationships between extensions though: an extension that is a subset of
+/// another extension according to the specification is inherited by that extension (`M` inherits
+/// `Zmmul`), while instructions shared by extensions that are not subsets of each other are
+/// extracted into a separate enum, which both extensions inherit (`Zbb` and `Zbkb` both inherit
+/// `Rv64ZbbZbkbSharedInstruction`).
 ///
 /// `if` on both enum and variant levels specifies soft optional dependencies on other instructions
 /// or variants when this instruction is inherited further up the chain. Variants are always present

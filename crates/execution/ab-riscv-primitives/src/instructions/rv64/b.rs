@@ -7,7 +7,7 @@ pub mod zbs;
 
 use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zba::Rv64ZbaInstruction;
-use crate::instructions::rv64::b::zbb::Rv64ZbbInstruction;
+use crate::instructions::rv64::b::zbb::{Rv64ZbbInstruction, Rv64ZbbZbkbSharedInstruction};
 use crate::instructions::rv64::b::zbs::Rv64ZbsInstruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;

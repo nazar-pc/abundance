@@ -1,5 +1,6 @@
 use crate::instructions::Instruction;
 use crate::instructions::rv64::zk::zkn::zknd::{Rv64ZkndInstruction, Rv64ZkndKsRnum};
+use crate::instructions::rv64::zk::zkn::zkne::Rv64ZkneInstruction;
 use crate::instructions::test_utils::make_r_type;
 use crate::registers::general_purpose::Reg;
 
@@ -185,5 +186,15 @@ fn test_aes64ks1i_bit4_zero_nonzero_rnum_rejected() {
             "imm12=0x{:03X} should be rejected",
             0x300 | rnum
         );
+    }
+}
+
+#[test]
+fn test_encryption_rejected() {
+    let aes64es = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b001_1001);
+    let aes64esm = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b001_1011);
+    for inst in [aes64es, aes64esm] {
+        assert_eq!(Rv64ZkndInstruction::<Reg<u64>>::try_decode(inst), None);
+        assert!(Rv64ZkneInstruction::<Reg<u64>>::try_decode(inst).is_some());
     }
 }

@@ -4,16 +4,15 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::zk::zkn::zknd::{Rv64ZkndInstruction, Rv64ZkndKsRnum};
+use crate::instructions::rv64::zk::zkn::zknd::{Rv64ZkndKsRnum, Rv64ZkndZkneSharedInstruction};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// RISC-V RV64 Zkne instructions
 #[instruction(
-    reorder = [Aes64Es, Aes64Esm, Aes64Ks1i, Aes64Ks2],
-    ignore = [Rv64ZkndInstruction],
-    inherit = [Rv64ZkndInstruction],
+    reorder = [Aes64Es, Aes64Esm],
+    inherit = [Rv64ZkndZkneSharedInstruction],
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]

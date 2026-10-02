@@ -40,6 +40,48 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
     ) -> ExecutionResult<Self::Reg> {
-        ExecutionResult::ContinueNoWrite
+        match self {
+            Self::Mul { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value.wrapping_mul(rs2_value);
+                ExecutionResult::Continue { rd, value }
+            }
+            Self::Mulh { rd, rs1: _, rs2: _ } => {
+                // Signed × signed: multiply and take upper 64 bits
+                let (_lo, prod) = rs1_value
+                    .cast_signed()
+                    .carrying_mul(rs2_value.cast_signed(), 0);
+                ExecutionResult::Continue {
+                    rd,
+                    value: prod.cast_unsigned(),
+                }
+            }
+            Self::Mulhsu { rd, rs1: _, rs2: _ } => {
+                // Signed × unsigned: widen to i128, take upper 64 bits
+                let prod = i128::from(rs1_value.cast_signed()) * i128::from(rs2_value);
+                let value = prod >> 64;
+                ExecutionResult::Continue {
+                    rd,
+                    value: value.cast_unsigned() as u64,
+                }
+            }
+            Self::Mulhu { rd, rs1: _, rs2: _ } => {
+                // Unsigned × unsigned: widen to u128, take upper 64 bits
+                let prod = u128::from(rs1_value) * u128::from(rs2_value);
+                let value = prod >> 64;
+                ExecutionResult::Continue {
+                    rd,
+                    value: value as u64,
+                }
+            }
+
+            // RV64 R-type W
+            Self::Mulw { rd, rs1: _, rs2: _ } => {
+                let prod = (rs1_value as i32).wrapping_mul(rs2_value as i32);
+                ExecutionResult::Continue {
+                    rd,
+                    value: i64::from(prod).cast_unsigned(),
+                }
+            }
+        }
     }
 }

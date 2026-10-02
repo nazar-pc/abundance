@@ -82,8 +82,102 @@ impl Rv64ZkndKsRnum {
     }
 }
 
-/// RISC-V RV64 Zknd instructions (AES decryption and key schedule)
+/// RISC-V RV64 instructions shared between Zknd and Zkne extensions (AES key schedule).
+///
+/// Not an extension on its own, only exists such that both Zknd and Zkne can inherit it.
 #[instruction]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+pub enum Rv64ZkndZkneSharedInstruction<Reg> {
+    /// AES key schedule step 1 (rnum in 0..=10)
+    Aes64Ks1i {
+        rd: Reg,
+        rs1: Reg,
+        rnum: Rv64ZkndKsRnum,
+    },
+    /// AES key schedule step 2
+    Aes64Ks2 { rd: Reg, rs1: Reg, rs2: Reg },
+}
+
+#[instruction]
+const impl<Reg> Instruction for Rv64ZkndZkneSharedInstruction<Reg>
+where
+    Reg: [const] Register<Type = u64>,
+{
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Reg = Reg;
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        let opcode = (instruction & 0b111_1111) as u8;
+        let rd_bits = ((instruction >> 7) & 0x1f) as u8;
+        let funct3 = ((instruction >> 12) & 0b111) as u8;
+        let rs1_bits = ((instruction >> 15) & 0x1f) as u8;
+        let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
+        let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
+
+        match opcode {
+            // R-type: OP opcode (0x33)
+            //   aes64ks2: funct7=0b011_1111, funct3=0 -> MATCH=0x7e00_0033
+            0b011_0011 => {
+                if funct3 != 0b000 {
+                    None?;
+                }
+                let rd = Reg::from_bits(rd_bits)?;
+                let rs1 = Reg::from_bits(rs1_bits)?;
+                let rs2 = Reg::from_bits(rs2_bits)?;
+                match funct7 {
+                    0b011_1111 => Some(Self::Aes64Ks2 { rd, rs1, rs2 }),
+                    _ => None,
+                }
+            }
+            // I-type: OP-IMM opcode (0x13), funct3=0b001
+            //   aes64ks1i: imm[11:5]=0b001_1000, imm[4]=1, imm[3:0]=rnum     -> MATCH=0x3100_1013+
+            0b001_0011 => {
+                if funct3 != 0b001 {
+                    None?;
+                }
+                let rd = Reg::from_bits(rd_bits)?;
+                let rs1 = Reg::from_bits(rs1_bits)?;
+                let imm12 = instruction >> 20;
+                if (imm12 >> 5) == 0b001_1000 && (imm12 & 0b1_0000) != 0 {
+                    // bits[11:5]=0b0011000, bit[4]=1, bits[3:0]=rnum
+                    let rnum = Rv64ZkndKsRnum::from_bits((imm12 & 0xf) as u8)?;
+                    Some(Self::Aes64Ks1i { rd, rs1, rnum })
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv64ZkndZkneSharedInstruction<Reg>
+where
+    Reg: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Aes64Ks1i { rd, rs1, rnum } => write!(f, "aes64ks1i {rd}, {rs1}, {rnum}"),
+            Self::Aes64Ks2 { rd, rs1, rs2 } => write!(f, "aes64ks2 {rd}, {rs1}, {rs2}"),
+        }
+    }
+}
+
+/// RISC-V RV64 Zknd instructions (AES decryption and key schedule)
+#[instruction(
+    reorder = [Aes64Ds, Aes64Dsm, Aes64Im],
+    inherit = [Rv64ZkndZkneSharedInstruction],
+)]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 pub enum Rv64ZkndInstruction<Reg> {
@@ -93,14 +187,6 @@ pub enum Rv64ZkndInstruction<Reg> {
     Aes64Dsm { rd: Reg, rs1: Reg, rs2: Reg },
     /// AES inverse MixColumns on each 32-bit word of rs1
     Aes64Im { rd: Reg, rs1: Reg },
-    /// AES key schedule step 1 (rnum in 0..=10)
-    Aes64Ks1i {
-        rd: Reg,
-        rs1: Reg,
-        rnum: Rv64ZkndKsRnum,
-    },
-    /// AES key schedule step 2
-    Aes64Ks2 { rd: Reg, rs1: Reg, rs2: Reg },
 }
 
 #[instruction]
@@ -126,7 +212,6 @@ where
             // R-type: OP opcode (0x33)
             //   aes64ds:  funct7=0b001_1101, funct3=0 -> MATCH=0x3a00_0033
             //   aes64dsm: funct7=0b001_1111, funct3=0 -> MATCH=0x3e00_0033
-            //   aes64ks2: funct7=0b011_1111, funct3=0 -> MATCH=0x7e00_0033
             0b011_0011 => {
                 if funct3 != 0b000 {
                     None?;
@@ -137,13 +222,11 @@ where
                 match funct7 {
                     0b001_1101 => Some(Self::Aes64Ds { rd, rs1, rs2 }),
                     0b001_1111 => Some(Self::Aes64Dsm { rd, rs1, rs2 }),
-                    0b011_1111 => Some(Self::Aes64Ks2 { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
             // I-type: OP-IMM opcode (0x13), funct3=0b001
             //   aes64im:   imm[11:0]=0x300  (funct7=0b001_1000, rs2=0b0_0000) -> MATCH=0x3000_1013
-            //   aes64ks1i: imm[11:5]=0b001_1000, imm[4]=1, imm[3:0]=rnum     -> MATCH=0x3100_1013+
             0b001_0011 => {
                 if funct3 != 0b001 {
                     None?;
@@ -153,10 +236,6 @@ where
                 let imm12 = instruction >> 20;
                 if imm12 == 0x300 {
                     Some(Self::Aes64Im { rd, rs1 })
-                } else if (imm12 >> 5) == 0b001_1000 && (imm12 & 0b1_0000) != 0 {
-                    // bits[11:5]=0b0011000, bit[4]=1, bits[3:0]=rnum
-                    let rnum = Rv64ZkndKsRnum::from_bits((imm12 & 0xf) as u8)?;
-                    Some(Self::Aes64Ks1i { rd, rs1, rnum })
                 } else {
                     None
                 }
@@ -174,15 +253,13 @@ where
 #[instruction]
 impl<Reg> fmt::Display for Rv64ZkndInstruction<Reg>
 where
-    Reg: fmt::Display,
+    Reg: fmt::Display + Copy,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Aes64Ds { rd, rs1, rs2 } => write!(f, "aes64ds {rd}, {rs1}, {rs2}"),
             Self::Aes64Dsm { rd, rs1, rs2 } => write!(f, "aes64dsm {rd}, {rs1}, {rs2}"),
             Self::Aes64Im { rd, rs1 } => write!(f, "aes64im {rd}, {rs1}"),
-            Self::Aes64Ks1i { rd, rs1, rnum } => write!(f, "aes64ks1i {rd}, {rs1}, {rnum}"),
-            Self::Aes64Ks2 { rd, rs1, rs2 } => write!(f, "aes64ks2 {rd}, {rs1}, {rs2}"),
         }
     }
 }

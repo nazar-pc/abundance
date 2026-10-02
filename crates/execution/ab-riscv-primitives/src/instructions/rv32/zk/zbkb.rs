@@ -4,17 +4,13 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv32::b::zbb::Rv32ZbbInstruction;
+use crate::instructions::rv32::b::zbb::Rv32ZbbZbkbSharedInstruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// RISC-V RV32 Zbkb instruction (Bit-manipulation for Cryptography)
-#[instruction(
-    reorder = [Andn, Orn, Xnor, Rol, Ror, Rori, Rev8, Pack, Packh, Brev8],
-    ignore = [Rv32ZbbInstruction],
-    inherit = [Rv32ZbbInstruction],
-)]
+#[instruction(inherit = [Rv32ZbbZbkbSharedInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 pub enum Rv32ZbkbInstruction<Reg> {
@@ -74,7 +70,7 @@ where
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7, rs2_bits) {
                     // pack: funct3=100, funct7=0000100, rs2!=0
-                    // rs2=0 collides with inherited RV32 Zbb zext.h and must fall through.
+                    // rs2=0 is the encoding of RV32 Zbb zext.h and must fall through.
                     (0b100, 0b000_0100, rs2_bits) if rs2_bits != 0 => {
                         Some(Self::Pack { rd, rs1, rs2 })
                     }

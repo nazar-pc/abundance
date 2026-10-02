@@ -40,6 +40,39 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
     ) -> ExecutionResult<Self::Reg> {
-        ExecutionResult::ContinueNoWrite
+        match self {
+            Self::Mul { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value.wrapping_mul(rs2_value);
+                ExecutionResult::Continue { rd, value }
+            }
+            Self::Mulh { rd, rs1: _, rs2: _ } => {
+                // Signed × signed: multiply and take upper 32 bits
+                let (_lo, prod) = rs1_value
+                    .cast_signed()
+                    .carrying_mul(rs2_value.cast_signed(), 0);
+                ExecutionResult::Continue {
+                    rd,
+                    value: prod.cast_unsigned(),
+                }
+            }
+            Self::Mulhsu { rd, rs1: _, rs2: _ } => {
+                // Signed × unsigned: widen to i64, take upper 32 bits
+                let prod = i64::from(rs1_value.cast_signed()) * i64::from(rs2_value);
+                let value = prod >> 32;
+                ExecutionResult::Continue {
+                    rd,
+                    value: value.cast_unsigned() as u32,
+                }
+            }
+            Self::Mulhu { rd, rs1: _, rs2: _ } => {
+                // Unsigned × unsigned: widen to u64, take upper 32 bits
+                let prod = u64::from(rs1_value) * u64::from(rs2_value);
+                let value = prod >> 32;
+                ExecutionResult::Continue {
+                    rd,
+                    value: value as u32,
+                }
+            }
+        }
     }
 }

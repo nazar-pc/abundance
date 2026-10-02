@@ -4,17 +4,16 @@
 mod tests;
 
 use crate::instructions::Instruction;
+use crate::instructions::rv64::zk::zbkc::Rv64ZbkcInstruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// RISC-V RV64 Zbc instruction (Carryless multiplication)
-#[instruction]
+#[instruction(inherit = [Rv64ZbkcInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 pub enum Rv64ZbcInstruction<Reg> {
-    Clmul { rd: Reg, rs1: Reg, rs2: Reg },
-    Clmulh { rd: Reg, rs1: Reg, rs2: Reg },
     Clmulr { rd: Reg, rs1: Reg, rs2: Reg },
 }
 
@@ -44,8 +43,6 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b001, 0b000_0101) => Some(Self::Clmul { rd, rs1, rs2 }),
-                    (0b011, 0b000_0101) => Some(Self::Clmulh { rd, rs1, rs2 }),
                     (0b010, 0b000_0101) => Some(Self::Clmulr { rd, rs1, rs2 }),
                     _ => None,
                 }
@@ -63,12 +60,10 @@ where
 #[instruction]
 impl<Reg> fmt::Display for Rv64ZbcInstruction<Reg>
 where
-    Reg: fmt::Display,
+    Reg: fmt::Display + Copy,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Clmul { rd, rs1, rs2 } => write!(f, "clmul {rd}, {rs1}, {rs2}"),
-            Self::Clmulh { rd, rs1, rs2 } => write!(f, "clmulh {rd}, {rs1}, {rs2}"),
             Self::Clmulr { rd, rs1, rs2 } => write!(f, "clmulr {rd}, {rs1}, {rs2}"),
         }
     }

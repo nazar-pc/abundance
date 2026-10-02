@@ -46,24 +46,6 @@ where
         _program_counter: &mut PC,
     ) -> ExecutionResult<Self::Reg> {
         match self {
-            Self::Clmul { rd, rs1: _, rs2: _ } => {
-                let a = rs1_value;
-                let b = rs2_value;
-
-                ExecutionResult::Continue {
-                    rd,
-                    value: rv64_zbc_helpers::clmul(a, b),
-                }
-            }
-            Self::Clmulh { rd, rs1: _, rs2: _ } => {
-                let a = rs1_value;
-                let b = rs2_value;
-
-                ExecutionResult::Continue {
-                    rd,
-                    value: rv64_zbc_helpers::clmulh(a, b),
-                }
-            }
             Self::Clmulr { rd, rs1: _, rs2: _ } => {
                 let a = rs1_value;
                 let b = rs2_value;

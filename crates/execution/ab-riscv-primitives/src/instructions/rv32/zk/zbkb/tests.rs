@@ -1,8 +1,9 @@
 #![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
 
 use crate::instructions::Instruction;
+use crate::instructions::rv32::b::zbb::Rv32ZbbInstruction;
 use crate::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
-use crate::instructions::test_utils::make_r_type;
+use crate::instructions::test_utils::{make_i_type, make_r_type};
 use crate::registers::general_purpose::Reg;
 
 #[test]
@@ -124,4 +125,38 @@ fn test_unknown_opcode_returns_none() {
     let inst = make_r_type(0b010_0011, 1, 0b100, 2, 3, 0b000_0100);
     let decoded = Rv32ZbkbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(decoded, None);
+}
+
+#[test]
+fn test_shared_with_zbb() {
+    let andn = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b010_0000);
+    assert_eq!(
+        Rv32ZbkbInstruction::<Reg<u32>>::try_decode(andn),
+        Some(Rv32ZbkbInstruction::Andn {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp,
+        })
+    );
+    let rev8 = make_i_type(0b001_0011, 1, 0b101, 2, 0b0110_1001_1000);
+    assert_eq!(
+        Rv32ZbkbInstruction::<Reg<u32>>::try_decode(rev8),
+        Some(Rv32ZbkbInstruction::Rev8 {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
+        })
+    );
+}
+
+#[test]
+fn test_zbb_only_rejected() {
+    let clz = make_i_type(0b001_0011, 1, 0b001, 2, 0b0110_0000_0000);
+    let orc_b = make_i_type(0b001_0011, 1, 0b101, 2, 0b0010_1000_0111);
+    let min = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0101);
+    let zext_h = make_r_type(0b011_0011, 1, 0b100, 2, 0, 0b000_0100);
+    for inst in [clz, orc_b, min, zext_h] {
+        assert_eq!(Rv32ZbkbInstruction::<Reg<u32>>::try_decode(inst), None);
+        assert!(Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst).is_some());
+    }
 }

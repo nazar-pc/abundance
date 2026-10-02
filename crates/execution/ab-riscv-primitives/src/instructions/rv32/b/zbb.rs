@@ -8,33 +8,24 @@ use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
-/// RISC-V RV32 Zbb instruction (Basic bit manipulation)
+/// RISC-V RV32 instructions shared between Zbb and Zbkb extensions.
+///
+/// Not an extension on its own, only exists such that both Zbb and Zbkb can inherit it.
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv32ZbbInstruction<Reg> {
+pub enum Rv32ZbbZbkbSharedInstruction<Reg> {
     Andn { rd: Reg, rs1: Reg, rs2: Reg },
     Orn { rd: Reg, rs1: Reg, rs2: Reg },
     Xnor { rd: Reg, rs1: Reg, rs2: Reg },
-    Clz { rd: Reg, rs1: Reg },
-    Ctz { rd: Reg, rs1: Reg },
-    Cpop { rd: Reg, rs1: Reg },
-    Max { rd: Reg, rs1: Reg, rs2: Reg },
-    Maxu { rd: Reg, rs1: Reg, rs2: Reg },
-    Min { rd: Reg, rs1: Reg, rs2: Reg },
-    Minu { rd: Reg, rs1: Reg, rs2: Reg },
-    Sextb { rd: Reg, rs1: Reg },
-    Sexth { rd: Reg, rs1: Reg },
-    Zexth { rd: Reg, rs1: Reg },
     Rol { rd: Reg, rs1: Reg, rs2: Reg },
     Ror { rd: Reg, rs1: Reg, rs2: Reg },
     Rori { rd: Reg, rs1: Reg, shamt: u8 },
-    Orcb { rd: Reg, rs1: Reg },
     Rev8 { rd: Reg, rs1: Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZbbInstruction<Reg>
+const impl<Reg> Instruction for Rv32ZbbZbkbSharedInstruction<Reg>
 where
     Reg: [const] Register<Type = u32>,
 {
@@ -61,29 +52,11 @@ where
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 match funct3 {
-                    0b001 => {
-                        // RV32: shamt is 5 bits; funct7 distinguishes the operation
-                        if funct7 == 0b011_0000 {
-                            match rs2_bits {
-                                0 => Some(Self::Clz { rd, rs1 }),
-                                1 => Some(Self::Ctz { rd, rs1 }),
-                                2 => Some(Self::Cpop { rd, rs1 }),
-                                4 => Some(Self::Sextb { rd, rs1 }),
-                                5 => Some(Self::Sexth { rd, rs1 }),
-                                _ => None,
-                            }
-                        } else {
-                            None
-                        }
-                    }
                     0b101 => {
-                        // orc.b: funct12 = 0b0010_1000_0111
                         // rev8 for RV32: funct12 = 0b0110_1001_1000
                         // rori: funct7 = 0b0110000, shamt in bits [24:20] (RV32 has no shamt[5] -
                         // unlike RV64, all 7 funct7 bits are the opcode selector, not just 6)
-                        if funct12 == 0b0010_1000_0111 {
-                            Some(Self::Orcb { rd, rs1 })
-                        } else if funct12 == 0b0110_1001_1000 {
+                        if funct12 == 0b0110_1001_1000 {
                             Some(Self::Rev8 { rd, rs1 })
                         } else if funct7 == 0b011_0000 {
                             Some(Self::Rori {
@@ -103,42 +76,131 @@ where
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
+                match (funct3, funct7) {
+                    (0b001, 0b011_0000) => Some(Self::Rol { rd, rs1, rs2 }),
+                    (0b100, 0b010_0000) => Some(Self::Xnor { rd, rs1, rs2 }),
+                    (0b101, 0b011_0000) => Some(Self::Ror { rd, rs1, rs2 }),
+                    (0b110, 0b010_0000) => Some(Self::Orn { rd, rs1, rs2 }),
+                    (0b111, 0b010_0000) => Some(Self::Andn { rd, rs1, rs2 }),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv32ZbbZbkbSharedInstruction<Reg>
+where
+    Reg: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Andn { rd, rs1, rs2 } => write!(f, "andn {rd}, {rs1}, {rs2}"),
+            Self::Orn { rd, rs1, rs2 } => write!(f, "orn {rd}, {rs1}, {rs2}"),
+            Self::Xnor { rd, rs1, rs2 } => write!(f, "xnor {rd}, {rs1}, {rs2}"),
+            Self::Rol { rd, rs1, rs2 } => write!(f, "rol {rd}, {rs1}, {rs2}"),
+            Self::Ror { rd, rs1, rs2 } => write!(f, "ror {rd}, {rs1}, {rs2}"),
+            Self::Rori { rd, rs1, shamt } => write!(f, "rori {rd}, {rs1}, {shamt}"),
+            Self::Rev8 { rd, rs1 } => write!(f, "rev8 {rd}, {rs1}"),
+        }
+    }
+}
+
+/// RISC-V RV32 Zbb instruction (Basic bit manipulation)
+#[instruction(
+    reorder = [
+        Andn, Orn, Xnor, Clz, Ctz, Cpop, Max, Maxu, Min, Minu, Sextb, Sexth, Zexth, Rol, Ror, Rori,
+        Orcb, Rev8,
+    ],
+    inherit = [Rv32ZbbZbkbSharedInstruction],
+)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+pub enum Rv32ZbbInstruction<Reg> {
+    Clz { rd: Reg, rs1: Reg },
+    Ctz { rd: Reg, rs1: Reg },
+    Cpop { rd: Reg, rs1: Reg },
+    Max { rd: Reg, rs1: Reg, rs2: Reg },
+    Maxu { rd: Reg, rs1: Reg, rs2: Reg },
+    Min { rd: Reg, rs1: Reg, rs2: Reg },
+    Minu { rd: Reg, rs1: Reg, rs2: Reg },
+    Sextb { rd: Reg, rs1: Reg },
+    Sexth { rd: Reg, rs1: Reg },
+    Zexth { rd: Reg, rs1: Reg },
+    Orcb { rd: Reg, rs1: Reg },
+}
+
+#[instruction]
+const impl<Reg> Instruction for Rv32ZbbInstruction<Reg>
+where
+    Reg: [const] Register<Type = u32>,
+{
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Reg = Reg;
+
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        let opcode = (instruction & 0b111_1111) as u8;
+        let rd_bits = ((instruction >> 7) & 0x1f) as u8;
+        let funct3 = ((instruction >> 12) & 0b111) as u8;
+        let rs1_bits = ((instruction >> 15) & 0x1f) as u8;
+        let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
+        let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
+        let funct12 = ((instruction >> 20) & 0xfff) as u16;
+
+        match opcode {
+            // OP-IMM
+            0b001_0011 => {
+                let rd = Reg::from_bits(rd_bits)?;
+                let rs1 = Reg::from_bits(rs1_bits)?;
                 match funct3 {
                     0b001 => {
+                        // RV32: shamt is 5 bits; funct7 distinguishes the operation
                         if funct7 == 0b011_0000 {
-                            Some(Self::Rol { rd, rs1, rs2 })
+                            match rs2_bits {
+                                0 => Some(Self::Clz { rd, rs1 }),
+                                1 => Some(Self::Ctz { rd, rs1 }),
+                                2 => Some(Self::Cpop { rd, rs1 }),
+                                4 => Some(Self::Sextb { rd, rs1 }),
+                                5 => Some(Self::Sexth { rd, rs1 }),
+                                _ => None,
+                            }
                         } else {
                             None
                         }
                     }
-                    0b100 => match funct7 {
-                        0b010_0000 => Some(Self::Xnor { rd, rs1, rs2 }),
-                        0b000_0101 => Some(Self::Min { rd, rs1, rs2 }),
-                        // zext.h for RV32 uses OP (0b011_0011), funct7=0b000_0100, rs2=0
-                        0b000_0100 => {
-                            if rs2_bits == 0 {
-                                Some(Self::Zexth { rd, rs1 })
-                            } else {
-                                None
-                            }
+                    0b101 => {
+                        // orc.b: funct12 = 0b0010_1000_0111
+                        if funct12 == 0b0010_1000_0111 {
+                            Some(Self::Orcb { rd, rs1 })
+                        } else {
+                            None
                         }
-                        _ => None,
-                    },
-                    0b101 => match funct7 {
-                        0b011_0000 => Some(Self::Ror { rd, rs1, rs2 }),
-                        0b000_0101 => Some(Self::Minu { rd, rs1, rs2 }),
-                        _ => None,
-                    },
-                    0b110 => match funct7 {
-                        0b010_0000 => Some(Self::Orn { rd, rs1, rs2 }),
-                        0b000_0101 => Some(Self::Max { rd, rs1, rs2 }),
-                        _ => None,
-                    },
-                    0b111 => match funct7 {
-                        0b010_0000 => Some(Self::Andn { rd, rs1, rs2 }),
-                        0b000_0101 => Some(Self::Maxu { rd, rs1, rs2 }),
-                        _ => None,
-                    },
+                    }
+                    _ => None,
+                }
+            }
+            // OP / R-type
+            0b011_0011 => {
+                let rd = Reg::from_bits(rd_bits)?;
+                let rs1 = Reg::from_bits(rs1_bits)?;
+                let rs2 = Reg::from_bits(rs2_bits)?;
+                match (funct3, funct7) {
+                    (0b100, 0b000_0101) => Some(Self::Min { rd, rs1, rs2 }),
+                    // zext.h for RV32 uses OP (0b011_0011), funct7=0b000_0100, rs2=0
+                    (0b100, 0b000_0100) if rs2_bits == 0 => Some(Self::Zexth { rd, rs1 }),
+                    (0b101, 0b000_0101) => Some(Self::Minu { rd, rs1, rs2 }),
+                    (0b110, 0b000_0101) => Some(Self::Max { rd, rs1, rs2 }),
+                    (0b111, 0b000_0101) => Some(Self::Maxu { rd, rs1, rs2 }),
                     _ => None,
                 }
             }
@@ -155,13 +217,10 @@ where
 #[instruction]
 impl<Reg> fmt::Display for Rv32ZbbInstruction<Reg>
 where
-    Reg: fmt::Display,
+    Reg: fmt::Display + Copy,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Andn { rd, rs1, rs2 } => write!(f, "andn {rd}, {rs1}, {rs2}"),
-            Self::Orn { rd, rs1, rs2 } => write!(f, "orn {rd}, {rs1}, {rs2}"),
-            Self::Xnor { rd, rs1, rs2 } => write!(f, "xnor {rd}, {rs1}, {rs2}"),
             Self::Clz { rd, rs1 } => write!(f, "clz {rd}, {rs1}"),
             Self::Ctz { rd, rs1 } => write!(f, "ctz {rd}, {rs1}"),
             Self::Cpop { rd, rs1 } => write!(f, "cpop {rd}, {rs1}"),
@@ -172,11 +231,7 @@ where
             Self::Sextb { rd, rs1 } => write!(f, "sext.b {rd}, {rs1}"),
             Self::Sexth { rd, rs1 } => write!(f, "sext.h {rd}, {rs1}"),
             Self::Zexth { rd, rs1 } => write!(f, "zext.h {rd}, {rs1}"),
-            Self::Rol { rd, rs1, rs2 } => write!(f, "rol {rd}, {rs1}, {rs2}"),
-            Self::Ror { rd, rs1, rs2 } => write!(f, "ror {rd}, {rs1}, {rs2}"),
-            Self::Rori { rd, rs1, shamt } => write!(f, "rori {rd}, {rs1}, {shamt}"),
             Self::Orcb { rd, rs1 } => write!(f, "orc.b {rd}, {rs1}"),
-            Self::Rev8 { rd, rs1 } => write!(f, "rev8 {rd}, {rs1}"),
         }
     }
 }
