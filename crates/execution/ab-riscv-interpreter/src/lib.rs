@@ -61,7 +61,7 @@
 //! * Zca (version 1.0.0)
 //! * Zcb (version 1.0.0)
 //! * (experimental) Zcmp (version 1.0.0)
-//! * Zicond (version 2.0)
+//! * Zicond (version 1.0.0)
 //! * Zicsr (version 2.0)
 //! * Zifencei (version 2.0)
 //! * Zkn (version 1.0.1)
