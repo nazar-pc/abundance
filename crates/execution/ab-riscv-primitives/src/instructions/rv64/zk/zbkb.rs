@@ -4,7 +4,7 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::b::zbb::Rv64ZbbZbkbSharedInstruction;
+use crate::instructions::rv64::b::zbb::{Rv64ZbbInstruction, Rv64ZbbZbkbSharedInstruction};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -74,9 +74,18 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    // packw: funct3=100, funct7=000_0100, rs2 != 0
-                    // rs2=0 is the encoding of RV64 Zbb zext.h and must fall through.
-                    (0b100, 0b000_0100) if rs2_bits != 0 => Some(Self::Packw { rd, rs1, rs2 }),
+                    // packw: funct3=100, funct7=000_0100
+                    // NOTE: `packw rd, rs1, x0` has exactly the same encoding and semantics as
+                    // Zbb's `zext.h`. When Zbb is present in the instruction set, decoding is
+                    // intentionally refused here, so the instruction is always decoded as `zext.h`
+                    // (which is cheaper to execute) regardless of the order in which extensions
+                    // are inherited. Without Zbb, it is a regular `packw`.
+                    (0b100, 0b000_0100)
+                        if rs2_bits != 0
+                            || !Self::implements_extension::<Rv64ZbbInstruction<_>>() =>
+                    {
+                        Some(Self::Packw { rd, rs1, rs2 })
+                    }
                     _ => None,
                 }
             }
