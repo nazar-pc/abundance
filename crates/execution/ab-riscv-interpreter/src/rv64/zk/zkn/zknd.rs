@@ -14,6 +14,58 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
+const impl<Reg> ExecutableInstructionOperands for Rv64ZkndZkneSharedInstruction<Reg> where
+    Reg: Register<Type = u64>
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZkndZkneSharedInstruction<Reg> where
+    Reg: Register<Type = u64>
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv64ZkndZkneSharedInstruction<Reg>
+where
+    Reg: [const] Register<Type = u64>,
+    Regs: [const] RegisterFile<Reg>,
+{
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn execute(
+        self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
+        _env: &mut Env,
+        _memory: &mut Memory,
+        _program_counter: &mut PC,
+    ) -> ExecutionResult<Self::Reg> {
+        match self {
+            Self::Aes64Ks1i { rd, rs1: _, rnum } => {
+                let v1 = rs1_value;
+                ExecutionResult::Continue {
+                    rd,
+                    value: rv64_zknd_helpers::aes64ks1i(v1, rnum),
+                }
+            }
+            Self::Aes64Ks2 { rd, rs1: _, rs2: _ } => {
+                let v1 = rs1_value;
+                let v2 = rs2_value;
+                ExecutionResult::Continue {
+                    rd,
+                    value: rv64_zknd_helpers::aes64ks2(v1, v2),
+                }
+            }
+        }
+    }
+}
+
+#[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv64ZkndInstruction<Reg> where
     Reg: Register<Type = u64>
 {
@@ -67,21 +119,6 @@ where
                 ExecutionResult::Continue {
                     rd,
                     value: rv64_zknd_helpers::aes64im(v1),
-                }
-            }
-            Self::Aes64Ks1i { rd, rs1: _, rnum } => {
-                let v1 = rs1_value;
-                ExecutionResult::Continue {
-                    rd,
-                    value: rv64_zknd_helpers::aes64ks1i(v1, rnum),
-                }
-            }
-            Self::Aes64Ks2 { rd, rs1: _, rs2: _ } => {
-                let v1 = rs1_value;
-                let v2 = rs2_value;
-                ExecutionResult::Continue {
-                    rd,
-                    value: rv64_zknd_helpers::aes64ks2(v1, v2),
                 }
             }
         }

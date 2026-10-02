@@ -1,20 +1,26 @@
 //! RV64 Zmmul extension (multiplication subset of M extension)
 
+#[cfg(test)]
+mod tests;
+
 use crate::instructions::Instruction;
-use crate::instructions::rv64::m::Rv64MInstruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// RISC-V RV64 Zmmul instruction
-#[instruction(
-    reorder = [Mul, Mulh, Mulhsu, Mulhu, Mulw],
-    ignore = [Rv64MInstruction],
-    inherit = [Rv64MInstruction],
-)]
+#[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64ZmmulInstruction<Reg> {}
+pub enum Rv64ZmmulInstruction<Reg> {
+    Mul { rd: Reg, rs1: Reg, rs2: Reg },
+    Mulh { rd: Reg, rs1: Reg, rs2: Reg },
+    Mulhsu { rd: Reg, rs1: Reg, rs2: Reg },
+    Mulhu { rd: Reg, rs1: Reg, rs2: Reg },
+
+    // RV64 Zmmul instructions
+    Mulw { rd: Reg, rs1: Reg, rs2: Reg },
+}
 
 #[instruction]
 const impl<Reg> Instruction for Rv64ZmmulInstruction<Reg>
@@ -28,7 +34,39 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn try_decode(instruction: u32) -> Option<Self> {
-        None
+        let opcode = (instruction & 0b111_1111) as u8;
+        let rd_bits = ((instruction >> 7) & 0x1f) as u8;
+        let funct3 = ((instruction >> 12) & 0b111) as u8;
+        let rs1_bits = ((instruction >> 15) & 0x1f) as u8;
+        let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
+        let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
+
+        match opcode {
+            // R-type
+            0b011_0011 => {
+                let rd = Reg::from_bits(rd_bits)?;
+                let rs1 = Reg::from_bits(rs1_bits)?;
+                let rs2 = Reg::from_bits(rs2_bits)?;
+                match (funct3, funct7) {
+                    (0b000, 0b000_0001) => Some(Self::Mul { rd, rs1, rs2 }),
+                    (0b001, 0b000_0001) => Some(Self::Mulh { rd, rs1, rs2 }),
+                    (0b010, 0b000_0001) => Some(Self::Mulhsu { rd, rs1, rs2 }),
+                    (0b011, 0b000_0001) => Some(Self::Mulhu { rd, rs1, rs2 }),
+                    _ => None,
+                }
+            }
+            // R-type W
+            0b011_1011 => {
+                let rd = Reg::from_bits(rd_bits)?;
+                let rs1 = Reg::from_bits(rs1_bits)?;
+                let rs2 = Reg::from_bits(rs2_bits)?;
+                match (funct3, funct7) {
+                    (0b000, 0b000_0001) => Some(Self::Mulw { rd, rs1, rs2 }),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
     }
 
     #[inline(always)]
@@ -40,9 +78,16 @@ where
 #[instruction]
 impl<Reg> fmt::Display for Rv64ZmmulInstruction<Reg>
 where
-    Reg: fmt::Display + Copy,
+    Reg: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {}
+        match self {
+            Self::Mul { rd, rs1, rs2 } => write!(f, "mul {rd}, {rs1}, {rs2}"),
+            Self::Mulh { rd, rs1, rs2 } => write!(f, "mulh {rd}, {rs1}, {rs2}"),
+            Self::Mulhsu { rd, rs1, rs2 } => write!(f, "mulhsu {rd}, {rs1}, {rs2}"),
+            Self::Mulhu { rd, rs1, rs2 } => write!(f, "mulhu {rd}, {rs1}, {rs2}"),
+
+            Self::Mulw { rd, rs1, rs2 } => write!(f, "mulw {rd}, {rs1}, {rs2}"),
+        }
     }
 }

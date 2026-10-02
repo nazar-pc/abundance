@@ -129,9 +129,10 @@ pub const trait Register:
     + Sized
     + 'static
 {
-    /// Whether this is RVE variant with the number of general purpose registers reduced to 16
     /// XLEN
     const XLEN: u8 = Self::Type::BITS;
+    /// Whether this is RVE variant with the number of general purpose registers reduced to 16
+    const RVE: bool;
     /// Zero register
     const ZERO: Self;
     /// Stack pointer register
@@ -237,6 +238,7 @@ const impl<Type> PartialEq for EReg<Type> {
 const impl<Type> Eq for EReg<Type> {}
 
 const impl Register for EReg<u32> {
+    const RVE: bool = true;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -269,6 +271,7 @@ const impl Register for EReg<u32> {
 }
 
 const impl Register for EReg<u64> {
+    const RVE: bool = true;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -458,6 +461,7 @@ const impl<Type> PartialEq for Reg<Type> {
 const impl<Type> Eq for Reg<Type> {}
 
 const impl Register for Reg<u32> {
+    const RVE: bool = false;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;
@@ -506,6 +510,7 @@ const impl Register for Reg<u32> {
 }
 
 const impl Register for Reg<u64> {
+    const RVE: bool = false;
     const ZERO: Self = Self::Zero;
     const SP: Self = Self::Sp;
     const RA: Self = Self::Ra;

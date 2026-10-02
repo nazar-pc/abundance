@@ -41,6 +41,25 @@ where
         _memory: &mut Memory,
         _program_counter: &mut PC,
     ) -> ExecutionResult<Self::Reg> {
-        ExecutionResult::ContinueNoWrite
+        match self {
+            Self::Clmul { rd, rs1: _, rs2: _ } => {
+                let a = rs1_value;
+                let b = rs2_value;
+
+                ExecutionResult::Continue {
+                    rd,
+                    value: rv64_zbc_helpers::clmul(a, b),
+                }
+            }
+            Self::Clmulh { rd, rs1: _, rs2: _ } => {
+                let a = rs1_value;
+                let b = rs2_value;
+
+                ExecutionResult::Continue {
+                    rd,
+                    value: rv64_zbc_helpers::clmulh(a, b),
+                }
+            }
+        }
     }
 }

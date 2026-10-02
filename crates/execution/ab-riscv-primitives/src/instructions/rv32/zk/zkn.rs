@@ -5,8 +5,7 @@ pub mod zkne;
 pub mod zknh;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv32::b::zbb::Rv32ZbbInstruction;
-use crate::instructions::rv32::b::zbc::Rv32ZbcInstruction;
+use crate::instructions::rv32::b::zbb::{Rv32ZbbInstruction, Rv32ZbbZbkbSharedInstruction};
 use crate::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
 use crate::instructions::rv32::zk::zbkc::Rv32ZbkcInstruction;
 use crate::instructions::rv32::zk::zbkx::Rv32ZbkxInstruction;

@@ -5,19 +5,16 @@ mod tests;
 pub mod zmmul;
 
 use crate::instructions::Instruction;
+use crate::instructions::rv32::m::zmmul::Rv32ZmmulInstruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// RISC-V RV32 M instruction
-#[instruction]
+#[instruction(inherit = [Rv32ZmmulInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 pub enum Rv32MInstruction<Reg> {
-    Mul { rd: Reg, rs1: Reg, rs2: Reg },
-    Mulh { rd: Reg, rs1: Reg, rs2: Reg },
-    Mulhsu { rd: Reg, rs1: Reg, rs2: Reg },
-    Mulhu { rd: Reg, rs1: Reg, rs2: Reg },
     Div { rd: Reg, rs1: Reg, rs2: Reg },
     Divu { rd: Reg, rs1: Reg, rs2: Reg },
     Rem { rd: Reg, rs1: Reg, rs2: Reg },
@@ -50,10 +47,6 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
-                    (0b000, 0b000_0001) => Some(Self::Mul { rd, rs1, rs2 }),
-                    (0b001, 0b000_0001) => Some(Self::Mulh { rd, rs1, rs2 }),
-                    (0b010, 0b000_0001) => Some(Self::Mulhsu { rd, rs1, rs2 }),
-                    (0b011, 0b000_0001) => Some(Self::Mulhu { rd, rs1, rs2 }),
                     (0b100, 0b000_0001) => Some(Self::Div { rd, rs1, rs2 }),
                     (0b101, 0b000_0001) => Some(Self::Divu { rd, rs1, rs2 }),
                     (0b110, 0b000_0001) => Some(Self::Rem { rd, rs1, rs2 }),
@@ -74,14 +67,10 @@ where
 #[instruction]
 impl<Reg> fmt::Display for Rv32MInstruction<Reg>
 where
-    Reg: fmt::Display,
+    Reg: fmt::Display + Copy,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Mul { rd, rs1, rs2 } => write!(f, "mul {rd}, {rs1}, {rs2}"),
-            Self::Mulh { rd, rs1, rs2 } => write!(f, "mulh {rd}, {rs1}, {rs2}"),
-            Self::Mulhsu { rd, rs1, rs2 } => write!(f, "mulhsu {rd}, {rs1}, {rs2}"),
-            Self::Mulhu { rd, rs1, rs2 } => write!(f, "mulhu {rd}, {rs1}, {rs2}"),
             Self::Div { rd, rs1, rs2 } => write!(f, "div {rd}, {rs1}, {rs2}"),
             Self::Divu { rd, rs1, rs2 } => write!(f, "divu {rd}, {rs1}, {rs2}"),
             Self::Rem { rd, rs1, rs2 } => write!(f, "rem {rd}, {rs1}, {rs2}"),

@@ -4,17 +4,13 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv32::b::zbb::Rv32ZbbInstruction;
+use crate::instructions::rv32::b::zbb::{Rv32ZbbInstruction, Rv32ZbbZbkbSharedInstruction};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
 
 /// RISC-V RV32 Zbkb instruction (Bit-manipulation for Cryptography)
-#[instruction(
-    reorder = [Andn, Orn, Xnor, Rol, Ror, Rori, Rev8, Pack, Packh, Brev8],
-    ignore = [Rv32ZbbInstruction],
-    inherit = [Rv32ZbbInstruction],
-)]
+#[instruction(inherit = [Rv32ZbbZbkbSharedInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 pub enum Rv32ZbkbInstruction<Reg> {
@@ -72,14 +68,21 @@ where
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let rs2 = Reg::from_bits(rs2_bits)?;
-                match (funct3, funct7, rs2_bits) {
-                    // pack: funct3=100, funct7=0000100, rs2!=0
-                    // rs2=0 collides with inherited RV32 Zbb zext.h and must fall through.
-                    (0b100, 0b000_0100, rs2_bits) if rs2_bits != 0 => {
+                match (funct3, funct7) {
+                    // pack: funct3=100, funct7=0000100
+                    // NOTE: `pack rd, rs1, x0` has exactly the same encoding and semantics as
+                    // Zbb's `zext.h`. When Zbb is present in the instruction set, decoding is
+                    // intentionally refused here, so the instruction is always decoded as `zext.h`
+                    // (which is cheaper to execute) regardless of the order in which extensions
+                    // are inherited. Without Zbb, it is a regular `pack`.
+                    (0b100, 0b000_0100)
+                        if rs2_bits != 0
+                            || !Self::implements_extension::<Rv32ZbbInstruction<_>>() =>
+                    {
                         Some(Self::Pack { rd, rs1, rs2 })
                     }
                     // packh: funct3=111, funct7=0000100
-                    (0b111, 0b000_0100, _) => Some(Self::Packh { rd, rs1, rs2 }),
+                    (0b111, 0b000_0100) => Some(Self::Packh { rd, rs1, rs2 }),
                     _ => None,
                 }
             }

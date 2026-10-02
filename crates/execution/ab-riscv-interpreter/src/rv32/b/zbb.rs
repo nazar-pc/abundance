@@ -14,6 +14,73 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
+const impl<Reg> ExecutableInstructionOperands for Rv32ZbbZbkbSharedInstruction<Reg> where
+    Reg: Register<Type = u32>
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32ZbbZbkbSharedInstruction<Reg> where
+    Reg: Register<Type = u32>
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv32ZbbZbkbSharedInstruction<Reg>
+where
+    Reg: [const] Register<Type = u32>,
+    Regs: [const] RegisterFile<Reg>,
+{
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
+    fn execute(
+        self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        _regs: &mut Regs,
+        _env: &mut Env,
+        _memory: &mut Memory,
+        _program_counter: &mut PC,
+    ) -> ExecutionResult<Self::Reg> {
+        match self {
+            Self::Andn { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value & !rs2_value;
+                ExecutionResult::Continue { rd, value }
+            }
+            Self::Orn { rd, rs1: _, rs2: _ } => {
+                let value = rs1_value | !rs2_value;
+                ExecutionResult::Continue { rd, value }
+            }
+            Self::Xnor { rd, rs1: _, rs2: _ } => {
+                let value = !(rs1_value ^ rs2_value);
+                ExecutionResult::Continue { rd, value }
+            }
+            Self::Rol { rd, rs1: _, rs2: _ } => {
+                let shamt = rs2_value & 0x1f;
+                let value = rs1_value.rotate_left(shamt);
+                ExecutionResult::Continue { rd, value }
+            }
+            Self::Ror { rd, rs1: _, rs2: _ } => {
+                let shamt = rs2_value & 0x1f;
+                let value = rs1_value.rotate_right(shamt);
+                ExecutionResult::Continue { rd, value }
+            }
+            Self::Rori { rd, rs1: _, shamt } => {
+                let value = rs1_value.rotate_right(u32::from(shamt & 0x1f));
+                ExecutionResult::Continue { rd, value }
+            }
+            Self::Rev8 { rd, rs1: _ } => {
+                let value = rs1_value.swap_bytes();
+                ExecutionResult::Continue { rd, value }
+            }
+        }
+    }
+}
+
+#[instruction_execution]
 const impl<Reg> ExecutableInstructionOperands for Rv32ZbbInstruction<Reg> where
     Reg: Register<Type = u32>
 {
@@ -46,18 +113,6 @@ where
         _program_counter: &mut PC,
     ) -> ExecutionResult<Self::Reg> {
         match self {
-            Self::Andn { rd, rs1: _, rs2: _ } => {
-                let value = rs1_value & !rs2_value;
-                ExecutionResult::Continue { rd, value }
-            }
-            Self::Orn { rd, rs1: _, rs2: _ } => {
-                let value = rs1_value | !rs2_value;
-                ExecutionResult::Continue { rd, value }
-            }
-            Self::Xnor { rd, rs1: _, rs2: _ } => {
-                let value = !(rs1_value ^ rs2_value);
-                ExecutionResult::Continue { rd, value }
-            }
             Self::Clz { rd, rs1: _ } => {
                 let value = rs1_value.leading_zeros();
                 ExecutionResult::Continue { rd, value }
@@ -102,20 +157,6 @@ where
                 let value = u32::from(rs1_value as u16);
                 ExecutionResult::Continue { rd, value }
             }
-            Self::Rol { rd, rs1: _, rs2: _ } => {
-                let shamt = rs2_value & 0x1f;
-                let value = rs1_value.rotate_left(shamt);
-                ExecutionResult::Continue { rd, value }
-            }
-            Self::Ror { rd, rs1: _, rs2: _ } => {
-                let shamt = rs2_value & 0x1f;
-                let value = rs1_value.rotate_right(shamt);
-                ExecutionResult::Continue { rd, value }
-            }
-            Self::Rori { rd, rs1: _, shamt } => {
-                let value = rs1_value.rotate_right(u32::from(shamt & 0x1f));
-                ExecutionResult::Continue { rd, value }
-            }
             Self::Orcb { rd, rs1: _ } => {
                 let src = rs1_value;
 
@@ -123,10 +164,6 @@ where
                     rd,
                     value: rv32_zbb_helpers::orc_b(src),
                 }
-            }
-            Self::Rev8 { rd, rs1: _ } => {
-                let value = rs1_value.swap_bytes();
-                ExecutionResult::Continue { rd, value }
             }
         }
     }

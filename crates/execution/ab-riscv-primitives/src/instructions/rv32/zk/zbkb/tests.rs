@@ -1,9 +1,82 @@
 #![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
 
 use crate::instructions::Instruction;
+use crate::instructions::rv32::b::zbb::{Rv32ZbbInstruction, Rv32ZbbZbkbSharedInstruction};
 use crate::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
-use crate::instructions::test_utils::make_r_type;
-use crate::registers::general_purpose::Reg;
+use crate::instructions::test_utils::{make_i_type, make_r_type};
+use crate::registers::general_purpose::{Reg, Register};
+use ab_riscv_macros::instruction;
+use core::fmt;
+
+#[instruction(inherit = [Rv32ZbbInstruction, Rv32ZbkbInstruction])]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+enum Rv32ZbbZbkbTestInstruction<Reg> {}
+
+#[instruction]
+const impl<Reg> Instruction for Rv32ZbbZbkbTestInstruction<Reg>
+where
+    Reg: [const] Register<Type = u32>,
+{
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv32ZbbZbkbTestInstruction<Reg>
+where
+    Reg: fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
+#[instruction(inherit = [Rv32ZbkbInstruction, Rv32ZbbInstruction])]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+enum Rv32ZbkbZbbTestInstruction<Reg> {}
+
+#[instruction]
+const impl<Reg> Instruction for Rv32ZbkbZbbTestInstruction<Reg>
+where
+    Reg: [const] Register<Type = u32>,
+{
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv32ZbkbZbbTestInstruction<Reg>
+where
+    Reg: fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
 
 #[test]
 fn test_pack() {
@@ -21,12 +94,50 @@ fn test_pack() {
 }
 
 #[test]
-fn test_pack_rs2_zero_returns_none() {
-    // rs2=0 with pack encoding collides with zext.h (Zbb). Rv32ZbkbInstruction does not
-    // own that encoding, so it must return None and defer to the Zbb decoder layer.
+fn test_pack_rs2_zero() {
+    // `pack rd, rs1, x0` has the same encoding as Zbb's `zext.h`, but without Zbb it is decoded as
+    // `pack`
     let inst = make_r_type(0b011_0011, 1, 0b100, 2, 0, 0b000_0100);
-    let decoded = Rv32ZbkbInstruction::<Reg<u32>>::try_decode(inst);
-    assert_eq!(decoded, None);
+    assert_eq!(
+        Rv32ZbkbInstruction::<Reg<u32>>::try_decode(inst),
+        Some(Rv32ZbkbInstruction::Pack {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
+        })
+    );
+}
+
+#[test]
+fn test_pack_rs2_zero_with_zbb() {
+    // With Zbb present, `zext.h` is decoded instead regardless of the inheritance order
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 0, 0b000_0100);
+    assert_eq!(
+        Rv32ZbbZbkbTestInstruction::<Reg<u32>>::try_decode(inst),
+        Some(Rv32ZbbZbkbTestInstruction::Zexth {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
+        })
+    );
+    assert_eq!(
+        Rv32ZbkbZbbTestInstruction::<Reg<u32>>::try_decode(inst),
+        Some(Rv32ZbkbZbbTestInstruction::Zexth {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
+        })
+    );
+    // Non-zero `rs2` is still `pack`
+    let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0100);
+    assert_eq!(
+        Rv32ZbbZbkbTestInstruction::<Reg<u32>>::try_decode(inst),
+        Some(Rv32ZbbZbkbTestInstruction::Pack {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp,
+        })
+    );
 }
 
 #[test]
@@ -124,4 +235,37 @@ fn test_unknown_opcode_returns_none() {
     let inst = make_r_type(0b010_0011, 1, 0b100, 2, 3, 0b000_0100);
     let decoded = Rv32ZbkbInstruction::<Reg<u32>>::try_decode(inst);
     assert_eq!(decoded, None);
+}
+
+#[test]
+fn test_shared_with_zbb() {
+    let andn = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b010_0000);
+    assert_eq!(
+        Rv32ZbkbInstruction::<Reg<u32>>::try_decode(andn),
+        Some(Rv32ZbkbInstruction::Andn {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Gp,
+        })
+    );
+    let rev8 = make_i_type(0b001_0011, 1, 0b101, 2, 0b0110_1001_1000);
+    assert_eq!(
+        Rv32ZbkbInstruction::<Reg<u32>>::try_decode(rev8),
+        Some(Rv32ZbkbInstruction::Rev8 {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
+        })
+    );
+}
+
+#[test]
+fn test_zbb_only_rejected() {
+    let clz = make_i_type(0b001_0011, 1, 0b001, 2, 0b0110_0000_0000);
+    let orc_b = make_i_type(0b001_0011, 1, 0b101, 2, 0b0010_1000_0111);
+    let min = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0101);
+    for inst in [clz, orc_b, min] {
+        assert_eq!(Rv32ZbkbInstruction::<Reg<u32>>::try_decode(inst), None);
+        assert!(Rv32ZbbInstruction::<Reg<u32>>::try_decode(inst).is_some());
+    }
 }
