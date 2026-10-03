@@ -1,4 +1,4 @@
-use crate::build::shared::collect_all_dependencies;
+use crate::build::shared::{collect_all_dependencies, is_enum_implemented};
 use crate::build::state::{PendingEnumDefinition, State};
 use ab_riscv_macros_common::code_utils::pre_process_rust_code;
 use anyhow::Context;
@@ -743,9 +743,10 @@ fn get_all_inherited_instructions(
 }
 
 /// Resolve dependencies and clean up unsatisfied dependencies from the map produced by
-/// [`get_all_inherited_instructions()`]
+/// [`get_all_inherited_instructions()`], `inherited_enums` are all enums inherited recursively
 fn process_dependencies_for_enablement(
     all_inherited_instructions: &mut HashMap<Ident, KnownInstruction>,
+    inherited_enums: &HashSet<Ident>,
     state: &State,
 ) {
     let mut last_fully_available_instructions = usize::MAX;
@@ -780,21 +781,19 @@ fn process_dependencies_for_enablement(
                                 return true;
                             }
 
-                            // Potentially depends on the whole enum, in which case all its variants
-                            // must be available
+                            // Potentially depends on the whole enum, in which case it must be
+                            // inherited and implemented
                             *enum_dependencies_for_enablement_cache
                                 .entry(instruction_dependency_for_enablement)
                                 .or_insert_with(|| {
-                                    state
-                                        .get_known_enum_definition(
+                                    inherited_enums.contains(instruction_dependency_for_enablement)
+                                        && is_enum_implemented(
+                                            state,
                                             instruction_dependency_for_enablement,
+                                            |instruction| {
+                                                fully_available_instructions.contains(instruction)
+                                            },
                                         )
-                                        .is_some_and(|enum_definition| {
-                                            enum_definition.instructions.iter().all(|variant| {
-                                                fully_available_instructions
-                                                    .contains(&variant.ident)
-                                            })
-                                        })
                                 })
                         },
                     )
@@ -912,7 +911,12 @@ fn process_enum_definition_inherited(
     all_inherited_instructions.retain(|instruction_name, _inherited_instruction| {
         !ignored_instructions.contains(instruction_name)
     });
-    process_dependencies_for_enablement(&mut all_inherited_instructions, state);
+    let inherited_enums = collect_all_dependencies(state, direct_dependencies.iter().cloned())
+        .expect("All inherited instructions were collected, so all dependencies are known; qed")
+        .into_iter()
+        .map(|(dependency_enum_name, _dependency_enum_definition)| dependency_enum_name)
+        .collect();
+    process_dependencies_for_enablement(&mut all_inherited_instructions, &inherited_enums, state);
 
     let mut processed_instructions = ignored_instructions.clone();
     let mut instructions = Vec::new();

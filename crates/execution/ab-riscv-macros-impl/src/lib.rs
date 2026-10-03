@@ -84,11 +84,14 @@ use proc_macro::TokenStream;
 /// during composition (`B` contains `Zba`, `Zbb` and `Zbs`).
 ///
 /// `ignore` can be used to exclude individual instructions or whole enums from a custom instruction
-/// set (like `ecall` from an instruction set that doesn't support system calls). It should not be
-/// used for modeling relationships between extensions though: an extension that is a subset of
-/// another extension according to the specification is inherited by that extension (`M` inherits
-/// `Zmmul`), while instructions shared by extensions that are not subsets of each other are
-/// extracted into a separate enum, which both extensions inherit (`Zbb` and `Zbkb` both inherit
+/// set (like `ecall` from an instruction set that doesn't support system calls). An enum ignored as
+/// a whole, as well as enums that inherit it, are not implemented extensions of the instruction set
+/// (see `Instruction::IMPLEMENTED_EXTENSIONS`), while ignoring individual instructions doesn't
+/// change that, unless none of the enum's own instructions are left. It should not be used for
+/// modeling relationships between extensions though: an extension that is a subset of another
+/// extension according to the specification is inherited by that extension (`M` inherits `Zmmul`),
+/// while instructions shared by extensions that are not subsets of each other are extracted into a
+/// separate enum, which both extensions inherit (`Zbb` and `Zbkb` both inherit
 /// `Rv64ZbbZbkbSharedInstruction`).
 ///
 /// `if` on both enum and variant levels specifies soft optional dependencies on other instructions
@@ -100,7 +103,8 @@ use proc_macro::TokenStream;
 ///
 /// These `if` conditions allow modeling things like `Zcf` part of `C` extension only being
 /// available when `F` extension is also available or `Zcb`'s `c.sext.b` only present when `Zbb`
-/// extension is also available.
+/// extension is also available. An enum in `if` condition is satisfied when it is implemented, the
+/// same way as in `Instruction::IMPLEMENTED_EXTENSIONS`.
 ///
 /// # Enum decoding implementation
 ///
