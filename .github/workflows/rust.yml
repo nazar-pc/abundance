@@ -344,15 +344,18 @@ jobs:
         run: |
           & {
             # See https://vulkan.lunarg.com/sdk/home for updates
-            $sdkVersion = "1.4.350.0"
+            $sdkVersion = "1.4.363.0"
             if ("${{ runner.arch }}" -eq "ARM64") {
               $arch = "ARM64"
               $urlPath = "warm"
-              $expectedHash = "1845c336ca17180ca4e4f6f52542ff9998aa39a76bc6ed75961eef67aad1a811"
+              $archDir = ""
+              $expectedHash = "fede2cc8b62e55d3b0607019e1f8ca612bc663ae9301be5de10a52329a552271"
             } else {
               $arch = "X64"
               $urlPath = "windows"
-              $expectedHash = "23ce69f32cef3e2799617e2b1776cd0c71030d23a91f8375821cc40d76b185b9"
+              # The archive also contains 32-bit loader in `x86`, which can't be used by 64-bit tests
+              $archDir = "x64\"
+              $expectedHash = "a25a927aa8b9f0371048f1861cf88ac3b9bc9b1fb332c42d897c8ab32695769a"
             }
 
             $url = "https://sdk.lunarg.com/sdk/download/$sdkVersion/$urlPath/VulkanRT-$arch-$sdkVersion-Components.zip"
@@ -363,7 +366,10 @@ jobs:
               throw "SHA256 mismatch: expected $expectedHash, got $actualHash"
             }
 
-            7z e VulkanRT.zip -o"${{ runner.temp }}\vulkan" -r "vulkan-1.*"
+            7z e VulkanRT.zip -o"${{ runner.temp }}\vulkan" "VulkanRT-$arch-$sdkVersion-Components\${archDir}vulkan-1.dll"
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to extract Vulkan loader"
+            }
             Remove-Item VulkanRT.zip
 
             $vulkanPath = "${{ runner.temp }}\vulkan"
@@ -372,15 +378,15 @@ jobs:
 
           & {
             # See https://github.com/mmozeiko/build-mesa/releases for updates
-            $version = "26.1.4"
+            $version = "26.2.4"
             if ("${{ runner.arch }}" -eq "ARM64") {
               $arch = "arm64"
               $archJson = "aarch64"
-              $expectedHash = "b77f5ea72e442c5424b85eb55199bf9bf9404809e1d832ed88183b36cf3a440e"
+              $expectedHash = "712f39e12e11fc8a3727a594377e5e4a7c8976731df0791726a889d2bb031bf8"
             } else {
               $arch = "x64"
               $archJson = "x86_64"
-              $expectedHash = "18f2c6a3eb2f36b669d68b7a888647aeaf0c007a61487f8cf606df4365126e85"
+              $expectedHash = "0f12da1693e95bfc0929be39499629b07e367d6b1dd2a8192a16b5d80743294a"
             }
 
             $url = "https://github.com/mmozeiko/build-mesa/releases/download/$version/mesa-lavapipe-$arch-$version.7z"
@@ -392,6 +398,9 @@ jobs:
             }
 
             7z x mesa-lavapipe.7z -o"${{ runner.temp }}\mesa"
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to extract lavapipe"
+            }
             Remove-Item mesa-lavapipe.7z
 
             $mesaPath = "${{ runner.temp }}\mesa"
