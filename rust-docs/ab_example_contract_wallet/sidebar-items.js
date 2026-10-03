@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["ffi","tx_handler_ffi"],"struct":["ExampleWallet"],"trait":["ExampleWalletExt"]};

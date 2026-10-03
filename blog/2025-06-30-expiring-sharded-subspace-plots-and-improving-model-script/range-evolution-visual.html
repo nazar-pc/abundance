@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plot Range Evolution with Genesis Farming</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .visualization {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .timeline {
+            position: relative;
+            height: 120px;
+            margin: 40px 0 60px 0;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .history-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 50px;
+            right: 50px;
+            height: 4px;
+            background: #ddd;
+        }
+        
+        .negative-zone {
+            position: absolute;
+            bottom: 20px;
+            left: 50px;
+            width: 100px;
+            height: 4px;
+            background: repeating-linear-gradient(
+                45deg,
+                #ffebee,
+                #ffebee 5px,
+                #ffcdd2 5px,
+                #ffcdd2 10px
+            );
+        }
+        
+        .genesis-marker {
+            position: absolute;
+            bottom: 10px;
+            left: 150px;
+            width: 2px;
+            height: 20px;
+            background: #9C27B0;
+        }
+        
+        .genesis-marker::after {
+            content: 'Genesis (0)';
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #9C27B0;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        
+        .range-visual {
+            position: absolute;
+            bottom: 35px;
+            height: 30px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .base-range {
+            background: #4CAF50;
+            opacity: 0.8;
+        }
+        
+        .effective-range {
+            background: #2196F3;
+            opacity: 0.6;
+            border: 2px solid #1976D2;
+        }
+        
+        .current-history {
+            position: absolute;
+            bottom: 10px;
+            width: 3px;
+            height: 40px;
+            background: #FF5722;
+            transition: left 0.3s ease;
+        }
+        
+        .current-history::after {
+            content: attr(data-value);
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FF5722;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        
+        .marker {
+            position: absolute;
+            bottom: 0;
+            width: 1px;
+            height: 15px;
+            background: #999;
+        }
+        
+        .marker span {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #666;
+            white-space: nowrap;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        
+        .control-group {
+            margin: 15px 0;
+        }
+        
+        label {
+            display: inline-block;
+            width: 180px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input[type="range"] {
+            width: 300px;
+            margin: 0 10px;
+        }
+        
+        select {
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        
+        .value-display {
+            display: inline-block;
+            width: 80px;
+            font-weight: 600;
+            color: #2196F3;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 3px;
+        }
+        
+        .step-explanation {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .step-explanation h3 {
+            margin-top: 0;
+            color: #1976D2;
+        }
+        
+        .code-block {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        .highlight {
+            color: #ffd54f;
+            font-weight: bold;
+        }
+        
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #856404;
+        }
+        
+        .phase-indicator {
+            position: absolute;
+            top: 10px;
+            padding: 5px 10px;
+            background: #673AB7;
+            color: white;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .range-info {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Plot Range Evolution with Genesis Farming</h1>
+        <p class="subtitle">How negative base ranges enable farming from blockchain genesis</p>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #4CAF50;"></div>
+                <span>Base Range (Initial, Immutable)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #2196F3; border: 2px solid #1976D2;"></div>
+                <span>Effective Range (Tracks History)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FF5722;"></div>
+                <span>Current History Size</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #9C27B0;"></div>
+                <span>Genesis Block (History = 0)</span>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Farmer Offset Choice:</label>
+                <select id="offsetSelect">
+                    <option value="0">0 (Genesis farmer)</option>
+                    <option value="64">64 (Early farmer)</option>
+                    <option value="256">256 (Mid farmer)</option>
+                    <option value="512" selected>512 (Standard farmer)</option>
+                    <option value="768">768 (Late farmer)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Current History Size:</label>
+                <input type="range" id="historySlider" min="0" max="5000" value="1000" step="50">
+                <span class="value-display" id="historyValue">1000</span>
+            </div>
+            <div class="control-group">
+                <label>Base Range:</label>
+                <span id="baseRangeDisplay" style="font-family: monospace;">[512 - 1024]</span>
+            </div>
+            <div class="control-group">
+                <label>Effective Range:</label>
+                <span id="effectiveRange" style="font-weight: bold; color: #2196F3; font-family: monospace;">[512 - 1024]</span>
+            </div>
+            <div class="control-group">
+                <label>Can Create Sectors:</label>
+                <span id="canCreate" style="font-weight: bold;">✅ Yes</span>
+            </div>
+        </div>
+        
+        <div class="visualization">
+            <h3>Range Evolution Timeline</h3>
+            <div class="timeline">
+                <div class="negative-zone"></div>
+                <div class="history-bar"></div>
+                <div class="genesis-marker"></div>
+                
+                <!-- Markers -->
+                <div class="marker" style="left: 50px;"><span>-1000</span></div>
+                <div class="marker" style="left: 250px;"><span>1000</span></div>
+                <div class="marker" style="left: 450px;"><span>3000</span></div>
+                <div class="marker" style="left: 650px;"><span>5000</span></div>
+                <div class="marker" style="left: 850px;"><span>7000</span></div>
+                
+                <!-- Base Range -->
+                <div class="base-range range-visual" id="baseRange">Base</div>
+                
+                <!-- Effective Range -->
+                <div class="effective-range range-visual" id="effectiveRangeVisual">Effective</div>
+                
+                <!-- Current History Marker -->
+                <div class="current-history" id="historyMarker" data-value="1000"></div>
+            </div>
+        </div>
+        
+        <div class="step-explanation">
+            <h3>How Genesis Farming Works:</h3>
+            <div class="code-block">
+// Constants
+const GENESIS_OFFSET: u64 = 256;  <span class="highlight">// Allows negative ranges</span>
+
+// Calculate initial range with negative values
+fn calculate_initial_range(offset: u64) -> HistoryRange {
+    let window_level = offset / 64;
+    let window_base_size = 256 * (2_u64.pow(window_level));
+    let offset_in_window = offset % 64;
+    
+    <span class="highlight">// Subtract GENESIS_OFFSET to allow negative values</span>
+    let min_value = (window_base_size * offset_in_window / 64) as i64 - 256;
+    let max_value = (window_base_size * (offset_in_window + 1) / 64) as i64 - 256;
+    
+    HistoryRange {
+        min_history_size: min_value,  <span class="highlight">// Can be negative!</span>
+        max_history_size: max_value,  <span class="highlight">// Can be negative initially</span>
+    }
+}
+
+// Get effective range - ALWAYS extends to current history
+fn get_current_effective_range(plot: &PlotMetadata, current_history: u64) -> HistoryRange {
+    let mut range = plot.base_range.clone();
+    <span class="highlight">// Key: effective max is always AT LEAST current history</span>
+    range.max_history_size = max(range.max_history_size, current_history as i64);
+    range
+}
+            </div>
+        </div>
+        
+        <div id="offsetExplanation" style="margin-top: 20px;">
+            <!-- Offset explanation will be populated by JavaScript -->
+        </div>
+        
+        <div class="note">
+            <strong>Key Principle:</strong> The effective range maximum ALWAYS extends to current history size.
+            <ul style="margin: 10px 0 0 20px;">
+                <li>At genesis (history=0): Range [-256, -252] becomes [-256, 0]</li>
+                <li>At history=100: Range [-256, -252] becomes [-256, 100]</li>
+                <li>At history=1000: Range [512, 1024] becomes [512, 1000]</li>
+                <li>At history=2000: Range [512, 1024] becomes [512, 2000]</li>
+            </ul>
+            This ensures all farmers can always create sectors using the latest blockchain history.
+        </div>
+    </div>
+    
+    <script>
+        const offsetSelect = document.getElementById('offsetSelect');
+        const historySlider = document.getElementById('historySlider');
+        const historyValue = document.getElementById('historyValue');
+        const historyMarker = document.getElementById('historyMarker');
+        const baseRangeDisplay = document.getElementById('baseRangeDisplay');
+        const effectiveRangeSpan = document.getElementById('effectiveRange');
+        const baseRangeVisual = document.getElementById('baseRange');
+        const effectiveRangeVisual = document.getElementById('effectiveRangeVisual');
+        const canCreateSpan = document.getElementById('canCreate');
+        const offsetExplanation = document.getElementById('offsetExplanation');
+        
+        // Constants
+        const GENESIS_OFFSET = 256;
+        const BASE_WINDOW_SIZE = 256;
+        const OFFSETS_PER_WINDOW = 64;
+        
+        function calculateInitialRange(offset) {
+            const windowLevel = Math.floor(offset / OFFSETS_PER_WINDOW);
+            const windowBaseSize = BASE_WINDOW_SIZE * Math.pow(2, windowLevel);
+            const offsetInWindow = offset % OFFSETS_PER_WINDOW;
+            
+            const minValue = Math.floor(windowBaseSize * offsetInWindow / OFFSETS_PER_WINDOW) - GENESIS_OFFSET;
+            const maxValue = Math.floor(windowBaseSize * (offsetInWindow + 1) / OFFSETS_PER_WINDOW) - GENESIS_OFFSET;
+            
+            return { min: minValue, max: maxValue };
+        }
+        
+        function getEffectiveRange(baseRange, currentHistory) {
+            let range = { min: baseRange.min, max: baseRange.max };
+            
+            // Effective max ALWAYS becomes at least current history
+            // This allows all farmers to access latest history
+            range.max = Math.max(range.max, currentHistory);
+            
+            return range;
+        }
+        
+        function positionFromValue(value) {
+            // Map from [-1000, 8000] to [50, 950] pixels
+            return 50 + ((value + 1000) / 9000) * 900;
+        }
+        
+        function updateVisualization() {
+            const offset = parseInt(offsetSelect.value);
+            const currentHistory = parseInt(historySlider.value);
+            
+            // Update history display
+            historyValue.textContent = currentHistory;
+            
+            // Calculate ranges
+            const baseRange = calculateInitialRange(offset);
+            const effectiveRange = getEffectiveRange(baseRange, currentHistory);
+            
+            // Update displays
+            baseRangeDisplay.textContent = `[${baseRange.min} - ${baseRange.max}]`;
+            effectiveRangeSpan.textContent = `[${effectiveRange.min} - ${effectiveRange.max}]`;
+            
+            // Update history marker
+            const markerPosition = positionFromValue(currentHistory);
+            historyMarker.style.left = markerPosition + 'px';
+            historyMarker.setAttribute('data-value', currentHistory);
+            
+            // Update base range visual
+            const baseStart = positionFromValue(Math.max(baseRange.min, -1000));
+            const baseEnd = positionFromValue(Math.min(baseRange.max, 8000));
+            baseRangeVisual.style.left = baseStart + 'px';
+            baseRangeVisual.style.width = (baseEnd - baseStart) + 'px';
+            baseRangeVisual.textContent = `Base [${baseRange.min}, ${baseRange.max}]`;
+            
+            // Update effective range visual
+            const effStart = positionFromValue(Math.max(effectiveRange.min, -1000));
+            const effEnd = positionFromValue(Math.min(effectiveRange.max, 8000));
+            effectiveRangeVisual.style.left = effStart + 'px';
+            effectiveRangeVisual.style.width = (effEnd - effStart) + 'px';
+            effectiveRangeVisual.textContent = `Effective [${effectiveRange.min}, ${effectiveRange.max}]`;
+            
+            // Update can create status
+            const canCreateFrom = Math.max(0, effectiveRange.min); // Can't create negative history
+            const canCreateTo = Math.min(currentHistory, effectiveRange.max);
+            const canCreate = currentHistory >= canCreateFrom && canCreateTo >= canCreateFrom;
+            
+            if (canCreate) {
+                canCreateSpan.innerHTML = `✅ Yes (can commit to history ${canCreateFrom} - ${canCreateTo})`;
+                canCreateSpan.style.color = '#4CAF50';
+            } else {
+                canCreateSpan.innerHTML = `❌ No (no valid history in range)`;
+                canCreateSpan.style.color = '#dc3545';
+            }
+            
+            // Update offset explanation
+            let explanationHtml = '<h3>Offset Analysis:</h3>';
+            explanationHtml += '<div class="range-info">';
+            explanationHtml += `<strong>Offset ${offset}:</strong><br>`;
+            explanationHtml += `Window Level: ${Math.floor(offset / OFFSETS_PER_WINDOW)}<br>`;
+            explanationHtml += `Base Range: [${baseRange.min}, ${baseRange.max}]<br>`;
+            explanationHtml += `Effective Range: [${effectiveRange.min}, ${effectiveRange.max}]<br>`;
+            explanationHtml += '</div>';
+            
+            if (offset === 0) {
+                explanationHtml += `
+                    <div class="step-explanation" style="border-left-color: #9C27B0;">
+                        <strong>Genesis Farmer</strong><br>
+                        With offset 0, you get the earliest possible range [-256, -252].<br>
+                        This allows farming from genesis (history = 0) immediately!<br>
+                        As history grows, your effective range extends to [${effectiveRange.min}, ${effectiveRange.max}].
+                    </div>
+                `;
+            } else if (offset < 256) {
+                explanationHtml += `
+                    <div class="step-explanation" style="border-left-color: #4CAF50;">
+                        <strong>Early Farmer</strong><br>
+                        Your base range [${baseRange.min}, ${baseRange.max}] ${baseRange.min < 0 ? 'includes negative values' : 'starts from positive values'}.<br>
+                        ${baseRange.max >= 0 ? 'You can farm from genesis or early blocks.' : 'You need to wait for history to reach positive values.'}<br>
+                        Current effective range: [${effectiveRange.min}, ${effectiveRange.max}].
+                    </div>
+                `;
+            } else if (offset < 512) {
+                explanationHtml += `
+                    <div class="step-explanation" style="border-left-color: #2196F3;">
+                        <strong>Mid-Range Farmer</strong><br>
+                        Your base range [${baseRange.min}, ${baseRange.max}] targets mid-history.<br>
+                        ${currentHistory >= baseRange.min ? 'You can create sectors now.' : `You need to wait until history reaches ${baseRange.min}.`}<br>
+                        Effective range extends as blockchain grows.
+                    </div>
+                `;
+            } else {
+                explanationHtml += `
+                    <div class="step-explanation" style="border-left-color: #FF9800;">
+                        <strong>Later Farmer</strong><br>
+                        Your base range [${baseRange.min}, ${baseRange.max}] targets more recent history.<br>
+                        ${currentHistory >= baseRange.min ? 'You can create sectors for recent history.' : `You need to wait until history reaches ${baseRange.min}.`}<br>
+                        This range is ideal for farmers joining after significant blockchain growth.
+                    </div>
+                `;
+            }
+            
+            // Add farming capability explanation
+            if (canCreate) {
+                const committableHistory = [];
+                for (let h = canCreateFrom; h <= canCreateTo && committableHistory.length < 5; h += Math.max(1, Math.floor((canCreateTo - canCreateFrom) / 4))) {
+                    committableHistory.push(h);
+                }
+                explanationHtml += `
+                    <div class="step-explanation" style="border-left-color: #4CAF50;">
+                        <strong>✅ Can Create Sectors</strong><br>
+                        You can create sectors that commit to history values: ${canCreateFrom} - ${canCreateTo}<br>
+                        Example valid commitments: ${committableHistory.join(', ')}${canCreateTo > committableHistory[committableHistory.length - 1] ? '...' : ''}
+                    </div>
+                `;
+            } else {
+                explanationHtml += `
+                    <div class="step-explanation" style="border-left-color: #dc3545;">
+                        <strong>❌ Cannot Create Sectors Yet</strong><br>
+                        ${currentHistory < Math.max(0, effectiveRange.min) ? 
+                            `Blockchain needs to grow to at least ${Math.max(0, effectiveRange.min)} segments.` :
+                            'Your range does not include any valid history values yet.'}
+                    </div>
+                `;
+            }
+            
+            offsetExplanation.innerHTML = explanationHtml;
+        }
+        
+        offsetSelect.addEventListener('change', updateVisualization);
+        historySlider.addEventListener('input', updateVisualization);
+        updateVisualization();
+    </script>
+</body>
+</html>
