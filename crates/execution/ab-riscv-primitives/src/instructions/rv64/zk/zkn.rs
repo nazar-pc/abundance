@@ -5,7 +5,7 @@ pub mod zkne;
 pub mod zknh;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::b::zbb::{Rv64ZbbInstruction, Rv64ZbbZbkbSharedInstruction};
+use crate::instructions::rv64::b::zbb::Rv64ZbbZbkbSharedInstruction;
 use crate::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
 use crate::instructions::rv64::zk::zbkc::Rv64ZbkcInstruction;
 use crate::instructions::rv64::zk::zbkx::Rv64ZbkxInstruction;

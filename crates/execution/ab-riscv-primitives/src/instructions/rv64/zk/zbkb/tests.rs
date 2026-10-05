@@ -78,6 +78,44 @@ where
     }
 }
 
+#[instruction(
+    ignore = [Zexth],
+    inherit = [Rv64ZbbInstruction, Rv64ZbkbInstruction],
+)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+enum Rv64ZbbZbkbWithoutZexthTestInstruction<Reg> {}
+
+#[instruction]
+const impl<Reg> Instruction for Rv64ZbbZbkbWithoutZexthTestInstruction<Reg>
+where
+    Reg: [const] Register<Type = u64>,
+{
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv64ZbbZbkbWithoutZexthTestInstruction<Reg>
+where
+    Reg: fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
 #[test]
 fn test_pack() {
     // pack: opcode=0b011_0011, funct3=0b100, funct7=0b000_0100
@@ -166,6 +204,20 @@ fn test_packw_rs2_zero_with_zbb() {
             rd: Reg::Ra,
             rs1: Reg::Sp,
             rs2: Reg::Gp,
+        })
+    );
+}
+
+#[test]
+fn test_packw_rs2_zero_with_zbb_without_zext_h() {
+    // With `zext.h` ignored, `packw` is decoded instead even though Zbb is present
+    let inst = make_r_type(0b011_1011, 1, 0b100, 2, 0, 0b000_0100);
+    assert_eq!(
+        Rv64ZbbZbkbWithoutZexthTestInstruction::<Reg<u64>>::try_decode(inst),
+        Some(Rv64ZbbZbkbWithoutZexthTestInstruction::Packw {
+            rd: Reg::Ra,
+            rs1: Reg::Sp,
+            rs2: Reg::Zero,
         })
     );
 }

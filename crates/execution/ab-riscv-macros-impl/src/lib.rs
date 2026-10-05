@@ -122,6 +122,10 @@ use proc_macro::TokenStream;
 /// since the macro will simply copy-paste the decoding logic as is. Similarly with missing imports,
 /// etc. Compiler should be able to guide you through errors reasonably well.
 ///
+/// Construction of variants that are not present in the instruction set (like ignored ones) is
+/// replaced with `None?`. This also allows decoding to construct variants of other enums when they
+/// are present, like Zbkb decoding `packw rd, rs1, x0` as Zbb's `zext.h`.
+///
 /// # Enum display implementation
 ///
 /// For enum display implementation, the macro is applied to the implementation of
