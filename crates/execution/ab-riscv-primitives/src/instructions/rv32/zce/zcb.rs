@@ -86,11 +86,8 @@ pub enum Rv32ZcbOnlyInstruction<Reg> {
     CNot { rd: Reg },
 
     // Q01 binary
-    /// C.MUL  rd' = (rd' * rs2')\[31:0]  (requires M or Zmmul)
-    #[instruction(
-        if = [Rv32MInstruction],
-        if = [Rv32ZmmulInstruction]
-    )]
+    /// C.MUL  rd' = (rd' * rs2')\[31:0]  (requires Zmmul, which M inherits)
+    #[instruction(if = [Rv32ZmmulInstruction])]
     CMul { rd: Reg, rs2: Reg },
 }
 

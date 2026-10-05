@@ -1,9 +1,49 @@
 #![expect(clippy::identity_op, reason = "Test readability")]
 
 use crate::instructions::Instruction;
-use crate::instructions::rv64::zce::zcb::Rv64ZcbOnlyInstruction;
-use crate::registers::general_purpose::Reg;
-use core::assert_matches;
+use crate::instructions::rv64::c::zca::Rv64ZcaInstruction;
+use crate::instructions::rv64::m::Rv64MInstruction;
+use crate::instructions::rv64::m::zmmul::Rv64ZmmulInstruction;
+use crate::instructions::rv64::zce::zcb::{Rv64ZcbInstruction, Rv64ZcbOnlyInstruction};
+use crate::instructions::utils::I24;
+use crate::registers::general_purpose::{Reg, Register};
+use ab_riscv_macros::instruction;
+use core::{assert_matches, fmt};
+
+#[instruction(inherit = [Rv64ZcbInstruction, Rv64MInstruction])]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+enum Rv64ZcbMTestInstruction<Reg> {}
+
+#[instruction]
+const impl<Reg> Instruction for Rv64ZcbMTestInstruction<Reg>
+where
+    Reg: [const] Register<Type = u64>,
+{
+    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv64ZcbMTestInstruction<Reg>
+where
+    Reg: fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
 
 /// Build a Q00 Zcb load/store: funct3=100, sub=bits\[12:10].
 /// `rs1p` and `rd_rs2p` are 3-bit prime register fields (0=x8).
@@ -345,6 +385,22 @@ fn test_cmul_all_prime_reg_pairs() {
             assert_matches!(decoded, Rv64ZcbOnlyInstruction::CMul { .. });
         }
     }
+}
+
+#[test]
+fn test_cmul_requires_zmmul() {
+    let inst = make_zcb_q01(0, 0b10, 0b001);
+    // Not available without Zmmul
+    assert!(Rv64ZcbInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    // M inherits Zmmul
+    assert_eq!(
+        Rv64ZcbMTestInstruction::<Reg<u64>>::try_decode(u32::from(inst)),
+        Some(Rv64ZcbMTestInstruction::CMul {
+            rd: Reg::S0,
+            rs2: Reg::S1,
+            rs1: Reg::Zero,
+        })
+    );
 }
 
 // Reserved funct2b values
