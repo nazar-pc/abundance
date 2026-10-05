@@ -70,7 +70,8 @@ use proc_macro::TokenStream;
 ///   * `reorder` indicated where the corresponding variant needs to be included
 ///   * `ignore` removed individual variants or the whole enum from a set mentioned earlier (but
 ///     instructions that are "reordered" anywhere in the definition will remain). Ignored list may
-///     contain any known enum, including those that are not in the list of inherited enums.
+///     contain any known enum, including those that are not in the list of inherited enums. Ignored
+///     instructions don't satisfy `if` conditions of other instructions.
 ///   * `inherit` includes all remaining variants of the corresponding enum that were not explicitly
 ///     reordered or ignored anywhere in the definition
 ///   * own variants that were not explicitly reordered or ignored are placed at the end of the enum

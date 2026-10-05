@@ -569,6 +569,13 @@ fn get_all_inherited_instructions(
         };
 
         for instruction in &dependency_enum_definition.own_instructions {
+            if dependency_enum_definition
+                .ignored_instructions
+                .contains(&instruction.ident)
+            {
+                continue;
+            }
+
             let instruction_variant = instruction
                 .attrs
                 .iter()
@@ -853,7 +860,6 @@ fn process_enum_definition_inherited(
             return Err(error);
         }
     };
-    process_dependencies_for_enablement(&mut all_inherited_instructions, state);
 
     let mut own_instructions = item_enum
         .variants
@@ -861,8 +867,54 @@ fn process_enum_definition_inherited(
         .map(|variant| (variant.ident.clone(), Rc::new(variant.clone())))
         .collect::<HashMap<_, _>>();
 
-    let mut processed_instructions = HashSet::new();
     let mut ignored_instructions = HashSet::new();
+    for item in &instruction_definition.items {
+        let InstructionDefinitionItem::Ignore(ignore_items) = item else {
+            continue;
+        };
+
+        for ignore_item in ignore_items {
+            if own_instructions.contains_key(ignore_item)
+                || all_inherited_instructions.contains_key(ignore_item)
+            {
+                if !all_reordered_instructions.contains(ignore_item) {
+                    ignored_instructions.insert(ignore_item.clone());
+                }
+            } else {
+                let Some(known_enum) = state.get_known_enum_definition(ignore_item) else {
+                    eprintln!("{enum_name} definition is waiting on {ignore_item} ignore item");
+                    state.add_pending_enum_definition(PendingEnumDefinition { original_item_enum });
+                    return Ok(None);
+                };
+
+                // All instructions, including recursive dependencies
+                let all_instructions = known_enum.instructions.iter().chain(
+                    collect_all_dependencies(state, known_enum.direct_dependencies.iter().cloned())
+                        .expect(
+                            "Available parent definition means all dependencies are already \
+                            resolved; qed",
+                        )
+                        .into_iter()
+                        .flat_map(|(_, known_enum)| known_enum.instructions.iter()),
+                );
+
+                for known_instruction in all_instructions {
+                    if !all_reordered_instructions.contains(&known_instruction.ident) {
+                        ignored_instructions.insert(known_instruction.ident.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    // Ignored instructions are removed before resolving dependencies for enablement, so they don't
+    // satisfy conditions of other instructions
+    all_inherited_instructions.retain(|instruction_name, _inherited_instruction| {
+        !ignored_instructions.contains(instruction_name)
+    });
+    process_dependencies_for_enablement(&mut all_inherited_instructions, state);
+
+    let mut processed_instructions = ignored_instructions.clone();
     let mut instructions = Vec::new();
 
     for item in &instruction_definition.items {
@@ -894,48 +946,8 @@ fn process_enum_definition_inherited(
                     instructions.push(instruction);
                 }
             }
-            InstructionDefinitionItem::Ignore(ignore_items) => {
-                for ignore_item in ignore_items {
-                    if own_instructions.contains_key(ignore_item)
-                        || all_inherited_instructions.contains_key(ignore_item)
-                    {
-                        if !all_reordered_instructions.contains(ignore_item) {
-                            processed_instructions.insert(ignore_item.clone());
-                            ignored_instructions.insert(ignore_item.clone());
-                        }
-                    } else {
-                        let Some(known_enum) = state.get_known_enum_definition(ignore_item) else {
-                            eprintln!(
-                                "{enum_name} definition is waiting on {ignore_item} ignore item"
-                            );
-                            state.add_pending_enum_definition(PendingEnumDefinition {
-                                original_item_enum,
-                            });
-                            return Ok(None);
-                        };
-
-                        // All instructions, including recursive dependencies
-                        let all_instructions = known_enum.instructions.iter().chain(
-                            collect_all_dependencies(
-                                state,
-                                known_enum.direct_dependencies.iter().cloned(),
-                            )
-                            .expect(
-                                "Available parent definition means all dependencies are already \
-                                resolved; qed",
-                            )
-                            .into_iter()
-                            .flat_map(|(_, known_enum)| known_enum.instructions.iter()),
-                        );
-
-                        for known_instruction in all_instructions {
-                            if !all_reordered_instructions.contains(&known_instruction.ident) {
-                                processed_instructions.insert(known_instruction.ident.clone());
-                                ignored_instructions.insert(known_instruction.ident.clone());
-                            }
-                        }
-                    }
-                }
+            InstructionDefinitionItem::Ignore(_) => {
+                // Already processed above
             }
             InstructionDefinitionItem::Inherit(inherit_enums) => {
                 for inherit_enum in inherit_enums {

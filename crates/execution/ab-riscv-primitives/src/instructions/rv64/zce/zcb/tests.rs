@@ -45,6 +45,84 @@ where
     }
 }
 
+#[instruction(
+    ignore = [Rv64ZbbInstruction],
+    inherit = [Rv64ZcbInstruction, Rv64ZbbInstruction],
+)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+enum Rv64ZcbWithoutZbbTestInstruction<Reg> {}
+
+#[instruction]
+const impl<Reg> Instruction for Rv64ZcbWithoutZbbTestInstruction<Reg>
+where
+    Reg: [const] Register<Type = u64>,
+{
+    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv64ZcbWithoutZbbTestInstruction<Reg>
+where
+    Reg: fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
+/// Ignores `c.mul`, which is already missing due to its condition (no Zmmul). Ignoring such
+/// instructions used to fail with a circular dependency error.
+#[instruction(
+    ignore = [CMul],
+    inherit = [Rv64ZcbInstruction],
+)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+enum Rv64ZcbIgnoreCMulTestInstruction<Reg> {}
+
+#[instruction]
+const impl<Reg> Instruction for Rv64ZcbIgnoreCMulTestInstruction<Reg>
+where
+    Reg: [const] Register<Type = u64>,
+{
+    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+
+    type Reg = Reg;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg> fmt::Display for Rv64ZcbIgnoreCMulTestInstruction<Reg>
+where
+    Reg: fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
 /// Build a Q00 Zcb load/store: funct3=100, sub=bits\[12:10].
 /// `rs1p` and `rd_rs2p` are 3-bit prime register fields (0=x8).
 /// `bit6` and `bit5` carry the uimm or funct1 bits.
@@ -344,6 +422,19 @@ fn test_unary_all_prime_regs() {
         let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
         assert_matches!(decoded, Rv64ZcbOnlyInstruction::CNot { .. });
     }
+}
+
+#[test]
+fn test_csext_b_requires_zbb() {
+    let inst = make_zcb_q01(0, 0b11, 0b001);
+    // Zbb ignored as a whole doesn't satisfy the condition, even though it is inherited
+    assert!(Rv64ZcbWithoutZbbTestInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+}
+
+#[test]
+fn test_cmul_ignored_without_zmmul() {
+    let inst = make_zcb_q01(0, 0b10, 0b001);
+    assert!(Rv64ZcbIgnoreCMulTestInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
 }
 
 // C.MUL - funct2b=0b10
