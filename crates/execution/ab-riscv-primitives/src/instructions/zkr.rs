@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::zicsr::ZicsrInstruction;
 use crate::registers::general_purpose::Register;
@@ -20,16 +21,19 @@ pub const SEED_CSR_INDEX: u16 = 0x015;
 #[instruction(inherit = [ZicsrInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum ZkrInstruction<Reg> {}
+pub enum ZkrInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for ZkrInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZkrInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -44,9 +48,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZkrInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZkrInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}

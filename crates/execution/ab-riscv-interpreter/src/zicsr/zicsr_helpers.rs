@@ -53,7 +53,7 @@ pub const fn process_csr_read<Reg, Env, I>(
 ) -> Result<Reg::Type, CsrError>
 where
     Reg: [const] Register,
-    I: [const] ExecutableInstructionCsr<Env, Reg = Reg>,
+    I: [const] ExecutableInstructionCsr<Env, Hart: HartConfig<Reg = Reg>>,
 {
     let mut out = Reg::Type::default();
     match I::prepare_csr_read(env, csr_index, will_write, raw_value, &mut out) {
@@ -80,7 +80,7 @@ pub const fn process_csr_write<Reg, Env, I>(
 ) -> Result<Reg::Type, CsrError>
 where
     Reg: [const] Register,
-    I: [const] ExecutableInstructionCsr<Env, Reg = Reg>,
+    I: [const] ExecutableInstructionCsr<Env, Hart: HartConfig<Reg = Reg>>,
 {
     let mut out = Reg::Type::default();
     match I::prepare_csr_write(env, csr_index, write_value, &mut out) {

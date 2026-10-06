@@ -1,3 +1,4 @@
+use crate::hart::{BasicHart, HartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::rv64::Rv64Instruction;
 use crate::instructions::rv64::a::zaamo::Rv64ZaamoInstruction;
@@ -39,16 +40,19 @@ use core::fmt;
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestIgnoreInstruction<Reg> {}
+enum TestIgnoreInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for TestIgnoreInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestIgnoreInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -62,9 +66,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestIgnoreInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestIgnoreInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -73,9 +78,9 @@ where
 
 fn implements_extension<E>() -> bool
 where
-    E: Instruction<Reg = Reg<u64>>,
+    E: Instruction<Hart = BasicHart<Reg<u64>>>,
 {
-    TestIgnoreInstruction::<Reg<u64>>::implements_extension::<E>()
+    TestIgnoreInstruction::<BasicHart<Reg<u64>>>::implements_extension::<E>()
 }
 
 #[test]
@@ -94,7 +99,7 @@ fn implemented_extensions() {
     assert!(implements_extension::<Rv64ZaamoInstruction<_>>());
     // amocas.b: funct5=00101, funct3=000
     let amocas_b = make_r_type(0b010_1111, 1, 0b000, 2, 3, 0b001_0100);
-    assert!(TestIgnoreInstruction::<Reg<u64>>::try_decode(amocas_b).is_none());
+    assert!(TestIgnoreInstruction::<BasicHart<Reg<u64>>>::try_decode(amocas_b).is_none());
     // Ignoring the whole `Zbs` excludes it together with `B` that inherits it, but not other
     // extensions inherited by `B`
     assert!(!implements_extension::<Rv64ZbsInstruction<_>>());
@@ -115,16 +120,19 @@ fn implemented_extensions() {
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestIgnoreZabhaInstruction<Reg> {}
+enum TestIgnoreZabhaInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for TestIgnoreZabhaInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestIgnoreZabhaInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -138,9 +146,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestIgnoreZabhaInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestIgnoreZabhaInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -150,16 +159,19 @@ where
 #[instruction(inherit = [TestIgnoreZabhaInstruction, Rv64ZabhaInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestNestedIgnoreInstruction<Reg> {}
+enum TestNestedIgnoreInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for TestNestedIgnoreInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestNestedIgnoreInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -173,9 +185,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestNestedIgnoreInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestNestedIgnoreInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -187,7 +200,9 @@ fn nested_ignore() {
     // `Zabha` ignored by another inherited instruction set doesn't affect `Zabha` inherited
     // directly, even though `amocas.b` and `amocas.h` from it are missing without `Zacas`
     assert!(
-        TestNestedIgnoreInstruction::<Reg<u64>>::implements_extension::<Rv64ZabhaInstruction<_>>()
+        TestNestedIgnoreInstruction::<BasicHart<Reg<u64>>>::implements_extension::<
+            Rv64ZabhaInstruction<_>,
+        >()
     );
 }
 
@@ -198,16 +213,19 @@ fn nested_ignore() {
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestZacasWithoutAmocasQInstruction<Reg> {}
+enum TestZacasWithoutAmocasQInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for TestZacasWithoutAmocasQInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestZacasWithoutAmocasQInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -221,9 +239,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestZacasWithoutAmocasQInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestZacasWithoutAmocasQInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -233,16 +252,19 @@ where
 #[instruction(inherit = [TestZacasWithoutAmocasQInstruction, Rv64ZabhaInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestZacasZabhaInstruction<Reg> {}
+enum TestZacasZabhaInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for TestZacasZabhaInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestZacasZabhaInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -256,9 +278,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestZacasZabhaInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestZacasZabhaInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -270,12 +293,14 @@ fn enum_condition() {
     // `Zacas` is implemented even without `amocas.q`, which satisfies conditions of `amocas.b` and
     // `amocas.h` from `Zabha`
     assert!(
-        TestZacasZabhaInstruction::<Reg<u64>>::implements_extension::<Rv64ZacasInstruction<_>>()
+        TestZacasZabhaInstruction::<BasicHart<Reg<u64>>>::implements_extension::<
+            Rv64ZacasInstruction<_>,
+        >()
     );
     // amocas.b: funct5=00101, funct3=000
     let instruction = make_r_type(0b010_1111, 1, 0b000, 2, 3, 0b001_0100);
     assert_eq!(
-        TestZacasZabhaInstruction::<Reg<u64>>::try_decode(instruction),
+        TestZacasZabhaInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction),
         Some(TestZacasZabhaInstruction::AmocasB {
             rd: Reg::Ra,
             rs1: Reg::Sp,
@@ -290,16 +315,19 @@ fn enum_condition() {
 #[instruction(inherit = [ZicsrInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestWithoutOwnInstruction<Reg> {}
+enum TestWithoutOwnInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for TestWithoutOwnInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestWithoutOwnInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -313,9 +341,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestWithoutOwnInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestWithoutOwnInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -326,19 +355,27 @@ where
 #[instruction(ignore = [Mul])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestIgnoredMulInstruction<Reg> {
-    Mul { rd: Reg, rs1: Reg, rs2: Reg },
+enum TestIgnoredMulInstruction<Hart>
+where
+    Hart: HartConfig,
+{
+    Mul {
+        rd: Hart::Reg,
+        rs1: Hart::Reg,
+        rs2: Hart::Reg,
+    },
     Foo,
 }
 
 #[instruction]
-const impl<Reg> Instruction for TestIgnoredMulInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestIgnoredMulInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -356,9 +393,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestIgnoredMulInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestIgnoredMulInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -371,7 +409,10 @@ where
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestConditionInstruction<Reg> {
+enum TestConditionInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     #[instruction(if = [TestWithoutOwnInstruction])]
     Bar,
     #[instruction(if = [Mul])]
@@ -379,13 +420,14 @@ enum TestConditionInstruction<Reg> {
 }
 
 #[instruction]
-const impl<Reg> Instruction for TestConditionInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestConditionInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -403,9 +445,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestConditionInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestConditionInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -418,16 +461,19 @@ where
 #[instruction(inherit = [TestConditionInstruction, ZicsrInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestZicsrConditionInstruction<Reg> {}
+enum TestZicsrConditionInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for TestZicsrConditionInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestZicsrConditionInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -441,9 +487,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestZicsrConditionInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestZicsrConditionInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -453,16 +500,19 @@ where
 #[instruction(inherit = [TestConditionInstruction, TestWithoutOwnInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestWithoutOwnConditionInstruction<Reg> {}
+enum TestWithoutOwnConditionInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for TestWithoutOwnConditionInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestWithoutOwnConditionInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -476,9 +526,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestWithoutOwnConditionInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestWithoutOwnConditionInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -488,16 +539,19 @@ where
 #[instruction(inherit = [TestConditionInstruction, TestIgnoredMulInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum TestIgnoredMulConditionInstruction<Reg> {}
+enum TestIgnoredMulConditionInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for TestIgnoredMulConditionInstruction<Reg>
+const impl<Reg, Hart> Instruction for TestIgnoredMulConditionInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -511,9 +565,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for TestIgnoredMulConditionInstruction<Reg>
+impl<Reg, Hart> fmt::Display for TestIgnoredMulConditionInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -524,12 +579,12 @@ where
 fn enum_without_own_instructions_condition() {
     // An enum without own instructions must be inherited to satisfy the condition, enums it
     // inherits are not sufficient
-    assert!(TestZicsrConditionInstruction::<Reg<u64>>::try_decode(1).is_none());
-    assert!(TestWithoutOwnConditionInstruction::<Reg<u64>>::try_decode(1).is_some());
+    assert!(TestZicsrConditionInstruction::<BasicHart<Reg<u64>>>::try_decode(1).is_none());
+    assert!(TestWithoutOwnConditionInstruction::<BasicHart<Reg<u64>>>::try_decode(1).is_some());
 }
 
 #[test]
 fn ignored_own_instruction_condition() {
     // `mul` ignored by an inherited enum doesn't satisfy the condition
-    assert!(TestIgnoredMulConditionInstruction::<Reg<u64>>::try_decode(2).is_none());
+    assert!(TestIgnoredMulConditionInstruction::<BasicHart<Reg<u64>>>::try_decode(2).is_none());
 }

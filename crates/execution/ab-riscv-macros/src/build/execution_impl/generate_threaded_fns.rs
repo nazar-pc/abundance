@@ -110,7 +110,7 @@ pub(super) fn generate_threaded_fns(
         {
             Next { instruction: Peeked, handler: Handler },
             Break,
-            Err(ExecutionError<<I::Reg as Register>::Type>),
+            Err(ExecutionError<<<I::Hart as HartConfig>::Reg as Register>::Type>),
         }
     });
 

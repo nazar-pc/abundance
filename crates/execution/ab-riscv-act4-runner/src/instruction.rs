@@ -8,13 +8,18 @@ use std::fmt;
     inherit = [ZicsrInstruction],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum MachineModePlaceholder<Reg> {}
+pub(crate) enum MachineModePlaceholder<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for MachineModePlaceholder<Reg> {
+const impl<Reg, Hart> Instruction for MachineModePlaceholder<Hart>
+where
+    Hart: [const] HartConfig<Reg = Reg>,
+{
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -28,9 +33,10 @@ const impl<Reg> Instruction for MachineModePlaceholder<Reg> {
 }
 
 #[instruction]
-impl<Reg> fmt::Display for MachineModePlaceholder<Reg>
+impl<Reg, Hart> fmt::Display for MachineModePlaceholder<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -38,12 +44,18 @@ where
 }
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for MachineModePlaceholder<Reg> where Reg: Register {}
-
-#[instruction_execution]
-impl<Reg, Env> ExecutableInstructionCsr<Env> for MachineModePlaceholder<Reg>
+impl<Reg, Hart> ExecutableInstructionOperands for MachineModePlaceholder<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for MachineModePlaceholder<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
     Env: Csrs<Reg> + crate::interpreter::CoreConfigProvider,
 {
     fn prepare_csr_read(
@@ -158,10 +170,11 @@ where
 }
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for MachineModePlaceholder<Reg>
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for MachineModePlaceholder<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
     Env: crate::interpreter::CoreConfigProvider,
 {
     fn execute(
@@ -169,12 +182,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value: _,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

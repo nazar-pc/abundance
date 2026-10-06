@@ -22,7 +22,7 @@ const MEMORY_SIZE: usize = 4 * 1024;
 /// Address of the first instruction of [`code()`]
 const BASE_ADDR: u64 = MEMORY_BASE_ADDRESS;
 
-type I = Rv64Instruction<Reg<u64>>;
+type I = Rv64Instruction<BasicHart<Reg<u64>>>;
 type Memory = BasicMemory<MEMORY_BASE_ADDRESS, MEMORY_SIZE>;
 
 /// `addi x0, x0, 0`, the canonical `nop`

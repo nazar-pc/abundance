@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::ZveXxInstruction;
 use crate::instructions::v::{Elen, SUPPORTED_ELEN_VLEN, VRegGroupSize, Vlen, Vlmul, Vsew, Vtype};
@@ -111,12 +112,13 @@ fn masked_v0_data_source_is_reserved() {
     ];
     for (name, instruction, v0_field) in cases {
         assert_eq!(
-            ZveXxInstruction::<Reg<u64>>::try_decode(instruction),
+            ZveXxInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction),
             None,
             "{name}"
         );
         assert!(
-            ZveXxInstruction::<Reg<u64>>::try_decode(instruction | (4 << v0_field)).is_some(),
+            ZveXxInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction | (4 << v0_field))
+                .is_some(),
             "{name}"
         );
     }
@@ -129,7 +131,7 @@ fn masked_v0_data_source_is_reserved() {
         ("viota.m", op_v_masked(0b01_0100, 0, 0b1_0000, OPMVV, 8)),
     ] {
         assert!(
-            ZveXxInstruction::<Reg<u64>>::try_decode(instruction).is_some(),
+            ZveXxInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction).is_some(),
             "{name}"
         );
     }
@@ -197,7 +199,7 @@ const fn load_masked(nf: u32, mop: u32, rs2: u32, width: u32, vd: u32) -> u32 {
 }
 
 /// Mnemonic of an instruction, the first word of its assembly
-fn mnemonic(instruction: ZveXxInstruction<Reg<u64>>) -> String {
+fn mnemonic(instruction: ZveXxInstruction<BasicHart<Reg<u64>>>) -> String {
     instruction
         .to_string()
         .split(' ')
@@ -391,12 +393,13 @@ fn masked_v0_destination_is_reserved() {
     ];
     for (name, instruction) in reserved {
         assert_eq!(
-            ZveXxInstruction::<Reg<u64>>::try_decode(instruction),
+            ZveXxInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction),
             None,
             "{name}"
         );
         // Same instruction with `vd = v8`
-        let instruction = ZveXxInstruction::<Reg<u64>>::try_decode(instruction | (8 << 7));
+        let instruction =
+            ZveXxInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction | (8 << 7));
         assert_eq!(instruction.map(mnemonic).as_deref(), Some(name));
     }
 
@@ -441,7 +444,7 @@ fn masked_v0_destination_is_reserved() {
         ("vwredsum.vs", op_v_masked(0b110_001, 4, 1, OPIVV, 0)),
     ];
     for (name, instruction) in allowed {
-        let instruction = ZveXxInstruction::<Reg<u64>>::try_decode(instruction);
+        let instruction = ZveXxInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction);
         assert_eq!(instruction.map(mnemonic).as_deref(), Some(name));
     }
 }

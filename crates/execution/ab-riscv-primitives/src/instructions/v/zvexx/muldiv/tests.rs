@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::test_utils::make_r_type;
 use crate::instructions::v::zvexx::muldiv::ZveXxMulDivInstruction;
@@ -25,7 +26,7 @@ const fn funct7(funct6: u8, vm: bool) -> u8 {
 #[test]
 fn test_vmul_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_0101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulVv {
@@ -42,7 +43,7 @@ fn test_vmul_vv() {
 #[test]
 fn test_vmul_vv_masked() {
     let inst = make_r_type(OP_V, 4, OPMVV, 5, 6, funct7(0b10_0101, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulVv {
@@ -59,7 +60,7 @@ fn test_vmul_vv_masked() {
 #[test]
 fn test_vmul_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_0101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulVx {
@@ -75,7 +76,7 @@ fn test_vmul_vx() {
 #[test]
 fn test_vmulh_vv() {
     let inst = make_r_type(OP_V, 8, OPMVV, 9, 10, funct7(0b10_0111, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulhVv {
@@ -92,7 +93,7 @@ fn test_vmulh_vv() {
 #[test]
 fn test_vmulh_vx() {
     let inst = make_r_type(OP_V, 8, OPMVX, 10, 12, funct7(0b10_0111, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulhVx {
@@ -108,7 +109,7 @@ fn test_vmulh_vx() {
 #[test]
 fn test_vmulhu_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_0100, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulhuVv {
@@ -125,7 +126,7 @@ fn test_vmulhu_vv() {
 #[test]
 fn test_vmulhu_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_0100, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulhuVx {
@@ -141,7 +142,7 @@ fn test_vmulhu_vx() {
 #[test]
 fn test_vmulhsu_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_0110, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulhsuVv {
@@ -158,7 +159,7 @@ fn test_vmulhsu_vv() {
 #[test]
 fn test_vmulhsu_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_0110, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulhsuVx {
@@ -176,7 +177,7 @@ fn test_vmulhsu_vx() {
 #[test]
 fn test_vdivu_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_0000, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VdivuVv {
@@ -193,7 +194,7 @@ fn test_vdivu_vv() {
 #[test]
 fn test_vdivu_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_0000, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VdivuVx {
@@ -209,7 +210,7 @@ fn test_vdivu_vx() {
 #[test]
 fn test_vdiv_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_0001, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VdivVv {
@@ -226,7 +227,7 @@ fn test_vdiv_vv() {
 #[test]
 fn test_vdiv_vx_masked() {
     let inst = make_r_type(OP_V, 16, OPMVX, 17, 18, funct7(0b10_0001, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VdivVx {
@@ -242,7 +243,7 @@ fn test_vdiv_vx_masked() {
 #[test]
 fn test_vremu_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_0010, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VremuVv {
@@ -259,7 +260,7 @@ fn test_vremu_vv() {
 #[test]
 fn test_vremu_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_0010, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VremuVx {
@@ -275,7 +276,7 @@ fn test_vremu_vx() {
 #[test]
 fn test_vrem_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_0011, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VremVv {
@@ -292,7 +293,7 @@ fn test_vrem_vv() {
 #[test]
 fn test_vrem_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_0011, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VremVx {
@@ -310,7 +311,7 @@ fn test_vrem_vx() {
 #[test]
 fn test_vwmulu_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 6, funct7(0b11_1000, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmuluVv {
@@ -327,7 +328,7 @@ fn test_vwmulu_vv() {
 #[test]
 fn test_vwmulu_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 5, 6, funct7(0b11_1000, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmuluVx {
@@ -343,7 +344,7 @@ fn test_vwmulu_vx() {
 #[test]
 fn test_vwmulsu_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 6, funct7(0b11_1010, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmulsuVv {
@@ -360,7 +361,7 @@ fn test_vwmulsu_vv() {
 #[test]
 fn test_vwmulsu_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 5, 6, funct7(0b11_1010, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmulsuVx {
@@ -376,7 +377,7 @@ fn test_vwmulsu_vx() {
 #[test]
 fn test_vwmul_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 6, funct7(0b11_1011, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmulVv {
@@ -393,7 +394,7 @@ fn test_vwmul_vv() {
 #[test]
 fn test_vwmul_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 5, 6, funct7(0b11_1011, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmulVx {
@@ -411,7 +412,7 @@ fn test_vwmul_vx() {
 #[test]
 fn test_vmacc_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_1101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmaccVv {
@@ -428,7 +429,7 @@ fn test_vmacc_vv() {
 #[test]
 fn test_vmacc_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 10, 3, funct7(0b10_1101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmaccVx {
@@ -444,7 +445,7 @@ fn test_vmacc_vx() {
 #[test]
 fn test_vnmsac_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_1111, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VnmsacVv {
@@ -461,7 +462,7 @@ fn test_vnmsac_vv() {
 #[test]
 fn test_vnmsac_vx_masked() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_1111, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VnmsacVx {
@@ -477,7 +478,7 @@ fn test_vnmsac_vx_masked() {
 #[test]
 fn test_vmadd_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_1001, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmaddVv {
@@ -494,7 +495,7 @@ fn test_vmadd_vv() {
 #[test]
 fn test_vmadd_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_1001, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmaddVx {
@@ -510,7 +511,7 @@ fn test_vmadd_vx() {
 #[test]
 fn test_vnmsub_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_1011, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VnmsubVv {
@@ -527,7 +528,7 @@ fn test_vnmsub_vv() {
 #[test]
 fn test_vnmsub_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_1011, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VnmsubVx {
@@ -545,7 +546,7 @@ fn test_vnmsub_vx() {
 #[test]
 fn test_vwmaccu_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 8, funct7(0b11_1100, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmaccuVv {
@@ -562,7 +563,7 @@ fn test_vwmaccu_vv() {
 #[test]
 fn test_vwmaccu_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b11_1100, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmaccuVx {
@@ -578,7 +579,7 @@ fn test_vwmaccu_vx() {
 #[test]
 fn test_vwmacc_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 8, funct7(0b11_1101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmaccVv {
@@ -595,7 +596,7 @@ fn test_vwmacc_vv() {
 #[test]
 fn test_vwmacc_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b11_1101, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmaccVx {
@@ -611,7 +612,7 @@ fn test_vwmacc_vx() {
 #[test]
 fn test_vwmaccsu_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 8, funct7(0b11_1111, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmaccsuVv {
@@ -628,7 +629,7 @@ fn test_vwmaccsu_vv() {
 #[test]
 fn test_vwmaccsu_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b11_1111, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmaccsuVx {
@@ -645,7 +646,7 @@ fn test_vwmaccsu_vx() {
 fn test_vwmaccus_vx() {
     // Only .vx form exists for vwmaccus
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b11_1110, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VwmaccusVx {
@@ -662,7 +663,7 @@ fn test_vwmaccus_vx() {
 fn test_vwmaccus_vv_does_not_exist() {
     // funct6=0b111110 under OPMVV should not decode (no .vv form)
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 8, funct7(0b11_1110, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -671,7 +672,7 @@ fn test_vwmaccus_vv_does_not_exist() {
 #[test]
 fn test_vmul_vv_high_regs() {
     let inst = make_r_type(OP_V, 31, OPMVV, 30, 29, funct7(0b10_0101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VmulVv {
@@ -688,7 +689,7 @@ fn test_vmul_vv_high_regs() {
 #[test]
 fn test_vdiv_vx_high_regs() {
     let inst = make_r_type(OP_V, 31, OPMVX, 31, 31, funct7(0b10_0001, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxMulDivInstruction::VdivVx {
@@ -706,7 +707,7 @@ fn test_vdiv_vx_high_regs() {
 #[test]
 fn test_wrong_opcode() {
     let inst = make_r_type(0b011_0011, 1, OPMVV, 2, 3, funct7(0b10_0101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -714,7 +715,7 @@ fn test_wrong_opcode() {
 fn test_wrong_funct3() {
     // OPIVV (0_b000) instead of OPMVV (0_b010)
     let inst = make_r_type(OP_V, 1, 0b000, 2, 3, funct7(0b10_0101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -722,7 +723,7 @@ fn test_wrong_funct3() {
 fn test_invalid_funct6_opmvv() {
     // funct6=0b101000 is not allocated under OPMVV for this group
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_1000, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -730,7 +731,7 @@ fn test_invalid_funct6_opmvv() {
 fn test_invalid_funct6_opmvx() {
     // funct6=0b111001 is not allocated under OPMVX for this group
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b11_1001, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -739,62 +740,62 @@ fn test_invalid_funct6_opmvx() {
 #[test]
 fn test_display_vmul_vv_unmasked() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_0101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vmul.vv v1, v3, v2");
 }
 
 #[test]
 fn test_display_vmul_vv_masked() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_0101, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vmul.vv v1, v3, v2, v0.t");
 }
 
 #[test]
 fn test_display_vmul_vx() {
     let inst = make_r_type(OP_V, 1, OPMVX, 10, 3, funct7(0b10_0101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vmul.vx v1, v3, a0");
 }
 
 #[test]
 fn test_display_vdivu_vv() {
     let inst = make_r_type(OP_V, 8, OPMVV, 9, 10, funct7(0b10_0000, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vdivu.vv v8, v10, v9");
 }
 
 #[test]
 fn test_display_vwmul_vv() {
     let inst = make_r_type(OP_V, 2, OPMVV, 4, 6, funct7(0b11_1011, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vwmul.vv v2, v6, v4");
 }
 
 #[test]
 fn test_display_vmacc_vv() {
     let inst = make_r_type(OP_V, 1, OPMVV, 2, 3, funct7(0b10_1101, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vmacc.vv v1, v2, v3");
 }
 
 #[test]
 fn test_display_vmacc_vx_masked() {
     let inst = make_r_type(OP_V, 1, OPMVX, 10, 3, funct7(0b10_1101, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vmacc.vx v1, a0, v3, v0.t");
 }
 
 #[test]
 fn test_display_vwmaccus_vx() {
     let inst = make_r_type(OP_V, 2, OPMVX, 10, 8, funct7(0b11_1110, true));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vwmaccus.vx v2, a0, v8");
 }
 
 #[test]
 fn test_display_vnmsub_vx_masked() {
     let inst = make_r_type(OP_V, 1, OPMVX, 2, 3, funct7(0b10_1011, false));
-    let decoded = ZveXxMulDivInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxMulDivInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vnmsub.vx v1, sp, v3, v0.t");
 }

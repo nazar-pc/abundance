@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::test_utils::make_r_type;
 use crate::instructions::v::zvexx::widen_narrow::ZveXxWidenNarrowInstruction;
@@ -39,7 +40,7 @@ fn make_vop_masked(funct6: u8, vs2: u8, vs1_or_rs1: u8, funct3: u8, vd: u8) -> u
 #[test]
 fn test_vwaddu_vv() {
     let inst = make_vop(0b11_0000, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwadduVv {
@@ -56,7 +57,7 @@ fn test_vwaddu_vv() {
 #[test]
 fn test_vwaddu_vv_masked() {
     let inst = make_vop_masked(0b11_0000, 4, 5, OPMVV, 8);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwadduVv {
@@ -73,7 +74,7 @@ fn test_vwaddu_vv_masked() {
 #[test]
 fn test_vwaddu_vx() {
     let inst = make_vop(0b11_0000, 2, 10, OPMVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwadduVx {
@@ -91,7 +92,7 @@ fn test_vwaddu_vx() {
 #[test]
 fn test_vwadd_vv() {
     let inst = make_vop(0b11_0001, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwaddVv {
@@ -108,7 +109,7 @@ fn test_vwadd_vv() {
 #[test]
 fn test_vwadd_vx() {
     let inst = make_vop(0b11_0001, 2, 5, OPMVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwaddVx {
@@ -126,7 +127,7 @@ fn test_vwadd_vx() {
 #[test]
 fn test_vwsubu_vv() {
     let inst = make_vop(0b11_0010, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwsubuVv {
@@ -143,7 +144,7 @@ fn test_vwsubu_vv() {
 #[test]
 fn test_vwsubu_vx() {
     let inst = make_vop(0b11_0010, 2, 10, OPMVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwsubuVx {
@@ -161,7 +162,7 @@ fn test_vwsubu_vx() {
 #[test]
 fn test_vwsub_vv() {
     let inst = make_vop(0b11_0011, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwsubVv {
@@ -178,7 +179,7 @@ fn test_vwsub_vv() {
 #[test]
 fn test_vwsub_vx() {
     let inst = make_vop(0b11_0011, 2, 5, OPMVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwsubVx {
@@ -196,7 +197,7 @@ fn test_vwsub_vx() {
 #[test]
 fn test_vwaddu_wv() {
     let inst = make_vop(0b11_0100, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwadduWv {
@@ -213,7 +214,7 @@ fn test_vwaddu_wv() {
 #[test]
 fn test_vwaddu_wx() {
     let inst = make_vop(0b11_0100, 2, 10, OPMVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwadduWx {
@@ -231,7 +232,7 @@ fn test_vwaddu_wx() {
 #[test]
 fn test_vwadd_wv() {
     let inst = make_vop(0b11_0101, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwaddWv {
@@ -248,7 +249,7 @@ fn test_vwadd_wv() {
 #[test]
 fn test_vwadd_wx() {
     let inst = make_vop(0b11_0101, 2, 5, OPMVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwaddWx {
@@ -266,7 +267,7 @@ fn test_vwadd_wx() {
 #[test]
 fn test_vwsubu_wv() {
     let inst = make_vop(0b11_0110, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwsubuWv {
@@ -283,7 +284,7 @@ fn test_vwsubu_wv() {
 #[test]
 fn test_vwsubu_wx() {
     let inst = make_vop(0b11_0110, 2, 10, OPMVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwsubuWx {
@@ -301,7 +302,7 @@ fn test_vwsubu_wx() {
 #[test]
 fn test_vwsub_wv() {
     let inst = make_vop(0b11_0111, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwsubWv {
@@ -318,7 +319,7 @@ fn test_vwsub_wv() {
 #[test]
 fn test_vwsub_wx() {
     let inst = make_vop(0b11_0111, 2, 5, OPMVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwsubWx {
@@ -334,7 +335,7 @@ fn test_vwsub_wx() {
 #[test]
 fn test_vwsub_wx_masked() {
     let inst = make_vop_masked(0b11_0111, 4, 11, OPMVX, 8);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwsubWx {
@@ -352,7 +353,7 @@ fn test_vwsub_wx_masked() {
 #[test]
 fn test_vnsrl_wv() {
     let inst = make_vop(0b10_1100, 2, 3, OPIVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsrlWv {
@@ -369,7 +370,7 @@ fn test_vnsrl_wv() {
 #[test]
 fn test_vnsrl_wx() {
     let inst = make_vop(0b10_1100, 2, 10, OPIVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsrlWx {
@@ -385,7 +386,7 @@ fn test_vnsrl_wx() {
 #[test]
 fn test_vnsrl_wi() {
     let inst = make_vop(0b10_1100, 2, 3, OPIVI, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsrlWi {
@@ -402,7 +403,7 @@ fn test_vnsrl_wi() {
 #[test]
 fn test_vnsrl_wi_max_uimm() {
     let inst = make_vop(0b10_1100, 4, 31, OPIVI, 8);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsrlWi {
@@ -419,7 +420,7 @@ fn test_vnsrl_wi_max_uimm() {
 #[test]
 fn test_vnsrl_wv_masked() {
     let inst = make_vop_masked(0b10_1100, 2, 3, OPIVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsrlWv {
@@ -438,7 +439,7 @@ fn test_vnsrl_wv_masked() {
 #[test]
 fn test_vnsra_wv() {
     let inst = make_vop(0b10_1101, 2, 3, OPIVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsraWv {
@@ -455,7 +456,7 @@ fn test_vnsra_wv() {
 #[test]
 fn test_vnsra_wx() {
     let inst = make_vop(0b10_1101, 2, 10, OPIVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsraWx {
@@ -471,7 +472,7 @@ fn test_vnsra_wx() {
 #[test]
 fn test_vnsra_wi() {
     let inst = make_vop(0b10_1101, 2, 5, OPIVI, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsraWi {
@@ -488,7 +489,7 @@ fn test_vnsra_wi() {
 #[test]
 fn test_vnsra_wi_masked() {
     let inst = make_vop_masked(0b10_1101, 4, 7, OPIVI, 16);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsraWi {
@@ -508,7 +509,7 @@ fn test_vnsra_wi_masked() {
 fn test_vzext_vf2() {
     // vs1=0b00110
     let inst = make_vop(0b01_0010, 2, 0b00110, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VzextVf2 {
@@ -525,7 +526,7 @@ fn test_vzext_vf2() {
 fn test_vzext_vf4() {
     // vs1=0b00100
     let inst = make_vop(0b01_0010, 4, 0b00100, OPMVV, 8);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VzextVf4 {
@@ -542,7 +543,7 @@ fn test_vzext_vf4() {
 fn test_vzext_vf8() {
     // vs1=0b00010
     let inst = make_vop(0b01_0010, 2, 0b00010, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VzextVf8 {
@@ -558,7 +559,7 @@ fn test_vzext_vf8() {
 #[test]
 fn test_vzext_vf2_masked() {
     let inst = make_vop_masked(0b01_0010, 2, 0b00110, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VzextVf2 {
@@ -577,7 +578,7 @@ fn test_vzext_vf2_masked() {
 fn test_vsext_vf2() {
     // vs1=0b00111
     let inst = make_vop(0b01_0010, 2, 0b00111, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VsextVf2 {
@@ -594,7 +595,7 @@ fn test_vsext_vf2() {
 fn test_vsext_vf4() {
     // vs1=0b00101
     let inst = make_vop(0b01_0010, 4, 0b00101, OPMVV, 8);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VsextVf4 {
@@ -611,7 +612,7 @@ fn test_vsext_vf4() {
 fn test_vsext_vf8() {
     // vs1=0b00011
     let inst = make_vop(0b01_0010, 2, 0b00011, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VsextVf8 {
@@ -627,7 +628,7 @@ fn test_vsext_vf8() {
 #[test]
 fn test_vsext_vf8_masked() {
     let inst = make_vop_masked(0b01_0010, 16, 0b00011, OPMVV, 24);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VsextVf8 {
@@ -645,7 +646,7 @@ fn test_vsext_vf8_masked() {
 #[test]
 fn test_wrong_opcode() {
     let inst = make_vop(0b11_0000, 2, 3, OPMVV, 1) & !0x7f | 0b011_0011;
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -653,7 +654,7 @@ fn test_wrong_opcode() {
 fn test_widening_add_wrong_funct3() {
     // funct6=11_0000 with OPIVV (funct3=000) instead of OPMVV
     let inst = make_vop(0b11_0000, 2, 3, OPIVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -661,7 +662,7 @@ fn test_widening_add_wrong_funct3() {
 fn test_narrowing_shift_wrong_funct3() {
     // funct6=10_1100 with OPMVV (funct3=010) instead of OPIVV/OPIVX/OPIVI
     let inst = make_vop(0b10_1100, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -669,7 +670,7 @@ fn test_narrowing_shift_wrong_funct3() {
 fn test_extension_wrong_funct3() {
     // funct6=01_0010 with OPIVV instead of OPMVV
     let inst = make_vop(0b01_0010, 2, 0b00110, OPIVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -677,7 +678,7 @@ fn test_extension_wrong_funct3() {
 fn test_extension_invalid_vs1() {
     // funct6=01_0010, OPMVV, but vs1=0b00000 (not a valid extension encoding)
     let inst = make_vop(0b01_0010, 2, 0b00000, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -685,7 +686,7 @@ fn test_extension_invalid_vs1() {
 fn test_extension_reserved_vs1() {
     // funct6=01_0010, OPMVV, vs1=0b00001 (reserved, not assigned)
     let inst = make_vop(0b01_0010, 2, 0b00001, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -693,7 +694,7 @@ fn test_extension_reserved_vs1() {
 fn test_unknown_funct6() {
     // funct6=11_1111 is not a widening/narrowing/extension instruction
     let inst = make_vop(0b11_1111, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -702,7 +703,7 @@ fn test_unknown_funct6() {
 #[test]
 fn test_vwaddu_vv_high_regs() {
     let inst = make_vop(0b11_0000, 30, 31, OPMVV, 28);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VwadduVv {
@@ -719,7 +720,7 @@ fn test_vwaddu_vv_high_regs() {
 #[test]
 fn test_vnsrl_wx_high_regs() {
     let inst = make_vop(0b10_1100, 24, 31, OPIVX, 16);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxWidenNarrowInstruction::VnsrlWx {
@@ -737,62 +738,62 @@ fn test_vnsrl_wx_high_regs() {
 #[test]
 fn test_display_vwaddu_vv_unmasked() {
     let inst = make_vop(0b11_0000, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vwaddu.vv v1, v2, v3");
 }
 
 #[test]
 fn test_display_vwaddu_vv_masked() {
     let inst = make_vop_masked(0b11_0000, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vwaddu.vv v1, v2, v3, v0.t");
 }
 
 #[test]
 fn test_display_vwadd_vx() {
     let inst = make_vop(0b11_0001, 4, 10, OPMVX, 8);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vwadd.vx v8, v4, a0");
 }
 
 #[test]
 fn test_display_vwsub_wv() {
     let inst = make_vop(0b11_0111, 2, 3, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vwsub.wv v1, v2, v3");
 }
 
 #[test]
 fn test_display_vnsrl_wi() {
     let inst = make_vop(0b10_1100, 4, 3, OPIVI, 2);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vnsrl.wi v2, v4, 3");
 }
 
 #[test]
 fn test_display_vnsra_wx_masked() {
     let inst = make_vop_masked(0b10_1101, 2, 10, OPIVX, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vnsra.wx v1, v2, a0, v0.t");
 }
 
 #[test]
 fn test_display_vzext_vf2() {
     let inst = make_vop(0b01_0010, 2, 0b00110, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vzext.vf2 v1, v2");
 }
 
 #[test]
 fn test_display_vsext_vf4_masked() {
     let inst = make_vop_masked(0b01_0010, 4, 0b00101, OPMVV, 8);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vsext.vf4 v8, v4, v0.t");
 }
 
 #[test]
 fn test_display_vzext_vf8() {
     let inst = make_vop(0b01_0010, 2, 0b00010, OPMVV, 1);
-    let decoded = ZveXxWidenNarrowInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxWidenNarrowInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vzext.vf8 v1, v2");
 }

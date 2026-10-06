@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -12,32 +13,37 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64ZbsInstruction<Reg> {
+#[rustfmt::skip]
+pub enum Rv64ZbsInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // Single-Bit Set
-    Bset { rd: Reg, rs1: Reg, rs2: Reg },
-    Bseti { rd: Reg, rs1: Reg, shamt: u8 },
+    Bset { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Bseti { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
 
     // Single-Bit Clear
-    Bclr { rd: Reg, rs1: Reg, rs2: Reg },
-    Bclri { rd: Reg, rs1: Reg, shamt: u8 },
+    Bclr { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Bclri { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
 
     // Single-Bit Invert
-    Binv { rd: Reg, rs1: Reg, rs2: Reg },
-    Binvi { rd: Reg, rs1: Reg, shamt: u8 },
+    Binv { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Binvi { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
 
     // Single-Bit Extract
-    Bext { rd: Reg, rs1: Reg, rs2: Reg },
-    Bexti { rd: Reg, rs1: Reg, shamt: u8 },
+    Bext { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Bexti { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZbsInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZbsInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -88,9 +94,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZbsInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZbsInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

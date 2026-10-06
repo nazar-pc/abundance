@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::v::{Eew, V, VRegGroupSize};
 use crate::registers::general_purpose::Register;
@@ -158,65 +159,69 @@ impl LoadStoreNreg {
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxLoadInstruction<Reg> {
+pub enum ZveXxLoadInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// Unit-stride load: `vle{eew}.v vd, (rs1), vm`
     ///
     /// mop=00, lumop=00000, nf=000
-    Vle { vd: VReg, rs1: Reg, vm: bool, eew: Eew },
+    Vle { vd: VReg, rs1: Hart::Reg, vm: bool, eew: Eew },
     /// Unit-stride fault-only-first load: `vle{eew}ff.v vd, (rs1), vm`
     ///
     /// mop=00, lumop=10000, nf=000
-    Vleff { vd: VReg, rs1: Reg, vm: bool, eew: Eew },
+    Vleff { vd: VReg, rs1: Hart::Reg, vm: bool, eew: Eew },
     /// Unit-stride mask load: `vlm.v vd, (rs1)`
     ///
     /// mop=00, lumop=01011, nf=000, eew=e8, vm=1
-    Vlm { vd: VReg, rs1: Reg },
+    Vlm { vd: VReg, rs1: Hart::Reg },
     /// Strided load: `vlse{eew}.v vd, (rs1), rs2, vm`
     ///
     /// mop=10, nf=000
-    Vlse { vd: VReg, rs1: Reg, rs2: Reg, vm: bool, eew: Eew },
+    Vlse { vd: VReg, rs1: Hart::Reg, rs2: Hart::Reg, vm: bool, eew: Eew },
     /// Indexed-unordered load: `vluxei{eew}.v vd, (rs1), vs2, vm`
     ///
     /// mop=01, nf=000. eew is the index element width.
-    Vluxei { vd: VReg, rs1: Reg, vs2: VReg, vm: bool, eew: Eew },
+    Vluxei { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool, eew: Eew },
     /// Indexed-ordered load: `vloxei{eew}.v vd, (rs1), vs2, vm`
     ///
     /// mop=11, nf=000. eew is the index element width.
-    Vloxei { vd: VReg, rs1: Reg, vs2: VReg, vm: bool, eew: Eew },
+    Vloxei { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool, eew: Eew },
     /// Whole-register load: `vl{nreg}re{eew}.v vd, (rs1)`
     ///
     /// mop=00, lumop=01000, vm=1. nreg must be 1, 2, 4, or 8.
-    Vlr { vd: VReg, rs1: Reg, nreg: LoadStoreNreg, eew: Eew },
+    Vlr { vd: VReg, rs1: Hart::Reg, nreg: LoadStoreNreg, eew: Eew },
     /// Unit-stride segment load: `vlseg{nf}e{eew}.v vd, (rs1), vm`
     ///
     /// mop=00, lumop=00000, nf>0
-    Vlseg { vd: VReg, rs1: Reg, eew: Eew, vm_nf: SegVmNf },
+    Vlseg { vd: VReg, rs1: Hart::Reg, eew: Eew, vm_nf: SegVmNf },
     /// Unit-stride fault-only-first segment load: `vlseg{nf}e{eew}ff.v vd, (rs1), vm`
     ///
     /// mop=00, lumop=10000, nf>0
-    Vlsegff { vd: VReg, rs1: Reg, eew: Eew, vm_nf: SegVmNf },
+    Vlsegff { vd: VReg, rs1: Hart::Reg, eew: Eew, vm_nf: SegVmNf },
     /// Strided segment load: `vlsseg{nf}e{eew}.v vd, (rs1), rs2, vm`
     ///
     /// mop=10, nf>0
-    Vlsseg { vd: VReg, rs1: Reg, rs2: Reg, eew: Eew, vm_nf: SegVmNf },
+    Vlsseg { vd: VReg, rs1: Hart::Reg, rs2: Hart::Reg, eew: Eew, vm_nf: SegVmNf },
     /// Indexed-unordered segment load: `vluxseg{nf}ei{eew}.v vd, (rs1), vs2, vm`
     ///
     /// mop=01, nf>0
-    Vluxseg { vd: VReg, rs1: Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
+    Vluxseg { vd: VReg, rs1: Hart::Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
     /// Indexed-ordered segment load: `vloxseg{nf}ei{eew}.v vd, (rs1), vs2, vm`
     ///
     /// mop=11, nf>0
-    Vloxseg { vd: VReg, rs1: Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
+    Vloxseg { vd: VReg, rs1: Hart::Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxLoadInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxLoadInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -404,9 +409,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxLoadInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxLoadInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

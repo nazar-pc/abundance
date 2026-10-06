@@ -29,16 +29,27 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZvbcInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZvbcInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZvbcInstruction<Reg>
+const impl<Reg, Hart> ExecutableInstructionOperands for ZvbcInstruction<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZvbcInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZvbcInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
     Regs: RegisterFile<Reg>,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
@@ -52,12 +63,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             // vclmul: vd[i] = lower SEW bits of clmul(vs2[i], vs1[i])
             Self::VclmulVv { vd, vs2, vs1, vm } => {

@@ -13,8 +13,8 @@ use crate::zawrs::WrsHandler;
 use crate::zifencei::FenceIHandler;
 use crate::{
     Address, BasicInt, ExecutableInstruction, ExecutionError, ExecutionResult,
-    FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
-    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
+    FetchInstructionResult, InstructionFetcher, InstructionReg, PackedAddress, ProgramCounter,
+    RegisterFile, Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, VirtualMemory,
     VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
@@ -204,7 +204,7 @@ impl<Regs, Env, Memory, IF> BasicInterpreterState<Regs, Env, Memory, IF> {
     #[rustc_align(64)]
     pub fn execute<I>(&mut self) -> Result<(), ExecutionError<Address<I>>>
     where
-        Regs: RegisterFile<<I as Instruction>::Reg>,
+        Regs: RegisterFile<InstructionReg<I>>,
         I: ExecutableInstruction<Regs, Env, Memory, IF>,
         Memory: VirtualMemory,
         IF: InstructionFetcher<I, Memory> + ProgramCounter<Address<I>, Memory>,

@@ -20,7 +20,7 @@ pub(crate) const ABUNDANCE_RV64I_ZVE32X_ZVBB_CONFIG: CoreConfig = CoreConfig {
 
 /// RV64I base ISA with Zve32x and Zvbb extensions
 pub(crate) type AbundanceRv64IZve32xZvbbInstruction =
-    AbundanceRv64IZve32xZvbbInstructionPrototype<Reg<u64>>;
+    AbundanceRv64IZve32xZvbbInstructionPrototype<BasicHart<Reg<u64>>>;
 
 /// RV64I base ISA with Zve32x and Zvbb extensions
 #[instruction(
@@ -40,13 +40,18 @@ pub(crate) type AbundanceRv64IZve32xZvbbInstruction =
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum AbundanceRv64IZve32xZvbbInstructionPrototype<Reg> {}
+pub(crate) enum AbundanceRv64IZve32xZvbbInstructionPrototype<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg> {
+const impl<Reg, Hart> Instruction for AbundanceRv64IZve32xZvbbInstructionPrototype<Hart>
+where
+    Hart: [const] HartConfig<Reg = Reg>,
+{
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -60,9 +65,10 @@ const impl<Reg> Instruction for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg
 }
 
 #[instruction]
-impl<Reg> fmt::Display for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg>
+impl<Reg, Hart> fmt::Display for AbundanceRv64IZve32xZvbbInstructionPrototype<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -70,28 +76,37 @@ where
 }
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg> {}
+impl<Reg, Hart> ExecutableInstructionOperands for AbundanceRv64IZve32xZvbbInstructionPrototype<Hart> where
+    Hart: HartConfig<Reg = Reg>
+{
+}
 
 #[instruction_execution]
-impl<Reg, Env> ExecutableInstructionCsr<Env> for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg> {}
+impl<Reg, Hart, Env> ExecutableInstructionCsr<Env>
+    for AbundanceRv64IZve32xZvbbInstructionPrototype<Hart>
+where
+    Hart: HartConfig<Reg = Reg>,
+{
+}
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for AbundanceRv64IZve32xZvbbInstructionPrototype<Reg>
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for AbundanceRv64IZve32xZvbbInstructionPrototype<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn execute(
         self,
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

@@ -158,7 +158,7 @@ pub(crate) struct TestInstructionFetcher<I> {
 
 impl<I> ProgramCounter<u64, TestMemory> for TestInstructionFetcher<I>
 where
-    I: Instruction<Reg = Reg<u64>>,
+    I: Instruction<Hart = BasicHart<Reg<u64>>>,
 {
     #[inline(always)]
     fn get_pc(&self) -> u64 {
@@ -196,7 +196,7 @@ where
 
 impl<I> InstructionFetcher<I, TestMemory> for TestInstructionFetcher<I>
 where
-    I: Instruction<Reg = Reg<u64>>,
+    I: Instruction<Hart = BasicHart<Reg<u64>>>,
 {
     type Peeked = I;
 
@@ -257,7 +257,7 @@ impl<I> TestInstructionFetcher<I> {
         pc: u64,
     ) -> Self
     where
-        I: Instruction<Reg = Reg<u64>>,
+        I: Instruction<Hart = BasicHart<Reg<u64>>>,
         Instructions: IntoIterator<Item = I>,
     {
         Self {
@@ -420,7 +420,7 @@ impl VectorRegistersExt<Reg<u64>> for Env {}
 impl<Regs, I> SystemInstructionHandler<Reg<u64>, Regs, TestMemory, TestInstructionFetcher<I>>
     for Env
 where
-    I: Instruction<Reg = Reg<u64>>,
+    I: Instruction<Hart = BasicHart<Reg<u64>>>,
 {
     #[inline(always)]
     fn handle_ecall(
@@ -432,7 +432,7 @@ where
         Err(ExecutionError::EcallUnsupported {
             address: crate::PackedAddress::new(
                 program_counter.old_pc(
-                    Rv64Instruction::<Reg<u64>>::Ecall {
+                    Rv64Instruction::<BasicHart<Reg<u64>>>::Ecall {
                         rs1: Reg::Zero,
                         rs2: Reg::Zero,
                     }
@@ -536,7 +536,7 @@ pub(crate) fn initialize_state<I, Instructions>(
     instructions: Instructions,
 ) -> TestInterpreterState<I>
 where
-    I: Instruction<Reg = Reg<u64>>,
+    I: Instruction<Hart = BasicHart<Reg<u64>>>,
     Instructions: IntoIterator<Item = I>,
 {
     BasicInterpreterState {
@@ -556,7 +556,7 @@ pub(crate) fn execute<I>(
     state: &mut TestInterpreterState<I>,
 ) -> Result<(), ExecutionError<Address<I>>>
 where
-    I: Instruction<Reg = Reg<u64>>
+    I: Instruction<Hart = BasicHart<Reg<u64>>>
         + ExecutableInstruction<
             BasicRegisters<Reg<u64>, false>,
             Env,
@@ -633,7 +633,7 @@ where
 /// advances the state's fetcher, the program counter comes back as part of the result here.
 pub(crate) fn execute_threaded<I>(state: &mut TestInterpreterState<I>) -> ThreadedExecutionResult<I>
 where
-    I: Instruction<Reg = Reg<u64>>
+    I: Instruction<Hart = BasicHart<Reg<u64>>>
         + for<'a> ThreadedExecutableInstruction<
             BasicRegisters<Reg<u64>, false>,
             &'a mut Env,

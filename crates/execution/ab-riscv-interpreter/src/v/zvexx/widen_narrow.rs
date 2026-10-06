@@ -16,22 +16,27 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZveXxWidenNarrowInstruction<Reg> where
-    Reg: Register
-{
-}
-
-#[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxWidenNarrowInstruction<Reg> where
-    Reg: Register
-{
-}
-
-#[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZveXxWidenNarrowInstruction<Reg>
+const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxWidenNarrowInstruction<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxWidenNarrowInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZveXxWidenNarrowInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
     Regs: RegisterFile<Reg>,
     Env: VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
@@ -45,12 +50,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value: _,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             // vwaddu.vv - 2*SEW = zext(SEW) + zext(SEW)
             Self::VwadduVv { vd, vs2, vs1, vm } => {

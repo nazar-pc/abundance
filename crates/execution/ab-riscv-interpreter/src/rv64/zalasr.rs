@@ -13,22 +13,27 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for Rv64ZalasrInstruction<Reg> where
-    Reg: Register<Type = u64>
+const impl<Reg, Hart> ExecutableInstructionOperands for Rv64ZalasrInstruction<Hart>
+where
+    Reg: Register<Type = u64>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZalasrInstruction<Reg> where
-    Reg: Register<Type = u64>
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for Rv64ZalasrInstruction<Hart>
+where
+    Reg: Register<Type = u64>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for Rv64ZalasrInstruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv64ZalasrInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: HartConfig<Reg = Reg>,
     Regs: [const] RegisterFile<Reg>,
     Memory: [const] VirtualMemory,
 {
@@ -39,12 +44,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         _env: &mut Env,
         memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             Self::LbAq { rd, rs1: _, rl: _ } => {
                 let value = i64::from(memory.read::<i8>(rs1_value)?);

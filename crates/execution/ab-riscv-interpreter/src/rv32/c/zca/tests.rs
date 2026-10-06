@@ -101,7 +101,7 @@ fn test_cjal_negative_offset() {
     let pc_before = state.instruction_fetcher.get_pc();
     // Simulate instruction fetch
     let instruction = {
-        let instruction = Rv32ZcaInstruction::CJal {
+        let instruction = Rv32ZcaInstruction::<BasicHart<Reg<u32>>>::CJal {
             imm: -4,
             rs1: Reg::Zero,
             rs2: Reg::Zero,

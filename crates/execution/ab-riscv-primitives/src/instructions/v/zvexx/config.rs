@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -17,32 +18,36 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxConfigInstruction<Reg> {
+pub enum ZveXxConfigInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// Set vector length and type from GPR
     ///
     /// `vsetvli rd, rs1, vtypei`
     /// rd = new vl, rs1 = AVL, vtypei = new vtype setting (11-bit immediate)
-    Vsetvli { rd: Reg, rs1: Reg, vtypei: u16 },
+    Vsetvli { rd: Hart::Reg, rs1: Hart::Reg, vtypei: u16 },
     /// Set vector length and type from immediate AVL
     ///
     /// `vsetivli rd, uimm, vtypei`
     /// rd = new vl, uimm\[4:0] = AVL, vtypei = new vtype setting (10-bit immediate)
-    Vsetivli { rd: Reg, uimm: u8, vtypei: u16 },
+    Vsetivli { rd: Hart::Reg, uimm: u8, vtypei: u16 },
     /// Set vector length and type from GPRs
     ///
     /// `vsetvl rd, rs1, rs2`
     /// rd = new vl, rs1 = AVL, rs2 = new vtype value
-    Vsetvl { rd: Reg, rs1: Reg, rs2: Reg },
+    Vsetvl { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxConfigInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxConfigInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -106,9 +111,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxConfigInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxConfigInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

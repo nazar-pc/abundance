@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
@@ -18,85 +19,89 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxFixedPointInstruction<Reg> {
+pub enum ZveXxFixedPointInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// `vsaddu.vv vd, vs2, vs1, vm` - Saturating unsigned add, vector-vector
     VsadduVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vsaddu.vx vd, vs2, rs1, vm` - Saturating unsigned add, vector-scalar
-    VsadduVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VsadduVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vsaddu.vi vd, vs2, imm, vm` - Saturating unsigned add, vector-immediate
     VsadduVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vsadd.vv vd, vs2, vs1, vm` - Saturating signed add, vector-vector
     VsaddVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vsadd.vx vd, vs2, rs1, vm` - Saturating signed add, vector-scalar
-    VsaddVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VsaddVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vsadd.vi vd, vs2, imm, vm` - Saturating signed add, vector-immediate
     VsaddVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vssubu.vv vd, vs2, vs1, vm` - Saturating unsigned subtract, vector-vector
     VssubuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vssubu.vx vd, vs2, rs1, vm` - Saturating unsigned subtract, vector-scalar
-    VssubuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VssubuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vssub.vv vd, vs2, vs1, vm` - Saturating signed subtract, vector-vector
     VssubVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vssub.vx vd, vs2, rs1, vm` - Saturating signed subtract, vector-scalar
-    VssubVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VssubVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     /// `vaaddu.vv vd, vs2, vs1, vm` - Averaging unsigned add, vector-vector
     VaadduVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vaaddu.vx vd, vs2, rs1, vm` - Averaging unsigned add, vector-scalar
-    VaadduVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VaadduVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vaadd.vv vd, vs2, vs1, vm` - Averaging signed add, vector-vector
     VaaddVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vaadd.vx vd, vs2, rs1, vm` - Averaging signed add, vector-scalar
-    VaaddVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VaaddVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vasubu.vv vd, vs2, vs1, vm` - Averaging unsigned subtract, vector-vector
     VasubuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vasubu.vx vd, vs2, rs1, vm` - Averaging unsigned subtract, vector-scalar
-    VasubuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VasubuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vasub.vv vd, vs2, vs1, vm` - Averaging signed subtract, vector-vector
     VasubVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vasub.vx vd, vs2, rs1, vm` - Averaging signed subtract, vector-scalar
-    VasubVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VasubVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     /// `vsmul.vv vd, vs2, vs1, vm` - Fractional multiply with rounding and saturation
     VsmulVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vsmul.vx vd, vs2, rs1, vm` - Fractional multiply with rounding and saturation
-    VsmulVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VsmulVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     /// `vssrl.vv vd, vs2, vs1, vm` - Scaling shift right logical, vector-vector
     VssrlVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vssrl.vx vd, vs2, rs1, vm` - Scaling shift right logical, vector-scalar
-    VssrlVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VssrlVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vssrl.vi vd, vs2, imm, vm` - Scaling shift right logical, vector-immediate
     VssrlVi { vd: VReg, vs2: VReg, imm: u8, vm: bool },
     /// `vssra.vv vd, vs2, vs1, vm` - Scaling shift right arithmetic, vector-vector
     VssraVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vssra.vx vd, vs2, rs1, vm` - Scaling shift right arithmetic, vector-scalar
-    VssraVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VssraVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vssra.vi vd, vs2, imm, vm` - Scaling shift right arithmetic, vector-immediate
     VssraVi { vd: VReg, vs2: VReg, imm: u8, vm: bool },
 
     /// `vnclipu.wv vd, vs2, vs1, vm` - Narrowing unsigned clip, vector-vector
     VnclipuWv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vnclipu.wx vd, vs2, rs1, vm` - Narrowing unsigned clip, vector-scalar
-    VnclipuWx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VnclipuWx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vnclipu.wi vd, vs2, imm, vm` - Narrowing unsigned clip, vector-immediate
     VnclipuWi { vd: VReg, vs2: VReg, imm: u8, vm: bool },
     /// `vnclip.wv vd, vs2, vs1, vm` - Narrowing signed clip, vector-vector
     VnclipWv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vnclip.wx vd, vs2, rs1, vm` - Narrowing signed clip, vector-scalar
-    VnclipWx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VnclipWx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vnclip.wi vd, vs2, imm, vm` - Narrowing signed clip, vector-immediate
     VnclipWi { vd: VReg, vs2: VReg, imm: u8, vm: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxFixedPointInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxFixedPointInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -397,9 +402,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxFixedPointInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxFixedPointInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
 use crate::instructions::utils::I24;
@@ -18,16 +19,19 @@ use core::fmt;
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv32ZcbInstruction<Reg> {}
+pub enum Rv32ZcbInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZcbInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZcbInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -42,9 +46,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZcbInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZcbInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -57,48 +62,52 @@ where
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum Rv32ZcbOnlyInstruction<Reg> {
+pub enum Rv32ZcbOnlyInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // Q00 loads / stores
     /// C.LBU  rd' = zero_extend(mem8\[rs1' + uimm])  uimm ∈ {0,1,2,3}
-    CLbu { rd: Reg, rs1: Reg, uimm: u8 },
+    CLbu { rd: Hart::Reg, rs1: Hart::Reg, uimm: u8 },
     /// C.LH   rd' = sign_extend(mem16\[rs1' + uimm])  uimm ∈ {0,2}
-    CLh { rd: Reg, rs1: Reg, uimm: u8 },
+    CLh { rd: Hart::Reg, rs1: Hart::Reg, uimm: u8 },
     /// C.LHU  rd' = zero_extend(mem16\[rs1' + uimm])  uimm ∈ {0,2}
-    CLhu { rd: Reg, rs1: Reg, uimm: u8 },
+    CLhu { rd: Hart::Reg, rs1: Hart::Reg, uimm: u8 },
     /// C.SB   mem8\[rs1' + uimm] = rs2'  uimm ∈ {0,1,2,3}
-    CSb { rs1: Reg, rs2: Reg, uimm: u8 },
+    CSb { rs1: Hart::Reg, rs2: Hart::Reg, uimm: u8 },
     /// C.SH   mem16\[rs1' + uimm] = rs2'  uimm ∈ {0,2}
-    CSh { rs1: Reg, rs2: Reg, uimm: u8 },
+    CSh { rs1: Hart::Reg, rs2: Hart::Reg, uimm: u8 },
 
     // Q01 unary bit-manipulation
     /// C.ZEXT.B  rd' = rd' & 0xff
-    CZextB { rd: Reg },
+    CZextB { rd: Hart::Reg },
     /// C.SEXT.B  rd' = sext(rd'\[7:0])  (requires Zbb)
     #[instruction(if = [Rv32ZbbInstruction])]
-    CSextB { rd: Reg },
+    CSextB { rd: Hart::Reg },
     /// C.ZEXT.H  rd' = rd' & 0xffff  (requires Zbb)
     #[instruction(if = [Rv32ZbbInstruction])]
-    CZextH { rd: Reg },
+    CZextH { rd: Hart::Reg },
     /// C.SEXT.H  rd' = sext(rd'\[15:0])  (requires Zbb)
     #[instruction(if = [Rv32ZbbInstruction])]
-    CSextH { rd: Reg },
+    CSextH { rd: Hart::Reg },
     /// C.NOT  rd' = ~rd'
-    CNot { rd: Reg },
+    CNot { rd: Hart::Reg },
 
     // Q01 binary
     /// C.MUL  rd' = (rd' * rs2')\[31:0]  (requires Zmmul, which M inherits)
     #[instruction(if = [Rv32ZmmulInstruction])]
-    CMul { rd: Reg, rs2: Reg },
+    CMul { rd: Hart::Reg, rs2: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZcbOnlyInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZcbOnlyInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -216,9 +225,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZcbOnlyInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZcbOnlyInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

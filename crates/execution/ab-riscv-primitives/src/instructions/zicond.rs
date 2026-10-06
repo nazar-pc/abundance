@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -12,21 +13,26 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum ZicondInstruction<Reg> {
+#[rustfmt::skip]
+pub enum ZicondInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// `czero.eqz rd, rs1, rs2` - move zero to `rd` if `rs2 == 0`, else move `rs1`
-    CzeroEqz { rd: Reg, rs1: Reg, rs2: Reg },
+    CzeroEqz { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     /// `czero.nez rd, rs1, rs2` - move zero to `rd` if `rs2 != 0`, else move `rs1`
-    CzeroNez { rd: Reg, rs1: Reg, rs2: Reg },
+    CzeroNez { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZicondInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZicondInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -60,9 +66,10 @@ where
     }
 }
 
-impl<Reg> fmt::Display for ZicondInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZicondInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

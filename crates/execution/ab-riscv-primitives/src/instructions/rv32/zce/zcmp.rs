@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
 use crate::instructions::utils::I24;
@@ -301,16 +302,19 @@ impl<Reg> fmt::Display for ZcmpUrlist<Reg> {
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv32ZcmpInstruction<Reg> {}
+pub enum Rv32ZcmpInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZcmpInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZcmpInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -325,9 +329,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZcmpInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZcmpInstruction<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -339,49 +344,53 @@ where
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[doc(hidden)]
-pub enum Rv32ZcmpOnlyInstruction<Reg> {
+pub enum Rv32ZcmpOnlyInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// CM.PUSH - push reg_list, decrement sp by `stack_adj`
     ///
     /// `stack_adj = urlist.stack_adj_base() + spimm * 16` from the encoding.
     CmPush {
-        urlist: ZcmpUrlist<Reg>,
+        urlist: ZcmpUrlist<Hart::Reg>,
         stack_adj: u8,
     },
     /// CM.POP - pop reg_list, increment sp by `stack_adj` (no return)
     CmPop {
-        urlist: ZcmpUrlist<Reg>,
+        urlist: ZcmpUrlist<Hart::Reg>,
         stack_adj: u8,
     },
     /// CM.POPRETZ - pop reg_list, set a0=0, increment sp, return
     CmPopretz {
-        urlist: ZcmpUrlist<Reg>,
+        urlist: ZcmpUrlist<Hart::Reg>,
         stack_adj: u8,
     },
     /// CM.POPRET - pop reg_list, increment sp, return
     CmPopret {
-        urlist: ZcmpUrlist<Reg>,
+        urlist: ZcmpUrlist<Hart::Reg>,
         stack_adj: u8,
     },
     /// CM.MVA01S - a0 = r1s', a1 = r2s'.
     ///
     /// The fields are called both r1s/r2s and rs1/rs2 in the spec, rs1/rs2 is used here for
     /// consistency with other instructions.
-    CmMva01s { rs1: Reg, rs2: Reg },
+    CmMva01s { rs1: Hart::Reg, rs2: Hart::Reg },
     /// CM.MVSA01 - r1s' = a0, r2s' = a1  (r1s' != r2s').
     ///
     /// The fields are called both r1s/r2s and rs1/rs2 in the spec, rs1/rs2 is used here for
     /// consistency with other instructions.
-    CmMvsa01 { rs1: Reg, rs2: Reg },
+    CmMvsa01 { rs1: Hart::Reg, rs2: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZcmpOnlyInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZcmpOnlyInstruction<Hart>
 where
     Reg: [const] ZcmpRegister<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -465,9 +474,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZcmpOnlyInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZcmpOnlyInstruction<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

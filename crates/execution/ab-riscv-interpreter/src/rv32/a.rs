@@ -55,22 +55,27 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for Rv32AInstruction<Reg> where
-    Reg: Register<Type = u32>
+const impl<Reg, Hart> ExecutableInstructionOperands for Rv32AInstruction<Hart>
+where
+    Reg: Register<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32AInstruction<Reg> where
-    Reg: Register<Type = u32>
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for Rv32AInstruction<Hart>
+where
+    Reg: Register<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for Rv32AInstruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv32AInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
     Regs: [const] RegisterFile<Reg>,
     Memory: [const] VirtualMemory,
     Env: [const] ReservationSet<Reg>,
@@ -82,12 +87,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

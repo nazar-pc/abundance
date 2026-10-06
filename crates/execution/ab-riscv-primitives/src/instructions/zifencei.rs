@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -12,19 +13,23 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum ZifenceiInstruction<Reg> {
+pub enum ZifenceiInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// Instruction-fetch fence
     FenceI,
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZifenceiInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZifenceiInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -49,9 +54,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZifenceiInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZifenceiInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

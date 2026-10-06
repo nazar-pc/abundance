@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -88,25 +89,30 @@ impl Rv64ZkndKsRnum {
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64ZkndZkneSharedInstruction<Reg> {
+#[rustfmt::skip]
+pub enum Rv64ZkndZkneSharedInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// AES key schedule step 1 (rnum in 0..=10)
     Aes64Ks1i {
-        rd: Reg,
-        rs1: Reg,
+        rd: Hart::Reg,
+        rs1: Hart::Reg,
         rnum: Rv64ZkndKsRnum,
     },
     /// AES key schedule step 2
-    Aes64Ks2 { rd: Reg, rs1: Reg, rs2: Reg },
+    Aes64Ks2 { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZkndZkneSharedInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZkndZkneSharedInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -161,9 +167,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZkndZkneSharedInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZkndZkneSharedInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -180,23 +187,28 @@ where
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64ZkndInstruction<Reg> {
+#[rustfmt::skip]
+pub enum Rv64ZkndInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// AES final round decryption: InvShiftRows + InvSubBytes, no MixColumns
-    Aes64Ds { rd: Reg, rs1: Reg, rs2: Reg },
+    Aes64Ds { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     /// AES middle round decryption: InvShiftRows + InvSubBytes + InvMixColumns
-    Aes64Dsm { rd: Reg, rs1: Reg, rs2: Reg },
+    Aes64Dsm { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     /// AES inverse MixColumns on each 32-bit word of rs1
-    Aes64Im { rd: Reg, rs1: Reg },
+    Aes64Im { rd: Hart::Reg, rs1: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZkndInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZkndInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -251,9 +263,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZkndInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZkndInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

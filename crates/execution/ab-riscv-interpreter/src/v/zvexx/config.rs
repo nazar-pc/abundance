@@ -15,12 +15,18 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZveXxConfigInstruction<Reg> where Reg: Register {}
+const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxConfigInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxConfigInstruction<Reg>
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxConfigInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: HartConfig<Reg = Reg>,
     Env: [const] Csrs<Reg>,
 {
     /// Validate reads to vector CSRs from Zicsr instructions.
@@ -109,10 +115,11 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZveXxConfigInstruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZveXxConfigInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: HartConfig<Reg = Reg>,
     Regs: [const] RegisterFile<Reg>,
     Env: [const] VectorRegistersExt<Reg>,
     [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
@@ -125,12 +132,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             Self::Vsetvli { rd, rs1, vtypei } => {
                 let rd_value = zvexx_config_helpers::apply_vsetvl(

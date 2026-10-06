@@ -4,6 +4,7 @@
 mod tests;
 pub mod zvexx;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::{RegType, Register};
 use core::any::TypeId;
@@ -1049,19 +1050,23 @@ where
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[doc(hidden)]
-pub enum V<Reg> {
-    V(Reg, !),
+pub enum V<Hart>
+where
+    Hart: HartConfig,
+{
+    V(Hart::Reg, !),
 }
 
-const impl<Reg> Instruction for V<Reg>
+const impl<Reg, Hart> Instruction for V<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const IMPLEMENTED_EXTENSIONS: &'static [TypeId] = &[];
 
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(_instruction: u32) -> Option<Self> {
@@ -1074,9 +1079,10 @@ where
     }
 }
 
-impl<Reg> fmt::Display for V<Reg>
+impl<Reg, Hart> fmt::Display for V<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

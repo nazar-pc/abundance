@@ -23,6 +23,7 @@ pub mod store;
 #[doc(hidden)]
 pub mod widen_narrow;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
 use crate::instructions::v::zvexx::carry::ZveXxCarryInstruction;
@@ -65,16 +66,19 @@ use core::fmt;
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum ZveXxInstruction<Reg> {}
+pub enum ZveXxInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -89,9 +93,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}

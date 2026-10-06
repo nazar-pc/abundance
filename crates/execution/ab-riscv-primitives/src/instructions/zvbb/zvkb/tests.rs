@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::test_utils::make_r_type;
 use crate::instructions::zvbb::zvkb::ZvkbInstruction;
@@ -29,7 +30,10 @@ fn wrong_opcode_not_decoded() {
     // Use OP (0b011_0011) instead of OP-V (0b101_0111); funct6=0b000001 (vandn)
     let funct7 = 0b00_0001u8 << 1;
     let inst = make_r_type(0b011_0011, 1, OPIVV, 2, 3, funct7);
-    assert_eq!(ZvkbInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        None
+    );
 }
 
 // Negative: unrelated funct6 in the same funct3 slots
@@ -40,7 +44,7 @@ fn vadd_funct6_not_claimed() {
     // it must not decode as any Zvkb-specific variant.
     let inst = make_vop(0b00_0000, 1, 2, 3, OPIVV, 1);
     assert!(!matches!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(
             ZvkbInstruction::VandnVv { .. }
                 | ZvkbInstruction::VandnVx { .. }
@@ -61,7 +65,7 @@ fn vadc_funct6_not_claimed() {
     // it must not decode as any Zvkb-specific variant.
     let inst = make_vop(0b01_0000, 0, 2, 3, OPIVV, 1);
     assert!(!matches!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(
             ZvkbInstruction::VandnVv { .. }
                 | ZvkbInstruction::VandnVx { .. }
@@ -80,7 +84,10 @@ fn vadc_funct6_not_claimed() {
 #[test]
 fn undefined_funct6_between_vror_and_vmerge_not_claimed() {
     let inst = make_vop(0b01_0110, 1, 4, 5, OPIVV, 2);
-    assert_eq!(ZvkbInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        None
+    );
 }
 
 #[test]
@@ -89,7 +96,7 @@ fn opmvv_wrong_funct6_not_claimed() {
     // (e.g. vredand.vs); it must not decode as any Zvkb-specific variant.
     let inst = make_vop(0b00_0001, 1, 3, 0b01000, OPMVV, 2);
     assert!(!matches!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(
             ZvkbInstruction::VandnVv { .. }
                 | ZvkbInstruction::VandnVx { .. }
@@ -108,14 +115,20 @@ fn opmvv_wrong_funct6_not_claimed() {
 #[test]
 fn opmvv_vzext_vs1_not_claimed() {
     let inst = make_vop(0b01_0010, 1, 5, 0b00000, OPMVV, 3);
-    assert_eq!(ZvkbInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        None
+    );
 }
 
 // OPMVV with funct6=0b010010 but vs1=0b01010 (vbrev.v from Zvbb, not Zvkb).
 #[test]
 fn opmvv_vbrev_vs1_not_claimed_by_zvkb() {
     let inst = make_vop(0b01_0010, 1, 5, 0b01010, OPMVV, 3);
-    assert_eq!(ZvkbInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        None
+    );
 }
 
 // OPIVI with funct6=0b010101 decodes as `vror.vi` with imm[5]=1 (uimm=39), not `vrol.vi` - Zvkb
@@ -124,7 +137,7 @@ fn opmvv_vbrev_vs1_not_claimed_by_zvkb() {
 fn opivi_funct6_010101_is_vror_vi_not_vrol() {
     let inst = make_vop(0b01_0101, 0, 4, 7, OPIVI, 2);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V2,
             vs2: VReg::V4,
@@ -140,7 +153,10 @@ fn opivi_funct6_010101_is_vror_vi_not_vrol() {
 #[test]
 fn vandn_has_no_immediate_form() {
     let inst = make_vop(0b00_0001, 0, 4, 7, OPIVI, 2);
-    assert_eq!(ZvkbInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        None
+    );
 }
 
 // vandn.vv
@@ -150,7 +166,7 @@ fn vandn_vv_basic_unmasked() {
     // vm=1: unmasked form
     let inst = make_vop(0b00_0001, 1, 2, 3, OPIVV, 1);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VandnVv {
             vd: VReg::V1,
             vs2: VReg::V2,
@@ -167,7 +183,7 @@ fn vandn_vv_masked_form() {
     // vm=0: masked form - same variant type, vm=false
     let inst = make_vop(0b00_0001, 0, 2, 3, OPIVV, 1);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VandnVv {
             vd: VReg::V1,
             vs2: VReg::V2,
@@ -183,7 +199,7 @@ fn vandn_vv_masked_form() {
 fn vandn_vv_high_regs() {
     let inst = make_vop(0b00_0001, 1, 31, 30, OPIVV, 29);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VandnVv {
             vd: VReg::V29,
             vs2: VReg::V31,
@@ -202,7 +218,7 @@ fn vandn_vx_basic_unmasked() {
     // rs1 = a0 (x10)
     let inst = make_vop(0b00_0001, 1, 4, 10, OPIVX, 6);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VandnVx {
             vd: VReg::V6,
             vs2: VReg::V4,
@@ -217,7 +233,7 @@ fn vandn_vx_basic_unmasked() {
 fn vandn_vx_masked_form() {
     let inst = make_vop(0b00_0001, 0, 4, 10, OPIVX, 6);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VandnVx {
             vd: VReg::V6,
             vs2: VReg::V4,
@@ -235,7 +251,7 @@ fn vbrev8_v_basic_unmasked() {
     // funct6=0b010010, vm=1, vs2=v8, vs1_bits=0b01000 (sub-opcode 8), OPMVV, vd=v5
     let inst = make_vop(0b01_0010, 1, 8, 0b01000, OPMVV, 5);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::Vbrev8V {
             vd: VReg::V5,
             vs2: VReg::V8,
@@ -250,7 +266,7 @@ fn vbrev8_v_basic_unmasked() {
 fn vbrev8_v_masked_form() {
     let inst = make_vop(0b01_0010, 0, 8, 0b01000, OPMVV, 5);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::Vbrev8V {
             vd: VReg::V5,
             vs2: VReg::V8,
@@ -265,7 +281,7 @@ fn vbrev8_v_masked_form() {
 fn vbrev8_v_high_regs() {
     let inst = make_vop(0b01_0010, 1, 31, 0b01000, OPMVV, 0);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::Vbrev8V {
             vd: VReg::V0,
             vs2: VReg::V31,
@@ -283,7 +299,7 @@ fn vrev8_v_basic_unmasked() {
     // vs1_bits=0b01001 (sub-opcode 9) selects vrev8 over vbrev8
     let inst = make_vop(0b01_0010, 1, 12, 0b01001, OPMVV, 7);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::Vrev8V {
             vd: VReg::V7,
             vs2: VReg::V12,
@@ -298,7 +314,7 @@ fn vrev8_v_basic_unmasked() {
 fn vrev8_v_masked_form() {
     let inst = make_vop(0b01_0010, 0, 12, 0b01001, OPMVV, 7);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::Vrev8V {
             vd: VReg::V7,
             vs2: VReg::V12,
@@ -315,11 +331,11 @@ fn vbrev8_and_vrev8_sub_opcodes_do_not_alias() {
     let inst_brev8 = make_vop(0b01_0010, 1, 4, 0b01000, OPMVV, 2);
     let inst_rev8 = make_vop(0b01_0010, 1, 4, 0b01001, OPMVV, 2);
     assert_matches!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst_brev8),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_brev8),
         Some(ZvkbInstruction::Vbrev8V { .. })
     );
     assert_matches!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst_rev8),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_rev8),
         Some(ZvkbInstruction::Vrev8V { .. })
     );
 }
@@ -329,7 +345,7 @@ fn vbrev8_and_vrev8_sub_opcodes_do_not_alias() {
 fn vrol_vv_basic_unmasked() {
     let inst = make_vop(0b01_0101, 1, 6, 7, OPIVV, 4);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrolVv {
             vd: VReg::V4,
             vs2: VReg::V6,
@@ -345,7 +361,7 @@ fn vrol_vv_basic_unmasked() {
 fn vrol_vv_masked_form() {
     let inst = make_vop(0b01_0101, 0, 6, 7, OPIVV, 4);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrolVv {
             vd: VReg::V4,
             vs2: VReg::V6,
@@ -364,7 +380,7 @@ fn vrol_vx_basic_unmasked() {
     // rs1 = t1 (x6)
     let inst = make_vop(0b01_0101, 1, 10, 6, OPIVX, 8);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrolVx {
             vd: VReg::V8,
             vs2: VReg::V10,
@@ -379,7 +395,7 @@ fn vrol_vx_basic_unmasked() {
 fn vrol_vx_masked_form() {
     let inst = make_vop(0b01_0101, 0, 10, 6, OPIVX, 8);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrolVx {
             vd: VReg::V8,
             vs2: VReg::V10,
@@ -396,7 +412,7 @@ fn vrol_vx_masked_form() {
 fn vror_vv_basic_unmasked() {
     let inst = make_vop(0b01_0100, 1, 14, 15, OPIVV, 0);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVv {
             vd: VReg::V0,
             vs2: VReg::V14,
@@ -412,7 +428,7 @@ fn vror_vv_basic_unmasked() {
 fn vror_vv_masked_form() {
     let inst = make_vop(0b01_0100, 0, 14, 15, OPIVV, 8);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVv {
             vd: VReg::V8,
             vs2: VReg::V14,
@@ -431,11 +447,11 @@ fn vrol_and_vror_funct6_do_not_alias() {
     let inst_rol = make_vop(0b01_0101, 1, 2, 3, OPIVV, 1);
     let inst_ror = make_vop(0b01_0100, 1, 2, 3, OPIVV, 1);
     assert_matches!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst_rol),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_rol),
         Some(ZvkbInstruction::VrolVv { .. })
     );
     assert_matches!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst_ror),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_ror),
         Some(ZvkbInstruction::VrorVv { .. })
     );
 }
@@ -447,7 +463,7 @@ fn vror_vx_basic_unmasked() {
     // rs1 = a1 (x11)
     let inst = make_vop(0b01_0100, 1, 16, 11, OPIVX, 0);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVx {
             vd: VReg::V0,
             vs2: VReg::V16,
@@ -462,7 +478,7 @@ fn vror_vx_basic_unmasked() {
 fn vror_vx_masked_form() {
     let inst = make_vop(0b01_0100, 0, 16, 11, OPIVX, 8);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVx {
             vd: VReg::V8,
             vs2: VReg::V16,
@@ -480,7 +496,7 @@ fn vror_vx_masked_form() {
 fn vror_vi_uimm_zero() {
     let inst = make_vop(0b01_0100, 0, 8, 0b00000, OPIVI, 4);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V4,
             vs2: VReg::V8,
@@ -497,7 +513,7 @@ fn vror_vi_uimm_zero() {
 fn vror_vi_uimm_one() {
     let inst = make_vop(0b01_0100, 0, 8, 0b00001, OPIVI, 4);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V4,
             vs2: VReg::V8,
@@ -514,7 +530,7 @@ fn vror_vi_uimm_one() {
 fn vror_vi_uimm_31() {
     let inst = make_vop(0b01_0100, 0, 6, 0b11111, OPIVI, 2);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V2,
             vs2: VReg::V6,
@@ -531,7 +547,7 @@ fn vror_vi_uimm_31() {
 fn vror_vi_unmasked_zero_imm() {
     let inst = make_vop(0b01_0100, 1, 10, 0b00000, OPIVI, 5);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V5,
             vs2: VReg::V10,
@@ -548,7 +564,7 @@ fn vror_vi_unmasked_zero_imm() {
 fn vror_vi_unmasked_max_imm_31() {
     let inst = make_vop(0b01_0100, 1, 4, 0b11111, OPIVI, 1);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V1,
             vs2: VReg::V4,
@@ -565,7 +581,7 @@ fn vror_vi_unmasked_max_imm_31() {
 fn vror_vi_unmasked_imm_9() {
     let inst = make_vop(0b01_0100, 1, 12, 0b01001, OPIVI, 3);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V3,
             vs2: VReg::V12,
@@ -584,7 +600,7 @@ fn vror_vi_vm_bit_independent_of_immediate() {
     let inst1 = make_vop(0b01_0100, 1, 8, 0b00111, OPIVI, 2);
     // vm=0: masked, uimm=7
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst0),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst0),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V2,
             vs2: VReg::V8,
@@ -596,7 +612,7 @@ fn vror_vi_vm_bit_independent_of_immediate() {
     );
     // vm=1: unmasked, same uimm=7
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst1),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst1),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V2,
             vs2: VReg::V8,
@@ -616,7 +632,7 @@ fn vror_vi_imm_bit5_set_smallest() {
     // imm[5]=1, imm[4:0]=0 -> uimm=32
     let inst = make_vop(0b01_0101, 0, 8, 0b00000, OPIVI, 4);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V4,
             vs2: VReg::V8,
@@ -633,7 +649,7 @@ fn vror_vi_imm_bit5_set_max() {
     // imm[5]=1, imm[4:0]=0b11111 -> uimm=63, the largest possible 6-bit rotate amount
     let inst = make_vop(0b01_0101, 1, 6, 0b11111, OPIVI, 2);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V2,
             vs2: VReg::V6,
@@ -650,7 +666,7 @@ fn vror_vi_imm_bit5_set_mid() {
     // imm[5]=1, imm[4:0]=0b01001=9 -> uimm=41
     let inst = make_vop(0b01_0101, 1, 12, 0b01001, OPIVI, 3);
     assert_eq!(
-        ZvkbInstruction::<Reg<u64>>::try_decode(inst),
+        ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(ZvkbInstruction::VrorVi {
             vd: VReg::V3,
             vs2: VReg::V12,
@@ -667,63 +683,63 @@ fn vror_vi_imm_bit5_set_mid() {
 #[test]
 fn display_vandn_vv() {
     let inst = make_vop(0b00_0001, 1, 2, 3, OPIVV, 1);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vandn.vv v1, v2, v3");
 }
 
 #[test]
 fn display_vandn_vx() {
     let inst = make_vop(0b00_0001, 1, 4, 10, OPIVX, 6);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vandn.vx v6, v4, a0");
 }
 
 #[test]
 fn display_vbrev8_v() {
     let inst = make_vop(0b01_0010, 1, 8, 0b01000, OPMVV, 5);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vbrev8.v v5, v8");
 }
 
 #[test]
 fn display_vrev8_v() {
     let inst = make_vop(0b01_0010, 1, 12, 0b01001, OPMVV, 7);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vrev8.v v7, v12");
 }
 
 #[test]
 fn display_vrol_vv() {
     let inst = make_vop(0b01_0101, 1, 6, 7, OPIVV, 4);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vrol.vv v4, v6, v7");
 }
 
 #[test]
 fn display_vrol_vx() {
     let inst = make_vop(0b01_0101, 1, 10, 6, OPIVX, 8);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vrol.vx v8, v10, t1");
 }
 
 #[test]
 fn display_vror_vv() {
     let inst = make_vop(0b01_0100, 1, 14, 15, OPIVV, 0);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vror.vv v0, v14, v15");
 }
 
 #[test]
 fn display_vror_vx() {
     let inst = make_vop(0b01_0100, 1, 16, 11, OPIVX, 0);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vror.vx v0, v16, a1");
 }
 
 #[test]
 fn display_vror_vi_small_imm() {
     let inst = make_vop(0b01_0100, 0, 6, 0b11111, OPIVI, 2);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vror.vi v2, v6, 31, v0.t");
 }
 
@@ -731,7 +747,7 @@ fn display_vror_vi_small_imm() {
 fn display_vror_vi_large_imm() {
     // uimm = 31 (vm=1, imm=0b11111); unmasked -> no suffix
     let inst = make_vop(0b01_0100, 1, 4, 0b11111, OPIVI, 1);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vror.vi v1, v4, 31");
 }
 
@@ -740,49 +756,49 @@ fn display_vror_vi_large_imm() {
 #[test]
 fn display_vandn_vv_masked() {
     let inst = make_vop(0b00_0001, 0, 2, 3, OPIVV, 1);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vandn.vv v1, v2, v3, v0.t");
 }
 
 #[test]
 fn display_vandn_vx_masked() {
     let inst = make_vop(0b00_0001, 0, 4, 10, OPIVX, 6);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vandn.vx v6, v4, a0, v0.t");
 }
 
 #[test]
 fn display_vbrev8_v_masked() {
     let inst = make_vop(0b01_0010, 0, 8, 0b01000, OPMVV, 5);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vbrev8.v v5, v8, v0.t");
 }
 
 #[test]
 fn display_vrev8_v_masked() {
     let inst = make_vop(0b01_0010, 0, 12, 0b01001, OPMVV, 7);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vrev8.v v7, v12, v0.t");
 }
 
 #[test]
 fn display_vrol_vv_masked() {
     let inst = make_vop(0b01_0101, 0, 6, 7, OPIVV, 4);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vrol.vv v4, v6, v7, v0.t");
 }
 
 #[test]
 fn display_vror_vv_masked() {
     let inst = make_vop(0b01_0100, 0, 14, 15, OPIVV, 8);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vror.vv v8, v14, v15, v0.t");
 }
 
 #[test]
 fn display_vror_vx_masked() {
     let inst = make_vop(0b01_0100, 0, 16, 11, OPIVX, 8);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vror.vx v8, v16, a1, v0.t");
 }
 
@@ -791,7 +807,7 @@ fn display_vror_vx_masked() {
 fn display_vror_vi_large_imm_no_mask_suffix() {
     // uimm=0, vm=1 (unmasked): no suffix
     let inst = make_vop(0b01_0100, 1, 10, 0b00000, OPIVI, 5);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vror.vi v5, v10, 0");
 }
 
@@ -800,6 +816,6 @@ fn display_vror_vi_large_imm_no_mask_suffix() {
 fn display_vror_vi_small_imm_has_mask_suffix() {
     // uimm=7 (bit[25]=0, imm[4:0]=7): vm=false -> suffix
     let inst = make_vop(0b01_0100, 0, 8, 0b00111, OPIVI, 2);
-    let decoded = ZvkbInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZvkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vror.vi v2, v8, 7, v0.t");
 }

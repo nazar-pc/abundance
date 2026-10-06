@@ -1,5 +1,6 @@
 //! Re-export of all public items from the crate
 
+pub use crate::hart::{BasicHart, HartConfig};
 pub use crate::instructions::Instruction;
 pub use crate::instructions::rv32::Rv32Instruction;
 pub use crate::instructions::rv32::a::Rv32AInstruction;

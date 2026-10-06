@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
@@ -26,21 +27,24 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxArithInstruction<Reg> {
+pub enum ZveXxArithInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // Single-Width Integer Add/Subtract (Section 12.1)
 
     /// `vadd.vv vd, vs2, vs1, vm`
     VaddVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vadd.vx vd, vs2, rs1, vm`
-    VaddVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VaddVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vadd.vi vd, vs2, imm, vm`
     VaddVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vsub.vv vd, vs2, vs1, vm`
     VsubVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vsub.vx vd, vs2, rs1, vm`
-    VsubVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VsubVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vrsub.vx vd, vs2, rs1, vm`
-    VrsubVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VrsubVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vrsub.vi vd, vs2, imm, vm`
     VrsubVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
 
@@ -49,19 +53,19 @@ pub enum ZveXxArithInstruction<Reg> {
     /// `vand.vv vd, vs2, vs1, vm`
     VandVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vand.vx vd, vs2, rs1, vm`
-    VandVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VandVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vand.vi vd, vs2, imm, vm`
     VandVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vor.vv vd, vs2, vs1, vm`
     VorVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vor.vx vd, vs2, rs1, vm`
-    VorVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VorVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vor.vi vd, vs2, imm, vm`
     VorVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vxor.vv vd, vs2, vs1, vm`
     VxorVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vxor.vx vd, vs2, rs1, vm`
-    VxorVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VxorVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vxor.vi vd, vs2, imm, vm`
     VxorVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
 
@@ -70,19 +74,19 @@ pub enum ZveXxArithInstruction<Reg> {
     /// `vsll.vv vd, vs2, vs1, vm`
     VsllVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vsll.vx vd, vs2, rs1, vm`
-    VsllVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VsllVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vsll.vi vd, vs2, uimm, vm`
     VsllVi { vd: VReg, vs2: VReg, uimm: u8, vm: bool },
     /// `vsrl.vv vd, vs2, vs1, vm`
     VsrlVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vsrl.vx vd, vs2, rs1, vm`
-    VsrlVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VsrlVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vsrl.vi vd, vs2, uimm, vm`
     VsrlVi { vd: VReg, vs2: VReg, uimm: u8, vm: bool },
     /// `vsra.vv vd, vs2, vs1, vm`
     VsraVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vsra.vx vd, vs2, rs1, vm`
-    VsraVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VsraVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vsra.vi vd, vs2, uimm, vm`
     VsraVi { vd: VReg, vs2: VReg, uimm: u8, vm: bool },
 
@@ -91,72 +95,73 @@ pub enum ZveXxArithInstruction<Reg> {
     /// `vminu.vv vd, vs2, vs1, vm`
     VminuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vminu.vx vd, vs2, rs1, vm`
-    VminuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VminuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmin.vv vd, vs2, vs1, vm`
     VminVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmin.vx vd, vs2, rs1, vm`
-    VminVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VminVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmaxu.vv vd, vs2, vs1, vm`
     VmaxuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmaxu.vx vd, vs2, rs1, vm`
-    VmaxuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmaxuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmax.vv vd, vs2, vs1, vm`
     VmaxVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmax.vx vd, vs2, rs1, vm`
-    VmaxVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmaxVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Integer Compare (Section 12.8)
 
     /// `vmseq.vv vd, vs2, vs1, vm`
     VmseqVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmseq.vx vd, vs2, rs1, vm`
-    VmseqVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmseqVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmseq.vi vd, vs2, imm, vm`
     VmseqVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vmsne.vv vd, vs2, vs1, vm`
     VmsneVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmsne.vx vd, vs2, rs1, vm`
-    VmsneVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmsneVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmsne.vi vd, vs2, imm, vm`
     VmsneVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vmsltu.vv vd, vs2, vs1, vm`
     VmsltuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmsltu.vx vd, vs2, rs1, vm`
-    VmsltuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmsltuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmslt.vv vd, vs2, vs1, vm`
     VmsltVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmslt.vx vd, vs2, rs1, vm`
-    VmsltVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmsltVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmsleu.vv vd, vs2, vs1, vm`
     VmsleuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmsleu.vx vd, vs2, rs1, vm`
-    VmsleuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmsleuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmsleu.vi vd, vs2, imm, vm`
     VmsleuVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vmsle.vv vd, vs2, vs1, vm`
     VmsleVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmsle.vx vd, vs2, rs1, vm`
-    VmsleVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmsleVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmsle.vi vd, vs2, imm, vm`
     VmsleVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vmsgtu.vx vd, vs2, rs1, vm`
-    VmsgtuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmsgtuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmsgtu.vi vd, vs2, imm, vm`
     VmsgtuVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
     /// `vmsgt.vx vd, vs2, rs1, vm`
-    VmsgtVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmsgtVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmsgt.vi vd, vs2, imm, vm`
     VmsgtVi { vd: VReg, vs2: VReg, imm: i8, vm: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxArithInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxArithInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -299,9 +304,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxArithInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxArithInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

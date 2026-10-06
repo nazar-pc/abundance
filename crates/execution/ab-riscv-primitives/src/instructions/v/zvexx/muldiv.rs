@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
@@ -23,105 +24,109 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxMulDivInstruction<Reg> {
+pub enum ZveXxMulDivInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // Single-width integer multiply (Section 12.10)
 
     /// `vmul.vv vd, vs2, vs1, vm` - signed multiply, low bits
     VmulVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmul.vx vd, vs2, rs1, vm` - signed multiply, low bits
-    VmulVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmulVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmulh.vv vd, vs2, vs1, vm` - signed×signed multiply, high bits
     VmulhVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmulh.vx vd, vs2, rs1, vm` - signed×signed multiply, high bits
-    VmulhVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmulhVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmulhu.vv vd, vs2, vs1, vm` - unsigned×unsigned multiply, high bits
     VmulhuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmulhu.vx vd, vs2, rs1, vm` - unsigned×unsigned multiply, high bits
-    VmulhuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmulhuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmulhsu.vv vd, vs2, vs1, vm` - signed×unsigned multiply, high bits
     VmulhsuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vmulhsu.vx vd, vs2, rs1, vm` - signed×unsigned multiply, high bits
-    VmulhsuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmulhsuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Integer divide (Section 12.11)
 
     /// `vdivu.vv vd, vs2, vs1, vm` - unsigned divide
     VdivuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vdivu.vx vd, vs2, rs1, vm` - unsigned divide
-    VdivuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VdivuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vdiv.vv vd, vs2, vs1, vm` - signed divide
     VdivVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vdiv.vx vd, vs2, rs1, vm` - signed divide
-    VdivVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VdivVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vremu.vv vd, vs2, vs1, vm` - unsigned remainder
     VremuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vremu.vx vd, vs2, rs1, vm` - unsigned remainder
-    VremuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VremuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vrem.vv vd, vs2, vs1, vm` - signed remainder
     VremVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vrem.vx vd, vs2, rs1, vm` - signed remainder
-    VremVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VremVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Widening integer multiply (Section 12.12)
 
     /// `vwmul.vv vd, vs2, vs1, vm` - signed widening multiply
     VwmulVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwmul.vx vd, vs2, rs1, vm` - signed widening multiply
-    VwmulVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwmulVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vwmulu.vv vd, vs2, vs1, vm` - unsigned widening multiply
     VwmuluVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwmulu.vx vd, vs2, rs1, vm` - unsigned widening multiply
-    VwmuluVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwmuluVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vwmulsu.vv vd, vs2, vs1, vm` - signed×unsigned widening multiply
     VwmulsuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwmulsu.vx vd, vs2, rs1, vm` - signed×unsigned widening multiply
-    VwmulsuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwmulsuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Single-width integer multiply-add (Section 12.13)
 
     /// `vmacc.vv vd, vs1, vs2, vm` - vd = vd + vs1 * vs2
     VmaccVv { vd: VReg, vs1: VReg, vs2: VReg, vm: bool },
     /// `vmacc.vx vd, rs1, vs2, vm` - vd = vd + rs1 * vs2
-    VmaccVx { vd: VReg, rs1: Reg, vs2: VReg, vm: bool },
+    VmaccVx { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool },
     /// `vnmsac.vv vd, vs1, vs2, vm` - vd = vd - vs1 * vs2
     VnmsacVv { vd: VReg, vs1: VReg, vs2: VReg, vm: bool },
     /// `vnmsac.vx vd, rs1, vs2, vm` - vd = vd - rs1 * vs2
-    VnmsacVx { vd: VReg, rs1: Reg, vs2: VReg, vm: bool },
+    VnmsacVx { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool },
     /// `vmadd.vv vd, vs1, vs2, vm` - vd = vs1 * vd + vs2
     VmaddVv { vd: VReg, vs1: VReg, vs2: VReg, vm: bool },
     /// `vmadd.vx vd, rs1, vs2, vm` - vd = rs1 * vd + vs2
-    VmaddVx { vd: VReg, rs1: Reg, vs2: VReg, vm: bool },
+    VmaddVx { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool },
     /// `vnmsub.vv vd, vs1, vs2, vm` - vd = -(vs1 * vd - vs2)
     VnmsubVv { vd: VReg, vs1: VReg, vs2: VReg, vm: bool },
     /// `vnmsub.vx vd, rs1, vs2, vm` - vd = -(rs1 * vd - vs2)
-    VnmsubVx { vd: VReg, rs1: Reg, vs2: VReg, vm: bool },
+    VnmsubVx { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool },
 
     // Widening integer multiply-add (Section 12.14)
 
     /// `vwmaccu.vv vd, vs1, vs2, vm` - unsigned widening multiply-add
     VwmaccuVv { vd: VReg, vs1: VReg, vs2: VReg, vm: bool },
     /// `vwmaccu.vx vd, rs1, vs2, vm` - unsigned widening multiply-add
-    VwmaccuVx { vd: VReg, rs1: Reg, vs2: VReg, vm: bool },
+    VwmaccuVx { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool },
     /// `vwmacc.vv vd, vs1, vs2, vm` - signed widening multiply-add
     VwmaccVv { vd: VReg, vs1: VReg, vs2: VReg, vm: bool },
     /// `vwmacc.vx vd, rs1, vs2, vm` - signed widening multiply-add
-    VwmaccVx { vd: VReg, rs1: Reg, vs2: VReg, vm: bool },
+    VwmaccVx { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool },
     /// `vwmaccsu.vv vd, vs1, vs2, vm` - signed×unsigned widening multiply-add
     VwmaccsuVv { vd: VReg, vs1: VReg, vs2: VReg, vm: bool },
     /// `vwmaccsu.vx vd, rs1, vs2, vm` - signed×unsigned widening multiply-add
-    VwmaccsuVx { vd: VReg, rs1: Reg, vs2: VReg, vm: bool },
+    VwmaccsuVx { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool },
     /// `vwmaccus.vx vd, rs1, vs2, vm` - unsigned×signed widening multiply-add (vx only)
-    VwmaccusVx { vd: VReg, rs1: Reg, vs2: VReg, vm: bool },
+    VwmaccusVx { vd: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxMulDivInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxMulDivInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -225,9 +230,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxMulDivInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxMulDivInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     #[rustfmt::skip]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

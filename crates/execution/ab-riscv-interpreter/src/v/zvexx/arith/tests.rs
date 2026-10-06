@@ -19,7 +19,7 @@ fn setup(
     vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
-) -> TestInterpreterState<ZveXxArithInstruction<Reg<u64>>> {
+) -> TestInterpreterState<ZveXxArithInstruction<BasicHart<Reg<u64>>>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -32,8 +32,8 @@ fn setup(
 
 /// Execute a single instruction directly
 fn exec(
-    state: &mut TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>,
-    instr: ZveXxArithInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxArithInstruction<BasicHart<Reg<u64>>>>,
+    instr: ZveXxArithInstruction<BasicHart<Reg<u64>>>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -66,8 +66,8 @@ fn exec(
 /// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
 /// `state` without modifying any vector state
 fn assert_rejects_nonzero_vstart(
-    state: &mut TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>,
-    instr: ZveXxArithInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxArithInstruction<BasicHart<Reg<u64>>>>,
+    instr: ZveXxArithInstruction<BasicHart<Reg<u64>>>,
 ) {
     let vstart = state.env.vstart();
     assert_ne!(vstart, Vstart::ZERO);
@@ -84,7 +84,7 @@ fn assert_rejects_nonzero_vstart(
 
 /// Write bytes into a vector register
 fn set_vreg(
-    state: &mut TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxArithInstruction<BasicHart<Reg<u64>>>>,
     reg: VReg,
     data: &[u8],
 ) {
@@ -94,13 +94,16 @@ fn set_vreg(
 }
 
 /// Read a full vector register as bytes
-fn get_vreg(state: &TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
+fn get_vreg(
+    state: &TestInterpreterState<ZveXxArithInstruction<BasicHart<Reg<u64>>>>,
+    reg: VReg,
+) -> [u8; 32] {
     *state.env.read_vregs().get(reg)
 }
 
 /// Read element `i` from a register group as a u64 (zero-extended), given SEW
 fn read_elem(
-    state: &TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxArithInstruction<BasicHart<Reg<u64>>>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -116,7 +119,7 @@ fn read_elem(
 
 /// Write element `i` into a register group, given SEW
 fn write_elem(
-    state: &mut TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxArithInstruction<BasicHart<Reg<u64>>>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -132,7 +135,7 @@ fn write_elem(
 
 /// Read mask bit `i` from an arbitrary vector register
 fn mask_bit(
-    state: &TestInterpreterState<ZveXxArithInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxArithInstruction<BasicHart<Reg<u64>>>>,
     reg: VReg,
     i: u32,
 ) -> bool {
@@ -1781,7 +1784,7 @@ fn instruction_uses_a_single_vector_config() {
         env.write_vregs().get_mut(VReg::V31)[i * 8] = 1;
     }
 
-    let result = ZveXxArithInstruction::VaddVv {
+    let result = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::VaddVv {
         vd: VReg::V31,
         vs2: VReg::V31,
         vs1: VReg::V31,

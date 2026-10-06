@@ -122,6 +122,7 @@
     )
 )]
 
+pub mod hart;
 pub mod instructions;
 pub mod prelude;
 pub mod privilege;

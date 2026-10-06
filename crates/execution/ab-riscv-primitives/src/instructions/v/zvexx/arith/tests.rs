@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::test_utils::make_r_type;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
@@ -27,7 +28,7 @@ const OPIVI: u8 = 0b011;
 #[test]
 fn test_vadd_vv() {
     let inst = make_vop(0b00_0000, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VaddVv {
@@ -44,7 +45,7 @@ fn test_vadd_vv() {
 #[test]
 fn test_vadd_vv_masked() {
     let inst = make_vop(0b00_0000, 0, 4, 5, OPIVV, 6);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VaddVv {
@@ -61,7 +62,7 @@ fn test_vadd_vv_masked() {
 #[test]
 fn test_vadd_vx() {
     let inst = make_vop(0b00_0000, 1, 2, 5, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VaddVx {
@@ -78,7 +79,7 @@ fn test_vadd_vx() {
 fn test_vadd_vi_positive() {
     // imm = 5 (0b0_0101)
     let inst = make_vop(0b00_0000, 1, 8, 5, OPIVI, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VaddVi {
@@ -96,7 +97,7 @@ fn test_vadd_vi_positive() {
 fn test_vadd_vi_negative() {
     // imm = -1 => 5-bit = 0b11111 = 31
     let inst = make_vop(0b00_0000, 1, 8, 0b11111, OPIVI, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VaddVi {
@@ -114,7 +115,7 @@ fn test_vadd_vi_negative() {
 fn test_vadd_vi_min_imm() {
     // imm = -16 => 5-bit = 0b10000 = 16
     let inst = make_vop(0b00_0000, 1, 4, 0b10000, OPIVI, 2);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VaddVi {
@@ -133,7 +134,7 @@ fn test_vadd_vi_min_imm() {
 #[test]
 fn test_vsub_vv() {
     let inst = make_vop(0b00_0010, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsubVv {
@@ -150,7 +151,7 @@ fn test_vsub_vv() {
 #[test]
 fn test_vsub_vx() {
     let inst = make_vop(0b00_0010, 1, 2, 10, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsubVx {
@@ -168,7 +169,7 @@ fn test_vsub_vx() {
 #[test]
 fn test_vrsub_vx() {
     let inst = make_vop(0b00_0011, 1, 2, 5, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VrsubVx {
@@ -184,7 +185,7 @@ fn test_vrsub_vx() {
 #[test]
 fn test_vrsub_vi() {
     let inst = make_vop(0b00_0011, 1, 2, 0, OPIVI, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VrsubVi {
@@ -203,7 +204,7 @@ fn test_vrsub_vi() {
 #[test]
 fn test_vand_vv() {
     let inst = make_vop(0b00_1001, 1, 8, 9, OPIVV, 10);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VandVv {
@@ -220,7 +221,7 @@ fn test_vand_vv() {
 #[test]
 fn test_vand_vx() {
     let inst = make_vop(0b00_1001, 1, 8, 7, OPIVX, 10);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VandVx {
@@ -236,7 +237,7 @@ fn test_vand_vx() {
 #[test]
 fn test_vand_vi() {
     let inst = make_vop(0b00_1001, 1, 4, 0b01111, OPIVI, 2);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VandVi {
@@ -255,7 +256,7 @@ fn test_vand_vi() {
 #[test]
 fn test_vor_vv() {
     let inst = make_vop(0b00_1010, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VorVv {
@@ -272,7 +273,7 @@ fn test_vor_vv() {
 #[test]
 fn test_vor_vx() {
     let inst = make_vop(0b00_1010, 1, 2, 3, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VorVx {
@@ -288,7 +289,7 @@ fn test_vor_vx() {
 #[test]
 fn test_vor_vi() {
     let inst = make_vop(0b00_1010, 1, 2, 0b11111, OPIVI, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VorVi {
@@ -307,7 +308,7 @@ fn test_vor_vi() {
 #[test]
 fn test_vxor_vv() {
     let inst = make_vop(0b00_1011, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VxorVv {
@@ -324,7 +325,7 @@ fn test_vxor_vv() {
 #[test]
 fn test_vxor_vx() {
     let inst = make_vop(0b00_1011, 1, 2, 3, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VxorVx {
@@ -340,7 +341,7 @@ fn test_vxor_vx() {
 #[test]
 fn test_vxor_vi() {
     let inst = make_vop(0b00_1011, 1, 2, 0b11111, OPIVI, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VxorVi {
@@ -359,7 +360,7 @@ fn test_vxor_vi() {
 #[test]
 fn test_vsll_vv() {
     let inst = make_vop(0b10_0101, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsllVv {
@@ -376,7 +377,7 @@ fn test_vsll_vv() {
 #[test]
 fn test_vsll_vx() {
     let inst = make_vop(0b10_0101, 1, 2, 5, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsllVx {
@@ -393,7 +394,7 @@ fn test_vsll_vx() {
 fn test_vsll_vi() {
     // uimm = 8
     let inst = make_vop(0b10_0101, 1, 16, 8, OPIVI, 24);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsllVi {
@@ -411,7 +412,7 @@ fn test_vsll_vi() {
 fn test_vsll_vi_max_uimm() {
     // uimm = 31 (max 5-bit unsigned)
     let inst = make_vop(0b10_0101, 1, 4, 31, OPIVI, 2);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsllVi {
@@ -430,7 +431,7 @@ fn test_vsll_vi_max_uimm() {
 #[test]
 fn test_vsrl_vv() {
     let inst = make_vop(0b10_1000, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsrlVv {
@@ -447,7 +448,7 @@ fn test_vsrl_vv() {
 #[test]
 fn test_vsrl_vx() {
     let inst = make_vop(0b10_1000, 1, 8, 6, OPIVX, 8);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsrlVx {
@@ -464,7 +465,7 @@ fn test_vsrl_vx() {
 fn test_vsrl_vi() {
     // uimm = 3
     let inst = make_vop(0b10_1000, 1, 8, 3, OPIVI, 8);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsrlVi {
@@ -483,7 +484,7 @@ fn test_vsrl_vi() {
 #[test]
 fn test_vsra_vv() {
     let inst = make_vop(0b10_1001, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsraVv {
@@ -500,7 +501,7 @@ fn test_vsra_vv() {
 #[test]
 fn test_vsra_vi() {
     let inst = make_vop(0b10_1001, 1, 4, 7, OPIVI, 2);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VsraVi {
@@ -519,7 +520,7 @@ fn test_vsra_vi() {
 #[test]
 fn test_vminu_vv() {
     let inst = make_vop(0b00_0100, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VminuVv {
@@ -536,7 +537,7 @@ fn test_vminu_vv() {
 #[test]
 fn test_vminu_vx() {
     let inst = make_vop(0b00_0100, 1, 2, 10, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VminuVx {
@@ -552,7 +553,7 @@ fn test_vminu_vx() {
 #[test]
 fn test_vmin_vv() {
     let inst = make_vop(0b00_0101, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VminVv {
@@ -569,7 +570,7 @@ fn test_vmin_vv() {
 #[test]
 fn test_vmin_vx() {
     let inst = make_vop(0b00_0101, 1, 2, 10, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VminVx {
@@ -585,7 +586,7 @@ fn test_vmin_vx() {
 #[test]
 fn test_vmaxu_vv() {
     let inst = make_vop(0b00_0110, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmaxuVv {
@@ -602,7 +603,7 @@ fn test_vmaxu_vv() {
 #[test]
 fn test_vmaxu_vx_masked() {
     let inst = make_vop(0b00_0110, 0, 2, 10, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmaxuVx {
@@ -618,7 +619,7 @@ fn test_vmaxu_vx_masked() {
 #[test]
 fn test_vmax_vv() {
     let inst = make_vop(0b00_0111, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmaxVv {
@@ -635,7 +636,7 @@ fn test_vmax_vv() {
 #[test]
 fn test_vmax_vx() {
     let inst = make_vop(0b00_0111, 1, 2, 10, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmaxVx {
@@ -653,7 +654,7 @@ fn test_vmax_vx() {
 #[test]
 fn test_vmseq_vv() {
     let inst = make_vop(0b01_1000, 1, 2, 3, OPIVV, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmseqVv {
@@ -670,7 +671,7 @@ fn test_vmseq_vv() {
 #[test]
 fn test_vmseq_vx() {
     let inst = make_vop(0b01_1000, 1, 2, 5, OPIVX, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmseqVx {
@@ -686,7 +687,7 @@ fn test_vmseq_vx() {
 #[test]
 fn test_vmseq_vi() {
     let inst = make_vop(0b01_1000, 1, 2, 0, OPIVI, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmseqVi {
@@ -703,7 +704,7 @@ fn test_vmseq_vi() {
 #[test]
 fn test_vmsne_vv() {
     let inst = make_vop(0b01_1001, 1, 8, 6, OPIVV, 16);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsneVv {
@@ -721,7 +722,7 @@ fn test_vmsne_vv() {
 fn test_vmsne_vi() {
     // imm = 0b10 = 2 (5-bit sign-extended)
     let inst = make_vop(0b01_1001, 1, 8, 0b00010, OPIVI, 16);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsneVi {
@@ -740,7 +741,7 @@ fn test_vmsne_vi() {
 #[test]
 fn test_vmsltu_vv() {
     let inst = make_vop(0b01_1010, 1, 2, 3, OPIVV, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsltuVv {
@@ -757,7 +758,7 @@ fn test_vmsltu_vv() {
 #[test]
 fn test_vmsltu_vx() {
     let inst = make_vop(0b01_1010, 1, 2, 5, OPIVX, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsltuVx {
@@ -773,7 +774,7 @@ fn test_vmsltu_vx() {
 #[test]
 fn test_vmslt_vv() {
     let inst = make_vop(0b01_1011, 1, 2, 3, OPIVV, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsltVv {
@@ -790,7 +791,7 @@ fn test_vmslt_vv() {
 #[test]
 fn test_vmslt_vx() {
     let inst = make_vop(0b01_1011, 1, 2, 5, OPIVX, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsltVx {
@@ -808,7 +809,7 @@ fn test_vmslt_vx() {
 #[test]
 fn test_vmsleu_vv() {
     let inst = make_vop(0b01_1100, 1, 2, 3, OPIVV, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsleuVv {
@@ -825,7 +826,7 @@ fn test_vmsleu_vv() {
 #[test]
 fn test_vmsleu_vx() {
     let inst = make_vop(0b01_1100, 1, 2, 5, OPIVX, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsleuVx {
@@ -841,7 +842,7 @@ fn test_vmsleu_vx() {
 #[test]
 fn test_vmsleu_vi() {
     let inst = make_vop(0b01_1100, 1, 2, 15, OPIVI, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsleuVi {
@@ -858,7 +859,7 @@ fn test_vmsleu_vi() {
 #[test]
 fn test_vmsle_vv() {
     let inst = make_vop(0b01_1101, 1, 2, 3, OPIVV, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsleVv {
@@ -875,7 +876,7 @@ fn test_vmsle_vv() {
 #[test]
 fn test_vmsle_vi() {
     let inst = make_vop(0b01_1101, 1, 2, 0b11110, OPIVI, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsleVi {
@@ -894,7 +895,7 @@ fn test_vmsle_vi() {
 #[test]
 fn test_vmsgtu_vx() {
     let inst = make_vop(0b01_1110, 1, 2, 10, OPIVX, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsgtuVx {
@@ -910,7 +911,7 @@ fn test_vmsgtu_vx() {
 #[test]
 fn test_vmsgtu_vi() {
     let inst = make_vop(0b01_1110, 1, 2, 9, OPIVI, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsgtuVi {
@@ -927,7 +928,7 @@ fn test_vmsgtu_vi() {
 #[test]
 fn test_vmsgt_vx() {
     let inst = make_vop(0b01_1111, 1, 2, 10, OPIVX, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsgtVx {
@@ -943,7 +944,7 @@ fn test_vmsgt_vx() {
 #[test]
 fn test_vmsgt_vi() {
     let inst = make_vop(0b01_1111, 1, 2, 0b11100, OPIVI, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VmsgtVi {
@@ -964,7 +965,7 @@ fn test_wrong_opcode() {
     // Use OP (0b011_0011) instead of OP-V
     let funct7 = 1;
     let inst = make_r_type(0b011_0011, 1, OPIVV, 2, 3, funct7);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -973,7 +974,7 @@ fn test_wrong_funct3_opcfg() {
     // funct3=0b111 (OPCFG) should not be decoded as arith
     let funct7 = 1;
     let inst = make_r_type(0b101_0111, 1, 0b111, 2, 3, funct7);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -981,7 +982,7 @@ fn test_wrong_funct3_opcfg() {
 fn test_unknown_funct6_opivv() {
     // funct6=0b111111 is not assigned in OPIVV
     let inst = make_vop(0b11_1111, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -989,7 +990,7 @@ fn test_unknown_funct6_opivv() {
 fn test_vsub_has_no_vi() {
     // vsub only has .vv and .vx, not .vi
     let inst = make_vop(0b00_0010, 1, 2, 3, OPIVI, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -997,7 +998,7 @@ fn test_vsub_has_no_vi() {
 fn test_vmsltu_has_no_vi() {
     // vmsltu only has .vv and .vx per spec
     let inst = make_vop(0b01_1010, 1, 2, 3, OPIVI, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -1005,14 +1006,14 @@ fn test_vmsltu_has_no_vi() {
 fn test_vmsgtu_has_no_vv() {
     // vmsgtu only has .vx and .vi, not .vv
     let inst = make_vop(0b01_1110, 1, 2, 3, OPIVV, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_vmsgt_has_no_vv() {
     let inst = make_vop(0b01_1111, 1, 2, 3, OPIVV, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -1021,7 +1022,7 @@ fn test_vmsgt_has_no_vv() {
 #[test]
 fn test_vadd_vv_high_regs() {
     let inst = make_vop(0b00_0000, 1, 31, 30, OPIVV, 29);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxArithInstruction::VaddVv {
@@ -1040,41 +1041,41 @@ fn test_vadd_vv_high_regs() {
 #[test]
 fn test_display_vadd_vv_unmasked() {
     let inst = make_vop(0b00_0000, 1, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vadd.vv v1, v2, v3");
 }
 
 #[test]
 fn test_display_vadd_vv_masked() {
     let inst = make_vop(0b00_0000, 0, 2, 3, OPIVV, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vadd.vv v1, v2, v3, v0.t");
 }
 
 #[test]
 fn test_display_vadd_vx() {
     let inst = make_vop(0b00_0000, 1, 2, 5, OPIVX, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vadd.vx v1, v2, t0");
 }
 
 #[test]
 fn test_display_vadd_vi() {
     let inst = make_vop(0b00_0000, 1, 2, 0b11111, OPIVI, 1);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vadd.vi v1, v2, -1");
 }
 
 #[test]
 fn test_display_vsll_vi() {
     let inst = make_vop(0b10_0101, 1, 16, 8, OPIVI, 24);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vsll.vi v24, v16, 8");
 }
 
 #[test]
 fn test_display_vmseq_vi_masked() {
     let inst = make_vop(0b01_1000, 0, 2, 0, OPIVI, 0);
-    let decoded = ZveXxArithInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxArithInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vmseq.vi v0, v2, 0, v0.t");
 }

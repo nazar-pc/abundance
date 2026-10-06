@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -13,22 +14,26 @@ use core::fmt;
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum Rv64ZalrscInstruction<Reg> {
-    Lr { rd: Reg, rs1: Reg, aq: bool, rl: bool },
-    Sc { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
+pub enum Rv64ZalrscInstruction<Hart>
+where
+    Hart: HartConfig,
+{
+    Lr { rd: Hart::Reg, rs1: Hart::Reg, aq: bool, rl: bool },
+    Sc { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
 
-    LrD { rd: Reg, rs1: Reg, aq: bool, rl: bool },
-    ScD { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
+    LrD { rd: Hart::Reg, rs1: Hart::Reg, aq: bool, rl: bool },
+    ScD { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZalrscInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZalrscInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -103,9 +108,10 @@ fn aq_rl_suffix(aq: &bool, rl: &bool) -> &'static str {
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZalrscInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZalrscInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

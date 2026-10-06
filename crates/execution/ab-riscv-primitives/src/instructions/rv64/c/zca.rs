@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::utils::I24;
 use crate::registers::general_purpose::Register;
@@ -14,91 +15,95 @@ use core::fmt;
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum Rv64ZcaInstruction<Reg> {
+pub enum Rv64ZcaInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // Quadrant 00
     /// C.ADDI4SPN  rd' = sp + nzuimm  (nzuimm ∈ 4..1020 step 4)
-    CAddi4spn { rd: Reg, nzuimm: u16 },
+    CAddi4spn { rd: Hart::Reg, nzuimm: u16 },
     /// C.LW  rd' = sext(mem32\[rs1' + uimm])
-    CLw { rd: Reg, rs1: Reg, uimm: u8 },
+    CLw { rd: Hart::Reg, rs1: Hart::Reg, uimm: u8 },
     /// C.LD  rd' = mem64\[rs1' + uimm]
-    CLd { rd: Reg, rs1: Reg, uimm: u8 },
+    CLd { rd: Hart::Reg, rs1: Hart::Reg, uimm: u8 },
     /// C.SW  mem32\[rs1' + uimm] = rs2'
-    CSw { rs1: Reg, rs2: Reg, uimm: u8 },
+    CSw { rs1: Hart::Reg, rs2: Hart::Reg, uimm: u8 },
     /// C.SD  mem64\[rs1' + uimm] = rs2'
-    CSd { rs1: Reg, rs2: Reg, uimm: u8 },
+    CSd { rs1: Hart::Reg, rs2: Hart::Reg, uimm: u8 },
 
     // Quadrant 01
     /// C.NOP  (ADDI x0, x0, 0 with rd==x0 and nzimm==0)
     CNop,
     /// C.ADDI  rd += nzimm  (rd != x0)
-    CAddi { rd: Reg, nzimm: i8 },
+    CAddi { rd: Hart::Reg, nzimm: i8 },
     /// C.ADDIW  rd = sext((rd\[31:0] + imm)\[31:0])  (rd != x0)
-    CAddiw { rd: Reg, imm: i8 },
+    CAddiw { rd: Hart::Reg, imm: i8 },
     /// C.LI  rd = sext(imm)  (rd=x0 is a HINT)
-    CLi { rd: Reg, imm: i8 },
+    CLi { rd: Hart::Reg, imm: i8 },
     /// C.ADDI16SP  sp += nzimm*16  (nzimm != 0)
     CAddi16sp { nzimm: i16 },
     /// C.LUI  rd = sext(nzimm << 12)  (rd != x0, rd != x2, nzimm != 0)
-    CLui { rd: Reg, nzimm: I24 },
+    CLui { rd: Hart::Reg, nzimm: I24 },
     /// C.SRLI  rd' >>= shamt  (logical right shift; shamt=0 with rd'=x0 is a HINT)
-    CSrli { rd: Reg, shamt: u8 },
+    CSrli { rd: Hart::Reg, shamt: u8 },
     /// C.SRAI  rd' >>= shamt  (arithmetic right shift; shamt=0 with rd'=x0 is a HINT)
-    CSrai { rd: Reg, shamt: u8 },
+    CSrai { rd: Hart::Reg, shamt: u8 },
     /// C.ANDI  rd' &= sext(imm)
-    CAndi { rd: Reg, imm: i8 },
+    CAndi { rd: Hart::Reg, imm: i8 },
     /// C.SUB  rd' -= rs2'
-    CSub { rd: Reg, rs2: Reg },
+    CSub { rd: Hart::Reg, rs2: Hart::Reg },
     /// C.XOR  rd' ^= rs2'
-    CXor { rd: Reg, rs2: Reg },
+    CXor { rd: Hart::Reg, rs2: Hart::Reg },
     /// C.OR   rd' |= rs2'
-    COr { rd: Reg, rs2: Reg },
+    COr { rd: Hart::Reg, rs2: Hart::Reg },
     /// C.AND  rd' &= rs2'
-    CAnd { rd: Reg, rs2: Reg },
+    CAnd { rd: Hart::Reg, rs2: Hart::Reg },
     /// C.SUBW  rd' = sext((rd'\[31:0] - rs2'\[31:0])\[31:0])
-    CSubw { rd: Reg, rs2: Reg },
+    CSubw { rd: Hart::Reg, rs2: Hart::Reg },
     /// C.ADDW  rd' = sext((rd'\[31:0] + rs2'\[31:0])\[31:0])
-    CAddw { rd: Reg, rs2: Reg },
+    CAddw { rd: Hart::Reg, rs2: Hart::Reg },
     /// C.J  pc += sext(imm)
     CJ { imm: i16 },
     /// C.BEQZ  if rs1' == 0: pc += sext(imm)
-    CBeqz { rs1: Reg, imm: i16 },
+    CBeqz { rs1: Hart::Reg, imm: i16 },
     /// C.BNEZ  if rs1' != 0: pc += sext(imm)
-    CBnez { rs1: Reg, imm: i16 },
+    CBnez { rs1: Hart::Reg, imm: i16 },
 
     // Quadrant 10
     /// C.SLLI  rd <<= shamt  (rd=x0 or shamt=0 is a HINT)
-    CSlli { rd: Reg, shamt: u8 },
+    CSlli { rd: Hart::Reg, shamt: u8 },
     /// C.LWSP  rd = sext(mem32\[sp + uimm])  (rd != x0)
-    CLwsp { rd: Reg, uimm: u8 },
+    CLwsp { rd: Hart::Reg, uimm: u8 },
     /// C.LDSP  rd = mem64\[sp + uimm]  (rd != x0)
-    CLdsp { rd: Reg, uimm: u16 },
+    CLdsp { rd: Hart::Reg, uimm: u16 },
     /// C.JR  pc = rs1  (rs1 != x0)
-    CJr { rs1: Reg },
+    CJr { rs1: Hart::Reg },
     /// C.MV  rd = rs2  (rs2 != x0; rd=x0 is a HINT)
-    CMv { rd: Reg, rs2: Reg },
+    CMv { rd: Hart::Reg, rs2: Hart::Reg },
     /// C.EBREAK
     CEbreak,
     /// C.JALR  ra = pc+2; pc = rs1  (rs1 != x0)
-    CJalr { rs1: Reg },
+    CJalr { rs1: Hart::Reg },
     /// C.ADD  rd += rs2  (rs2 != x0; rd=x0 is a HINT)
-    CAdd { rd: Reg, rs2: Reg },
+    CAdd { rd: Hart::Reg, rs2: Hart::Reg },
     /// C.SWSP  mem32\[sp + uimm] = rs2
-    CSwsp { rs2: Reg, uimm: u8 },
+    CSwsp { rs2: Hart::Reg, uimm: u8 },
     /// C.SDSP  mem64\[sp + uimm] = rs2
-    CSdsp { rs2: Reg, uimm: u16 },
+    CSdsp { rs2: Hart::Reg, uimm: u16 },
 
     // Unimplemented/illegal
     CUnimp,
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZcaInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZcaInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -537,9 +542,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZcaInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZcaInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

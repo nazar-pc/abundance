@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::b::zbb::Rv32ZbbZbkbSharedInstruction;
 use crate::registers::general_purpose::Register;
@@ -13,29 +14,34 @@ use core::fmt;
 #[instruction(inherit = [Rv32ZbbZbkbSharedInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv32ZbkbInstruction<Reg> {
+#[rustfmt::skip]
+pub enum Rv32ZbkbInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// Pack low 16 bits of `rs1` into `rd[15:0]`, low 16 bits of `rs2` into `rd[31:16]`
-    Pack { rd: Reg, rs1: Reg, rs2: Reg },
+    Pack { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     /// Pack low 8 bits of `rs1` into `rd[7:0]`, low 8 bits of `rs2` into `rd[15:8]`
-    Packh { rd: Reg, rs1: Reg, rs2: Reg },
+    Packh { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     /// Reverse bits in each byte of `rs1`
-    Brev8 { rd: Reg, rs1: Reg },
+    Brev8 { rd: Hart::Reg, rs1: Hart::Reg },
     /// Bit-interleave: scatter lower-half bits of `rs1` to even positions, upper-half bits to odd
     /// positions
-    Zip { rd: Reg, rs1: Reg },
+    Zip { rd: Hart::Reg, rs1: Hart::Reg },
     /// Inverse of zip: gather even-position bits of `rs1` to lower half, odd-position bits to upper
     /// half
-    Unzip { rd: Reg, rs1: Reg },
+    Unzip { rd: Hart::Reg, rs1: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZbkbInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZbkbInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -104,9 +110,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZbkbInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZbkbInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
@@ -26,13 +27,16 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxCarryInstruction<Reg> {
+pub enum ZveXxCarryInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // vadc: add with carry-in from v0, write SEW-wide result to vd (data register)
 
     /// `vadc.vvm vd, vs2, vs1, v0`
     VadcVvm { vd: VReg, vs2: VReg, vs1: VReg },
     /// `vadc.vxm vd, vs2, rs1, v0`
-    VadcVxm { vd: VReg, vs2: VReg, rs1: Reg },
+    VadcVxm { vd: VReg, vs2: VReg, rs1: Hart::Reg },
     /// `vadc.vim vd, vs2, imm, v0`
     VadcVim { vd: VReg, vs2: VReg, imm: i8 },
 
@@ -42,13 +46,13 @@ pub enum ZveXxCarryInstruction<Reg> {
     /// `vmadc.vvm vd, vs2, vs1, v0` - with carry-in
     VmadcVvm { vd: VReg, vs2: VReg, vs1: VReg },
     /// `vmadc.vxm vd, vs2, rs1, v0` - with carry-in
-    VmadcVxm { vd: VReg, vs2: VReg, rs1: Reg },
+    VmadcVxm { vd: VReg, vs2: VReg, rs1: Hart::Reg },
     /// `vmadc.vim vd, vs2, imm, v0` - with carry-in
     VmadcVim { vd: VReg, vs2: VReg, imm: i8 },
     /// `vmadc.vv vd, vs2, vs1` - no carry-in
     VmadcVv  { vd: VReg, vs2: VReg, vs1: VReg },
     /// `vmadc.vx vd, vs2, rs1` - no carry-in
-    VmadcVx  { vd: VReg, vs2: VReg, rs1: Reg },
+    VmadcVx  { vd: VReg, vs2: VReg, rs1: Hart::Reg },
     /// `vmadc.vi vd, vs2, imm` - no carry-in
     VmadcVi  { vd: VReg, vs2: VReg, imm: i8 },
 
@@ -58,7 +62,7 @@ pub enum ZveXxCarryInstruction<Reg> {
     /// `vsbc.vvm vd, vs2, vs1, v0`
     VsbcVvm  { vd: VReg, vs2: VReg, vs1: VReg },
     /// `vsbc.vxm vd, vs2, rs1, v0`
-    VsbcVxm  { vd: VReg, vs2: VReg, rs1: Reg },
+    VsbcVxm  { vd: VReg, vs2: VReg, rs1: Hart::Reg },
 
     // vmsbc: subtract and produce borrow-out mask in vd
     // vm=0: borrow-in from v0;  vm=1: no borrow-in
@@ -66,21 +70,22 @@ pub enum ZveXxCarryInstruction<Reg> {
     /// `vmsbc.vvm vd, vs2, vs1, v0` - with borrow-in
     VmsbcVvm { vd: VReg, vs2: VReg, vs1: VReg },
     /// `vmsbc.vxm vd, vs2, rs1, v0` - with borrow-in
-    VmsbcVxm { vd: VReg, vs2: VReg, rs1: Reg },
+    VmsbcVxm { vd: VReg, vs2: VReg, rs1: Hart::Reg },
     /// `vmsbc.vv vd, vs2, vs1` - no borrow-in
     VmsbcVv  { vd: VReg, vs2: VReg, vs1: VReg },
     /// `vmsbc.vx vd, vs2, rs1` - no borrow-in
-    VmsbcVx  { vd: VReg, vs2: VReg, rs1: Reg },
+    VmsbcVx  { vd: VReg, vs2: VReg, rs1: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxCarryInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxCarryInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -160,9 +165,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxCarryInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxCarryInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

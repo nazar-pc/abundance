@@ -13,16 +13,27 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZicondInstruction<Reg> where Reg: Register {}
+const impl<Reg, Hart> ExecutableInstructionOperands for ZicondInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZicondInstruction<Reg> where Reg: Register {}
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZicondInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZicondInstruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZicondInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: HartConfig<Reg = Reg>,
     Regs: [const] RegisterFile<Reg>,
 {
     #[inline(always)]
@@ -32,12 +43,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         _env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             // Conditional zero, equal to zero.
             //

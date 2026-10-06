@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::a::zaamo::Rv32ZaamoInstruction;
 use crate::registers::general_purpose::Register;
@@ -14,41 +15,45 @@ use core::fmt;
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum Rv32ZabhaInstruction<Reg> {
-    AmoswapB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmoswapH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmoaddB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmoaddH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmoxorB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmoxorH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmoandB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmoandH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmoorB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmoorH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmominB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmominH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmomaxB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmomaxH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmominuB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmominuH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmomaxuB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
-    AmomaxuH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
+pub enum Rv32ZabhaInstruction<Hart>
+where
+    Hart: HartConfig,
+{
+    AmoswapB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmoswapH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmoaddB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmoaddH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmoxorB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmoxorH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmoandB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmoandH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmoorB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmoorH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmominB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmominH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmomaxB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmomaxH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmominuB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmominuH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmomaxuB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    AmomaxuH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
     /// Compare-and-swap byte. Only present when `Zacas` is also implemented.
     #[instruction(if = [Rv32ZacasInstruction])]
-    AmocasB { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
+    AmocasB { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
     /// Compare-and-swap halfword. Only present when `Zacas` is also implemented.
     #[instruction(if = [Rv32ZacasInstruction])]
-    AmocasH { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
+    AmocasH { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZabhaInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZabhaInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -242,9 +247,10 @@ fn aq_rl_suffix(aq: &bool, rl: &bool) -> &'static str {
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZabhaInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZabhaInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

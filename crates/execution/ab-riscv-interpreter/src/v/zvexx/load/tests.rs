@@ -112,7 +112,7 @@ pub(in crate::v::zvexx) fn execute_with_memory<I, Memory>(
     memory: &mut Memory,
 ) -> ExecutionResult<Reg<u64>>
 where
-    I: Instruction<Reg = Reg<u64>>
+    I: Instruction<Hart = BasicHart<Reg<u64>>>
         + ExecutableInstruction<
             BasicRegisters<Reg<u64>, false>,
             Env,
@@ -137,7 +137,11 @@ where
 }
 
 /// Initialize the state with vector CSRs and a given vtype configuration
-fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>> {
+fn setup(
+    vl: Vl,
+    vsew: Vsew,
+    vlmul: Vlmul,
+) -> TestInterpreterState<ZveXxLoadInstruction<BasicHart<Reg<u64>>>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -155,7 +159,7 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
 
 /// Write a sequence of bytes into test memory starting at `addr`
 fn write_mem(
-    state: &mut TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxLoadInstruction<BasicHart<Reg<u64>>>>,
     addr: u64,
     data: &[u8],
 ) {
@@ -166,7 +170,7 @@ fn write_mem(
 
 /// Read a byte from a vector register
 fn vreg_byte(
-    state: &TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxLoadInstruction<BasicHart<Reg<u64>>>>,
     reg: VReg,
     offset: usize,
 ) -> u8 {
@@ -174,13 +178,16 @@ fn vreg_byte(
 }
 
 /// Read a full vector register as a byte slice copy
-fn vreg_bytes(state: &TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
+fn vreg_bytes(
+    state: &TestInterpreterState<ZveXxLoadInstruction<BasicHart<Reg<u64>>>>,
+    reg: VReg,
+) -> [u8; 32] {
     *state.env.read_vregs().get(reg)
 }
 
 /// Set a vector register's bytes directly
 fn set_vreg(
-    state: &mut TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxLoadInstruction<BasicHart<Reg<u64>>>>,
     reg: VReg,
     data: &[u8],
 ) {
@@ -189,8 +196,8 @@ fn set_vreg(
 
 /// Execute a single instruction directly (not via the instruction fetcher)
 fn exec_one(
-    state: &mut TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
-    instr: ZveXxLoadInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxLoadInstruction<BasicHart<Reg<u64>>>>,
+    instr: ZveXxLoadInstruction<BasicHart<Reg<u64>>>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -249,8 +256,8 @@ impl VectorRegistersExt<Reg<u64>> for Zve32Env {}
 
 /// Execute a single instruction like [`exec_one()`], but on a Zve32x implementation
 fn exec_one_zve32(
-    state: &mut TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
-    instr: ZveXxLoadInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxLoadInstruction<BasicHart<Reg<u64>>>>,
+    instr: ZveXxLoadInstruction<BasicHart<Reg<u64>>>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -703,10 +710,11 @@ fn vlm_only_uses_requested_bytes_of_longer_slice() {
     let mut state = setup(Vl::new(10).unwrap(), Vsew::E8, Vlmul::M1);
     let mut memory = GreedyReadSliceMemory(BasicMemory::default());
     memory.write_slice(TEST_BASE_ADDR, &[0xff; 4096]).unwrap();
-    let mut instruction_fetcher =
-        BasicInstructionFetcher::<ZveXxLoadInstruction<Reg<u64>>>::new(0, TEST_BASE_ADDR);
+    let mut instruction_fetcher = BasicInstructionFetcher::<
+        ZveXxLoadInstruction<BasicHart<Reg<u64>>>,
+    >::new(0, TEST_BASE_ADDR);
 
-    let result = ZveXxLoadInstruction::<Reg<u64>>::Vlm {
+    let result = ZveXxLoadInstruction::<BasicHart<Reg<u64>>>::Vlm {
         vd: VReg::V30,
         rs1: Reg::A0,
         rs2: Reg::Zero,

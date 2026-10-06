@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -17,33 +18,38 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64ZalasrInstruction<Reg> {
+#[rustfmt::skip]
+pub enum Rv64ZalasrInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// Load-acquire byte
-    LbAq { rd: Reg, rs1: Reg, rl: bool },
+    LbAq { rd: Hart::Reg, rs1: Hart::Reg, rl: bool },
     /// Load-acquire halfword
-    LhAq { rd: Reg, rs1: Reg, rl: bool },
+    LhAq { rd: Hart::Reg, rs1: Hart::Reg, rl: bool },
     /// Load-acquire word
-    LwAq { rd: Reg, rs1: Reg, rl: bool },
+    LwAq { rd: Hart::Reg, rs1: Hart::Reg, rl: bool },
     /// Load-acquire doubleword
-    LdAq { rd: Reg, rs1: Reg, rl: bool },
+    LdAq { rd: Hart::Reg, rs1: Hart::Reg, rl: bool },
     /// Store-release byte
-    SbRl { rs1: Reg, rs2: Reg, aq: bool },
+    SbRl { rs1: Hart::Reg, rs2: Hart::Reg, aq: bool },
     /// Store-release halfword
-    ShRl { rs1: Reg, rs2: Reg, aq: bool },
+    ShRl { rs1: Hart::Reg, rs2: Hart::Reg, aq: bool },
     /// Store-release word
-    SwRl { rs1: Reg, rs2: Reg, aq: bool },
+    SwRl { rs1: Hart::Reg, rs2: Hart::Reg, aq: bool },
     /// Store-release doubleword
-    SdRl { rs1: Reg, rs2: Reg, aq: bool },
+    SdRl { rs1: Hart::Reg, rs2: Hart::Reg, aq: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZalasrInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZalasrInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -130,9 +136,10 @@ fn aq_suffix(aq: &bool) -> &'static str {
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZalasrInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZalasrInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

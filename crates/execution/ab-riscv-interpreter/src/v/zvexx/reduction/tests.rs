@@ -16,7 +16,7 @@ fn setup(
     vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
-) -> TestInterpreterState<ZveXxReductionInstruction<Reg<u64>>> {
+) -> TestInterpreterState<ZveXxReductionInstruction<BasicHart<Reg<u64>>>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -28,8 +28,8 @@ fn setup(
 }
 
 fn exec(
-    state: &mut TestInterpreterState<ZveXxReductionInstruction<Reg<u64>>>,
-    instr: ZveXxReductionInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxReductionInstruction<BasicHart<Reg<u64>>>>,
+    instr: ZveXxReductionInstruction<BasicHart<Reg<u64>>>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -60,7 +60,7 @@ fn exec(
 }
 
 fn read_elem(
-    state: &TestInterpreterState<ZveXxReductionInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxReductionInstruction<BasicHart<Reg<u64>>>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -75,7 +75,7 @@ fn read_elem(
 }
 
 fn write_elem(
-    state: &mut TestInterpreterState<ZveXxReductionInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxReductionInstruction<BasicHart<Reg<u64>>>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -90,7 +90,7 @@ fn write_elem(
 }
 
 fn set_mask_bit(
-    state: &mut TestInterpreterState<ZveXxReductionInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxReductionInstruction<BasicHart<Reg<u64>>>>,
     elem_i: u16,
     active: bool,
 ) {

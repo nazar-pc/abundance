@@ -27,7 +27,7 @@ fn setup(
     vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
-) -> crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>> {
+) -> crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<BasicHart<Reg<u64>>>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -39,8 +39,10 @@ fn setup(
 }
 
 fn exec(
-    state: &mut crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>>,
-    instr: ZveXxPermInstruction<Reg<u64>>,
+    state: &mut crate::rv64::test_utils::TestInterpreterState<
+        ZveXxPermInstruction<BasicHart<Reg<u64>>>,
+    >,
+    instr: ZveXxPermInstruction<BasicHart<Reg<u64>>>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -73,8 +75,10 @@ fn exec(
 /// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
 /// `state` without modifying any vector state
 fn assert_rejects_nonzero_vstart(
-    state: &mut crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>>,
-    instr: ZveXxPermInstruction<Reg<u64>>,
+    state: &mut crate::rv64::test_utils::TestInterpreterState<
+        ZveXxPermInstruction<BasicHart<Reg<u64>>>,
+    >,
+    instr: ZveXxPermInstruction<BasicHart<Reg<u64>>>,
 ) {
     let vstart = state.env.vstart();
     assert_ne!(vstart, Vstart::ZERO);
@@ -90,7 +94,9 @@ fn assert_rejects_nonzero_vstart(
 }
 
 fn read_elem(
-    state: &crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>>,
+    state: &crate::rv64::test_utils::TestInterpreterState<
+        ZveXxPermInstruction<BasicHart<Reg<u64>>>,
+    >,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -105,7 +111,9 @@ fn read_elem(
 }
 
 fn write_elem(
-    state: &mut crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>>,
+    state: &mut crate::rv64::test_utils::TestInterpreterState<
+        ZveXxPermInstruction<BasicHart<Reg<u64>>>,
+    >,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -120,7 +128,9 @@ fn write_elem(
 }
 
 fn set_vreg_bytes(
-    state: &mut crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>>,
+    state: &mut crate::rv64::test_utils::TestInterpreterState<
+        ZveXxPermInstruction<BasicHart<Reg<u64>>>,
+    >,
     reg: VReg,
     value: u8,
 ) {
@@ -128,14 +138,18 @@ fn set_vreg_bytes(
 }
 
 fn get_vreg_bytes(
-    state: &crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>>,
+    state: &crate::rv64::test_utils::TestInterpreterState<
+        ZveXxPermInstruction<BasicHart<Reg<u64>>>,
+    >,
     reg: VReg,
 ) -> [u8; 32] {
     *state.env.read_vregs().get(reg)
 }
 
 fn set_mask_bit(
-    state: &mut crate::rv64::test_utils::TestInterpreterState<ZveXxPermInstruction<Reg<u64>>>,
+    state: &mut crate::rv64::test_utils::TestInterpreterState<
+        ZveXxPermInstruction<BasicHart<Reg<u64>>>,
+    >,
     reg: VReg,
     i: u32,
     val: bool,
@@ -1842,7 +1856,7 @@ fn vmerge_vim_nonzero_vstart_is_illegal() {
 
 #[test]
 fn vmerge_variants_illegal_when_vector_disabled() {
-    let instrs: &[(ZveXxPermInstruction<Reg<u64>>, &str)] = &[
+    let instrs: &[(ZveXxPermInstruction<BasicHart<Reg<u64>>>, &str)] = &[
         (
             ZveXxPermInstruction::VmergeVvm {
                 vd: VReg::V4,
@@ -1890,7 +1904,7 @@ fn vmerge_variants_illegal_when_vector_disabled() {
 
 #[test]
 fn vmerge_variants_illegal_when_vtype_invalid() {
-    let instrs: &[(ZveXxPermInstruction<Reg<u64>>, &str)] = &[
+    let instrs: &[(ZveXxPermInstruction<BasicHart<Reg<u64>>>, &str)] = &[
         (
             ZveXxPermInstruction::VmergeVvm {
                 vd: VReg::V4,
@@ -1938,7 +1952,7 @@ fn vmerge_variants_illegal_when_vtype_invalid() {
 
 #[test]
 fn vmerge_variants_mark_vs_dirty_and_reject_nonzero_vstart() {
-    let instrs: &[(ZveXxPermInstruction<Reg<u64>>, &str)] = &[
+    let instrs: &[(ZveXxPermInstruction<BasicHart<Reg<u64>>>, &str)] = &[
         (
             ZveXxPermInstruction::VmergeVvm {
                 vd: VReg::V4,

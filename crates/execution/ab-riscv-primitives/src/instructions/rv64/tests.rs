@@ -1,5 +1,6 @@
 #![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
 
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::Rv64Instruction;
 use crate::instructions::test_utils::{
@@ -14,7 +15,7 @@ use core::assert_matches;
 #[test]
 fn test_add() {
     let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Add {
@@ -28,7 +29,7 @@ fn test_add() {
 #[test]
 fn test_sub() {
     let inst = make_r_type(0b011_0011, 5, 0b000, 6, 7, 0b010_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sub {
@@ -42,7 +43,7 @@ fn test_sub() {
 #[test]
 fn test_sll() {
     let inst = make_r_type(0b011_0011, 10, 0b001, 11, 12, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sll {
@@ -56,7 +57,7 @@ fn test_sll() {
 #[test]
 fn test_slt() {
     let inst = make_r_type(0b011_0011, 1, 0b010, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Slt {
@@ -70,7 +71,7 @@ fn test_slt() {
 #[test]
 fn test_sltu() {
     let inst = make_r_type(0b011_0011, 1, 0b011, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sltu {
@@ -84,7 +85,7 @@ fn test_sltu() {
 #[test]
 fn test_xor() {
     let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Xor {
@@ -98,7 +99,7 @@ fn test_xor() {
 #[test]
 fn test_srl() {
     let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Srl {
@@ -112,7 +113,7 @@ fn test_srl() {
 #[test]
 fn test_sra() {
     let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b010_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sra {
@@ -126,7 +127,7 @@ fn test_sra() {
 #[test]
 fn test_or() {
     let inst = make_r_type(0b011_0011, 1, 0b110, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Or {
@@ -140,7 +141,7 @@ fn test_or() {
 #[test]
 fn test_and() {
     let inst = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::And {
@@ -156,7 +157,7 @@ fn test_and() {
 #[test]
 fn test_addw() {
     let inst = make_r_type(0b011_1011, 1, 0b000, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Addw {
@@ -170,7 +171,7 @@ fn test_addw() {
 #[test]
 fn test_subw() {
     let inst = make_r_type(0b011_1011, 1, 0b000, 2, 3, 0b010_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Subw {
@@ -184,7 +185,7 @@ fn test_subw() {
 #[test]
 fn test_sllw() {
     let inst = make_r_type(0b011_1011, 1, 0b001, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sllw {
@@ -198,7 +199,7 @@ fn test_sllw() {
 #[test]
 fn test_srlw() {
     let inst = make_r_type(0b011_1011, 1, 0b101, 2, 3, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Srlw {
@@ -212,7 +213,7 @@ fn test_srlw() {
 #[test]
 fn test_sraw() {
     let inst = make_r_type(0b011_1011, 1, 0b101, 2, 3, 0b010_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sraw {
@@ -230,7 +231,7 @@ fn test_addi() {
     {
         // Positive immediate
         let inst = make_i_type(0b001_0011, 1, 0b000, 2, 100);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Addi {
@@ -245,7 +246,7 @@ fn test_addi() {
     {
         // Negative immediate (-1)
         let inst = make_i_type(0b001_0011, 1, 0b000, 2, 0xfff);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Addi {
@@ -260,7 +261,7 @@ fn test_addi() {
     {
         // Max positive 12-bit signed
         let inst = make_i_type(0b001_0011, 1, 0b000, 2, 0x7ff);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Addi {
@@ -275,7 +276,7 @@ fn test_addi() {
     {
         // Min negative 12-bit signed
         let inst = make_i_type(0b001_0011, 1, 0b000, 2, 0x800);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Addi {
@@ -291,7 +292,7 @@ fn test_addi() {
 #[test]
 fn test_slti() {
     let inst = make_i_type(0b001_0011, 1, 0b010, 2, 50);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Slti {
@@ -306,7 +307,7 @@ fn test_slti() {
 #[test]
 fn test_sltiu() {
     let inst = make_i_type(0b001_0011, 1, 0b011, 2, 50);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sltiu {
@@ -321,7 +322,7 @@ fn test_sltiu() {
 #[test]
 fn test_xori() {
     let inst = make_i_type(0b001_0011, 1, 0b100, 2, 0xff);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Xori {
@@ -336,7 +337,7 @@ fn test_xori() {
 #[test]
 fn test_ori() {
     let inst = make_i_type(0b001_0011, 1, 0b110, 2, 0xff);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Ori {
@@ -351,7 +352,7 @@ fn test_ori() {
 #[test]
 fn test_andi() {
     let inst = make_i_type(0b001_0011, 1, 0b111, 2, 0xff);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Andi {
@@ -368,7 +369,7 @@ fn test_slli() {
     {
         // Basic shift
         let inst = make_i_type(0b001_0011, 1, 0b001, 2, 10);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Slli {
@@ -383,7 +384,7 @@ fn test_slli() {
     {
         // Mid shift (bit 5 set) - tests 6-bit shamt handling
         let inst = make_i_type(0b001_0011, 1, 0b001, 2, 32);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Slli {
@@ -399,7 +400,7 @@ fn test_slli() {
     {
         // Max shift - all 6 bits set (tests funct6 is checked correctly)
         let inst = make_i_type(0b001_0011, 1, 0b001, 2, 63);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Slli {
@@ -418,7 +419,7 @@ fn test_slli() {
         let shamt = 10u32;
         let inst =
             0b001_0011 | (1 << 7u8) | (0b001 << 12u8) | (2 << 15u8) | (shamt << 20u8) | (1 << 26u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(
             decoded.is_none(),
             "SLLI with bit 26 set should be invalid (catches funct7 & 0b111_1100 bug)"
@@ -430,7 +431,7 @@ fn test_slli() {
         let shamt = 10u32;
         let inst =
             0b001_0011 | (1 << 7u8) | (0b001 << 12u8) | (2 << 15u8) | (shamt << 20u8) | (1 << 27u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(decoded.is_none(), "SLLI with bit 27 set should be invalid");
     }
 
@@ -443,7 +444,7 @@ fn test_slli() {
             | (2 << 15u8)
             | (shamt << 20u8)
             | (0b01_0000 << 26u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(
             decoded.is_none(),
             "SLLI with funct6=0b01_0000 (SRAI's funct6) should be invalid"
@@ -456,7 +457,7 @@ fn test_srli() {
     {
         // Basic shift
         let inst = make_i_type(0b001_0011, 1, 0b101, 2, 10);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Srli {
@@ -471,7 +472,7 @@ fn test_srli() {
     {
         // Mid shift (bit 5 set) - tests 6-bit shamt handling
         let inst = make_i_type(0b001_0011, 1, 0b101, 2, 32);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Srli {
@@ -487,7 +488,7 @@ fn test_srli() {
     {
         // Max shift - tests funct6 is checked correctly
         let inst = make_i_type(0b001_0011, 1, 0b101, 2, 63);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Srli {
@@ -505,7 +506,7 @@ fn test_srli() {
         let shamt = 10u32;
         let inst =
             0b001_0011 | (1 << 7u8) | (0b101 << 12u8) | (2 << 15u8) | (shamt << 20u8) | (1 << 26u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(
             decoded.is_none(),
             "SRLI with funct6=0b000001 should be invalid"
@@ -521,7 +522,7 @@ fn test_srli() {
             | (2 << 15u8)
             | (shamt << 20u8)
             | (0b11 << 26u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(
             decoded.is_none(),
             "SRLI with funct6=0b000011 should be invalid"
@@ -537,7 +538,7 @@ fn test_srli() {
             | (2 << 15u8)
             | (shamt << 20u8)
             | (1u32 << 31u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(
             decoded.is_none(),
             "SRLI with funct6=0b10_0000 should be invalid"
@@ -556,7 +557,7 @@ fn test_srai() {
             | (2 << 15u8)
             | (shamt << 20u8)
             | (0b01_0000 << 26u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Srai {
@@ -577,7 +578,7 @@ fn test_srai() {
             | (2 << 15u8)
             | (shamt << 20u8)
             | (0b01_0000 << 26u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Srai {
@@ -599,7 +600,7 @@ fn test_srai() {
             | (2 << 15u8)
             | (shamt << 20u8)
             | (0b01_0000 << 26u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Srai {
@@ -616,7 +617,7 @@ fn test_srai() {
         // Invalid: bit 26 not set (this is SRLI, not SRAI)
         let shamt = 10u32;
         let inst = 0b001_0011 | (1 << 7u8) | (0b101 << 12u8) | (2 << 15u8) | (shamt << 20u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Srli {
@@ -638,7 +639,7 @@ fn test_srai() {
             | (2 << 15u8)
             | (shamt << 20u8)
             | (0b01_0001 << 26u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(
             decoded.is_none(),
             "SRAI with extra funct6 bits should be invalid"
@@ -654,7 +655,7 @@ fn test_srai() {
             | (2 << 15u8)
             | (shamt << 20u8)
             | (0b10_0000 << 26u8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(
             decoded.is_none(),
             "SRAI with funct6=0b100000 should be invalid"
@@ -667,7 +668,7 @@ fn test_srai() {
 #[test]
 fn test_addiw() {
     let inst = make_i_type(0b001_1011, 1, 0b000, 2, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Addiw {
@@ -682,7 +683,7 @@ fn test_addiw() {
 #[test]
 fn test_slliw() {
     let inst = make_i_type(0b001_1011, 1, 0b001, 2, 10);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Slliw {
@@ -697,7 +698,7 @@ fn test_slliw() {
 #[test]
 fn test_srliw() {
     let inst = make_i_type(0b001_1011, 1, 0b101, 2, 10);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Srliw {
@@ -712,7 +713,7 @@ fn test_srliw() {
 #[test]
 fn test_sraiw() {
     let inst = make_i_type(0b001_1011, 1, 0b101, 2, 10 | (0b010_0000 << 5u8));
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sraiw {
@@ -729,7 +730,7 @@ fn test_sraiw() {
 #[test]
 fn test_lb() {
     let inst = make_i_type(0b000_0011, 1, 0b000, 2, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Lb {
@@ -744,7 +745,7 @@ fn test_lb() {
 #[test]
 fn test_lh() {
     let inst = make_i_type(0b000_0011, 1, 0b001, 2, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Lh {
@@ -759,7 +760,7 @@ fn test_lh() {
 #[test]
 fn test_lw() {
     let inst = make_i_type(0b000_0011, 1, 0b010, 2, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Lw {
@@ -776,7 +777,7 @@ fn test_ld() {
     {
         // Positive offset
         let inst = make_i_type(0b000_0011, 1, 0b011, 2, 100);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Ld {
@@ -791,7 +792,7 @@ fn test_ld() {
     {
         // Negative offset (-4)
         let inst = make_i_type(0b000_0011, 1, 0b011, 2, 0xffc);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Ld {
@@ -807,7 +808,7 @@ fn test_ld() {
 #[test]
 fn test_lbu() {
     let inst = make_i_type(0b000_0011, 1, 0b100, 2, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Lbu {
@@ -822,7 +823,7 @@ fn test_lbu() {
 #[test]
 fn test_lhu() {
     let inst = make_i_type(0b000_0011, 1, 0b101, 2, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Lhu {
@@ -837,7 +838,7 @@ fn test_lhu() {
 #[test]
 fn test_lwu() {
     let inst = make_i_type(0b000_0011, 1, 0b110, 2, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Lwu {
@@ -854,7 +855,7 @@ fn test_lwu() {
 #[test]
 fn test_jalr() {
     let inst = make_i_type(0b110_0111, 1, 0b000, 2, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Jalr {
@@ -871,7 +872,7 @@ fn test_jalr() {
 #[test]
 fn test_sb() {
     let inst = make_s_type(0b010_0011, 0b000, 2, 3, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sb {
@@ -885,7 +886,7 @@ fn test_sb() {
 #[test]
 fn test_sh() {
     let inst = make_s_type(0b010_0011, 0b001, 2, 3, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sh {
@@ -899,7 +900,7 @@ fn test_sh() {
 #[test]
 fn test_sw() {
     let inst = make_s_type(0b010_0011, 0b010, 2, 3, 100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Sw {
@@ -915,7 +916,7 @@ fn test_sd() {
     {
         // Positive offset
         let inst = make_s_type(0b010_0011, 0b011, 2, 3, 100);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Sd {
@@ -929,7 +930,7 @@ fn test_sd() {
     {
         // Negative offset
         let inst = make_s_type(0b010_0011, 0b011, 2, 3, -8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Sd {
@@ -949,7 +950,7 @@ fn test_beq_immediate_range() {
     // -4096..=4094 in steps of two, and that is what has to survive being stored in an `i16`
     for imm in [4094, 4092, 2, -2, -4094, -4096] {
         let inst = make_b_type(0b110_0011, 0b000, 1, 2, imm);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Beq {
@@ -967,7 +968,7 @@ fn test_beq() {
     {
         // Positive offset
         let inst = make_b_type(0b110_0011, 0b000, 1, 2, 0x100);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Beq {
@@ -981,7 +982,7 @@ fn test_beq() {
     {
         // Negative offset
         let inst = make_b_type(0b110_0011, 0b000, 1, 2, -8);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Beq {
@@ -996,7 +997,7 @@ fn test_beq() {
 #[test]
 fn test_bne() {
     let inst = make_b_type(0b110_0011, 0b001, 1, 2, 0x100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Bne {
@@ -1010,7 +1011,7 @@ fn test_bne() {
 #[test]
 fn test_blt() {
     let inst = make_b_type(0b110_0011, 0b100, 1, 2, 0x100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Blt {
@@ -1024,7 +1025,7 @@ fn test_blt() {
 #[test]
 fn test_bge() {
     let inst = make_b_type(0b110_0011, 0b101, 1, 2, 0x100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Bge {
@@ -1038,7 +1039,7 @@ fn test_bge() {
 #[test]
 fn test_bltu() {
     let inst = make_b_type(0b110_0011, 0b110, 1, 2, 0x100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Bltu {
@@ -1052,7 +1053,7 @@ fn test_bltu() {
 #[test]
 fn test_bgeu() {
     let inst = make_b_type(0b110_0011, 0b111, 1, 2, 0x100);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Bgeu {
@@ -1068,7 +1069,7 @@ fn test_bgeu() {
 #[test]
 fn test_lui() {
     let inst = make_u_type(0b011_0111, 1, 0x1234_5000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Lui {
@@ -1085,7 +1086,7 @@ fn test_lui() {
 #[test]
 fn test_auipc() {
     let inst = make_u_type(0b001_0111, 1, 0x1234_5000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Auipc {
@@ -1104,7 +1105,7 @@ fn test_jal() {
     {
         // Positive offset
         let inst = make_j_type(0b110_1111, 1, 0x1000);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Jal {
@@ -1119,7 +1120,7 @@ fn test_jal() {
     {
         // Negative offset
         let inst = make_j_type(0b110_1111, 1, -0x1000);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Jal {
@@ -1138,7 +1139,7 @@ fn test_jal() {
 fn test_fence_valid() {
     // Common full memory fence (fence iorw,iorw): pred=0xf, succ=0xf, fm=0
     let inst = 0x0ff0_000f_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Fence {
@@ -1151,7 +1152,7 @@ fn test_fence_valid() {
 
     // Original test case (custom pred/succ, fm=0 implicit)
     let inst = 0b000_1111_u32 | (3_u32 << 24u8) | (3_u32 << 20u8);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Fence {
@@ -1167,12 +1168,12 @@ fn test_fence_valid() {
 fn test_fence_invalid() {
     // FENCE.I (funct3=1) belongs to the separate Zifencei extension, not the base ISA
     let inst = 0x0000_100f_u32;
-    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).is_none());
 
     // Wrong funct3 for memory fence (not 0, not 1)
     // funct3=2 (example)
     let inst = 0x0ff0_200f_u32;
-    assert!(Rv64Instruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).is_none());
 }
 
 /// Per spec, `rd`/`rs1` are reserved for finer-grain fences in future extensions and "base
@@ -1182,7 +1183,7 @@ fn test_fence_invalid() {
 fn test_fence_reserved_rd_rs1_still_decodes() {
     // rd=1, funct3=0, pred=15, succ=15
     let inst = 0x0ff0_008f_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Fence {
@@ -1195,7 +1196,7 @@ fn test_fence_reserved_rd_rs1_still_decodes() {
 
     // rs1=16, funct3=0, pred=15, succ=15
     let inst = 0x0ff8_000f_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Fence {
@@ -1214,7 +1215,7 @@ fn test_fence_reserved_rd_rs1_still_decodes() {
 fn test_fence_reserved_fm_still_decodes() {
     // fm=1, pred=0, succ=15
     let inst = 0x10f0_000f_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Fence {
@@ -1230,7 +1231,7 @@ fn test_fence_reserved_fm_still_decodes() {
 fn test_fence_tso() {
     // Canonical encoding: 0x8330000f
     let inst = 0x8330_000f_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::FenceTso {
@@ -1246,7 +1247,7 @@ fn test_fence_tso() {
 fn test_fence_tso_reserved_variants_decode_as_fence() {
     // fm=8 but pred != 0b0011
     let inst = 0x8230_000f_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Fence {
@@ -1259,7 +1260,7 @@ fn test_fence_tso_reserved_variants_decode_as_fence() {
 
     // fm=8 but succ != 0b0011
     let inst = 0x8310_000f_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Fence {
@@ -1272,7 +1273,7 @@ fn test_fence_tso_reserved_variants_decode_as_fence() {
 
     // fm=15 - reserved
     let inst = 0xfff0_000f_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Fence {
@@ -1289,7 +1290,7 @@ fn test_fence_tso_reserved_variants_decode_as_fence() {
 #[test]
 fn test_ecall() {
     let inst = 0b000000000000_00000_000_00000_1110011_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Ecall {
@@ -1302,7 +1303,7 @@ fn test_ecall() {
 #[test]
 fn test_ebreak() {
     let inst = 0b000000000001_00000_000_00000_1110011_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Ebreak {
@@ -1318,7 +1319,7 @@ fn test_ebreak() {
 fn test_unimp() {
     // Standard unimp encoding
     let inst = 0xc000_1073_u32;
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Unimp {
@@ -1335,14 +1336,14 @@ fn test_invalid() {
     {
         // Invalid opcode
         let inst = 0b111_1111_u32;
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(decoded.is_none());
     }
 
     {
         // Invalid R-type funct7
         let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b111_1111);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst);
         assert!(decoded.is_none());
     }
 }
@@ -1354,7 +1355,7 @@ fn test_rv64e() {
     {
         // Valid RV64E instruction
         let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b000_0000);
-        let decoded = Rv64Instruction::<EReg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<EReg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Add {
@@ -1368,7 +1369,7 @@ fn test_rv64e() {
     {
         // Max valid register (15/A5) in RV64E
         let inst = make_r_type(0b011_0011, 15, 0b000, 14, 13, 0b000_0000);
-        let decoded = Rv64Instruction::<EReg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<EReg<u64>>>::try_decode(inst).unwrap();
         assert_eq!(
             decoded,
             Rv64Instruction::Add {
@@ -1382,7 +1383,7 @@ fn test_rv64e() {
     {
         // Invalid register (16 doesn't exist in RV64E)
         let inst = make_r_type(0b011_0011, 16, 0b000, 2, 3, 0b000_0000);
-        let decoded = Rv64Instruction::<EReg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<EReg<u64>>>::try_decode(inst);
         assert!(decoded.is_none());
     }
 }
@@ -1392,7 +1393,7 @@ fn test_rv64e() {
 #[test]
 fn test_zero_register() {
     let inst = make_r_type(0b011_0011, 0, 0b000, 0, 0, 0b000_0000);
-    let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
     assert_eq!(
         decoded,
         Rv64Instruction::Add {
@@ -1407,7 +1408,7 @@ fn test_zero_register() {
 fn test_all_registers_rv64i() {
     for reg_num in 0..32 {
         let inst = make_r_type(0b011_0011, reg_num, 0b000, 1, 2, 0b000_0000);
-        let decoded = Rv64Instruction::<Reg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
         assert_matches!(
             decoded,
             Rv64Instruction::Add { .. },
@@ -1421,7 +1422,7 @@ fn test_all_registers_rv64e() {
     // Valid registers (0-15)
     for reg_num in 0..16 {
         let inst = make_r_type(0b011_0011, reg_num, 0b000, 1, 2, 0b000_0000);
-        let decoded = Rv64Instruction::<EReg<u64>>::try_decode(inst).unwrap();
+        let decoded = Rv64Instruction::<BasicHart<EReg<u64>>>::try_decode(inst).unwrap();
         assert_matches!(
             decoded,
             Rv64Instruction::Add { .. },
@@ -1432,7 +1433,7 @@ fn test_all_registers_rv64e() {
     // Invalid registers (16-31)
     for reg_num in 16..32 {
         let inst = make_r_type(0b011_0011, reg_num, 0b000, 1, 2, 0b000_0000);
-        let decoded = Rv64Instruction::<EReg<u64>>::try_decode(inst);
+        let decoded = Rv64Instruction::<BasicHart<EReg<u64>>>::try_decode(inst);
         assert!(
             decoded.is_none(),
             "Register {reg_num} should be invalid for RV64E"

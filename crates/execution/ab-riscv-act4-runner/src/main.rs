@@ -50,7 +50,8 @@ use std::path::{Path, PathBuf};
 #[cfg(not(target_endian = "little"))]
 compile_error!("Only little-endian platforms are supported");
 
-type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
+type InstructionReg<I> = <<I as Instruction>::Hart as HartConfig>::Reg;
+type RegisterType<I> = <InstructionReg<I> as Register>::Type;
 
 const RAM_BASE: u64 = 0x8000_0000;
 const RAM_SIZE: usize = 0x0020_0000;
@@ -435,13 +436,13 @@ where
 /// write), so it's fine to propagate its result with a bare `?`.
 fn resolve_pc_result<I, const ELEN: Elen, const VLEN: Vlen>(
     result: Result<ControlFlow<()>, ExecutionError<RegisterType<I>>>,
-    env: &mut TestEnv<I::Reg, ELEN, VLEN>,
+    env: &mut TestEnv<InstructionReg<I>, ELEN, VLEN>,
     memory: &BasicMemory<RAM_BASE, RAM_SIZE>,
     instruction_fetcher: &mut BasicInstructionFetcher<I>,
 ) -> Result<ControlFlow<()>, TestError<RegisterType<I>>>
 where
-    I: Instruction<Reg: BasicRegister<Type: BasicInt>>,
-    TestEnv<I::Reg, ELEN, VLEN>: VectorRegistersExt<I::Reg>,
+    I: Instruction<Hart: HartConfig<Reg: BasicRegister<Type: BasicInt>>>,
+    TestEnv<InstructionReg<I>, ELEN, VLEN>: VectorRegistersExt<InstructionReg<I>>,
 {
     match result {
         Ok(control_flow) => Ok(control_flow),
@@ -468,15 +469,15 @@ fn run_test<I, const ELEN: Elen, const VLEN: Vlen>(
 ) -> Result<(), TestError<RegisterType<I>>>
 where
     I: ExecutableInstruction<
-            BasicRegisters<<I as Instruction>::Reg>,
-            TestEnv<<I as Instruction>::Reg, ELEN, VLEN>,
+            BasicRegisters<InstructionReg<I>>,
+            TestEnv<InstructionReg<I>, ELEN, VLEN>,
             Box<BasicMemory<RAM_BASE, RAM_SIZE>>,
             BasicInstructionFetcher<I>,
-            Reg: BasicRegister<Type: BasicInt>,
+            Hart: HartConfig<Reg: BasicRegister<Type: BasicInt>>,
         >,
-    TestEnv<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
+    TestEnv<InstructionReg<I>, ELEN, VLEN>: VectorRegistersExt<InstructionReg<I>>,
 {
-    let elf = ParsedElf::<I::Reg>::from_path(elf_path)?;
+    let elf = ParsedElf::<InstructionReg<I>>::from_path(elf_path)?;
 
     let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::new_boxed();
     for (vaddr, data) in &elf.segments {
@@ -485,7 +486,7 @@ where
     }
 
     let mut state = BasicInterpreterState {
-        regs: BasicRegisters::<I::Reg>::default(),
+        regs: BasicRegisters::<InstructionReg<I>>::default(),
         env: TestEnv::new(core_config),
         memory: ram,
         instruction_fetcher: BasicInstructionFetcher::<I>::new(
@@ -956,13 +957,13 @@ fn run_and_report<I, const ELEN: Elen, const VLEN: Vlen>(
 ) -> bool
 where
     I: ExecutableInstruction<
-            BasicRegisters<<I as Instruction>::Reg>,
-            TestEnv<<I as Instruction>::Reg, ELEN, VLEN>,
+            BasicRegisters<InstructionReg<I>>,
+            TestEnv<InstructionReg<I>, ELEN, VLEN>,
             Box<BasicMemory<RAM_BASE, RAM_SIZE>>,
             BasicInstructionFetcher<I>,
-            Reg: BasicRegister<Type: BasicInt>,
+            Hart: HartConfig<Reg: BasicRegister<Type: BasicInt>>,
         >,
-    TestEnv<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
+    TestEnv<InstructionReg<I>, ELEN, VLEN>: VectorRegistersExt<InstructionReg<I>>,
 {
     let Err(error) = run_test::<I, ELEN, VLEN>(elf_path, core_config) else {
         println!("{} {stem}", "PASS".green());

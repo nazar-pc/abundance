@@ -1,5 +1,6 @@
 #![expect(clippy::identity_op, reason = "Test readability")]
 
+use crate::hart::{BasicHart, HartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::rv64::c::zca::Rv64ZcaInstruction;
 use crate::instructions::rv64::m::Rv64MInstruction;
@@ -13,16 +14,19 @@ use core::{assert_matches, fmt};
 #[instruction(inherit = [Rv64ZcbInstruction, Rv64MInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum Rv64ZcbMTestInstruction<Reg> {}
+enum Rv64ZcbMTestInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZcbMTestInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZcbMTestInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -36,9 +40,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZcbMTestInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZcbMTestInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -51,16 +56,19 @@ where
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum Rv64ZcbWithoutZbbTestInstruction<Reg> {}
+enum Rv64ZcbWithoutZbbTestInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZcbWithoutZbbTestInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZcbWithoutZbbTestInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -74,9 +82,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZcbWithoutZbbTestInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZcbWithoutZbbTestInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -91,16 +100,19 @@ where
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum Rv64ZcbIgnoreCMulTestInstruction<Reg> {}
+enum Rv64ZcbIgnoreCMulTestInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZcbIgnoreCMulTestInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZcbIgnoreCMulTestInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -114,9 +126,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZcbIgnoreCMulTestInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZcbIgnoreCMulTestInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -158,7 +171,8 @@ const fn make_zcb_q01(rd_rs1p: u16, funct2b: u16, rs2_sub: u16) -> u16 {
 fn test_clbu_all_uimm_values() {
     for (bit6, bit5, expected_uimm) in [(0, 0, 0), (1, 0, 1), (0, 1, 2), (1, 1, 3)] {
         let inst = make_zcb_q00(0b000, 0, bit6, bit5, 0);
-        let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+        let decoded =
+            Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
         assert_eq!(
             decoded,
             Rv64ZcbOnlyInstruction::CLbu {
@@ -174,7 +188,8 @@ fn test_clbu_all_uimm_values() {
 #[test]
 fn test_clbu_all_prime_regs() {
     let inst = make_zcb_q00(0b000, 7, 0, 0, 6);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CLbu {
@@ -191,7 +206,8 @@ fn test_clbu_all_prime_regs() {
 #[test]
 fn test_clhu_uimm0() {
     let inst = make_zcb_q00(0b001, 0, 0, 0, 0);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CLhu {
@@ -206,7 +222,8 @@ fn test_clhu_uimm0() {
 #[test]
 fn test_clhu_uimm2() {
     let inst = make_zcb_q00(0b001, 0, 0, 1, 0);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CLhu {
@@ -223,7 +240,8 @@ fn test_clhu_uimm2() {
 #[test]
 fn test_clh_uimm0() {
     let inst = make_zcb_q00(0b001, 0, 1, 0, 0);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CLh {
@@ -238,7 +256,8 @@ fn test_clh_uimm0() {
 #[test]
 fn test_clh_uimm2() {
     let inst = make_zcb_q00(0b001, 0, 1, 1, 0);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CLh {
@@ -255,7 +274,8 @@ fn test_clh_uimm2() {
 #[test]
 fn test_csb_uimm0() {
     let inst = make_zcb_q00(0b010, 0, 0, 0, 0);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CSb {
@@ -269,7 +289,8 @@ fn test_csb_uimm0() {
 #[test]
 fn test_csb_uimm3() {
     let inst = make_zcb_q00(0b010, 0, 1, 1, 1);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CSb {
@@ -285,7 +306,8 @@ fn test_csb_uimm3() {
 #[test]
 fn test_csh_uimm0() {
     let inst = make_zcb_q00(0b011, 0, 0, 0, 0);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CSh {
@@ -299,7 +321,8 @@ fn test_csh_uimm0() {
 #[test]
 fn test_csh_uimm2() {
     let inst = make_zcb_q00(0b011, 0, 0, 1, 1);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CSh {
@@ -313,7 +336,7 @@ fn test_csh_uimm2() {
 #[test]
 fn test_csh_reserved_funct1_1() {
     let inst = make_zcb_q00(0b011, 0, 1, 0, 0);
-    assert!(Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    assert!(Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).is_none());
 }
 
 // Unary ops - funct2b=0b11
@@ -321,7 +344,8 @@ fn test_csh_reserved_funct1_1() {
 #[test]
 fn test_czext_b() {
     let inst = make_zcb_q01(0, 0b11, 0b000);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CZextB {
@@ -335,7 +359,8 @@ fn test_czext_b() {
 #[test]
 fn test_csext_b() {
     let inst = make_zcb_q01(0, 0b11, 0b001);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CSextB {
@@ -349,7 +374,8 @@ fn test_csext_b() {
 #[test]
 fn test_czext_h() {
     let inst = make_zcb_q01(0, 0b11, 0b010);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CZextH {
@@ -363,7 +389,8 @@ fn test_czext_h() {
 #[test]
 fn test_csext_h() {
     let inst = make_zcb_q01(0, 0b11, 0b011);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CSextH {
@@ -377,7 +404,8 @@ fn test_csext_h() {
 #[test]
 fn test_czext_w() {
     let inst = make_zcb_q01(0, 0b11, 0b100);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CZextW {
@@ -391,7 +419,8 @@ fn test_czext_w() {
 #[test]
 fn test_cnot() {
     let inst = make_zcb_q01(0, 0b11, 0b101);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CNot {
@@ -405,13 +434,13 @@ fn test_cnot() {
 #[test]
 fn test_unary_reserved_sub_110() {
     let inst = make_zcb_q01(0, 0b11, 0b110);
-    assert!(Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    assert!(Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).is_none());
 }
 
 #[test]
 fn test_unary_reserved_sub_111() {
     let inst = make_zcb_q01(0, 0b11, 0b111);
-    assert!(Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    assert!(Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).is_none());
 }
 
 #[test]
@@ -419,7 +448,8 @@ fn test_unary_all_prime_regs() {
     // Check all 8 prime registers decode correctly for C.NOT.
     for r in 0..8 {
         let inst = make_zcb_q01(r, 0b11, 0b101);
-        let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+        let decoded =
+            Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
         assert_matches!(decoded, Rv64ZcbOnlyInstruction::CNot { .. });
     }
 }
@@ -428,13 +458,19 @@ fn test_unary_all_prime_regs() {
 fn test_csext_b_requires_zbb() {
     let inst = make_zcb_q01(0, 0b11, 0b001);
     // Zbb ignored as a whole doesn't satisfy the condition, even though it is inherited
-    assert!(Rv64ZcbWithoutZbbTestInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    assert!(
+        Rv64ZcbWithoutZbbTestInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst))
+            .is_none()
+    );
 }
 
 #[test]
 fn test_cmul_ignored_without_zmmul() {
     let inst = make_zcb_q01(0, 0b10, 0b001);
-    assert!(Rv64ZcbIgnoreCMulTestInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    assert!(
+        Rv64ZcbIgnoreCMulTestInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst))
+            .is_none()
+    );
 }
 
 // C.MUL - funct2b=0b10
@@ -442,7 +478,8 @@ fn test_cmul_ignored_without_zmmul() {
 #[test]
 fn test_cmul() {
     let inst = make_zcb_q01(0, 0b10, 0b001);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CMul {
@@ -456,7 +493,8 @@ fn test_cmul() {
 #[test]
 fn test_cmul_same_reg() {
     let inst = make_zcb_q01(0, 0b10, 0b000);
-    let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+    let decoded =
+        Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
     assert_eq!(
         decoded,
         Rv64ZcbOnlyInstruction::CMul {
@@ -472,7 +510,8 @@ fn test_cmul_all_prime_reg_pairs() {
     for rd in 0..8 {
         for rs2 in 0..8 {
             let inst = make_zcb_q01(rd, 0b10, rs2);
-            let decoded = Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).unwrap();
+            let decoded =
+                Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).unwrap();
             assert_matches!(decoded, Rv64ZcbOnlyInstruction::CMul { .. });
         }
     }
@@ -482,10 +521,10 @@ fn test_cmul_all_prime_reg_pairs() {
 fn test_cmul_requires_zmmul() {
     let inst = make_zcb_q01(0, 0b10, 0b001);
     // Not available without Zmmul
-    assert!(Rv64ZcbInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    assert!(Rv64ZcbInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).is_none());
     // M inherits Zmmul
     assert_eq!(
-        Rv64ZcbMTestInstruction::<Reg<u64>>::try_decode(u32::from(inst)),
+        Rv64ZcbMTestInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)),
         Some(Rv64ZcbMTestInstruction::CMul {
             rd: Reg::S0,
             rs2: Reg::S1,
@@ -499,13 +538,13 @@ fn test_cmul_requires_zmmul() {
 #[test]
 fn test_reserved_funct2b_00() {
     let inst = make_zcb_q01(0, 0b00, 0);
-    assert!(Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    assert!(Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).is_none());
 }
 
 #[test]
 fn test_reserved_funct2b_01() {
     let inst = make_zcb_q01(0, 0b01, 0);
-    assert!(Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(u32::from(inst)).is_none());
+    assert!(Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(u32::from(inst)).is_none());
 }
 
 // Non-Zcb quadrants return None
@@ -513,11 +552,11 @@ fn test_reserved_funct2b_01() {
 #[test]
 fn test_non_zcb_q10_returns_none() {
     let inst = (0b000 << 13u8) | (1 << 12u8) | (10 << 7u8) | (3 << 2u8) | 0b10;
-    assert!(Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).is_none());
 }
 
 #[test]
 fn test_zca_q01_funct3_000_returns_none() {
     let inst = (0b000 << 13u8) | (0 << 12u8) | (10 << 7u8) | (5 << 2u8) | 0b01;
-    assert!(Rv64ZcbOnlyInstruction::<Reg<u64>>::try_decode(inst).is_none());
+    assert!(Rv64ZcbOnlyInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).is_none());
 }

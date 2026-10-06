@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -12,23 +13,28 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum ZicsrInstruction<Reg> {
-    Csrrw { rd: Reg, rs1: Reg, csr_index: u16 },
-    Csrrs { rd: Reg, rs1: Reg, csr_index: u16 },
-    Csrrc { rd: Reg, rs1: Reg, csr_index: u16 },
-    Csrrwi { rd: Reg, zimm: u8, csr_index: u16 },
-    Csrrsi { rd: Reg, zimm: u8, csr_index: u16 },
-    Csrrci { rd: Reg, zimm: u8, csr_index: u16 },
+#[rustfmt::skip]
+pub enum ZicsrInstruction<Hart>
+where
+    Hart: HartConfig,
+{
+    Csrrw { rd: Hart::Reg, rs1: Hart::Reg, csr_index: u16 },
+    Csrrs { rd: Hart::Reg, rs1: Hart::Reg, csr_index: u16 },
+    Csrrc { rd: Hart::Reg, rs1: Hart::Reg, csr_index: u16 },
+    Csrrwi { rd: Hart::Reg, zimm: u8, csr_index: u16 },
+    Csrrsi { rd: Hart::Reg, zimm: u8, csr_index: u16 },
+    Csrrci { rd: Hart::Reg, zimm: u8, csr_index: u16 },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZicsrInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZicsrInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -96,9 +102,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZicsrInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZicsrInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

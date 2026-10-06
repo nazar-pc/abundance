@@ -233,7 +233,8 @@ use core::hint::{cold_path, unreachable_unchecked};
 use core::marker::{Destruct, PhantomData};
 use core::ops::{ControlFlow, FromResidual, Sub};
 
-type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
+type InstructionReg<I> = <<I as Instruction>::Hart as HartConfig>::Reg;
+type RegisterType<I> = <InstructionReg<I> as Register>::Type;
 type Address<I> = RegisterType<I>;
 
 /// A GPR (General Purpose Register) file abstraction
@@ -1039,7 +1040,7 @@ where
     /// Takes `&self` so that an instruction read through a reference into memory has the two
     /// registers loaded from there, a byte each, rather than copied out whole and extracted with
     /// a shift and a mask each, see [`InstructionFetcher::peeked_instruction()`].
-    fn get_rs1_rs2_operands(&self) -> Rs1Rs2Operands<Self::Reg>;
+    fn get_rs1_rs2_operands(&self) -> Rs1Rs2Operands<<Self::Hart as HartConfig>::Reg>;
 }
 
 pub const trait ExecutableInstructionCsr<Env>
@@ -1131,12 +1132,12 @@ where
     /// returned, which skips the register file write entirely.
     fn execute(
         self,
-        rs1rs2_values: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        rs1rs2_values: Rs1Rs2OperandValues<<<Self::Hart as HartConfig>::Reg as Register>::Type>,
         regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg>;
+    ) -> ExecutionResult<<Self::Hart as HartConfig>::Reg>;
 }
 
 /// Outcome of [`ThreadedExecutableInstruction::execute_threaded()`].

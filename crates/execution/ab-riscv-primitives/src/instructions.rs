@@ -16,7 +16,7 @@ pub mod zkr;
 pub mod zvbb;
 pub mod zvbc;
 
-use crate::registers::general_purpose::Register;
+use crate::hart::HartConfig;
 use core::any::TypeId;
 use core::fmt;
 use core::marker::Destruct;
@@ -41,8 +41,8 @@ pub const trait Instruction:
     /// Instruction alignment in bytes, also known as `IALIGN`
     const ALIGNMENT: u8;
 
-    /// A register type used by the instruction
-    type Reg: [const] Register;
+    /// Hart configuration of the implementation
+    type Hart: [const] HartConfig;
 
     /// Try to decode a single valid instruction
     fn try_decode(instruction: u32) -> Option<Self>;
@@ -55,7 +55,7 @@ pub const trait Instruction:
     #[inline(always)]
     fn implements_extension<E>() -> bool
     where
-        E: Instruction<Reg = Self::Reg>,
+        E: Instruction<Hart = Self::Hart>,
     {
         const {
             let mut result = false;

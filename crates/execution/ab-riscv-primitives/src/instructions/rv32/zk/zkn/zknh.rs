@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -25,29 +26,34 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv32ZknhInstruction<Reg> {
+#[rustfmt::skip]
+pub enum Rv32ZknhInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // SHA-256 (single-register, identical encoding to RV64)
-    Sha256Sig0 { rd: Reg, rs1: Reg },
-    Sha256Sig1 { rd: Reg, rs1: Reg },
-    Sha256Sum0 { rd: Reg, rs1: Reg },
-    Sha256Sum1 { rd: Reg, rs1: Reg },
+    Sha256Sig0 { rd: Hart::Reg, rs1: Hart::Reg },
+    Sha256Sig1 { rd: Hart::Reg, rs1: Hart::Reg },
+    Sha256Sum0 { rd: Hart::Reg, rs1: Hart::Reg },
+    Sha256Sum1 { rd: Hart::Reg, rs1: Hart::Reg },
     // SHA-512 (two-register, RV32-only R-type)
-    Sha512Sig0h { rd: Reg, rs1: Reg, rs2: Reg },
-    Sha512Sig0l { rd: Reg, rs1: Reg, rs2: Reg },
-    Sha512Sig1h { rd: Reg, rs1: Reg, rs2: Reg },
-    Sha512Sig1l { rd: Reg, rs1: Reg, rs2: Reg },
-    Sha512Sum0r { rd: Reg, rs1: Reg, rs2: Reg },
-    Sha512Sum1r { rd: Reg, rs1: Reg, rs2: Reg },
+    Sha512Sig0h { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sha512Sig0l { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sha512Sig1h { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sha512Sig1l { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sha512Sum0r { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sha512Sum1r { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZknhInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZknhInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -115,9 +121,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZknhInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZknhInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

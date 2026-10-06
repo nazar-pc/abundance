@@ -14,7 +14,8 @@ pub(crate) const ABUNDANCE_RV32I_MAX_CONFIG: CoreConfig = CoreConfig {
 };
 
 /// All instructions supported by the interpreter for RV32I base ISA
-pub(crate) type AbundanceRv32IMaxInstruction = AbundanceRv32IMaxInstructionPrototype<Reg<u32>>;
+pub(crate) type AbundanceRv32IMaxInstruction =
+    AbundanceRv32IMaxInstructionPrototype<BasicHart<Reg<u32>>>;
 
 /// All instructions supported by the interpreter for RV32I base ISA
 #[instruction(
@@ -43,13 +44,18 @@ pub(crate) type AbundanceRv32IMaxInstruction = AbundanceRv32IMaxInstructionProto
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum AbundanceRv32IMaxInstructionPrototype<Reg> {}
+pub(crate) enum AbundanceRv32IMaxInstructionPrototype<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for AbundanceRv32IMaxInstructionPrototype<Reg> {
+const impl<Reg, Hart> Instruction for AbundanceRv32IMaxInstructionPrototype<Hart>
+where
+    Hart: [const] HartConfig<Reg = Reg>,
+{
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -63,9 +69,10 @@ const impl<Reg> Instruction for AbundanceRv32IMaxInstructionPrototype<Reg> {
 }
 
 #[instruction]
-impl<Reg> fmt::Display for AbundanceRv32IMaxInstructionPrototype<Reg>
+impl<Reg, Hart> fmt::Display for AbundanceRv32IMaxInstructionPrototype<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -73,32 +80,39 @@ where
 }
 
 #[instruction_execution]
-impl<Reg> ExecutableInstructionOperands for AbundanceRv32IMaxInstructionPrototype<Reg> {}
+impl<Reg, Hart> ExecutableInstructionOperands for AbundanceRv32IMaxInstructionPrototype<Hart> where
+    Hart: HartConfig<Reg = Reg>
+{
+}
 
 #[instruction_execution]
 #[expect(
     clippy::useless_conversion,
     reason = "https://github.com/rust-lang/rust-clippy/issues/17083"
 )]
-impl<Reg, Env> ExecutableInstructionCsr<Env> for AbundanceRv32IMaxInstructionPrototype<Reg> {}
+impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for AbundanceRv32IMaxInstructionPrototype<Hart> where
+    Hart: HartConfig<Reg = Reg>
+{
+}
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for AbundanceRv32IMaxInstructionPrototype<Reg>
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for AbundanceRv32IMaxInstructionPrototype<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn execute(
         self,
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zba::Rv64ZbaInstruction;
 use crate::instructions::test_utils::{make_i_type_with_shamt, make_r_type};
@@ -6,7 +7,7 @@ use crate::registers::general_purpose::Reg;
 #[test]
 fn test_sh1add() {
     let inst = make_r_type(0b011_0011, 1, 0b010, 2, 3, 0b001_0000);
-    let decoded = Rv64ZbaInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbaInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbaInstruction::Sh1add {
@@ -20,7 +21,7 @@ fn test_sh1add() {
 #[test]
 fn test_sh2add() {
     let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b001_0000);
-    let decoded = Rv64ZbaInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbaInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbaInstruction::Sh2add {
@@ -34,7 +35,7 @@ fn test_sh2add() {
 #[test]
 fn test_sh3add() {
     let inst = make_r_type(0b011_0011, 1, 0b110, 2, 3, 0b001_0000);
-    let decoded = Rv64ZbaInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbaInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbaInstruction::Sh3add {
@@ -48,7 +49,7 @@ fn test_sh3add() {
 #[test]
 fn test_add_uw() {
     let inst = make_r_type(0b011_1011, 1, 0b000, 2, 3, 0b000_0100);
-    let decoded = Rv64ZbaInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbaInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbaInstruction::AddUw {
@@ -62,7 +63,7 @@ fn test_add_uw() {
 #[test]
 fn test_slli_uw() {
     let inst = make_i_type_with_shamt(0b001_1011, 1, 0b001, 2, 40, 0b00_0010);
-    let decoded = Rv64ZbaInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbaInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbaInstruction::SlliUw {
@@ -77,7 +78,7 @@ fn test_slli_uw() {
 #[test]
 fn test_sh1add_uw() {
     let inst = make_r_type(0b011_1011, 1, 0b010, 2, 3, 0b001_0000);
-    let decoded = Rv64ZbaInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbaInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbaInstruction::Sh1addUw {
@@ -91,7 +92,7 @@ fn test_sh1add_uw() {
 #[test]
 fn test_sh2add_uw() {
     let inst = make_r_type(0b011_1011, 1, 0b100, 2, 3, 0b001_0000);
-    let decoded = Rv64ZbaInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbaInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbaInstruction::Sh2addUw {
@@ -105,7 +106,7 @@ fn test_sh2add_uw() {
 #[test]
 fn test_sh3add_uw() {
     let inst = make_r_type(0b011_1011, 1, 0b110, 2, 3, 0b001_0000);
-    let decoded = Rv64ZbaInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbaInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbaInstruction::Sh3addUw {

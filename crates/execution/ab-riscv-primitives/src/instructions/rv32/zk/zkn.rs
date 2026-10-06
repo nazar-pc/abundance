@@ -4,6 +4,7 @@ pub mod zknd;
 pub mod zkne;
 pub mod zknh;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::b::zbb::Rv32ZbbZbkbSharedInstruction;
 use crate::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
@@ -29,16 +30,19 @@ use core::fmt;
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv32ZknInstruction<Reg> {}
+pub enum Rv32ZknInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZknInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZknInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -53,9 +57,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZknInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZknInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}

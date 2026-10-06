@@ -12,6 +12,7 @@ pub mod zalasr;
 pub mod zce;
 pub mod zk;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::utils::{I24, I24WithZeroedBits};
 use crate::registers::general_purpose::Register;
@@ -22,77 +23,81 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64Instruction<Reg> {
+#[rustfmt::skip]
+pub enum Rv64Instruction<Hart>
+where
+    Hart: HartConfig,
+{
     // R-type
-    Add { rd: Reg, rs1: Reg, rs2: Reg },
-    Sub { rd: Reg, rs1: Reg, rs2: Reg },
-    Sll { rd: Reg, rs1: Reg, rs2: Reg },
-    Slt { rd: Reg, rs1: Reg, rs2: Reg },
-    Sltu { rd: Reg, rs1: Reg, rs2: Reg },
-    Xor { rd: Reg, rs1: Reg, rs2: Reg },
-    Srl { rd: Reg, rs1: Reg, rs2: Reg },
-    Sra { rd: Reg, rs1: Reg, rs2: Reg },
-    Or { rd: Reg, rs1: Reg, rs2: Reg },
-    And { rd: Reg, rs1: Reg, rs2: Reg },
+    Add { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sub { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sll { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Slt { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sltu { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Xor { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Srl { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sra { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Or { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    And { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
 
     // RV64 R-type W
-    Addw { rd: Reg, rs1: Reg, rs2: Reg },
-    Subw { rd: Reg, rs1: Reg, rs2: Reg },
-    Sllw { rd: Reg, rs1: Reg, rs2: Reg },
-    Srlw { rd: Reg, rs1: Reg, rs2: Reg },
-    Sraw { rd: Reg, rs1: Reg, rs2: Reg },
+    Addw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Subw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sllw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Srlw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sraw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
 
     // I-type
-    Addi { rd: Reg, rs1: Reg, imm: i16 },
-    Slti { rd: Reg, rs1: Reg, imm: i16 },
-    Sltiu { rd: Reg, rs1: Reg, imm: i16 },
-    Xori { rd: Reg, rs1: Reg, imm: i16 },
-    Ori { rd: Reg, rs1: Reg, imm: i16 },
-    Andi { rd: Reg, rs1: Reg, imm: i16 },
-    Slli { rd: Reg, rs1: Reg, shamt: u8 },
-    Srli { rd: Reg, rs1: Reg, shamt: u8 },
-    Srai { rd: Reg, rs1: Reg, shamt: u8 },
+    Addi { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Slti { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Sltiu { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Xori { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Ori { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Andi { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Slli { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Srli { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Srai { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
 
     // RV64 I-type W
-    Addiw { rd: Reg, rs1: Reg, imm: i16 },
-    Slliw { rd: Reg, rs1: Reg, shamt: u8 },
-    Srliw { rd: Reg, rs1: Reg, shamt: u8 },
-    Sraiw { rd: Reg, rs1: Reg, shamt: u8 },
+    Addiw { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Slliw { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Srliw { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Sraiw { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
 
     // Loads (I-type)
-    Lb { rd: Reg, rs1: Reg, imm: i16 },
-    Lh { rd: Reg, rs1: Reg, imm: i16 },
-    Lw { rd: Reg, rs1: Reg, imm: i16 },
-    Ld { rd: Reg, rs1: Reg, imm: i16 },
-    Lbu { rd: Reg, rs1: Reg, imm: i16 },
-    Lhu { rd: Reg, rs1: Reg, imm: i16 },
-    Lwu { rd: Reg, rs1: Reg, imm: i16 },
+    Lb { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Lh { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Lw { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Ld { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Lbu { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Lhu { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Lwu { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
 
     // Jalr (I-type)
-    Jalr { rd: Reg, rs1: Reg, imm: i16 },
+    Jalr { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
 
     // S-type
-    Sb { rs2: Reg, rs1: Reg, imm: i16 },
-    Sh { rs2: Reg, rs1: Reg, imm: i16 },
-    Sw { rs2: Reg, rs1: Reg, imm: i16 },
-    Sd { rs2: Reg, rs1: Reg, imm: i16 },
+    Sb { rs2: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Sh { rs2: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Sw { rs2: Hart::Reg, rs1: Hart::Reg, imm: i16 },
+    Sd { rs2: Hart::Reg, rs1: Hart::Reg, imm: i16 },
 
     // B-type
-    Beq { rs1: Reg, rs2: Reg, imm: i16 },
-    Bne { rs1: Reg, rs2: Reg, imm: i16 },
-    Blt { rs1: Reg, rs2: Reg, imm: i16 },
-    Bge { rs1: Reg, rs2: Reg, imm: i16 },
-    Bltu { rs1: Reg, rs2: Reg, imm: i16 },
-    Bgeu { rs1: Reg, rs2: Reg, imm: i16 },
+    Beq { rs1: Hart::Reg, rs2: Hart::Reg, imm: i16 },
+    Bne { rs1: Hart::Reg, rs2: Hart::Reg, imm: i16 },
+    Blt { rs1: Hart::Reg, rs2: Hart::Reg, imm: i16 },
+    Bge { rs1: Hart::Reg, rs2: Hart::Reg, imm: i16 },
+    Bltu { rs1: Hart::Reg, rs2: Hart::Reg, imm: i16 },
+    Bgeu { rs1: Hart::Reg, rs2: Hart::Reg, imm: i16 },
 
     // Lui (U-type)
-    Lui { rd: Reg, imm: I24WithZeroedBits<12> },
+    Lui { rd: Hart::Reg, imm: I24WithZeroedBits<12> },
 
     // Auipc (U-type)
-    Auipc { rd: Reg, imm: I24WithZeroedBits<12> },
+    Auipc { rd: Hart::Reg, imm: I24WithZeroedBits<12> },
 
     // Jal (J-type)
-    Jal { rd: Reg, imm: I24 },
+    Jal { rd: Hart::Reg, imm: I24 },
 
     // Fence
     Fence { pred: u8, succ: u8 },
@@ -107,13 +112,14 @@ pub enum Rv64Instruction<Reg> {
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64Instruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64Instruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -353,9 +359,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64Instruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64Instruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -221,13 +221,18 @@ const unsafe impl ZcmpRegister for ContractRegister {}
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ContractInstruction<Reg = ContractRegister> {}
+pub enum ContractInstruction<Hart = BasicHart<ContractRegister>>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for ContractInstruction<Reg> {
+const impl<Reg, Hart> Instruction for ContractInstruction<Hart>
+where
+    Hart: [const] HartConfig<Reg = Reg>,
+{
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -241,9 +246,10 @@ const impl<Reg> Instruction for ContractInstruction<Reg> {
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ContractInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ContractInstruction<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -251,16 +257,23 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ContractInstruction<Reg> {}
+const impl<Reg, Hart> ExecutableInstructionOperands for ContractInstruction<Hart> where
+    Hart: HartConfig<Reg = Reg>
+{
+}
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ContractInstruction<Reg> {}
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ContractInstruction<Hart> where
+    Hart: HartConfig<Reg = Reg>
+{
+}
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ContractInstruction<Reg>
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ContractInstruction<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
 {
     #[inline(always)]
     fn execute(
@@ -268,17 +281,20 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         regs: &mut Regs,
         _env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }
 
-impl<Reg> ContractInstruction<Reg> {
+impl<Hart> ContractInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// Check if the instruction is a jump instruction of any kind (affects program counter)
     #[inline]
     #[expect(

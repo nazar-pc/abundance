@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::test_utils::make_r_type;
 use crate::instructions::zicond::ZicondInstruction;
@@ -11,7 +12,7 @@ use crate::registers::general_purpose::Reg;
 fn test_czero_eqz() {
     // czero.eqz a2, a0, a1
     let inst = make_r_type(0b011_0011, 12, 0b101, 10, 11, 0b000_0111);
-    let decoded = ZicondInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZicondInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZicondInstruction::CzeroEqz {
@@ -26,7 +27,7 @@ fn test_czero_eqz() {
 fn test_czero_nez() {
     // czero.nez a2, a0, a1
     let inst = make_r_type(0b011_0011, 12, 0b111, 10, 11, 0b000_0111);
-    let decoded = ZicondInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZicondInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZicondInstruction::CzeroNez {
@@ -41,7 +42,7 @@ fn test_czero_nez() {
 fn test_czero_eqz_zero_registers() {
     // czero.eqz x0, x0, x0
     let inst = make_r_type(0b011_0011, 0, 0b101, 0, 0, 0b000_0111);
-    let decoded = ZicondInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZicondInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZicondInstruction::CzeroEqz {
@@ -56,7 +57,7 @@ fn test_czero_eqz_zero_registers() {
 fn test_czero_nez_zero_registers() {
     // czero.nez x0, x0, x0
     let inst = make_r_type(0b011_0011, 0, 0b111, 0, 0, 0b000_0111);
-    let decoded = ZicondInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZicondInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZicondInstruction::CzeroNez {
@@ -71,7 +72,7 @@ fn test_czero_nez_zero_registers() {
 fn test_invalid_opcode() {
     // Wrong opcode (0x13 instead of 0x33)
     let inst = make_r_type(0b001_0011, 12, 0b101, 10, 11, 0b000_0111);
-    let decoded = ZicondInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZicondInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -79,7 +80,7 @@ fn test_invalid_opcode() {
 fn test_invalid_funct7() {
     // Correct opcode/funct3 but wrong funct7 (0x00 instead of 0x07)
     let inst = make_r_type(0b011_0011, 12, 0b101, 10, 11, 0b000_0000);
-    let decoded = ZicondInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZicondInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -87,6 +88,6 @@ fn test_invalid_funct7() {
 fn test_invalid_funct3() {
     // Correct opcode and funct7 but funct3 that is neither 0b101 nor 0b111
     let inst = make_r_type(0b011_0011, 12, 0b001, 10, 11, 0b000_0111);
-    let decoded = ZicondInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZicondInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

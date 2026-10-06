@@ -8,7 +8,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::assert_matches;
 
-type TestZkr = ZkrInstruction<Reg<u64>>;
+type TestZkr = ZkrInstruction<BasicHart<Reg<u64>>>;
 
 /// A CSR index the extension doesn't own, used to check "ignore" (`Ok(false)`) behavior.
 const OTHER_CSR: u16 = 0x300;

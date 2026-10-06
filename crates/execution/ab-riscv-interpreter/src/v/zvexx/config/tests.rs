@@ -786,7 +786,7 @@ fn prepare_csr_read_passes_through_vector_csrs() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_read(
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_read(
         &state.env,
         VectorCsr::Vstart.to_csr_index(),
         true,
@@ -803,8 +803,13 @@ fn prepare_csr_read_ignores_non_vector_csrs() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result =
-        <ZveXxConfigInstruction<_>>::prepare_csr_read(&state.env, 0x300, true, 42, &mut output);
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_read(
+        &state.env,
+        0x300,
+        true,
+        42,
+        &mut output,
+    );
     // Returns Ok(false) meaning "not handled by this extension"
     assert!(!result.unwrap());
 }
@@ -825,7 +830,7 @@ fn prepare_csr_read_works_for_all_vector_csrs() {
 
     for csr_index in csr_indices {
         let mut output = 0u64;
-        let result = <ZveXxConfigInstruction<_>>::prepare_csr_read(
+        let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_read(
             &state.env,
             csr_index,
             true,
@@ -843,7 +848,7 @@ fn prepare_csr_write_rejects_read_only_vl() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vl.to_csr_index(),
         42,
@@ -858,7 +863,7 @@ fn prepare_csr_write_rejects_read_only_vtype() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vtype.to_csr_index(),
         42,
@@ -873,7 +878,7 @@ fn prepare_csr_write_rejects_read_only_vlenb() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vlenb.to_csr_index(),
         42,
@@ -888,7 +893,7 @@ fn prepare_csr_write_vxsat_masks_to_1_bit() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vxsat.to_csr_index(),
         0xFF,
@@ -904,7 +909,7 @@ fn prepare_csr_write_vxrm_masks_to_2_bits() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vxrm.to_csr_index(),
         0xFF,
@@ -920,7 +925,7 @@ fn prepare_csr_write_vcsr_masks_to_3_bits() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0xFFFF,
@@ -936,7 +941,7 @@ fn prepare_csr_write_vstart_passes_full_value() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vstart.to_csr_index(),
         0x1234,
@@ -952,8 +957,12 @@ fn prepare_csr_write_ignores_non_vector_csrs() {
     let mut state = initialize_state::<ZveXxConfigInstruction<_>, _>([]);
     state.env.init_vector_csrs();
 
-    let result =
-        <ZveXxConfigInstruction<_>>::prepare_csr_write(&mut state.env, 0x300, 42, &mut output);
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
+        &mut state.env,
+        0x300,
+        42,
+        &mut output,
+    );
     assert!(!result.unwrap());
 }
 
@@ -1416,7 +1425,7 @@ fn prepare_csr_write_vxsat_mirrors_into_vcsr() {
         .unwrap();
 
     let mut output = 0u64;
-    let result = <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    let result = <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vxsat.to_csr_index(),
         1,
@@ -1441,7 +1450,7 @@ fn prepare_csr_write_vxsat_clear_mirrors_into_vcsr() {
         .unwrap();
 
     let mut output = 0u64;
-    <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vxsat.to_csr_index(),
         0,
@@ -1465,7 +1474,7 @@ fn prepare_csr_write_vxrm_mirrors_into_vcsr() {
         .unwrap();
 
     let mut output = 0u64;
-    <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vxrm.to_csr_index(),
         0b11,
@@ -1490,7 +1499,7 @@ fn prepare_csr_write_vxrm_clear_mirrors_into_vcsr() {
         .unwrap();
 
     let mut output = 0u64;
-    <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vxrm.to_csr_index(),
         0b00,
@@ -1519,7 +1528,7 @@ fn prepare_csr_write_vcsr_mirrors_into_vxsat_and_vxrm() {
 
     let mut output = 0u64;
     // Write vcsr = 0b101 (vxrm=0b10, vxsat=1)
-    <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0b101,
@@ -1550,7 +1559,7 @@ fn prepare_csr_write_vcsr_zero_clears_vxsat_and_vxrm() {
         .unwrap();
 
     let mut output = 0u64;
-    <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0,
@@ -1572,7 +1581,7 @@ fn prepare_csr_write_vcsr_masks_then_mirrors() {
 
     let mut output = 0u64;
     // Write 0xFF to vcsr; should mask to 0b111, then mirror
-    <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0xFF,
@@ -1596,7 +1605,7 @@ fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
     let mut output = 0u64;
 
     // Write vxrm=0b10 via vcsr
-    <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vcsr.to_csr_index(),
         0b100,
@@ -1610,7 +1619,7 @@ fn mirroring_roundtrip_vxsat_to_vcsr_and_back() {
         .unwrap();
 
     // Write vxsat=1 directly
-    <ZveXxConfigInstruction<_>>::prepare_csr_write(
+    <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_write(
         &mut state.env,
         VectorCsr::Vxsat.to_csr_index(),
         1,
@@ -1657,7 +1666,7 @@ fn prepare_csr_read_vcsr_reflects_separate_csr_values() {
 
     let mut output = 0u64;
     let raw = state.env.read_csr(VectorCsr::Vcsr.to_csr_index()).unwrap();
-    <ZveXxConfigInstruction<_>>::prepare_csr_read(
+    <ZveXxConfigInstruction<BasicHart<Reg<u64>>>>::prepare_csr_read(
         &state.env,
         VectorCsr::Vcsr.to_csr_index(),
         true,

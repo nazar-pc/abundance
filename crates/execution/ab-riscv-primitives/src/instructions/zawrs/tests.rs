@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::zawrs::ZawrsInstruction;
 use crate::registers::general_purpose::Reg;
@@ -13,7 +14,7 @@ fn make_system(rd: u8, funct3: u8, rs1: u8, imm: u16) -> u32 {
 #[test]
 fn test_wrs_nto() {
     let inst = make_system(0, 0, 0, 0x00d);
-    let decoded = ZawrsInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZawrsInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZawrsInstruction::WrsNto {
@@ -26,7 +27,7 @@ fn test_wrs_nto() {
 #[test]
 fn test_wrs_sto() {
     let inst = make_system(0, 0, 0, 0x01d);
-    let decoded = ZawrsInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZawrsInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZawrsInstruction::WrsSto {
@@ -39,34 +40,34 @@ fn test_wrs_sto() {
 #[test]
 fn test_nonzero_rd_returns_none() {
     let inst = make_system(1, 0, 0, 0x00d);
-    let decoded = ZawrsInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZawrsInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_nonzero_rs1_returns_none() {
     let inst = make_system(0, 0, 1, 0x00d);
-    let decoded = ZawrsInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZawrsInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_wrong_funct3_returns_none() {
     let inst = make_system(0, 1, 0, 0x00d);
-    let decoded = ZawrsInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZawrsInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_unknown_imm_returns_none() {
     let inst = make_system(0, 0, 0, 0x000);
-    let decoded = ZawrsInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZawrsInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_wrong_opcode_returns_none() {
     let inst = (make_system(0, 0, 0, 0x00d) & !0b111_1111) | 0b011_0011;
-    let decoded = ZawrsInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZawrsInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

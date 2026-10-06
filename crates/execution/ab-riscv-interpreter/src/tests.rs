@@ -44,7 +44,7 @@ where
 
 /// Every outcome must survive the trip through [`OpaqueThreadedExecutionResult`] unchanged, since
 /// that is the only form in which a handler can report one
-fn assert_all_outcomes_round_trip<I>(address: <I::Reg as Register>::Type)
+fn assert_all_outcomes_round_trip<I>(address: RegisterType<I>)
 where
     I: Instruction,
 {
@@ -93,14 +93,14 @@ where
 
 #[test]
 fn outcomes_round_trip_rv64() {
-    assert_all_outcomes_round_trip::<Rv64Instruction<Reg<u64>>>(u64::MAX);
-    assert_all_outcomes_round_trip::<Rv64Instruction<Reg<u64>>>(0);
+    assert_all_outcomes_round_trip::<Rv64Instruction<BasicHart<Reg<u64>>>>(u64::MAX);
+    assert_all_outcomes_round_trip::<Rv64Instruction<BasicHart<Reg<u64>>>>(0);
 }
 
 #[test]
 fn outcomes_round_trip_rv32() {
-    assert_all_outcomes_round_trip::<Rv32Instruction<Reg<u32>>>(u32::MAX);
-    assert_all_outcomes_round_trip::<Rv32Instruction<Reg<u32>>>(0);
+    assert_all_outcomes_round_trip::<Rv32Instruction<BasicHart<Reg<u32>>>>(u32::MAX);
+    assert_all_outcomes_round_trip::<Rv32Instruction<BasicHart<Reg<u32>>>>(0);
 }
 
 #[test]
@@ -108,6 +108,8 @@ fn opaque_outcome_fits_into_return_registers() {
     // Not a hard requirement of the type system, but the entire reason the opaque form exists: on
     // the platforms that return it in registers it must not be larger than what they return
     if cfg!(any(target_arch = "x86_64", target_arch = "aarch64")) {
-        assert!(size_of::<OpaqueThreadedExecutionResult<Rv64Instruction<Reg<u64>>>>() <= 32);
+        assert!(
+            size_of::<OpaqueThreadedExecutionResult<Rv64Instruction<BasicHart<Reg<u64>>>>>() <= 32
+        );
     }
 }

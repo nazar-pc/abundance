@@ -21,7 +21,11 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
     u64::from(vlmul.to_bits()) | (u64::from(vsew.to_bits()) << 3)
 }
 
-fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>> {
+fn setup(
+    vl: Vl,
+    vsew: Vsew,
+    vlmul: Vlmul,
+) -> TestInterpreterState<ZveXxMaskInstruction<BasicHart<Reg<u64>>>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -33,8 +37,8 @@ fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxMaskInst
 }
 
 fn exec(
-    state: &mut TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>,
-    instr: ZveXxMaskInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxMaskInstruction<BasicHart<Reg<u64>>>>,
+    instr: ZveXxMaskInstruction<BasicHart<Reg<u64>>>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -67,8 +71,8 @@ fn exec(
 /// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
 /// `state` without modifying any vector state
 fn assert_rejects_nonzero_vstart(
-    state: &mut TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>,
-    instr: ZveXxMaskInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxMaskInstruction<BasicHart<Reg<u64>>>>,
+    instr: ZveXxMaskInstruction<BasicHart<Reg<u64>>>,
 ) {
     let vstart = state.env.vstart();
     assert_ne!(vstart, Vstart::ZERO);
@@ -83,12 +87,15 @@ fn assert_rejects_nonzero_vstart(
     assert_eq!(*state.env.read_vregs().as_bytes(), vregs, "{instr}");
 }
 
-fn get_vreg(state: &TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
+fn get_vreg(
+    state: &TestInterpreterState<ZveXxMaskInstruction<BasicHart<Reg<u64>>>>,
+    reg: VReg,
+) -> [u8; 32] {
     *state.env.read_vregs().get(reg)
 }
 
 fn set_vreg(
-    state: &mut TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxMaskInstruction<BasicHart<Reg<u64>>>>,
     reg: VReg,
     data: [u8; 32],
 ) {
@@ -97,7 +104,7 @@ fn set_vreg(
 
 /// Read element `i` from a register group as a u64 (zero-extended), given SEW
 fn read_elem(
-    state: &TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxMaskInstruction<BasicHart<Reg<u64>>>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -113,7 +120,7 @@ fn read_elem(
 
 /// Read mask bit `i` from a vector register
 fn mask_bit(
-    state: &TestInterpreterState<ZveXxMaskInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxMaskInstruction<BasicHart<Reg<u64>>>>,
     reg: VReg,
     i: u32,
 ) -> bool {
@@ -1800,7 +1807,7 @@ fn vid_vl_zero() {
 /// Every instruction marks VS dirty and rejects a non-zero `vstart`
 #[test]
 fn all_instructions_mark_vs_dirty_and_reject_nonzero_vstart() {
-    let mask_logical: &[ZveXxMaskInstruction<Reg<u64>>] = &[
+    let mask_logical: &[ZveXxMaskInstruction<BasicHart<Reg<u64>>>] = &[
         ZveXxMaskInstruction::Vmand {
             vd: VReg::V4,
             vs2: VReg::V2,
@@ -1878,7 +1885,7 @@ fn all_instructions_mark_vs_dirty_and_reject_nonzero_vstart() {
             rs2: Reg::Zero,
         },
     ];
-    let others: &[ZveXxMaskInstruction<Reg<u64>>] = &[
+    let others: &[ZveXxMaskInstruction<BasicHart<Reg<u64>>>] = &[
         ZveXxMaskInstruction::Vmsbf {
             vd: VReg::V4,
             vs2: VReg::V2,
@@ -1928,7 +1935,7 @@ fn all_instructions_mark_vs_dirty_and_reject_nonzero_vstart() {
 /// All eight ops are verified; vmand is representative, the others are spot-checked.
 #[test]
 fn mask_logical_invalid_vtype() {
-    let ops: &[ZveXxMaskInstruction<Reg<u64>>] = &[
+    let ops: &[ZveXxMaskInstruction<BasicHart<Reg<u64>>>] = &[
         ZveXxMaskInstruction::Vmand {
             vd: VReg::V4,
             vs2: VReg::V2,

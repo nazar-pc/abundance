@@ -28,36 +28,45 @@ use proc_macro::TokenStream;
 ///     reorder = [D, A],
 ///     if = [OptionalX]
 /// )]
-/// struct Extended<Reg> {
-///     A(Reg),
-///     B(Reg),
-///     C(Reg),
+/// enum Extended<Hart>
+/// where
+///     Hart: HartConfig,
+/// {
+///     A(Hart::Reg),
+///     B(Hart::Reg),
+///     C(Hart::Reg),
 ///     #[instruction(
 ///         if = [OptionalY],
 ///         if = [OptionalZ1, OptionalZ2],
 ///     )]
-///     D(Reg),
-///     E(Reg),
+///     D(Hart::Reg),
+///     E(Hart::Reg),
 /// }
 /// ```
 ///
 /// This will generate an enum with both `BaseInstruction` and `Extended` instructions, while also
 /// reordering them according to the specified order. So the eventual enum will look like this:
 /// ```rust,ignore
-/// struct Extended<Reg> {
-///     C(Reg),
-///     Add { rd: Reg, rs1: Reg, rs2: Reg },
+/// enum Extended<Hart>
+/// where
+///     Hart: HartConfig,
+/// {
+///     C(Hart::Reg),
+///     Add { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
 ///     // Any other instructions from `BaseInstruction` that were not mentioned explicitly
-///     D(Reg),
-///     A(Reg),
-///     B(Reg),
+///     D(Hart::Reg),
+///     A(Hart::Reg),
+///     B(Hart::Reg),
 /// }
 /// ```
 ///
 /// Note that all attribute parameters can be specified multiple times, and reordering can reference
 /// any variant from both the `BaseInstruction` and `Extended` enums.
 ///
-/// This, of course, only works when enums have compatible generics.
+/// This, of course, only works when enums have compatible generics: all instruction enums are
+/// generic over hart configuration `Hart` (see `HartConfig`), and implementations have an
+/// additional `Reg` generic parameter for its register type (constrained with
+/// `Hart: HartConfig<Reg = Reg>`).
 ///
 /// All instruction enums in the project must have unique names. Individual instructions can be
 /// repeated between inherited enums, but they must have the same exact variant definition and are
@@ -112,9 +121,10 @@ use proc_macro::TokenStream;
 /// trait and affects its `try_decode()` method:
 /// ```rust,ignore
 /// #[instruction]
-/// impl<Reg> const Instruction for Rv64Instruction<Reg>
+/// const impl<Reg, Hart> Instruction for Rv64Instruction<Hart>
 /// where
 ///     Reg: [const] Register<Type = u64>,
+///     Hart: [const] HartConfig<Reg = Reg>,
 /// {
 ///     // ...
 /// }
@@ -137,17 +147,18 @@ use proc_macro::TokenStream;
 /// `core::fmt::Display` trait and affects its `fmt()` method:
 /// ```rust,ignore
 /// #[instruction]
-/// impl<Reg> fmt::Display for Rv64Instruction<Reg>
+/// impl<Reg, Hart> fmt::Display for Rv64Instruction<Hart>
 /// where
 ///     Reg: fmt::Display + Copy,
+///     Hart: HartConfig<Reg = Reg>,
 /// {
 ///     // ...
 /// }
 /// ```
 /// `fmt()` implementation will end up containing decoding logic for the full extended enum as
-/// mentioned above. The three major restrictions are that an enum must be generic over `Reg`
-/// register type, field types must have `Copy` bounds on them (like `Reg` in the example above),
-/// and the method body must consist of a single `match` statement.
+/// mentioned above. The two major restrictions are that field types must have `Copy` bounds on them
+/// (like `Reg` in the example above), and the method body must consist of a single `match`
+/// statement.
 ///
 /// # `process_instruction_macros()`
 ///

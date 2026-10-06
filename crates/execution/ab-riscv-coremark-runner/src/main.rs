@@ -14,7 +14,7 @@ mod instruction;
 mod time_csr;
 
 use crate::elf::{LoadedElf, load_elf};
-use crate::instruction::CoremarkInstruction;
+use crate::instruction::{CoremarkInstruction, CoremarkRegister};
 use crate::time_csr::TimeCsrState;
 use ab_riscv_interpreter::basic::{BasicEagerInstructions, BasicMemory, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
@@ -91,7 +91,7 @@ fn main() -> anyhow::Result<()> {
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             text_data,
-            CoremarkInstruction::Unimp {
+            CoremarkInstruction::<BasicHart<CoremarkRegister>>::Unimp {
                 rs1: Reg::ZERO,
                 rs2: Reg::ZERO,
             },
