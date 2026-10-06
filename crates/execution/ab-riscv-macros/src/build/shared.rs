@@ -1,6 +1,6 @@
 use crate::build::state::{KnownEnumDefinition, State};
 use std::collections::{HashSet, VecDeque};
-use std::mem;
+use std::{iter, mem};
 use syn::punctuated::Punctuated;
 use syn::{Ident, Token, WherePredicate, parse_quote};
 
@@ -36,6 +36,31 @@ where
     }
 
     Ok(all_dependencies)
+}
+
+/// Whether an instruction enum is implemented by an instruction set, with `is_present` checking
+/// whether an individual instruction is present in it.
+///
+/// An enum is implemented when at least one of its own instructions is present (otherwise it was
+/// ignored in one way or another) and the same is true for all enums it inherits. Enums without
+/// own instructions (like `B`) are only implemented when all enums they inherit are.
+pub(super) fn is_enum_implemented<IsPresent>(
+    state: &State,
+    enum_name: &Ident,
+    is_present: IsPresent,
+) -> bool
+where
+    IsPresent: Fn(&Ident) -> bool,
+{
+    collect_all_dependencies(state, iter::once(enum_name.clone())).is_ok_and(|all_enums| {
+        all_enums.into_iter().all(|(_enum_name, enum_definition)| {
+            enum_definition.own_instructions.is_empty()
+                || enum_definition
+                    .own_instructions
+                    .iter()
+                    .any(|instruction| is_present(&instruction.ident))
+        })
+    })
 }
 
 /// Strips `[const]` from `where` predicates.

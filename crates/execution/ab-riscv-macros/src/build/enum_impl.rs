@@ -5,8 +5,10 @@ mod ignored_variants_remover;
 use crate::build::enum_impl::add_missing_fields::add_missing_rs_fields;
 use crate::build::enum_impl::forbidden_checker::block_contains_forbidden_syntax;
 use crate::build::enum_impl::ignored_variants_remover::remove_ignored_variants;
-use crate::build::shared::{collect_all_dependencies, strip_const_where_predicates};
-use crate::build::state::{PendingEnumDisplayImpl, PendingEnumImpl, State};
+use crate::build::shared::{
+    collect_all_dependencies, is_enum_implemented, strip_const_where_predicates,
+};
+use crate::build::state::{KnownEnumDefinition, PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
 use anyhow::Context;
 use prettyplease::unparse;
@@ -280,6 +282,24 @@ pub(super) fn process_enum_impl(
     })
 }
 
+/// Inherited enums implemented by the instruction set with given instructions, see
+/// [`is_enum_implemented()`]
+fn implemented_extensions<'a>(
+    state: &State,
+    instructions: &HashSet<&Ident>,
+    all_dependencies: &'a [(Ident, &KnownEnumDefinition)],
+) -> Vec<&'a Ident> {
+    all_dependencies
+        .iter()
+        .map(|(dependency_enum_name, _dependency_enum_definition)| dependency_enum_name)
+        .filter(|dependency_enum_name| {
+            is_enum_implemented(state, dependency_enum_name, |instruction| {
+                instructions.contains(instruction)
+            })
+        })
+        .collect()
+}
+
 pub(super) fn process_enum_decoding_impl(
     original_item_impl: ItemImpl,
     out_dir: &Path,
@@ -532,15 +552,7 @@ pub(super) fn process_enum_decoding_impl(
         .insert(0, parse_quote! { #[automatically_derived] });
 
     let implemented_extensions =
-        all_dependencies
-            .iter()
-            .filter_map(|(dependency_enum_name, dependency_enum_definition)| {
-                dependency_enum_definition
-                    .instructions
-                    .iter()
-                    .all(|variant| allowed_instructions.contains(&variant.ident))
-                    .then_some(dependency_enum_name)
-            });
+        implemented_extensions(state, &allowed_instructions, &all_dependencies);
 
     // Associated constants come before everything else in an implementation, and the constant
     // taken from the implementation being processed is already the first item in it

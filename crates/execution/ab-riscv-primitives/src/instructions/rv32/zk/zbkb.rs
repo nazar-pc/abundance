@@ -4,7 +4,7 @@
 mod tests;
 
 use crate::instructions::Instruction;
-use crate::instructions::rv32::b::zbb::{Rv32ZbbInstruction, Rv32ZbbZbkbSharedInstruction};
+use crate::instructions::rv32::b::zbb::Rv32ZbbZbkbSharedInstruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -70,16 +70,23 @@ where
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 match (funct3, funct7) {
                     // pack: funct3=100, funct7=0000100
-                    // NOTE: `pack rd, rs1, x0` has exactly the same encoding and semantics as
-                    // Zbb's `zext.h`. When Zbb is present in the instruction set, decoding is
-                    // intentionally refused here, so the instruction is always decoded as `zext.h`
-                    // (which is cheaper to execute) regardless of the order in which extensions
-                    // are inherited. Without Zbb, it is a regular `pack`.
-                    (0b100, 0b000_0100)
-                        if rs2_bits != 0
-                            || !Self::implements_extension::<Rv32ZbbInstruction<_>>() =>
-                    {
-                        Some(Self::Pack { rd, rs1, rs2 })
+                    (0b100, 0b000_0100) => {
+                        // NOTE: `pack rd, rs1, x0` has exactly the same encoding and semantics
+                        // as Zbb's `zext.h`, which is cheaper to execute, so it is decoded as
+                        // `zext.h` when it is present in the instruction set, regardless of the
+                        // order in which extensions are inherited. The macro replaces `Self::Zexth`
+                        // with `None?` in instruction sets without it, which makes this a regular
+                        // `pack`.
+                        let zexth = if rs2_bits == 0 {
+                            try { Self::Zexth { rd, rs1 } }
+                        } else {
+                            None
+                        };
+                        if zexth.is_some() {
+                            zexth
+                        } else {
+                            Some(Self::Pack { rd, rs1, rs2 })
+                        }
                     }
                     // packh: funct3=111, funct7=0000100
                     (0b111, 0b000_0100) => Some(Self::Packh { rd, rs1, rs2 }),

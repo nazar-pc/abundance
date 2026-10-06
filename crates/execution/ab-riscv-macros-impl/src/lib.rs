@@ -70,7 +70,8 @@ use proc_macro::TokenStream;
 ///   * `reorder` indicated where the corresponding variant needs to be included
 ///   * `ignore` removed individual variants or the whole enum from a set mentioned earlier (but
 ///     instructions that are "reordered" anywhere in the definition will remain). Ignored list may
-///     contain any known enum, including those that are not in the list of inherited enums.
+///     contain any known enum, including those that are not in the list of inherited enums. Ignored
+///     instructions don't satisfy `if` conditions of other instructions.
 ///   * `inherit` includes all remaining variants of the corresponding enum that were not explicitly
 ///     reordered or ignored anywhere in the definition
 ///   * own variants that were not explicitly reordered or ignored are placed at the end of the enum
@@ -83,11 +84,14 @@ use proc_macro::TokenStream;
 /// during composition (`B` contains `Zba`, `Zbb` and `Zbs`).
 ///
 /// `ignore` can be used to exclude individual instructions or whole enums from a custom instruction
-/// set (like `ecall` from an instruction set that doesn't support system calls). It should not be
-/// used for modeling relationships between extensions though: an extension that is a subset of
-/// another extension according to the specification is inherited by that extension (`M` inherits
-/// `Zmmul`), while instructions shared by extensions that are not subsets of each other are
-/// extracted into a separate enum, which both extensions inherit (`Zbb` and `Zbkb` both inherit
+/// set (like `ecall` from an instruction set that doesn't support system calls). An enum ignored as
+/// a whole, as well as enums that inherit it, are not implemented extensions of the instruction set
+/// (see `Instruction::IMPLEMENTED_EXTENSIONS`), while ignoring individual instructions doesn't
+/// change that, unless none of the enum's own instructions are left. It should not be used for
+/// modeling relationships between extensions though: an extension that is a subset of another
+/// extension according to the specification is inherited by that extension (`M` inherits `Zmmul`),
+/// while instructions shared by extensions that are not subsets of each other are extracted into a
+/// separate enum, which both extensions inherit (`Zbb` and `Zbkb` both inherit
 /// `Rv64ZbbZbkbSharedInstruction`).
 ///
 /// `if` on both enum and variant levels specifies soft optional dependencies on other instructions
@@ -99,7 +103,8 @@ use proc_macro::TokenStream;
 ///
 /// These `if` conditions allow modeling things like `Zcf` part of `C` extension only being
 /// available when `F` extension is also available or `Zcb`'s `c.sext.b` only present when `Zbb`
-/// extension is also available.
+/// extension is also available. An enum in `if` condition is satisfied when it is implemented, the
+/// same way as in `Instruction::IMPLEMENTED_EXTENSIONS`.
 ///
 /// # Enum decoding implementation
 ///
@@ -121,6 +126,10 @@ use proc_macro::TokenStream;
 /// is quite fragile, so if you're calling internal functions, they might have to be re-exported
 /// since the macro will simply copy-paste the decoding logic as is. Similarly with missing imports,
 /// etc. Compiler should be able to guide you through errors reasonably well.
+///
+/// Construction of variants that are not present in the instruction set (like ignored ones) is
+/// replaced with `None?`. This also allows decoding to construct variants of other enums when they
+/// are present, like Zbkb decoding `packw rd, rs1, x0` as Zbb's `zext.h`.
 ///
 /// # Enum display implementation
 ///
