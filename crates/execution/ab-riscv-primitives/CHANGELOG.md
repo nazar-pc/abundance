@@ -4,13 +4,26 @@ Breaking changes:
 
 * `Instruction::alignment()` is replaced by the `Instruction::ALIGNMENT` associated constant
 * Changed APIs around vector extensions for better type safety and performance
+* Instruction enums are generic over hart configuration (`HartConfig`) instead of the register type, `BasicHart` and
+  `BasicVectorHart` cover common cases, `Instruction::Reg` is replaced with `Instruction::Hart`
+* `ELEN` and `VLEN` are configured with `VectorHartConfig::VECTOR_LENGTHS` (`VectorHartConfig` is required by vector
+  instructions), `SUPPORTED_ELEN_VLEN` is replaced by `VectorLengths::new()`
+* `Vtype` is generic over hart configuration instead of `ELEN`/`VLEN`
+* `M` inherits `Zmmul` and `Zbc` inherits `Zbkc`, instructions shared by `Zbb`/`Zbkb` and `Zknd`/`Zkne` are in separate
+  enums inherited by both
+* `RVE` constant moved from `ZcmpRegister` to `Register`
+* `Instruction::IMPLEMENTED_EXTENSIONS` includes extensions with some of their instructions ignored or missing due to
+  conditions
 
 New features:
 
 * `Vtype::vlmax()` and `Vtype::eew_register_count()`
+* Vector loads and stores with `EEW > ELEN`, `vzext.vf8`/`vsext.vf8` and Zvbc instructions with `ELEN < 64` are
+  rejected during decoding
 
 Fixes:
 
+* `pack rd, rs1, x0` (RV32) and `packw rd, rs1, x0` (RV64) are decoded with Zbkb without Zbb (as `zext.h` with Zbb)
 * Hidden `EReg::Phantom` and `Reg::Phantom` variants are now truly uninhabited, previously they could be constructed
   from safe code, resulting in undefined behavior in `Display` implementations and elsewhere
 * Ssstrict fixes (all matching Sail):
