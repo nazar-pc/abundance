@@ -130,10 +130,12 @@ impl Ed25519VerifyInternalArgs {
 }
 
 /// Instruction stored by [`BasicEagerInstructions::decode()`] in slots whose bytes do not decode
-/// into a valid instruction.
+/// into a valid instruction and after the last one.
 ///
 /// Contract code is only expected to contain legal instructions, so this is only reachable by
-/// jumping into the middle of one.
+/// jumping into the middle of one or by falling through the end of the code. `unimp` always fails,
+/// so it never continues to the next instruction, as [`BasicEagerInstructions::decode()`]
+/// requires.
 ///
 /// [`BasicEagerInstructions::decode()`]: ab_riscv_interpreter::basic::BasicEagerInstructions::decode
 pub const UNDECODABLE_INSTRUCTION: ContractInstruction = ContractInstruction::Unimp {

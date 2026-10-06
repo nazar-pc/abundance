@@ -159,6 +159,8 @@
     widening_mul
 )]
 #![cfg_attr(test, feature(try_blocks))]
+// Needed by the instruction set composed in tests of the eager instruction fetcher
+#![cfg_attr(all(test, feature = "alloc"), feature(const_try_residual))]
 #![cfg_attr(
     not(any(
         all(target_arch = "riscv32", target_feature = "zbkx"),
@@ -815,8 +817,9 @@ where
     /// # Safety
     /// Must be called exactly once after a successful [`Self::peek_instruction()`], with the size
     /// of the instruction that call returned. Implementations are free to rely on that and skip
-    /// checks accordingly: one over a pre-decoded stream that is known to end with a jump, for
-    /// instance, treats the resulting position as valid without bounds-checking it.
+    /// checks accordingly: one over a pre-decoded stream that is followed by an instruction that
+    /// never continues, for instance, treats the resulting position as valid without
+    /// bounds-checking it.
     unsafe fn advance(&mut self, instruction_size: u8);
 
     /// Fetch a single instruction at a specified address and advance the program counter on

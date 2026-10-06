@@ -59,6 +59,9 @@ where
 /// them, no address in the middle of an instruction is aligned in the first place, so there is
 /// nothing to hold a slot for and the stream is half the size.
 ///
+/// The decoded stream is followed by one more slot holding the fallback instruction, which is where
+/// execution ends up when it falls through the end of the decoded stream.
+///
 /// Ownership of the allocation lives here rather than in the fetcher because the fetcher is moved
 /// through tail-called instruction handlers by value. A destructor on it would make every handler
 /// that can fail (every load, store, branch and jump) responsible for dropping it on the way out,
@@ -130,10 +133,12 @@ where
     const STREAM_BYTES_PER_GUEST_BYTE: usize = size_of::<I>() / Self::GUEST_BYTES_PER_SLOT;
 
     /// Layout of the allocation holding [`BasicEagerInstructionFetcherState`] followed by
-    /// `instructions_len` decoded instructions
+    /// `instructions_len` decoded instructions and the fallback instruction after them
     fn allocation_layout(instructions_len: usize) -> Layout {
         let (layout, instructions_offset) = Layout::new::<BasicEagerInstructionFetcherState<I>>()
-            .extend(Layout::array::<I>(instructions_len).expect(
+            // `+ 1` doesn't overflow, there are fewer slots than bytes of guest code, whose size
+            // fits into `isize`
+            .extend(Layout::array::<I>(instructions_len + 1).expect(
                 "Decoded stream that doesn't fit into the address space can't be allocated \
                 anyway; qed",
             ))
@@ -242,16 +247,19 @@ where
     /// including, where instructions may be compressed, the second half of a 32-bit instruction,
     /// which is only ever reached by jumping into the middle of one. Such a slot may or may not
     /// decode into a valid instruction on its own, and `fallback` is what is stored when it
-    /// doesn't, so it only has to fail when executed (`unimp` is the canonical choice).
+    /// doesn't.
+    /// `fallback` is also stored right after the last slot, where execution ends up when it falls
+    /// through the end of the decoded stream.
     ///
     /// # Safety
     /// Execution of the resulting instruction stream skips the checks that
     /// [`BasicInstructionFetcher`](super::BasicInstructionFetcher) does, which is where the
     /// performance comes from. All of the following must hold:
-    /// * The instructions must end with an unconditional jump, so that execution can't fall through
-    ///   past the end of the decoded stream. Instruction fetching does not bounds-check the
+    /// * `fallback` must never continue to the next instruction when executed (`unimp`, which
+    ///   always fails, is the canonical choice). Instruction fetching does not bounds-check the
     ///   position, only [`ProgramCounter::set_pc()`] and [`ProgramCounter::try_set_pc_relative()`]
-    ///   do, which means the last instruction must be one that goes through them.
+    ///   do, and falling through the end of the decoded stream lands on `fallback`, which must not
+    ///   fall through any further.
     /// * `return_trap_address` must not fall inside the instructions. Instruction fetching does not
     ///   compare against the return trap, so an address inside them would stop execution when
     ///   jumped to, but not when reached by falling through.
@@ -301,11 +309,17 @@ where
             let offset = slot_index * Self::GUEST_BYTES_PER_SLOT;
             let instruction = Self::decode_instruction(instructions, offset, fallback);
 
-            // SAFETY: The allocation was made for exactly `instructions_len` instructions, and
-            // this writes each of them once
+            // SAFETY: The allocation was made for `instructions_len` instructions followed by the
+            // fallback one, and this writes each of the former once
             unsafe {
                 decoded_instructions.add(slot_index).write(instruction);
             }
+        }
+
+        // SAFETY: The allocation was made for `instructions_len` instructions followed by the
+        // fallback one, and this writes the latter
+        unsafe {
+            decoded_instructions.add(instructions_len).write(fallback);
         }
 
         instance
@@ -322,14 +336,17 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn decode_instruction(instructions: &[u8], offset: usize, fallback: I) -> I {
-        let instruction = match instructions.get(offset..) {
-            Some([byte_0, byte_1, byte_2, byte_3, ..]) => {
+        let Some(guest_code_left) = instructions.get(offset..) else {
+            // Not reachable through the above
+            return fallback;
+        };
+        let instruction = match guest_code_left {
+            [byte_0, byte_1, byte_2, byte_3, ..] => {
                 u32::from_le_bytes([*byte_0, *byte_1, *byte_2, *byte_3])
             }
             // Only reachable where instructions may be compressed: the last halfword of guest code
-            // has nothing following it to read, so it is zero-extended into a word, which decodes
-            // only if it is a compressed instruction
-            Some([byte_0, byte_1, ..]) => u32::from_le_bytes([*byte_0, *byte_1, 0, 0]),
+            // has nothing following it to read, so it is zero-extended into a word
+            [byte_0, byte_1, ..] => u32::from_le_bytes([*byte_0, *byte_1, 0, 0]),
             // Not reachable through the above, and a slot with less than a halfword of guest code
             // has nothing that could decode anyway
             _ => {
@@ -337,7 +354,11 @@ where
             }
         };
 
-        I::try_decode(instruction).unwrap_or(fallback)
+        I::try_decode(instruction)
+            // An instruction that doesn't fit into the guest code left would make execution skip
+            // the fallback instruction after the decoded stream when falling through it
+            .filter(|instruction| usize::from(instruction.size()) <= guest_code_left.len())
+            .unwrap_or(fallback)
     }
 }
 
@@ -537,10 +558,12 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn peeked_instruction<'a>(&'a self, (): &'a ()) -> &'a I {
-        // SAFETY: `BasicEagerInstructions::decode()` guarantees that the last instruction is a
-        // jump, which means going through `Self::set_pc()` method does the necessary bounds check,
-        // so the position always points at a decoded instruction, which is borrowed for as long
-        // as `self` is
+        // SAFETY: Branches and jumps are bounds-checked by `Self::set_pc()` and
+        // `Self::try_set_pc_relative()`. Otherwise, the position is advanced past an executed
+        // instruction, which `BasicEagerInstructions::decode()` guarantees to fit into the decoded
+        // stream, and the fallback instruction after it is guaranteed to never continue to the
+        // next instruction. Hence, the position always points at a decoded instruction or the
+        // fallback instruction, which are borrowed for as long as `self` is.
         unsafe { self.next_instruction.as_ref() }
     }
 

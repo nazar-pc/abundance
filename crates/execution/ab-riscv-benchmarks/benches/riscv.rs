@@ -79,7 +79,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         // internally (+ memory allocation)
         group.bench_function("decode-instructions", |b| {
             b.iter(|| {
-                // SAFETY: All instructions are valid and contract ends with a jump
+                // SAFETY: `unimp` never continues to the next instruction and contract code is
+                // never modified
                 let instructions = unsafe {
                     BasicEagerInstructions::decode(
                         code,
@@ -129,7 +130,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         },
     };
 
-    // SAFETY: All instructions are valid and contract ends with a jump
+    // SAFETY: `unimp` never continues to the next instruction and contract code is never modified
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             contract_file.get_code(),
