@@ -164,6 +164,32 @@ fn method_range_overflow() {
 }
 
 #[test]
+fn method_at_end_of_code() {
+    let metadata = trait_metadata("Test", &["first"]);
+    let read_only_padding = u32::try_from(metadata.len() % 2).unwrap();
+    let mut file = contract_file(&[], &metadata, read_only_padding, &[RET.to_vec()]);
+    ContractFile::parse(&file, |_| Ok(())).unwrap();
+
+    // Empty method that starts right after the last instruction
+    let file_size = u32::try_from(file.len()).unwrap();
+    let method_metadata = ContractFileMethodMetadata {
+        offset: file_size,
+        size: 0,
+    };
+    file[ContractFileHeader::SIZE as usize..][..ContractFileMethodMetadata::SIZE as usize]
+        .copy_from_slice(method_metadata.as_bytes());
+
+    assert_matches!(
+        ContractFile::parse(&file, |_| Ok(())),
+        Err(ContractFileParseError::MethodOutOfRange {
+            offset,
+            code_section_offset: _,
+            file_size: _
+        }) if offset == file_size
+    );
+}
+
+#[test]
 fn contract_memory_size_limit() {
     let metadata = trait_metadata("Test", &["first"]);
     let methods = [RET.to_vec()];

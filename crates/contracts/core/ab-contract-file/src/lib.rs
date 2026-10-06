@@ -422,7 +422,11 @@ impl<'a> ContractFile<'a> {
                         });
                     }
 
-                    if contract_file_method_metadata.offset < code_section_offset {
+                    // Method must start within the code section, which also rules out an empty
+                    // method right at the end of it
+                    if contract_file_method_metadata.offset < code_section_offset
+                        || contract_file_method_metadata.offset >= file_size
+                    {
                         return Err(ContractFileParseError::MethodOutOfRange {
                             offset: contract_file_method_metadata.offset,
                             code_section_offset,
