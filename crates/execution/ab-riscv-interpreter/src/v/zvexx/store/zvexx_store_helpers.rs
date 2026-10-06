@@ -69,14 +69,13 @@ where
 pub fn execute_unit_stride_store<Reg, Env, Memory>(
     env: &mut Env,
     memory: &mut Memory,
-    vs3: VRegSegmentGroup<{ Env::VLEN }>,
+    vs3: VRegSegmentGroup<Env::Hart>,
     vm: bool,
     base: u64,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     Memory: VirtualMemory,
 {
     let vl = vs3.first().vl();
@@ -145,15 +144,14 @@ where
 pub fn execute_strided_store<Reg, Env, Memory>(
     env: &mut Env,
     memory: &mut Memory,
-    vs3: VRegSegmentGroup<{ Env::VLEN }>,
+    vs3: VRegSegmentGroup<Env::Hart>,
     vm: bool,
     base: u64,
     stride: i64,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     Memory: VirtualMemory,
 {
     let vstart = env.vstart();
@@ -199,15 +197,14 @@ where
 pub fn execute_indexed_store<Reg, Env, Memory>(
     env: &mut Env,
     memory: &mut Memory,
-    vs3: VRegSegmentGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vs3: VRegSegmentGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vm: bool,
     base: u64,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     Memory: VirtualMemory,
 {
     let Some(indexed) = vs3.with_index(vs2) else {

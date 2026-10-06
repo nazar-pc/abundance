@@ -3,8 +3,9 @@
 #[cfg(test)]
 mod tests;
 
-use crate::hart::HartConfig;
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
+use crate::instructions::v::Eew;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
@@ -125,7 +126,7 @@ where
 const impl<Reg, Hart> Instruction for ZveXxWidenNarrowInstruction<Hart>
 where
     Reg: [const] Register,
-    Hart: [const] HartConfig<Reg = Reg>,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
@@ -345,8 +346,13 @@ where
             0b01_0010 => match funct3 {
                 // OPMVV
                 0b010 => match vs1_bits {
-                    0b0_0010 => Some(Self::VzextVf8 { vd, vs2, vm }),
-                    0b0_0011 => Some(Self::VsextVf8 { vd, vs2, vm }),
+                    // `vf8` requires `SEW = 64`, which is not supported with `ELEN < 64`
+                    0b0_0010 if Hart::VECTOR_LENGTHS.elen.supports(Eew::E64) => {
+                        Some(Self::VzextVf8 { vd, vs2, vm })
+                    }
+                    0b0_0011 if Hart::VECTOR_LENGTHS.elen.supports(Eew::E64) => {
+                        Some(Self::VsextVf8 { vd, vs2, vm })
+                    }
                     0b0_0100 => Some(Self::VzextVf4 { vd, vs2, vm }),
                     0b0_0101 => Some(Self::VsextVf4 { vd, vs2, vm }),
                     0b0_0110 => Some(Self::VzextVf2 { vd, vs2, vm }),

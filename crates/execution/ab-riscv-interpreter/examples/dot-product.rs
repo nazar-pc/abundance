@@ -40,7 +40,6 @@
 )]
 
 use ab_riscv_interpreter::basic::{BasicEagerInstructions, BasicMemory, BasicRegisters};
-use ab_riscv_interpreter::impl_vector_registers_for_mut_ref;
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
@@ -70,6 +69,24 @@ const STACK_POINTER: u64 = (MEMORY_BASE_ADDRESS + MEMORY_SIZE as u64) & !0xf;
 /// Register type of the composed instruction set
 type DotProductRegister = Reg<u64>;
 
+/// Hart configuration of the composed instruction set
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DotProductHart;
+
+const impl HartConfig for DotProductHart {
+    type Reg = DotProductRegister;
+}
+
+const impl VectorHartConfig for DotProductHart {
+    /// `ELEN` is the widest element the guest may ask for, the `64` of `Zve64x`.
+    ///
+    /// `VLEN` is how wide a vector register is. The guest was compiled for `Zvl128b`, which is a
+    /// lower bound: it configures `vl` with `vsetvli` and processes whatever the implementation
+    /// gives it, so a wider register file just means fewer trips around its loop.
+    const VECTOR_LENGTHS: VectorLengths =
+        VectorLengths::new(Elen::L64, Vlen::L512).expect("`ELEN` is <= `VLEN`; qed");
+}
+
 /// The base ISA, multiplication and the vector instruction set. `ZveXxInstruction` brings
 /// `ZicsrInstruction` with it, since the vector CSRs are read and written like any other.
 #[instruction(
@@ -80,14 +97,14 @@ type DotProductRegister = Reg<u64>;
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum DotProductInstruction<Hart = BasicHart<DotProductRegister>>
+pub(crate) enum DotProductInstruction<Hart = DotProductHart>
 where
     Hart: HartConfig, {}
 
 #[instruction]
 const impl<Reg, Hart> Instruction for DotProductInstruction<Hart>
 where
-    Hart: [const] HartConfig<Reg = Reg>,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
@@ -119,7 +136,7 @@ where
 impl<Reg, Hart> ExecutableInstructionOperands for DotProductInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -127,7 +144,7 @@ where
 impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for DotProductInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -136,7 +153,7 @@ impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, 
     for DotProductInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     #[inline(always)]
     fn execute(
@@ -163,7 +180,7 @@ where
 #[derive(Debug)]
 struct Env {
     /// The vector register file itself
-    vregs: VectorRegisterFile<{ Vlen::L512 }>,
+    vregs: VectorRegisterFile<DotProductHart>,
     /// Element index the next vector instruction resumes at
     vstart: Vstart,
     /// Fixed-point saturation flag
@@ -174,7 +191,7 @@ struct Env {
     vcsr: u64,
     /// How many elements vector instructions currently operate on and how they are interpreted,
     /// `None` while the configuration is invalid
-    vector_config: Option<VectorConfig<{ Elen::L64 }, { Vlen::L512 }>>,
+    vector_config: Option<VectorConfig<DotProductHart>>,
 }
 
 impl Default for Env {
@@ -207,9 +224,9 @@ impl Csrs<Reg<u64>> for Env {
                 .map_or(0, |vector_config| u64::from(vector_config.vl().get())),
             VectorCsr::Vtype => match self.vector_config {
                 Some(vector_config) => vector_config.vtype().to_raw::<Reg<u64>>(),
-                None => Vtype::<{ Elen::L64 }, { Vlen::L512 }>::illegal_raw::<Reg<u64>>(),
+                None => Vtype::<DotProductHart>::illegal_raw::<Reg<u64>>(),
             },
-            VectorCsr::Vlenb => u64::from(Self::VLEN.bytes()),
+            VectorCsr::Vlenb => u64::from(DotProductHart::VECTOR_LENGTHS.vlen.bytes()),
         })
     }
 
@@ -247,20 +264,15 @@ impl Csrs<Reg<u64>> for Env {
 }
 
 impl VectorRegisters for Env {
-    /// The widest element the guest may ask for, the `64` of `Zve64x`
-    const ELEN: Elen = Elen::L64;
-    /// How wide a vector register is. The guest was compiled for `Zvl128b`, which is a lower
-    /// bound: it configures `vl` with `vsetvli` and processes whatever the implementation gives it,
-    /// so a wider register file just means fewer trips around its loop.
-    const VLEN: Vlen = Vlen::L512;
+    type Hart = DotProductHart;
 
     #[inline(always)]
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
+    fn read_vregs(&self) -> &VectorRegisterFile<Self::Hart> {
         &self.vregs
     }
 
     #[inline(always)]
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<Self::Hart> {
         &mut self.vregs
     }
 
@@ -276,7 +288,7 @@ impl VectorRegisters for Env {
     }
 }
 
-impl VectorRegistersExt<Reg<u64>> for Env {
+impl VectorRegistersExt for Env {
     #[inline(always)]
     fn vstart(&self) -> Vstart {
         self.vstart
@@ -312,22 +324,18 @@ impl VectorRegistersExt<Reg<u64>> for Env {
     }
 
     #[inline(always)]
-    fn vector_config(&self) -> Option<VectorConfig<{ Self::ELEN }, { Self::VLEN }>> {
+    fn vector_config(&self) -> Option<VectorConfig<Self::Hart>> {
         self.vector_config
     }
 
     #[inline(always)]
-    fn set_vector_config(
-        &mut self,
-        vector_config: Option<VectorConfig<{ Self::ELEN }, { Self::VLEN }>>,
-    ) {
+    fn set_vector_config(&mut self, vector_config: Option<VectorConfig<Self::Hart>>) {
         self.vector_config = vector_config;
     }
 }
 
 // Threaded execution passes the environment as `&mut Env`, and the vector traits are not
 // blanket-implemented for references the way the simpler ones are
-impl_vector_registers_for_mut_ref!(Env, Reg<u64>);
 
 impl<Regs, Memory, PC> SystemInstructionHandler<Reg<u64>, Regs, Memory, PC> for Env
 where
@@ -395,7 +403,7 @@ fn main() -> anyhow::Result<()> {
         BasicEagerInstructions::decode(
             text.data()
                 .context("Failed to read `.text` section of the guest ELF")?,
-            DotProductInstruction::<BasicHart<DotProductRegister>>::Unimp {
+            DotProductInstruction::<DotProductHart>::Unimp {
                 rs1: Reg::ZERO,
                 rs2: Reg::ZERO,
             },

@@ -26,8 +26,7 @@ pub const fn apply_vsetvl<Reg, Env, Memory, PC>(
 ) -> Result<Reg::Type, ExecutionError<Reg::Type>>
 where
     Reg: [const] Register,
-    Env: [const] VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: [const] VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     PC: [const] ProgramCounter<Reg::Type, Memory>,
 {
     // Check whether vector instructions are enabled
@@ -99,8 +98,7 @@ pub const fn apply_vsetivli<Reg, Env, Memory, PC>(
 ) -> Result<Reg::Type, ExecutionError<Reg::Type>>
 where
     Reg: [const] Register,
-    Env: [const] VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: [const] VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     PC: [const] ProgramCounter<Reg::Type, Memory>,
 {
     // Check whether vector instructions are enabled

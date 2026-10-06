@@ -59,15 +59,14 @@ fn vclmulh_element(a: u64, b: u64, sew: Vsew) -> u64 {
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_vclmul<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     sew: Vsew,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
@@ -110,15 +109,14 @@ pub fn execute_vclmul<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_vclmulh<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     sew: Vsew,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {

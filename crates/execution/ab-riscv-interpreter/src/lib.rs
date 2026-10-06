@@ -145,7 +145,6 @@
     const_result_trait_fn,
     const_trait_impl,
     const_try,
-    derive_const,
     explicit_tail_calls,
     fn_align,
     generic_const_args,

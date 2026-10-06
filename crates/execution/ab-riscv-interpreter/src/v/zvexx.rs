@@ -13,7 +13,7 @@ pub mod store;
 pub mod widen_narrow;
 pub mod zvexx_helpers;
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::arith::zvexx_arith_helpers;
 use crate::v::zvexx::carry::zvexx_carry_helpers;
 use crate::v::zvexx::config::zvexx_config_helpers;
@@ -40,7 +40,7 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -48,7 +48,7 @@ where
 const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -57,7 +57,7 @@ impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, 
     for ZveXxInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]

@@ -19,8 +19,9 @@ pub(crate) const ABUNDANCE_RV32I_ZVE32X_ZVBB_CONFIG: CoreConfig = CoreConfig {
 };
 
 /// RV32I base ISA with Zve32x and Zvbb extensions
-pub(crate) type AbundanceRv32IZve32xZvbbInstruction =
-    AbundanceRv32IZve32xZvbbInstructionPrototype<BasicHart<Reg<u32>>>;
+pub(crate) type AbundanceRv32IZve32xZvbbInstruction = AbundanceRv32IZve32xZvbbInstructionPrototype<
+    BasicVectorHart<Reg<u32>, { Elen::L32 }, { Vlen::L128 }>,
+>;
 
 /// RV32I base ISA with Zve32x and Zvbb extensions
 #[instruction(
@@ -47,7 +48,7 @@ where
 #[instruction]
 const impl<Reg, Hart> Instruction for AbundanceRv32IZve32xZvbbInstructionPrototype<Hart>
 where
-    Hart: [const] HartConfig<Reg = Reg>,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
@@ -68,7 +69,7 @@ where
 impl<Reg, Hart> fmt::Display for AbundanceRv32IZve32xZvbbInstructionPrototype<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -89,7 +90,7 @@ impl<Reg, Hart> ExecutableInstructionOperands for AbundanceRv32IZve32xZvbbInstru
 impl<Reg, Hart, Env> ExecutableInstructionCsr<Env>
     for AbundanceRv32IZve32xZvbbInstructionPrototype<Hart>
 where
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -98,7 +99,7 @@ impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, 
     for AbundanceRv32IZve32xZvbbInstructionPrototype<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     fn execute(
         self,

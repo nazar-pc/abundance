@@ -31,11 +31,11 @@ const SEW_EEW<const SEW: Vsew>: Eew = SEW.as_eew();
 pub fn check_mask_dest_overlap<Reg, Env, Memory, PC>(
     program_counter: &PC,
     vd: VReg,
-    src: VRegGroup<{ Env::VLEN }>,
+    src: VRegGroup<Env::Hart>,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
     if src.contains(vd) && vd != src.base() {
@@ -56,12 +56,15 @@ where
 /// Returns `None` if `elem_i` is not below `VLEN`, which never happens for `elem_i < vl`.
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(in super::super) fn write_mask_bit<const VLEN: Vlen>(
-    vregs: &mut VectorRegisterFile<VLEN>,
+pub(in super::super) fn write_mask_bit<Hart>(
+    vregs: &mut VectorRegisterFile<Hart>,
     vd: VReg,
     elem_i: u16,
     result: bool,
-) -> Option<()> {
+) -> Option<()>
+where
+    Hart: VectorHartConfig,
+{
     let byte_idx = usize::from(elem_i / u8::BITS as u16);
     let bit_idx = elem_i % u8::BITS as u16;
     let byte = vregs.get_mut(vd).get_mut(byte_idx)?;
@@ -83,13 +86,16 @@ pub enum OpSrc<V> {
     Scalar(u64),
 }
 
-impl<const VLEN: Vlen> OpSrc<VRegGroup<VLEN>> {
+impl<Hart> OpSrc<VRegGroup<Hart>>
+where
+    Hart: VectorHartConfig,
+{
     /// The same source if a vector register group source has `vl` of `vl`, `None` otherwise, see
     /// [`VRegGroup::with_same_vl()`]
     #[inline(always)]
     #[doc(hidden)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub fn with_same_vl(self, vl: BoundedVl<VLEN>) -> Option<SameVlOpSrc<VLEN>> {
+    pub fn with_same_vl(self, vl: BoundedVl<Hart>) -> Option<SameVlOpSrc<Hart>> {
         match self {
             Self::Vreg(group) => Some(SameVlOpSrc {
                 vreg: Some(group.with_same_vl(vl)?),
@@ -106,9 +112,12 @@ impl<const VLEN: Vlen> OpSrc<VRegGroup<VLEN>> {
 /// from the optimizer that the group's `vl` is the one it was rebound to.
 #[derive(Debug, Clone, Copy)]
 #[doc(hidden)]
-pub struct SameVlOpSrc<const VLEN: Vlen> {
+pub struct SameVlOpSrc<Hart>
+where
+    Hart: VectorHartConfig,
+{
     /// Vector-vector: source register group
-    pub vreg: Option<VRegGroup<VLEN>>,
+    pub vreg: Option<VRegGroup<Hart>>,
     /// Vector-scalar: scalar value (sign- or zero-extended to u64), used when `vreg` is `None`
     pub scalar: u64,
 }
@@ -125,16 +134,15 @@ pub struct SameVlOpSrc<const VLEN: Vlen> {
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_arith_op<Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
     sew: Vsew,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     // Dispatch on the element width once, so that the loop below is compiled for each width
@@ -160,15 +168,14 @@ pub fn execute_arith_op<Reg, Env, F>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let vl = vd.vl();
@@ -231,15 +238,14 @@ fn execute_arith_op_const<const SEW: Vsew, Reg, Env, F>(
 pub fn execute_compare_op<Reg, Env, F>(
     env: &mut Env,
     vd: VReg,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
     sew: Vsew,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, Vsew) -> bool,
 {
     let vl = vs2.vl();

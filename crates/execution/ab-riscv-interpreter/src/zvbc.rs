@@ -4,7 +4,7 @@
 mod tests;
 pub mod zvbc_helpers;
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::arith::zvexx_arith_helpers;
 use crate::v::zvexx::carry::zvexx_carry_helpers;
 use crate::v::zvexx::config::zvexx_config_helpers;
@@ -32,7 +32,7 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg, Hart> ExecutableInstructionOperands for ZvbcInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -40,7 +40,7 @@ where
 const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZvbcInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -49,10 +49,9 @@ impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, 
     for ZvbcInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
     Regs: RegisterFile<Reg>,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart = Hart>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {

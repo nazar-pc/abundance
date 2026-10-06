@@ -3,7 +3,8 @@ use ab_riscv_primitives::prelude::*;
 
 /// `(narrow, wide)` element widths of [`WideningSew::new()`] for `ELEN`
 fn widening_sew<const ELEN: Elen>(sew: Vsew) -> Option<(Vsew, Vsew)> {
-    WideningSew::<ELEN>::new(sew).map(|widening_sew| (widening_sew.narrow(), widening_sew.wide()))
+    WideningSew::<BasicVectorHart<Reg<u64>, ELEN, { Vlen::L128 }>>::new(sew)
+        .map(|widening_sew| (widening_sew.narrow(), widening_sew.wide()))
 }
 
 #[test]

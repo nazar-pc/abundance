@@ -23,7 +23,7 @@ pub mod store;
 #[doc(hidden)]
 pub mod widen_narrow;
 
-use crate::hart::HartConfig;
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
 use crate::instructions::v::zvexx::carry::ZveXxCarryInstruction;
@@ -74,7 +74,7 @@ where
 const impl<Reg, Hart> Instruction for ZveXxInstruction<Hart>
 where
     Reg: [const] Register,
-    Hart: [const] HartConfig<Reg = Reg>,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 

@@ -6,7 +6,7 @@ extern crate alloc;
 
 use crate::basic::BasicRegisters;
 use crate::rv64::test_utils::{
-    Env, TEST_BASE_ADDR, TestInstructionFetcher, TestMemory, execute, execute_threaded,
+    Env, TEST_BASE_ADDR, TestHart, TestInstructionFetcher, TestMemory, execute, execute_threaded,
     initialize_state,
 };
 use crate::{
@@ -35,7 +35,7 @@ where
     let mut state = initialize_state(vec![]);
 
     assert_matches!(
-        execute_threaded::<Rv64Instruction<BasicHart<Reg<u64>>>>(&mut state).outcome,
+        execute_threaded::<Rv64Instruction<TestHart>>(&mut state).outcome,
         Err(ExecutionError::UnsupportedPlatform),
         "Threaded dispatch must say why it did not run"
     );
@@ -49,7 +49,7 @@ fn assert_paths_agree<I, Instructions>(
     instructions: Instructions,
     setup: fn(&mut BasicRegisters<Reg<u64>>),
 ) where
-    I: Instruction<Hart = BasicHart<Reg<u64>>>
+    I: Instruction<Hart = TestHart>
         + ExecutableInstruction<BasicRegisters<Reg<u64>>, Env, TestMemory, TestInstructionFetcher<I>>
         + for<'a> ThreadedExecutableInstruction<
             BasicRegisters<Reg<u64>>,
@@ -272,7 +272,7 @@ fn threaded_matches_looped_failure() {
 
 #[test]
 fn threaded_reports_the_error_it_stopped_on() {
-    if !threaded_dispatch_available::<Rv64Instruction<BasicHart<Reg<u64>>>>() {
+    if !threaded_dispatch_available::<Rv64Instruction<TestHart>>() {
         return;
     }
 
@@ -292,7 +292,7 @@ fn threaded_reports_the_error_it_stopped_on() {
 
 #[test]
 fn threaded_runs_a_loop_to_completion() {
-    if !threaded_dispatch_available::<Rv64Instruction<BasicHart<Reg<u64>>>>() {
+    if !threaded_dispatch_available::<Rv64Instruction<TestHart>>() {
         return;
     }
 
@@ -322,7 +322,7 @@ fn threaded_runs_a_loop_to_completion() {
 
 #[test]
 fn threaded_leaves_memory_in_the_same_state() {
-    if !threaded_dispatch_available::<Rv64Instruction<BasicHart<Reg<u64>>>>() {
+    if !threaded_dispatch_available::<Rv64Instruction<TestHart>>() {
         return;
     }
 

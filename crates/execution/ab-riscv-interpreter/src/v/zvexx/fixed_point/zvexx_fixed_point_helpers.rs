@@ -392,16 +392,15 @@ pub fn nclip(vs2_elem: u64, shamt: u32, sew: Vsew, mode: Vxrm, vxsat: &mut bool)
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_fixed_point_op<Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
     sew: Vsew,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     // op: (vs2_elem, src_elem, sew, vxrm) -> result
     F: Fn(u64, u64, Vsew, Vxrm, &mut bool) -> u64,
 {
@@ -452,16 +451,15 @@ pub fn execute_fixed_point_op<Reg, Env, F>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_narrowing_clip_op<Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
-    sew: WideningSew<{ Env::ELEN }>,
+    sew: WideningSew<Env::Hart>,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     // op: (vs2_wide_elem, shamt, sew, vxrm, vxsat) -> result
     F: Fn(u64, u32, Vsew, Vxrm, &mut bool) -> u64,
 {
@@ -513,15 +511,16 @@ pub fn execute_narrowing_clip_op<Reg, Env, F>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn check_narrowing_sew<const ELEN: Elen, Reg, Memory, PC>(
+pub fn check_narrowing_sew<Hart, Reg, Memory, PC>(
     program_counter: &PC,
     sew: Vsew,
-) -> Result<WideningSew<ELEN>, ExecutionError<Reg::Type>>
+) -> Result<WideningSew<Hart>, ExecutionError<Reg::Type>>
 where
+    Hart: VectorHartConfig,
     Reg: Register,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
-    WideningSew::<ELEN>::new(sew).ok_or_else(|| {
+    WideningSew::<Hart>::new(sew).ok_or_else(|| {
         cold_path();
         ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(INSTRUCTION_SIZE)),

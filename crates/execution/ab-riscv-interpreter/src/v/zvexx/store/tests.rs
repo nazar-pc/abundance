@@ -1,8 +1,8 @@
-use crate::rv64::test_utils::{TEST_BASE_ADDR, TestInterpreterState, initialize_state};
+use crate::rv64::test_utils::{TEST_BASE_ADDR, TestHart, TestInterpreterState, initialize_state};
 use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::load::tests::{
-    WRAP_AROUND_HIGH_ADDR, WrapAroundMemory, Zve32Env, execute_with_memory,
+    TestZve32Hart, WRAP_AROUND_HIGH_ADDR, WrapAroundMemory, Zve32Env, execute_with_memory,
 };
 use crate::{
     ExecutableInstruction, ExecutableInstructionOperands, ExecutionError, ExecutionResult,
@@ -21,7 +21,7 @@ fn setup(
     vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
-) -> TestInterpreterState<ZveXxStoreInstruction<BasicHart<Reg<u64>>>> {
+) -> TestInterpreterState<ZveXxStoreInstruction<TestHart>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -37,7 +37,7 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
 }
 
 fn set_vreg(
-    state: &mut TestInterpreterState<ZveXxStoreInstruction<BasicHart<Reg<u64>>>>,
+    state: &mut TestInterpreterState<ZveXxStoreInstruction<TestHart>>,
     reg: VReg,
     data: &[u8],
 ) {
@@ -45,7 +45,7 @@ fn set_vreg(
 }
 
 fn read_mem_bytes<const N: usize>(
-    state: &TestInterpreterState<ZveXxStoreInstruction<BasicHart<Reg<u64>>>>,
+    state: &TestInterpreterState<ZveXxStoreInstruction<TestHart>>,
     addr: u64,
 ) -> &[u8; N] {
     state
@@ -57,8 +57,8 @@ fn read_mem_bytes<const N: usize>(
 }
 
 fn exec_one(
-    state: &mut TestInterpreterState<ZveXxStoreInstruction<BasicHart<Reg<u64>>>>,
-    instr: ZveXxStoreInstruction<BasicHart<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxStoreInstruction<TestHart>>,
+    instr: ZveXxStoreInstruction<TestHart>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -81,15 +81,15 @@ fn exec_one(
 
 /// Execute a single instruction like [`exec_one()`], but on a Zve32x implementation
 fn exec_one_zve32(
-    state: &mut TestInterpreterState<ZveXxStoreInstruction<BasicHart<Reg<u64>>>>,
-    instr: ZveXxStoreInstruction<BasicHart<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxStoreInstruction<TestHart>>,
+    instr: ZveXxStoreInstruction<TestZve32Hart>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
         rs1_value: state.regs.read(rs1),
         rs2_value: state.regs.read(rs2),
     };
-    let mut env = Zve32Env(core::mem::take(&mut state.env));
+    let mut env = Zve32Env::new(core::mem::take(&mut state.env));
 
     let result = instr.execute(
         rs1rs2_values,
@@ -98,7 +98,7 @@ fn exec_one_zve32(
         &mut state.memory,
         &mut state.instruction_fetcher,
     );
-    state.env = env.0;
+    state.env = env.into_env();
 
     if let ExecutionResult::Err(error) = result {
         Err(error)

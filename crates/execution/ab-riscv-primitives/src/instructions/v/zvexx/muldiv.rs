@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::hart::HartConfig;
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
@@ -122,7 +122,7 @@ where
 const impl<Reg, Hart> Instruction for ZveXxMulDivInstruction<Hart>
 where
     Reg: [const] Register,
-    Hart: [const] HartConfig<Reg = Reg>,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 

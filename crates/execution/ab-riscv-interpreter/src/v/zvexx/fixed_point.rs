@@ -19,7 +19,7 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxFixedPointInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -27,7 +27,7 @@ where
 const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxFixedPointInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -36,10 +36,9 @@ impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, 
     for ZveXxFixedPointInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
     Regs: RegisterFile<Reg>,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart = Hart>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -1320,7 +1319,7 @@ where
                 let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
-                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<Env::Hart, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
@@ -1388,7 +1387,7 @@ where
                 let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
-                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<Env::Hart, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
@@ -1442,7 +1441,7 @@ where
                 let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
-                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<Env::Hart, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
@@ -1497,7 +1496,7 @@ where
                 let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
-                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<Env::Hart, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
@@ -1564,7 +1563,7 @@ where
                 let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
-                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<Env::Hart, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;
@@ -1618,7 +1617,7 @@ where
                 let sew = config.vtype().vsew();
                 // The source is `2*SEW` wide, which must not exceed `ELEN`
                 let widening_sew =
-                    zvexx_fixed_point_helpers::check_narrowing_sew::<{ Env::ELEN }, Reg, _, _>(
+                    zvexx_fixed_point_helpers::check_narrowing_sew::<Env::Hart, Reg, _, _>(
                         program_counter,
                         sew,
                     )?;

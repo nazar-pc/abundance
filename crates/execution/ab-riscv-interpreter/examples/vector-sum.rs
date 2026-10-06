@@ -6,10 +6,10 @@
 //! `vstart`, ...), and it needs them to start out in the state the specification calls for. That
 //! is what [`Env`] below is, and it is the interesting part of this example.
 //!
-//! Two things are configuration rather than instructions, which is why they are constants of
-//! [`VectorRegisters`] instead of inherited instruction sets: `ELEN`, the widest element the
-//! implementation supports, and `VLEN`, how wide a vector register is. `Zve64x` and `Zvl128b`,
-//! which the guest was compiled for, are exactly those two numbers.
+//! Two things are configuration rather than instructions, which is why they are part of ISA
+//! configuration ([`VectorSumHart`]) instead of inherited instruction sets: `ELEN`, the widest
+//! element the implementation supports, and `VLEN`, how wide a vector register is. `Zve64x` and
+//! `Zvl128b`, which the guest was compiled for, are exactly those two numbers.
 //!
 //! The guest itself is a plain `for` loop over a slice, see
 //! `examples/guests/src/bin/vector-sum.rs`: compiled for a target with a vector extension, LLVM
@@ -66,6 +66,21 @@ const VECTOR_CSRS: usize = variant_count::<VectorCsr>();
 /// Register type of the composed instruction set
 type VectorSumRegister = Reg<u64>;
 
+/// Hart configuration of the implementation
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VectorSumHart;
+
+const impl HartConfig for VectorSumHart {
+    type Reg = VectorSumRegister;
+}
+
+const impl VectorHartConfig for VectorSumHart {
+    /// `ELEN` is the widest element the guest may ask for, the `64` of `Zve64x`, and `VLEN` is how
+    /// wide a vector register is, the `128` of `Zvl128b`
+    const VECTOR_LENGTHS: VectorLengths =
+        VectorLengths::new(Elen::L64, Vlen::L128).expect("`ELEN` is <= `VLEN`; qed");
+}
+
 /// The base ISA, multiplication and the vector instruction set.
 ///
 /// `ZveXxInstruction` brings `ZicsrInstruction` with it, since the vector CSRs are read and written
@@ -78,14 +93,14 @@ type VectorSumRegister = Reg<u64>;
     ],
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum VectorSumInstruction<Hart = BasicHart<VectorSumRegister>>
+pub(crate) enum VectorSumInstruction<Hart = VectorSumHart>
 where
     Hart: HartConfig, {}
 
 #[instruction]
 const impl<Reg, Hart> Instruction for VectorSumInstruction<Hart>
 where
-    Hart: [const] HartConfig<Reg = Reg>,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
@@ -117,7 +132,7 @@ where
 impl<Reg, Hart> ExecutableInstructionOperands for VectorSumInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -125,7 +140,7 @@ where
 impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for VectorSumInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -134,7 +149,7 @@ impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, 
     for VectorSumInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     #[inline(always)]
     fn execute(
@@ -167,7 +182,7 @@ struct Env {
     /// Raw values of the vector CSRs, indexed by [`VectorCsr`]
     csrs: [u64; VECTOR_CSRS],
     /// The vector register file itself
-    vregs: VectorRegisterFile<{ Vlen::L128 }>,
+    vregs: VectorRegisterFile<VectorSumHart>,
 }
 
 impl Csrs<Reg<u64>> for Env {
@@ -188,16 +203,13 @@ impl Csrs<Reg<u64>> for Env {
 }
 
 impl VectorRegisters for Env {
-    /// The widest element the guest may ask for, the `64` of `Zve64x`
-    const ELEN: Elen = Elen::L64;
-    /// How wide a vector register is, the `128` of `Zvl128b`
-    const VLEN: Vlen = Vlen::L128;
+    type Hart = VectorSumHart;
 
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
+    fn read_vregs(&self) -> &VectorRegisterFile<Self::Hart> {
         &self.vregs
     }
 
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<Self::Hart> {
         &mut self.vregs
     }
 
@@ -211,7 +223,7 @@ impl VectorRegisters for Env {
     }
 }
 
-impl VectorRegistersExt<Reg<u64>> for Env {}
+impl VectorRegistersExt for Env {}
 
 impl<Regs, Memory, PC> SystemInstructionHandler<Reg<u64>, Regs, Memory, PC> for Env
 where
@@ -238,7 +250,7 @@ impl Env {
         };
 
         // `vlenb` is not state, it reports `VLEN` in bytes and never changes
-        env.csrs[VectorCsr::Vlenb as usize] = u64::from(Self::VLEN.bytes());
+        env.csrs[VectorCsr::Vlenb as usize] = u64::from(VectorSumHart::VECTOR_LENGTHS.vlen.bytes());
         // `vtype` starts out invalid and `vl` zero, so that a guest has to configure them with
         // `vsetvl{i}` before it may execute anything else
         env.initialize_vector_state();

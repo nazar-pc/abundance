@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::hart::HartConfig;
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::load::{LoadStoreNreg, Nf, SegVmNf};
 use crate::instructions::v::{Eew, V};
@@ -71,7 +71,7 @@ where
 const impl<Reg, Hart> Instruction for ZveXxStoreInstruction<Hart>
 where
     Reg: [const] Register,
-    Hart: [const] HartConfig<Reg = Reg>,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
@@ -117,6 +117,10 @@ where
                     // Regular unit-stride store
                     0b0_0000 => {
                         let eew = Eew::from_width(width)?;
+                        // `EEW > ELEN` is reserved
+                        if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
+                            None?;
+                        }
                         if nf == 0 {
                             Some(Self::Vse { vs3, rs1, vm, eew })
                         } else {
@@ -151,6 +155,10 @@ where
             // Indexed-unordered
             0b01 => {
                 let eew = Eew::from_width(width)?;
+                // `EEW > ELEN` is reserved
+                if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
+                    None?;
+                }
                 let vs2 = VReg::from_bits(rs2_bits)?;
                 if vs2.is_mask(vm) {
                     None?;
@@ -184,6 +192,10 @@ where
             // Strided
             0b10 => {
                 let eew = Eew::from_width(width)?;
+                // `EEW > ELEN` is reserved
+                if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
+                    None?;
+                }
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 if nf == 0 {
                     Some(Self::Vsse {
@@ -206,6 +218,10 @@ where
             // Indexed-ordered
             0b11 => {
                 let eew = Eew::from_width(width)?;
+                // `EEW > ELEN` is reserved
+                if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
+                    None?;
+                }
                 let vs2 = VReg::from_bits(rs2_bits)?;
                 if vs2.is_mask(vm) {
                     None?;

@@ -8,10 +8,12 @@ const ELEN: Elen = Elen::L64;
 const VLEN: Vlen = Vlen::L128;
 const VLENB: usize = 16;
 
+type TestHart = BasicVectorHart<Reg<u64>, ELEN, VLEN>;
+
 const EEWS: [Eew; 4] = [Eew::E8, Eew::E16, Eew::E32, Eew::E64];
 
 /// Every valid `vtype` with `vta = vma = false`
-fn all_vtypes() -> impl Iterator<Item = Vtype<ELEN, VLEN>> {
+fn all_vtypes() -> impl Iterator<Item = Vtype<TestHart>> {
     (0..4u64).flat_map(|vsew| {
         [0b000u64, 0b001, 0b010, 0b011, 0b101, 0b110, 0b111]
             .into_iter()
@@ -23,7 +25,7 @@ fn all_vregs() -> impl Iterator<Item = VReg> {
     (0..32).map(|bits| VReg::from_bits(bits).unwrap())
 }
 
-fn config(vtype: Vtype<ELEN, VLEN>, vl: u32) -> VectorConfig<ELEN, VLEN> {
+fn config(vtype: Vtype<TestHart>, vl: u32) -> VectorConfig<TestHart> {
     VectorConfig::new(vtype, Vl::new(vl).unwrap()).unwrap()
 }
 
@@ -54,7 +56,9 @@ fn group_exists_for_legal_aligned_emul_only() {
 
 #[test]
 fn group_rejects_eew_above_elen() {
-    let vtype = Vtype::<{ Elen::L32 }, VLEN>::from_raw::<Reg<u64>>(0b010 << 3).unwrap();
+    let vtype =
+        Vtype::<BasicVectorHart<Reg<u64>, { Elen::L32 }, VLEN>>::from_raw::<Reg<u64>>(0b010 << 3)
+            .unwrap();
     let config = VectorConfig::new(vtype, vtype.vlmax()).unwrap();
     assert!(VRegGroup::new(config, VReg::V8, Eew::E32).is_some());
     assert!(VRegGroup::new(config, VReg::V8, Eew::E64).is_none());
@@ -72,7 +76,7 @@ fn group_elements_are_within_register_file() {
                     let Some(group) = VRegGroup::new(config, base, eew) else {
                         continue;
                     };
-                    let mut vregs = VectorRegisterFile::<VLEN>::default();
+                    let mut vregs = VectorRegisterFile::<TestHart>::default();
                     for elem_i in 0..u16::try_from(vlmax).unwrap() {
                         let in_body = u32::from(elem_i) < vl;
                         assert_eq!(vregs.write(group, elem_i, u64::MAX).is_some(), in_body);
@@ -103,10 +107,10 @@ fn group_elements_are_within_register_file() {
 
 #[test]
 fn group_read_write_const() {
-    let vtype = Vtype::<ELEN, VLEN>::from_raw::<Reg<u64>>(0b010 << 3).unwrap();
+    let vtype = Vtype::<TestHart>::from_raw::<Reg<u64>>(0b010 << 3).unwrap();
     let config = config(vtype, 4);
     let group = VRegGroup::new(config, VReg::V4, Eew::E32).unwrap();
-    let mut vregs = VectorRegisterFile::<VLEN>::default();
+    let mut vregs = VectorRegisterFile::<TestHart>::default();
     for elem_i in 0..4 {
         vregs
             .write_const::<{ Eew::E32 }>(group, elem_i, u64::from(elem_i) + 0x1_0000_0001)
@@ -127,7 +131,7 @@ fn group_read_write_const() {
 
 #[test]
 fn group_with_vl() {
-    let vtype = Vtype::<ELEN, VLEN>::from_raw::<Reg<u64>>(0b000 << 3).unwrap();
+    let vtype = Vtype::<TestHart>::from_raw::<Reg<u64>>(0b000 << 3).unwrap();
     let vl8 = config(vtype, 8);
     let vl16 = config(vtype, 16);
     let group = VRegGroup::new(vl8, VReg::V1, Eew::E8).unwrap();
@@ -155,7 +159,7 @@ fn whole_register_groups() {
         (VRegGroupSize::R8, Eew::E64),
     ] {
         for base in all_vregs() {
-            let group = VRegGroup::<VLEN>::whole_registers(base, group_regs, eew);
+            let group = VRegGroup::<TestHart>::whole_registers(base, group_regs, eew);
             assert_eq!(group.is_some(), base.is_group_aligned(group_regs));
             let Some(group) = group else {
                 continue;
@@ -171,7 +175,7 @@ fn whole_register_groups() {
 
 #[test]
 fn group_overlaps_and_contains() {
-    let vtype = Vtype::<ELEN, VLEN>::from_raw::<Reg<u64>>(0b010 | (0b010 << 3)).unwrap();
+    let vtype = Vtype::<TestHart>::from_raw::<Reg<u64>>(0b010 | (0b010 << 3)).unwrap();
     let config = config(vtype, 1);
     // LMUL=4
     let group = VRegGroup::new(config, VReg::V8, Eew::E32).unwrap();
@@ -190,8 +194,8 @@ fn group_overlaps_and_contains() {
 }
 
 /// Register file with byte `i` of flattened registers set to `i + 1` (wrapping)
-fn numbered_vregs() -> VectorRegisterFile<VLEN> {
-    let mut vregs = VectorRegisterFile::<VLEN>::default();
+fn numbered_vregs() -> VectorRegisterFile<TestHart> {
+    let mut vregs = VectorRegisterFile::<TestHart>::default();
     for (byte, value) in vregs
         .as_bytes_mut()
         .as_flattened_mut()
@@ -206,7 +210,7 @@ fn numbered_vregs() -> VectorRegisterFile<VLEN> {
 #[test]
 fn copy_elements() {
     // LMUL=1, SEW=8
-    let vtype = Vtype::<ELEN, VLEN>::from_raw::<Reg<u64>>(0b000 << 3).unwrap();
+    let vtype = Vtype::<TestHart>::from_raw::<Reg<u64>>(0b000 << 3).unwrap();
     let config = config(vtype, 8);
     let dst = VRegGroup::new(config, VReg::V1, Eew::E8).unwrap();
     let src = VRegGroup::new(config, VReg::V2, Eew::E8).unwrap();
@@ -240,10 +244,10 @@ fn copy_elements() {
 
 #[test]
 fn elements_bytes() {
-    let vtype = Vtype::<ELEN, VLEN>::from_raw::<Reg<u64>>(0b000 << 3).unwrap();
+    let vtype = Vtype::<TestHart>::from_raw::<Reg<u64>>(0b000 << 3).unwrap();
     let config = config(vtype, 8);
     let src = VRegGroup::new(config, VReg::V2, Eew::E8).unwrap();
-    let mut vregs = VectorRegisterFile::<VLEN>::default();
+    let mut vregs = VectorRegisterFile::<TestHart>::default();
 
     assert_eq!(vregs.elements_bytes(src, 1, 7).map(<[u8]>::len), Some(7));
     assert!(vregs.elements_bytes(src, 1, 8).is_none());
@@ -252,7 +256,7 @@ fn elements_bytes() {
 
 #[test]
 fn first_element() {
-    let mut vregs = VectorRegisterFile::<VLEN>::default();
+    let mut vregs = VectorRegisterFile::<TestHart>::default();
     vregs.write_first(VReg::V31, Eew::E64, u64::MAX).unwrap();
     assert_eq!(
         vregs.read_first(VReg::V31, Eew::E32),
@@ -261,7 +265,8 @@ fn first_element() {
     assert_eq!(vregs.get(VReg::V31)[8..], [0; 8]);
 
     // An element wider than a register doesn't exist
-    let mut vregs = VectorRegisterFile::<{ Vlen::L32 }>::default();
+    let mut vregs =
+        VectorRegisterFile::<BasicVectorHart<Reg<u64>, { Elen::L32 }, { Vlen::L32 }>>::default();
     assert!(vregs.read_first(VReg::V0, Eew::E32).is_some());
     assert!(vregs.read_first(VReg::V0, Eew::E64).is_none());
     assert!(vregs.write_first(VReg::V0, Eew::E64, 0).is_none());
@@ -270,7 +275,7 @@ fn first_element() {
 #[test]
 fn segment_groups() {
     // LMUL=2
-    let vtype = Vtype::<ELEN, VLEN>::from_raw::<Reg<u64>>(0b001).unwrap();
+    let vtype = Vtype::<TestHart>::from_raw::<Reg<u64>>(0b001).unwrap();
     let config = config(vtype, 4);
     let first = VRegGroup::new(config, VReg::V4, Eew::E8).unwrap();
 
@@ -342,8 +347,8 @@ fn segment_groups() {
 
 #[test]
 fn bounded_vl() {
-    assert!(BoundedVl::<VLEN>::new(Vl::new(128).unwrap()).is_some());
-    assert!(BoundedVl::<VLEN>::new(Vl::new(129).unwrap()).is_none());
-    let vl = BoundedVl::<VLEN>::new(Vl::new(5).unwrap()).unwrap();
+    assert!(BoundedVl::<TestHart>::new(Vl::new(128).unwrap()).is_some());
+    assert!(BoundedVl::<TestHart>::new(Vl::new(129).unwrap()).is_none());
+    let vl = BoundedVl::<TestHart>::new(Vl::new(5).unwrap()).unwrap();
     assert!(vl.indices().eq(0..5));
 }

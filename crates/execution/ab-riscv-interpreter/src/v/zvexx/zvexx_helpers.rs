@@ -9,6 +9,7 @@ use crate::{ExecutionError, PackedAddress, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use core::cmp::Ordering;
 use core::hint::cold_path;
+use core::marker::PhantomData;
 
 /// Size of an instruction in bytes.
 ///
@@ -29,7 +30,7 @@ pub const INSTRUCTION_SIZE: u8 = size_of::<u32>() as u8;
 pub fn non_memory_instruction_allowed<Reg, Env>(env: &Env) -> bool
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     env.vector_instructions_allowed() && env.vstart() == Vstart::ZERO
 }
@@ -68,14 +69,13 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn vreg_group<Reg, Env, Memory, PC>(
     program_counter: &PC,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
+    config: VectorConfig<Env::Hart>,
     base: VReg,
     eew: Eew,
-) -> Result<VRegGroup<{ Env::VLEN }>, impl Into<ExecutionError<Reg::Type>>>
+) -> Result<VRegGroup<Env::Hart>, impl Into<ExecutionError<Reg::Type>>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
     let Some(group) = VRegGroup::new(config, base, eew) else {
@@ -95,12 +95,12 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn vreg_segment_group<Reg, Env, Memory, PC>(
     program_counter: &PC,
-    first: VRegGroup<{ Env::VLEN }>,
+    first: VRegGroup<Env::Hart>,
     nf: Nf,
-) -> Result<VRegSegmentGroup<{ Env::VLEN }>, impl Into<ExecutionError<Reg::Type>>>
+) -> Result<VRegSegmentGroup<Env::Hart>, impl Into<ExecutionError<Reg::Type>>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
     let Some(group) = VRegSegmentGroup::new(first, nf) else {
@@ -131,12 +131,12 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_destination_overlap<Reg, Env, Memory, PC>(
     program_counter: &PC,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs: VRegGroup<Env::Hart>,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
     let allowed = !vd.overlaps(vs)
@@ -164,12 +164,12 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_groups_disjoint<Reg, Env, Memory, PC>(
     program_counter: &PC,
-    a: VRegGroup<{ Env::VLEN }>,
-    b: VRegGroup<{ Env::VLEN }>,
+    a: VRegGroup<Env::Hart>,
+    b: VRegGroup<Env::Hart>,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
     if a.overlaps(b) {
@@ -187,12 +187,12 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn check_register_outside_group<Reg, Env, Memory, PC>(
     program_counter: &PC,
-    group: VRegGroup<{ Env::VLEN }>,
+    group: VRegGroup<Env::Hart>,
     reg: VReg,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
     if group.contains(reg) {
@@ -211,12 +211,19 @@ where
 /// so no vector extension makes `SEW == ELEN` legal for a widening instruction.
 #[derive(Debug, Clone, Copy)]
 #[doc(hidden)]
-pub struct WideningSew<const ELEN: Elen> {
+pub struct WideningSew<Hart>
+where
+    Hart: VectorHartConfig,
+{
     narrow: Vsew,
     wide: Vsew,
+    hart: PhantomData<Hart>,
 }
 
-impl<const ELEN: Elen> WideningSew<ELEN> {
+impl<Hart> WideningSew<Hart>
+where
+    Hart: VectorHartConfig,
+{
     /// Returns `None` when `2*SEW` exceeds `ELEN`.
     ///
     /// `ELEN` above 64 is rejected at compile time: widening with `SEW = 64` would be legal then,
@@ -226,25 +233,29 @@ impl<const ELEN: Elen> WideningSew<ELEN> {
     /// use ab_riscv_interpreter::v::zvexx::zvexx_helpers::WideningSew;
     /// use ab_riscv_primitives::prelude::*;
     ///
-    /// let _ = WideningSew::<{ Elen::L128 }>::new(Vsew::E8);
+    /// let _ = WideningSew::<BasicVectorHart<Reg<u64>, { Elen::L128 }, { Vlen::L128 }>>::new(Vsew::E8);
     /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn new(sew: Vsew) -> Option<Self> {
         const {
             assert!(
-                ELEN <= Elen::L64,
-                "ELEN above 64 is not supported by the interpreter"
+                Hart::VECTOR_LENGTHS.elen <= Elen::L64,
+                "`ELEN` above 64 is not supported by the interpreter"
             );
         }
 
         let Some(wide) = sew.double_width() else {
             return None;
         };
-        if u32::from(wide.bits_width()) > u32::from(ELEN) {
+        if !Hart::VECTOR_LENGTHS.elen.supports(wide.as_eew()) {
             return None;
         }
-        Some(Self { narrow: sew, wide })
+        Some(Self {
+            narrow: sew,
+            wide,
+            hart: PhantomData,
+        })
     }
 
     /// Element width of the narrow operands, `SEW`

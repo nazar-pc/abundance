@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::hart::HartConfig;
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::ZveXxInstruction;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
@@ -64,7 +64,7 @@ where
 const impl<Reg, Hart> Instruction for ZvbcInstruction<Hart>
 where
     Reg: [const] Register,
-    Hart: [const] HartConfig<Reg = Reg>,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
@@ -75,6 +75,10 @@ where
     fn try_decode(instruction: u32) -> Option<Self> {
         let opcode = (instruction & 0b111_1111) as u8;
         if opcode != 0b101_0111 {
+            None?;
+        }
+        // All instructions require `SEW = 64`, which is not supported with `ELEN < 64`
+        if !Hart::VECTOR_LENGTHS.elen.supports(Eew::E64) {
             None?;
         }
         let vd_bits = ((instruction >> 7) & 0x1f) as u8;

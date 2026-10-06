@@ -15,7 +15,9 @@ pub use segment::{
     IndexedSegmentElement, IndexedSegmentGroup, SegmentElement, SegmentField, VRegSegmentGroup,
 };
 
-pub(crate) const VLENB_USIZE<const VLEN: Vlen>: usize = VLEN.bytes() as usize;
+/// `VLENB` of hart configuration as `usize`
+pub(crate) const VLENB_USIZE<Hart: VectorHartConfig>: usize =
+    Hart::VECTOR_LENGTHS.vlen.bytes() as usize;
 /// Element width in bytes as `usize`
 const EEW_BYTES<const EEW: Eew>: usize = EEW.bytes_width() as usize;
 
@@ -26,32 +28,31 @@ const EEW_BYTES<const EEW: Eew>: usize = EEW.bytes_width() as usize;
 /// [`VectorRegisterFile::read()`] and friends safe, since the group carries the bounds they check
 /// indices against.
 #[derive(Debug, Clone, Copy)]
-pub struct VRegGroup<const VLEN: Vlen> {
+pub struct VRegGroup<Hart>
+where
+    Hart: VectorHartConfig,
+{
     base: VReg,
     emul: Vlmul,
     eew: Eew,
     // Invariant: `vl <= vlmax` and `vlmax` elements of `eew` starting at `base` end within the
     // register file
-    vl: BoundedVl<VLEN>,
+    vl: BoundedVl<Hart>,
     vlmax: Vl,
 }
 
-impl<const VLEN: Vlen> VRegGroup<VLEN> {
+impl<Hart> VRegGroup<Hart>
+where
+    Hart: VectorHartConfig,
+{
     /// Register group starting at `base` with elements of width `eew` under `config`.
     ///
     /// Returns `None` if `eew` exceeds `ELEN`, `EMUL = LMUL * EEW / SEW` is outside `[1/8, 8]` or
     /// `base` is not aligned to `EMUL`, each of which makes an instruction illegal.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn new<const ELEN: Elen>(
-        config: VectorConfig<ELEN, VLEN>,
-        base: VReg,
-        eew: Eew,
-    ) -> Option<Self>
-    where
-        [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
-    {
-        if u32::from(eew.bits_width()) > u32::from(ELEN) {
+    pub const fn new(config: VectorConfig<Hart>, base: VReg, eew: Eew) -> Option<Self> {
+        if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
             cold_path();
             return None;
         }
@@ -66,9 +67,11 @@ impl<const VLEN: Vlen> VRegGroup<VLEN> {
         let vlmax = config.vlmax();
         // Both always hold for a legal `EMUL`, but are checked here rather than derived from how
         // `VectorConfig` and `Vlmul` compute them, since unsafe code relies on the invariant
-        let group_end = u32::from(base.to_bits()) * VLEN.bytes()
+        let group_end = u32::from(base.to_bits()) * Hart::VECTOR_LENGTHS.vlen.bytes()
             + u32::from(vlmax) * u32::from(eew.bytes_width());
-        if u32::from(vl.get()) > u32::from(vlmax) || group_end > 32 * VLEN.bytes() {
+        if u32::from(vl.get()) > u32::from(vlmax)
+            || group_end > 32 * Hart::VECTOR_LENGTHS.vlen.bytes()
+        {
             cold_path();
             return None;
         }
@@ -100,7 +103,8 @@ impl<const VLEN: Vlen> VRegGroup<VLEN> {
             VRegGroupSize::R4 => Vlmul::M4,
             VRegGroupSize::R8 => Vlmul::M8,
         };
-        let elements = u32::from(group_regs.get()) * VLEN.bytes() / u32::from(eew.bytes_width());
+        let elements = u32::from(group_regs.get()) * Hart::VECTOR_LENGTHS.vlen.bytes()
+            / u32::from(eew.bytes_width());
         let vlmax = Vl::new(elements)?;
         // At most `8 * VLEN / 8`, hence never above `VLEN`
         let vl = BoundedVl::new(vlmax)?;
@@ -134,7 +138,7 @@ impl<const VLEN: Vlen> VRegGroup<VLEN> {
     /// is what makes groups of the same instruction interchangeable for the compiler.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn with_same_vl(self, vl: BoundedVl<VLEN>) -> Option<Self> {
+    pub const fn with_same_vl(self, vl: BoundedVl<Hart>) -> Option<Self> {
         if self.vl != vl {
             cold_path();
             return None;
@@ -169,7 +173,7 @@ impl<const VLEN: Vlen> VRegGroup<VLEN> {
     /// Number of body elements, which is `vl`
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn vl(self) -> BoundedVl<VLEN> {
+    pub const fn vl(self) -> BoundedVl<Hart> {
         // SAFETY: Invariant of `VRegGroup`
         unsafe {
             assert_unchecked(u32::from(self.vl.get()) <= u32::from(self.vlmax));
@@ -211,20 +215,28 @@ impl<const VLEN: Vlen> VRegGroup<VLEN> {
 // Aligned to 128 bytes, which is u32 * 32 registers, the minimum reasonable value to use in most
 // cases
 #[repr(align(128))]
-pub struct VectorRegisterFile<const VLEN: Vlen>([[u8; VLENB_USIZE::<VLEN>]; 32]);
+pub struct VectorRegisterFile<Hart>([[u8; VLENB_USIZE::<Hart>]; 32])
+where
+    Hart: VectorHartConfig;
 
-const impl<const VLEN: Vlen> Default for VectorRegisterFile<VLEN> {
+const impl<Hart> Default for VectorRegisterFile<Hart>
+where
+    Hart: VectorHartConfig,
+{
     #[inline(always)]
     fn default() -> Self {
         Self([[0; _]; _])
     }
 }
 
-impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
+impl<Hart> VectorRegisterFile<Hart>
+where
+    Hart: VectorHartConfig,
+{
     /// Get reference to a vector register
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<VLEN>] {
+    pub const fn get(&self, index: VReg) -> &[u8; VLENB_USIZE::<Hart>] {
         self.0
             .get(usize::from(index.to_bits()))
             .expect("There are exactly 32 vector registers, one for each `VReg`; qed")
@@ -233,7 +245,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Get mutable reference to a vector register
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<VLEN>] {
+    pub const fn get_mut(&mut self, index: VReg) -> &mut [u8; VLENB_USIZE::<Hart>] {
         self.0
             .get_mut(usize::from(index.to_bits()))
             .expect("There are exactly 32 vector registers, one for each `VReg`; qed")
@@ -244,13 +256,13 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Register `v` occupies bytes `[v * VLENB, (v + 1) * VLENB)` of the flattened array, so a
     /// register group is a contiguous range and its elements are at [`Self::element_offset()`].
     #[inline(always)]
-    pub const fn as_bytes(&self) -> &[[u8; VLENB_USIZE::<VLEN>]; 32] {
+    pub const fn as_bytes(&self) -> &[[u8; VLENB_USIZE::<Hart>]; 32] {
         &self.0
     }
 
     /// All vector registers as one contiguous mutable array of bytes, see [`Self::as_bytes()`]
     #[inline(always)]
-    pub const fn as_bytes_mut(&mut self) -> &mut [[u8; VLENB_USIZE::<VLEN>]; 32] {
+    pub const fn as_bytes_mut(&mut self) -> &mut [[u8; VLENB_USIZE::<Hart>]; 32] {
         &mut self.0
     }
 
@@ -265,7 +277,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     where
         W: [const] Into<Eew> + [const] Destruct,
     {
-        usize::from(base_reg.to_bits()) * VLENB_USIZE::<VLEN>
+        usize::from(base_reg.to_bits()) * VLENB_USIZE::<Hart>
             + usize::from(elem_i) * usize::from(eew.into().bytes_width())
     }
 
@@ -274,7 +286,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Returns `None` if `elem_i` is not below [`VRegGroup::vl()`].
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn read(&self, group: VRegGroup<VLEN>, elem_i: u16) -> Option<u64> {
+    pub const fn read(&self, group: VRegGroup<Hart>, elem_i: u16) -> Option<u64> {
         if u32::from(elem_i) >= u32::from(group.vl.get()) {
             cold_path();
             return None;
@@ -289,7 +301,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Returns `None` if `elem_i` is not below [`VRegGroup::vl()`].
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn write(&mut self, group: VRegGroup<VLEN>, elem_i: u16, value: u64) -> Option<()> {
+    pub const fn write(&mut self, group: VRegGroup<Hart>, elem_i: u16, value: u64) -> Option<()> {
         if u32::from(elem_i) >= u32::from(group.vl.get()) {
             cold_path();
             return None;
@@ -308,7 +320,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// `elem_i` is not below [`VRegGroup::vlmax()`].
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn read_up_to_vlmax(&self, group: VRegGroup<VLEN>, elem_i: u16) -> Option<u64> {
+    pub const fn read_up_to_vlmax(&self, group: VRegGroup<Hart>, elem_i: u16) -> Option<u64> {
         if u32::from(elem_i) >= u32::from(group.vlmax) {
             cold_path();
             return None;
@@ -329,9 +341,9 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn copy_elements(
         &mut self,
-        dst: VRegGroup<VLEN>,
+        dst: VRegGroup<Hart>,
         dst_first: u16,
-        src: VRegGroup<VLEN>,
+        src: VRegGroup<Hart>,
         src_first: u16,
         count: u32,
     ) -> bool {
@@ -364,7 +376,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     /// Returns `None` if the range is not within [`VRegGroup::vl()`].
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub fn elements_bytes(&self, group: VRegGroup<VLEN>, first: u16, count: u32) -> Option<&[u8]> {
+    pub fn elements_bytes(&self, group: VRegGroup<Hart>, first: u16, count: u32) -> Option<&[u8]> {
         if u32::from(first) + count > u32::from(group.vl().get()) {
             cold_path();
             return None;
@@ -387,7 +399,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn elements_bytes_mut(
         &mut self,
-        group: VRegGroup<VLEN>,
+        group: VRegGroup<Hart>,
         first: u16,
         count: u32,
     ) -> Option<&mut [u8]> {
@@ -414,7 +426,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn read_first(&self, reg: VReg, eew: Eew) -> Option<u64> {
-        if u32::from(eew.bytes_width()) > VLEN.bytes() {
+        if u32::from(eew.bytes_width()) > Hart::VECTOR_LENGTHS.vlen.bytes() {
             cold_path();
             return None;
         }
@@ -429,7 +441,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn write_first(&mut self, reg: VReg, eew: Eew, value: u64) -> Option<()> {
-        if u32::from(eew.bytes_width()) > VLEN.bytes() {
+        if u32::from(eew.bytes_width()) > Hart::VECTOR_LENGTHS.vlen.bytes() {
             cold_path();
             return None;
         }
@@ -450,7 +462,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn read_const<const EEW: Eew>(
         &self,
-        group: VRegGroup<VLEN>,
+        group: VRegGroup<Hart>,
         elem_i: u16,
     ) -> Option<u64> {
         if group.eew != EEW || u32::from(elem_i) >= u32::from(group.vl.get()) {
@@ -471,7 +483,7 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn write_const<const EEW: Eew>(
         &mut self,
-        group: VRegGroup<VLEN>,
+        group: VRegGroup<Hart>,
         elem_i: u16,
         value: u64,
     ) -> Option<()> {
@@ -584,6 +596,11 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
     }
 }
 
+/// General purpose register type of the hart configuration of vector registers
+type HartReg<Env> = <<Env as VectorRegisters>::Hart as HartConfig>::Reg;
+/// Raw value type of [`HartReg`]
+type HartRegType<Env> = <HartReg<Env> as Register>::Type;
+
 /// Vector register state.
 ///
 /// This trait contains only methods that implementations genuinely need to provide. Derived
@@ -592,16 +609,14 @@ impl<const VLEN: Vlen> VectorRegisterFile<VLEN> {
 /// Note that due to Rust type system limitations, you should use [`VectorRegistersExt`] in trait
 /// bounds instead of this trait directly or else the solver will fail.
 pub const trait VectorRegisters {
-    /// Maximum vector element width `ELEN` in bits
-    const ELEN: Elen;
-    /// Vector register width `VLEN` in bits
-    const VLEN: Vlen;
+    /// Hart configuration, which determines vector lengths
+    type Hart: [const] VectorHartConfig;
 
     /// Read the vector register file
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }>;
+    fn read_vregs(&self) -> &VectorRegisterFile<Self::Hart>;
 
     /// Mutable access to the vector register file
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }>;
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<Self::Hart>;
 
     /// Check whether vector instructions are currently permitted.
     ///
@@ -625,11 +640,9 @@ pub const trait VectorRegisters {
 /// higher-performance implementations are often possible by overriding them and, for example,
 /// caching various CSRs as separate pre-decoded values rather than going through a generic code
 /// path with XLEN-sized raw CSR values during reads.
-pub const trait VectorRegistersExt<Reg>
+pub const trait VectorRegistersExt
 where
-    Self: [const] Csrs<Reg> + [const] VectorRegisters,
-    [(); SUPPORTED_ELEN_VLEN::<{ Self::ELEN }, { Self::VLEN }>]:,
-    Reg: [const] Register,
+    Self: [const] VectorRegisters + [const] Csrs<HartReg<Self>>,
 {
     /// Initialize the vector state to the recommended default configuration.
     ///
@@ -664,7 +677,7 @@ where
     fn set_vstart(&mut self, vstart: Vstart) {
         let result = self.write_csr(
             VectorCsr::Vstart.to_csr_index(),
-            Reg::Type::from(u16::from(vstart)),
+            HartRegType::<Self>::from(u16::from(vstart)),
         );
         debug_assert!(
             result.is_ok(),
@@ -699,14 +712,14 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_vxsat(&mut self, vxsat: bool) {
-        let masked = Reg::Type::from(u8::from(vxsat));
+        let masked = HartRegType::<Self>::from(u8::from(vxsat));
         let result = self.write_csr(VectorCsr::Vxsat.to_csr_index(), masked);
         debug_assert!(result.is_ok(), "Implementation must initialize `vxsat` CSR");
         // Mirror `vxsat` into `vcsr[0]`, preserving `vcsr[2:1]` (`vxrm`)
         let old_vcsr = self
             .read_csr(VectorCsr::Vcsr.to_csr_index())
             .unwrap_or_default();
-        let new_vcsr = (old_vcsr & !Reg::Type::from(1u8)) | masked;
+        let new_vcsr = (old_vcsr & !HartRegType::<Self>::from(1u8)) | masked;
         let result = self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr);
         debug_assert!(result.is_ok(), "Implementation must initialize `vcsr` CSR");
     }
@@ -729,14 +742,14 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn set_vxrm(&mut self, vxrm: Vxrm) {
-        let masked = Reg::Type::from(vxrm.to_bits());
+        let masked = HartRegType::<Self>::from(vxrm.to_bits());
         let result = self.write_csr(VectorCsr::Vxrm.to_csr_index(), masked);
         debug_assert!(result.is_ok(), "Implementation must initialize `vxrm` CSR");
         // Mirror `vxrm` into `vcsr[2:1]`, preserving `vcsr[0]` (`vxsat`)
         let old_vcsr = self
             .read_csr(VectorCsr::Vcsr.to_csr_index())
             .unwrap_or_default();
-        let new_vcsr = (old_vcsr & !Reg::Type::from(0b110u8)) | (masked << 1u8);
+        let new_vcsr = (old_vcsr & !HartRegType::<Self>::from(0b110u8)) | (masked << 1u8);
         let result = self.write_csr(VectorCsr::Vcsr.to_csr_index(), new_vcsr);
         debug_assert!(result.is_ok(), "Implementation must initialize `vcsr` CSR");
     }
@@ -752,10 +765,10 @@ where
     /// pair as `vill`.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn vector_config(&self) -> Option<VectorConfig<{ Self::ELEN }, { Self::VLEN }>> {
+    fn vector_config(&self) -> Option<VectorConfig<Self::Hart>> {
         let vtype = self.read_csr(VectorCsr::Vtype.to_csr_index()).ok()?;
         let vl = self.read_csr(VectorCsr::Vl.to_csr_index()).ok()?;
-        VectorConfig::from_raw::<Reg>(vtype, vl)
+        VectorConfig::from_raw::<HartReg<Self>>(vtype, vl)
     }
 
     /// Set the vector configuration, `None` sets `vill` (and `vl` to zero).
@@ -767,19 +780,16 @@ where
     /// debug.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn set_vector_config(
-        &mut self,
-        vector_config: Option<VectorConfig<{ Self::ELEN }, { Self::VLEN }>>,
-    ) {
+    fn set_vector_config(&mut self, vector_config: Option<VectorConfig<Self::Hart>>) {
         let (vtype_raw, vl_raw) = if let Some(vector_config) = vector_config {
             (
-                vector_config.vtype().to_raw::<Reg>(),
-                Reg::Type::from(u32::from(vector_config.vl().get())),
+                vector_config.vtype().to_raw::<HartReg<Self>>(),
+                HartRegType::<Self>::from(u32::from(vector_config.vl().get())),
             )
         } else {
             (
-                Vtype::<{ Self::ELEN }, { Self::VLEN }>::illegal_raw::<Reg>(),
-                Reg::Type::from(0u8),
+                Vtype::<Self::Hart>::illegal_raw::<HartReg<Self>>(),
+                HartRegType::<Self>::from(0u8),
             )
         };
 
@@ -791,99 +801,90 @@ where
 }
 
 // Convenience for threaded execution
-// TODO: Forward generically instead, once the compiler normalizes
-//  `<&mut T as VectorRegisters>::VLEN` to `T::VLEN`:
-//  https://github.com/rust-lang/rust/issues/161264
-#[macro_export]
-macro_rules! impl_vector_registers_for_mut_ref {
-    ($env:ty, $reg:ty) => {
-        impl VectorRegisters for &mut $env {
-            const ELEN: Elen = <$env as VectorRegisters>::ELEN;
-            const VLEN: Vlen = <$env as VectorRegisters>::VLEN;
+const impl<T> VectorRegisters for &mut T
+where
+    T: [const] VectorRegisters,
+{
+    type Hart = T::Hart;
 
-            #[inline(always)]
-            fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
-                <$env as VectorRegisters>::read_vregs(self)
-            }
+    #[inline(always)]
+    fn read_vregs(&self) -> &VectorRegisterFile<Self::Hart> {
+        T::read_vregs(self)
+    }
 
-            #[inline(always)]
-            fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
-                <$env as VectorRegisters>::write_vregs(self)
-            }
+    #[inline(always)]
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<Self::Hart> {
+        T::write_vregs(self)
+    }
 
-            #[inline(always)]
-            fn vector_instructions_allowed(&self) -> bool {
-                <$env as VectorRegisters>::vector_instructions_allowed(self)
-            }
+    #[inline(always)]
+    fn vector_instructions_allowed(&self) -> bool {
+        T::vector_instructions_allowed(self)
+    }
 
-            #[inline(always)]
-            fn mark_vs_dirty(&mut self) {
-                <$env as VectorRegisters>::mark_vs_dirty(self);
-            }
-        }
+    #[inline(always)]
+    fn mark_vs_dirty(&mut self) {
+        T::mark_vs_dirty(self);
+    }
+}
 
-        // Every method is forwarded explicitly rather than left to `VectorRegistersExt`'s
-        // defaults: those go through `Csrs::write_csr()`, which the blanket `Csrs for &mut T`
-        // impl also forwards to `$env`, so an empty impl here would silently observe `$env`'s
-        // overrides for some accessors and the trait defaults for others
-        impl VectorRegistersExt<$reg> for &mut $env {
-            #[inline(always)]
-            fn vstart(&self) -> Vstart {
-                <$env as VectorRegistersExt<$reg>>::vstart(self)
-            }
+// Convenience for threaded execution.
+//
+// Every method is forwarded explicitly rather than left to `VectorRegistersExt`'s defaults: those
+// go through `Csrs::write_csr()`, which the blanket `Csrs for &mut T` impl also forwards to `T`,
+// so an empty impl here would silently observe `T`'s overrides for some accessors and the trait
+// defaults for others
+const impl<T> VectorRegistersExt for &mut T
+where
+    T: [const] VectorRegistersExt,
+{
+    #[inline(always)]
+    fn initialize_vector_state(&mut self) {
+        T::initialize_vector_state(self);
+    }
 
-            #[inline(always)]
-            fn set_vstart(&mut self, vstart: Vstart) {
-                <$env as VectorRegistersExt<$reg>>::set_vstart(self, vstart);
-            }
+    #[inline(always)]
+    fn vstart(&self) -> Vstart {
+        T::vstart(self)
+    }
 
-            #[inline(always)]
-            fn reset_vstart(&mut self) {
-                <$env as VectorRegistersExt<$reg>>::reset_vstart(self);
-            }
+    #[inline(always)]
+    fn set_vstart(&mut self, vstart: Vstart) {
+        T::set_vstart(self, vstart);
+    }
 
-            #[inline(always)]
-            fn vxsat(&self) -> bool {
-                <$env as VectorRegistersExt<$reg>>::vxsat(self)
-            }
+    #[inline(always)]
+    fn reset_vstart(&mut self) {
+        T::reset_vstart(self);
+    }
 
-            #[inline(always)]
-            fn set_vxsat(&mut self, vxsat: bool) {
-                <$env as VectorRegistersExt<$reg>>::set_vxsat(self, vxsat);
-            }
+    #[inline(always)]
+    fn vxsat(&self) -> bool {
+        T::vxsat(self)
+    }
 
-            #[inline(always)]
-            fn vxrm(&self) -> Vxrm {
-                <$env as VectorRegistersExt<$reg>>::vxrm(self)
-            }
+    #[inline(always)]
+    fn set_vxsat(&mut self, vxsat: bool) {
+        T::set_vxsat(self, vxsat);
+    }
 
-            #[inline(always)]
-            fn set_vxrm(&mut self, vxrm: Vxrm) {
-                <$env as VectorRegistersExt<$reg>>::set_vxrm(self, vxrm);
-            }
+    #[inline(always)]
+    fn vxrm(&self) -> Vxrm {
+        T::vxrm(self)
+    }
 
-            #[inline(always)]
-            fn vector_config(
-                &self,
-            ) -> Option<$crate::v::vector_config::VectorConfig<{ Self::ELEN }, { Self::VLEN }>>
-            {
-                <$env as VectorRegistersExt<$reg>>::vector_config(self)
-            }
+    #[inline(always)]
+    fn set_vxrm(&mut self, vxrm: Vxrm) {
+        T::set_vxrm(self, vxrm);
+    }
 
-            #[inline(always)]
-            fn set_vector_config(
-                &mut self,
-                vector_config: Option<
-                    $crate::v::vector_config::VectorConfig<{ Self::ELEN }, { Self::VLEN }>,
-                >,
-            ) {
-                <$env as VectorRegistersExt<$reg>>::set_vector_config(self, vector_config);
-            }
+    #[inline(always)]
+    fn vector_config(&self) -> Option<VectorConfig<Self::Hart>> {
+        T::vector_config(self)
+    }
 
-            #[inline(always)]
-            fn initialize_vector_state(&mut self) {
-                <$env as VectorRegistersExt<$reg>>::initialize_vector_state(self);
-            }
-        }
-    };
+    #[inline(always)]
+    fn set_vector_config(&mut self, vector_config: Option<VectorConfig<Self::Hart>>) {
+        T::set_vector_config(self, vector_config);
+    }
 }

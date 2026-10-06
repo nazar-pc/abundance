@@ -1,3 +1,7 @@
+use crate::hart::BasicVectorHart;
+use crate::instructions::v::{Elen, Vlen};
+use crate::registers::general_purpose::Reg;
+
 pub(crate) const fn make_r_type(
     opcode: u8,
     rd: u8,
@@ -83,3 +87,9 @@ pub(crate) const fn make_j_type(opcode: u8, rd: u8, imm: i32) -> u32 {
         | (imm10_1 << 21u8)
         | (imm20 << 31u8)
 }
+
+/// Hart configuration with vector lengths for vector instruction tests
+pub(crate) type TestVectorHart = BasicVectorHart<Reg<u64>, { Elen::L64 }, { Vlen::L128 }>;
+
+/// Hart configuration of a Zve32x implementation (`ELEN = 32`) for vector instruction tests
+pub(crate) type TestZve32Hart = BasicVectorHart<Reg<u64>, { Elen::L32 }, { Vlen::L128 }>;

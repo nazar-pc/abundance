@@ -1,8 +1,7 @@
 extern crate alloc;
 
-use crate::hart::BasicHart;
 use crate::instructions::Instruction;
-use crate::instructions::test_utils::make_r_type;
+use crate::instructions::test_utils::{TestVectorHart, TestZve32Hart, make_r_type};
 use crate::instructions::zvbc::ZvbcInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
@@ -30,10 +29,7 @@ fn wrong_opcode_not_decoded() {
     // Use OP (0b011_0011) instead of OP-V (0b101_0111); funct6=0b001100 (vclmul)
     let funct7 = 0b00_1100u8 << 1;
     let inst = make_r_type(0b011_0011, 1, OPMVV, 2, 3, funct7);
-    assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
-        None
-    );
+    assert_eq!(ZvbcInstruction::<TestVectorHart>::try_decode(inst), None);
 }
 
 // OPMVV with funct6=0b000000 must not decode as any Zvbc variant.
@@ -41,7 +37,7 @@ fn wrong_opcode_not_decoded() {
 fn unrelated_funct6_in_opmvv_not_claimed() {
     let inst = make_vop(0b00_0000, 1, 2, 3, OPMVV, 1);
     assert!(!matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(
             ZvbcInstruction::VclmulVv { .. }
                 | ZvbcInstruction::VclmulVx { .. }
@@ -56,7 +52,7 @@ fn unrelated_funct6_in_opmvv_not_claimed() {
 fn funct6_above_vclmulh_not_claimed_in_opmvv() {
     let inst = make_vop(0b00_1110, 1, 4, 5, OPMVV, 2);
     assert!(!matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(
             ZvbcInstruction::VclmulVv { .. }
                 | ZvbcInstruction::VclmulVx { .. }
@@ -71,7 +67,7 @@ fn funct6_above_vclmulh_not_claimed_in_opmvv() {
 fn funct6_below_vclmul_not_claimed_in_opmvv() {
     let inst = make_vop(0b00_1011, 1, 4, 5, OPMVV, 2);
     assert!(!matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(
             ZvbcInstruction::VclmulVv { .. }
                 | ZvbcInstruction::VclmulVx { .. }
@@ -87,7 +83,7 @@ fn unrelated_funct6_in_opmvx_not_claimed() {
     // funct6=0b000001 in OPMVX slot
     let inst = make_vop(0b00_0001, 1, 3, 10, OPMVX, 5);
     assert!(!matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(
             ZvbcInstruction::VclmulVv { .. }
                 | ZvbcInstruction::VclmulVx { .. }
@@ -102,7 +98,7 @@ fn unrelated_funct6_in_opmvx_not_claimed() {
 fn vclmul_has_no_immediate_form() {
     let inst = make_vop(0b00_1100, 1, 4, 7, OPIVI, 2);
     assert!(!matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(
             ZvbcInstruction::VclmulVv { .. }
                 | ZvbcInstruction::VclmulVx { .. }
@@ -117,7 +113,7 @@ fn vclmul_has_no_immediate_form() {
 fn vclmulh_has_no_immediate_form() {
     let inst = make_vop(0b00_1101, 1, 4, 7, OPIVI, 2);
     assert!(!matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(
             ZvbcInstruction::VclmulVv { .. }
                 | ZvbcInstruction::VclmulVx { .. }
@@ -134,7 +130,7 @@ fn vclmul_vv_basic_unmasked() {
     // vm=1: unmasked form
     let inst = make_vop(0b00_1100, 1, 2, 3, OPMVV, 1);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulVv {
             vd: VReg::V1,
             vs2: VReg::V2,
@@ -151,7 +147,7 @@ fn vclmul_vv_masked_form() {
     // vm=0: masked form
     let inst = make_vop(0b00_1100, 0, 2, 3, OPMVV, 1);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulVv {
             vd: VReg::V1,
             vs2: VReg::V2,
@@ -167,7 +163,7 @@ fn vclmul_vv_masked_form() {
 fn vclmul_vv_high_regs() {
     let inst = make_vop(0b00_1100, 1, 31, 30, OPMVV, 29);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulVv {
             vd: VReg::V29,
             vs2: VReg::V31,
@@ -186,7 +182,7 @@ fn vclmul_vx_basic_unmasked() {
     // rs1 = a0 (x10)
     let inst = make_vop(0b00_1100, 1, 4, 10, OPMVX, 6);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulVx {
             vd: VReg::V6,
             vs2: VReg::V4,
@@ -202,7 +198,7 @@ fn vclmul_vx_masked_form() {
     // rs1 = a0 (x10)
     let inst = make_vop(0b00_1100, 0, 4, 10, OPMVX, 6);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulVx {
             vd: VReg::V6,
             vs2: VReg::V4,
@@ -218,7 +214,7 @@ fn vclmul_vx_t1_register() {
     // rs1 = t1 (x6)
     let inst = make_vop(0b00_1100, 1, 8, 6, OPMVX, 3);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulVx {
             vd: VReg::V3,
             vs2: VReg::V8,
@@ -236,7 +232,7 @@ fn vclmulh_vv_basic_unmasked() {
     // vm=1: unmasked form
     let inst = make_vop(0b00_1101, 1, 5, 6, OPMVV, 7);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulhVv {
             vd: VReg::V7,
             vs2: VReg::V5,
@@ -253,7 +249,7 @@ fn vclmulh_vv_masked_form() {
     // vm=0: masked form
     let inst = make_vop(0b00_1101, 0, 5, 6, OPMVV, 7);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulhVv {
             vd: VReg::V7,
             vs2: VReg::V5,
@@ -269,7 +265,7 @@ fn vclmulh_vv_masked_form() {
 fn vclmulh_vv_high_regs() {
     let inst = make_vop(0b00_1101, 1, 28, 27, OPMVV, 26);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulhVv {
             vd: VReg::V26,
             vs2: VReg::V28,
@@ -288,7 +284,7 @@ fn vclmulh_vx_basic_unmasked() {
     // rs1 = a1 (x11)
     let inst = make_vop(0b00_1101, 1, 12, 11, OPMVX, 0);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulhVx {
             vd: VReg::V0,
             vs2: VReg::V12,
@@ -304,7 +300,7 @@ fn vclmulh_vx_masked_form() {
     // rs1 = a1 (x11)
     let inst = make_vop(0b00_1101, 0, 12, 11, OPMVX, 8);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulhVx {
             vd: VReg::V8,
             vs2: VReg::V12,
@@ -320,7 +316,7 @@ fn vclmulh_vx_sp_register() {
     // rs1 = sp (x2)
     let inst = make_vop(0b00_1101, 1, 20, 2, OPMVX, 15);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst),
         Some(ZvbcInstruction::VclmulhVx {
             vd: VReg::V15,
             vs2: VReg::V20,
@@ -340,11 +336,11 @@ fn vclmul_and_vclmulh_vv_funct6_do_not_alias() {
     let inst_clmul = make_vop(0b00_1100, 1, 2, 3, OPMVV, 1);
     let inst_clmulh = make_vop(0b00_1101, 1, 2, 3, OPMVV, 1);
     assert_matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_clmul),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst_clmul),
         Some(ZvbcInstruction::VclmulVv { .. })
     );
     assert_matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_clmulh),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst_clmulh),
         Some(ZvbcInstruction::VclmulhVv { .. })
     );
 }
@@ -355,11 +351,11 @@ fn vclmul_and_vclmulh_vx_funct6_do_not_alias() {
     let inst_clmul = make_vop(0b00_1100, 1, 4, 10, OPMVX, 6);
     let inst_clmulh = make_vop(0b00_1101, 1, 4, 10, OPMVX, 6);
     assert_matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_clmul),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst_clmul),
         Some(ZvbcInstruction::VclmulVx { .. })
     );
     assert_matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_clmulh),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst_clmulh),
         Some(ZvbcInstruction::VclmulhVx { .. })
     );
 }
@@ -370,11 +366,11 @@ fn vclmul_vv_and_vx_funct3_do_not_alias() {
     let inst_vv = make_vop(0b00_1100, 1, 8, 3, OPMVV, 2);
     let inst_vx = make_vop(0b00_1100, 1, 8, 3, OPMVX, 2);
     assert_matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_vv),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst_vv),
         Some(ZvbcInstruction::VclmulVv { .. })
     );
     assert_matches!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_vx),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst_vx),
         Some(ZvbcInstruction::VclmulVx { .. })
     );
 }
@@ -388,7 +384,7 @@ fn vm_bit_decoded_independently_of_operands() {
     let inst_unmasked = make_vop(0b00_1100, 1, 6, 7, OPMVV, 4);
     let inst_masked = make_vop(0b00_1100, 0, 6, 7, OPMVV, 4);
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_unmasked),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst_unmasked),
         Some(ZvbcInstruction::VclmulVv {
             vd: VReg::V4,
             vs2: VReg::V6,
@@ -399,7 +395,7 @@ fn vm_bit_decoded_independently_of_operands() {
         }),
     );
     assert_eq!(
-        ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst_masked),
+        ZvbcInstruction::<TestVectorHart>::try_decode(inst_masked),
         Some(ZvbcInstruction::VclmulVv {
             vd: VReg::V4,
             vs2: VReg::V6,
@@ -416,14 +412,14 @@ fn vm_bit_decoded_independently_of_operands() {
 #[test]
 fn display_vclmul_vv_unmasked() {
     let inst = make_vop(0b00_1100, 1, 2, 3, OPMVV, 1);
-    let decoded = ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZvbcInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vclmul.vv v1, v2, v3");
 }
 
 #[test]
 fn display_vclmul_vv_masked() {
     let inst = make_vop(0b00_1100, 0, 2, 3, OPMVV, 1);
-    let decoded = ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZvbcInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vclmul.vv v1, v2, v3, v0.t");
 }
 
@@ -431,7 +427,7 @@ fn display_vclmul_vv_masked() {
 fn display_vclmul_vx_unmasked() {
     // rs1 = a0 (x10)
     let inst = make_vop(0b00_1100, 1, 4, 10, OPMVX, 6);
-    let decoded = ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZvbcInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vclmul.vx v6, v4, a0");
 }
 
@@ -439,21 +435,21 @@ fn display_vclmul_vx_unmasked() {
 fn display_vclmul_vx_masked() {
     // rs1 = a0 (x10)
     let inst = make_vop(0b00_1100, 0, 4, 10, OPMVX, 6);
-    let decoded = ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZvbcInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vclmul.vx v6, v4, a0, v0.t");
 }
 
 #[test]
 fn display_vclmulh_vv_unmasked() {
     let inst = make_vop(0b00_1101, 1, 5, 6, OPMVV, 7);
-    let decoded = ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZvbcInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vclmulh.vv v7, v5, v6");
 }
 
 #[test]
 fn display_vclmulh_vv_masked() {
     let inst = make_vop(0b00_1101, 0, 5, 6, OPMVV, 7);
-    let decoded = ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZvbcInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vclmulh.vv v7, v5, v6, v0.t");
 }
 
@@ -461,7 +457,7 @@ fn display_vclmulh_vv_masked() {
 fn display_vclmulh_vx_unmasked() {
     // rs1 = a1 (x11)
     let inst = make_vop(0b00_1101, 1, 12, 11, OPMVX, 0);
-    let decoded = ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZvbcInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vclmulh.vx v0, v12, a1");
 }
 
@@ -469,7 +465,7 @@ fn display_vclmulh_vx_unmasked() {
 fn display_vclmulh_vx_masked() {
     // rs1 = a1 (x11)
     let inst = make_vop(0b00_1101, 0, 12, 11, OPMVX, 8);
-    let decoded = ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZvbcInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vclmulh.vx v8, v12, a1, v0.t");
 }
 
@@ -482,7 +478,7 @@ fn masked_v0_data_source_is_reserved() {
     ] {
         let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
         assert_eq!(
-            ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction),
+            ZvbcInstruction::<TestVectorHart>::try_decode(instruction),
             None,
             "{name}"
         );
@@ -491,7 +487,7 @@ fn masked_v0_data_source_is_reserved() {
         let vs1 = if vs1 == 0 { 4 } else { vs1 };
         let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
         assert!(
-            ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction).is_some(),
+            ZvbcInstruction::<TestVectorHart>::try_decode(instruction).is_some(),
             "{name}"
         );
     }
@@ -507,15 +503,30 @@ fn masked_v0_destination_is_reserved() {
     ] {
         let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 0);
         assert_eq!(
-            ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction),
+            ZvbcInstruction::<TestVectorHart>::try_decode(instruction),
             None,
             "{name}"
         );
         // Same instruction with `vd = v8`
         let instruction = make_vop(funct6, 0, vs2, vs1, funct3, 8);
         assert!(
-            ZvbcInstruction::<BasicHart<Reg<u64>>>::try_decode(instruction).is_some(),
+            ZvbcInstruction::<TestVectorHart>::try_decode(instruction).is_some(),
             "{name}"
         );
+    }
+}
+
+// All instructions require `SEW = 64`, so they don't exist with `ELEN = 32`
+#[test]
+fn not_decoded_with_elen_32() {
+    for (funct6, funct3) in [
+        (0b00_1100, OPMVV),
+        (0b00_1100, OPMVX),
+        (0b00_1101, OPMVV),
+        (0b00_1101, OPMVX),
+    ] {
+        let inst = make_vop(funct6, 1, 2, 3, funct3, 1);
+        assert!(ZvbcInstruction::<TestVectorHart>::try_decode(inst).is_some());
+        assert_eq!(ZvbcInstruction::<TestZve32Hart>::try_decode(inst), None);
     }
 }

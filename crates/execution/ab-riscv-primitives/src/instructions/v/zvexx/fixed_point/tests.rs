@@ -1,8 +1,7 @@
 extern crate alloc;
 
-use crate::hart::BasicHart;
 use crate::instructions::Instruction;
-use crate::instructions::test_utils::make_r_type;
+use crate::instructions::test_utils::{TestVectorHart, make_r_type};
 use crate::instructions::v::zvexx::fixed_point::ZveXxFixedPointInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
@@ -33,7 +32,7 @@ const OPMVX: u8 = 0b110;
 #[test]
 fn test_vsaddu_vv() {
     let inst = make_v_arith(0b10_0000, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsadduVv {
@@ -50,7 +49,7 @@ fn test_vsaddu_vv() {
 #[test]
 fn test_vsaddu_vv_masked() {
     let inst = make_v_arith(0b10_0000, false, 4, 5, OPIVV, 6);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsadduVv {
@@ -67,7 +66,7 @@ fn test_vsaddu_vv_masked() {
 #[test]
 fn test_vsaddu_vx() {
     let inst = make_v_arith(0b10_0000, true, 2, 5, OPIVX, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsadduVx {
@@ -84,7 +83,7 @@ fn test_vsaddu_vx() {
 fn test_vsaddu_vi() {
     // imm = 5 (positive 5-bit signed)
     let inst = make_v_arith(0b10_0000, true, 2, 5, OPIVI, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsadduVi {
@@ -102,7 +101,7 @@ fn test_vsaddu_vi() {
 fn test_vsaddu_vi_negative() {
     // imm = -1 (0b11111 sign-extended)
     let inst = make_v_arith(0b10_0000, true, 2, 0b11111, OPIVI, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsadduVi {
@@ -119,7 +118,7 @@ fn test_vsaddu_vi_negative() {
 #[test]
 fn test_vsadd_vv() {
     let inst = make_v_arith(0b10_0001, true, 8, 9, OPIVV, 10);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsaddVv {
@@ -136,7 +135,7 @@ fn test_vsadd_vv() {
 #[test]
 fn test_vsadd_vx() {
     let inst = make_v_arith(0b10_0001, true, 8, 10, OPIVX, 12);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsaddVx {
@@ -152,7 +151,7 @@ fn test_vsadd_vx() {
 #[test]
 fn test_vsadd_vi() {
     let inst = make_v_arith(0b10_0001, true, 8, 15, OPIVI, 12);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsaddVi {
@@ -169,7 +168,7 @@ fn test_vsadd_vi() {
 #[test]
 fn test_vssubu_vv() {
     let inst = make_v_arith(0b10_0010, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssubuVv {
@@ -186,7 +185,7 @@ fn test_vssubu_vv() {
 #[test]
 fn test_vssubu_vx() {
     let inst = make_v_arith(0b10_0010, true, 2, 5, OPIVX, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssubuVx {
@@ -203,14 +202,14 @@ fn test_vssubu_vx() {
 fn test_vssubu_vi_rejected() {
     // vssubu has no VI form
     let inst = make_v_arith(0b10_0010, true, 2, 5, OPIVI, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_vssub_vv() {
     let inst = make_v_arith(0b10_0011, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssubVv {
@@ -227,7 +226,7 @@ fn test_vssub_vv() {
 #[test]
 fn test_vssub_vx_masked() {
     let inst = make_v_arith(0b10_0011, false, 2, 5, OPIVX, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssubVx {
@@ -244,7 +243,7 @@ fn test_vssub_vx_masked() {
 fn test_vssub_vi_rejected() {
     // vssub has no VI form
     let inst = make_v_arith(0b10_0011, true, 2, 5, OPIVI, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -253,7 +252,7 @@ fn test_vssub_vi_rejected() {
 #[test]
 fn test_vaaddu_vv() {
     let inst = make_v_arith(0b00_1000, true, 2, 3, OPMVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VaadduVv {
@@ -270,7 +269,7 @@ fn test_vaaddu_vv() {
 #[test]
 fn test_vaaddu_vx() {
     let inst = make_v_arith(0b00_1000, true, 2, 10, OPMVX, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VaadduVx {
@@ -287,14 +286,14 @@ fn test_vaaddu_vx() {
 fn test_vaaddu_wrong_funct3() {
     // vaaddu uses OPMVV/OPMVX, not OPIVV
     let inst = make_v_arith(0b00_1000, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_vaadd_vv() {
     let inst = make_v_arith(0b00_1001, true, 4, 5, OPMVV, 6);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VaaddVv {
@@ -311,7 +310,7 @@ fn test_vaadd_vv() {
 #[test]
 fn test_vaadd_vx_masked() {
     let inst = make_v_arith(0b00_1001, false, 4, 11, OPMVX, 6);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VaaddVx {
@@ -327,7 +326,7 @@ fn test_vaadd_vx_masked() {
 #[test]
 fn test_vasubu_vv() {
     let inst = make_v_arith(0b00_1010, true, 2, 3, OPMVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VasubuVv {
@@ -344,7 +343,7 @@ fn test_vasubu_vv() {
 #[test]
 fn test_vasubu_vx() {
     let inst = make_v_arith(0b00_1010, true, 2, 5, OPMVX, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VasubuVx {
@@ -360,7 +359,7 @@ fn test_vasubu_vx() {
 #[test]
 fn test_vasub_vv() {
     let inst = make_v_arith(0b00_1011, true, 2, 3, OPMVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VasubVv {
@@ -377,7 +376,7 @@ fn test_vasub_vv() {
 #[test]
 fn test_vasub_vx() {
     let inst = make_v_arith(0b00_1011, true, 2, 5, OPMVX, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VasubVx {
@@ -395,7 +394,7 @@ fn test_vasub_vx() {
 #[test]
 fn test_vsmul_vv() {
     let inst = make_v_arith(0b10_0111, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsmulVv {
@@ -412,7 +411,7 @@ fn test_vsmul_vv() {
 #[test]
 fn test_vsmul_vx_masked() {
     let inst = make_v_arith(0b10_0111, false, 8, 10, OPIVX, 12);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsmulVx {
@@ -430,7 +429,7 @@ fn test_vsmul_vx_masked() {
 #[test]
 fn test_vssrl_vv() {
     let inst = make_v_arith(0b10_1010, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssrlVv {
@@ -447,7 +446,7 @@ fn test_vssrl_vv() {
 #[test]
 fn test_vssrl_vx() {
     let inst = make_v_arith(0b10_1010, true, 2, 5, OPIVX, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssrlVx {
@@ -464,7 +463,7 @@ fn test_vssrl_vx() {
 fn test_vssrl_vi() {
     // imm=7 (unsigned shift amount)
     let inst = make_v_arith(0b10_1010, true, 2, 7, OPIVI, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssrlVi {
@@ -481,7 +480,7 @@ fn test_vssrl_vi() {
 #[test]
 fn test_vssra_vv() {
     let inst = make_v_arith(0b10_1011, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssraVv {
@@ -498,7 +497,7 @@ fn test_vssra_vv() {
 #[test]
 fn test_vssra_vx_masked() {
     let inst = make_v_arith(0b10_1011, false, 8, 10, OPIVX, 12);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssraVx {
@@ -514,7 +513,7 @@ fn test_vssra_vx_masked() {
 #[test]
 fn test_vssra_vi() {
     let inst = make_v_arith(0b10_1011, true, 4, 31, OPIVI, 8);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssraVi {
@@ -533,7 +532,7 @@ fn test_vssra_vi() {
 #[test]
 fn test_vnclipu_wv() {
     let inst = make_v_arith(0b10_1110, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VnclipuWv {
@@ -550,7 +549,7 @@ fn test_vnclipu_wv() {
 #[test]
 fn test_vnclipu_wx() {
     let inst = make_v_arith(0b10_1110, true, 2, 5, OPIVX, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VnclipuWx {
@@ -566,7 +565,7 @@ fn test_vnclipu_wx() {
 #[test]
 fn test_vnclipu_wi() {
     let inst = make_v_arith(0b10_1110, true, 2, 3, OPIVI, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VnclipuWi {
@@ -583,7 +582,7 @@ fn test_vnclipu_wi() {
 #[test]
 fn test_vnclip_wv() {
     let inst = make_v_arith(0b10_1111, true, 4, 5, OPIVV, 6);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VnclipWv {
@@ -600,7 +599,7 @@ fn test_vnclip_wv() {
 #[test]
 fn test_vnclip_wx_masked() {
     let inst = make_v_arith(0b10_1111, false, 4, 11, OPIVX, 6);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VnclipWx {
@@ -616,7 +615,7 @@ fn test_vnclip_wx_masked() {
 #[test]
 fn test_vnclip_wi() {
     let inst = make_v_arith(0b10_1111, true, 4, 0, OPIVI, 6);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VnclipWi {
@@ -637,7 +636,7 @@ fn test_wrong_opcode() {
     // Use OP (0b011_0011) instead of OP-V
     let funct7 = (0b10_0000 << 1u8) | 1;
     let inst = make_r_type(0b011_0011, 1, OPIVV, 3, 2, funct7);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -645,7 +644,7 @@ fn test_wrong_opcode() {
 fn test_unknown_funct6() {
     // funct6=0b11_1111 is not a fixed-point instruction
     let inst = make_v_arith(0b11_1111, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -653,7 +652,7 @@ fn test_unknown_funct6() {
 fn test_vsmul_vi_rejected() {
     // vsmul has no VI form
     let inst = make_v_arith(0b10_0111, true, 2, 3, OPIVI, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -661,14 +660,14 @@ fn test_vsmul_vi_rejected() {
 fn test_vsmul_opmvv_rejected() {
     // vsmul uses OPIVV/OPIVX, not OPMVV/OPMVX
     let inst = make_v_arith(0b10_0111, true, 2, 3, OPMVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_vsmul_opmvx_rejected() {
     let inst = make_v_arith(0b10_0111, true, 2, 5, OPMVX, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -677,63 +676,63 @@ fn test_vsmul_opmvx_rejected() {
 #[test]
 fn test_display_vsaddu_vv_unmasked() {
     let inst = make_v_arith(0b10_0000, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vsaddu.vv v1, v2, v3");
 }
 
 #[test]
 fn test_display_vsaddu_vv_masked() {
     let inst = make_v_arith(0b10_0000, false, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vsaddu.vv v1, v2, v3, v0.t");
 }
 
 #[test]
 fn test_display_vsadd_vx() {
     let inst = make_v_arith(0b10_0001, true, 8, 10, OPIVX, 12);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vsadd.vx v12, v8, a0");
 }
 
 #[test]
 fn test_display_vsaddu_vi_negative() {
     let inst = make_v_arith(0b10_0000, true, 2, 0b10000, OPIVI, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vsaddu.vi v1, v2, -16");
 }
 
 #[test]
 fn test_display_vaadd_vv() {
     let inst = make_v_arith(0b00_1001, true, 4, 5, OPMVV, 6);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vaadd.vv v6, v4, v5");
 }
 
 #[test]
 fn test_display_vsmul_vx_masked() {
     let inst = make_v_arith(0b10_0111, false, 8, 10, OPIVX, 12);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vsmul.vx v12, v8, a0, v0.t");
 }
 
 #[test]
 fn test_display_vssrl_vi() {
     let inst = make_v_arith(0b10_1010, true, 2, 7, OPIVI, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vssrl.vi v1, v2, 7");
 }
 
 #[test]
 fn test_display_vnclipu_wv() {
     let inst = make_v_arith(0b10_1110, true, 2, 3, OPIVV, 1);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vnclipu.wv v1, v2, v3");
 }
 
 #[test]
 fn test_display_vnclip_wx_masked() {
     let inst = make_v_arith(0b10_1111, false, 4, 11, OPIVX, 6);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).unwrap();
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vnclip.wx v6, v4, a1, v0.t");
 }
 
@@ -742,7 +741,7 @@ fn test_display_vnclip_wx_masked() {
 #[test]
 fn test_vsaddu_vv_high_regs() {
     let inst = make_v_arith(0b10_0000, true, 31, 30, OPIVV, 29);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VsadduVv {
@@ -760,7 +759,7 @@ fn test_vsaddu_vv_high_regs() {
 fn test_vssra_vi_max_shift() {
     // max 5-bit unsigned immediate = 31
     let inst = make_v_arith(0b10_1011, true, 16, 31, OPIVI, 0);
-    let decoded = ZveXxFixedPointInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
+    let decoded = ZveXxFixedPointInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxFixedPointInstruction::VssraVi {

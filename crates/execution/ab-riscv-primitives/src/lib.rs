@@ -109,6 +109,7 @@
     min_adt_const_params,
     macroless_generic_const_args,
     min_generic_const_args,
+    mut_restriction,
     stmt_expr_attributes,
     trusted_len,
     try_blocks

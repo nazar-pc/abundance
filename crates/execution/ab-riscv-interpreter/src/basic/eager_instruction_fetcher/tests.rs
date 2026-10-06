@@ -11,6 +11,7 @@ use crate::basic::BasicMemory;
 use crate::basic::eager_instruction_fetcher::{
     BasicEagerInstructionFetcher, BasicEagerInstructions,
 };
+use crate::rv64::test_utils::TestHart;
 use crate::{ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter};
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
@@ -22,7 +23,7 @@ const MEMORY_SIZE: usize = 4 * 1024;
 /// Address of the first instruction of [`code()`]
 const BASE_ADDR: u64 = MEMORY_BASE_ADDRESS;
 
-type I = Rv64Instruction<BasicHart<Reg<u64>>>;
+type I = Rv64Instruction<TestHart>;
 type Memory = BasicMemory<MEMORY_BASE_ADDRESS, MEMORY_SIZE>;
 
 /// `addi x0, x0, 0`, the canonical `nop`

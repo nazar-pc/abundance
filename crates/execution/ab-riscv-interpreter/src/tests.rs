@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use crate::basic::BasicMemory;
+use crate::rv64::test_utils::TestHart;
 use crate::*;
 use ab_riscv_primitives::privilege::PrivilegeLevel;
 use core::assert_matches;
@@ -93,8 +94,8 @@ where
 
 #[test]
 fn outcomes_round_trip_rv64() {
-    assert_all_outcomes_round_trip::<Rv64Instruction<BasicHart<Reg<u64>>>>(u64::MAX);
-    assert_all_outcomes_round_trip::<Rv64Instruction<BasicHart<Reg<u64>>>>(0);
+    assert_all_outcomes_round_trip::<Rv64Instruction<TestHart>>(u64::MAX);
+    assert_all_outcomes_round_trip::<Rv64Instruction<TestHart>>(0);
 }
 
 #[test]
@@ -108,8 +109,6 @@ fn opaque_outcome_fits_into_return_registers() {
     // Not a hard requirement of the type system, but the entire reason the opaque form exists: on
     // the platforms that return it in registers it must not be larger than what they return
     if cfg!(any(target_arch = "x86_64", target_arch = "aarch64")) {
-        assert!(
-            size_of::<OpaqueThreadedExecutionResult<Rv64Instruction<BasicHart<Reg<u64>>>>>() <= 32
-        );
+        assert!(size_of::<OpaqueThreadedExecutionResult<Rv64Instruction<TestHart>>>() <= 32);
     }
 }

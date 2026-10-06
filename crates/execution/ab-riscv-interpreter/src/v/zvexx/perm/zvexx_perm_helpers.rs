@@ -54,14 +54,13 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_slideup<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vm: bool,
     offset: u64,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -121,14 +120,13 @@ pub fn execute_slideup<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_slidedown<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vm: bool,
     offset: u64,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -194,14 +192,13 @@ pub fn execute_slidedown<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_slide1up<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vm: bool,
     scalar: u64,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -244,14 +241,13 @@ pub fn execute_slide1up<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_slide1down<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vm: bool,
     scalar: u64,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -284,14 +280,13 @@ pub fn execute_slide1down<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_rgather_vv<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    vs1: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    vs1: VRegGroup<Env::Hart>,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs1) = vs1.with_same_vl(vl) else {
@@ -321,14 +316,13 @@ pub fn execute_rgather_vv<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_rgather_scalar<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vm: bool,
     index: u64,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     // Pre-compute the gathered value; it's the same for all elements.
@@ -355,14 +349,13 @@ pub fn execute_rgather_scalar<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_rgatherei16<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    vs1: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    vs1: VRegGroup<Env::Hart>,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     execute_rgather_vv::<Reg, Env>(env, vd, vs2, vs1, vm);
 }
@@ -371,11 +364,10 @@ pub fn execute_rgatherei16<Reg, Env>(
 /// produces
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-fn gather_element<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    vs2: VRegGroup<VLEN>,
-    index: u64,
-) -> u64 {
+fn gather_element<Hart>(vregs: &VectorRegisterFile<Hart>, vs2: VRegGroup<Hart>, index: u64) -> u64
+where
+    Hart: VectorHartConfig,
+{
     u16::try_from(index)
         .ok()
         .and_then(|index| vregs.read_up_to_vlmax(vs2, index))
@@ -395,14 +387,13 @@ fn gather_element<const VLEN: Vlen>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_merge_vv<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    vs1: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    vs1: VRegGroup<Env::Hart>,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let (Some(vs2), Some(vs1)) = (vs2.with_same_vl(vl), vs1.with_same_vl(vl)) else {
@@ -438,14 +429,13 @@ pub fn execute_merge_vv<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_merge_scalar<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vm: bool,
     scalar: u64,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -482,13 +472,12 @@ pub fn execute_merge_scalar<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_compress<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vs1: VReg,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -529,11 +518,14 @@ pub fn execute_compress<Reg, Env>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn execute_whole_reg_move<const COUNT: usize, const VLEN: Vlen>(
-    vregs: &mut VectorRegisterFile<VLEN>,
+pub fn execute_whole_reg_move<const COUNT: usize, Hart>(
+    vregs: &mut VectorRegisterFile<Hart>,
     dst_base: VReg,
     src_base: VReg,
-) -> Option<()> {
+) -> Option<()>
+where
+    Hart: VectorHartConfig,
+{
     let registers = vregs.as_bytes_mut();
     // Snapshot all source registers before writing any destination registers.
     // This is correct for all overlap patterns without direction-dependent logic.

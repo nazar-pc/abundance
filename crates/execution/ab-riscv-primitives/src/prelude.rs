@@ -1,6 +1,6 @@
 //! Re-export of all public items from the crate
 
-pub use crate::hart::{BasicHart, HartConfig};
+pub use crate::hart::{BasicHart, BasicVectorHart, HartConfig, VectorHartConfig, VectorLengths};
 pub use crate::instructions::Instruction;
 pub use crate::instructions::rv32::Rv32Instruction;
 pub use crate::instructions::rv32::a::Rv32AInstruction;
@@ -68,8 +68,7 @@ pub use crate::instructions::v::zvexx::reduction::ZveXxReductionInstruction;
 pub use crate::instructions::v::zvexx::store::ZveXxStoreInstruction;
 pub use crate::instructions::v::zvexx::widen_narrow::ZveXxWidenNarrowInstruction;
 pub use crate::instructions::v::{
-    Eew, Elen, SUPPORTED_ELEN_VLEN, V, VRegGroupSize, Vl, Vlen, Vlmul, VsStatus, Vsew, VsewFactor,
-    Vstart, Vtype, Vxrm,
+    Eew, Elen, V, VRegGroupSize, Vl, Vlen, Vlmul, VsStatus, Vsew, VsewFactor, Vstart, Vtype, Vxrm,
 };
 pub use crate::instructions::zawrs::ZawrsInstruction;
 pub use crate::instructions::zicond::ZicondInstruction;

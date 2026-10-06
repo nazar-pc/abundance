@@ -14,8 +14,9 @@ pub(crate) const ABUNDANCE_RV64I_MAX_CONFIG: CoreConfig = CoreConfig {
 };
 
 /// All instructions supported by the interpreter for RV64I base ISA
-pub(crate) type AbundanceRv64IMaxInstruction =
-    AbundanceRv64IMaxInstructionPrototype<BasicHart<Reg<u64>>>;
+pub(crate) type AbundanceRv64IMaxInstruction = AbundanceRv64IMaxInstructionPrototype<
+    BasicVectorHart<Reg<u64>, { Elen::L64 }, { Vlen::L1024 }>,
+>;
 
 /// All instructions supported by the interpreter for RV64I base ISA
 #[instruction(
@@ -51,7 +52,7 @@ where
 #[instruction]
 const impl<Reg, Hart> Instruction for AbundanceRv64IMaxInstructionPrototype<Hart>
 where
-    Hart: [const] HartConfig<Reg = Reg>,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
@@ -72,7 +73,7 @@ where
 impl<Reg, Hart> fmt::Display for AbundanceRv64IMaxInstructionPrototype<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -96,7 +97,7 @@ impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, 
     for AbundanceRv64IMaxInstructionPrototype<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     fn execute(
         self,

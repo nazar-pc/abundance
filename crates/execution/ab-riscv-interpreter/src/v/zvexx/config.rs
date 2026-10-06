@@ -18,7 +18,7 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxConfigInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -26,7 +26,7 @@ where
 const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxConfigInstruction<Hart>
 where
     Reg: [const] Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
     Env: [const] Csrs<Reg>,
 {
     /// Validate reads to vector CSRs from Zicsr instructions.
@@ -119,10 +119,9 @@ const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Me
     for ZveXxConfigInstruction<Hart>
 where
     Reg: [const] Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
     Regs: [const] RegisterFile<Reg>,
-    Env: [const] VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: [const] VectorRegistersExt<Hart = Hart>,
     PC: [const] ProgramCounter<Reg::Type, Memory>,
 {
     #[inline(always)]

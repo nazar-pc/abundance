@@ -20,7 +20,7 @@ use ab_riscv_primitives::prelude::*;
 const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxReductionInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -28,7 +28,7 @@ where
 const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxReductionInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
@@ -37,10 +37,9 @@ impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, 
     for ZveXxReductionInstruction<Hart>
 where
     Reg: Register,
-    Hart: HartConfig<Reg = Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
     Regs: RegisterFile<Reg>,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart = Hart>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -370,7 +369,7 @@ where
                     });
                 };
                 let Some(widening_sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                    zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -420,7 +419,7 @@ where
                     });
                 };
                 let Some(widening_sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                    zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
