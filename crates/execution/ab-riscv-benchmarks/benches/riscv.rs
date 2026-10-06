@@ -6,11 +6,11 @@ use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
-    Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, LazyInstructionFetcher,
-    RISCV_CONTRACT_BYTES, UNDECODABLE_INSTRUCTION,
+    Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
+    UNDECODABLE_INSTRUCTION,
 };
 use ab_riscv_interpreter::basic::{
-    BasicEagerInstructions, BasicInterpreterState, BasicMemory,
+    BasicEagerInstructions, BasicInstructionFetcher, BasicInterpreterState, BasicMemory,
     IllegalEcallSystemInstructionHandler,
 };
 use ab_riscv_interpreter::prelude::*;
@@ -123,11 +123,11 @@ fn criterion_benchmark(c: &mut Criterion) {
         regs: ContractRegisters::<false>::default(),
         env: IllegalEcallSystemInstructionHandler,
         memory,
-        // SAFETY: Program counter is set later to the correct address, all instructions are valid
-        // and contract ends with a jump
-        instruction_fetcher: unsafe {
-            LazyInstructionFetcher::new(TRAP_ADDRESS, MEMORY_BASE_ADDRESS)
-        },
+        // Program counter is set later to the correct address
+        instruction_fetcher: BasicInstructionFetcher::<ContractInstruction>::new(
+            TRAP_ADDRESS,
+            MEMORY_BASE_ADDRESS,
+        ),
     };
 
     // SAFETY: `unimp` never continues to the next instruction and contract code is never modified

@@ -6,11 +6,11 @@ use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
-    Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, LazyInstructionFetcher,
-    RISCV_CONTRACT_BYTES, UNDECODABLE_INSTRUCTION,
+    Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
+    UNDECODABLE_INSTRUCTION,
 };
 use ab_riscv_interpreter::basic::{
-    BasicEagerInstructions, BasicInterpreterState, BasicMemory,
+    BasicEagerInstructions, BasicInstructionFetcher, BasicInterpreterState, BasicMemory,
     IllegalEcallSystemInstructionHandler,
 };
 use ab_riscv_interpreter::prelude::*;
@@ -94,8 +94,8 @@ where
     let pc = MEMORY_BASE_ADDRESS + u64::from(methods[method_name.as_bytes()]);
     let memory = match run_type {
         RunType::Lazy => {
-            // SAFETY: Program counter and code are trusted
-            let instruction_fetcher = unsafe { LazyInstructionFetcher::new(TRAP_ADDRESS, pc) };
+            let instruction_fetcher =
+                BasicInstructionFetcher::<ContractInstruction>::new(TRAP_ADDRESS, pc);
 
             let mut state = BasicInterpreterState {
                 regs,
@@ -290,7 +290,7 @@ fn ed25519_verify_invalid_eager() {
 }
 
 #[cfg_attr(
-    all(target_arch = "x86_64", not(target_feature = "avx")),
+    all(miri, target_arch = "x86_64", not(target_feature = "avx")),
     ignore = "AVX is not the default feature on x86-64"
 )]
 #[test]
@@ -311,7 +311,7 @@ fn blake3_hash_chunk_eager_threaded() {
 // TODO: Unlock if it becomes fast enough to run in CI
 #[cfg_attr(miri, ignore)]
 #[cfg_attr(
-    all(target_arch = "x86_64", not(target_feature = "avx")),
+    all(miri, target_arch = "x86_64", not(target_feature = "avx")),
     ignore = "AVX is not the default feature on x86-64"
 )]
 #[test]
@@ -337,7 +337,7 @@ fn ed25519_verify_valid_eager_threaded() {
 // TODO: Unlock if it becomes fast enough to run in CI
 #[cfg_attr(miri, ignore)]
 #[cfg_attr(
-    all(target_arch = "x86_64", not(target_feature = "avx")),
+    all(miri, target_arch = "x86_64", not(target_feature = "avx")),
     ignore = "AVX is not the default feature on x86-64"
 )]
 #[test]

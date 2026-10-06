@@ -31,10 +31,10 @@ ab-io-type = { workspace = true }
 
 [target.'cfg(not(target_env = "abundance"))'.dependencies]
 ab-contract-file = { workspace = true }
-ab-riscv-interpreter = { workspace = true, features = ["alloc"] }
-ab-riscv-primitives = { workspace = true }
 
 [dev-dependencies]
+ab-riscv-interpreter = { workspace = true, features = ["alloc"] }
+ab-riscv-primitives = { workspace = true }
 ed25519-dalek = { workspace = true }
 criterion = { workspace = true }
 

@@ -2,11 +2,7 @@ use ab_blake3::{CHUNK_LEN, OUT_LEN};
 use ab_contract_file::instruction::{ContractInstruction, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::bool::Bool;
-use ab_riscv_interpreter::prelude::*;
-use ab_riscv_primitives::prelude::*;
-use core::hint::cold_path;
 use core::mem::offset_of;
-use core::ops::ControlFlow;
 
 /// Contract file bytes
 pub const RISCV_CONTRACT_BYTES: &[u8] = cfg_select! {
@@ -129,160 +125,14 @@ impl Ed25519VerifyInternalArgs {
     }
 }
 
-/// Instruction stored by [`BasicEagerInstructions::decode()`] in slots whose bytes do not decode
+/// Instruction stored by `BasicEagerInstructions::decode()` in slots whose bytes do not decode
 /// into a valid instruction and after the last one.
 ///
 /// Contract code is only expected to contain legal instructions, so this is only reachable by
 /// jumping into the middle of one or by falling through the end of the code. `unimp` always fails,
-/// so it never continues to the next instruction, as [`BasicEagerInstructions::decode()`]
+/// so it never continues to the next instruction, as `BasicEagerInstructions::decode()`
 /// requires.
-///
-/// [`BasicEagerInstructions::decode()`]: ab_riscv_interpreter::basic::BasicEagerInstructions::decode
 pub const UNDECODABLE_INSTRUCTION: ContractInstruction = ContractInstruction::Unimp {
     rs1: ContractRegister::Zero,
     rs2: ContractRegister::Zero,
 };
-
-/// Lazy instruction fetcher implementation
-#[derive(Debug, Copy, Clone)]
-pub struct LazyInstructionFetcher {
-    return_trap_address: u64,
-    pc: u64,
-}
-
-impl<Memory> ProgramCounter<u64, Memory> for LazyInstructionFetcher
-where
-    Memory: VirtualMemory,
-{
-    #[inline(always)]
-    fn get_pc(&self) -> u64 {
-        self.pc
-    }
-
-    #[inline(always)]
-    unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool {
-        let old_pc = <Self as ProgramCounter<_, Memory>>::old_pc(self, instruction_size);
-        let pc = old_pc.wrapping_add_signed(i64::from(offset));
-        // Stored either way: on the way out it is what `failed_branch()` reports on, and until then
-        // nothing else is allowed to look at it
-        self.pc = pc;
-
-        pc != self.return_trap_address
-            && pc.is_multiple_of(u64::from(
-                ContractInstruction::<BasicHart<ContractRegister>>::ALIGNMENT,
-            ))
-    }
-
-    #[cold]
-    #[inline(never)]
-    unsafe fn failed_branch(
-        &mut self,
-        memory: &Memory,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
-        // The program counter holds the refused target, and `set_pc()` is what says what is wrong
-        // with it
-        self.set_pc(memory, self.pc)
-    }
-
-    #[inline]
-    fn set_pc(&mut self, memory: &Memory, pc: u64) -> Result<ControlFlow<()>, ExecutionError<u64>> {
-        if pc == self.return_trap_address {
-            cold_path();
-            return Ok(ControlFlow::Break(()));
-        }
-
-        if !pc.is_multiple_of(u64::from(
-            ContractInstruction::<BasicHart<ContractRegister>>::ALIGNMENT,
-        )) {
-            cold_path();
-            return Err(ExecutionError::UnalignedInstruction {
-                address: PackedAddress::new(pc),
-            });
-        }
-
-        // Note: This will not allow reading a 16-bit instruction at the very end of memory range,
-        // but that is going to be the case here anyway since code is followed by read-write memory
-        // anyway
-        if let Err(error) = memory.read::<u32>(pc) {
-            cold_path();
-            return Err(error.into());
-        }
-
-        self.pc = pc;
-
-        Ok(ControlFlow::Continue(()))
-    }
-}
-
-impl<Memory> InstructionFetcher<ContractInstruction, Memory> for LazyInstructionFetcher
-where
-    Memory: VirtualMemory,
-{
-    type Peeked = ContractInstruction;
-
-    #[inline(always)]
-    fn peeked_instruction<'a>(
-        &'a self,
-        peeked: &'a ContractInstruction,
-    ) -> &'a ContractInstruction {
-        peeked
-    }
-
-    #[inline]
-    fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<ContractInstruction> {
-        // SAFETY: Constructor guarantees that the last instruction is a jump, which means going
-        // through `Self::set_pc()` method does the necessary bounds check, so the program counter
-        // always sits on an instruction.
-        let instruction = unsafe { memory.read_unchecked(self.pc) };
-        // SAFETY: All instructions are valid, according to the constructor contract
-        let instruction =
-            unsafe { ContractInstruction::try_decode(instruction).unwrap_unchecked() };
-
-        FetchInstructionResult::Instruction(instruction)
-    }
-
-    #[inline]
-    unsafe fn advance(&mut self, instruction_size: u8) {
-        self.pc = self.pc.wrapping_add(u64::from(instruction_size));
-    }
-
-    #[inline]
-    fn fetch_instruction(
-        &mut self,
-        memory: &Memory,
-    ) -> FetchInstructionResult<ContractInstruction> {
-        let result =
-            InstructionFetcher::<ContractInstruction, Memory>::peek_instruction(self, memory);
-
-        if let FetchInstructionResult::Instruction(instruction) = result {
-            // SAFETY: The instruction was just peeked successfully, and this is the only place that
-            // moves past it
-            unsafe {
-                InstructionFetcher::<ContractInstruction, Memory>::advance(
-                    self,
-                    instruction.size(),
-                );
-            }
-        }
-
-        result
-    }
-}
-
-impl LazyInstructionFetcher {
-    /// Create a new instance.
-    ///
-    /// `return_trap_address` is the address at which the interpreter will stop execution
-    /// (gracefully).
-    ///
-    /// # Safety
-    /// The program counter must be valid and aligned, the instructions processed must be valid and
-    /// end with a jump instruction.
-    #[inline(always)]
-    pub unsafe fn new(return_trap_address: u64, pc: u64) -> Self {
-        Self {
-            return_trap_address,
-            pc,
-        }
-    }
-}
