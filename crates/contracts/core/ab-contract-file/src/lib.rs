@@ -12,10 +12,11 @@
 //! * code section: contains only valid/supported RISC-V instructions or 16-bit zero padding, always
 //!   ending with some kind of jump instruction
 //!
-//! This file is created from an ELF source file and can, technically, be converted back to it. Note
-//! that due to the intentional lack of the `.bss` section equivalent and many other features, only
-//! simple RISC-V ELF shared library files can be converted into the contract file. Supporting more
-//! complex capabilities would be much more complex and error-prone.
+//! This file is created from an ELF source file and can be converted back to it, though only the
+//! details stored in the contract file are preserved. Note that due to the intentional lack of the
+//! `.bss` section equivalent and many other features, only simple RISC-V ELF shared library files
+//! can be converted into the contract file. Supporting more complex capabilities would be much more
+//! complex and error-prone.
 //!
 //! ELF file is expected to have at most a single export for host calls, whose address is stored in
 //! the header and jumps to that address are intercepted by the runtime.
@@ -24,8 +25,8 @@
 //! be trivially loaded into a normal RISC-V process for debugging purposes using traditional tools
 //! like gdb.
 //!
-//! `ab-contracts-tooling` crate exists that can build and convert contracts to this format both
-//! programmatically and using CLI interface.
+//! `ab-contracts-tooling` crate exists that can build and convert contracts to this format and back
+//! both programmatically and using CLI interface.
 
 #![expect(incomplete_features, reason = "explicit_tail_calls")]
 #![feature(
@@ -111,6 +112,8 @@ pub struct ContractFileMethodMetadata {
 pub struct ContractFileMethod<'a> {
     /// Address of the method in the contract memory
     pub address: u32,
+    /// Size of the method code in bytes
+    pub size: u32,
     /// Method metadata item
     pub method_metadata_item: MethodMetadataItem<'a>,
     /// Method metadata bytes.
@@ -227,6 +230,17 @@ pub enum ContractFileParseError {
         /// Size of the read-only section in bytes as will be written to memory during execution
         memory_size: u32,
     },
+    /// Contract memory size doesn't fit into `u32`
+    #[error(
+        "Contract memory size doesn't fit into `u32`: read_only_section_memory_size \
+        {read_only_section_memory_size}, code_size {code_size}"
+    )]
+    ContractMemoryTooLarge {
+        /// Size of the read-only section in bytes as will be written to memory during execution
+        read_only_section_memory_size: u32,
+        /// Size of the code section in bytes
+        code_size: u32,
+    },
     /// There are not enough methods in the header to match the number of methods in the actual
     /// metadata
     #[error(
@@ -298,9 +312,10 @@ impl<'a> ContractFile<'a> {
     /// Parse file bytes and verify that internal invariants are valid.
     ///
     /// `contract_method` argument is an optional callback called for each method in the contract
-    /// file with its method address in the contract memory, metadata item, and corresponding
-    /// metadata bytes. This can be used to collect available methods during parsing and avoid extra
-    /// iteration later using [`Self::iterate_methods()`] to compute [`MethodFingerprint`], etc.
+    /// file with its method address in the contract memory, method size, metadata item, and
+    /// corresponding metadata bytes. This can be used to collect available methods during parsing
+    /// and avoid extra iteration later using [`Self::iterate_methods()`] to compute
+    /// [`MethodFingerprint`], etc.
     ///
     /// [`MethodFingerprint`]: ab_contracts_common::method::MethodFingerprint
     pub fn parse<CM>(
@@ -353,6 +368,29 @@ impl<'a> ContractFile<'a> {
         let code_section_offset =
             read_only_section_offset.saturating_add(header.read_only_section_file_size);
 
+        let Some(code_size) = file_size
+            .checked_sub(code_section_offset)
+            .filter(|&code_size| code_size > 0)
+        else {
+            return Err(ContractFileParseError::FileTooSmall {
+                num_methods: header.num_methods,
+                read_only_section_size: header.read_only_section_file_size,
+                file_size,
+            });
+        };
+
+        // Addresses within contract memory are calculated as `u32` below
+        if header
+            .read_only_section_memory_size
+            .checked_add(code_size)
+            .is_none()
+        {
+            return Err(ContractFileParseError::ContractMemoryTooLarge {
+                read_only_section_memory_size: header.read_only_section_memory_size,
+                code_size,
+            });
+        }
+
         {
             let mut contract_file_methods_metadata_iter = {
                 let mut file_contract_metadata_bytes = after_header_bytes;
@@ -372,8 +410,10 @@ impl<'a> ContractFile<'a> {
                         )
                     };
 
-                    if (contract_file_method_metadata.offset + contract_file_method_metadata.size)
-                        > file_size
+                    if contract_file_method_metadata
+                        .offset
+                        .checked_add(contract_file_method_metadata.size)
+                        .is_none_or(|method_end| method_end > file_size)
                     {
                         return Err(ContractFileParseError::FileTooSmall {
                             num_methods: header.num_methods,
@@ -444,6 +484,7 @@ impl<'a> ContractFile<'a> {
 
                     contract_method(ContractFileMethod {
                         address,
+                        size: contract_file_method_metadata.size,
                         method_metadata_item,
                         method_metadata_bytes,
                     })?;
@@ -456,14 +497,6 @@ impl<'a> ContractFile<'a> {
                     metadata_num_methods,
                 });
             }
-        }
-
-        if code_section_offset >= file_size {
-            return Err(ContractFileParseError::FileTooSmall {
-                num_methods: header.num_methods,
-                read_only_section_size: header.read_only_section_file_size,
-                file_size,
-            });
         }
 
         if header.host_call_fn_offset != 0 {
@@ -811,6 +844,8 @@ impl<'a> ContractFile<'a> {
             }
         });
 
+        let read_only_section_offset = ContractFileHeader::SIZE
+            + u32::from(self.num_methods) * ContractFileMethodMetadata::SIZE;
         let read_only_padding_size =
             self.read_only_section_memory_size - self.read_only_section_file_size;
         // SAFETY: Protected internal invariant checked in constructor
@@ -838,7 +873,9 @@ impl<'a> ContractFile<'a> {
                 .expect("Protected internal invariant checked in constructor; qed");
 
             ContractFileMethod {
-                address: contract_file_method_metadata.offset + read_only_padding_size,
+                address: contract_file_method_metadata.offset - read_only_section_offset
+                    + read_only_padding_size,
+                size: contract_file_method_metadata.size,
                 method_metadata_item,
                 method_metadata_bytes,
             }

@@ -4,9 +4,9 @@ pub mod zaamo;
 pub mod zalrsc;
 
 use crate::hart::HartConfig;
-use crate::instructions::Instruction;
 use crate::instructions::rv32::a::zaamo::Rv32ZaamoInstruction;
 use crate::instructions::rv32::a::zalrsc::Rv32ZalrscInstruction;
+use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -27,6 +27,8 @@ where
     Reg: [const] Register<Type = u32>,
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[IsaExtension::new("a", 2, 1)];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;

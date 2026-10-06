@@ -306,6 +306,7 @@ dependencies = [
  "ab-contract-file",
  "ab-contracts-common",
  "ab-io-type",
+ "ab-riscv-primitives",
  "anyhow",
  "cargo_metadata 0.23.1",
  "dirs",
@@ -827,6 +828,7 @@ name = "ab-riscv-primitives"
 version = "0.3.0"
 dependencies = [
  "ab-riscv-macros",
+ "const_format",
  "no-panic-const",
 ]
 
@@ -1928,6 +1930,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ca28b0ae3115b884660db4118d803791fd6756b6e88f39c0f3f7859060d7566"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "crc32fast"
+version = "1.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01a7799fd6b852db0e61728dde9a204c423b44d689dbd432522543614b490e78"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]
@@ -4488,6 +4499,9 @@ version = "0.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd229a0361b9d0d4396176e02d65897f487eebeab7caa6d443855ee152ca0b9c"
 dependencies = [
+ "crc32fast",
+ "hashbrown 0.17.1",
+ "indexmap",
  "memchr",
 ]
 

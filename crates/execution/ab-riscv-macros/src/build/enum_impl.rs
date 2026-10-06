@@ -559,9 +559,9 @@ pub(super) fn process_enum_decoding_impl(
     item_impl.items.insert(
         0,
         parse_quote! {
-            const IMPLEMENTED_EXTENSIONS: &'static [::core::any::TypeId] = &[
-                ::core::any::TypeId::of::<Self>(),
-                #( ::core::any::TypeId::of::<#implemented_extensions<Hart>>(), )*
+            const IMPLEMENTED_EXTENSIONS: &'static [ImplementedExtension] = &[
+                ImplementedExtension::new::<Self>(),
+                #( ImplementedExtension::new::<#implemented_extensions<Hart>>(), )*
             ];
         },
     );

@@ -4,7 +4,6 @@
 mod tests;
 
 use crate::hart::{HartConfig, VectorHartConfig};
-use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::ZveXxInstruction;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
 use crate::instructions::v::zvexx::carry::ZveXxCarryInstruction;
@@ -19,6 +18,7 @@ use crate::instructions::v::zvexx::store::ZveXxStoreInstruction;
 use crate::instructions::v::zvexx::widen_narrow::ZveXxWidenNarrowInstruction;
 use crate::instructions::v::{Eew, V};
 use crate::instructions::zicsr::ZicsrInstruction;
+use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
@@ -95,6 +95,8 @@ where
     Reg: [const] Register,
     Hart: [const] VectorHartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[IsaExtension::new("zvkb", 1, 0)];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;

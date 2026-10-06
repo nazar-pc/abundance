@@ -1,7 +1,6 @@
 //! Re-export of all public items from the crate
 
 pub use crate::hart::{BasicHart, BasicVectorHart, HartConfig, VectorHartConfig, VectorLengths};
-pub use crate::instructions::Instruction;
 pub use crate::instructions::rv32::Rv32Instruction;
 pub use crate::instructions::rv32::a::Rv32AInstruction;
 pub use crate::instructions::rv32::a::zaamo::Rv32ZaamoInstruction;
@@ -78,6 +77,7 @@ pub use crate::instructions::zkr::{SEED_CSR_INDEX, ZkrInstruction};
 pub use crate::instructions::zvbb::ZvbbInstruction;
 pub use crate::instructions::zvbb::zvkb::ZvkbInstruction;
 pub use crate::instructions::zvbc::ZvbcInstruction;
+pub use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 pub use crate::privilege::*;
 pub use crate::registers::general_purpose::*;
 pub use crate::registers::machine::*;
