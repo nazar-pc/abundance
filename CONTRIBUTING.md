@@ -105,6 +105,10 @@ and prefer obvious code to clever code.
 * Leave a `TODO` explaining what is missing when code is incomplete or a known issue is not handled, and create an issue
   for big things. When a workaround is needed because of an upstream bug or a missing feature, report it upstream and
   link that issue in a `TODO`.
+  ```rust
+  // TODO: Make it `final` once supported:
+  //  https://internals.rust-lang.org/t/final-associated-constants/24655
+  ```
 
 ### Lints
 
@@ -135,6 +139,14 @@ enforces those instead.
   users see it, and each file compiles into a separate binary, which helps concurrency testing in CI and under Miri.
 * A struct definition and its implementation belong in the same file, ideally with nothing in between. Trait impls come
   first, inherent impls after that.
+* Items are defined before they are used: constants first, then data structures with their impls, then code that uses
+  them, including traits whose associated items refer to new data structures. Inside traits and impls, associated
+  constants come first, then associated types, then methods.
+* Generic parameters are ordered by dependency: `<Reg, Hart>` rather than `<Hart, Reg>` when `Hart` is bound by
+  `HartConfig<Reg = Reg>`, and `where` clauses and associated types follow the same order.
+* Don't introduce type aliases that only rename a type used in a few places, the reader then has to look up what it is.
+  Aliases that shorten long generic types repeated many times, which is common in tests, are fine.
+* Use explicit generics over `impl Trait` in argument position.
 * Prefer longer variable names, 1-3 character names are usually a bad choice. Exceptions like `id` in an entity or `i`
   in a simple loop are fine, though iterator chains often express the same thing without an explicit index.
 * Take advantage of type inference to remove noise, but keep the code readable without an IDE displaying inferred types.
@@ -142,9 +154,12 @@ enforces those instead.
   same meaning, better formatting, and the type stays where it is created.
 * A comment that is a single sentence has no `.` at the end, a comment with several sentences has one after each of
   them.
+* Comments are written on separate lines before the lines they comment on.
 * Dependencies in `Cargo.toml` are kept sorted, adding one out of order introduces entropy and irritates maintainers.
 * Every file ends with exactly one newline, and no line ends with whitespace, in code, Markdown, configs, and everything
   else. Configure your editor to do it automatically.
+* Do not optimize things that compiler already does for you (replacing power-of-two divisions/multiplications with
+  shifts, etc.), use compiler hints if necessary (`assert_unchecked()`) to guide the compiler.
 
 ### Types and APIs
 
@@ -152,6 +167,12 @@ enforces those instead.
   needed.
 * Primitives are wrapped in newtypes, so a block number can't be passed where a shard index is expected, with arithmetic
   and conversions implemented deliberately rather than inherited from the underlying type.
+* Configuration known at compile time is checked at compile time: with a trait bound where possible, with a `const`
+  assertion otherwise, rather than with a `Result` or `Option` that every caller has to handle at runtime.
+* Fallible constructors return `Option` or `Result` instead of asserting internally, the caller then decides whether it
+  is an error or an `.expect()` with a proof. In a constant, the latter turns into a compilation error.
+* Fields that can be read freely, but must only be set by the type itself to uphold its invariants, are
+  `pub mut(self)` rather than private with getter methods.
 * Library crates define precise error types with `thiserror`, typically one enum per fallible operation, linked from
   documentation. `anyhow` is only for binaries:
   ```rust
@@ -222,6 +243,10 @@ More specifically:
   that for review with the rationale, and rebasing the feature branch on top of it.
 * Keep the number of commits reasonable: 70 commits for 100 lines of changes is bad, and so is one commit changing
   thousands of lines all over the place.
+* Every commit must compile and pass tests on its own, check that after folding changes into earlier commits, not just
+  the final state.
+* Crates with a `CHANGELOG.md` get an entry for user-visible changes in the upcoming version. It describes the net
+  effect compared to the last release, not intermediate steps made during development of the upcoming one.
 * For automated changes like a mass rename or a formatting pass, put the command in the commit message, so the reviewer
   can run it and check that it produces the same diff.
 * Push regularly, but not necessarily every commit, since it may occupy CI time.
