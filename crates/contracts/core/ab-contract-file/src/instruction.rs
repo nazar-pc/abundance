@@ -230,6 +230,8 @@ const impl<Reg, Hart> Instruction for ContractInstruction<Hart>
 where
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;

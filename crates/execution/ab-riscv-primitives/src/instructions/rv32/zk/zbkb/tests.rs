@@ -1,10 +1,10 @@
 #![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
 
 use crate::hart::{BasicHart, HartConfig};
-use crate::instructions::Instruction;
 use crate::instructions::rv32::b::zbb::{Rv32ZbbInstruction, Rv32ZbbZbkbSharedInstruction};
 use crate::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
 use crate::instructions::test_utils::{make_i_type, make_r_type};
+use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::{Reg, Register};
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -22,6 +22,8 @@ where
     Reg: [const] Register<Type = u32>,
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;
@@ -61,6 +63,8 @@ where
     Reg: [const] Register<Type = u32>,
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;
@@ -103,6 +107,8 @@ where
     Reg: [const] Register<Type = u32>,
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;

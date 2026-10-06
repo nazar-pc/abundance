@@ -4,8 +4,8 @@
 mod tests;
 
 use crate::hart::{HartConfig, VectorHartConfig};
-use crate::instructions::Instruction;
 use crate::instructions::v::{Eew, V, VRegGroupSize};
+use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
@@ -219,6 +219,8 @@ where
     Reg: [const] Register,
     Hart: [const] VectorHartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;

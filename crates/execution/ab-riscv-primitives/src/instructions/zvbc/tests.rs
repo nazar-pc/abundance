@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use crate::instructions::Instruction;
-use crate::instructions::test_utils::{TestVectorHart, TestZve32Hart, make_r_type};
+use crate::instructions::test_utils::{TestVectorHart, make_r_type};
 use crate::instructions::zvbc::ZvbcInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
@@ -513,20 +513,5 @@ fn masked_v0_destination_is_reserved() {
             ZvbcInstruction::<TestVectorHart>::try_decode(instruction).is_some(),
             "{name}"
         );
-    }
-}
-
-// All instructions require `SEW = 64`, so they don't exist with `ELEN = 32`
-#[test]
-fn not_decoded_with_elen_32() {
-    for (funct6, funct3) in [
-        (0b00_1100, OPMVV),
-        (0b00_1100, OPMVX),
-        (0b00_1101, OPMVV),
-        (0b00_1101, OPMVX),
-    ] {
-        let inst = make_vop(funct6, 1, 2, 3, funct3, 1);
-        assert!(ZvbcInstruction::<TestVectorHart>::try_decode(inst).is_some());
-        assert_eq!(ZvbcInstruction::<TestZve32Hart>::try_decode(inst), None);
     }
 }

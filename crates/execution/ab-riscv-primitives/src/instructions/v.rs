@@ -5,9 +5,8 @@ mod tests;
 pub mod zvexx;
 
 use crate::hart::{HartConfig, VectorHartConfig};
-use crate::instructions::Instruction;
+use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::{RegType, Register};
-use core::any::TypeId;
 use core::hint::{assert_unchecked, cold_path};
 use core::marker::{ConstParamTy, PhantomData};
 use core::ops::RangeInclusive;
@@ -1080,7 +1079,9 @@ where
     Reg: [const] Register,
     Hart: [const] VectorHartConfig<Reg = Reg>,
 {
-    const IMPLEMENTED_EXTENSIONS: &'static [TypeId] = &[];
+    const IMPLEMENTED_EXTENSIONS: &'static [ImplementedExtension] = &[];
+
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
 
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 

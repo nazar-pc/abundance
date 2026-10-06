@@ -4,8 +4,8 @@
 mod tests;
 
 use crate::hart::HartConfig;
-use crate::instructions::Instruction;
 use crate::instructions::rv64::a::zaamo::Rv64ZaamoInstruction;
+use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -34,6 +34,8 @@ where
     Reg: [const] Register<Type = u64>,
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[IsaExtension::new("zacas", 1, 0)];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;

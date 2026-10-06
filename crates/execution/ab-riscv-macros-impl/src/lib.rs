@@ -141,6 +141,11 @@ use proc_macro::TokenStream;
 /// replaced with `None?`. This also allows decoding to construct variants of other enums when they
 /// are present, like Zbkb decoding `packw rd, rs1, x0` as Zbb's `zext.h`.
 ///
+/// The macro also generates `IMPLEMENTED_EXTENSIONS` constant (see
+/// `Instruction::IMPLEMENTED_EXTENSIONS`), while `OWN_ISA_EXTENSIONS` with ISA extensions of the
+/// enum itself must be specified explicitly, like `Ok(&[IsaExtension::new("m", 2, 0)])` for `M`.
+/// `ImplementedExtension` must be in scope for this to work.
+///
 /// # Enum display implementation
 ///
 /// For enum display implementation, the macro is applied to the implementation of

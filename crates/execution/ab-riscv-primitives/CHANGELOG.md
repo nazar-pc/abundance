@@ -14,12 +14,15 @@ Breaking changes:
 * `RVE` constant moved from `ZcmpRegister` to `Register`
 * `Instruction::IMPLEMENTED_EXTENSIONS` includes extensions with some of their instructions ignored or missing due to
   conditions
+* `Instruction::IMPLEMENTED_EXTENSIONS` contains `ImplementedExtension` instead of `TypeId`, instruction enums must
+  specify their ISA extensions in `Instruction::OWN_ISA_EXTENSIONS`
 
 New features:
 
 * `Vtype::vlmax()` and `Vtype::eew_register_count()`
-* Vector loads and stores with `EEW > ELEN`, `vzext.vf8`/`vsext.vf8` and Zvbc instructions with `ELEN < 64` are
-  rejected during decoding
+* `Instruction::ISA_STRING` with ISA string of an instruction set (as used in `Tag_RISCV_arch` attribute of ELF files)
+* Vector loads and stores with `EEW > ELEN` and `vzext.vf8`/`vsext.vf8` with `ELEN < 64` are rejected during decoding,
+  Zvbc with `ELEN < 64` and Zve* with `ELEN > 64` don't compile
 
 Fixes:
 

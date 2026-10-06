@@ -6,6 +6,7 @@ Breaking changes:
   method
 * Execution changes mirror API changes in `ab-riscv-interpreter`
 * Instruction enums must be generic over `Hart: HartConfig` instead of `Reg`
+* Generated `IMPLEMENTED_EXTENSIONS` contains `ImplementedExtension` instead of `TypeId`, which must be in scope
 * Enums in `if` conditions are satisfied when implemented (see `Instruction::IMPLEMENTED_EXTENSIONS`) rather than when
   all of their instructions are present
 

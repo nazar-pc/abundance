@@ -5,7 +5,6 @@ pub mod zkne;
 pub mod zknh;
 
 use crate::hart::HartConfig;
-use crate::instructions::Instruction;
 use crate::instructions::rv32::b::zbb::Rv32ZbbZbkbSharedInstruction;
 use crate::instructions::rv32::zk::zbkb::Rv32ZbkbInstruction;
 use crate::instructions::rv32::zk::zbkc::Rv32ZbkcInstruction;
@@ -13,6 +12,7 @@ use crate::instructions::rv32::zk::zbkx::Rv32ZbkxInstruction;
 use crate::instructions::rv32::zk::zkn::zknd::{Rv32AesBs, Rv32ZkndInstruction};
 use crate::instructions::rv32::zk::zkn::zkne::Rv32ZkneInstruction;
 use crate::instructions::rv32::zk::zkn::zknh::Rv32ZknhInstruction;
+use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -40,6 +40,8 @@ where
     Reg: [const] Register<Type = u32>,
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[IsaExtension::new("zkn", 1, 0)];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;

@@ -23,6 +23,7 @@ all-features = false
 
 [dependencies]
 ab-riscv-macros = { workspace = true, features = ["proc-macro"] }
+const_format = { workspace = true, features = ["fmt"] }
 no-panic-const = { workspace = true, optional = true }
 
 [build-dependencies]

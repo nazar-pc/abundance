@@ -6,10 +6,10 @@ pub mod zbc;
 pub mod zbs;
 
 use crate::hart::HartConfig;
-use crate::instructions::Instruction;
 use crate::instructions::rv32::b::zba::Rv32ZbaInstruction;
 use crate::instructions::rv32::b::zbb::{Rv32ZbbInstruction, Rv32ZbbZbkbSharedInstruction};
 use crate::instructions::rv32::b::zbs::Rv32ZbsInstruction;
+use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -30,6 +30,8 @@ where
     Reg: [const] Register<Type = u32>,
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[IsaExtension::new("b", 1, 0)];
+
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;

@@ -4,9 +4,9 @@
 mod tests;
 
 use crate::hart::HartConfig;
-use crate::instructions::Instruction;
 use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
 use crate::instructions::utils::I24;
+use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::{EReg, Reg, Register};
 use ab_riscv_macros::instruction;
 use core::fmt;
@@ -312,6 +312,8 @@ where
     Reg: [const] Register<Type = u32>,
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[IsaExtension::new("zcmp", 1, 0)];
+
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
     type Hart = Hart;
@@ -388,6 +390,8 @@ where
     Reg: [const] ZcmpRegister<Type = u32>,
     Hart: [const] HartConfig<Reg = Reg>,
 {
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
     const ALIGNMENT: u8 = align_of::<u16>() as u8;
 
     type Hart = Hart;

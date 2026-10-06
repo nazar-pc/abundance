@@ -827,6 +827,7 @@ name = "ab-riscv-primitives"
 version = "0.3.0"
 dependencies = [
  "ab-riscv-macros",
+ "const_format",
  "no-panic-const",
 ]
 
