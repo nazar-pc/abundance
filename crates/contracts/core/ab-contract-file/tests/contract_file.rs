@@ -8,11 +8,14 @@ use ab_contracts_common::metadata::ContractMetadataKind;
 use ab_io_type::trivial_type::TrivialType;
 use std::assert_matches;
 use std::io::BorrowedBuf;
+use std::mem::offset_of;
 
 /// `c.li a0, 0`
 const LI_A0_0: [u8; 2] = 0x4501_u16.to_le_bytes();
 /// `c.jr ra`
 const RET: [u8; 2] = 0x8082_u16.to_le_bytes();
+/// The first half of `jal zero, 0`
+const JAL_ZERO_0_FIRST_HALF: [u8; 2] = 0x006f_u16.to_le_bytes();
 
 /// Trait metadata with stateless view methods without arguments
 fn trait_metadata(trait_name: &str, method_names: &[&str]) -> Vec<u8> {
@@ -186,6 +189,50 @@ fn method_at_end_of_code() {
             code_section_offset: _,
             file_size: _
         }) if offset == file_size
+    );
+}
+
+#[test]
+fn truncated_last_instruction() {
+    let metadata = trait_metadata("Test", &["first"]);
+    let read_only_padding = u32::try_from(metadata.len() % 2).unwrap();
+    // The last two bytes are the first half of `jal zero, 0`, which only decodes when padded with
+    // zeroes that are not in the file
+    let file = contract_file(
+        &[],
+        &metadata,
+        read_only_padding,
+        &[[LI_A0_0, JAL_ZERO_0_FIRST_HALF].concat()],
+    );
+
+    assert_matches!(
+        ContractFile::parse(&file, |_| Ok(())),
+        Err(ContractFileParseError::UnexpectedTrailingCodeBytes { num_bytes: 2 })
+    );
+}
+
+#[test]
+fn truncated_host_call_fn() {
+    let metadata = trait_metadata("Test", &["first"]);
+    let read_only_padding = u32::try_from(metadata.len() % 2).unwrap();
+    let mut file = contract_file(
+        &[],
+        &metadata,
+        read_only_padding,
+        &[[RET, JAL_ZERO_0_FIRST_HALF].concat()],
+    );
+    // Host call function is the first half of `jal zero, 0` in the last two bytes of the file
+    let host_call_fn_offset = u32::try_from(file.len() - JAL_ZERO_0_FIRST_HALF.len()).unwrap();
+    file[offset_of!(ContractFileHeader, host_call_fn_offset)..][..size_of::<u32>()]
+        .copy_from_slice(&host_call_fn_offset.to_le_bytes());
+
+    assert_matches!(
+        ContractFile::parse(&file, |_| Ok(())),
+        Err(ContractFileParseError::HostCallFnOutOfRange {
+            offset,
+            code_section_offset: _,
+            file_size: _
+        }) if offset == host_call_fn_offset
     );
 }
 

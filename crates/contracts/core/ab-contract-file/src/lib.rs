@@ -544,6 +544,16 @@ impl<'a> ContractFile<'a> {
             let instruction = ContractInstruction::try_decode(instruction)
                 .ok_or(ContractFileParseError::InvalidInstruction { instruction })?;
 
+            // A 32-bit instruction in the last two bytes of the file was decoded with zero-padding
+            // that isn't present in the file
+            if usize::from(instruction.size()) > instruction_bytes.len() {
+                return Err(ContractFileParseError::HostCallFnOutOfRange {
+                    offset: header.host_call_fn_offset,
+                    code_section_offset,
+                    file_size,
+                });
+            }
+
             // The instruction is an unconditional relative jump:
             //   jal x0, offset
             #[expect(
@@ -598,6 +608,14 @@ impl<'a> ContractFile<'a> {
                         instruction: instruction_word,
                     },
                 )?;
+
+                // A 32-bit instruction in the last two bytes of the file was decoded with
+                // zero-padding that isn't present in the file
+                if usize::from(instruction.size()) > remaining.len() {
+                    return Err(ContractFileParseError::UnexpectedTrailingCodeBytes {
+                        num_bytes: remaining.len(),
+                    });
+                }
 
                 offset += usize::from(instruction.size());
             }
