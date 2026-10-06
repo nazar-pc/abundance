@@ -57,12 +57,18 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZkrInstruction<Reg> where Reg: [const] Register {}
-
-#[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZkrInstruction<Reg>
+const impl<Reg, Hart> ExecutableInstructionOperands for ZkrInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZkrInstruction<Hart>
+where
+    Reg: [const] Register,
+    Hart: HartConfig<Reg = Reg>,
     Env: [const] ZkrSeedSource,
 {
     /// Reads of `seed` are pass-through: the raw stored value already reflects the outcome of the
@@ -115,10 +121,11 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZkrInstruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZkrInstruction<Hart>
 where
     Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
     Env: [const] ZkrSeedSource,
 {
     #[inline(always)]
@@ -128,12 +135,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value: _,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

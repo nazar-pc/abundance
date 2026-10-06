@@ -50,7 +50,8 @@ use std::path::{Path, PathBuf};
 #[cfg(not(target_endian = "little"))]
 compile_error!("Only little-endian platforms are supported");
 
-type RegisterType<I> = <<I as Instruction>::Reg as Register>::Type;
+type InstructionReg<I> = <<I as Instruction>::Hart as HartConfig>::Reg;
+type RegisterType<I> = <InstructionReg<I> as Register>::Type;
 
 const RAM_BASE: u64 = 0x8000_0000;
 const RAM_SIZE: usize = 0x0020_0000;
@@ -433,15 +434,14 @@ where
 /// zero rather than the address. The recursive `set_pc()` call for the trap handler's own entry
 /// point can't itself be misaligned (`mtvec` is masked to `MTVEC_BASE_ALIGNMENT_DIRECT` on every
 /// write), so it's fine to propagate its result with a bare `?`.
-fn resolve_pc_result<I, const ELEN: Elen, const VLEN: Vlen>(
+fn resolve_pc_result<I>(
     result: Result<ControlFlow<()>, ExecutionError<RegisterType<I>>>,
-    env: &mut TestEnv<I::Reg, ELEN, VLEN>,
+    env: &mut TestEnv<I::Hart>,
     memory: &BasicMemory<RAM_BASE, RAM_SIZE>,
     instruction_fetcher: &mut BasicInstructionFetcher<I>,
 ) -> Result<ControlFlow<()>, TestError<RegisterType<I>>>
 where
-    I: Instruction<Reg: BasicRegister<Type: BasicInt>>,
-    TestEnv<I::Reg, ELEN, VLEN>: VectorRegistersExt<I::Reg>,
+    I: Instruction<Hart: VectorHartConfig<Reg: BasicRegister<Type: BasicInt>>>,
 {
     match result {
         Ok(control_flow) => Ok(control_flow),
@@ -462,21 +462,17 @@ where
     }
 }
 
-fn run_test<I, const ELEN: Elen, const VLEN: Vlen>(
-    elf_path: &Path,
-    core_config: CoreConfig,
-) -> Result<(), TestError<RegisterType<I>>>
+fn run_test<I>(elf_path: &Path, core_config: CoreConfig) -> Result<(), TestError<RegisterType<I>>>
 where
     I: ExecutableInstruction<
-            BasicRegisters<<I as Instruction>::Reg>,
-            TestEnv<<I as Instruction>::Reg, ELEN, VLEN>,
+            BasicRegisters<InstructionReg<I>>,
+            TestEnv<<I as Instruction>::Hart>,
             Box<BasicMemory<RAM_BASE, RAM_SIZE>>,
             BasicInstructionFetcher<I>,
-            Reg: BasicRegister<Type: BasicInt>,
+            Hart: VectorHartConfig<Reg: BasicRegister<Type: BasicInt>>,
         >,
-    TestEnv<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
 {
-    let elf = ParsedElf::<I::Reg>::from_path(elf_path)?;
+    let elf = ParsedElf::<InstructionReg<I>>::from_path(elf_path)?;
 
     let mut ram = BasicMemory::<RAM_BASE, RAM_SIZE>::new_boxed();
     for (vaddr, data) in &elf.segments {
@@ -485,7 +481,7 @@ where
     }
 
     let mut state = BasicInterpreterState {
-        regs: BasicRegisters::<I::Reg>::default(),
+        regs: BasicRegisters::<InstructionReg<I>>::default(),
         env: TestEnv::new(core_config),
         memory: ram,
         instruction_fetcher: BasicInstructionFetcher::<I>::new(
@@ -537,7 +533,7 @@ where
                     .map_err(ExecutionError::from)?;
                 if raw_instruction == MRET_INSTRUCTION {
                     let mepc = state.env.return_from_trap();
-                    match resolve_pc_result::<I, ELEN, VLEN>(
+                    match resolve_pc_result::<I>(
                         state.instruction_fetcher.set_pc(&state.memory, mepc),
                         &mut state.env,
                         &state.memory,
@@ -563,7 +559,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(address),
                     })?;
-                match resolve_pc_result::<I, ELEN, VLEN>(
+                match resolve_pc_result::<I>(
                     state.instruction_fetcher.set_pc(&state.memory, trap_pc),
                     &mut state.env,
                     &state.memory,
@@ -591,7 +587,7 @@ where
                     .ok_or(ExecutionError::OutOfBoundsRead {
                         address: PackedAddress::new(address),
                     })?;
-                match resolve_pc_result::<I, ELEN, VLEN>(
+                match resolve_pc_result::<I>(
                     state.instruction_fetcher.set_pc(&state.memory, trap_pc),
                     &mut state.env,
                     &state.memory,
@@ -642,7 +638,7 @@ where
                 }
             }
             ExecutionResult::Branch { offset } => {
-                match resolve_pc_result::<I, ELEN, VLEN>(
+                match resolve_pc_result::<I>(
                     state.instruction_fetcher.set_pc_relative(
                         &state.memory,
                         instruction.size(),
@@ -659,7 +655,7 @@ where
                 }
             }
             ExecutionResult::Jump { target } => {
-                match resolve_pc_result::<I, ELEN, VLEN>(
+                match resolve_pc_result::<I>(
                     state.instruction_fetcher.set_pc(&state.memory, target),
                     &mut state.env,
                     &state.memory,
@@ -716,7 +712,7 @@ where
                     .ok_or(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(address),
                     })?;
-                match resolve_pc_result::<I, ELEN, VLEN>(
+                match resolve_pc_result::<I>(
                     state.instruction_fetcher.set_pc(&state.memory, trap_pc),
                     &mut state.env,
                     &state.memory,
@@ -773,7 +769,7 @@ where
                         instruction.size(),
                     );
                 let trap_pc = state.env.take_trap(cause, epc, tval).ok_or(error)?;
-                match resolve_pc_result::<I, ELEN, VLEN>(
+                match resolve_pc_result::<I>(
                     state.instruction_fetcher.set_pc(&state.memory, trap_pc),
                     &mut state.env,
                     &state.memory,
@@ -946,7 +942,7 @@ fn process_error<RT>(
 }
 
 /// Run a single test and print its outcome, returning whether the test passed
-fn run_and_report<I, const ELEN: Elen, const VLEN: Vlen>(
+fn run_and_report<I>(
     elf_path: &Path,
     core_config: CoreConfig,
     stem: &str,
@@ -956,15 +952,14 @@ fn run_and_report<I, const ELEN: Elen, const VLEN: Vlen>(
 ) -> bool
 where
     I: ExecutableInstruction<
-            BasicRegisters<<I as Instruction>::Reg>,
-            TestEnv<<I as Instruction>::Reg, ELEN, VLEN>,
+            BasicRegisters<InstructionReg<I>>,
+            TestEnv<<I as Instruction>::Hart>,
             Box<BasicMemory<RAM_BASE, RAM_SIZE>>,
             BasicInstructionFetcher<I>,
-            Reg: BasicRegister<Type: BasicInt>,
+            Hart: VectorHartConfig<Reg: BasicRegister<Type: BasicInt>>,
         >,
-    TestEnv<<I as Instruction>::Reg, ELEN, VLEN>: VectorRegistersExt<<I as Instruction>::Reg>,
 {
-    let Err(error) = run_test::<I, ELEN, VLEN>(elf_path, core_config) else {
+    let Err(error) = run_test::<I>(elf_path, core_config) else {
         println!("{} {stem}", "PASS".green());
         *passed += 1;
         return true;
@@ -1004,46 +999,38 @@ fn main() {
             .unwrap_or("unknown");
 
         let test_passed = match cli.core {
-            Core::Rv32IZve32xZvbb => {
-                run_and_report::<AbundanceRv32IZve32xZvbbInstruction, { Elen::L32 }, { Vlen::L128 }>(
-                    elf_path,
-                    ABUNDANCE_RV32I_ZVE32X_ZVBB_CONFIG,
-                    stem,
-                    &mut passed,
-                    &mut failed,
-                    &mut errors,
-                )
-            }
-            Core::Rv64IZve32xZvbb => {
-                run_and_report::<AbundanceRv64IZve32xZvbbInstruction, { Elen::L32 }, { Vlen::L128 }>(
-                    elf_path,
-                    ABUNDANCE_RV64I_ZVE32X_ZVBB_CONFIG,
-                    stem,
-                    &mut passed,
-                    &mut failed,
-                    &mut errors,
-                )
-            }
-            Core::Rv32IMax => {
-                run_and_report::<AbundanceRv32IMaxInstruction, { Elen::L64 }, { Vlen::L1024 }>(
-                    elf_path,
-                    ABUNDANCE_RV32I_MAX_CONFIG,
-                    stem,
-                    &mut passed,
-                    &mut failed,
-                    &mut errors,
-                )
-            }
-            Core::Rv64IMax => {
-                run_and_report::<AbundanceRv64IMaxInstruction, { Elen::L64 }, { Vlen::L1024 }>(
-                    elf_path,
-                    ABUNDANCE_RV64I_MAX_CONFIG,
-                    stem,
-                    &mut passed,
-                    &mut failed,
-                    &mut errors,
-                )
-            }
+            Core::Rv32IZve32xZvbb => run_and_report::<AbundanceRv32IZve32xZvbbInstruction>(
+                elf_path,
+                ABUNDANCE_RV32I_ZVE32X_ZVBB_CONFIG,
+                stem,
+                &mut passed,
+                &mut failed,
+                &mut errors,
+            ),
+            Core::Rv64IZve32xZvbb => run_and_report::<AbundanceRv64IZve32xZvbbInstruction>(
+                elf_path,
+                ABUNDANCE_RV64I_ZVE32X_ZVBB_CONFIG,
+                stem,
+                &mut passed,
+                &mut failed,
+                &mut errors,
+            ),
+            Core::Rv32IMax => run_and_report::<AbundanceRv32IMaxInstruction>(
+                elf_path,
+                ABUNDANCE_RV32I_MAX_CONFIG,
+                stem,
+                &mut passed,
+                &mut failed,
+                &mut errors,
+            ),
+            Core::Rv64IMax => run_and_report::<AbundanceRv64IMaxInstruction>(
+                elf_path,
+                ABUNDANCE_RV64I_MAX_CONFIG,
+                stem,
+                &mut passed,
+                &mut failed,
+                &mut errors,
+            ),
         };
 
         if !test_passed && cli.fail_fast {

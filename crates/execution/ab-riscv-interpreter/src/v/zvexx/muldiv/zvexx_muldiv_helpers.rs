@@ -19,16 +19,15 @@ use core::hint::cold_path;
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_arith_op<Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
     sew: Vsew,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let vl = vd.vl();
@@ -72,16 +71,15 @@ pub fn execute_arith_op<Reg, Env, F>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_widening_op<Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
-    sew: WideningSew<{ Env::ELEN }>,
+    sew: WideningSew<Env::Hart>,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let sew = sew.narrow();
@@ -126,16 +124,15 @@ pub fn execute_widening_op<Reg, Env, F>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_muladd_op<Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    a_reg: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    a_reg: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
     sew: Vsew,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
     let vl = vd.vl();
@@ -179,16 +176,15 @@ pub fn execute_muladd_op<Reg, Env, F>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_muladd_scalar_op<Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
     scalar: u64,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
     sew: Vsew,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
     let vl = vd.vl();
@@ -231,16 +227,15 @@ pub fn execute_muladd_scalar_op<Reg, Env, F>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_widening_muladd_op<Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    a_reg: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    a_reg: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
-    sew: WideningSew<{ Env::ELEN }>,
+    sew: WideningSew<Env::Hart>,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
     let sew = sew.narrow();
@@ -286,16 +281,15 @@ pub fn execute_widening_muladd_op<Reg, Env, F>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_widening_muladd_scalar_op<Reg, Env, F>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
     scalar: u64,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     vm: bool,
-    sew: WideningSew<{ Env::ELEN }>,
+    sew: WideningSew<Env::Hart>,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, u64, Vsew) -> u64,
 {
     let sew = sew.narrow();

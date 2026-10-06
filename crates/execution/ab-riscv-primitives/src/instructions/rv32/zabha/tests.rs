@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::zabha::Rv32ZabhaInstruction;
 use crate::instructions::test_utils::make_r_type;
@@ -14,7 +15,7 @@ fn funct7(funct5: u8, aq: bool, rl: bool) -> u8 {
 #[test]
 fn test_amoswap_b() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_B, 2, 3, funct7(0b00001, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmoswapB {
@@ -30,7 +31,7 @@ fn test_amoswap_b() {
 #[test]
 fn test_amoadd_h() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_H, 2, 3, funct7(0b00000, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmoaddH {
@@ -46,7 +47,7 @@ fn test_amoadd_h() {
 #[test]
 fn test_amoxor_b() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_B, 2, 3, funct7(0b00100, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmoxorB {
@@ -62,7 +63,7 @@ fn test_amoxor_b() {
 #[test]
 fn test_amoand_h() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_H, 2, 3, funct7(0b01100, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmoandH {
@@ -78,7 +79,7 @@ fn test_amoand_h() {
 #[test]
 fn test_amoor_b() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_B, 2, 3, funct7(0b01000, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmoorB {
@@ -94,7 +95,7 @@ fn test_amoor_b() {
 #[test]
 fn test_amomin_h() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_H, 2, 3, funct7(0b10000, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmominH {
@@ -110,7 +111,7 @@ fn test_amomin_h() {
 #[test]
 fn test_amomax_b() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_B, 2, 3, funct7(0b10100, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmomaxB {
@@ -126,7 +127,7 @@ fn test_amomax_b() {
 #[test]
 fn test_amominu_h() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_H, 2, 3, funct7(0b11000, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmominuH {
@@ -142,7 +143,7 @@ fn test_amominu_h() {
 #[test]
 fn test_amomaxu_b() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_B, 2, 3, funct7(0b11100, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmomaxuB {
@@ -160,7 +161,7 @@ fn test_amocas_b() {
     // Zabha always defines amocas.b/h itself; whether it's pulled in further up the chain
     // depends on whether Zacas is also present there
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_B, 2, 3, funct7(0b00101, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmocasB {
@@ -176,7 +177,7 @@ fn test_amocas_b() {
 #[test]
 fn test_amocas_h() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_H, 2, 3, funct7(0b00101, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::AmocasH {
@@ -193,7 +194,7 @@ fn test_amocas_h() {
 fn test_amoadd_w_inherited_from_zaamo() {
     // Zabha inherits Zaamo, so plain word-sized ops should also decode
     let inst = make_r_type(OPCODE_AMO, 1, 0b010, 2, 3, funct7(0b00000, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZabhaInstruction::Amoadd {
@@ -209,13 +210,13 @@ fn test_amoadd_w_inherited_from_zaamo() {
 #[test]
 fn test_wrong_opcode_returns_none() {
     let inst = make_r_type(0b011_0011, 1, FUNCT3_B, 2, 3, funct7(0b00000, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_unknown_funct5_returns_none() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_B, 2, 3, funct7(0b00010, false, false));
-    let decoded = Rv32ZabhaInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZabhaInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

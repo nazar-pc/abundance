@@ -6,6 +6,11 @@ Breaking changes:
 * `vtype` and `vl` are stored and accessed together as `VectorConfig`, which keeps `vl <= VLMAX` by construction:
   `VectorRegistersExt::vector_config()` and `set_vector_config()` replace the separate `vl`/`vtype` accessors and
   setters, and `VectorRegisters::compute_vl()` and `vlmax_for_vtype()` are removed (`VLMAX` is `Vtype::vlmax()` now)
+* `VectorRegisters` takes `ELEN` and `VLEN` from `VectorHartConfig::VECTOR_LENGTHS` of its `Hart` associated type, which
+  must match hart configuration of vector instructions, `VectorRegistersExt` no longer has a register type parameter
+* Vector types (`VectorConfig`, `VectorRegisterFile`, `VRegGroup` and others) are generic over hart configuration
+  instead of `ELEN`/`VLEN`
+* `impl_vector_registers_for_mut_ref!` is removed, `&mut T` implements vector register traits generically instead
 * `BasicRegister` is a safe trait, and `BasicEagerInstructions::fetcher()` (returns `None` for a program counter that
   is not a decoded instruction) and `OpaqueThreadedExecutionResult::new()` are safe functions
 
@@ -31,7 +36,6 @@ Improvements:
 
 Fixes:
 
-* Forward all `VectorRegistersExt` methods in `impl_vector_registers_for_mut_ref` macro
 * Undefined behavior reachable from safe code: an inconsistent `vl`/`vtype` pair or an overridden `vlmax_for_vtype()`
   in an environment, a `VirtualMemory::read_slice()` implementation returning more bytes than requested in `vlm.v`, and
   widening instructions with `ELEN` above 64

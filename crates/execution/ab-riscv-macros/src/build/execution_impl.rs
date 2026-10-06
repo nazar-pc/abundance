@@ -408,7 +408,7 @@ pub(super) fn process_enum_operands_impl(
             #[expect(clippy::allow_attributes, reason = "Attribute below")]
             #[allow(clippy::rest_pattern_accessible_field, reason = "Generated code")]
             #[allow(clippy::unnecessary_rest_pattern, reason = "Generated code")]
-            fn get_rs1_rs2_operands(&self) -> Rs1Rs2Operands<Self::Reg> {
+            fn get_rs1_rs2_operands(&self) -> Rs1Rs2Operands<<Self::Hart as HartConfig>::Reg> {
                 match *self {
                     #( Self::#all_instructions { rs1, rs2, .. } => Rs1Rs2Operands { rs1, rs2 }, )*
                 }

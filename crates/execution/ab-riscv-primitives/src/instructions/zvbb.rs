@@ -4,6 +4,7 @@
 mod tests;
 pub mod zvkb;
 
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::ZveXxInstruction;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
@@ -55,7 +56,10 @@ use core::fmt;
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum ZvbbInstruction<Reg> {
+pub enum ZvbbInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // vbrev: bit-reverse within each SEW-wide element (element granularity, unlike vbrev8's byte granularity)
     /// `vbrev.v vd, vs2, vm`
     VbrevV  { vd: VReg, vs2: VReg, vm: bool },
@@ -72,20 +76,21 @@ pub enum ZvbbInstruction<Reg> {
     /// `vwsll.vv vd, vs2, vs1, vm`
     VwsllVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwsll.vx vd, vs2, rs1, vm`
-    VwsllVx { vd: VReg, vs2: VReg, rs1: Reg,  vm: bool },
+    VwsllVx { vd: VReg, vs2: VReg, rs1: Hart::Reg,  vm: bool },
     /// `vwsll.vi vd, vs2, uimm, vm` - `uimm` is 5-bit unsigned (0..=31); `vm` is the
     /// standard mask-control bit at bit\[25], orthogonal to the immediate.
     VwsllVi { vd: VReg, vs2: VReg, uimm: u8,  vm: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZvbbInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZvbbInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -167,9 +172,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZvbbInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZvbbInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

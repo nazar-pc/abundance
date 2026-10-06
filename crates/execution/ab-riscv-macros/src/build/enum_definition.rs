@@ -311,13 +311,13 @@ fn output_processed_enum_definition(
                     should be set to Reg::ZERO)"
                 ]
                 #[doc(hidden)]
-                rs1: Reg,
+                rs1: Hart::Reg,
                 #[
                     doc = "Second register operand (placeholder, instruction doesn't have it, \
                     should be set to Reg::ZERO)"
                 ]
                 #[doc(hidden)]
-                rs2: Reg,
+                rs2: Hart::Reg,
             }};
             match &mut variant.fields {
                 Fields::Named(fields) => {

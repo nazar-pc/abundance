@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
@@ -20,7 +21,10 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxReductionInstruction<Reg> {
+pub enum ZveXxReductionInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// Sum reduction: `vredsum.vs vd, vs2, vs1, vm`
     Vredsum { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// AND reduction: `vredand.vs vd, vs2, vs1, vm`
@@ -44,13 +48,14 @@ pub enum ZveXxReductionInstruction<Reg> {
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxReductionInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxReductionInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -109,7 +114,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxReductionInstruction<Reg> {
+impl<Reg, Hart> fmt::Display for ZveXxReductionInstruction<Hart>
+where
+    Hart: HartConfig<Reg = Reg>,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]
         match self {

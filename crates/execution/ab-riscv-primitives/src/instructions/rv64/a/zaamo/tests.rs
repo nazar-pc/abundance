@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::a::zaamo::Rv64ZaamoInstruction;
 use crate::instructions::test_utils::make_r_type;
@@ -14,7 +15,7 @@ fn funct7(funct5: u8, aq: bool, rl: bool) -> u8 {
 #[test]
 fn test_amoswap_w() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b00001, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amoswap {
@@ -30,7 +31,7 @@ fn test_amoswap_w() {
 #[test]
 fn test_amoadd_w() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b00000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amoadd {
@@ -46,7 +47,7 @@ fn test_amoadd_w() {
 #[test]
 fn test_amoxor_w() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b00100, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amoxor {
@@ -62,7 +63,7 @@ fn test_amoxor_w() {
 #[test]
 fn test_amoand_w() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b01100, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amoand {
@@ -78,7 +79,7 @@ fn test_amoand_w() {
 #[test]
 fn test_amoor_w() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b01000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amoor {
@@ -94,7 +95,7 @@ fn test_amoor_w() {
 #[test]
 fn test_amomin_w() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b10000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amomin {
@@ -110,7 +111,7 @@ fn test_amomin_w() {
 #[test]
 fn test_amomax_w() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b10100, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amomax {
@@ -126,7 +127,7 @@ fn test_amomax_w() {
 #[test]
 fn test_amominu_w() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b11000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amominu {
@@ -142,7 +143,7 @@ fn test_amominu_w() {
 #[test]
 fn test_amomaxu_w() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b11100, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amomaxu {
@@ -158,7 +159,7 @@ fn test_amomaxu_w() {
 #[test]
 fn test_amoswap_d() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b00001, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::AmoswapD {
@@ -174,7 +175,7 @@ fn test_amoswap_d() {
 #[test]
 fn test_amoadd_d() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b00000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::AmoaddD {
@@ -190,7 +191,7 @@ fn test_amoadd_d() {
 #[test]
 fn test_amoxor_d() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b00100, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::AmoxorD {
@@ -206,7 +207,7 @@ fn test_amoxor_d() {
 #[test]
 fn test_amoand_d() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b01100, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::AmoandD {
@@ -222,7 +223,7 @@ fn test_amoand_d() {
 #[test]
 fn test_amoor_d() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b01000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::AmoorD {
@@ -238,7 +239,7 @@ fn test_amoor_d() {
 #[test]
 fn test_amomin_d() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b10000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::AmominD {
@@ -254,7 +255,7 @@ fn test_amomin_d() {
 #[test]
 fn test_amomax_d() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b10100, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::AmomaxD {
@@ -270,7 +271,7 @@ fn test_amomax_d() {
 #[test]
 fn test_amominu_d() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b11000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::AmominuD {
@@ -286,7 +287,7 @@ fn test_amominu_d() {
 #[test]
 fn test_amomaxu_d() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b11100, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::AmomaxuD {
@@ -302,7 +303,7 @@ fn test_amomaxu_d() {
 #[test]
 fn test_amoadd_w_aqrl() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b00000, true, true));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZaamoInstruction::Amoadd {
@@ -318,20 +319,20 @@ fn test_amoadd_w_aqrl() {
 #[test]
 fn test_unknown_funct5_returns_none() {
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b00010, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_wrong_opcode_returns_none() {
     let inst = make_r_type(0b011_0011, 1, FUNCT3_W, 2, 3, funct7(0b00000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_wrong_funct3_returns_none() {
     let inst = make_r_type(OPCODE_AMO, 1, 0b001, 2, 3, funct7(0b00000, false, false));
-    let decoded = Rv64ZaamoInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZaamoInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

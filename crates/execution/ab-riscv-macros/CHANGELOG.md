@@ -5,11 +5,18 @@ Breaking changes:
 * `#[instruction]` now takes instruction alignment from an `ALIGNMENT` associated constant instead of an `alignment()`
   method
 * Execution changes mirror API changes in `ab-riscv-interpreter`
+* Instruction enums must be generic over `Hart: HartConfig` instead of `Reg`
+* Enums in `if` conditions are satisfied when implemented (see `Instruction::IMPLEMENTED_EXTENSIONS`) rather than when
+  all of their instructions are present
 
 Improvements:
 
 * Support instruction macros in non-src directories (tests, examples, etc.)
 * Compose `Instruction::size()` into one flat deduplicated `match`
+
+Fixes:
+
+* Ignored instructions no longer satisfy `if` conditions of inherited instructions
 
 # 0.1.1
 

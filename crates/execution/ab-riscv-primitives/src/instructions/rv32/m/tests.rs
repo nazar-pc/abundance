@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::m::Rv32MInstruction;
 use crate::instructions::test_utils::make_r_type;
@@ -6,7 +7,7 @@ use crate::registers::general_purpose::Reg;
 #[test]
 fn test_mul() {
     let inst = make_r_type(0b011_0011, 1, 0b000, 2, 3, 0b000_0001);
-    let decoded = Rv32MInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32MInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32MInstruction::Mul {
@@ -20,7 +21,7 @@ fn test_mul() {
 #[test]
 fn test_mulh() {
     let inst = make_r_type(0b011_0011, 1, 0b001, 2, 3, 0b000_0001);
-    let decoded = Rv32MInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32MInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32MInstruction::Mulh {
@@ -34,7 +35,7 @@ fn test_mulh() {
 #[test]
 fn test_mulhsu() {
     let inst = make_r_type(0b011_0011, 1, 0b010, 2, 3, 0b000_0001);
-    let decoded = Rv32MInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32MInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32MInstruction::Mulhsu {
@@ -48,7 +49,7 @@ fn test_mulhsu() {
 #[test]
 fn test_mulhu() {
     let inst = make_r_type(0b011_0011, 1, 0b011, 2, 3, 0b000_0001);
-    let decoded = Rv32MInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32MInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32MInstruction::Mulhu {
@@ -62,7 +63,7 @@ fn test_mulhu() {
 #[test]
 fn test_div() {
     let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0001);
-    let decoded = Rv32MInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32MInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32MInstruction::Div {
@@ -76,7 +77,7 @@ fn test_div() {
 #[test]
 fn test_divu() {
     let inst = make_r_type(0b011_0011, 1, 0b101, 2, 3, 0b000_0001);
-    let decoded = Rv32MInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32MInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32MInstruction::Divu {
@@ -90,7 +91,7 @@ fn test_divu() {
 #[test]
 fn test_rem() {
     let inst = make_r_type(0b011_0011, 1, 0b110, 2, 3, 0b000_0001);
-    let decoded = Rv32MInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32MInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32MInstruction::Rem {
@@ -104,7 +105,7 @@ fn test_rem() {
 #[test]
 fn test_remu() {
     let inst = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b000_0001);
-    let decoded = Rv32MInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32MInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32MInstruction::Remu {

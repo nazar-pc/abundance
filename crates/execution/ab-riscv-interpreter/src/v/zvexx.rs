@@ -13,7 +13,7 @@ pub mod store;
 pub mod widen_narrow;
 pub mod zvexx_helpers;
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::arith::zvexx_arith_helpers;
 use crate::v::zvexx::carry::zvexx_carry_helpers;
 use crate::v::zvexx::config::zvexx_config_helpers;
@@ -37,16 +37,27 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZveXxInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZveXxInstruction<Reg>
+const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxInstruction<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZveXxInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -55,12 +66,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }

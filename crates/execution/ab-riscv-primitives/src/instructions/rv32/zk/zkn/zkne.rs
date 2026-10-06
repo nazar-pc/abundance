@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::zk::zkn::zknd::Rv32AesBs;
 use crate::registers::general_purpose::Register;
@@ -13,15 +14,18 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv32ZkneInstruction<Reg> {
+pub enum Rv32ZkneInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// AES final round encryption step: SubBytes on one byte of rs2, rotated to the byte lane
     /// selected by bs, XOR'd into rs1.
     ///
     /// `rd = rs1 ^ rol32(SBOX[(rs2 >> (bs*8)) & 0xff] as u32, bs*8)`
     Aes32Esi {
-        rd: Reg,
-        rs1: Reg,
-        rs2: Reg,
+        rd: Hart::Reg,
+        rs1: Hart::Reg,
+        rs2: Hart::Reg,
         bs: Rv32AesBs,
     },
     /// AES middle round encryption step: SubBytes + partial MixColumns on one byte of rs2, rotated
@@ -29,9 +33,9 @@ pub enum Rv32ZkneInstruction<Reg> {
     ///
     /// `rd = rs1 ^ rol32(MixColByte(SBOX[(rs2 >> (bs*8)) & 0xff]), bs*8)`
     Aes32Esmi {
-        rd: Reg,
-        rs1: Reg,
-        rs2: Reg,
+        rd: Hart::Reg,
+        rs1: Hart::Reg,
+        rs2: Hart::Reg,
         bs: Rv32AesBs,
     },
 }
@@ -56,13 +60,14 @@ pub enum Rv32ZkneInstruction<Reg> {
 /// the accumulator in both rd and rs1 (the `rt` pattern), but the hardware
 /// does not require rd == rs1 and the decoder must not enforce it.
 #[instruction]
-const impl<Reg> Instruction for Rv32ZkneInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZkneInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -104,9 +109,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZkneInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZkneInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

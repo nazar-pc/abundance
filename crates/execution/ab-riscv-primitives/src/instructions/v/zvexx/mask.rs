@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
@@ -21,7 +22,10 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxMaskInstruction<Reg> {
+pub enum ZveXxMaskInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// `vmandn.mm vd, vs2, vs1` - vd = vs2 AND NOT vs1
     ///
     /// funct6=01_1000, OPMVV, vm=1
@@ -57,11 +61,11 @@ pub enum ZveXxMaskInstruction<Reg> {
     /// `vcpop.m rd, vs2, vm` - rd = population count of mask vs2
     ///
     /// funct6=01_0000, OPMVV, vs1=1_0000
-    Vcpop { rd: Reg, vs2: VReg, vm: bool },
+    Vcpop { rd: Hart::Reg, vs2: VReg, vm: bool },
     /// `vfirst.m rd, vs2, vm` - rd = index of first set bit in mask vs2, or -1
     ///
     /// funct6=01_0000, OPMVV, vs1=1_0001
-    Vfirst { rd: Reg, vs2: VReg, vm: bool },
+    Vfirst { rd: Hart::Reg, vs2: VReg, vm: bool },
     /// `vmsbf.m vd, vs2, vm` - set-before-first mask bit
     ///
     /// funct6=01_0100, OPMVV, vs1=0_0001
@@ -85,13 +89,14 @@ pub enum ZveXxMaskInstruction<Reg> {
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxMaskInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxMaskInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -195,9 +200,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxMaskInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxMaskInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

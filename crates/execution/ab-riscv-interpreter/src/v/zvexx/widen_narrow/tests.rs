@@ -1,4 +1,4 @@
-use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
+use crate::rv64::test_utils::{TestHart, TestInterpreterState, initialize_state};
 use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::{
@@ -16,7 +16,7 @@ fn setup(
     vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
-) -> TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>> {
+) -> TestInterpreterState<ZveXxWidenNarrowInstruction<TestHart>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -28,8 +28,8 @@ fn setup(
 }
 
 fn exec(
-    state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>>,
-    instr: ZveXxWidenNarrowInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<TestHart>>,
+    instr: ZveXxWidenNarrowInstruction<TestHart>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -62,8 +62,8 @@ fn exec(
 /// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
 /// `state` without modifying any vector state
 fn assert_rejects_nonzero_vstart(
-    state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>>,
-    instr: ZveXxWidenNarrowInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<TestHart>>,
+    instr: ZveXxWidenNarrowInstruction<TestHart>,
 ) {
     let vstart = state.env.vstart();
     assert_ne!(vstart, Vstart::ZERO);
@@ -79,7 +79,7 @@ fn assert_rejects_nonzero_vstart(
 }
 
 fn read_elem(
-    state: &TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxWidenNarrowInstruction<TestHart>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -94,7 +94,7 @@ fn read_elem(
 }
 
 fn write_elem(
-    state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<TestHart>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -108,7 +108,7 @@ fn write_elem(
         .copy_from_slice(&value.to_le_bytes()[..width]);
 }
 
-fn write_mask(state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<Reg<u64>>>, bits: u32) {
+fn write_mask(state: &mut TestInterpreterState<ZveXxWidenNarrowInstruction<TestHart>>, bits: u32) {
     let reg = state.env.write_vregs().get_mut(VReg::V0);
     reg.fill(0);
     for i in 0..32 {

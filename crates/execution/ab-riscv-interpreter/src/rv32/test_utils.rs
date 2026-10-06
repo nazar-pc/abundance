@@ -154,7 +154,7 @@ pub(crate) struct TestInstructionFetcher<I> {
 
 impl<I> ProgramCounter<u32, TestMemory> for TestInstructionFetcher<I>
 where
-    I: Instruction<Reg = Reg<u32>>,
+    I: Instruction<Hart = BasicHart<Reg<u32>>>,
 {
     #[inline(always)]
     fn get_pc(&self) -> u32 {
@@ -192,7 +192,7 @@ where
 
 impl<I> InstructionFetcher<I, TestMemory> for TestInstructionFetcher<I>
 where
-    I: Instruction<Reg = Reg<u32>>,
+    I: Instruction<Hart = BasicHart<Reg<u32>>>,
 {
     type Peeked = I;
 
@@ -253,7 +253,7 @@ impl<I> TestInstructionFetcher<I> {
         pc: u32,
     ) -> Self
     where
-        I: Instruction<Reg = Reg<u32>>,
+        I: Instruction<Hart = BasicHart<Reg<u32>>>,
         Instructions: IntoIterator<Item = I>,
     {
         Self {
@@ -303,7 +303,7 @@ impl ReservationSet<Reg<u32>> for Env {
 impl<Regs, I> SystemInstructionHandler<Reg<u32>, Regs, TestMemory, TestInstructionFetcher<I>>
     for Env
 where
-    I: Instruction<Reg = Reg<u32>>,
+    I: Instruction<Hart = BasicHart<Reg<u32>>>,
 {
     #[inline(always)]
     fn handle_ecall(
@@ -315,7 +315,7 @@ where
         Err(ExecutionError::EcallUnsupported {
             address: crate::PackedAddress::new(
                 program_counter.old_pc(
-                    Rv32Instruction::<Reg<u32>>::Ecall {
+                    Rv32Instruction::<BasicHart<Reg<u32>>>::Ecall {
                         rs1: Reg::Zero,
                         rs2: Reg::Zero,
                     }
@@ -341,7 +341,7 @@ pub(crate) fn initialize_state<I, Instructions>(
     instructions: Instructions,
 ) -> TestInterpreterState<I>
 where
-    I: Instruction<Reg = Reg<u32>>,
+    I: Instruction<Hart = BasicHart<Reg<u32>>>,
     Instructions: IntoIterator<Item = I>,
 {
     BasicInterpreterState {
@@ -361,7 +361,7 @@ pub(crate) fn execute<I>(
     state: &mut TestInterpreterState<I>,
 ) -> Result<(), ExecutionError<Address<I>>>
 where
-    I: Instruction<Reg = Reg<u32>>
+    I: Instruction<Hart = BasicHart<Reg<u32>>>
         + ExecutableInstruction<
             BasicRegisters<Reg<u32>, false>,
             Env,

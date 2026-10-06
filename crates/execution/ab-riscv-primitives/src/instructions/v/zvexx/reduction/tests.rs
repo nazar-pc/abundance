@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use crate::instructions::Instruction;
-use crate::instructions::test_utils::make_r_type;
+use crate::instructions::test_utils::{TestVectorHart, make_r_type};
 use crate::instructions::v::zvexx::reduction::ZveXxReductionInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
@@ -23,7 +23,7 @@ fn make_v_arith(funct6: u8, vm: bool, vs2: u8, vs1: u8, funct3: u8, vd: u8) -> u
 #[test]
 fn test_vredsum() {
     let inst = make_v_arith(0b00_0000, true, 2, 1, 0b010, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredsum {
@@ -40,7 +40,7 @@ fn test_vredsum() {
 #[test]
 fn test_vredand() {
     let inst = make_v_arith(0b00_0001, true, 4, 5, 0b010, 6);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredand {
@@ -57,7 +57,7 @@ fn test_vredand() {
 #[test]
 fn test_vredor() {
     let inst = make_v_arith(0b00_0010, true, 8, 9, 0b010, 10);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredor {
@@ -74,7 +74,7 @@ fn test_vredor() {
 #[test]
 fn test_vredxor() {
     let inst = make_v_arith(0b00_0011, true, 12, 13, 0b010, 14);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredxor {
@@ -91,7 +91,7 @@ fn test_vredxor() {
 #[test]
 fn test_vredminu() {
     let inst = make_v_arith(0b00_0100, true, 16, 17, 0b010, 18);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredminu {
@@ -108,7 +108,7 @@ fn test_vredminu() {
 #[test]
 fn test_vredmin() {
     let inst = make_v_arith(0b00_0101, true, 20, 21, 0b010, 22);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredmin {
@@ -125,7 +125,7 @@ fn test_vredmin() {
 #[test]
 fn test_vredmaxu() {
     let inst = make_v_arith(0b00_0110, true, 24, 25, 0b010, 26);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredmaxu {
@@ -142,7 +142,7 @@ fn test_vredmaxu() {
 #[test]
 fn test_vredmax() {
     let inst = make_v_arith(0b00_0111, true, 28, 29, 0b010, 30);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredmax {
@@ -161,7 +161,7 @@ fn test_vredmax() {
 #[test]
 fn test_vwredsumu() {
     let inst = make_v_arith(0b11_0000, true, 2, 1, 0b000, 4);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vwredsumu {
@@ -178,7 +178,7 @@ fn test_vwredsumu() {
 #[test]
 fn test_vwredsum() {
     let inst = make_v_arith(0b11_0001, true, 8, 4, 0b000, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vwredsum {
@@ -197,7 +197,7 @@ fn test_vwredsum() {
 #[test]
 fn test_vredsum_masked() {
     let inst = make_v_arith(0b00_0000, false, 2, 1, 0b010, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredsum {
@@ -214,7 +214,7 @@ fn test_vredsum_masked() {
 #[test]
 fn test_vredand_masked() {
     let inst = make_v_arith(0b00_0001, false, 4, 5, 0b010, 6);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredand {
@@ -231,7 +231,7 @@ fn test_vredand_masked() {
 #[test]
 fn test_vwredsumu_masked() {
     let inst = make_v_arith(0b11_0000, false, 8, 4, 0b000, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vwredsumu {
@@ -248,7 +248,7 @@ fn test_vwredsumu_masked() {
 #[test]
 fn test_vwredsum_masked() {
     let inst = make_v_arith(0b11_0001, false, 2, 1, 0b000, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vwredsum {
@@ -267,7 +267,7 @@ fn test_vwredsum_masked() {
 #[test]
 fn test_vredsum_v0() {
     let inst = make_v_arith(0b00_0000, true, 0, 0, 0b010, 0);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredsum {
@@ -284,7 +284,7 @@ fn test_vredsum_v0() {
 #[test]
 fn test_vredmax_v31() {
     let inst = make_v_arith(0b00_0111, true, 31, 31, 0b010, 31);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxReductionInstruction::Vredmax {
@@ -305,7 +305,7 @@ fn test_wrong_opcode() {
     // Use OP (0b011_0011) instead of OP-V
     let funct7 = 1;
     let inst = make_r_type(0b011_0011, 3, 0b010, 1, 2, funct7);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -313,7 +313,7 @@ fn test_wrong_opcode() {
 fn test_wrong_funct3_for_single_width() {
     // funct3=0b001 (OPFVV) instead of 0b010 (OPMVV) for single-width reduction
     let inst = make_v_arith(0b00_0000, true, 2, 1, 0b001, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -321,7 +321,7 @@ fn test_wrong_funct3_for_single_width() {
 fn test_wrong_funct3_for_widening() {
     // funct3=0b010 (OPMVV) instead of 0b000 (OPIVV) for widening reduction
     let inst = make_v_arith(0b11_0000, true, 2, 1, 0b010, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -329,7 +329,7 @@ fn test_wrong_funct3_for_widening() {
 fn test_invalid_funct6_opmvv() {
     // funct6=0b001000 is not a reduction under OPMVV
     let inst = make_v_arith(0b00_1000, true, 2, 1, 0b010, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -337,7 +337,7 @@ fn test_invalid_funct6_opmvv() {
 fn test_invalid_funct6_opivv() {
     // funct6=0b110010 is not a widening reduction under OPIVV
     let inst = make_v_arith(0b11_0010, true, 2, 1, 0b000, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -345,7 +345,7 @@ fn test_invalid_funct6_opivv() {
 fn test_funct6_boundary_above_single_width() {
     // funct6=0b001000 (just above the range 000000-000111)
     let inst = make_v_arith(0b00_1000, true, 2, 1, 0b010, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -354,76 +354,76 @@ fn test_funct6_boundary_above_single_width() {
 #[test]
 fn test_display_vredsum_unmasked() {
     let inst = make_v_arith(0b00_0000, true, 2, 1, 0b010, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vredsum.vs v3, v2, v1");
 }
 
 #[test]
 fn test_display_vredsum_masked() {
     let inst = make_v_arith(0b00_0000, false, 2, 1, 0b010, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vredsum.vs v3, v2, v1, v0.t");
 }
 
 #[test]
 fn test_display_vredand() {
     let inst = make_v_arith(0b00_0001, true, 8, 4, 0b010, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vredand.vs v12, v8, v4");
 }
 
 #[test]
 fn test_display_vredor() {
     let inst = make_v_arith(0b00_0010, true, 8, 4, 0b010, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vredor.vs v12, v8, v4");
 }
 
 #[test]
 fn test_display_vredxor() {
     let inst = make_v_arith(0b00_0011, true, 8, 4, 0b010, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vredxor.vs v12, v8, v4");
 }
 
 #[test]
 fn test_display_vredminu() {
     let inst = make_v_arith(0b00_0100, true, 8, 4, 0b010, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vredminu.vs v12, v8, v4");
 }
 
 #[test]
 fn test_display_vredmin() {
     let inst = make_v_arith(0b00_0101, true, 8, 4, 0b010, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vredmin.vs v12, v8, v4");
 }
 
 #[test]
 fn test_display_vredmaxu() {
     let inst = make_v_arith(0b00_0110, true, 8, 4, 0b010, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vredmaxu.vs v12, v8, v4");
 }
 
 #[test]
 fn test_display_vredmax() {
     let inst = make_v_arith(0b00_0111, true, 8, 4, 0b010, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vredmax.vs v12, v8, v4");
 }
 
 #[test]
 fn test_display_vwredsumu_unmasked() {
     let inst = make_v_arith(0b11_0000, true, 8, 4, 0b000, 12);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vwredsumu.vs v12, v8, v4");
 }
 
 #[test]
 fn test_display_vwredsum_masked() {
     let inst = make_v_arith(0b11_0001, false, 2, 1, 0b000, 3);
-    let decoded = ZveXxReductionInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxReductionInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vwredsum.vs v3, v2, v1, v0.t");
 }

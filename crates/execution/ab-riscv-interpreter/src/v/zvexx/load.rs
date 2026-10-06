@@ -4,7 +4,7 @@
 pub(super) mod tests;
 pub mod zvexx_load_helpers;
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::zvexx_helpers;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
@@ -16,19 +16,29 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZveXxLoadInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxLoadInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZveXxLoadInstruction<Reg>
+const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxLoadInstruction<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxLoadInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZveXxLoadInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
     Regs: RegisterFile<Reg>,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart = Hart>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -39,12 +49,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             // Whole-register load: loads `nreg` consecutive registers starting at `vd` directly
             // from memory. `vd` must be aligned to `nreg`. Ignores vtype, vl, vstart, masking.
@@ -56,16 +66,6 @@ where
             } => {
                 let nreg = nreg.num_registers();
                 if !env.vector_instructions_allowed() {
-                    ::core::hint::cold_path();
-                    return ExecutionResult::Err(ExecutionError::IllegalInstruction {
-                        address: PackedAddress::new(
-                            program_counter.old_pc(zvexx_helpers::INSTRUCTION_SIZE),
-                        ),
-                    });
-                }
-                // The element width hint does not affect the result, but `EEW > ELEN` is still
-                // reserved
-                if u32::from(eew.bits_width()) > u32::from(Env::ELEN) {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

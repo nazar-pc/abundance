@@ -12,10 +12,10 @@ use core::hint::cold_path;
 /// Used to retrieve the per-element carry-in or borrow-in for vadc/vsbc.
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(in super::super) fn carry_bit<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
-    i: u16,
-) -> u64 {
+pub(in super::super) fn carry_bit<Hart>(vregs: &VectorRegisterFile<Hart>, i: u16) -> u64
+where
+    Hart: VectorHartConfig,
+{
     let v0 = vregs.get(VReg::V0);
     u64::from(mask_bit(v0, i))
 }
@@ -33,13 +33,12 @@ pub(in super::super) fn carry_bit<const VLEN: Vlen>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
@@ -87,13 +86,12 @@ pub fn execute_carry_add<const WITH_CARRY: bool, Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_carry_sub<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let (Some(vs2), Some(src)) = (vs2.with_same_vl(vl), src.with_same_vl(vl)) else {
@@ -141,13 +139,12 @@ pub fn execute_carry_sub<Reg, Env>(
 pub fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
     env: &mut Env,
     vd: VReg,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     sew: Vsew,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vs2.vl();
     let Some(src) = src.with_same_vl(vl) else {
@@ -202,13 +199,12 @@ pub fn execute_carry_add_mask<const WITH_CARRY: bool, Reg, Env>(
 pub fn execute_carry_sub_mask<const WITH_BORROW: bool, Reg, Env>(
     env: &mut Env,
     vd: VReg,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
     sew: Vsew,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vs2.vl();
     let Some(src) = src.with_same_vl(vl) else {

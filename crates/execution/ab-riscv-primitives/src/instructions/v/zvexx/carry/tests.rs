@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use crate::instructions::Instruction;
-use crate::instructions::test_utils::make_r_type;
+use crate::instructions::test_utils::{TestVectorHart, make_r_type};
 use crate::instructions::v::zvexx::carry::ZveXxCarryInstruction;
 use crate::registers::general_purpose::Reg;
 use crate::registers::vector::VReg;
@@ -27,7 +27,10 @@ const OPIVI: u8 = 0b011;
 #[test]
 fn non_carry_funct6_not_decoded() {
     let inst = make_vop(0b00_0000, 1, 2, 3, OPIVV, 1);
-    assert_eq!(ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst),
+        None
+    );
 }
 
 // False-decode regression: funct6=0b010000, OPIVV with vs1=v17 (0b10001)
@@ -37,7 +40,7 @@ fn non_carry_funct6_not_decoded() {
 fn vadc_vvm_not_falsely_decoded_as_vfirst_m() {
     // funct6=0b01_0000, vm=0, vs2=v9, vs1=v17 (0b10001), OPIVV, vd=v12
     let inst = make_vop(0b01_0000, 0, 9, 17, OPIVV, 12);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_matches!(
         decoded,
         Some(ZveXxCarryInstruction::VadcVvm {
@@ -54,7 +57,7 @@ fn vadc_vvm_not_falsely_decoded_as_vfirst_m() {
 #[test]
 fn vadc_vvm_basic() {
     let inst = make_vop(0b01_0000, 0, 2, 3, OPIVV, 1);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VadcVvm {
@@ -70,7 +73,7 @@ fn vadc_vvm_basic() {
 #[test]
 fn vadc_vxm_basic() {
     let inst = make_vop(0b01_0000, 0, 4, 10, OPIVX, 6);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VadcVxm {
@@ -86,7 +89,7 @@ fn vadc_vxm_basic() {
 fn vadc_vim_positive() {
     // imm = 5 (0b00101)
     let inst = make_vop(0b01_0000, 0, 8, 5, OPIVI, 2);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VadcVim {
@@ -103,7 +106,7 @@ fn vadc_vim_positive() {
 fn vadc_vim_negative() {
     // imm = -1 -> 5-bit = 0b11111 = 31
     let inst = make_vop(0b01_0000, 0, 8, 0b11111, OPIVI, 2);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VadcVim {
@@ -121,13 +124,19 @@ fn vadc_vim_negative() {
 #[test]
 fn vadc_vvm_vm1_is_reserved() {
     let inst = make_vop(0b01_0000, 1, 2, 3, OPIVV, 1);
-    assert_eq!(ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst),
+        None
+    );
 }
 
 #[test]
 fn vadc_vxm_vm1_is_reserved() {
     let inst = make_vop(0b01_0000, 1, 2, 5, OPIVX, 1);
-    assert_eq!(ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst),
+        None
+    );
 }
 
 // vmadc
@@ -135,7 +144,7 @@ fn vadc_vxm_vm1_is_reserved() {
 #[test]
 fn vmadc_vvm_with_carry() {
     let inst = make_vop(0b01_0001, 0, 4, 5, OPIVV, 3);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmadcVvm {
@@ -151,7 +160,7 @@ fn vmadc_vvm_with_carry() {
 #[test]
 fn vmadc_vv_no_carry() {
     let inst = make_vop(0b01_0001, 1, 4, 5, OPIVV, 3);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmadcVv {
@@ -167,7 +176,7 @@ fn vmadc_vv_no_carry() {
 #[test]
 fn vmadc_vxm_with_carry() {
     let inst = make_vop(0b01_0001, 0, 8, 11, OPIVX, 0);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmadcVxm {
@@ -182,7 +191,7 @@ fn vmadc_vxm_with_carry() {
 #[test]
 fn vmadc_vx_no_carry() {
     let inst = make_vop(0b01_0001, 1, 8, 11, OPIVX, 0);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmadcVx {
@@ -198,7 +207,7 @@ fn vmadc_vx_no_carry() {
 fn vmadc_vim_with_carry() {
     // imm = -16 -> 5-bit = 0b10000 = 16
     let inst = make_vop(0b01_0001, 0, 6, 0b10000, OPIVI, 2);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmadcVim {
@@ -214,7 +223,7 @@ fn vmadc_vim_with_carry() {
 #[test]
 fn vmadc_vi_no_carry() {
     let inst = make_vop(0b01_0001, 1, 6, 7, OPIVI, 2);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmadcVi {
@@ -232,7 +241,7 @@ fn vmadc_vi_no_carry() {
 #[test]
 fn vsbc_vvm_basic() {
     let inst = make_vop(0b01_0010, 0, 10, 11, OPIVV, 8);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VsbcVvm {
@@ -248,7 +257,7 @@ fn vsbc_vvm_basic() {
 #[test]
 fn vsbc_vxm_basic() {
     let inst = make_vop(0b01_0010, 0, 12, 5, OPIVX, 16);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VsbcVxm {
@@ -263,13 +272,19 @@ fn vsbc_vxm_basic() {
 #[test]
 fn vsbc_has_no_immediate_form() {
     let inst = make_vop(0b01_0010, 0, 2, 5, OPIVI, 1);
-    assert_eq!(ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst),
+        None
+    );
 }
 
 #[test]
 fn vsbc_vm1_is_reserved() {
     let inst = make_vop(0b01_0010, 1, 2, 3, OPIVV, 1);
-    assert_eq!(ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst),
+        None
+    );
 }
 
 // vmsbc
@@ -277,7 +292,7 @@ fn vsbc_vm1_is_reserved() {
 #[test]
 fn vmsbc_vvm_with_borrow() {
     let inst = make_vop(0b01_0011, 0, 14, 15, OPIVV, 0);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmsbcVvm {
@@ -293,7 +308,7 @@ fn vmsbc_vvm_with_borrow() {
 #[test]
 fn vmsbc_vv_no_borrow() {
     let inst = make_vop(0b01_0011, 1, 14, 15, OPIVV, 0);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmsbcVv {
@@ -309,7 +324,7 @@ fn vmsbc_vv_no_borrow() {
 #[test]
 fn vmsbc_vxm_with_borrow() {
     let inst = make_vop(0b01_0011, 0, 16, 10, OPIVX, 0);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmsbcVxm {
@@ -324,7 +339,7 @@ fn vmsbc_vxm_with_borrow() {
 #[test]
 fn vmsbc_vx_no_borrow() {
     let inst = make_vop(0b01_0011, 1, 16, 10, OPIVX, 0);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VmsbcVx {
@@ -339,7 +354,10 @@ fn vmsbc_vx_no_borrow() {
 #[test]
 fn vmsbc_has_no_immediate_form() {
     let inst = make_vop(0b01_0011, 0, 2, 5, OPIVI, 1);
-    assert_eq!(ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst),
+        None
+    );
 }
 
 // High register numbers
@@ -347,7 +365,7 @@ fn vmsbc_has_no_immediate_form() {
 #[test]
 fn vadc_high_regs() {
     let inst = make_vop(0b01_0000, 0, 31, 30, OPIVV, 29);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZveXxCarryInstruction::VadcVvm {
@@ -366,7 +384,10 @@ fn vadc_high_regs() {
 fn wrong_opcode_not_decoded() {
     let funct7 = 0b01_0000 << 1u8;
     let inst = make_r_type(0b011_0011, 1, OPIVV, 2, 3, funct7);
-    assert_eq!(ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst),
+        None
+    );
 }
 
 // OPMVV (funct3=0b010) - carry decoder must NOT claim these (mask decoder owns them)
@@ -375,7 +396,10 @@ fn wrong_opcode_not_decoded() {
 fn opmvv_funct3_not_claimed() {
     // funct6=0b010000, OPMVV - this is vcpop/vfirst territory
     let inst = make_vop(0b01_0000, 0, 4, 0b10000, 0b010, 1);
-    assert_eq!(ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst), None);
+    assert_eq!(
+        ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst),
+        None
+    );
 }
 
 // Display
@@ -383,48 +407,48 @@ fn opmvv_funct3_not_claimed() {
 #[test]
 fn display_vadc_vvm() {
     let inst = make_vop(0b01_0000, 0, 2, 3, OPIVV, 1);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vadc.vvm v1, v2, v3, v0");
 }
 
 #[test]
 fn display_vadc_vxm() {
     let inst = make_vop(0b01_0000, 0, 4, 10, OPIVX, 6);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vadc.vxm v6, v4, a0, v0");
 }
 
 #[test]
 fn display_vadc_vim_negative() {
     let inst = make_vop(0b01_0000, 0, 8, 0b11111, OPIVI, 2);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vadc.vim v2, v8, -1, v0");
 }
 
 #[test]
 fn display_vmadc_vvm() {
     let inst = make_vop(0b01_0001, 0, 4, 5, OPIVV, 3);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vmadc.vvm v3, v4, v5, v0");
 }
 
 #[test]
 fn display_vmadc_vv_no_carry() {
     let inst = make_vop(0b01_0001, 1, 4, 5, OPIVV, 3);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vmadc.vv v3, v4, v5");
 }
 
 #[test]
 fn display_vsbc_vvm() {
     let inst = make_vop(0b01_0010, 0, 10, 11, OPIVV, 8);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vsbc.vvm v8, v10, v11, v0");
 }
 
 #[test]
 fn display_vmsbc_vv_no_borrow() {
     let inst = make_vop(0b01_0011, 1, 14, 15, OPIVV, 0);
-    let decoded = ZveXxCarryInstruction::<Reg<u64>>::try_decode(inst).unwrap();
+    let decoded = ZveXxCarryInstruction::<TestVectorHart>::try_decode(inst).unwrap();
     assert_eq!(format!("{decoded}"), "vmsbc.vv v0, v14, v15");
 }

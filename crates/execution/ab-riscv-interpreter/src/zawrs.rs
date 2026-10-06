@@ -47,16 +47,27 @@ where
 }
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZawrsInstruction<Reg> where Reg: Register {}
+const impl<Reg, Hart> ExecutableInstructionOperands for ZawrsInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZawrsInstruction<Reg> where Reg: Register {}
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZawrsInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZawrsInstruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZawrsInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: HartConfig<Reg = Reg>,
     Env: [const] WrsHandler,
 {
     #[inline(always)]
@@ -66,12 +77,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value: _,
             rs2_value: _,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             Self::WrsNto => {
                 env.handle_wrs_nto();

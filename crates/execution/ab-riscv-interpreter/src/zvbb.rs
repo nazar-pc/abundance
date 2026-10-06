@@ -5,7 +5,7 @@ mod tests;
 pub mod zvbb_helpers;
 pub mod zvkb;
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::arith::zvexx_arith_helpers;
 use crate::v::zvexx::carry::zvexx_carry_helpers;
 use crate::v::zvexx::config::zvexx_config_helpers;
@@ -31,19 +31,29 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZvbbInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZvbbInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZvbbInstruction<Reg>
+const impl<Reg, Hart> ExecutableInstructionOperands for ZvbbInstruction<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZvbbInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZvbbInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
     Regs: RegisterFile<Reg>,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart = Hart>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -54,12 +64,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             // vbrev: reverse all bits within each SEW-wide element
             Self::VbrevV { vd, vs2, vm } => {
@@ -213,8 +223,7 @@ where
                     });
                 };
                 let sew = config.vtype().vsew();
-                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
-                else {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(sew) else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -283,8 +292,7 @@ where
                     });
                 };
                 let sew = config.vtype().vsew();
-                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
-                else {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(sew) else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(
@@ -339,8 +347,7 @@ where
                     });
                 };
                 let sew = config.vtype().vsew();
-                let Some(widening_sew) = zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(sew)
-                else {
+                let Some(widening_sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(sew) else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
                         address: PackedAddress::new(

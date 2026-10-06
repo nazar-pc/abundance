@@ -10,22 +10,27 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for Rv64ZmmulInstruction<Reg> where
-    Reg: Register<Type = u64>
+const impl<Reg, Hart> ExecutableInstructionOperands for Rv64ZmmulInstruction<Hart>
+where
+    Reg: Register<Type = u64>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv64ZmmulInstruction<Reg> where
-    Reg: Register<Type = u64>
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for Rv64ZmmulInstruction<Hart>
+where
+    Reg: Register<Type = u64>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for Rv64ZmmulInstruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv64ZmmulInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: HartConfig<Reg = Reg>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -34,12 +39,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         _env: &mut Env,
         _memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             Self::Mul { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value.wrapping_mul(rs2_value);

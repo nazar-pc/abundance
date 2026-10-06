@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::zk::zbkc::Rv64ZbkcInstruction;
 use crate::registers::general_purpose::Register;
@@ -13,18 +14,23 @@ use core::fmt;
 #[instruction(inherit = [Rv64ZbkcInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64ZbcInstruction<Reg> {
-    Clmulr { rd: Reg, rs1: Reg, rs2: Reg },
+#[rustfmt::skip]
+pub enum Rv64ZbcInstruction<Hart>
+where
+    Hart: HartConfig,
+{
+    Clmulr { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZbcInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZbcInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -58,9 +64,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZbcInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZbcInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

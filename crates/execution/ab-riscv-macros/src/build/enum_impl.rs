@@ -561,7 +561,7 @@ pub(super) fn process_enum_decoding_impl(
         parse_quote! {
             const IMPLEMENTED_EXTENSIONS: &'static [::core::any::TypeId] = &[
                 ::core::any::TypeId::of::<Self>(),
-                #( ::core::any::TypeId::of::<#implemented_extensions<Reg>>(), )*
+                #( ::core::any::TypeId::of::<#implemented_extensions<Hart>>(), )*
             ];
         },
     );
@@ -717,7 +717,7 @@ pub(super) fn process_enum_display_impl(
                                 Self::#variant_name {
                                     #( #field_names, )*
                                 } => ::core::fmt::Display::fmt(
-                                    &#source_enum::<Reg>::#variant_name {
+                                    &#source_enum::<Hart>::#variant_name {
                                         #( #field_names: *#field_names, )*
                                     },
                                     #formatter_arg,
@@ -733,7 +733,7 @@ pub(super) fn process_enum_display_impl(
                                 Self::#variant_name(
                                     #( #fields, )*
                                 ) => ::core::fmt::Display::fmt(
-                                    &#source_enum::<Reg>::#variant_name(
+                                    &#source_enum::<Hart>::#variant_name(
                                         #( *#fields, )*
                                     ),
                                     #formatter_arg,
@@ -742,7 +742,7 @@ pub(super) fn process_enum_display_impl(
                         }
                         Fields::Unit => parse_quote! {
                             Self::#variant_name => ::core::fmt::Display::fmt(
-                                &#source_enum::<Reg>::#variant_name,
+                                &#source_enum::<Hart>::#variant_name,
                                 #formatter_arg,
                             )
                         },

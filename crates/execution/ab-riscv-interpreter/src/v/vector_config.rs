@@ -6,6 +6,7 @@ mod tests;
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
 use core::hint::{assert_unchecked, cold_path};
+use core::marker::PhantomData;
 
 /// Vector length of a [`VectorConfig`], which never exceeds `VLEN`.
 ///
@@ -13,32 +14,54 @@ use core::hint::{assert_unchecked, cold_path};
 /// enforce the bound, so unsafe code can rely on it for accessing a single vector register, like
 /// mask registers with one bit per element.
 #[derive(Debug, Clone, Copy)]
-#[derive_const(PartialEq, Eq)]
-pub struct BoundedVl<const VLEN: Vlen>(Vl);
+pub struct BoundedVl<Hart>(Vl, PhantomData<Hart>)
+where
+    Hart: VectorHartConfig;
 
-impl<const VLEN: Vlen> fmt::Display for BoundedVl<VLEN> {
+const impl<Hart> PartialEq for BoundedVl<Hart>
+where
+    Hart: VectorHartConfig,
+{
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+const impl<Hart> Eq for BoundedVl<Hart> where Hart: VectorHartConfig {}
+
+impl<Hart> fmt::Display for BoundedVl<Hart>
+where
+    Hart: VectorHartConfig,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
 
-const impl<const VLEN: Vlen> From<BoundedVl<VLEN>> for Vl {
+const impl<Hart> From<BoundedVl<Hart>> for Vl
+where
+    Hart: VectorHartConfig,
+{
     #[inline(always)]
-    fn from(value: BoundedVl<VLEN>) -> Self {
+    fn from(value: BoundedVl<Hart>) -> Self {
         value.get()
     }
 }
 
-impl<const VLEN: Vlen> BoundedVl<VLEN> {
+impl<Hart> BoundedVl<Hart>
+where
+    Hart: VectorHartConfig,
+{
     /// Create a new instance, returns `None` if `vl` exceeds `VLEN`
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn new(vl: Vl) -> Option<Self> {
-        if u32::from(vl) > u32::from(VLEN) {
+        if u32::from(vl) > u32::from(Hart::VECTOR_LENGTHS.vlen) {
             cold_path();
             return None;
         }
-        Some(Self(vl))
+        Some(Self(vl, PhantomData))
     }
 
     /// Vector length, which is `<= VLEN`
@@ -46,7 +69,7 @@ impl<const VLEN: Vlen> BoundedVl<VLEN> {
     pub const fn get(self) -> Vl {
         // SAFETY: Guaranteed by construction in `VectorConfig`
         unsafe {
-            assert_unchecked(u32::from(self.0) <= u32::from(VLEN));
+            assert_unchecked(u32::from(self.0) <= u32::from(Hart::VECTOR_LENGTHS.vlen));
         }
         self.0
     }
@@ -68,7 +91,7 @@ impl<const VLEN: Vlen> BoundedVl<VLEN> {
         let bytes = self.get().bytes();
         // SAFETY: `vl <= VLEN` and `VLEN` is a multiple of 8
         unsafe {
-            assert_unchecked(u32::from(bytes) <= VLEN.bytes());
+            assert_unchecked(u32::from(bytes) <= Hart::VECTOR_LENGTHS.vlen.bytes());
         }
         bytes
     }
@@ -84,25 +107,36 @@ impl<const VLEN: Vlen> BoundedVl<VLEN> {
 ///
 /// `vill` is represented as `None` in `Option<VectorConfig>`, `vl` is zero then.
 #[derive(Debug, Clone, Copy)]
-#[derive_const(PartialEq, Eq)]
-pub struct VectorConfig<const ELEN: Elen, const VLEN: Vlen>
+pub struct VectorConfig<Hart>
 where
-    [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+    Hart: VectorHartConfig,
 {
-    vtype: Vtype<ELEN, VLEN>,
+    vtype: Vtype<Hart>,
     vl: Vl,
 }
 
-impl<const ELEN: Elen, const VLEN: Vlen> VectorConfig<ELEN, VLEN>
+const impl<Hart> PartialEq for VectorConfig<Hart>
 where
-    [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+    Hart: VectorHartConfig,
+{
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.vtype == other.vtype && self.vl == other.vl
+    }
+}
+
+const impl<Hart> Eq for VectorConfig<Hart> where Hart: VectorHartConfig {}
+
+impl<Hart> VectorConfig<Hart>
+where
+    Hart: VectorHartConfig,
 {
     /// Create a new configuration.
     ///
     /// Returns `None` if `vl` exceeds `VLMAX` of `vtype`.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn new(vtype: Vtype<ELEN, VLEN>, vl: Vl) -> Option<Self> {
+    pub const fn new(vtype: Vtype<Hart>, vl: Vl) -> Option<Self> {
         if u32::from(vl) > u32::from(vtype.vlmax()) {
             cold_path();
             return None;
@@ -118,7 +152,7 @@ where
     /// to the implementation, `vl` is the same on every implementation with the same `VLEN`.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub const fn from_avl(vtype: Vtype<ELEN, VLEN>, avl: Vl) -> Self {
+    pub const fn from_avl(vtype: Vtype<Hart>, avl: Vl) -> Self {
         let vlmax = vtype.vlmax();
         let vl = if u32::from(avl) > u32::from(vlmax) {
             vlmax
@@ -152,14 +186,14 @@ where
 
     /// `vtype`
     #[inline(always)]
-    pub const fn vtype(self) -> Vtype<ELEN, VLEN> {
+    pub const fn vtype(self) -> Vtype<Hart> {
         self.vtype
     }
 
     /// `vl`, which never exceeds [`Self::vlmax()`] and hence `VLEN`
     #[inline(always)]
-    pub const fn vl(self) -> BoundedVl<VLEN> {
-        BoundedVl(self.vl)
+    pub const fn vl(self) -> BoundedVl<Hart> {
+        BoundedVl(self.vl, PhantomData)
     }
 
     /// `VLMAX` of `vtype`

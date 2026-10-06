@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::m::Rv32MInstruction;
 use crate::instructions::rv32::m::zmmul::Rv32ZmmulInstruction;
@@ -42,7 +43,7 @@ fn test_multiplication() {
     ] {
         let inst = make_r_type(0b011_0011, 1, funct3, 2, 3, 0b000_0001);
         assert_eq!(
-            Rv32ZmmulInstruction::<Reg<u32>>::try_decode(inst),
+            Rv32ZmmulInstruction::<BasicHart<Reg<u32>>>::try_decode(inst),
             Some(expected)
         );
     }
@@ -52,8 +53,11 @@ fn test_multiplication() {
 fn test_division_rejected() {
     for funct3 in [0b100, 0b101, 0b110, 0b111] {
         let inst = make_r_type(0b011_0011, 1, funct3, 2, 3, 0b000_0001);
-        assert_eq!(Rv32ZmmulInstruction::<Reg<u32>>::try_decode(inst), None);
+        assert_eq!(
+            Rv32ZmmulInstruction::<BasicHart<Reg<u32>>>::try_decode(inst),
+            None
+        );
         // M inherits Zmmul and adds division on top
-        assert!(Rv32MInstruction::<Reg<u32>>::try_decode(inst).is_some());
+        assert!(Rv32MInstruction::<BasicHart<Reg<u32>>>::try_decode(inst).is_some());
     }
 }

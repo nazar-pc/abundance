@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -14,24 +15,29 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv32ZbbZbkbSharedInstruction<Reg> {
-    Andn { rd: Reg, rs1: Reg, rs2: Reg },
-    Orn { rd: Reg, rs1: Reg, rs2: Reg },
-    Xnor { rd: Reg, rs1: Reg, rs2: Reg },
-    Rol { rd: Reg, rs1: Reg, rs2: Reg },
-    Ror { rd: Reg, rs1: Reg, rs2: Reg },
-    Rori { rd: Reg, rs1: Reg, shamt: u8 },
-    Rev8 { rd: Reg, rs1: Reg },
+#[rustfmt::skip]
+pub enum Rv32ZbbZbkbSharedInstruction<Hart>
+where
+    Hart: HartConfig,
+{
+    Andn { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Orn { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Xnor { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Rol { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Ror { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Rori { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Rev8 { rd: Hart::Reg, rs1: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZbbZbkbSharedInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZbbZbkbSharedInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -96,9 +102,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZbbZbkbSharedInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZbbZbkbSharedInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -123,28 +130,33 @@ where
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv32ZbbInstruction<Reg> {
-    Clz { rd: Reg, rs1: Reg },
-    Ctz { rd: Reg, rs1: Reg },
-    Cpop { rd: Reg, rs1: Reg },
-    Max { rd: Reg, rs1: Reg, rs2: Reg },
-    Maxu { rd: Reg, rs1: Reg, rs2: Reg },
-    Min { rd: Reg, rs1: Reg, rs2: Reg },
-    Minu { rd: Reg, rs1: Reg, rs2: Reg },
-    Sextb { rd: Reg, rs1: Reg },
-    Sexth { rd: Reg, rs1: Reg },
-    Zexth { rd: Reg, rs1: Reg },
-    Orcb { rd: Reg, rs1: Reg },
+#[rustfmt::skip]
+pub enum Rv32ZbbInstruction<Hart>
+where
+    Hart: HartConfig,
+{
+    Clz { rd: Hart::Reg, rs1: Hart::Reg },
+    Ctz { rd: Hart::Reg, rs1: Hart::Reg },
+    Cpop { rd: Hart::Reg, rs1: Hart::Reg },
+    Max { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Maxu { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Min { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Minu { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sextb { rd: Hart::Reg, rs1: Hart::Reg },
+    Sexth { rd: Hart::Reg, rs1: Hart::Reg },
+    Zexth { rd: Hart::Reg, rs1: Hart::Reg },
+    Orcb { rd: Hart::Reg, rs1: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZbbInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZbbInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -215,9 +227,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZbbInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZbbInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

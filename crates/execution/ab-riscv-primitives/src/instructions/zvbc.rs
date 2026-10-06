@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::ZveXxInstruction;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
@@ -43,33 +44,41 @@ use core::fmt;
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum ZvbcInstruction<Reg> {
+pub enum ZvbcInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // vclmul: lower SEW bits of the carry-less 2*SEW product
     /// `vclmul.vv vd, vs2, vs1, vm`
     VclmulVv  { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vclmul.vx vd, vs2, rs1, vm`
-    VclmulVx  { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VclmulVx  { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     // vclmulh: upper SEW bits of the carry-less 2*SEW product
     /// `vclmulh.vv vd, vs2, vs1, vm`
     VclmulhVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vclmulh.vx vd, vs2, rs1, vm`
-    VclmulhVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VclmulhVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZvbcInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZvbcInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn try_decode(instruction: u32) -> Option<Self> {
         let opcode = (instruction & 0b111_1111) as u8;
         if opcode != 0b101_0111 {
+            None?;
+        }
+        // All instructions require `SEW = 64`, which is not supported with `ELEN < 64`
+        if !Hart::VECTOR_LENGTHS.elen.supports(Eew::E64) {
             None?;
         }
         let vd_bits = ((instruction >> 7) & 0x1f) as u8;
@@ -120,9 +129,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZvbcInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZvbcInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

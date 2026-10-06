@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::zk::zkn::zknd::{Rv64ZkndKsRnum, Rv64ZkndZkneSharedInstruction};
 use crate::registers::general_purpose::Register;
@@ -16,21 +17,26 @@ use core::fmt;
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64ZkneInstruction<Reg> {
+#[rustfmt::skip]
+pub enum Rv64ZkneInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// AES final round encryption: ShiftRows + SubBytes, no MixColumns
-    Aes64Es { rd: Reg, rs1: Reg, rs2: Reg },
+    Aes64Es { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     /// AES middle round encryption: ShiftRows + SubBytes + MixColumns
-    Aes64Esm { rd: Reg, rs1: Reg, rs2: Reg },
+    Aes64Esm { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZkneInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZkneInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -70,9 +76,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZkneInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZkneInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::zacas::Rv64ZacasInstruction;
 use crate::instructions::test_utils::make_r_type;
@@ -23,7 +24,7 @@ fn test_amocas_w() {
         3,
         funct7(FUNCT5_AMOCAS, false, false),
     );
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZacasInstruction::AmocasW {
@@ -46,7 +47,7 @@ fn test_amocas_d() {
         3,
         funct7(FUNCT5_AMOCAS, false, false),
     );
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZacasInstruction::AmocasD {
@@ -69,7 +70,7 @@ fn test_amocas_d_aqrl() {
         3,
         funct7(FUNCT5_AMOCAS, true, true),
     );
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZacasInstruction::AmocasD {
@@ -93,7 +94,7 @@ fn test_amocas_d_odd_registers_allowed_on_rv64() {
         7,
         funct7(FUNCT5_AMOCAS, false, false),
     );
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZacasInstruction::AmocasD {
@@ -117,7 +118,7 @@ fn test_amocas_q_register_pair() {
         6,
         funct7(FUNCT5_AMOCAS, false, false),
     );
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZacasInstruction::AmocasQ {
@@ -142,7 +143,7 @@ fn test_amocas_q_odd_rd_reserved() {
         6,
         funct7(FUNCT5_AMOCAS, false, false),
     );
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -156,7 +157,7 @@ fn test_amocas_q_odd_rs2_reserved() {
         7,
         funct7(FUNCT5_AMOCAS, false, false),
     );
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -164,7 +165,7 @@ fn test_amocas_q_odd_rs2_reserved() {
 fn test_wrong_funct5_returns_none() {
     // funct5=0b00010 is `lr`, not part of Zaamo or Zacas
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_W, 2, 3, funct7(0b00010, false, false));
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -178,7 +179,7 @@ fn test_wrong_opcode_returns_none() {
         3,
         funct7(FUNCT5_AMOCAS, false, false),
     );
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -186,7 +187,7 @@ fn test_wrong_opcode_returns_none() {
 fn test_amoadd_d_inherited_from_zaamo() {
     // Zacas inherits Zaamo, so plain amoadd.d should also decode
     let inst = make_r_type(OPCODE_AMO, 1, FUNCT3_D, 2, 3, funct7(0b00000, false, false));
-    let decoded = Rv64ZacasInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZacasInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZacasInstruction::AmoaddD {

@@ -1,5 +1,5 @@
 use crate::prelude::VLENB_USIZE;
-use crate::rv64::test_utils::{Env, TestInterpreterState, initialize_state};
+use crate::rv64::test_utils::{TestHart, TestInterpreterState, initialize_state};
 use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::muldiv::zvexx_muldiv_helpers::{mulh_ss, mulhsu_su, mulhu_uu};
@@ -19,7 +19,7 @@ use core::assert_matches;
 //   E16/M2 -> VLMAX=32, 2 regs
 //   E32/M2 -> VLMAX=16, 2 regs (vd for widening E16 uses 2 regs)
 //   E8/M4  -> VLMAX=128, 4 regs (vd for widening E32 uses 4 regs - but VLMAX=8 at E32/M1)
-const TEST_VLENB: usize = VLENB_USIZE::<{ <Env as VectorRegisters>::VLEN }>;
+const TEST_VLENB: usize = VLENB_USIZE::<TestHart>;
 const {
     assert!(TEST_VLENB == 32);
 }
@@ -32,7 +32,7 @@ fn setup(
     vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
-) -> TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>> {
+) -> TestInterpreterState<ZveXxMulDivInstruction<TestHart>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -44,8 +44,8 @@ fn setup(
 }
 
 fn exec(
-    state: &mut TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
-    instr: ZveXxMulDivInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxMulDivInstruction<TestHart>>,
+    instr: ZveXxMulDivInstruction<TestHart>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -78,8 +78,8 @@ fn exec(
 /// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
 /// `state` without modifying any vector state
 fn assert_rejects_nonzero_vstart(
-    state: &mut TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
-    instr: ZveXxMulDivInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxMulDivInstruction<TestHart>>,
+    instr: ZveXxMulDivInstruction<TestHart>,
 ) {
     let vstart = state.env.vstart();
     assert_ne!(vstart, Vstart::ZERO);
@@ -95,7 +95,7 @@ fn assert_rejects_nonzero_vstart(
 }
 
 fn read_elem(
-    state: &TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxMulDivInstruction<TestHart>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -112,7 +112,7 @@ fn read_elem(
 // Wide elements are 2*SEW bytes; a register holds VLENB/wide_bytes of them, matching
 // `write_wide_element_u64` in the implementation
 fn read_wide_elem(
-    state: &TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxMulDivInstruction<TestHart>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -131,7 +131,7 @@ fn read_wide_elem(
 }
 
 fn write_elem(
-    state: &mut TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxMulDivInstruction<TestHart>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -146,7 +146,7 @@ fn write_elem(
 }
 
 fn write_wide_elem(
-    state: &mut TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxMulDivInstruction<TestHart>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -165,7 +165,7 @@ fn write_wide_elem(
 }
 
 fn set_mask_bit(
-    state: &mut TestInterpreterState<ZveXxMulDivInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxMulDivInstruction<TestHart>>,
     elem_i: u16,
     val: bool,
 ) {
@@ -1962,7 +1962,7 @@ fn vector_instructions_not_allowed() {
 
 #[test]
 fn vtype_not_configured_is_illegal() {
-    let mut state = initialize_state::<ZveXxMulDivInstruction<Reg<u64>>, _>([]);
+    let mut state = initialize_state::<ZveXxMulDivInstruction<TestHart>, _>([]);
     state.env.init_vector_csrs();
     // vtype left in illegal state (vill=1, no set_vtype called)
     let result = exec(

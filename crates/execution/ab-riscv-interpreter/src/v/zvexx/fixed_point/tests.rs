@@ -1,4 +1,4 @@
-use crate::rv64::test_utils::{TestInterpreterState, initialize_state};
+use crate::rv64::test_utils::{TestHart, TestInterpreterState, initialize_state};
 use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::arith::zvexx_arith_helpers::sign_extend;
@@ -17,7 +17,7 @@ fn setup(
     vl: Vl,
     vsew: Vsew,
     vlmul: Vlmul,
-) -> TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>> {
+) -> TestInterpreterState<ZveXxFixedPointInstruction<TestHart>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -33,15 +33,15 @@ fn setup_with_vxrm(
     vsew: Vsew,
     vlmul: Vlmul,
     vxrm: Vxrm,
-) -> TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>> {
+) -> TestInterpreterState<ZveXxFixedPointInstruction<TestHart>> {
     let mut state = setup(vl, vsew, vlmul);
     state.env.set_vxrm(vxrm);
     state
 }
 
 fn exec(
-    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>,
-    instr: ZveXxFixedPointInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<TestHart>>,
+    instr: ZveXxFixedPointInstruction<TestHart>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -74,8 +74,8 @@ fn exec(
 /// Assert that `instr` raises an illegal instruction exception with the non-zero `vstart` in
 /// `state` without modifying any vector state
 fn assert_rejects_nonzero_vstart(
-    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>,
-    instr: ZveXxFixedPointInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<TestHart>>,
+    instr: ZveXxFixedPointInstruction<TestHart>,
 ) {
     let vstart = state.env.vstart();
     assert_ne!(vstart, Vstart::ZERO);
@@ -91,7 +91,7 @@ fn assert_rejects_nonzero_vstart(
 }
 
 fn write_elem(
-    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<TestHart>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -106,7 +106,7 @@ fn write_elem(
 }
 
 fn read_elem(
-    state: &TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxFixedPointInstruction<TestHart>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -122,7 +122,7 @@ fn read_elem(
 
 // Write a 2*SEW-wide element into a double-width register group (for narrowing source)
 fn write_wide_elem(
-    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<TestHart>>,
     base_reg: VReg,
     elem_i: usize,
     sew: Vsew,
@@ -141,7 +141,7 @@ fn write_wide_elem(
 }
 
 fn set_mask_bit(
-    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxFixedPointInstruction<TestHart>>,
     reg: VReg,
     i: u32,
     val: bool,
@@ -154,7 +154,7 @@ fn set_mask_bit(
     }
 }
 
-fn vxsat(state: &TestInterpreterState<ZveXxFixedPointInstruction<Reg<u64>>>) -> bool {
+fn vxsat(state: &TestInterpreterState<ZveXxFixedPointInstruction<TestHart>>) -> bool {
     state.env.vxsat()
 }
 

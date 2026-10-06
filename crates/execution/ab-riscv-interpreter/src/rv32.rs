@@ -26,22 +26,27 @@ use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for Rv32Instruction<Reg> where
-    Reg: Register<Type = u32>
+const impl<Reg, Hart> ExecutableInstructionOperands for Rv32Instruction<Hart>
+where
+    Reg: Register<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32Instruction<Reg> where
-    Reg: Register<Type = u32>
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for Rv32Instruction<Hart>
+where
+    Reg: Register<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for Rv32Instruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv32Instruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
     Regs: [const] RegisterFile<Reg>,
     Env: [const] SystemInstructionHandler<Reg, Regs, Memory, PC>,
     Memory: [const] VirtualMemory,
@@ -54,12 +59,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             Self::Add { rd, rs1: _, rs2: _ } => {
                 let value = rs1_value.wrapping_add(rs2_value);

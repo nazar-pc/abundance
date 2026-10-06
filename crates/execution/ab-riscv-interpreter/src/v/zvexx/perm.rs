@@ -4,7 +4,7 @@
 mod tests;
 pub mod zvexx_perm_helpers;
 
-use crate::v::vector_registers::VectorRegistersExt;
+use crate::v::vector_registers::{VectorRegisters, VectorRegistersExt};
 use crate::v::zvexx::zvexx_helpers;
 use crate::{
     ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands, ExecutionError,
@@ -16,19 +16,29 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZveXxPermInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxPermInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZveXxPermInstruction<Reg>
+const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxPermInstruction<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxPermInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZveXxPermInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
     Regs: RegisterFile<Reg>,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart = Hart>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -39,12 +49,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value: _,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             // vmv.x.s rd, vs2
             // Copies sign-extended element 0 of vs2 (at current SEW) to GPR rd.

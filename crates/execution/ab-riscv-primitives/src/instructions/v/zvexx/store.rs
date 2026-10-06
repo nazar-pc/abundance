@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::load::{LoadStoreNreg, Nf, SegVmNf};
 use crate::instructions::v::{Eew, V};
@@ -20,57 +21,61 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxStoreInstruction<Reg> {
+pub enum ZveXxStoreInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// Unit-stride store: `vse{eew}.v vs3, (rs1), vm`
     ///
     /// mop=00, sumop=00000, nf=000
-    Vse { vs3: VReg, rs1: Reg, vm: bool, eew: Eew },
+    Vse { vs3: VReg, rs1: Hart::Reg, vm: bool, eew: Eew },
     /// Unit-stride mask store: `vsm.v vs3, (rs1)`
     ///
     /// mop=00, sumop=01011, nf=000, eew=e8, vm=1
-    Vsm { vs3: VReg, rs1: Reg },
+    Vsm { vs3: VReg, rs1: Hart::Reg },
     /// Strided store: `vsse{eew}.v vs3, (rs1), rs2, vm`
     ///
     /// mop=10, nf=000
-    Vsse { vs3: VReg, rs1: Reg, rs2: Reg, vm: bool, eew: Eew },
+    Vsse { vs3: VReg, rs1: Hart::Reg, rs2: Hart::Reg, vm: bool, eew: Eew },
     /// Indexed-unordered store: `vsuxei{eew}.v vs3, (rs1), vs2, vm`
     ///
     /// mop=01, nf=000. eew is the index element width.
-    Vsuxei { vs3: VReg, rs1: Reg, vs2: VReg, vm: bool, eew: Eew },
+    Vsuxei { vs3: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool, eew: Eew },
     /// Indexed-ordered store: `vsoxei{eew}.v vs3, (rs1), vs2, vm`
     ///
     /// mop=11, nf=000. eew is the index element width.
-    Vsoxei { vs3: VReg, rs1: Reg, vs2: VReg, vm: bool, eew: Eew },
+    Vsoxei { vs3: VReg, rs1: Hart::Reg, vs2: VReg, vm: bool, eew: Eew },
     /// Whole-register store: `vs{nreg}r.v vs3, (rs1)`
     ///
     /// mop=00, sumop=01000, vm=1. nreg must be 1, 2, 4, or 8.
-    Vsr { vs3: VReg, rs1: Reg, nreg: LoadStoreNreg },
+    Vsr { vs3: VReg, rs1: Hart::Reg, nreg: LoadStoreNreg },
     /// Unit-stride segment store: `vsseg{nf}e{eew}.v vs3, (rs1), vm`
     ///
     /// mop=00, sumop=00000, nf>0
-    Vsseg { vs3: VReg, rs1: Reg, eew: Eew, vm_nf: SegVmNf },
+    Vsseg { vs3: VReg, rs1: Hart::Reg, eew: Eew, vm_nf: SegVmNf },
     /// Strided segment store: `vssseg{nf}e{eew}.v vs3, (rs1), rs2, vm`
     ///
     /// mop=10, nf>0
-    Vssseg { vs3: VReg, rs1: Reg, rs2: Reg, eew: Eew, vm_nf: SegVmNf },
+    Vssseg { vs3: VReg, rs1: Hart::Reg, rs2: Hart::Reg, eew: Eew, vm_nf: SegVmNf },
     /// Indexed-unordered segment store: `vsuxseg{nf}ei{eew}.v vs3, (rs1), vs2, vm`
     ///
     /// mop=01, nf>0
-    Vsuxseg { vs3: VReg, rs1: Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
+    Vsuxseg { vs3: VReg, rs1: Hart::Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
     /// Indexed-ordered segment store: `vsoxseg{nf}ei{eew}.v vs3, (rs1), vs2, vm`
     ///
     /// mop=11, nf>0
-    Vsoxseg { vs3: VReg, rs1: Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
+    Vsoxseg { vs3: VReg, rs1: Hart::Reg, vs2: VReg, eew: Eew, vm_nf: SegVmNf },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxStoreInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxStoreInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -112,6 +117,10 @@ where
                     // Regular unit-stride store
                     0b0_0000 => {
                         let eew = Eew::from_width(width)?;
+                        // `EEW > ELEN` is reserved
+                        if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
+                            None?;
+                        }
                         if nf == 0 {
                             Some(Self::Vse { vs3, rs1, vm, eew })
                         } else {
@@ -146,6 +155,10 @@ where
             // Indexed-unordered
             0b01 => {
                 let eew = Eew::from_width(width)?;
+                // `EEW > ELEN` is reserved
+                if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
+                    None?;
+                }
                 let vs2 = VReg::from_bits(rs2_bits)?;
                 if vs2.is_mask(vm) {
                     None?;
@@ -179,6 +192,10 @@ where
             // Strided
             0b10 => {
                 let eew = Eew::from_width(width)?;
+                // `EEW > ELEN` is reserved
+                if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
+                    None?;
+                }
                 let rs2 = Reg::from_bits(rs2_bits)?;
                 if nf == 0 {
                     Some(Self::Vsse {
@@ -201,6 +218,10 @@ where
             // Indexed-ordered
             0b11 => {
                 let eew = Eew::from_width(width)?;
+                // `EEW > ELEN` is reserved
+                if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
+                    None?;
+                }
                 let vs2 = VReg::from_bits(rs2_bits)?;
                 if vs2.is_mask(vm) {
                     None?;
@@ -242,9 +263,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxStoreInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxStoreInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

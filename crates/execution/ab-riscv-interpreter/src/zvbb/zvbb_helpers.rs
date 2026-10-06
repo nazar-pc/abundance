@@ -23,14 +23,13 @@ use core::hint::cold_path;
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_vbrev<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     sew: Vsew,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -74,14 +73,13 @@ pub fn execute_vbrev<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_vclz<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     sew: Vsew,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -122,14 +120,13 @@ pub fn execute_vclz<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_vctz<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     sew: Vsew,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -169,13 +166,12 @@ pub fn execute_vctz<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_vcpop<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let Some(vs2) = vs2.with_same_vl(vl) else {
@@ -218,15 +214,14 @@ pub fn execute_vcpop<Reg, Env>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_vwsll<Reg, Env>(
     env: &mut Env,
-    vd: VRegGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
-    src: OpSrc<VRegGroup<{ Env::VLEN }>>,
-    sew: WideningSew<{ Env::ELEN }>,
+    vd: VRegGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
+    src: OpSrc<VRegGroup<Env::Hart>>,
+    sew: WideningSew<Env::Hart>,
     vm: bool,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let double_sew = sew.wide();
     let vl = vd.vl();

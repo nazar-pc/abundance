@@ -121,10 +121,13 @@ pub(crate) fn mask_bit(mask: &[u8], i: u16) -> bool {
 /// element, preserving the unmasked semantics.
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub(in super::super) fn snapshot_mask<const VLEN: Vlen>(
-    vregs: &VectorRegisterFile<VLEN>,
+pub(in super::super) fn snapshot_mask<Hart>(
+    vregs: &VectorRegisterFile<Hart>,
     vm: bool,
-) -> [u8; VLENB_USIZE::<VLEN>] {
+) -> [u8; VLENB_USIZE::<Hart>]
+where
+    Hart: VectorHartConfig,
+{
     if vm {
         // All-ones: every element active
         [0xffu8; _]
@@ -173,15 +176,14 @@ where
 pub fn execute_unit_stride_load<Reg, Env, Memory>(
     env: &mut Env,
     memory: &Memory,
-    vd: VRegSegmentGroup<{ Env::VLEN }>,
+    vd: VRegSegmentGroup<Env::Hart>,
     vm: bool,
     base: u64,
-    fault_only_first: Option<VectorConfig<{ Env::ELEN }, { Env::VLEN }>>,
+    fault_only_first: Option<VectorConfig<Env::Hart>>,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     Memory: VirtualMemory,
 {
     let vl = vd.first().vl();
@@ -292,15 +294,14 @@ where
 pub fn execute_strided_load<Reg, Env, Memory>(
     env: &mut Env,
     memory: &Memory,
-    vd: VRegSegmentGroup<{ Env::VLEN }>,
+    vd: VRegSegmentGroup<Env::Hart>,
     vm: bool,
     base: u64,
     stride: i64,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     Memory: VirtualMemory,
 {
     let vstart = env.vstart();
@@ -355,15 +356,14 @@ where
 pub fn execute_indexed_load<Reg, Env, Memory>(
     env: &mut Env,
     memory: &Memory,
-    vd: VRegSegmentGroup<{ Env::VLEN }>,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vd: VRegSegmentGroup<Env::Hart>,
+    vs2: VRegGroup<Env::Hart>,
     vm: bool,
     base: u64,
 ) -> Result<(), ExecutionError<Reg::Type>>
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     Memory: VirtualMemory,
 {
     let Some(indexed) = vd.with_index(vs2) else {

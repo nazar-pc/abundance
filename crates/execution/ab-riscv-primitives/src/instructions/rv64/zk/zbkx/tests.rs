@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::zk::zbkx::Rv64ZbkxInstruction;
 use crate::instructions::test_utils::make_r_type;
@@ -6,7 +7,7 @@ use crate::registers::general_purpose::Reg;
 #[test]
 fn test_xperm4() {
     let inst = make_r_type(0b011_0011, 1, 0b010, 2, 3, 0b001_0100);
-    let decoded = Rv64ZbkxInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkxInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbkxInstruction::Xperm4 {
@@ -20,7 +21,7 @@ fn test_xperm4() {
 #[test]
 fn test_xperm8() {
     let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b001_0100);
-    let decoded = Rv64ZbkxInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkxInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbkxInstruction::Xperm8 {
@@ -35,7 +36,7 @@ fn test_xperm8() {
 fn test_wrong_funct7_no_decode() {
     // funct3=0b010 (SLT), funct7=0b000_0000: wrong funct7 must not decode as Zbkx
     let inst = make_r_type(0b011_0011, 1, 0b010, 2, 3, 0b000_0000);
-    let decoded = Rv64ZbkxInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkxInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -43,6 +44,6 @@ fn test_wrong_funct7_no_decode() {
 fn test_wrong_opcode_no_decode() {
     // OP-32 opcode (0b011_1011) is not valid for Zbkx
     let inst = make_r_type(0b011_1011, 1, 0b000, 2, 3, 0b001_0100);
-    let decoded = Rv64ZbkxInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkxInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

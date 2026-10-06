@@ -4,13 +4,17 @@
 mod tests;
 pub mod zvexx;
 
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::{RegType, Register};
 use core::any::TypeId;
 use core::hint::{assert_unchecked, cold_path};
-use core::marker::ConstParamTy;
+use core::marker::{ConstParamTy, PhantomData};
 use core::ops::RangeInclusive;
 use core::{cmp, fmt};
+
+/// Vector register width `VLEN` of hart configuration, usable as a const generic argument
+const HART_VLEN<Hart: VectorHartConfig>: Vlen = Hart::VECTOR_LENGTHS.vlen;
 
 /// Vector start element index
 #[derive(Debug, Clone, Copy)]
@@ -196,6 +200,14 @@ const impl From<Elen> for u32 {
     }
 }
 
+impl Elen {
+    /// Whether elements of width `eew` are supported, which is the case when `EEW <= ELEN`
+    #[inline(always)]
+    pub const fn supports(self, eew: Eew) -> bool {
+        u32::from(eew.bits_width()) <= u32::from(self)
+    }
+}
+
 /// Vector length
 #[derive(ConstParamTy, Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq, PartialOrd, Ord)]
@@ -245,16 +257,6 @@ impl Vlen {
         self as u32 / u8::BITS
     }
 }
-
-/// Assertion for supported ELEN + VLEN combinations, to be used in `where` bounds (panics on
-/// invalid input)
-pub const SUPPORTED_ELEN_VLEN<const ELEN: Elen, const VLEN: Vlen>: usize = {
-    assert!(
-        u32::from(ELEN) <= u32::from(VLEN),
-        "ELEN must be <= VLEN"
-    );
-    0
-};
 
 /// `mstatus.VS` / `sstatus.VS` / `vsstatus.VS` field encoding.
 ///
@@ -885,10 +887,9 @@ impl Vxrm {
 /// The raw encoding is XLEN-dependent (vill is at bit XLEN-1), but this decoded form is
 /// XLEN-independent.
 #[derive(Debug, Clone, Copy)]
-#[derive_const(PartialEq, Eq)]
-pub struct Vtype<const ELEN: Elen, const VLEN: Vlen>
+pub struct Vtype<Hart>
 where
-    [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+    Hart: VectorHartConfig,
 {
     /// Vector mask agnostic policy (bit `7`)
     vma: bool,
@@ -898,11 +899,27 @@ where
     vsew: Vsew,
     /// Vector length multiplier (bits `[2:0]`)
     vlmul: Vlmul,
+    hart: PhantomData<Hart>,
 }
 
-impl<const ELEN: Elen, const VLEN: Vlen> Vtype<ELEN, VLEN>
+const impl<Hart> PartialEq for Vtype<Hart>
 where
-    [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+    Hart: VectorHartConfig,
+{
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.vma == other.vma
+            && self.vta == other.vta
+            && self.vsew == other.vsew
+            && self.vlmul == other.vlmul
+    }
+}
+
+const impl<Hart> Eq for Vtype<Hart> where Hart: VectorHartConfig {}
+
+impl<Hart> Vtype<Hart>
+where
+    Hart: VectorHartConfig,
 {
     /// Vector mask agnostic policy (bit `7`)
     pub const fn vma(&self) -> bool {
@@ -932,7 +949,7 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn eew_register_count(&self, eew: Eew) -> Option<VRegGroupSize> {
-        if u32::from(eew.bits_width()) > u32::from(ELEN) {
+        if !Hart::VECTOR_LENGTHS.elen.supports(eew) {
             cold_path();
             return None;
         }
@@ -943,7 +960,7 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn vlmax(&self) -> Vl {
-        self.vlmul.vlmax::<VLEN>(self.vsew)
+        self.vlmul.vlmax::<{ HART_VLEN::<Hart> }>(self.vsew)
     }
 
     /// Decode from raw register value.
@@ -981,8 +998,9 @@ where
             return None;
         };
 
+        let elen = Hart::VECTOR_LENGTHS.elen;
         let sew = vsew.bits_width();
-        if u32::from(sew) > u32::from(ELEN) {
+        if u32::from(sew) > u32::from(elen) {
             cold_path();
             return None;
         }
@@ -990,7 +1008,7 @@ where
         // Only `SEW <= LMUL * ELEN` must be supported for fractional `LMUL`, anything beyond that
         // is reserved and treated as `vill` like in the Sail model. Since `ELEN <= VLEN`,
         // this also guarantees that at least one element fits and `VLMAX` is non-zero.
-        if u32::from(sew) * 8 > u32::from(ELEN) * vlmul.eighths() {
+        if u32::from(sew) * 8 > u32::from(elen) * vlmul.eighths() {
             cold_path();
             return None;
         }
@@ -1000,6 +1018,7 @@ where
             vta,
             vsew,
             vlmul,
+            hart: PhantomData,
         })
     }
 
@@ -1049,19 +1068,23 @@ where
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[doc(hidden)]
-pub enum V<Reg> {
-    V(Reg, !),
+pub enum V<Hart>
+where
+    Hart: HartConfig,
+{
+    V(Hart::Reg, !),
 }
 
-const impl<Reg> Instruction for V<Reg>
+const impl<Reg, Hart> Instruction for V<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const IMPLEMENTED_EXTENSIONS: &'static [TypeId] = &[];
 
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(_instruction: u32) -> Option<Self> {
@@ -1074,9 +1097,10 @@ where
     }
 }
 
-impl<Reg> fmt::Display for V<Reg>
+impl<Reg, Hart> fmt::Display for V<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

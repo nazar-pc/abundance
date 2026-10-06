@@ -1,5 +1,6 @@
 #![expect(clippy::unusual_byte_groupings, reason = "Test readability")]
 
+use crate::hart::{BasicHart, HartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zbb::{Rv64ZbbInstruction, Rv64ZbbZbkbSharedInstruction};
 use crate::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
@@ -11,16 +12,19 @@ use core::fmt;
 #[instruction(inherit = [Rv64ZbbInstruction, Rv64ZbkbInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum Rv64ZbbZbkbTestInstruction<Reg> {}
+enum Rv64ZbbZbkbTestInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZbbZbkbTestInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZbbZbkbTestInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -34,9 +38,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZbbZbkbTestInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZbbZbkbTestInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -46,16 +51,19 @@ where
 #[instruction(inherit = [Rv64ZbkbInstruction, Rv64ZbbInstruction])]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum Rv64ZbkbZbbTestInstruction<Reg> {}
+enum Rv64ZbkbZbbTestInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZbkbZbbTestInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZbkbZbbTestInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -69,9 +77,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZbkbZbbTestInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZbkbZbbTestInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -84,16 +93,19 @@ where
 )]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-enum Rv64ZbbZbkbWithoutZexthTestInstruction<Reg> {}
+enum Rv64ZbbZbkbWithoutZexthTestInstruction<Hart>
+where
+    Hart: HartConfig, {}
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZbbZbkbWithoutZexthTestInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZbbZbkbWithoutZexthTestInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     fn try_decode(instruction: u32) -> Option<Self> {
@@ -107,9 +119,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZbbZbkbWithoutZexthTestInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZbbZbkbWithoutZexthTestInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {}
@@ -120,7 +133,7 @@ where
 fn test_pack() {
     // pack: opcode=0b011_0011, funct3=0b100, funct7=0b000_0100
     let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0100);
-    let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbkbInstruction::Pack {
@@ -135,7 +148,7 @@ fn test_pack() {
 fn test_packh() {
     // packh: opcode=0b011_0011, funct3=0b111, funct7=0b000_0100
     let inst = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b000_0100);
-    let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbkbInstruction::Packh {
@@ -150,7 +163,7 @@ fn test_packh() {
 fn test_packw() {
     // packw: opcode=0b011_1011, funct3=0b100, funct7=0b000_0100
     let inst = make_r_type(0b011_1011, 1, 0b100, 2, 3, 0b000_0100);
-    let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbkbInstruction::Packw {
@@ -167,7 +180,7 @@ fn test_packw_rs2_zero() {
     // `packw`
     let inst = make_r_type(0b011_1011, 1, 0b100, 2, 0, 0b000_0100);
     assert_eq!(
-        Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst),
+        Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(Rv64ZbkbInstruction::Packw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
@@ -181,7 +194,7 @@ fn test_packw_rs2_zero_with_zbb() {
     // With Zbb present, `zext.h` is decoded instead regardless of the inheritance order
     let inst = make_r_type(0b011_1011, 1, 0b100, 2, 0, 0b000_0100);
     assert_eq!(
-        Rv64ZbbZbkbTestInstruction::<Reg<u64>>::try_decode(inst),
+        Rv64ZbbZbkbTestInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(Rv64ZbbZbkbTestInstruction::Zexth {
             rd: Reg::Ra,
             rs1: Reg::Sp,
@@ -189,7 +202,7 @@ fn test_packw_rs2_zero_with_zbb() {
         })
     );
     assert_eq!(
-        Rv64ZbkbZbbTestInstruction::<Reg<u64>>::try_decode(inst),
+        Rv64ZbkbZbbTestInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(Rv64ZbkbZbbTestInstruction::Zexth {
             rd: Reg::Ra,
             rs1: Reg::Sp,
@@ -199,7 +212,7 @@ fn test_packw_rs2_zero_with_zbb() {
     // Non-zero `rs2` is still `packw`
     let inst = make_r_type(0b011_1011, 1, 0b100, 2, 3, 0b000_0100);
     assert_eq!(
-        Rv64ZbbZbkbTestInstruction::<Reg<u64>>::try_decode(inst),
+        Rv64ZbbZbkbTestInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(Rv64ZbbZbkbTestInstruction::Packw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
@@ -213,7 +226,7 @@ fn test_packw_rs2_zero_with_zbb_without_zext_h() {
     // With `zext.h` ignored, `packw` is decoded instead even though Zbb is present
     let inst = make_r_type(0b011_1011, 1, 0b100, 2, 0, 0b000_0100);
     assert_eq!(
-        Rv64ZbbZbkbWithoutZexthTestInstruction::<Reg<u64>>::try_decode(inst),
+        Rv64ZbbZbkbWithoutZexthTestInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
         Some(Rv64ZbbZbkbWithoutZexthTestInstruction::Packw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
@@ -226,7 +239,7 @@ fn test_packw_rs2_zero_with_zbb_without_zext_h() {
 fn test_brev8() {
     // brev8: OP-IMM, funct3=101, funct12=0b011010000111 = 0x687
     let inst = 0b011010000111_00010_101_00001_0010011u32;
-    let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv64ZbkbInstruction::Brev8 {
@@ -241,14 +254,14 @@ fn test_brev8() {
 fn test_pack_wrong_funct7_returns_none() {
     // funct7=0b000_0000 with pack's funct3=100 is just XOR; should not decode as pack
     let inst = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0000);
-    let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_unknown_opcode_returns_none() {
     let inst = make_r_type(0b010_0011, 1, 0b100, 2, 3, 0b000_0100);
-    let decoded = Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -256,7 +269,7 @@ fn test_unknown_opcode_returns_none() {
 fn test_shared_with_zbb() {
     let andn = make_r_type(0b011_0011, 1, 0b111, 2, 3, 0b010_0000);
     assert_eq!(
-        Rv64ZbkbInstruction::<Reg<u64>>::try_decode(andn),
+        Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(andn),
         Some(Rv64ZbkbInstruction::Andn {
             rd: Reg::Ra,
             rs1: Reg::Sp,
@@ -265,7 +278,7 @@ fn test_shared_with_zbb() {
     );
     let rev8 = make_i_type(0b001_0011, 1, 0b101, 2, 0b0110_1011_1000);
     assert_eq!(
-        Rv64ZbkbInstruction::<Reg<u64>>::try_decode(rev8),
+        Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(rev8),
         Some(Rv64ZbkbInstruction::Rev8 {
             rd: Reg::Ra,
             rs1: Reg::Sp,
@@ -280,7 +293,10 @@ fn test_zbb_only_rejected() {
     let orc_b = make_i_type(0b001_0011, 1, 0b101, 2, 0b0010_1000_0111);
     let min = make_r_type(0b011_0011, 1, 0b100, 2, 3, 0b000_0101);
     for inst in [clz, orc_b, min] {
-        assert_eq!(Rv64ZbkbInstruction::<Reg<u64>>::try_decode(inst), None);
-        assert!(Rv64ZbbInstruction::<Reg<u64>>::try_decode(inst).is_some());
+        assert_eq!(
+            Rv64ZbkbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst),
+            None
+        );
+        assert!(Rv64ZbbInstruction::<BasicHart<Reg<u64>>>::try_decode(inst).is_some());
     }
 }

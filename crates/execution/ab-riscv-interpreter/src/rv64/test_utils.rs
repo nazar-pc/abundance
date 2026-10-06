@@ -10,13 +10,16 @@ use crate::{
     Address, BasicInt, CsrError, Csrs, ExecutableInstruction, ExecutionError, ExecutionResult,
     FetchInstructionResult, InstructionFetcher, PackedAddress, ProgramCounter, RegisterFile,
     Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, ThreadedExecutableInstruction,
-    ThreadedExecutionResult, VirtualMemory, VirtualMemoryError, impl_vector_registers_for_mut_ref,
+    ThreadedExecutionResult, VirtualMemory, VirtualMemoryError,
 };
 use ab_riscv_primitives::prelude::*;
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
+
+/// Hart configuration used in tests
+pub(crate) type TestHart = BasicVectorHart<Reg<u64>, { Elen::L64 }, { Vlen::L256 }>;
 
 pub(crate) const TEST_BASE_ADDR: u64 = 0x1000;
 pub(crate) const TRAP_ADDRESS: u64 = 0;
@@ -158,7 +161,7 @@ pub(crate) struct TestInstructionFetcher<I> {
 
 impl<I> ProgramCounter<u64, TestMemory> for TestInstructionFetcher<I>
 where
-    I: Instruction<Reg = Reg<u64>>,
+    I: Instruction<Hart = TestHart>,
 {
     #[inline(always)]
     fn get_pc(&self) -> u64 {
@@ -196,7 +199,7 @@ where
 
 impl<I> InstructionFetcher<I, TestMemory> for TestInstructionFetcher<I>
 where
-    I: Instruction<Reg = Reg<u64>>,
+    I: Instruction<Hart = TestHart>,
 {
     type Peeked = I;
 
@@ -257,7 +260,7 @@ impl<I> TestInstructionFetcher<I> {
         pc: u64,
     ) -> Self
     where
-        I: Instruction<Reg = Reg<u64>>,
+        I: Instruction<Hart = TestHart>,
         Instructions: IntoIterator<Item = I>,
     {
         Self {
@@ -305,7 +308,7 @@ impl Default for CsrState {
 }
 
 struct VectorState {
-    vregs: VectorRegisterFile<const { Env::VLEN }>,
+    vregs: VectorRegisterFile<TestHart>,
     vs_dirty_count: u32,
     vector_allowed: bool,
 }
@@ -395,14 +398,13 @@ const impl VectorRegisters for Env
 where
     Self: Csrs<Reg<u64>>,
 {
-    const ELEN: Elen = Elen::L64;
-    const VLEN: Vlen = Vlen::L256;
+    type Hart = TestHart;
 
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
+    fn read_vregs(&self) -> &VectorRegisterFile<Self::Hart> {
         &self.vector.vregs
     }
 
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<Self::Hart> {
         &mut self.vector.vregs
     }
 
@@ -415,12 +417,12 @@ where
     }
 }
 
-impl VectorRegistersExt<Reg<u64>> for Env {}
+impl VectorRegistersExt for Env {}
 
 impl<Regs, I> SystemInstructionHandler<Reg<u64>, Regs, TestMemory, TestInstructionFetcher<I>>
     for Env
 where
-    I: Instruction<Reg = Reg<u64>>,
+    I: Instruction<Hart = TestHart>,
 {
     #[inline(always)]
     fn handle_ecall(
@@ -432,7 +434,7 @@ where
         Err(ExecutionError::EcallUnsupported {
             address: crate::PackedAddress::new(
                 program_counter.old_pc(
-                    Rv64Instruction::<Reg<u64>>::Ecall {
+                    Rv64Instruction::<TestHart>::Ecall {
                         rs1: Reg::Zero,
                         rs2: Reg::Zero,
                     }
@@ -446,8 +448,6 @@ where
 impl WrsHandler for Env {}
 
 impl FenceIHandler for Env {}
-
-impl_vector_registers_for_mut_ref!(Env, Reg<u64>);
 
 impl Env {
     pub(crate) fn set_privilege_level(&mut self, privilege_level: PrivilegeLevel) {
@@ -508,7 +508,7 @@ impl Env {
         self.init_csr(VectorCsr::Vtype.to_csr_index(), 1u64 << (u64::BITS - 1));
         self.init_csr(
             VectorCsr::Vlenb.to_csr_index(),
-            u64::from(Self::VLEN.bytes()),
+            u64::from(TestHart::VECTOR_LENGTHS.vlen.bytes()),
         );
         // Fill them with default values
         self.initialize_vector_state();
@@ -536,7 +536,7 @@ pub(crate) fn initialize_state<I, Instructions>(
     instructions: Instructions,
 ) -> TestInterpreterState<I>
 where
-    I: Instruction<Reg = Reg<u64>>,
+    I: Instruction<Hart = TestHart>,
     Instructions: IntoIterator<Item = I>,
 {
     BasicInterpreterState {
@@ -556,7 +556,7 @@ pub(crate) fn execute<I>(
     state: &mut TestInterpreterState<I>,
 ) -> Result<(), ExecutionError<Address<I>>>
 where
-    I: Instruction<Reg = Reg<u64>>
+    I: Instruction<Hart = TestHart>
         + ExecutableInstruction<
             BasicRegisters<Reg<u64>, false>,
             Env,
@@ -633,7 +633,7 @@ where
 /// advances the state's fetcher, the program counter comes back as part of the result here.
 pub(crate) fn execute_threaded<I>(state: &mut TestInterpreterState<I>) -> ThreadedExecutionResult<I>
 where
-    I: Instruction<Reg = Reg<u64>>
+    I: Instruction<Hart = TestHart>
         + for<'a> ThreadedExecutableInstruction<
             BasicRegisters<Reg<u64>, false>,
             &'a mut Env,

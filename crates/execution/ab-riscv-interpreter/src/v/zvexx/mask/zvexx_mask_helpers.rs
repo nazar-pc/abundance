@@ -18,15 +18,14 @@ use ab_riscv_primitives::prelude::*;
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_mask_logical_op<Reg, Env, F>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
+    config: VectorConfig<Env::Hart>,
     vd: VReg,
     vs2: VReg,
     vs1: VReg,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(bool, bool) -> bool,
 {
     let vl = config.vl();
@@ -56,14 +55,13 @@ pub fn execute_mask_logical_op<Reg, Env, F>(
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_vcpop<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
+    config: VectorConfig<Env::Hart>,
     vs2: VReg,
     vm: bool,
 ) -> Reg::Type
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
@@ -95,14 +93,13 @@ where
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute_vfirst<Reg, Env>(
     env: &mut Env,
-    config: VectorConfig<{ Env::ELEN }, { Env::VLEN }>,
+    config: VectorConfig<Env::Hart>,
     vs2: VReg,
     vm: bool,
 ) -> Reg::Type
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = config.vl().get();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
@@ -149,11 +146,10 @@ pub fn execute_vmsbf<Reg, Env>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: BoundedVl<{ Env::VLEN }>,
+    vl: BoundedVl<Env::Hart>,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
@@ -187,11 +183,10 @@ pub fn execute_vmsof<Reg, Env>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: BoundedVl<{ Env::VLEN }>,
+    vl: BoundedVl<Env::Hart>,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
@@ -225,11 +220,10 @@ pub fn execute_vmsif<Reg, Env>(
     vd: VReg,
     vs2: VReg,
     vm: bool,
-    vl: BoundedVl<{ Env::VLEN }>,
+    vl: BoundedVl<Env::Hart>,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
     let vs2_snap = *env.read_vregs().get(vs2);
@@ -265,11 +259,10 @@ pub fn execute_vmsif<Reg, Env>(
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn execute_viota<Reg, Env>(env: &mut Env, vd: VRegGroup<{ Env::VLEN }>, vs2: VReg, vm: bool)
+pub fn execute_viota<Reg, Env>(env: &mut Env, vd: VRegGroup<Env::Hart>, vs2: VReg, vm: bool)
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);
@@ -302,11 +295,10 @@ where
 #[inline(always)]
 #[doc(hidden)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-pub fn execute_vid<Reg, Env>(env: &mut Env, vd: VRegGroup<{ Env::VLEN }>, vm: bool)
+pub fn execute_vid<Reg, Env>(env: &mut Env, vd: VRegGroup<Env::Hart>, vm: bool)
 where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
 {
     let vl = vd.vl();
     let mask_buf = snapshot_mask(env.read_vregs(), vm);

@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -12,25 +13,30 @@ use core::fmt;
 #[instruction]
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
-pub enum Rv64ZbaInstruction<Reg> {
-    AddUw { rd: Reg, rs1: Reg, rs2: Reg },
-    Sh1add { rd: Reg, rs1: Reg, rs2: Reg },
-    Sh1addUw { rd: Reg, rs1: Reg, rs2: Reg },
-    Sh2add { rd: Reg, rs1: Reg, rs2: Reg },
-    Sh2addUw { rd: Reg, rs1: Reg, rs2: Reg },
-    Sh3add { rd: Reg, rs1: Reg, rs2: Reg },
-    Sh3addUw { rd: Reg, rs1: Reg, rs2: Reg },
-    SlliUw { rd: Reg, rs1: Reg, shamt: u8 },
+#[rustfmt::skip]
+pub enum Rv64ZbaInstruction<Hart>
+where
+    Hart: HartConfig,
+{
+    AddUw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sh1add { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sh1addUw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sh2add { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sh2addUw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sh3add { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    Sh3addUw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
+    SlliUw { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv64ZbaInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv64ZbaInstruction<Hart>
 where
     Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -114,9 +120,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv64ZbaInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv64ZbaInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

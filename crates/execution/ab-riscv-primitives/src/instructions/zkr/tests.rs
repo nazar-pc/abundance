@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::zkr::{SEED_CSR_INDEX, ZkrInstruction};
 use crate::registers::general_purpose::Reg;
@@ -22,7 +23,7 @@ fn make_system(rd: u8, funct3: u8, rs1: u8, csr_index: u16) -> u32 {
 #[test]
 fn decodes_csrrw_targeting_seed() {
     let inst = make_system(10, 0b001, 11, SEED_CSR_INDEX);
-    let decoded = ZkrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = ZkrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZkrInstruction::Csrrw {
@@ -39,7 +40,7 @@ fn decodes_csrrs_with_arbitrary_csr_index() {
     // Decoding itself does not know or care which CSR index is targeted - that is resolved at
     // execution time
     let inst = make_system(5, 0b010, 0, 0x300);
-    let decoded = ZkrInstruction::<Reg<u64>>::try_decode(inst);
+    let decoded = ZkrInstruction::<BasicHart<Reg<u64>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(ZkrInstruction::Csrrs {
@@ -54,11 +55,17 @@ fn decodes_csrrs_with_arbitrary_csr_index() {
 #[test]
 fn try_decode_rejects_non_system_opcode() {
     let inst = make_system(10, 0b001, 11, SEED_CSR_INDEX) & !0b111_1111 | 0b011_0011;
-    assert_eq!(ZkrInstruction::<Reg<u32>>::try_decode(inst), None);
+    assert_eq!(
+        ZkrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst),
+        None
+    );
 }
 
 #[test]
 fn try_decode_rejects_unknown_funct3() {
     let inst = make_system(10, 0b100, 11, SEED_CSR_INDEX);
-    assert_eq!(ZkrInstruction::<Reg<u32>>::try_decode(inst), None);
+    assert_eq!(
+        ZkrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst),
+        None
+    );
 }

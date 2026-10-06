@@ -119,21 +119,22 @@ where
 }
 
 /// Execution environment of the core under test
-pub(crate) struct TestEnv<Reg, const ELEN: Elen, const VLEN: Vlen>
+pub(crate) struct TestEnv<Hart>
 where
-    Reg: Register,
+    Hart: VectorHartConfig,
 {
-    csrs: BTreeMap<u16, Reg::Type>,
-    vregs: VectorRegisterFile<VLEN>,
-    reservation: Option<Reg::Type>,
+    csrs: BTreeMap<u16, <Hart::Reg as Register>::Type>,
+    vregs: VectorRegisterFile<Hart>,
+    reservation: Option<<Hart::Reg as Register>::Type>,
     entropy_source: ChaCha8Rng,
     core_config: CoreConfig,
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> TestEnv<Reg, ELEN, VLEN>
+impl<Reg, Hart> TestEnv<Hart>
 where
     Reg: Register,
-    Self: VectorRegistersExt<Reg>,
+    Hart: VectorHartConfig<Reg = Reg>,
+    Self: VectorRegistersExt,
 {
     /// Create a new instance with all CSRs the tests expect to exist initialized
     pub(crate) fn new(core_config: CoreConfig) -> Self {
@@ -160,7 +161,7 @@ where
         );
         csrs.insert(
             VectorCsr::Vlenb.to_csr_index(),
-            Reg::Type::from(VLEN.bytes()),
+            Reg::Type::from(Hart::VECTOR_LENGTHS.vlen.bytes()),
         );
         // Machine trap CSRs - zero-initialized, mtvec must be written by test boot code before any
         // trap can be taken. mstatus is the exception: mask_mstatus() forces MPP to M even from an
@@ -282,18 +283,20 @@ where
     }
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> CoreConfigProvider for TestEnv<Reg, ELEN, VLEN>
+impl<Reg, Hart> CoreConfigProvider for TestEnv<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     fn core_config(&self) -> &CoreConfig {
         &self.core_config
     }
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> Csrs<Reg> for TestEnv<Reg, ELEN, VLEN>
+impl<Reg, Hart> Csrs<Reg> for TestEnv<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     fn privilege_level(&self) -> PrivilegeLevel {
         PrivilegeLevel::Machine
@@ -316,48 +319,38 @@ where
     }
 }
 
-// TODO: The compiler does not normalize `<Self as VectorRegisters>::VLEN` (as used in the
-//  signatures of the methods below) to the `VLEN` const generic while `Self` is generic, so this
-//  impl has to be instantiated for concrete parameters instead of being generic like the rest of
-//  them: https://github.com/rust-lang/rust/issues/161264
-macro_rules! impl_vector_registers {
-    ($reg:ty, $elen:expr, $vlen:expr) => {
-        impl VectorRegisters for TestEnv<$reg, { $elen }, { $vlen }> {
-            const ELEN: Elen = $elen;
-            const VLEN: Vlen = $vlen;
+impl<Hart> VectorRegisters for TestEnv<Hart>
+where
+    Hart: VectorHartConfig,
+{
+    type Hart = Hart;
 
-            fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
-                &self.vregs
-            }
+    fn read_vregs(&self) -> &VectorRegisterFile<Self::Hart> {
+        &self.vregs
+    }
 
-            fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
-                &mut self.vregs
-            }
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<Self::Hart> {
+        &mut self.vregs
+    }
 
-            fn vector_instructions_allowed(&self) -> bool {
-                true
-            }
+    fn vector_instructions_allowed(&self) -> bool {
+        true
+    }
 
-            fn mark_vs_dirty(&mut self) {}
-        }
-    };
+    fn mark_vs_dirty(&mut self) {}
 }
 
-impl_vector_registers!(Reg<u32>, Elen::L32, Vlen::L128);
-impl_vector_registers!(Reg<u64>, Elen::L32, Vlen::L128);
-impl_vector_registers!(Reg<u32>, Elen::L64, Vlen::L1024);
-impl_vector_registers!(Reg<u64>, Elen::L64, Vlen::L1024);
-
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> VectorRegistersExt<Reg> for TestEnv<Reg, ELEN, VLEN>
+impl<Reg, Hart> VectorRegistersExt for TestEnv<Hart>
 where
     Reg: Register,
-    Self: VectorRegisters,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> ReservationSet<Reg> for TestEnv<Reg, ELEN, VLEN>
+impl<Reg, Hart> ReservationSet<Reg> for TestEnv<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     fn reservation(&self) -> Option<Reg::Type> {
         self.reservation
@@ -372,9 +365,10 @@ where
     }
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> ZkrSeedSource for TestEnv<Reg, ELEN, VLEN>
+impl<Reg, Hart> ZkrSeedSource for TestEnv<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
     fn poll_seed(&mut self) -> ZkrSeedPoll {
         let mut randomness = [0; _];
@@ -383,12 +377,12 @@ where
     }
 }
 
-impl<Reg, Regs, Memory, PC, const ELEN: Elen, const VLEN: Vlen>
-    SystemInstructionHandler<Reg, Regs, Memory, PC> for TestEnv<Reg, ELEN, VLEN>
+impl<Reg, Hart, Regs, Memory, PC> SystemInstructionHandler<Reg, Regs, Memory, PC> for TestEnv<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
     PC: ProgramCounter<Reg::Type, Memory>,
-    Self: VectorRegistersExt<Reg>,
+    Self: VectorRegistersExt,
 {
     fn handle_ecall(
         &mut self,
@@ -433,12 +427,16 @@ where
     }
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> WrsHandler for TestEnv<Reg, ELEN, VLEN> where
-    Reg: Register
+impl<Reg, Hart> WrsHandler for TestEnv<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
-impl<Reg, const ELEN: Elen, const VLEN: Vlen> FenceIHandler for TestEnv<Reg, ELEN, VLEN> where
-    Reg: Register
+impl<Reg, Hart> FenceIHandler for TestEnv<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }

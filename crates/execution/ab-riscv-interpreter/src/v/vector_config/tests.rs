@@ -13,9 +13,9 @@ const VLMULS: [Vlmul; 7] = [
 ];
 
 /// Every valid `vtype` with `vta = vma = false`
-fn all_vtypes<const ELEN: Elen, const VLEN: Vlen>() -> impl Iterator<Item = Vtype<ELEN, VLEN>>
+fn all_vtypes<Hart>() -> impl Iterator<Item = Vtype<Hart>>
 where
-    [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
+    Hart: VectorHartConfig,
 {
     VSEWS.into_iter().flat_map(|vsew| {
         VLMULS.into_iter().filter_map(move |vlmul| {
@@ -26,12 +26,9 @@ where
 }
 
 /// The properties unsafe code relies on to access vector register elements without bounds checks
-fn check_vector_config_invariants<const ELEN: Elen, const VLEN: Vlen>()
-where
-    [(); SUPPORTED_ELEN_VLEN::<ELEN, VLEN>]:,
-{
+fn check_vector_config_invariants<const ELEN: Elen, const VLEN: Vlen>() {
     let mut count = 0;
-    for vtype in all_vtypes::<ELEN, VLEN>() {
+    for vtype in all_vtypes::<BasicVectorHart<Reg<u64>, ELEN, VLEN>>() {
         count += 1;
         let vlmax = vtype.vlmax();
         let vlmax_u32 = u32::from(vlmax);
@@ -92,7 +89,7 @@ fn vector_config_invariants() {
 
 #[test]
 fn vector_config_from_raw_fails_closed() {
-    type Config = VectorConfig<{ Elen::L64 }, { Vlen::L128 }>;
+    type Config = VectorConfig<BasicVectorHart<Reg<u64>, { Elen::L64 }, { Vlen::L128 }>>;
     // e64, m1: VLMAX = 2
     let vtype = u64::from(Vsew::E64.to_bits()) << 3;
     let vill = 1 << 63;

@@ -1,6 +1,6 @@
 use crate::basic::{BasicInstructionFetcher, BasicMemory, BasicRegisters};
 use crate::rv64::test_utils::{
-    Env, TEST_BASE_ADDR, TRAP_ADDRESS, TestInterpreterState, initialize_state,
+    Env, TEST_BASE_ADDR, TRAP_ADDRESS, TestHart, TestInterpreterState, initialize_state,
 };
 use crate::v::vector_config::VectorConfig;
 use crate::v::vector_registers::{VectorRegisterFile, VectorRegisters, VectorRegistersExt};
@@ -112,7 +112,7 @@ pub(in crate::v::zvexx) fn execute_with_memory<I, Memory>(
     memory: &mut Memory,
 ) -> ExecutionResult<Reg<u64>>
 where
-    I: Instruction<Reg = Reg<u64>>
+    I: Instruction<Hart = TestHart>
         + ExecutableInstruction<
             BasicRegisters<Reg<u64>, false>,
             Env,
@@ -137,7 +137,7 @@ where
 }
 
 /// Initialize the state with vector CSRs and a given vtype configuration
-fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>> {
+fn setup(vl: Vl, vsew: Vsew, vlmul: Vlmul) -> TestInterpreterState<ZveXxLoadInstruction<TestHart>> {
     let mut state = initialize_state([]);
     state.env.init_vector_csrs();
     let vtype = Vtype::from_raw::<Reg<u64>>(encode_vtype(vsew, vlmul)).unwrap();
@@ -155,7 +155,7 @@ fn encode_vtype(vsew: Vsew, vlmul: Vlmul) -> u64 {
 
 /// Write a sequence of bytes into test memory starting at `addr`
 fn write_mem(
-    state: &mut TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxLoadInstruction<TestHart>>,
     addr: u64,
     data: &[u8],
 ) {
@@ -166,7 +166,7 @@ fn write_mem(
 
 /// Read a byte from a vector register
 fn vreg_byte(
-    state: &TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
+    state: &TestInterpreterState<ZveXxLoadInstruction<TestHart>>,
     reg: VReg,
     offset: usize,
 ) -> u8 {
@@ -174,13 +174,13 @@ fn vreg_byte(
 }
 
 /// Read a full vector register as a byte slice copy
-fn vreg_bytes(state: &TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>, reg: VReg) -> [u8; 32] {
+fn vreg_bytes(state: &TestInterpreterState<ZveXxLoadInstruction<TestHart>>, reg: VReg) -> [u8; 32] {
     *state.env.read_vregs().get(reg)
 }
 
 /// Set a vector register's bytes directly
 fn set_vreg(
-    state: &mut TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
+    state: &mut TestInterpreterState<ZveXxLoadInstruction<TestHart>>,
     reg: VReg,
     data: &[u8],
 ) {
@@ -189,8 +189,8 @@ fn set_vreg(
 
 /// Execute a single instruction directly (not via the instruction fetcher)
 fn exec_one(
-    state: &mut TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
-    instr: ZveXxLoadInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxLoadInstruction<TestHart>>,
+    instr: ZveXxLoadInstruction<TestHart>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
@@ -211,53 +211,80 @@ fn exec_one(
     }
 }
 
-/// [`Env`] of a Zve32x implementation, `ELEN = 32`
-pub(in crate::v::zvexx) struct Zve32Env(pub(in crate::v::zvexx) Env);
+/// Hart configuration of a Zve32x implementation, `ELEN = 32`
+pub(in crate::v::zvexx) type TestZve32Hart =
+    BasicVectorHart<Reg<u64>, { Elen::L32 }, { Vlen::L256 }>;
+
+/// [`Env`] of a Zve32x implementation, `ELEN = 32`, with a copy of its vector registers
+pub(in crate::v::zvexx) struct Zve32Env {
+    env: Env,
+    vregs: VectorRegisterFile<TestZve32Hart>,
+}
+
+impl Zve32Env {
+    pub(in crate::v::zvexx) fn new(env: Env) -> Self {
+        let mut vregs = VectorRegisterFile::default();
+        vregs
+            .as_bytes_mut()
+            .as_flattened_mut()
+            .copy_from_slice(env.read_vregs().as_bytes().as_flattened());
+        Self { env, vregs }
+    }
+
+    /// Original [`Env`] with vector registers written back
+    pub(in crate::v::zvexx) fn into_env(self) -> Env {
+        let mut env = self.env;
+        env.write_vregs()
+            .as_bytes_mut()
+            .as_flattened_mut()
+            .copy_from_slice(self.vregs.as_bytes().as_flattened());
+        env
+    }
+}
 
 impl Csrs<Reg<u64>> for Zve32Env {
     fn read_csr(&self, csr_index: u16) -> Result<u64, CsrError> {
-        self.0.read_csr(csr_index)
+        self.env.read_csr(csr_index)
     }
 
     fn write_csr(&mut self, csr_index: u16, value: u64) -> Result<(), CsrError> {
-        self.0.write_csr(csr_index, value)
+        self.env.write_csr(csr_index, value)
     }
 }
 
 impl VectorRegisters for Zve32Env {
-    const ELEN: Elen = Elen::L32;
-    const VLEN: Vlen = <Env as VectorRegisters>::VLEN;
+    type Hart = TestZve32Hart;
 
-    fn read_vregs(&self) -> &VectorRegisterFile<{ Self::VLEN }> {
-        self.0.read_vregs()
+    fn read_vregs(&self) -> &VectorRegisterFile<Self::Hart> {
+        &self.vregs
     }
 
-    fn write_vregs(&mut self) -> &mut VectorRegisterFile<{ Self::VLEN }> {
-        self.0.write_vregs()
+    fn write_vregs(&mut self) -> &mut VectorRegisterFile<Self::Hart> {
+        &mut self.vregs
     }
 
     fn vector_instructions_allowed(&self) -> bool {
-        self.0.vector_instructions_allowed()
+        self.env.vector_instructions_allowed()
     }
 
     fn mark_vs_dirty(&mut self) {
-        self.0.mark_vs_dirty();
+        self.env.mark_vs_dirty();
     }
 }
 
-impl VectorRegistersExt<Reg<u64>> for Zve32Env {}
+impl VectorRegistersExt for Zve32Env {}
 
 /// Execute a single instruction like [`exec_one()`], but on a Zve32x implementation
 fn exec_one_zve32(
-    state: &mut TestInterpreterState<ZveXxLoadInstruction<Reg<u64>>>,
-    instr: ZveXxLoadInstruction<Reg<u64>>,
+    state: &mut TestInterpreterState<ZveXxLoadInstruction<TestHart>>,
+    instr: ZveXxLoadInstruction<TestZve32Hart>,
 ) -> Result<(), ExecutionError<u64>> {
     let Rs1Rs2Operands { rs1, rs2 } = instr.get_rs1_rs2_operands();
     let rs1rs2_values = Rs1Rs2OperandValues {
         rs1_value: state.regs.read(rs1),
         rs2_value: state.regs.read(rs2),
     };
-    let mut env = Zve32Env(core::mem::take(&mut state.env));
+    let mut env = Zve32Env::new(core::mem::take(&mut state.env));
 
     let result = instr.execute(
         rs1rs2_values,
@@ -266,7 +293,7 @@ fn exec_one_zve32(
         &mut state.memory,
         &mut state.instruction_fetcher,
     );
-    state.env = env.0;
+    state.env = env.into_env();
 
     if let ExecutionResult::Err(error) = result {
         Err(error)
@@ -316,13 +343,6 @@ fn eew_above_elen_is_illegal() {
                 rs1: Reg::A0,
                 eew,
                 vm_nf: SegVmNf::new(true, Nf::N2),
-                rs2: Reg::Zero,
-            },
-            ZveXxLoadInstruction::Vlr {
-                vd: VReg::V2,
-                rs1: Reg::A0,
-                nreg: LoadStoreNreg::N1,
-                eew,
                 rs2: Reg::Zero,
             },
         ];
@@ -704,9 +724,9 @@ fn vlm_only_uses_requested_bytes_of_longer_slice() {
     let mut memory = GreedyReadSliceMemory(BasicMemory::default());
     memory.write_slice(TEST_BASE_ADDR, &[0xff; 4096]).unwrap();
     let mut instruction_fetcher =
-        BasicInstructionFetcher::<ZveXxLoadInstruction<Reg<u64>>>::new(0, TEST_BASE_ADDR);
+        BasicInstructionFetcher::<ZveXxLoadInstruction<TestHart>>::new(0, TEST_BASE_ADDR);
 
-    let result = ZveXxLoadInstruction::<Reg<u64>>::Vlm {
+    let result = ZveXxLoadInstruction::<TestHart>::Vlm {
         vd: VReg::V30,
         rs1: Reg::A0,
         rs2: Reg::Zero,

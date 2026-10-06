@@ -1,3 +1,4 @@
+use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::zalasr::Rv32ZalasrInstruction;
 use crate::instructions::test_utils::make_r_type;
@@ -14,7 +15,7 @@ fn funct7(funct5: u8, aq: bool, rl: bool) -> u8 {
 #[test]
 fn test_lb_aq() {
     let inst = make_r_type(OPCODE_AMO, 1, 0b000, 2, 0, funct7(FUNCT5_LOAD, true, false));
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZalasrInstruction::LbAq {
@@ -29,7 +30,7 @@ fn test_lb_aq() {
 #[test]
 fn test_lh_aq() {
     let inst = make_r_type(OPCODE_AMO, 1, 0b001, 2, 0, funct7(FUNCT5_LOAD, true, false));
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZalasrInstruction::LhAq {
@@ -44,7 +45,7 @@ fn test_lh_aq() {
 #[test]
 fn test_lw_aqrl() {
     let inst = make_r_type(OPCODE_AMO, 1, 0b010, 2, 0, funct7(FUNCT5_LOAD, true, true));
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZalasrInstruction::LwAq {
@@ -67,14 +68,14 @@ fn test_load_without_aq_bit_reserved() {
         0,
         funct7(FUNCT5_LOAD, false, false),
     );
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_load_nonzero_rs2_reserved() {
     let inst = make_r_type(OPCODE_AMO, 1, 0b010, 2, 3, funct7(FUNCT5_LOAD, true, false));
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -88,7 +89,7 @@ fn test_sb_rl() {
         3,
         funct7(FUNCT5_STORE, false, true),
     );
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZalasrInstruction::SbRl {
@@ -109,7 +110,7 @@ fn test_sh_rl() {
         3,
         funct7(FUNCT5_STORE, false, true),
     );
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZalasrInstruction::ShRl {
@@ -123,7 +124,7 @@ fn test_sh_rl() {
 #[test]
 fn test_sw_aqrl() {
     let inst = make_r_type(OPCODE_AMO, 0, 0b010, 2, 3, funct7(FUNCT5_STORE, true, true));
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(
         decoded,
         Some(Rv32ZalasrInstruction::SwRl {
@@ -145,7 +146,7 @@ fn test_store_without_rl_bit_reserved() {
         3,
         funct7(FUNCT5_STORE, false, false),
     );
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
@@ -159,20 +160,20 @@ fn test_store_nonzero_rd_reserved() {
         3,
         funct7(FUNCT5_STORE, false, true),
     );
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_wrong_opcode_returns_none() {
     let inst = make_r_type(0b011_0011, 1, 0b010, 2, 0, funct7(FUNCT5_LOAD, true, false));
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }
 
 #[test]
 fn test_doubleword_size_not_available_on_rv32() {
     let inst = make_r_type(OPCODE_AMO, 1, 0b011, 2, 0, funct7(FUNCT5_LOAD, true, false));
-    let decoded = Rv32ZalasrInstruction::<Reg<u32>>::try_decode(inst);
+    let decoded = Rv32ZalasrInstruction::<BasicHart<Reg<u32>>>::try_decode(inst);
     assert_eq!(decoded, None);
 }

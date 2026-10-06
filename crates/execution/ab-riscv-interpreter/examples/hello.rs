@@ -40,7 +40,7 @@ const OUTPUT_BUFFER_ADDRESS: u32 = MEMORY_BASE_ADDRESS + MEMORY_SIZE as u32 / 2;
 const STACK_POINTER: u32 = (MEMORY_BASE_ADDRESS + MEMORY_SIZE as u32) & !0xf;
 
 /// The instruction set the interpreter is built for: the base ISA and nothing else
-type GuestInstruction = Rv32Instruction<Reg<u32>>;
+type GuestInstruction = Rv32Instruction<BasicHart<Reg<u32>>>;
 
 fn main() -> anyhow::Result<()> {
     let mut memory = BasicMemory::<{ MEMORY_BASE_ADDRESS as u64 }, MEMORY_SIZE>::default();

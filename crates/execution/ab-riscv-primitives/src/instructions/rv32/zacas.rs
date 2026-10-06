@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::HartConfig;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::a::zaamo::Rv32ZaamoInstruction;
 use crate::registers::general_purpose::Register;
@@ -14,22 +15,26 @@ use core::fmt;
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum Rv32ZacasInstruction<Reg> {
+pub enum Rv32ZacasInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// Compare-and-swap word
-    AmocasW { rd: Reg, rs1: Reg, rs2: Reg, aq: bool, rl: bool },
+    AmocasW { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
     /// Compare-and-swap doubleword, using register pairs `(rd, rd_hi)` and `(rs2, rs2_hi)` since
     /// RV32 registers are only 32 bits wide
-    AmocasD { rd: Reg, rs1: Reg, rs2: Reg, rd_hi: Reg, rs2_hi: Reg, aq: bool, rl: bool },
+    AmocasD { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, rd_hi: Hart::Reg, rs2_hi: Hart::Reg, aq: bool, rl: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for Rv32ZacasInstruction<Reg>
+const impl<Reg, Hart> Instruction for Rv32ZacasInstruction<Hart>
 where
     Reg: [const] Register<Type = u32>,
+    Hart: [const] HartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -107,9 +112,10 @@ fn aq_rl_suffix(aq: &bool, rl: &bool) -> &'static str {
 }
 
 #[instruction]
-impl<Reg> fmt::Display for Rv32ZacasInstruction<Reg>
+impl<Reg, Hart> fmt::Display for Rv32ZacasInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

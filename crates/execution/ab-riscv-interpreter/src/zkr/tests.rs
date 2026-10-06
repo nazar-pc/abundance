@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use crate::rv64::test_utils::{Env, execute, initialize_state};
+use crate::rv64::test_utils::{Env, TestHart, execute, initialize_state};
 use crate::zkr::ZkrSeedPoll;
 use crate::{CsrError, Csrs, ExecutableInstructionCsr, ExecutionError, RegisterFile};
 use ab_riscv_primitives::prelude::*;
@@ -8,7 +8,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::assert_matches;
 
-type TestZkr = ZkrInstruction<Reg<u64>>;
+type TestZkr = ZkrInstruction<TestHart>;
 
 /// A CSR index the extension doesn't own, used to check "ignore" (`Ok(false)`) behavior.
 const OTHER_CSR: u16 = 0x300;

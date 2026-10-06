@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::instructions::v::zvexx::ZveXxInstruction;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
@@ -45,14 +46,17 @@ use core::fmt;
 #[derive(Debug, Clone, Copy)]
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum ZvkbInstruction<Reg> {
+pub enum ZvkbInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // vandn: vd[i] = ~vs1[i] & vs2[i]  (or ~rs1 & vs2[i])
     // Essential for the Chi step of the Keccak permutation (SHA-3).
 
     /// `vandn.vv vd, vs2, vs1, vm`
     VandnVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vandn.vx vd, vs2, rs1, vm`
-    VandnVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VandnVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // vbrev8: reverse bits within each byte of each SEW-wide element
 
@@ -69,7 +73,7 @@ pub enum ZvkbInstruction<Reg> {
     /// `vrol.vv vd, vs2, vs1, vm`
     VrolVv  { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vrol.vx vd, vs2, rs1, vm`
-    VrolVx  { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VrolVx  { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // vror: rotate right
     // vror.vi has a 6-bit unsigned immediate: bits[4:0] from vs1[19:15], bit[5] from funct6's low
@@ -79,20 +83,21 @@ pub enum ZvkbInstruction<Reg> {
     /// `vror.vv vd, vs2, vs1, vm`
     VrorVv  { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vror.vx vd, vs2, rs1, vm`
-    VrorVx  { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VrorVx  { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vror.vi vd, vs2, uimm, vm` - `uimm` is 6-bit unsigned (0..=63); `vm` is the
     /// standard mask-control bit at bit\[25], orthogonal to the immediate.
     VrorVi  { vd: VReg, vs2: VReg, uimm: u8, vm: bool },
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZvkbInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZvkbInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -177,9 +182,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZvkbInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZvkbInstruction<Hart>
 where
     Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

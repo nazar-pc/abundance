@@ -16,22 +16,29 @@ use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for ZveXxMulDivInstruction<Reg> where Reg: Register {}
-
-#[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for ZveXxMulDivInstruction<Reg> where
-    Reg: Register
+const impl<Reg, Hart> ExecutableInstructionOperands for ZveXxMulDivInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for ZveXxMulDivInstruction<Reg>
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for ZveXxMulDivInstruction<Hart>
 where
     Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for ZveXxMulDivInstruction<Hart>
+where
+    Reg: Register,
+    Hart: VectorHartConfig<Reg = Reg>,
     Regs: RegisterFile<Reg>,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart = Hart>,
     Memory: VirtualMemory,
     PC: ProgramCounter<Reg::Type, Memory>,
 {
@@ -42,12 +49,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value: _,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             // vmul.vv / vmul.vx - signed multiply, low half
             Self::VmulVv { vd, vs2, vs1, vm } => {
@@ -912,8 +919,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -988,8 +994,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1049,8 +1054,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1126,8 +1130,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1189,8 +1192,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1266,8 +1268,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1707,8 +1708,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1778,8 +1778,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1837,8 +1836,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1908,8 +1906,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -1968,8 +1965,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -2039,8 +2035,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {
@@ -2108,8 +2103,7 @@ where
                 };
                 // Widening produces a 2*SEW result; an EEW above ELEN is reserved for every
                 // implementation, so this is not a Zve64x-specific restriction
-                let Some(sew) =
-                    zvexx_helpers::WideningSew::<{ Env::ELEN }>::new(config.vtype().vsew())
+                let Some(sew) = zvexx_helpers::WideningSew::<Env::Hart>::new(config.vtype().vsew())
                 else {
                     ::core::hint::cold_path();
                     return ExecutionResult::Err(ExecutionError::IllegalInstruction {

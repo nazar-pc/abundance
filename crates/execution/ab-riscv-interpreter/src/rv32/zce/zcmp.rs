@@ -16,22 +16,27 @@ use ab_riscv_primitives::prelude::*;
 use core::ops::ControlFlow;
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for Rv32ZcmpInstruction<Reg> where
-    Reg: ZcmpRegister<Type = u32>
+const impl<Reg, Hart> ExecutableInstructionOperands for Rv32ZcmpInstruction<Hart>
+where
+    Reg: ZcmpRegister<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32ZcmpInstruction<Reg> where
-    Reg: ZcmpRegister<Type = u32>
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for Rv32ZcmpInstruction<Hart>
+where
+    Reg: ZcmpRegister<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for Rv32ZcmpInstruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv32ZcmpInstruction<Hart>
 where
     Reg: [const] ZcmpRegister<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -40,33 +45,38 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         regs: &mut Regs,
         _env: &mut Env,
         memory: &mut Memory,
         program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
 }
 
 #[instruction_execution]
-const impl<Reg> ExecutableInstructionOperands for Rv32ZcmpOnlyInstruction<Reg> where
-    Reg: ZcmpRegister<Type = u32>
+const impl<Reg, Hart> ExecutableInstructionOperands for Rv32ZcmpOnlyInstruction<Hart>
+where
+    Reg: ZcmpRegister<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Env> ExecutableInstructionCsr<Env> for Rv32ZcmpOnlyInstruction<Reg> where
-    Reg: ZcmpRegister<Type = u32>
+const impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for Rv32ZcmpOnlyInstruction<Hart>
+where
+    Reg: ZcmpRegister<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
 {
 }
 
 #[instruction_execution]
-const impl<Reg, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
-    for Rv32ZcmpOnlyInstruction<Reg>
+const impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for Rv32ZcmpOnlyInstruction<Hart>
 where
     Reg: [const] ZcmpRegister<Type = u32>,
+    Hart: HartConfig<Reg = Reg>,
     Regs: [const] RegisterFile<Reg>,
     Memory: [const] VirtualMemory,
     PC: [const] ProgramCounter<Reg::Type, Memory>,
@@ -79,12 +89,12 @@ where
         Rs1Rs2OperandValues {
             rs1_value,
             rs2_value,
-        }: Rs1Rs2OperandValues<<Self::Reg as Register>::Type>,
+        }: Rs1Rs2OperandValues<Reg::Type>,
         regs: &mut Regs,
         _env: &mut Env,
         memory: &mut Memory,
         _program_counter: &mut PC,
-    ) -> ExecutionResult<Self::Reg> {
+    ) -> ExecutionResult<Reg> {
         match self {
             Self::CmPush { urlist, stack_adj } => {
                 rv32_zcmp_helpers::do_push(regs, memory, urlist, stack_adj)

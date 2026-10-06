@@ -16,15 +16,14 @@ use core::hint::cold_path;
 pub fn execute_reduce_op<Reg, Env, F>(
     env: &mut Env,
     vd: VReg,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<Env::Hart>,
     vs1: VReg,
     vm: bool,
     sew: Vsew,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     // Spec §5.4: when vstart >= vl, no element of vd is updated. For reductions this means
@@ -67,15 +66,14 @@ pub fn execute_reduce_op<Reg, Env, F>(
 pub fn execute_widening_reduce_op<const SIGN_EXTEND_SRC: bool, Reg, Env, F>(
     env: &mut Env,
     vd: VReg,
-    vs2: VRegGroup<{ Env::VLEN }>,
+    vs2: VRegGroup<Env::Hart>,
     vs1: VReg,
     vm: bool,
-    sew: WideningSew<{ Env::ELEN }>,
+    sew: WideningSew<Env::Hart>,
     op: F,
 ) where
     Reg: Register,
-    Env: VectorRegistersExt<Reg>,
-    [(); SUPPORTED_ELEN_VLEN::<{ Env::ELEN }, { Env::VLEN }>]:,
+    Env: VectorRegistersExt<Hart: HartConfig<Reg = Reg>>,
     F: Fn(u64, u64, Vsew) -> u64,
 {
     let wide_sew = sew.wide();

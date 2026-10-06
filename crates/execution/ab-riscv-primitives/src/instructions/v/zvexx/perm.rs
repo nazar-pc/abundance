@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
@@ -21,19 +22,22 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxPermInstruction<Reg> {
+pub enum ZveXxPermInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     /// `vmv.x.s rd, vs2` - Copy scalar element 0 of vs2 to GPR rd
     ///
     /// funct6=01_0000, OPMVV, vs1=0_0000, vm=1
-    VmvXS { rd: Reg, vs2: VReg },
+    VmvXS { rd: Hart::Reg, vs2: VReg },
     /// `vmv.s.x vd, rs1` - Copy scalar GPR rs1 to element 0 of vd
     ///
     /// funct6=01_0000, OPMVX, vs2=0_0000, vm=1
-    VmvSX { vd: VReg, rs1: Reg },
+    VmvSX { vd: VReg, rs1: Hart::Reg },
     /// `vslideup.vx vd, vs2, rs1, vm` - Slide elements up by scalar amount
     ///
     /// funct6=00_1110, OPIVX
-    VslideupVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
+    VslideupVx { vd: VReg,  vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vslideup.vi vd, vs2, uimm, vm` - Slide elements up by immediate amount
     ///
     /// funct6=00_1110, OPIVI
@@ -41,7 +45,7 @@ pub enum ZveXxPermInstruction<Reg> {
     /// `vslidedown.vx vd, vs2, rs1, vm` - Slide elements down by scalar amount
     ///
     /// funct6=00_1111, OPIVX
-    VslidedownVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
+    VslidedownVx { vd: VReg,  vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vslidedown.vi vd, vs2, uimm, vm` - Slide elements down by immediate amount
     ///
     /// funct6=00_1111, OPIVI
@@ -49,11 +53,11 @@ pub enum ZveXxPermInstruction<Reg> {
     /// `vslide1up.vx vd, vs2, rs1, vm` - Slide up by 1 and insert scalar at element 0
     ///
     /// funct6=00_1110, OPMVX
-    Vslide1upVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
+    Vslide1upVx { vd: VReg,  vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vslide1down.vx vd, vs2, rs1, vm` - Slide down by 1 and insert scalar at top
     ///
     /// funct6=00_1111, OPMVX
-    Vslide1downVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
+    Vslide1downVx { vd: VReg,  vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vrgather.vv vd, vs2, vs1, vm` - Gather elements from vs2 using indices in vs1
     ///
     /// funct6=00_1100, OPIVV
@@ -61,7 +65,7 @@ pub enum ZveXxPermInstruction<Reg> {
     /// `vrgather.vx vd, vs2, rs1, vm` - Gather elements from vs2 using scalar index
     ///
     /// funct6=00_1100, OPIVX
-    VrgatherVx { vd: VReg,  vs2: VReg, rs1: Reg, vm: bool },
+    VrgatherVx { vd: VReg,  vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vrgather.vi vd, vs2, uimm, vm` - Gather elements from vs2 using immediate index
     ///
     /// funct6=00_1100, OPIVI
@@ -77,7 +81,7 @@ pub enum ZveXxPermInstruction<Reg> {
     /// `vmerge.vxm vd, vs2, rs1, v0` / `vmv.v.x vd, rs1` (when vm=1)
     ///
     /// funct6=01_0111, OPIVX
-    VmergeVxm { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VmergeVxm { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vmerge.vim vd, vs2, simm5, v0` / `vmv.v.i vd, simm5` (when vm=1)
     ///
     /// funct6=01_0111, OPIVI
@@ -105,13 +109,14 @@ pub enum ZveXxPermInstruction<Reg> {
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxPermInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxPermInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -427,9 +432,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxPermInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxPermInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]

@@ -3,7 +3,9 @@
 #[cfg(test)]
 mod tests;
 
+use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::Instruction;
+use crate::instructions::v::Eew;
 use crate::registers::general_purpose::Register;
 use crate::registers::vector::VReg;
 use ab_riscv_macros::instruction;
@@ -23,69 +25,72 @@ use core::fmt;
 #[derive_const(PartialEq, Eq)]
 #[rustfmt::skip]
 #[doc(hidden)]
-pub enum ZveXxWidenNarrowInstruction<Reg> {
+pub enum ZveXxWidenNarrowInstruction<Hart>
+where
+    Hart: HartConfig,
+{
     // Widening unsigned integer add, 2*SEW = SEW + SEW
 
     /// `vwaddu.vv vd, vs2, vs1, vm`
     VwadduVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwaddu.vx vd, vs2, rs1, vm`
-    VwadduVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwadduVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Widening signed integer add, 2*SEW = SEW + SEW
 
     /// `vwadd.vv vd, vs2, vs1, vm`
     VwaddVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwadd.vx vd, vs2, rs1, vm`
-    VwaddVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwaddVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Widening unsigned integer subtract, 2*SEW = SEW - SEW
 
     /// `vwsubu.vv vd, vs2, vs1, vm`
     VwsubuVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwsubu.vx vd, vs2, rs1, vm`
-    VwsubuVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwsubuVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Widening signed integer subtract, 2*SEW = SEW - SEW
 
     /// `vwsub.vv vd, vs2, vs1, vm`
     VwsubVv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwsub.vx vd, vs2, rs1, vm`
-    VwsubVx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwsubVx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Widening unsigned integer add, 2*SEW = 2*SEW + SEW
 
     /// `vwaddu.wv vd, vs2, vs1, vm`
     VwadduWv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwaddu.wx vd, vs2, rs1, vm`
-    VwadduWx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwadduWx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Widening signed integer add, 2*SEW = 2*SEW + SEW
 
     /// `vwadd.wv vd, vs2, vs1, vm`
     VwaddWv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwadd.wx vd, vs2, rs1, vm`
-    VwaddWx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwaddWx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Widening unsigned integer subtract, 2*SEW = 2*SEW - SEW
 
     /// `vwsubu.wv vd, vs2, vs1, vm`
     VwsubuWv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwsubu.wx vd, vs2, rs1, vm`
-    VwsubuWx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwsubuWx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Widening signed integer subtract, 2*SEW = 2*SEW - SEW
 
     /// `vwsub.wv vd, vs2, vs1, vm`
     VwsubWv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vwsub.wx vd, vs2, rs1, vm`
-    VwsubWx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VwsubWx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
 
     // Narrowing integer right shift logical, SEW = (2*SEW) >> SEW
 
     /// `vnsrl.wv vd, vs2, vs1, vm`
     VnsrlWv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vnsrl.wx vd, vs2, rs1, vm`
-    VnsrlWx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VnsrlWx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vnsrl.wi vd, vs2, uimm, vm`
     VnsrlWi { vd: VReg, vs2: VReg, uimm: u8, vm: bool },
 
@@ -94,7 +99,7 @@ pub enum ZveXxWidenNarrowInstruction<Reg> {
     /// `vnsra.wv vd, vs2, vs1, vm`
     VnsraWv { vd: VReg, vs2: VReg, vs1: VReg, vm: bool },
     /// `vnsra.wx vd, vs2, rs1, vm`
-    VnsraWx { vd: VReg, vs2: VReg, rs1: Reg, vm: bool },
+    VnsraWx { vd: VReg, vs2: VReg, rs1: Hart::Reg, vm: bool },
     /// `vnsra.wi vd, vs2, uimm, vm`
     VnsraWi { vd: VReg, vs2: VReg, uimm: u8, vm: bool },
 
@@ -118,13 +123,14 @@ pub enum ZveXxWidenNarrowInstruction<Reg> {
 }
 
 #[instruction]
-const impl<Reg> Instruction for ZveXxWidenNarrowInstruction<Reg>
+const impl<Reg, Hart> Instruction for ZveXxWidenNarrowInstruction<Hart>
 where
     Reg: [const] Register,
+    Hart: [const] VectorHartConfig<Reg = Reg>,
 {
     const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
-    type Reg = Reg;
+    type Hart = Hart;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
@@ -340,8 +346,13 @@ where
             0b01_0010 => match funct3 {
                 // OPMVV
                 0b010 => match vs1_bits {
-                    0b0_0010 => Some(Self::VzextVf8 { vd, vs2, vm }),
-                    0b0_0011 => Some(Self::VsextVf8 { vd, vs2, vm }),
+                    // `vf8` requires `SEW = 64`, which is not supported with `ELEN < 64`
+                    0b0_0010 if Hart::VECTOR_LENGTHS.elen.supports(Eew::E64) => {
+                        Some(Self::VzextVf8 { vd, vs2, vm })
+                    }
+                    0b0_0011 if Hart::VECTOR_LENGTHS.elen.supports(Eew::E64) => {
+                        Some(Self::VsextVf8 { vd, vs2, vm })
+                    }
                     0b0_0100 => Some(Self::VzextVf4 { vd, vs2, vm }),
                     0b0_0101 => Some(Self::VsextVf4 { vd, vs2, vm }),
                     0b0_0110 => Some(Self::VzextVf2 { vd, vs2, vm }),
@@ -361,9 +372,10 @@ where
 }
 
 #[instruction]
-impl<Reg> fmt::Display for ZveXxWidenNarrowInstruction<Reg>
+impl<Reg, Hart> fmt::Display for ZveXxWidenNarrowInstruction<Hart>
 where
     Reg: fmt::Display,
+    Hart: HartConfig<Reg = Reg>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]
