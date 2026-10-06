@@ -9,8 +9,7 @@
 //! * read-only data section: contains contract metadata among other things, allowing to decode
 //!   names and ABI of the methods mentioned above, and the number of methods in this metadata must
 //!   match the number of methods in the header
-//! * code section: contains only valid/supported RISC-V instructions or 16-bit zero padding, always
-//!   ending with some kind of jump instruction
+//! * code section: contains only valid/supported RISC-V instructions
 //!
 //! This file is created from an ELF source file and can be converted back to it, though only the
 //! details stored in the contract file are preserved. Note that due to the intentional lack of the
@@ -283,12 +282,6 @@ pub enum ContractFileParseError {
     UnexpectedTrailingCodeBytes {
         /// Number of trailing bytes encountered
         num_bytes: usize,
-    },
-    /// The last instruction in the code section must be a jump instruction
-    #[error("The last instruction in the code section must be a jump instruction: {instruction}")]
-    LastInstructionMustBeJump {
-        /// Instruction that is expected to be a jump instruction
-        instruction: ContractInstruction,
     },
 }
 
@@ -585,10 +578,6 @@ impl<'a> ContractFile<'a> {
         {
             let mut offset = code_section_offset as usize;
 
-            let mut instruction = ContractInstruction::Unimp {
-                rs1: Register::ZERO,
-                rs2: Register::ZERO,
-            };
             while offset < file_bytes.len() {
                 let remaining = &file_bytes[offset..];
 
@@ -603,7 +592,7 @@ impl<'a> ContractFile<'a> {
                     });
                 };
 
-                instruction = ContractInstruction::try_decode(instruction_word).ok_or(
+                let instruction = <ContractInstruction>::try_decode(instruction_word).ok_or(
                     ContractFileParseError::InvalidInstruction {
                         instruction: instruction_word,
                     },
@@ -618,10 +607,6 @@ impl<'a> ContractFile<'a> {
                 }
 
                 offset += usize::from(instruction.size());
-            }
-
-            if !instruction.is_jump() {
-                return Err(ContractFileParseError::LastInstructionMustBeJump { instruction });
             }
         }
 
