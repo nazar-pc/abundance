@@ -64,7 +64,10 @@ pub struct BalancedMerkleTree<'a, const N: usize> {
 
 // TODO: Optimize by implementing SIMD-accelerated hashing of multiple values:
 //  https://github.com/BLAKE3-team/BLAKE3/issues/478
-impl<'a, const N: usize> BalancedMerkleTree<'a, N> {
+impl<'a, const N: usize> BalancedMerkleTree<'a, N>
+where
+    [(); TREE_SIZE_WITHOUT_LEAVES::<N>]:,
+{
     /// Create a new tree from a fixed set of elements.
     ///
     /// The data structure is statically allocated and might be too large to fit on the stack!

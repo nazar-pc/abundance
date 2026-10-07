@@ -41,7 +41,7 @@ ab-io-type = { version = "0.2.0", path = "crates/shared/ab-io-type" }
 ab-io-type-derive = { version = "0.1.0", path = "crates/shared/ab-io-type-derive" }
 ab-executor-native = { version = "0.0.1", path = "crates/execution/ab-executor-native" }
 ab-executor-slots = { version = "0.0.1", path = "crates/execution/ab-executor-slots" }
-ab-merkle-tree = { version = "0.2.0", path = "crates/shared/ab-merkle-tree" }
+ab-merkle-tree = { version = "0.2.1", path = "crates/shared/ab-merkle-tree" }
 ab-networking = { version = "0.1.0", path = "crates/shared/ab-networking" }
 ab-node-rpc-server = { version = "0.1.0", path = "crates/node/ab-node-rpc-server" }
 ab-proof-of-space = { version = "0.1.0", path = "crates/shared/ab-proof-of-space" }
