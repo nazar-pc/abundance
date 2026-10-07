@@ -23,6 +23,9 @@ ab-io-type-derive = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 
+[dev-dependencies]
+trybuild = { workspace = true }
+
 [features]
 scale-codec = [
     "dep:parity-scale-codec",
