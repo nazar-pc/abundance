@@ -11,8 +11,8 @@
 //! * [`BasicEagerInstructions`] decodes the whole code section once and hands out a fetcher that
 //!   walks the decoded stream, so fetching skips the bounds and alignment checks
 //!   `BasicInstructionFetcher` does on every instruction. That is what the `unsafe` on its
-//!   constructors is about: the program has to be known to end with an unconditional jump and to
-//!   never write into its own code
+//!   constructors is about: the fallback instruction must never continue to the next one, and the
+//!   program has to be known to never write into its own code
 //! * [`ThreadedExecutableInstruction::execute_threaded()`] walks that stream with each instruction
 //!   tail-calling the handler of the next one, instead of returning to a central `match`
 //! * the register file is a part of that composition rather than an afterthought: `ZEROSTORE`
@@ -397,8 +397,8 @@ fn main() -> anyhow::Result<()> {
     let text = elf
         .section_by_name(".text")
         .context("Guest ELF has no `.text` section")?;
-    // SAFETY: The guest is compiled by a trusted compiler and ends with a `ret`, it does not write
-    // into its own code, the trap address is outside of it, `.text` is loaded at its own address,
+    // SAFETY: `unimp` never continues to the next instruction, the guest does not write into its
+    // own code, the trap address is outside of it, `.text` is loaded at its own address,
     // which is a multiple of the instruction alignment, and guest memory is far from the end of the
     // address space
     let instructions = unsafe {

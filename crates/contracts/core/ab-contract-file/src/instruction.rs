@@ -292,35 +292,3 @@ where
         ExecutionResult::ContinueNoWrite
     }
 }
-
-impl<Hart> ContractInstruction<Hart>
-where
-    Hart: HartConfig,
-{
-    /// Check if the instruction is a jump instruction of any kind (affects program counter)
-    #[inline]
-    #[expect(
-        clippy::rest_pattern_accessible_field,
-        reason = "Do not care about fields"
-    )]
-    pub fn is_jump(&self) -> bool {
-        matches!(
-            self,
-            Self::CJ { .. }
-                | Self::CBeqz { .. }
-                | Self::CBnez { .. }
-                | Self::CJr { .. }
-                | Self::CJalr { .. }
-                | Self::CmPopretz { .. }
-                | Self::CmPopret { .. }
-                | Self::Jalr { .. }
-                | Self::Beq { .. }
-                | Self::Bne { .. }
-                | Self::Blt { .. }
-                | Self::Bge { .. }
-                | Self::Bltu { .. }
-                | Self::Bgeu { .. }
-                | Self::Jal { .. }
-        )
-    }
-}

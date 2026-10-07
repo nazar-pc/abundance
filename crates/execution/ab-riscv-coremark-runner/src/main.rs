@@ -86,8 +86,8 @@ fn main() -> anyhow::Result<()> {
     regs.write(Reg::A0, 1);
     regs.write(Reg::A1, argv_addr);
 
-    // SAFETY: ELF was produced by a trusted compiler, `.text` section is loaded at `text_addr`
-    // and ends with a jump, and the trap address is outside of it
+    // SAFETY: ELF was produced by a trusted compiler, `.text` section is loaded at `text_addr`,
+    // `unimp` never continues to the next instruction, and the trap address is outside of it
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             text_data,

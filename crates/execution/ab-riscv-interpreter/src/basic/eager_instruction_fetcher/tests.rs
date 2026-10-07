@@ -13,10 +13,11 @@ use crate::basic::eager_instruction_fetcher::{
 };
 use crate::rv64::test_utils::TestHart;
 use crate::{ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter};
+use ab_riscv_macros::instruction;
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
-use core::assert_matches;
 use core::ops::ControlFlow;
+use core::{assert_matches, fmt};
 
 const MEMORY_BASE_ADDRESS: u64 = 0x1000;
 const MEMORY_SIZE: usize = 4 * 1024;
@@ -28,8 +29,7 @@ type Memory = BasicMemory<MEMORY_BASE_ADDRESS, MEMORY_SIZE>;
 
 /// `addi x0, x0, 0`, the canonical `nop`
 const NOP: u32 = 0x0000_0013;
-/// `jalr x0, 0(x1)`, the canonical `ret`, so that the stream ends with a jump as the
-/// constructor requires
+/// `jalr x0, 0(x1)`, the canonical `ret`
 const RET: u32 = 0x0000_8067;
 
 /// Five 4-byte instructions at `BASE_ADDR`, `BASE_ADDR + 4`, ... `BASE_ADDR + 16`
@@ -49,10 +49,72 @@ const FALLBACK: I = Rv64Instruction::Unimp {
     rs2: Reg::ZERO,
 };
 
+/// RV64I with compressed instructions, where the second half of a 32-bit instruction gets a slot of
+/// its own
+#[instruction(inherit = [Rv64Instruction, Rv64ZcaInstruction])]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CompressedInstruction<Hart = BasicHart<Reg<u64>>>
+where
+    Hart: HartConfig, {}
+
+#[instruction]
+const impl<Reg, Hart> Instruction for CompressedInstruction<Hart>
+where
+    Hart: [const] HartConfig<Reg = Reg>,
+{
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Hart = Hart;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg, Hart> fmt::Display for CompressedInstruction<Hart>
+where
+    Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
+/// [`FALLBACK`] for [`CompressedInstruction`]
+const COMPRESSED_FALLBACK: CompressedInstruction = CompressedInstruction::Unimp {
+    rs1: Reg::ZERO,
+    rs2: Reg::ZERO,
+};
+
+/// Fetch the next instruction, which is expected to be there
+fn fetch<Instr>(fetcher: &mut BasicEagerInstructionFetcher<'_, Instr>) -> Instr
+where
+    Instr: Instruction,
+{
+    let memory = Memory::default();
+    let FetchInstructionResult::Instruction(instruction) =
+        InstructionFetcher::<Instr, Memory>::fetch_instruction(fetcher, &memory)
+    else {
+        panic!("Expected an instruction");
+    };
+
+    instruction
+}
+
 /// Decode [`code()`], which [`new_fetcher()`] then walks
 fn new_instructions(return_trap_address: u64) -> BasicEagerInstructions<I> {
-    // SAFETY: The instruction stream ends with a jump, the return trap is outside of it and
-    // the base address is aligned
+    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
+    // instruction stream and the base address is aligned
     unsafe { BasicEagerInstructions::decode(&code(), FALLBACK, return_trap_address, BASE_ADDR) }
 }
 
@@ -282,4 +344,71 @@ fn branch_that_wraps_around_the_address_space_is_out_of_bounds() {
         ExecutionError::OutOfBoundsRead { address: _ },
         "Unexpected error {error:?}"
     );
+}
+
+#[test]
+fn falling_through_the_end_reaches_the_fallback() {
+    // Doesn't end with a jump
+    let code = NOP.to_le_bytes();
+    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
+    // instruction stream and the base address is aligned
+    let instructions =
+        unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) };
+    let mut fetcher = instructions
+        .fetcher(BASE_ADDR)
+        .expect("This is the address of the first instruction; qed");
+
+    assert_eq!(
+        fetch(&mut fetcher),
+        I::try_decode(NOP).expect("Valid instruction; qed")
+    );
+    assert_eq!(fetch(&mut fetcher), FALLBACK);
+}
+
+#[test]
+fn jump_into_the_second_half_of_the_last_instruction_falls_through_to_the_fallback() {
+    // `jal zero, 2` jumps into its own second half, which decodes as `c.addi4spn s0, sp, 8`
+    let code = 0x0020_006f_u32.to_le_bytes();
+    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
+    // instruction stream and the base address is aligned
+    let instructions = unsafe {
+        BasicEagerInstructions::<CompressedInstruction>::decode(
+            &code,
+            COMPRESSED_FALLBACK,
+            0,
+            BASE_ADDR,
+        )
+    };
+    let mut fetcher = instructions
+        .fetcher(BASE_ADDR + 2)
+        .expect("Second half of an instruction is aligned; qed");
+
+    assert_eq!(
+        fetch(&mut fetcher),
+        <CompressedInstruction>::try_decode(0x0020).expect("Valid instruction; qed")
+    );
+    assert_eq!(fetch(&mut fetcher), COMPRESSED_FALLBACK);
+}
+
+#[test]
+fn instruction_longer_than_guest_code_left_is_not_decoded() {
+    // `c.nop` followed by the first half of `jal zero, 0`, which only decodes when padded with
+    // zeroes that are not in the guest code
+    let code = [0x0001_u16.to_le_bytes(), 0x006f_u16.to_le_bytes()].concat();
+    assert!(<CompressedInstruction>::try_decode(0x006f).is_some());
+    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
+    // instruction stream and the base address is aligned
+    let instructions = unsafe {
+        BasicEagerInstructions::<CompressedInstruction>::decode(
+            &code,
+            COMPRESSED_FALLBACK,
+            0,
+            BASE_ADDR,
+        )
+    };
+    let mut fetcher = instructions
+        .fetcher(BASE_ADDR + 2)
+        .expect("This is the address of the second instruction; qed");
+
+    assert_eq!(fetch(&mut fetcher), COMPRESSED_FALLBACK);
 }
