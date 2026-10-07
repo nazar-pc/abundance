@@ -7,6 +7,18 @@ use core::ptr;
 use core::ptr::NonNull;
 
 const SIZE_OF<T>: usize = size_of::<T>();
+/// Ensures the number of array elements (encoded in metadata) and array size fit into `u32`
+const SUPPORTED_ARRAY<T, const N: usize>: usize = {
+    assert!(
+        u32::MAX as usize >= N,
+        "Number of array elements must be smaller than 2^32"
+    );
+    assert!(
+        u32::MAX as usize >= size_of::<[T; N]>(),
+        "Type size must be smaller than 2^32"
+    );
+    0
+};
 /// Ensures `T` is not zero-sized, which some containers can't represent
 pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
     assert!(T::SIZE > 0, "Zero-sized types are not supported");
@@ -33,7 +45,13 @@ pub unsafe trait TrivialType
 where
     Self: Copy,
 {
-    const SIZE: u32 = size_of::<Self>() as u32;
+    const SIZE: u32 = {
+        assert!(
+            u32::MAX as usize >= size_of::<Self>(),
+            "Type size must be smaller than 2^32"
+        );
+        size_of::<Self>() as u32
+    };
     /// Data structure metadata in binary form, describing shape and types of the contents, see
     /// [`IoTypeMetadataKind`] for encoding details.
     const METADATA: &[u8];
@@ -226,7 +244,9 @@ const fn array_metadata(size: u32, inner_metadata: &[u8]) -> ([u8; MAX_METADATA_
 unsafe impl<const SIZE: usize, T> TrivialType for [T; SIZE]
 where
     T: TrivialType,
+    [(); SUPPORTED_ARRAY::<T, SIZE>]:,
 {
+    // Casting `SIZE` to `u32` is lossless, which is checked by the `SUPPORTED_ARRAY` bound
     const METADATA: &[u8] = {
         // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
         array_metadata(SIZE as u32, T::METADATA)
@@ -247,7 +267,7 @@ where
 
     #[inline(always)]
     fn size(&self) -> u32 {
-        size_of::<T>() as u32
+        T::SIZE
     }
 
     #[inline(always)]
