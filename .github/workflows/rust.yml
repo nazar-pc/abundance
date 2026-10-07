@@ -324,6 +324,9 @@ jobs:
       command: >-
         ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+      # `cargo nextest` doesn't support doc tests, so they are run with regular `cargo test` separately (not under Miri)
+      doc_test_command: >-
+        ${{ matrix.miri == false && format('test --doc{0}', matrix.target != '' && format(' -Zjson-target-spec --target {0}', matrix.target) || '') || '' }}
 
     steps: &test-steps
       - name: Install cargo-nextest
@@ -415,6 +418,11 @@ jobs:
       - name: cargo ${{ env.command }} (together)
         run: |
           cargo -Zgitoxide -Zgit ${{ env.command }} --locked
+        if: matrix.miri == false && matrix.type == 'together'
+
+      - name: cargo ${{ env.doc_test_command }} (together)
+        run: |
+          cargo -Zgitoxide -Zgit ${{ env.doc_test_command }} --locked
         if: matrix.miri == false && matrix.type == 'together'
 
       # The whole app is only needed on Windows since it doesn't support shebang
@@ -539,14 +547,26 @@ jobs:
               | while IFS= read -r crate; do
                   echo "Testing \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
                   echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
+                  if [[ -n "$doc_test_command" ]]; then
+                    echo "Testing doc tests of \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
+                    echo "cargo -Zgitoxide -Zgit $doc_test_command --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
+                  fi
                 done
           done
 
           echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
           echo "cargo -Zgitoxide -Zgit $command --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
+          if [[ -n "$doc_test_command" ]]; then
+            echo "Checking doc tests of \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
+            echo "cargo -Zgitoxide -Zgit $doc_test_command --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
+          fi
 
           echo "Testing \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
           echo "cargo -Zgitoxide -Zgit $command --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
+          if [[ -n "$doc_test_command" ]]; then
+            echo "Testing doc tests of \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
+            echo "cargo -Zgitoxide -Zgit $doc_test_command --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
+          fi
         if: matrix.type == 'features'
 
       - name: cargo ${{ env.command }} (guest feature)
@@ -561,6 +581,10 @@ jobs:
             | while IFS= read -r crate; do
                 echo "Testing \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
                 echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                if [[ -n "$doc_test_command" ]]; then
+                  echo "Testing doc tests of \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
+                  echo "cargo -Zgitoxide -Zgit $doc_test_command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                fi
               done
 
           printf '%s' "$metadata" \
@@ -572,6 +596,10 @@ jobs:
             | while IFS= read -r crate; do
                 echo "Testing \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
                 echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                if [[ -n "$doc_test_command" ]]; then
+                  echo "Testing doc tests of \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
+                  echo "cargo -Zgitoxide -Zgit $doc_test_command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                fi
               done
         if: matrix.type == 'guest-feature' && runner.os == 'Linux'
 
@@ -633,6 +661,9 @@ jobs:
       command: >-
         ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+      # `cargo nextest` doesn't support doc tests, so they are run with regular `cargo test` separately (not under Miri)
+      doc_test_command: >-
+        ${{ matrix.miri == false && format('test --doc{0}', matrix.target != '' && format(' -Zjson-target-spec --target {0}', matrix.target) || '') || '' }}
 
     steps: *test-steps
 
