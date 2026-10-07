@@ -808,6 +808,7 @@ dependencies = [
  "prettyplease",
  "quote",
  "syn 3.0.6",
+ "trybuild",
 ]
 
 [[package]]

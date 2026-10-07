@@ -1,0 +1,15 @@
+error: Expected `#[instruction] impl Instruction for TestInstruction` or `#[instruction] impl Display for TestInstruction`, but no trait was found
+  --> tests/ui/instruction_impl_trait.rs:12:1
+   |
+12 | #[instruction]
+   | ^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `instruction` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Expected `impl` for `TestInstruction`, `#[instruction]` attribute must be added to a trait implementation, but trait `Clone` is not supported
+  --> tests/ui/instruction_impl_trait.rs:18:1
+   |
+18 | #[instruction]
+   | ^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `instruction` (in Nightly builds, run with -Z macro-backtrace for more info)
