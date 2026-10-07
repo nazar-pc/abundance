@@ -7,6 +7,11 @@ use core::ptr;
 use core::ptr::NonNull;
 
 const SIZE_OF<T>: usize = size_of::<T>();
+/// Ensures `T` is not zero-sized, which some containers can't represent
+pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
+    assert!(T::SIZE > 0, "Zero-sized types are not supported");
+    0
+};
 
 /// Simple wrapper data type that is designed in such a way that its serialization/deserialization
 /// is the same as the type itself.

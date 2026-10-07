@@ -1,5 +1,5 @@
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
-use crate::trivial_type::TrivialType;
+use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
 use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
@@ -28,6 +28,7 @@ unsafe impl<Element, const RECOMMENDED_ALLOCATION: u32> IoType
     for VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
+    [(); NON_ZERO_SIZED::<Element>]:,
 {
     const METADATA: &[u8] = {
         const fn metadata(
@@ -161,12 +162,16 @@ impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
     for VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
+    [(); NON_ZERO_SIZED::<Element>]:,
 {
 }
 
+// Sizes are converted to the number of elements by dividing by the element size, so elements must
+// not be zero-sized
 impl<Element, const RECOMMENDED_ALLOCATION: u32> VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
+    [(); NON_ZERO_SIZED::<Element>]:,
 {
     /// Create a new shared instance from provided memory buffer.
     ///

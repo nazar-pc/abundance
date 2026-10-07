@@ -5,6 +5,8 @@ Fixes:
 * `FixedCapacityBytesU8`/`FixedCapacityStringU8` with capacity above `u8::MAX` and
   `FixedCapacityBytesU16`/`FixedCapacityStringU16` with capacity above `u16::MAX` or odd capacity no longer compile,
   previously the length silently wrapped or `TrivialType` exposed the padding byte
+* `MaybeData` and `VariableElements` with zero-sized types no longer compile, previously `MaybeData` couldn't represent
+  absence of data and `VariableElements` panicked
 
 # 0.2.0
 
