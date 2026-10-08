@@ -80,7 +80,9 @@ impl OwnedTransaction {
         })
     }
 
-    /// Create owned transaction from its parts and write it into provided buffer
+    /// Create owned transaction from its parts and write it into provided buffer.
+    ///
+    /// On error, part of the transaction might have already been appended to the buffer.
     pub fn from_parts_into(
         header: &TransactionHeader,
         read_slots: &[TransactionSlot],
@@ -116,12 +118,12 @@ impl OwnedTransaction {
             padding: [0; _],
         };
 
-        let true = buffer.append(header.as_bytes()) else {
-            unreachable!("Always fits into `u32`");
-        };
-        let true = buffer.append(transaction_lengths.as_bytes()) else {
-            unreachable!("Always fits into `u32`");
-        };
+        if !buffer.append(header.as_bytes()) {
+            return Err(OwnedTransactionError::TransactionTooLarge);
+        }
+        if !buffer.append(transaction_lengths.as_bytes()) {
+            return Err(OwnedTransactionError::TransactionTooLarge);
+        }
 
         const {
             // Writing `TransactionSlot` after `OwnedTransactionLengths` and `TransactionHeader`

@@ -123,11 +123,16 @@ impl TransactionBuilder {
 
         let old_buffer_len = self.buffer.len();
 
-        transaction
-            .write_into(&mut self.buffer)
-            .inspect_err(|_error| {
-                self.dec_transaction_count();
-            })?;
+        if let Err(error) = transaction.write_into(&mut self.buffer) {
+            self.dec_transaction_count();
+            // SAFETY: `WritableBodyTransaction` can only be implemented in this module and all
+            // implementations only append to the buffer (possibly a part of the transaction before
+            // failing), so the first `old_buffer_len` bytes are still initialized
+            unsafe {
+                self.buffer.set_len(old_buffer_len);
+            }
+            return Err(error.into());
+        }
 
         if !align_to_16_bytes_with_padding(&mut self.buffer) {
             self.dec_transaction_count();
