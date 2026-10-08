@@ -1,5 +1,8 @@
 //! Data structures related to the owned version of [`Transaction`]
 
+#[cfg(test)]
+mod tests;
+
 use crate::transaction::{
     SerializedTransactionLengths, Transaction, TransactionHeader, TransactionSlot,
 };
@@ -99,7 +102,7 @@ impl OwnedTransaction {
                 .len()
                 .try_into()
                 .map_err(|_error| OwnedTransactionError::TooManyReadSlots)?,
-            write_slots: read_slots
+            write_slots: write_slots
                 .len()
                 .try_into()
                 .map_err(|_error| OwnedTransactionError::TooManyWriteSlots)?,
