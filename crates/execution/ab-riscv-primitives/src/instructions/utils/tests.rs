@@ -203,155 +203,98 @@ fn i24_default_is_zero() {
 
 // I24WithZeroedBits
 
-// LOW_ZEROED_BITS = 0 (degenerate: behaves identically to I24)
+// LOW_ZEROED_BITS = 8 (the smallest supported, all 24 stored bits are significant)
 
 #[test]
-fn i24_with_zeroed_bits_zero_bits_zero_roundtrip() {
-    assert_eq!(I24WithZeroedBits::<0>::from_i32(0).to_i32(), 0);
+fn i24_with_zeroed_bits_eight_bits_zero_roundtrip() {
+    assert_eq!(I24WithZeroedBits::<8>::from_i32(0).to_i32(), 0);
 }
 
 #[test]
-fn i24_with_zeroed_bits_zero_bits_positive_roundtrip() {
-    let v = 0x007F_FFFF_i32;
-    assert_eq!(I24WithZeroedBits::<0>::from_i32(v).to_i32(), v);
+fn i24_with_zeroed_bits_eight_bits_max_representable_positive() {
+    let v = 0x7FFF_FF00_i32;
+    assert_eq!(I24WithZeroedBits::<8>::from_i32(v).to_i32(), v);
 }
 
 #[test]
-fn i24_with_zeroed_bits_zero_bits_negative_roundtrip() {
-    let v = -0x0080_0000_i32;
-    assert_eq!(I24WithZeroedBits::<0>::from_i32(v).to_i32(), v);
-}
-
-// LOW_ZEROED_BITS = 1
-
-#[test]
-fn i24_with_zeroed_bits_one_bit_even_value_roundtrip() {
-    // Even values have low bit 0, so the round-trip is lossless
-    let v = 100_i32;
-    assert_eq!(I24WithZeroedBits::<1>::from_i32(v).to_i32(), v);
+fn i24_with_zeroed_bits_eight_bits_min_representable_negative() {
+    let v = i32::MIN;
+    assert_eq!(I24WithZeroedBits::<8>::from_i32(v).to_i32(), v);
 }
 
 #[test]
 #[cfg(debug_assertions)]
 #[should_panic = "Input has non-zero low bits"]
-fn i24_with_zeroed_bits_one_bit_odd_value_panics_in_debug() {
-    // Low bit is set; from_i32 now requires alignment, not truncation
-    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<1>::from_i32(101);
+fn i24_with_zeroed_bits_eight_bits_unaligned_panics_in_debug() {
+    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<8>::from_i32(0x0000_0180);
+}
+
+// LOW_ZEROED_BITS = 12 (as used by `lui` and `auipc`)
+
+#[test]
+fn i24_with_zeroed_bits_twelve_bits_aligned_positive_roundtrip() {
+    let v = 0x0000_1000_i32;
+    assert_eq!(I24WithZeroedBits::<12>::from_i32(v).to_i32(), v);
 }
 
 #[test]
-fn i24_with_zeroed_bits_one_bit_negative_even_roundtrip() {
-    let v = -100_i32;
-    assert_eq!(I24WithZeroedBits::<1>::from_i32(v).to_i32(), v);
+fn i24_with_zeroed_bits_twelve_bits_aligned_negative_roundtrip() {
+    let v = -0x0000_1000_i32;
+    assert_eq!(I24WithZeroedBits::<12>::from_i32(v).to_i32(), v);
 }
 
 #[test]
-#[cfg(debug_assertions)]
-#[should_panic = "Input has non-zero low bits"]
-fn i24_with_zeroed_bits_one_bit_negative_odd_panics_in_debug() {
-    // Low bit is set; from_i32 now requires alignment, not truncation
-    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<1>::from_i32(-101);
+fn i24_with_zeroed_bits_twelve_bits_max_representable_positive() {
+    let v = 0x7FFF_F000_i32;
+    assert_eq!(I24WithZeroedBits::<12>::from_i32(v).to_i32(), v);
 }
 
 #[test]
-fn i24_with_zeroed_bits_one_bit_max_representable_positive() {
-    // Value must fit in 24 bits and have low bit clear: 0x7FFFFE
-    let v = 0x007F_FFFE_i32;
-    assert_eq!(I24WithZeroedBits::<1>::from_i32(v).to_i32(), v);
-}
-
-#[test]
-fn i24_with_zeroed_bits_one_bit_min_representable_negative() {
-    // -0x00800000 is even, so round-trip is lossless
-    let v = -0x0080_0000_i32;
-    assert_eq!(I24WithZeroedBits::<1>::from_i32(v).to_i32(), v);
-}
-
-// LOW_ZEROED_BITS = 4
-
-#[test]
-fn i24_with_zeroed_bits_four_bits_aligned_positive_roundtrip() {
-    // Must be a multiple of 16 and fit in 24 bits
-    let v = 0x0000_0010_i32;
-    assert_eq!(I24WithZeroedBits::<4>::from_i32(v).to_i32(), v);
+fn i24_with_zeroed_bits_twelve_bits_min_representable_negative() {
+    let v = i32::MIN;
+    assert_eq!(I24WithZeroedBits::<12>::from_i32(v).to_i32(), v);
 }
 
 #[test]
 #[cfg(debug_assertions)]
 #[should_panic = "Input has non-zero low bits"]
-fn i24_with_zeroed_bits_four_bits_unaligned_positive_panics_in_debug() {
-    // Low nibble is set; from_i32 now requires alignment, not truncation
-    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<4>::from_i32(0x1F);
-}
-
-#[test]
-fn i24_with_zeroed_bits_four_bits_aligned_negative_roundtrip() {
-    let v = -0x0000_0010_i32;
-    assert_eq!(I24WithZeroedBits::<4>::from_i32(v).to_i32(), v);
+fn i24_with_zeroed_bits_twelve_bits_unaligned_positive_panics_in_debug() {
+    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<12>::from_i32(0x0000_1800);
 }
 
 #[test]
 #[cfg(debug_assertions)]
 #[should_panic = "Input has non-zero low bits"]
-fn i24_with_zeroed_bits_four_bits_unaligned_negative_panics_in_debug() {
-    // Low nibble is set; from_i32 now requires alignment, not truncation
-    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<4>::from_i32(-1);
+fn i24_with_zeroed_bits_twelve_bits_unaligned_negative_panics_in_debug() {
+    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<12>::from_i32(-1);
 }
 
 #[test]
-fn i24_with_zeroed_bits_four_bits_max_representable_positive() {
-    // Value must fit in 24 bits with low 4 bits clear: 0x7FFFF0
-    let v = 0x007F_FFF0_i32;
-    assert_eq!(I24WithZeroedBits::<4>::from_i32(v).to_i32(), v);
+fn i24_with_zeroed_bits_twelve_bits_mask_zeroes_low_bits() {
+    // to_i32 must always return a value with low 12 bits clear for aligned inputs
+    for raw in [i32::MIN, -0x0000_1000, 0, 0x0000_1000, 0x7FFF_F000] {
+        let out = I24WithZeroedBits::<12>::from_i32(raw).to_i32();
+        assert_eq!(out & 0xFFF, 0, "low bits not zeroed for input {raw}");
+    }
 }
 
-#[test]
-fn i24_with_zeroed_bits_four_bits_min_representable_negative() {
-    // -0x00800000 is 4-bit aligned and fits in 24 bits
-    let v = -0x0080_0000_i32;
-    assert_eq!(I24WithZeroedBits::<4>::from_i32(v).to_i32(), v);
-}
+// LOW_ZEROED_BITS = 31 (the largest supported, only the sign bit is significant)
 
 #[test]
-fn i24_with_zeroed_bits_four_bits_zero_roundtrip() {
-    assert_eq!(I24WithZeroedBits::<4>::from_i32(0).to_i32(), 0);
-}
-
-#[test]
-fn i24_with_zeroed_bits_four_bits_mask_zeroes_low_bits() {
-    // to_i32 must always return a value with low 4 bits clear for aligned inputs
-    for raw in [-0x0080_0000_i32, -0x0000_0010, 0, 0x0000_0010, 0x007F_FFF0] {
-        let out = I24WithZeroedBits::<4>::from_i32(raw).to_i32();
-        assert_eq!(out & 0xF, 0, "low bits not zeroed for input {raw}");
+fn i24_with_zeroed_bits_thirty_one_bits_roundtrip() {
+    for v in [0, i32::MIN] {
+        assert_eq!(I24WithZeroedBits::<31>::from_i32(v).to_i32(), v);
     }
 }
 
 #[test]
+#[cfg(debug_assertions)]
+#[should_panic = "Input has non-zero low bits"]
+fn i24_with_zeroed_bits_thirty_one_bits_unaligned_panics_in_debug() {
+    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<31>::from_i32(i32::MAX);
+}
+
+#[test]
 fn i24_with_zeroed_bits_default_is_zero() {
-    assert_eq!(I24WithZeroedBits::<4>::default().to_i32(), 0);
-}
-
-// overflow guards
-
-#[test]
-#[cfg(debug_assertions)]
-#[should_panic = "Input has non-zero low bits"]
-fn i24_with_zeroed_bits_four_bits_overflow_positive_panics_in_debug() {
-    // Low bits set ensures round-trip mismatch regardless of overflow path
-    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<4>::from_i32(0x0080_0001);
-}
-
-#[test]
-#[cfg(debug_assertions)]
-#[should_panic = "Input has non-zero low bits"]
-fn i24_with_zeroed_bits_four_bits_overflow_negative_panics_in_debug() {
-    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<4>::from_i32(-0x0800_0001);
-}
-
-#[test]
-#[cfg(debug_assertions)]
-#[should_panic = "Input has non-zero low bits"]
-fn i24_with_zeroed_bits_one_bit_overflow_positive_panics_in_debug() {
-    // After storing, 0x01000000 does not fit in 24 bits
-    let _: I24WithZeroedBits<_> = I24WithZeroedBits::<1>::from_i32(0x0100_0000);
+    assert_eq!(I24WithZeroedBits::<12>::default().to_i32(), 0);
 }

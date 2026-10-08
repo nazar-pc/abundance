@@ -235,62 +235,98 @@ impl I24 {
     }
 }
 
+/// Ensures supported number of low zeroed bits of [`I24WithZeroedBits`]
+const SUPPORTED_LOW_ZEROED_BITS<const LOW_ZEROED_BITS: u8>: usize = {
+    assert!(
+        LOW_ZEROED_BITS >= 8 && LOW_ZEROED_BITS < 32,
+        "Low zeroed bits must be in `8..32` range, so that the remaining bits of a 32-bit number fit \
+        into 24 bits and shifts don't overflow"
+    );
+    0
+};
+
 /// New type for signed integers that stores 32-bit numbers with `LOW_ZEROED_BITS` low bits zeroed
-/// and truncated to 24-bits
+/// and truncated to 24-bits.
+///
+/// `LOW_ZEROED_BITS` must be in `8..32` range.
 #[derive(Clone, Copy, Hash)]
 #[derive_const(PartialEq, Eq)]
 pub struct I24WithZeroedBits<const LOW_ZEROED_BITS: u8>([u8; 3]);
 
-const impl<const LOW_ZEROED_BITS: u8> Default for I24WithZeroedBits<LOW_ZEROED_BITS> {
+const impl<const LOW_ZEROED_BITS: u8> Default for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn default() -> Self {
         Self([0; _])
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> fmt::Debug for I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> fmt::Debug for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.to_i32(), f)
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> fmt::Display for I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> fmt::Display for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.to_i32(), f)
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> fmt::LowerHex for I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> fmt::LowerHex for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::LowerHex::fmt(&self.to_i32(), f)
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> fmt::UpperHex for I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> fmt::UpperHex for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::UpperHex::fmt(&self.to_i32(), f)
     }
 }
 
-const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i32 {
+const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i32
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn from(v: I24WithZeroedBits<LOW_ZEROED_BITS>) -> Self {
         v.to_i32()
     }
 }
 
-const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i64 {
+const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i64
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn from(v: I24WithZeroedBits<LOW_ZEROED_BITS>) -> Self {
         i64::from(v.to_i32())
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     /// Create a new `I24WithZeroedBits` from a signed 32-bit integer.
     ///
     /// The input value is shifted right arithmetically by `LOW_ZEROED_BITS` before being stored.

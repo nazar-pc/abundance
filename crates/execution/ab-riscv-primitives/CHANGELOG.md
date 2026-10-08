@@ -18,6 +18,9 @@ Breaking changes:
   specify their ISA extensions in `Instruction::OWN_ISA_EXTENSIONS`
 * `Reg<Type>` implements `From<EReg<Type>>` instead of `From<EReg<u64>>`, which it implemented for any `Type` by
   mistake: RV32E registers convert into RV32I ones, and RV64E registers no longer convert into RV32I ones
+* `I24WithZeroedBits` impls require `LOW_ZEROED_BITS` to be in `8..32` range, since a 32-bit value with fewer zeroed
+  bits doesn't fit into 24 bits and shifts overflow with 32 or more, and `I24WithZeroedBits` can only be used with a
+  concrete `LOW_ZEROED_BITS`, not with a generic parameter
 
 New features:
 
