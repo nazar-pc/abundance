@@ -16,6 +16,8 @@ Breaking changes:
   conditions
 * `Instruction::IMPLEMENTED_EXTENSIONS` contains `ImplementedExtension` instead of `TypeId`, instruction enums must
   specify their ISA extensions in `Instruction::OWN_ISA_EXTENSIONS`
+* `Reg<Type>` implements `From<EReg<Type>>` instead of `From<EReg<u64>>`, which it implemented for any `Type` by
+  mistake: RV32E registers convert into RV32I ones, and RV64E registers no longer convert into RV32I ones
 
 New features:
 

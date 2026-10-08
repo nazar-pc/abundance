@@ -118,6 +118,20 @@ fn test_ereg_from_bits() {
 }
 
 #[test]
+fn test_reg_from_ereg() {
+    for bits in 0..16 {
+        assert_eq!(
+            EReg::<u32>::from_bits(bits).map(Reg::from),
+            Reg::<u32>::from_bits(bits)
+        );
+        assert_eq!(
+            EReg::<u64>::from_bits(bits).map(Reg::from),
+            Reg::<u64>::from_bits(bits)
+        );
+    }
+}
+
+#[test]
 fn test_ereg_display() {
     assert_eq!(format!("{}", EReg::<u64>::Zero), "zero");
     assert_eq!(format!("{}", EReg::<u64>::Ra), "ra");

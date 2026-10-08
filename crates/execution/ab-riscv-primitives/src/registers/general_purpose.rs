@@ -382,9 +382,9 @@ pub enum Reg<Type> {
     Phantom(!, PhantomData<Type>),
 }
 
-const impl<Type> From<EReg<u64>> for Reg<Type> {
+const impl<Type> From<EReg<Type>> for Reg<Type> {
     #[inline(always)]
-    fn from(reg: EReg<u64>) -> Self {
+    fn from(reg: EReg<Type>) -> Self {
         match reg {
             EReg::Zero => Self::Zero,
             EReg::Ra => Self::Ra,
