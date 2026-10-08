@@ -5,6 +5,8 @@ Fixes:
 * `BalancedMerkleTree::compute_root_only()` and `BalancedMerkleTree::verify()` no longer compile with `N` that is not a
   power of two or is smaller than 2, previously they did in builds without debug info and ignored some of the leaves or
   panicked at runtime
+* `MerkleMountainRange::from_peaks()` now returns `None` for more than `MAX_N` leaves, previously it accepted them as long
+  as stack and peaks had space for them
 
 # 0.2.0
 

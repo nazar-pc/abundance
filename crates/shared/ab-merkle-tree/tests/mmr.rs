@@ -278,4 +278,17 @@ fn mmr_from_peaks_invalid() {
         peaks: [[0u8; OUT_LEN]; _],
     };
     assert!(MerkleMountainRange::<MAX_N>::from_peaks(&peaks).is_none());
+
+    // With `MAX_N = 5` there are stack levels and peaks for 8 leaves, but anything above `MAX_N`
+    // must still be rejected
+    let peaks = MmrPeaks::<5> {
+        num_leaves: 8,
+        peaks: [[0u8; OUT_LEN]; _],
+    };
+    assert!(MerkleMountainRange::<5>::from_peaks(&peaks).is_none());
+    let peaks = MmrPeaks::<5> {
+        num_leaves: 5,
+        peaks: [[0u8; OUT_LEN]; _],
+    };
+    assert!(MerkleMountainRange::<5>::from_peaks(&peaks).is_some());
 }
