@@ -833,6 +833,7 @@ dependencies = [
  "ab-riscv-macros",
  "const_format",
  "no-panic-const",
+ "trybuild",
 ]
 
 [[package]]

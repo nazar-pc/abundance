@@ -1,0 +1,76 @@
+error[E0080]: evaluation panicked: Zve* extensions require `ELEN` of 32 or 64 bits
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `<ab_riscv_primitives::prelude::ZveXxInstruction<ab_riscv_primitives::hart::BasicVectorHart<ab_riscv_primitives::prelude::Reg<u64>, ab_riscv_primitives::prelude::Elen::L128, ab_riscv_primitives::prelude::Vlen::L128>> as ab_riscv_primitives::instructions::Instruction>::OWN_ISA_EXTENSIONS` failed here
+  |
+ ::: $OUT_DIR[ab-riscv-primitives]/ZveXxInstruction_decoding_impl.rs
+  |
+  | /         assert!(
+  | |             matches!(Hart::VECTOR_LENGTHS.elen, Elen::L32 | Elen::L64),
+  | |             "Zve* extensions require `ELEN` of 32 or 64 bits",
+  | |         );
+  | |_________- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/instructions.rs
+  |
+  |             own_isa_extensions: I::OWN_ISA_EXTENSIONS,
+  |                                 ^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> $OUT_DIR[ab-riscv-primitives]/ZveXxInstruction_decoding_impl.rs
+  |
+  |       const IMPLEMENTED_EXTENSIONS: &'static [ImplementedExtension] = &[
+  |  _____________________________________________________________________^
+  | |         ImplementedExtension::new::<Self>(),
+  | |         ImplementedExtension::new::<ZveXxConfigInstruction<Hart>>(),
+  | |         ImplementedExtension::new::<ZveXxLoadInstruction<Hart>>(),
+... |
+  | |         ImplementedExtension::new::<ZicsrInstruction<Hart>>(),
+  | |     ];
+  | |_____^
+
+note: erroneous constant encountered
+ --> src/instructions.rs
+  |
+  |             Self::IMPLEMENTED_EXTENSIONS,
+  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/instructions.rs
+  |
+  |       const ISA_STRING: &'static str = const {
+  |  ______________________________________^
+  | |         isa_string(
+  | |             <Self::Hart as HartConfig>::Reg::XLEN,
+  | |             Self::IMPLEMENTED_EXTENSIONS,
+  | |         )
+  | |     }
+  | |_____^
+
+note: erroneous constant encountered
+  --> tests/ui/vector_zvexx_unsupported_elen.rs:12:13
+   |
+12 |     let _ = <ZveXxInstruction<HartElen128> as Instruction>::ISA_STRING;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zve* extensions require `ELEN` of 32 or 64 bits
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `<ab_riscv_primitives::prelude::ZveXxInstruction<ab_riscv_primitives::hart::BasicVectorHart<ab_riscv_primitives::prelude::Reg<u64>, ab_riscv_primitives::prelude::Elen::L16, ab_riscv_primitives::prelude::Vlen::L128>> as ab_riscv_primitives::instructions::Instruction>::OWN_ISA_EXTENSIONS` failed here
+  |
+ ::: $OUT_DIR[ab-riscv-primitives]/ZveXxInstruction_decoding_impl.rs
+  |
+  | /         assert!(
+  | |             matches!(Hart::VECTOR_LENGTHS.elen, Elen::L32 | Elen::L64),
+  | |             "Zve* extensions require `ELEN` of 32 or 64 bits",
+  | |         );
+  | |_________- in this macro invocation
+
+note: erroneous constant encountered
+  --> tests/ui/vector_zvexx_unsupported_elen.rs:13:13
+   |
+13 |     let _ = <ZveXxInstruction<HartElen16> as Instruction>::ISA_STRING;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

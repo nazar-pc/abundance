@@ -1,0 +1,31 @@
+error[E0271]: type mismatch resolving `<Reg<u64> as Register>::Type == u32`
+  --> tests/ui/instructions_base_xlen_mismatch.rs:15:23
+   |
+15 |     instruction_set::<Rv32Instruction<BasicHart<Reg<u64>>>>();
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u32`, found `u64`
+   |
+   = note: required for `ab_riscv_primitives::prelude::Rv32Instruction<ab_riscv_primitives::hart::BasicHart<ab_riscv_primitives::prelude::Reg<u64>>>` to implement `ab_riscv_primitives::instructions::Instruction`
+note: required by a bound in `instruction_set`
+  --> tests/ui/instructions_base_xlen_mismatch.rs:9:8
+   |
+ 7 | fn instruction_set<I>()
+   |    --------------- required by a bound in this function
+ 8 | where
+ 9 |     I: Instruction,
+   |        ^^^^^^^^^^^ required by this bound in `instruction_set`
+
+error[E0271]: type mismatch resolving `<Reg<u32> as Register>::Type == u64`
+  --> tests/ui/instructions_base_xlen_mismatch.rs:18:23
+   |
+18 |     instruction_set::<Rv64Instruction<BasicHart<Reg<u32>>>>();
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `u64`, found `u32`
+   |
+   = note: required for `ab_riscv_primitives::prelude::Rv64Instruction<ab_riscv_primitives::hart::BasicHart<ab_riscv_primitives::prelude::Reg<u32>>>` to implement `ab_riscv_primitives::instructions::Instruction`
+note: required by a bound in `instruction_set`
+  --> tests/ui/instructions_base_xlen_mismatch.rs:9:8
+   |
+ 7 | fn instruction_set<I>()
+   |    --------------- required by a bound in this function
+ 8 | where
+ 9 |     I: Instruction,
+   |        ^^^^^^^^^^^ required by this bound in `instruction_set`

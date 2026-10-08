@@ -26,14 +26,7 @@ use core::fmt;
 
 /// RISC-V Zvbc vector carryless multiplication instruction.
 ///
-/// All instructions require `SEW = 64`, so it doesn't compile with `ELEN < 64`:
-/// ```compile_fail
-/// use ab_riscv_primitives::prelude::*;
-///
-/// type Hart = BasicVectorHart<Reg<u64>, { Elen::L32 }, { Vlen::L128 }>;
-///
-/// let _ = <ZvbcInstruction<Hart> as Instruction>::ISA_STRING;
-/// ```
+/// All instructions require `SEW = 64`, so it doesn't compile with `ELEN < 64`.
 ///
 /// All use the OP-V major opcode (0b101_0111). Encoding spaces:
 ///

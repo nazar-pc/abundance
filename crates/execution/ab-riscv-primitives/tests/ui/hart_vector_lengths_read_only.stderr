@@ -1,0 +1,32 @@
+error: `VectorLengths` cannot be constructed using a `struct` expression outside `ab_riscv_primitives`
+ --> tests/ui/hart_vector_lengths_read_only.rs:8:5
+  |
+8 |     VectorLengths { elen, vlen }
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+ ::: src/hart.rs
+  |
+  |     pub mut(self) elen: Elen,
+  |         --------- field restricted here
+
+error: field `elen` cannot be mutated outside `ab_riscv_primitives`
+  --> tests/ui/hart_vector_lengths_read_only.rs:12:5
+   |
+12 |     lengths.elen = elen;
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/hart.rs
+   |
+   |     pub mut(self) elen: Elen,
+   |         --------- field restricted here
+
+error: field `vlen` cannot be mutated outside `ab_riscv_primitives`
+  --> tests/ui/hart_vector_lengths_read_only.rs:13:5
+   |
+13 |     lengths.vlen = vlen;
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/hart.rs
+   |
+   |     pub mut(self) vlen: Vlen,
+   |         --------- field restricted here

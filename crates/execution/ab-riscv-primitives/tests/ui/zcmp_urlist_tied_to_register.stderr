@@ -1,0 +1,8 @@
+error[E0308]: mismatched types
+  --> tests/ui/zcmp_urlist_tied_to_register.rs:12:9
+   |
+12 |         urlist,
+   |         ^^^^^^ expected `ZcmpUrlist<EReg<u32>>`, found `ZcmpUrlist<Reg<u32>>`
+   |
+   = note: expected struct `ZcmpUrlist<ab_riscv_primitives::prelude::EReg<u32>>`
+              found struct `ZcmpUrlist<ab_riscv_primitives::prelude::Reg<u32>>`
