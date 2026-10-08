@@ -1,7 +1,8 @@
 use crate::address::Address;
 use crate::block::BlockRoot;
-use crate::transaction::owned::OwnedTransaction;
+use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use crate::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
+use ab_aligned_buffer::SharedAlignedBuffer;
 
 fn header() -> TransactionHeader {
     TransactionHeader {
@@ -68,4 +69,37 @@ fn owned_transaction_payload_and_seal() {
     assert_eq!(decoded.write_slots, write_slots);
     assert_eq!(decoded.payload, payload);
     assert_eq!(decoded.seal, seal);
+}
+
+#[test]
+fn owned_transaction_from_buffer() {
+    let header = header();
+    let read_slots = slots(2, 100);
+    let write_slots = slots(1, 200);
+    let payload = [1, 2];
+    let seal = [3; 16];
+
+    let owned_transaction =
+        OwnedTransaction::from_parts(&header, &read_slots, &write_slots, &payload, &seal).unwrap();
+    let bytes = owned_transaction.buffer().as_slice();
+    let size = owned_transaction.buffer().len();
+
+    let decoded = OwnedTransaction::from_buffer(owned_transaction.buffer().clone()).unwrap();
+    assert_eq!(decoded.buffer().as_slice(), bytes);
+
+    // Missing the last 16 bytes of the seal
+    let truncated = SharedAlignedBuffer::from_bytes(&bytes[..bytes.len() - 16]);
+    assert!(matches!(
+        OwnedTransaction::from_buffer(truncated),
+        Err(OwnedTransactionError::NotEnoughBytes)
+    ));
+
+    let mut extended = bytes.to_vec();
+    extended.extend_from_slice(&[0; 16]);
+    let extended = SharedAlignedBuffer::from_bytes(&extended);
+    assert!(matches!(
+        OwnedTransaction::from_buffer(extended),
+        Err(OwnedTransactionError::UnexpectedNumberOfBytes { actual, expected })
+            if actual == size + 16 && expected == size
+    ));
 }

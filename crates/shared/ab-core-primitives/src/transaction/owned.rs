@@ -208,15 +208,18 @@ impl OwnedTransaction {
         )
     }
 
-    /// Create owned transaction from a buffer
+    /// Create owned transaction from a buffer.
+    ///
+    /// Returns [`OwnedTransactionError::NotEnoughBytes`] if the buffer is shorter than the
+    /// transaction it encodes, and [`OwnedTransactionError::UnexpectedNumberOfBytes`] if it is
+    /// longer.
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, OwnedTransactionError> {
-        if (buffer.len() as usize)
-            < size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>()
-        {
+        if buffer.len() < TransactionHeader::SIZE + SerializedTransactionLengths::SIZE {
             return Err(OwnedTransactionError::NotEnoughBytes);
         }
 
-        // SAFETY: Checked above that there are enough bytes and they are correctly aligned
+        // SAFETY: Checked above that there are enough bytes, alignment is guaranteed by
+        // `SharedAlignedBuffer`
         let lengths = unsafe {
             buffer
                 .as_ptr()
@@ -225,13 +228,15 @@ impl OwnedTransaction {
                 .read()
         };
         let SerializedTransactionLengths {
-            read_slots,
-            write_slots,
+            read_slots: _,
+            write_slots: _,
             payload,
-            seal,
+            seal: _,
             padding,
         } = lengths;
 
+        // `Transaction::try_from_bytes()` below checks these too, they are checked here first to
+        // return a more specific error
         if padding != [0; _] {
             return Err(OwnedTransactionError::InvalidPadding);
         }
@@ -240,17 +245,17 @@ impl OwnedTransaction {
             return Err(OwnedTransactionError::PayloadIsNotMultipleOfU128);
         }
 
-        let expected = (size_of::<TransactionHeader>() as u32
-            + size_of::<SerializedTransactionLengths>() as u32)
-            .saturating_add(u32::from(read_slots))
-            .saturating_add(u32::from(write_slots))
-            .saturating_add(payload)
-            .saturating_add(seal);
+        let Some((transaction, remainder)) = Transaction::try_from_bytes(buffer.as_slice()) else {
+            // Alignment is guaranteed by `SharedAlignedBuffer`, padding and payload length are
+            // checked above, so insufficient size is the only remaining reason
+            return Err(OwnedTransactionError::NotEnoughBytes);
+        };
 
-        if buffer.len() != expected {
+        if !remainder.is_empty() {
             return Err(OwnedTransactionError::UnexpectedNumberOfBytes {
                 actual: buffer.len(),
-                expected,
+                expected: u32::try_from(transaction.encoded_size())
+                    .expect("Smaller than the buffer, whose length is `u32`; qed"),
             });
         }
 
