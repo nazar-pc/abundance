@@ -226,6 +226,9 @@ pub enum TransactionPayloadDecoderError {
     /// Alignment power is too large
     #[error("Alignment power is too large: {0}")]
     AlignmentPowerTooLarge(u8),
+    /// Invalid method context
+    #[error("Invalid method context: {0}")]
+    InvalidMethodContext(u8),
     /// Output buffer too small
     #[error("Output buffer too small")]
     OutputBufferTooSmall,
@@ -388,8 +391,7 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
 
         let contract = self.get_trivial_type::<Address>()?;
         let method_fingerprint = self.get_trivial_type::<MethodFingerprint>()?;
-        let method_context =
-            (self.map_context)(*self.get_trivial_type::<TransactionMethodContext>()?);
+        let method_context = (self.map_context)(self.read_method_context()?);
 
         let mut transaction_slots_inputs =
             [MaybeUninit::<u8>::uninit(); MAX_TOTAL_METHOD_ARGS as usize];
@@ -638,6 +640,24 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
         }
 
         Ok(bytes)
+    }
+
+    /// Read [`TransactionMethodContext`] from its byte, which in untrusted input might not be a
+    /// valid discriminant
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    fn read_method_context(
+        &mut self,
+    ) -> Result<TransactionMethodContext, TransactionPayloadDecoderError> {
+        let value = self.read_u8()?;
+
+        if VERIFY {
+            TransactionMethodContext::try_from(value)
+                .map_err(|()| TransactionPayloadDecoderError::InvalidMethodContext(value))
+        } else {
+            // SAFETY: The unverified version, see struct description
+            Ok(unsafe { TransactionMethodContext::try_from(value).unwrap_unchecked() })
+        }
     }
 
     #[inline(always)]

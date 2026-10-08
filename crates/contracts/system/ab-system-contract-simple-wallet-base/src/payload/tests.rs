@@ -66,6 +66,18 @@ fn payload_decode_too_many_slot_and_input_arguments() {
 }
 
 #[test]
+fn payload_decode_invalid_method_context() {
+    let mut payload = [0u8; 64];
+    // Neither `TransactionMethodContext::Null` nor `TransactionMethodContext::Wallet`
+    payload[NUM_SLOT_ARGUMENTS_OFFSET - size_of::<TransactionMethodContext>()] = 2;
+
+    assert!(matches!(
+        decode_first_method(&payload),
+        Err(TransactionPayloadDecoderError::InvalidMethodContext(2))
+    ));
+}
+
+#[test]
 fn payload_decode_input_max_alignment() {
     let mut payload = [0u8; 64];
     // No slots, a single empty input value (the first bit) with an alignment of `MAX_ALIGNMENT`
