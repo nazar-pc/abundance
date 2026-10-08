@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::TrivialType;
 
@@ -135,7 +138,8 @@ where
             return false;
         }
 
-        self.bytes[..bytes.len()].copy_from_slice(bytes);
+        self.bytes[len as usize..][..bytes.len()].copy_from_slice(bytes);
+        self.len += bytes.len() as u8;
 
         true
     }
@@ -281,7 +285,8 @@ where
             return false;
         }
 
-        self.bytes[..bytes.len()].copy_from_slice(bytes);
+        self.bytes[len as usize..][..bytes.len()].copy_from_slice(bytes);
+        self.len += bytes.len() as u16;
 
         true
     }
