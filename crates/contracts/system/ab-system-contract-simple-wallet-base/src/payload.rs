@@ -498,24 +498,10 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
                 let (bytes, size) = match TransactionInput::from_u8(transaction_input).input_type()
                 {
                     TransactionInputType::Value { alignment_power } => {
-                        // Optimized version of the following:
-                        // let alignment = 2usize.pow(u32::from(alignment_power));
-                        let alignment = if VERIFY {
-                            1_usize.checked_shl(u32::from(alignment_power)).ok_or(
-                                TransactionPayloadDecoderError::AlignmentPowerTooLarge(
-                                    alignment_power,
-                                ),
-                            )?
-                        } else {
-                            // SAFETY: The unverified version, see struct description
-                            unsafe { 1_usize.unchecked_shl(u32::from(alignment_power)) }
-                        };
+                        let alignment = Self::alignment_from_power(alignment_power)?;
 
                         let size = *self.get_trivial_type::<u32>()?;
-                        let bytes = self.get_bytes(
-                            size,
-                            NonZeroUsize::new(alignment).expect("Not zero; qed"),
-                        )?;
+                        let bytes = self.get_bytes(size, alignment)?;
 
                         (bytes, size)
                     }
@@ -541,16 +527,7 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
             for _ in 0..num_output_arguments {
                 let recommended_capacity = *self.get_trivial_type::<u32>()?;
                 let alignment_power = *self.get_trivial_type::<u8>()?;
-                // Optimized version of the following:
-                // let alignment = 2usize.pow(u32::from(alignment_power));
-                let alignment = if VERIFY {
-                    1_usize.checked_shl(u32::from(alignment_power)).ok_or(
-                        TransactionPayloadDecoderError::AlignmentPowerTooLarge(alignment_power),
-                    )?
-                } else {
-                    // SAFETY: The unverified version, see struct description
-                    unsafe { 1_usize.unchecked_shl(u32::from(alignment_power)) }
-                };
+                let alignment = Self::alignment_from_power(alignment_power)?;
 
                 // SAFETY: `external_args_cursor` is created from `external_args` and is within the
                 // same allocation
@@ -562,7 +539,7 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
 
                 let data = self.allocate_output_buffer(
                     recommended_capacity,
-                    NonZeroUsize::new(alignment).expect("Not zero; qed"),
+                    alignment,
                     external_args_size_offset as u32,
                 )?;
 
@@ -588,6 +565,29 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
             method_context,
             phantom: PhantomData,
         }))
+    }
+
+    /// Get alignment from its power of two stored in the payload, which must not exceed
+    /// [`MAX_ALIGNMENT`]
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    fn alignment_from_power(
+        alignment_power: u8,
+    ) -> Result<NonZeroUsize, TransactionPayloadDecoderError> {
+        if VERIFY {
+            if u32::from(alignment_power) > MAX_ALIGNMENT.ilog2() {
+                return Err(TransactionPayloadDecoderError::AlignmentPowerTooLarge(
+                    alignment_power,
+                ));
+            }
+        } else {
+            // SAFETY: The unverified version, see struct description
+            unsafe {
+                hint::assert_unchecked(u32::from(alignment_power) <= MAX_ALIGNMENT.ilog2());
+            }
+        }
+
+        Ok(NonZeroUsize::new(1 << alignment_power).expect("Power of two is not zero; qed"))
     }
 
     /// Get a reference to a [`TrivialType`] value inside the payload

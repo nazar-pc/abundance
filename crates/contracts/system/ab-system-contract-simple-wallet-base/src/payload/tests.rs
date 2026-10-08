@@ -5,6 +5,7 @@ use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::method::MethodFingerprint;
 use ab_core_primitives::address::Address;
+use ab_io_type::MAX_ALIGNMENT;
 use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
 use core::ptr;
@@ -13,6 +14,8 @@ use core::ptr;
 const NUM_SLOT_ARGUMENTS_OFFSET: usize = Address::SIZE as usize
     + MethodFingerprint::SIZE as usize
     + size_of::<TransactionMethodContext>();
+/// Power of two of [`MAX_ALIGNMENT`] as stored in the payload
+const MAX_ALIGNMENT_POWER: u8 = MAX_ALIGNMENT.trailing_zeros() as u8;
 
 fn decode_first_method(payload: &[u8; 64]) -> Result<(), TransactionPayloadDecoderError> {
     let payload = core::array::from_fn::<_, 4, _>(|index| {
@@ -59,5 +62,59 @@ fn payload_decode_too_many_slot_and_input_arguments() {
     assert!(matches!(
         decode_first_method(&payload),
         Err(TransactionPayloadDecoderError::TooManyArguments(10))
+    ));
+}
+
+#[test]
+fn payload_decode_input_max_alignment() {
+    let mut payload = [0u8; 64];
+    // No slots, a single empty input value (the first bit) with an alignment of `MAX_ALIGNMENT`
+    // (power of two in the remaining bits)
+    payload[NUM_SLOT_ARGUMENTS_OFFSET + 1] = 1;
+    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 0b1000_0000 | MAX_ALIGNMENT_POWER;
+
+    decode_first_method(&payload).unwrap();
+}
+
+#[test]
+fn payload_decode_input_alignment_too_large() {
+    let mut payload = [0u8; 64];
+    // No slots, a single input value (the first bit) with an alignment of twice `MAX_ALIGNMENT`
+    // (power of two in the remaining bits)
+    payload[NUM_SLOT_ARGUMENTS_OFFSET + 1] = 1;
+    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 0b1000_0000 | (MAX_ALIGNMENT_POWER + 1);
+
+    assert!(matches!(
+        decode_first_method(&payload),
+        Err(TransactionPayloadDecoderError::AlignmentPowerTooLarge(alignment_power))
+            if alignment_power == MAX_ALIGNMENT_POWER + 1
+    ));
+}
+
+#[test]
+fn payload_decode_output_max_alignment() {
+    let mut payload = [0u8; 64];
+    // No slots and inputs, a single empty output with an alignment of `MAX_ALIGNMENT` following its
+    // capacity
+    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 1;
+    let capacity_offset = (NUM_SLOT_ARGUMENTS_OFFSET + 3).next_multiple_of(align_of::<u32>());
+    payload[capacity_offset + size_of::<u32>()] = MAX_ALIGNMENT_POWER;
+
+    decode_first_method(&payload).unwrap();
+}
+
+#[test]
+fn payload_decode_output_alignment_too_large() {
+    let mut payload = [0u8; 64];
+    // No slots and inputs, a single output with an alignment of twice `MAX_ALIGNMENT` following its
+    // capacity
+    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 1;
+    let capacity_offset = (NUM_SLOT_ARGUMENTS_OFFSET + 3).next_multiple_of(align_of::<u32>());
+    payload[capacity_offset + size_of::<u32>()] = MAX_ALIGNMENT_POWER + 1;
+
+    assert!(matches!(
+        decode_first_method(&payload),
+        Err(TransactionPayloadDecoderError::AlignmentPowerTooLarge(alignment_power))
+            if alignment_power == MAX_ALIGNMENT_POWER + 1
     ));
 }
