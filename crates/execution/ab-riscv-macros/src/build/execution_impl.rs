@@ -8,7 +8,10 @@ use crate::build::execution_impl::extract_matches::extract_variant_arms;
 use crate::build::execution_impl::forbidden_checker::block_contains_forbidden_syntax;
 use crate::build::execution_impl::generate_threaded_fns::generate_threaded_fns;
 use crate::build::execution_impl::generate_variant_fns::generate_variant_fns;
-use crate::build::shared::{collect_all_dependencies, strip_const_where_predicates};
+use crate::build::shared::{
+    INSTRUCTION_EXECUTION_ATTRIBUTE, collect_all_dependencies, is_named_attribute,
+    strip_const_where_predicates,
+};
 use crate::build::state::{
     PendingEnumCsrImpl, PendingEnumExecutionImpl, PendingEnumOperandsImpl, State,
 };
@@ -292,10 +295,7 @@ pub(super) fn process_execution_impl(
         .iter()
         .enumerate()
         .find_map(|(index, attr)| {
-            attr.meta
-                .path()
-                .is_ident("instruction_execution")
-                .then_some(index)
+            is_named_attribute(attr, INSTRUCTION_EXECUTION_ATTRIBUTE).then_some(index)
         })?;
     item_impl.attrs.remove(attribute_index);
 

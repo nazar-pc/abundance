@@ -1,3 +1,5 @@
+mod nested;
+
 use crate::hart::{BasicHart, HartConfig};
 use crate::instructions::rv64::Rv64Instruction;
 use crate::instructions::rv64::a::zaamo::Rv64ZaamoInstruction;

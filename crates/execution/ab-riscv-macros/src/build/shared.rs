@@ -2,7 +2,22 @@ use crate::build::state::{KnownEnumDefinition, State};
 use std::collections::{HashSet, VecDeque};
 use std::{iter, mem};
 use syn::punctuated::Punctuated;
-use syn::{Ident, Token, WherePredicate, parse_quote};
+use syn::{Attribute, Ident, Token, WherePredicate, parse_quote};
+
+pub(super) const INSTRUCTION_ATTRIBUTE: &str = "instruction";
+pub(super) const INSTRUCTION_EXECUTION_ATTRIBUTE: &str = "instruction_execution";
+
+/// Whether an attribute has a given name.
+///
+/// Only the last path segment is compared, so path-qualified attributes like
+/// `#[ab_riscv_macros::instruction]` are recognized too.
+pub(super) fn is_named_attribute(attribute: &Attribute, name: &str) -> bool {
+    attribute
+        .path()
+        .segments
+        .last()
+        .is_some_and(|segment| segment.ident == name)
+}
 
 pub(super) fn collect_all_dependencies<InitialDependencies>(
     state: &State,

@@ -18,6 +18,8 @@ Improvements:
 Fixes:
 
 * Ignored instructions no longer satisfy `if` conditions of inherited instructions
+* `process_instruction_macros()` recognizes path-qualified attributes (like `#[ab_riscv_macros::instruction]`) and
+  attributes on items in inline modules instead of silently skipping them
 
 # 0.1.1
 

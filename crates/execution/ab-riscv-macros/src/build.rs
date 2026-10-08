@@ -3,6 +3,8 @@ mod enum_impl;
 mod execution_impl;
 mod shared;
 mod state;
+#[cfg(test)]
+mod tests;
 
 use crate::build::enum_definition::{
     collect_enum_definitions_from_dependencies, process_enum_definition,
@@ -17,15 +19,34 @@ use crate::build::execution_impl::{
     collect_original_enum_execution_impls_from_dependencies, process_execution_impl,
     process_pending_enum_execution_impls,
 };
+use crate::build::shared::{
+    INSTRUCTION_ATTRIBUTE, INSTRUCTION_EXECUTION_ATTRIBUTE, is_named_attribute,
+};
 use crate::build::state::State;
 use ab_riscv_macros_common::code_utils::pre_process_rust_code;
 use anyhow::Context;
 use quote::ToTokens;
 use std::path::{Path, PathBuf};
 use std::{env, fs, io, iter};
-use syn::Item;
+use syn::visit::{Visit, visit_item_enum, visit_item_impl};
+use syn::{ItemEnum, ItemImpl};
 
-/// Processes all instruction macros in the crate when called from `build.rs`
+/// Processes all instruction macros in the crate when called from `build.rs`.
+///
+/// Items annotated with `#[instruction]` or `#[instruction_execution]` are found anywhere in the
+/// crate's Rust files, including inline modules and function bodies, and attributes may be
+/// path-qualified like `#[ab_riscv_macros::instruction]`. Attributes are recognized by the last
+/// segment of their path in the source code, there is no name resolution.
+///
+/// # Limitations
+///
+/// The following usages are skipped silently, and the corresponding macro then fails to include a
+/// file that was never generated:
+/// * renamed imports of the macros, like `#[foo]` after `use ab_riscv_macros::instruction as foo;`
+/// * items inside macro invocations (like `macro_rules!` or a function-like macro call), whose
+///   contents are not parsed
+/// * attributes produced by other macros (like `cfg_attr`)
+/// * files where no such attribute is written at the start of a line (indentation is fine)
 pub fn process_instruction_macros() -> anyhow::Result<()> {
     let manifest_dir = env::var_os("CARGO_MANIFEST_DIR").context(
         "Failed to retrieve `CARGO_MANIFEST_DIR` environment variable, make sure to call \
@@ -118,12 +139,71 @@ fn rust_files_in(dir: PathBuf) -> Box<dyn Iterator<Item = io::Result<PathBuf>>> 
     walk(dir)
 }
 
+/// Whether a Rust file may contain `#[instruction]` or `#[instruction_execution]` attributes.
+///
+/// This helps to quickly skip files that may use Rust nightly syntax not supported by `syn`, which
+/// is limited to stable Rust. Any line that starts with such an attribute (path-qualified or not,
+/// regardless of indentation) is a match.
+fn may_contain_instruction_macros(file_contents: &str) -> bool {
+    file_contents.lines().any(|line| {
+        let Some(attribute) = line.trim_start().strip_prefix("#[") else {
+            return false;
+        };
+        // Arguments may be delimited by any kind of brackets, and the path may contain whitespace
+        let path = attribute
+            .split_once(|c: char| {
+                !(c.is_alphanumeric() || c.is_whitespace() || matches!(c, '_' | ':'))
+            })
+            .map_or(attribute, |(path, _)| path);
+        let name = path.rsplit_once("::").map_or(path, |(_, name)| name);
+
+        matches!(
+            name.trim(),
+            INSTRUCTION_ATTRIBUTE | INSTRUCTION_EXECUTION_ATTRIBUTE
+        )
+    })
+}
+
+/// An item annotated with `#[instruction]` or `#[instruction_execution]`
+enum InstructionItem {
+    Enum(ItemEnum),
+    Impl(ItemImpl),
+}
+
+/// Collects enums and impls annotated with `#[instruction]` or `#[instruction_execution]`
+/// anywhere in a file, including inline modules and function bodies
+#[derive(Default)]
+struct InstructionItemsCollector {
+    items: Vec<InstructionItem>,
+}
+
+impl Visit<'_> for InstructionItemsCollector {
+    fn visit_item_enum(&mut self, i: &ItemEnum) {
+        if i.attrs
+            .iter()
+            .any(|attribute| is_named_attribute(attribute, INSTRUCTION_ATTRIBUTE))
+        {
+            self.items.push(InstructionItem::Enum(i.clone()));
+        }
+
+        visit_item_enum(self, i);
+    }
+
+    fn visit_item_impl(&mut self, i: &ItemImpl) {
+        if i.attrs.iter().any(|attribute| {
+            is_named_attribute(attribute, INSTRUCTION_ATTRIBUTE)
+                || is_named_attribute(attribute, INSTRUCTION_EXECUTION_ATTRIBUTE)
+        }) {
+            self.items.push(InstructionItem::Impl(i.clone()));
+        }
+
+        visit_item_impl(self, i);
+    }
+}
+
 fn process_rust_file(source: &Path, out_dir: &Path, state: &mut State) -> anyhow::Result<()> {
     let mut file_contents = fs::read_to_string(source).context("Failed to read Rust file")?;
-    if !file_contents.contains("\n#[instruction") {
-        // Quickly skip files without instruction macro calls. This helps to ignore the files that
-        // may use Rust nightly syntax features not supported by `syn`, which is limited to stable
-        // Rust.
+    if !may_contain_instruction_macros(&file_contents) {
         return Ok(());
     }
 
@@ -131,9 +211,12 @@ fn process_rust_file(source: &Path, out_dir: &Path, state: &mut State) -> anyhow
 
     let file = syn::parse_file(&file_contents).context("Failed to parse Rust file")?;
 
-    for item in file.items {
+    let mut collector = InstructionItemsCollector::default();
+    collector.visit_file(&file);
+
+    for item in collector.items {
         match item {
-            Item::Enum(item_enum) => {
+            InstructionItem::Enum(item_enum) => {
                 let enum_name = item_enum.ident.clone();
                 process_enum_definition(item_enum, out_dir, state).with_context(|| {
                     format!(
@@ -142,7 +225,7 @@ fn process_rust_file(source: &Path, out_dir: &Path, state: &mut State) -> anyhow
                     )
                 })?;
             }
-            Item::Impl(item_impl) => {
+            InstructionItem::Impl(item_impl) => {
                 let trait_name = item_impl.trait_.as_ref().map(|(path, _)| {
                     path.segments
                         .last()
@@ -170,9 +253,6 @@ fn process_rust_file(source: &Path, out_dir: &Path, state: &mut State) -> anyhow
                         )
                     })?;
                 }
-            }
-            _ => {
-                // Ignore
             }
         }
     }
