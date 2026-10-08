@@ -46,6 +46,26 @@ pub struct PreparedMethod<'a> {
     pub phantom: PhantomData<&'a ()>,
 }
 
+impl<'a> PreparedMethod<'a> {
+    /// Prepare a single method for calling at specified address and with specified arguments.
+    ///
+    /// The result is to be used with [`Env::call_prepared()`] afterward.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn new<Args>(contract: Address, args: &'a mut Args, method_context: MethodContext) -> Self
+    where
+        Args: ExternalArgs,
+    {
+        Self {
+            contract,
+            fingerprint: Args::FINGERPRINT,
+            external_args: NonNull::from_mut(args).cast::<c_void>(),
+            method_context,
+            phantom: PhantomData,
+        }
+    }
+}
+
 #[cfg(feature = "guest")]
 unsafe extern "C" {
     /// Host-level API
@@ -173,7 +193,7 @@ impl<'a> Env<'a> {
 
     /// Call a method at specified address and with specified arguments.
     ///
-    /// This is a shortcut for [`Self::prepare_method_call()`] + [`Self::call_prepared()`].
+    /// This is a shortcut for [`PreparedMethod::new()`] + [`Self::call_prepared()`].
     #[inline(always)]
     pub fn call<Args>(
         &self,
@@ -184,30 +204,8 @@ impl<'a> Env<'a> {
     where
         Args: ExternalArgs,
     {
-        let prepared_method = Self::prepare_method_call(contract, args, method_context);
+        let prepared_method = PreparedMethod::new(contract, args, method_context);
         self.call_prepared(prepared_method)
-    }
-
-    /// Prepare a single method for calling at specified address and with specified arguments.
-    ///
-    /// The result is to be used with [`Self::call_prepared()`] afterward.
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn prepare_method_call<Args>(
-        contract: Address,
-        args: &mut Args,
-        method_context: MethodContext,
-    ) -> PreparedMethod<'_>
-    where
-        Args: ExternalArgs,
-    {
-        PreparedMethod {
-            contract,
-            fingerprint: Args::FINGERPRINT,
-            external_args: NonNull::from_mut(args).cast::<c_void>(),
-            method_context,
-            phantom: PhantomData,
-        }
     }
 
     /// Call prepared method.
