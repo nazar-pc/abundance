@@ -24,31 +24,60 @@ use core::hint::{assert_unchecked, cold_path};
 use core::ops::ControlFlow;
 use replace_with::replace_with_or_abort_and_return;
 
-/// Basic general purpose register to be used with [`BasicRegisters`].
-///
-/// `Self::offset()` must return values in `0..Self::N` range.
+/// Offset of a register in [`BasicRegisters`], which is always below [`Self::COUNT`]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+#[repr(transparent)]
+pub struct RegisterOffset(u8);
+
+const impl From<RegisterOffset> for usize {
+    #[inline(always)]
+    fn from(offset: RegisterOffset) -> Self {
+        // SAFETY: The field is private to this module and only set by the constructor, which
+        // rejects offsets that are not below `RegisterOffset::COUNT`
+        unsafe {
+            assert_unchecked(usize::from(offset.0) < RegisterOffset::COUNT);
+        }
+        Self::from(offset.0)
+    }
+}
+
+impl RegisterOffset {
+    /// The number of distinct offsets, the maximum number of general purpose registers
+    pub type const COUNT: usize = 32;
+
+    /// Create a new instance.
+    ///
+    /// Returns `None` if `offset` is not below [`Self::COUNT`].
+    #[inline(always)]
+    pub const fn new(offset: u8) -> Option<Self> {
+        if usize::from(offset) < Self::COUNT {
+            Some(Self(offset))
+        } else {
+            None
+        }
+    }
+}
+
+/// Basic general purpose register to be used with [`BasicRegisters`]
 pub const trait BasicRegister
 where
     Self: [const] Register,
 {
-    /// The number of general purpose registers.
+    /// Offset in a set of registers.
     ///
-    /// Canonically 32 unless E extension is used, in which case 16.
-    const N: usize;
-
-    /// Offset in a set of registers
-    fn offset(self) -> u8;
+    /// Distinct registers must have distinct offsets for correct behavior, but it is not a safety
+    /// requirement.
+    fn offset(self) -> RegisterOffset;
 }
 
 const impl<Type> BasicRegister for EReg<Type>
 where
     Self: [const] Register,
 {
-    const N: usize = 16;
-
     #[inline(always)]
-    fn offset(self) -> u8 {
-        match self {
+    fn offset(self) -> RegisterOffset {
+        let offset = match self {
             Self::Zero => 0,
             Self::Ra => 1,
             Self::Sp => 2,
@@ -65,7 +94,8 @@ where
             Self::A3 => 13,
             Self::A4 => 14,
             Self::A5 => 15,
-        }
+        };
+        RegisterOffset::new(offset).expect("All offsets above are below 16; qed")
     }
 }
 
@@ -73,11 +103,9 @@ const impl<Type> BasicRegister for Reg<Type>
 where
     Self: [const] Register,
 {
-    const N: usize = 32;
-
     #[inline(always)]
-    fn offset(self) -> u8 {
-        match self {
+    fn offset(self) -> RegisterOffset {
+        let offset = match self {
             Self::Zero => 0,
             Self::Ra => 1,
             Self::Sp => 2,
@@ -110,7 +138,8 @@ where
             Self::T4 => 29,
             Self::T5 => 30,
             Self::T6 => 31,
-        }
+        };
+        RegisterOffset::new(offset).expect("All offsets above are below 32; qed")
     }
 }
 
@@ -119,13 +148,16 @@ where
 /// `ZEROSTORE` generic determines whether to zero `x0` register on write instead of checking
 /// register index on read. `match` loop usually performs better with branching, while threaded
 /// execution benefits from zeroing.
+///
+/// There is a slot for every possible [`RegisterOffset`], even with fewer registers (like with the
+/// E extension), so that any offset is valid and no bounds checks are needed.
 #[derive(Debug, Clone, Copy)]
 #[repr(align(16))]
 pub struct BasicRegisters<Reg, const ZEROSTORE: bool = false>
 where
     Reg: BasicRegister,
 {
-    regs: [Reg::Type; Reg::N],
+    regs: [Reg::Type; RegisterOffset::COUNT],
 }
 
 impl<Reg, const ZEROSTORE: bool> Default for BasicRegisters<Reg, ZEROSTORE>
@@ -155,7 +187,7 @@ where
         *self
             .regs
             .get(usize::from(reg.offset()))
-            .expect("Register offset is always within `0..Reg::N`; qed")
+            .expect("There is a register for every offset; qed")
     }
 
     #[inline(always)]
@@ -164,9 +196,12 @@ where
         *self
             .regs
             .get_mut(usize::from(reg.offset()))
-            .expect("Register offset is always within `0..Reg::N`; qed") = value;
-        if ZEROSTORE && let Some(zero) = self.regs.first_mut() {
-            *zero = Reg::Type::default();
+            .expect("There is a register for every offset; qed") = value;
+        if ZEROSTORE {
+            *self
+                .regs
+                .get_mut(usize::from(Reg::ZERO.offset()))
+                .expect("There is a register for every offset; qed") = Reg::Type::default();
         }
     }
 }

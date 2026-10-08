@@ -1,6 +1,81 @@
 use crate::RegisterFile;
-use crate::basic::BasicRegisters;
+use crate::basic::{BasicRegister, BasicRegisters, RegisterOffset};
 use ab_riscv_primitives::prelude::*;
+use core::fmt;
+
+/// Register type with two registers at both ends of the offset range, with `x0` at the last offset
+#[derive(Debug, Clone, Copy)]
+#[derive_const(Default, PartialEq, Eq)]
+enum SparseReg {
+    #[default]
+    Zero,
+    Other,
+}
+
+impl fmt::Display for SparseReg {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
+const impl Register for SparseReg {
+    const RVE: bool = false;
+    const ZERO: Self = Self::Zero;
+    // ABI registers are irrelevant for these tests
+    const SP: Self = Self::Other;
+    const RA: Self = Self::Other;
+    const A0: Self = Self::Other;
+    const A1: Self = Self::Other;
+    type Type = u64;
+
+    fn from_bits(bits: u8) -> Option<Self> {
+        match bits {
+            0 => Some(Self::Zero),
+            1 => Some(Self::Other),
+            _ => None,
+        }
+    }
+}
+
+const impl BasicRegister for SparseReg {
+    fn offset(self) -> RegisterOffset {
+        match self {
+            Self::Zero => RegisterOffset::new(31),
+            Self::Other => RegisterOffset::new(0),
+        }
+        .expect("Both offsets are below 32; qed")
+    }
+}
+
+#[test]
+fn test_register_offset() {
+    assert_eq!(RegisterOffset::new(0).map(usize::from), Some(0));
+    assert_eq!(
+        RegisterOffset::new(31).map(usize::from),
+        Some(RegisterOffset::COUNT - 1)
+    );
+    assert!(RegisterOffset::new(32).is_none());
+    assert!(RegisterOffset::new(u8::MAX).is_none());
+}
+
+#[test]
+fn test_custom_registers() {
+    {
+        let mut regs = BasicRegisters::<SparseReg, false>::default();
+        regs.write(SparseReg::Other, u64::MAX);
+        regs.write(SparseReg::Zero, 1);
+        assert_eq!(regs.read(SparseReg::Other), u64::MAX);
+        assert_eq!(regs.read(SparseReg::Zero), 0);
+    }
+
+    {
+        let mut regs = BasicRegisters::<SparseReg, true>::default();
+        regs.write(SparseReg::Other, u64::MAX);
+        regs.write(SparseReg::Zero, 1);
+        assert_eq!(regs.read(SparseReg::Other), u64::MAX);
+        assert_eq!(regs.read(SparseReg::Zero), 0);
+    }
+}
 
 #[test]
 fn test_registers_read_write() {

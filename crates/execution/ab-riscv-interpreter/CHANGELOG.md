@@ -11,8 +11,10 @@ Breaking changes:
 * Vector types (`VectorConfig`, `VectorRegisterFile`, `VRegGroup` and others) are generic over hart configuration
   instead of `ELEN`/`VLEN`
 * `impl_vector_registers_for_mut_ref!` is removed, `&mut T` implements vector register traits generically instead
-* `BasicRegister` is a safe trait, and `BasicEagerInstructions::fetcher()` (returns `None` for a program counter that
-  is not a decoded instruction) and `OpaqueThreadedExecutionResult::new()` are safe functions
+* `BasicRegister` is a safe trait whose `offset()` returns `RegisterOffset`, which is always below 32, and
+  `BasicRegister::N` is removed: `BasicRegisters` always has 32 slots, so RVE register files have 16 unused slots.
+  `BasicEagerInstructions::fetcher()` (returns `None` for a program counter that is not a decoded instruction) and
+  `OpaqueThreadedExecutionResult::new()` are safe functions
 
 New features:
 
