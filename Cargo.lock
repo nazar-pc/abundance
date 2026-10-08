@@ -263,6 +263,7 @@ dependencies = [
  "ab-core-primitives",
  "ab-io-type",
  "const_format",
+ "trybuild",
 ]
 
 [[package]]
