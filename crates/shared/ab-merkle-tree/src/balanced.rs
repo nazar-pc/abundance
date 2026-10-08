@@ -79,6 +79,10 @@ where
         no_panic::no_panic
     )]
     pub fn new(leaves: &'a [[u8; OUT_LEN]; N]) -> Self {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { TREE_SIZE_WITHOUT_LEAVES::<N> };
+
         let mut tree = [MaybeUninit::<[u8; OUT_LEN]>::uninit(); _];
 
         Self::init_internal(leaves, &mut tree);
@@ -101,6 +105,10 @@ where
         instance: &'b mut MaybeUninit<Self>,
         leaves: &'a [[u8; OUT_LEN]; N],
     ) -> &'b mut Self {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { TREE_SIZE_WITHOUT_LEAVES::<N> };
+
         let instance_ptr = instance.as_mut_ptr();
         // SAFETY: Valid and correctly aligned non-null pointer
         unsafe {
@@ -192,6 +200,10 @@ where
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn compute_root_only(leaves: &[[u8; OUT_LEN]; N]) -> [u8; OUT_LEN] {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { TREE_SIZE_WITHOUT_LEAVES::<N> };
+
         // Special case for small trees below optimal SIMD width
         match N {
             2 => {
@@ -302,6 +314,10 @@ where
         leaf_index: usize,
         leaf: [u8; OUT_LEN],
     ) -> bool {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { TREE_SIZE_WITHOUT_LEAVES::<N> };
+
         if leaf_index >= N {
             return false;
         }

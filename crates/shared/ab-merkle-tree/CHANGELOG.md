@@ -7,6 +7,9 @@ Fixes:
   panicked at runtime
 * `MerkleMountainRange::from_peaks()` now returns `None` for more than `MAX_N` leaves, previously it accepted them as long
   as stack and peaks had space for them
+* `SparseMerkleTree::compute_root_only()` and `SparseMerkleTree::verify()` with unsupported `BITS` and
+  `UnbalancedMerkleTree::compute_root_only_array()` with an empty array no longer compile when called from generic code
+  in crates with `generic_const_args`, previously they returned wrong results or panicked at runtime
 
 # 0.2.0
 

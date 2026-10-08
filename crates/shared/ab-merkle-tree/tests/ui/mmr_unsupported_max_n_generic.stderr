@@ -1,0 +1,63 @@
+error[E0080]: evaluation panicked: This Merkle Mountain Range must have MAX_N > 1 leaves
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::mmr::STACK_SIZE::<0>` failed here
+  |
+ ::: src/mmr.rs
+  |
+  | /     assert!(
+  | |         MAX_N > 1,
+  | |         "This Merkle Mountain Range must have MAX_N > 1 leaves"
+  | |     );
+  | |_____- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/mmr.rs
+  |
+  |         const { STACK_SIZE::<MAX_N> };
+  |                 ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/mmr.rs
+  |
+  |         const { STACK_SIZE::<MAX_N> };
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn MerkleMountainRange::<0>::new`
+  --> tests/ui/mmr_unsupported_max_n_generic.rs:16:5
+   |
+16 |     MerkleMountainRange::<MAX_N>::new().num_leaves()
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: This Merkle Mountain Range must have MAX_N > 1 leaves
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::mmr::STACK_SIZE::<1>` failed here
+  |
+ ::: src/mmr.rs
+  |
+  | /     assert!(
+  | |         MAX_N > 1,
+  | |         "This Merkle Mountain Range must have MAX_N > 1 leaves"
+  | |     );
+  | |_____- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/mmr.rs
+  |
+  |         const { STACK_SIZE::<MAX_N> };
+  |                 ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/mmr.rs
+  |
+  |         const { STACK_SIZE::<MAX_N> };
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn MerkleMountainRange::<1>::verify`
+  --> tests/ui/mmr_unsupported_max_n_generic.rs:20:5
+   |
+20 |     MerkleMountainRange::<MAX_N>::verify(&[0; 32], proof, 0, [0; 32], 1)
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

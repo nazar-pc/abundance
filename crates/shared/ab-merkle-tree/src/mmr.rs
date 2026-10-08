@@ -155,6 +155,10 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new() -> Self {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { STACK_SIZE::<MAX_N> };
+
         Self {
             num_leaves: 0,
             stack: [[0u8; OUT_LEN]; _],
@@ -167,6 +171,10 @@ where
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn from_peaks(peaks: &MmrPeaks<MAX_N>) -> Option<Self> {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { STACK_SIZE::<MAX_N> };
+
         // Stack and peaks may have space for more leaves than `MAX_N`
         if peaks.num_leaves > MAX_N {
             return None;
@@ -521,6 +529,10 @@ where
         leaf: [u8; OUT_LEN],
         num_leaves: u64,
     ) -> bool {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { STACK_SIZE::<MAX_N> };
+
         UnbalancedMerkleTree::verify(root, proof, leaf_index, leaf, num_leaves)
     }
 }

@@ -89,6 +89,10 @@ where
     where
         Iter: IntoIterator<Item = Leaf<'a>> + 'a,
     {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { ENSURE_SUPPORTED_BITS::<BITS> };
+
         // Stack of intermediate nodes per tree level
         let mut stack = [[0u8; OUT_LEN]; _];
         let mut processed_some = false;
@@ -240,6 +244,10 @@ where
         leaf_index: u128,
         leaf: [u8; OUT_LEN],
     ) -> bool {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { ENSURE_SUPPORTED_BITS::<BITS> };
+
         // For `BITS == u128::BITS` any index is valid by definition
         if u32::from(BITS) < u128::BITS && leaf_index >= 2u128.pow(u32::from(BITS)) {
             return false;

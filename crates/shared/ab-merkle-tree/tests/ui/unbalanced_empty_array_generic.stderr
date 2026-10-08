@@ -1,0 +1,28 @@
+error[E0080]: evaluation panicked: Number of leaves must be greater than 0
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::unbalanced::SUPPORTED_LEAVES_ARRAY_SIZE::<0>` failed here
+  |
+ ::: src/unbalanced.rs
+  |
+  |     assert!(N != 0, "Number of leaves must be greater than 0");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/unbalanced.rs
+  |
+  |         const { SUPPORTED_LEAVES_ARRAY_SIZE::<N> };
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/unbalanced.rs
+  |
+  |         const { SUPPORTED_LEAVES_ARRAY_SIZE::<N> };
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn UnbalancedMerkleTree::compute_root_only_array::<0, [u8; 32]>`
+  --> tests/ui/unbalanced_empty_array_generic.rs:15:5
+   |
+15 |     UnbalancedMerkleTree::compute_root_only_array(leaves)
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
