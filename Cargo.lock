@@ -702,6 +702,7 @@ dependencies = [
  "seq-macro",
  "sha2 0.11.0",
  "transparent-wrapper",
+ "trybuild",
 ]
 
 [[package]]

@@ -1,0 +1,11 @@
+error: trait cannot be implemented outside `ab_proof_of_space`
+  --> tests/ui/chiapos_supported_k_sealed.rs:10:1
+   |
+10 | impl SupportedKValue for Local {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: trait restricted here
+  --> src/chiapos.rs
+   |
+   | pub impl(self) trait SupportedKValue {}
+   |     ^^^^^^^^^^
