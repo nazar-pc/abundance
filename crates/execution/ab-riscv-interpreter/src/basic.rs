@@ -322,6 +322,16 @@ impl<Regs, Env, Memory, IF> BasicInterpreterState<Regs, Env, Memory, IF> {
     }
 }
 
+/// Ensures [`BasicMemory`] doesn't wrap around the end of the address space
+const NON_WRAPPING_MEMORY<const BASE_ADDR: u64, const SIZE: usize>: usize = {
+    assert!(
+        BASE_ADDR.checked_add(SIZE as u64).is_some(),
+        "`BasicMemory` must not wrap around the end of the address space, or an address below its \
+        base address could wrap into it"
+    );
+    0
+};
+
 /// Basic memory implementation.
 ///
 /// Flat structure, no rwx protections, no alignment requirements. It uses stack, so for larger
@@ -346,7 +356,10 @@ pub struct BasicMemory<const BASE_ADDR: u64, const SIZE: usize> {
     data: [u8; SIZE],
 }
 
-const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE_ADDR, SIZE> {
+const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemory<BASE_ADDR, SIZE>
+where
+    [(); NON_WRAPPING_MEMORY::<BASE_ADDR, SIZE>]:,
+{
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn read<T>(&self, address: u64) -> Result<T, VirtualMemoryError>
@@ -466,14 +479,20 @@ const impl<const BASE_ADDR: u64, const SIZE: usize> VirtualMemory for BasicMemor
     }
 }
 
-impl<const BASE_ADDR: u64, const SIZE: usize> Default for BasicMemory<BASE_ADDR, SIZE> {
+impl<const BASE_ADDR: u64, const SIZE: usize> Default for BasicMemory<BASE_ADDR, SIZE>
+where
+    [(); NON_WRAPPING_MEMORY::<BASE_ADDR, SIZE>]:,
+{
     #[inline(always)]
     fn default() -> Self {
         Self { data: [0; _] }
     }
 }
 
-impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
+impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE>
+where
+    [(); NON_WRAPPING_MEMORY::<BASE_ADDR, SIZE>]:,
+{
     /// Offset of `address` within this memory region.
     ///
     /// Subtraction wraps rather than being checked: an address below `BASE_ADDR` produces an offset
@@ -482,14 +501,6 @@ impl<const BASE_ADDR: u64, const SIZE: usize> BasicMemory<BASE_ADDR, SIZE> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     const fn offset(address: u64) -> u64 {
-        const {
-            assert!(
-                BASE_ADDR.checked_add(SIZE as u64).is_some(),
-                "`BasicMemory` must not wrap around the end of the address space, or an address \
-                below its base address could wrap into it"
-            );
-        }
-
         address.wrapping_sub(BASE_ADDR)
     }
 

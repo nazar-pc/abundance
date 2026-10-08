@@ -15,6 +15,9 @@ Breaking changes:
   `BasicRegister::N` is removed: `BasicRegisters` always has 32 slots, so RVE register files have 16 unused slots.
   `BasicEagerInstructions::fetcher()` (returns `None` for a program counter that is not a decoded instruction) and
   `OpaqueThreadedExecutionResult::new()` are safe functions
+* `BasicMemory` impls require its region not to wrap around the end of the address space (`BASE_ADDR + SIZE` must fit
+  into `u64`), so such memory can't be constructed, and `BasicMemory` can only be used with concrete `BASE_ADDR` and
+  `SIZE`, not with generic parameters
 
 New features:
 
@@ -29,7 +32,7 @@ Improvements:
 * `BasicMemory` resolves an address into an offset with a wrapping rather than checked subtraction, which folds the
   below-the-base-address case into the bounds check that follows it instead of branching on it separately - one
   comparison instead of two on every memory access, with identical behavior as long as the memory region doesn't reach
-  the end of the address space, which is now asserted at compile time (`BASE_ADDR + SIZE` must fit into `u64`)
+  the end of the address space, which is now checked at compile time
 * Improved performance and APIs for vector extensions
 * Most `unsafe` code is gone, including all of it in vector instruction implementations outside of the register file,
   with absence of panics still verified by the `no-panic` feature
