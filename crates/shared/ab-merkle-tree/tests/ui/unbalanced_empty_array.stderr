@@ -1,0 +1,10 @@
+error[E0080]: evaluation panicked: Number of leaves must be greater than 0
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::unbalanced::SUPPORTED_LEAVES_ARRAY_SIZE::<0>` failed here
+  |
+ ::: src/unbalanced.rs
+  |
+  |     assert!(N != 0, "Number of leaves must be greater than 0");
+  |     ---------------------------------------------------------- in this macro invocation

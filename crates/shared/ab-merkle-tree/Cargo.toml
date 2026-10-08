@@ -51,6 +51,7 @@ no-panic = { workspace = true, optional = true }
 [dev-dependencies]
 chacha20 = { workspace = true, features = ["rng"] }
 criterion = { workspace = true }
+trybuild = { workspace = true }
 
 [features]
 alloc = []
