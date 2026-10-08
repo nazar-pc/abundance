@@ -1,5 +1,8 @@
 //! Data structures related to the owned version of [`BlockBody`]
 
+#[cfg(test)]
+mod tests;
+
 use crate::block::body::{
     BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBlockInfo,
     IntermediateShardBody, LeafShardBlockInfo, LeafShardBody,
