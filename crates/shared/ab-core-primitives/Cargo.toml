@@ -42,6 +42,7 @@ rclite = { workspace = true }
 
 [dev-dependencies]
 chacha20 = { workspace = true, features = ["rng"] }
+trybuild = { workspace = true }
 
 [features]
 alloc = [

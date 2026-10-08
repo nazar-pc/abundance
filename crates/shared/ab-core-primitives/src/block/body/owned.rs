@@ -63,8 +63,11 @@ enum AddTransactionError {
     },
 }
 
-/// Transaction that can be written into the body
-pub trait WritableBodyTransaction {
+/// Transaction that can be written into the body.
+///
+/// Can't be implemented outside of this module, because block body builders rely on it appending
+/// exactly one correctly encoded transaction to the buffer.
+pub impl(self) trait WritableBodyTransaction {
     /// Write this transaction into the body
     fn write_into(&self, buffer: &mut OwnedAlignedBuffer) -> Result<(), OwnedTransactionError>;
 }
