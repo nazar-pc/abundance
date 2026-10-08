@@ -392,9 +392,6 @@ impl OwnedAlignedBuffer {
     ///
     /// # Safety
     /// There must be `new_len` bytes initialized in the buffer.
-    ///
-    /// # Panics
-    /// If `bytes.len()` doesn't fit into `u32`
     #[inline(always)]
     pub unsafe fn set_len(&mut self, new_len: u32) {
         // SAFETY: Guaranteed by method contract
@@ -454,8 +451,6 @@ impl SharedAlignedBuffer {
     ///
     /// If this is the last shared instance, then allocation will be reused, otherwise a new
     /// allocation will be created.
-    ///
-    /// Returns `None` if there exit other shared instances.
     #[inline(always)]
     pub fn into_owned(self) -> OwnedAlignedBuffer {
         if self.inner.strong_count_ref().load(Ordering::Acquire) == 1 {
