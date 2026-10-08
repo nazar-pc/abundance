@@ -1141,14 +1141,18 @@ impl MethodDetails {
         let mut method_args = Vec::new();
         // Fields set on `Self` in `::new()` method
         let mut method_args_fields = Vec::new();
+        // Getters for fields that the caller needs to read after the method call
+        let mut getters = Vec::new();
 
         // For slots in external args only the address pointer is needed
         for slot in &self.slots {
             let arg_name = &slot.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
+            let ptr_doc = format!("Pointer to the address of `{arg_name}` slot");
 
             external_args_fields.push(quote! {
-                pub #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
+                #[doc = #ptr_doc]
+                #ptr_field: ::core::ptr::NonNull<::ab_contracts_macros::__private::Address>,
             });
 
             method_args.push(quote! {
@@ -1164,19 +1168,21 @@ impl MethodDetails {
             let type_name = &input.type_name;
             let arg_name = &input.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
+            let ptr_doc = format!("Pointer to the contents of `{arg_name}` input");
             let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the contents `{ptr_field}` points to");
 
             external_args_fields.push(quote! {
-                pub #ptr_field: ::core::ptr::NonNull<
+                #[doc = #ptr_doc]
+                #ptr_field: ::core::ptr::NonNull<
                     <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
                 #[doc = #size_doc]
-                pub #size_field: ::core::primitive::u32,
+                #size_field: ::core::primitive::u32,
                 #[doc = #capacity_doc]
-                pub #capacity_field: ::core::primitive::u32,
+                #capacity_field: ::core::primitive::u32,
             });
 
             method_args.push(quote! {
@@ -1200,8 +1206,11 @@ impl MethodDetails {
             let type_name = &output.type_name;
             let arg_name = &output.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
+            let ptr_doc = format!("Pointer to the contents of `{arg_name}` output");
             let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
+            let size_getter_doc =
+                format!("Size of `{arg_name}` output, updated by the host after the method call");
             let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
 
@@ -1215,17 +1224,26 @@ impl MethodDetails {
             }
 
             external_args_fields.push(quote! {
-                pub #ptr_field: ::core::ptr::NonNull<
+                #[doc = #ptr_doc]
+                #ptr_field: ::core::ptr::NonNull<
                     <#type_name as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >,
                 #[doc = #size_doc]
-                pub #size_field: ::core::primitive::u32,
+                #size_field: ::core::primitive::u32,
                 #[doc = #capacity_doc]
-                pub #capacity_field: ::core::primitive::u32,
+                #capacity_field: ::core::primitive::u32,
             });
 
             method_args.push(quote! {
                 #arg_name: &'external_args mut #type_name,
+            });
+            getters.push(quote! {
+                #[doc = #size_getter_doc]
+                #[inline(always)]
+                #[must_use]
+                pub fn #size_field(&self) -> ::core::primitive::u32 {
+                    self.#size_field
+                }
             });
             method_args_fields.push(quote! {
                 // SAFETY: This pointer is used as input to FFI call, and underlying data will only
@@ -1248,7 +1266,8 @@ impl MethodDetails {
             let return_type = &self.return_type.return_type();
 
             external_args_fields.push(quote! {
-                pub ok_result: &'external_args mut ::core::mem::MaybeUninit<#return_type>,
+                /// Return value written by the host
+                ok_result: &'external_args mut ::core::mem::MaybeUninit<#return_type>,
             });
 
             method_args.push(quote! {
@@ -1268,14 +1287,16 @@ impl MethodDetails {
 
         Ok(quote_spanned! {fn_sig.span() =>
             #[doc = #args_struct_doc]
+            // Fields are private and can only be set by `Self::new()`, because the host
+            // dereferences pointers in them according to the method signature, while
+            // `PreparedMethod::new()` that hands them over to the host is safe to call
             #[derive(::core::fmt::Debug)]
             #[repr(C)]
-            #[allow(clippy::pub_underscore_fields, reason = "Comes from user-provided arguments")]
             #[allow(rustdoc::redundant_explicit_links, reason = "Macro-generated")]
             pub struct #args_struct_name<'external_args> {
                 #( #external_args_fields )*
                 /// Lifetime of the struct
-                pub _lifetime: ::core::marker::PhantomData<&'external_args ()>,
+                _lifetime: ::core::marker::PhantomData<&'external_args ()>,
             }
 
             #[automatically_derived]
@@ -1289,7 +1310,8 @@ impl MethodDetails {
             impl<'external_args> #args_struct_name<'external_args> {
                 /// Create a new instance.
                 ///
-                /// NOTE: Make sure to query updated sizes of arguments after calling the contract.
+                /// NOTE: Make sure to query updated sizes of outputs with `*_size()` getters after
+                /// calling the contract.
                 #[allow(
                     clippy::new_without_default,
                     reason = "Do not want `Default` in auto-generated code"
@@ -1303,6 +1325,8 @@ impl MethodDetails {
                         _lifetime: ::core::marker::PhantomData,
                     }
                 }
+
+                #( #getters )*
             }
         })
     }
@@ -1556,7 +1580,7 @@ impl MethodDetails {
             });
             external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
             result_processing_before.push(quote_spanned! {fn_sig.span() =>
-                let #size_var = args.#size_field;
+                let #size_var = args.#size_field();
             });
             result_processing_after.push(quote_spanned! {fn_sig.span() =>
                 // SAFETY: The host updates size correctly

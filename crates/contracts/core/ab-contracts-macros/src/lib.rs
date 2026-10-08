@@ -455,7 +455,10 @@ pub mod __private;
 /// the host and not present in `ExternalArgs`.
 ///
 /// `ExternalArgs::new()` method is generated for convenient construction of the instance,
-/// though in most cases [Extension trait] is used with a more convenient API.
+/// though in most cases [Extension trait] is used with a more convenient API. Fields are
+/// private and are only set by `ExternalArgs::new()`, since the host dereferences pointers in
+/// them according to the method signature. Updated size of each `#[output]` can be read with
+/// an `output_size()` getter after the method call.
 ///
 /// [Extension trait]: #extension-trait
 ///
@@ -467,7 +470,7 @@ pub mod __private;
 /// #[repr(C)]
 /// pub struct ExternalArgs<'external_args> {
 ///     // ...
-///     pub slot_ptr: NonNull<Address>,
+///     slot_ptr: NonNull<Address>,
 ///     // ...
 /// }
 /// ```
@@ -480,9 +483,9 @@ pub mod __private;
 /// #[repr(C)]
 /// pub struct ExternalArgs<'external_args> {
 ///     // ...
-///     pub input_ptr: NonNull<<InputValue as IoType>::PointerType>,
-///     pub input_size: u32,
-///     pub input_capacity: u32,
+///     input_ptr: NonNull<<InputValue as IoType>::PointerType>,
+///     input_size: u32,
+///     input_capacity: u32,
 ///     // ...
 /// }
 /// ```
@@ -495,9 +498,9 @@ pub mod __private;
 /// #[repr(C)]
 /// pub struct ExternalArgs<'external_args> {
 ///     // ...
-///     pub output_ptr: NonNull<<OutputValue as IoType>::PointerType>,
-///     pub output_size: u32,
-///     pub output_capacity: u32,
+///     output_ptr: NonNull<<OutputValue as IoType>::PointerType>,
+///     output_size: u32,
+///     output_capacity: u32,
 ///     // ...
 /// }
 /// ```
@@ -508,7 +511,7 @@ pub mod __private;
 /// #[repr(C)]
 /// pub struct ExternalArgs<'external_args> {
 ///     // ...
-///     pub ok_result: &'external_args mut MaybeUninit<ReturnValue>,
+///     ok_result: &'external_args mut MaybeUninit<ReturnValue>,
 /// }
 /// ```
 ///
