@@ -1,0 +1,30 @@
+error[E0080]: evaluation panicked: `ELEN` above 64 is not supported by the interpreter
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_riscv_interpreter::prelude::zvexx_helpers::WideningSew::<ab_riscv_primitives::hart::BasicVectorHart<ab_riscv_primitives::prelude::Reg<u64>, ab_riscv_primitives::prelude::Elen::L128, ab_riscv_primitives::prelude::Vlen::L128>>::new::{constant#0}` failed here
+  |
+ ::: src/v/zvexx/zvexx_helpers.rs
+  |
+  | /             assert!(
+  | |                 Hart::VECTOR_LENGTHS.elen <= Elen::L64,
+  | |                 "`ELEN` above 64 is not supported by the interpreter"
+  | |             );
+  | |_____________- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/v/zvexx/zvexx_helpers.rs
+  |
+  | /         const {
+  | |             assert!(
+  | |                 Hart::VECTOR_LENGTHS.elen <= Elen::L64,
+  | |                 "`ELEN` above 64 is not supported by the interpreter"
+  | |             );
+  | |         }
+  | |_________^
+
+note: the above error was encountered while instantiating `fn ab_riscv_interpreter::prelude::zvexx_helpers::WideningSew::<ab_riscv_primitives::hart::BasicVectorHart<ab_riscv_primitives::prelude::Reg<u64>, ab_riscv_primitives::prelude::Elen::L128, ab_riscv_primitives::prelude::Vlen::L128>>::new`
+  --> tests/ui/vector_widening_sew_elen_above_64.rs:10:16
+   |
+10 |     let _sew = zvexx_helpers::WideningSew::<Hart>::new(Vsew::E8);
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

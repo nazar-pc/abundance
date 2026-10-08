@@ -1,0 +1,11 @@
+error: trait cannot be implemented outside `ab_riscv_interpreter`
+  --> tests/ui/core_basic_int_sealed.rs:10:1
+   |
+10 | impl BasicInt for NotAnInteger {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: trait restricted here
+  --> src/lib.rs
+   |
+   | pub impl(self) trait BasicInt: Sized + Copy + 'static {}
+   |     ^^^^^^^^^^

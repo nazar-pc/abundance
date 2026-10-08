@@ -228,13 +228,6 @@ where
     ///
     /// `ELEN` above 64 is rejected at compile time: widening with `SEW = 64` would be legal then,
     /// but elements are processed as `u64` here, so a 128-bit wide operand is not supported.
-    ///
-    /// ```compile_fail
-    /// use ab_riscv_interpreter::v::zvexx::zvexx_helpers::WideningSew;
-    /// use ab_riscv_primitives::prelude::*;
-    ///
-    /// let _ = WideningSew::<BasicVectorHart<Reg<u64>, { Elen::L128 }, { Vlen::L128 }>>::new(Vsew::E8);
-    /// ```
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn new(sew: Vsew) -> Option<Self> {

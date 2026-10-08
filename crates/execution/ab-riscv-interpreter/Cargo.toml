@@ -40,6 +40,7 @@ cpufeatures = { workspace = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 object = { workspace = true, features = ["elf", "read_core"] }
+trybuild = { workspace = true }
 
 [build-dependencies]
 ab-riscv-macros = { workspace = true, features = ["build"] }

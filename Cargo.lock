@@ -796,6 +796,7 @@ dependencies = [
  "object",
  "replace_with",
  "thiserror 2.0.21",
+ "trybuild",
 ]
 
 [[package]]
