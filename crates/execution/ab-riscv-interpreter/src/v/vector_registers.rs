@@ -348,8 +348,12 @@ where
         count: u32,
     ) -> bool {
         if dst.eew != src.eew
-            || u32::from(dst_first) + count > u32::from(dst.vl.get())
-            || u32::from(src_first) + count > u32::from(src.vlmax)
+            || u32::from(dst_first)
+                .checked_add(count)
+                .is_none_or(|end| end > u32::from(dst.vl.get()))
+            || u32::from(src_first)
+                .checked_add(count)
+                .is_none_or(|end| end > u32::from(src.vlmax))
         {
             cold_path();
             return false;
@@ -377,7 +381,10 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn elements_bytes(&self, group: VRegGroup<Hart>, first: u16, count: u32) -> Option<&[u8]> {
-        if u32::from(first) + count > u32::from(group.vl().get()) {
+        if u32::from(first)
+            .checked_add(count)
+            .is_none_or(|end| end > u32::from(group.vl().get()))
+        {
             cold_path();
             return None;
         }
@@ -403,7 +410,10 @@ where
         first: u16,
         count: u32,
     ) -> Option<&mut [u8]> {
-        if u32::from(first) + count > u32::from(group.vl().get()) {
+        if u32::from(first)
+            .checked_add(count)
+            .is_none_or(|end| end > u32::from(group.vl().get()))
+        {
             cold_path();
             return None;
         }
