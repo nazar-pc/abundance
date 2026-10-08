@@ -1,3 +1,6 @@
+#[cfg(all(test, feature = "serde"))]
+mod tests;
+
 use crate::pieces::InnerPiece;
 use crate::pieces::cow_bytes::CowBytes;
 use ab_io_type::trivial_type::TrivialType;
@@ -104,21 +107,18 @@ impl<'de> Deserialize<'de> for Piece {
         D: Deserializer<'de>,
     {
         let bytes = if deserializer.is_human_readable() {
-            hex::serde::deserialize::<_, Vec<u8>>(deserializer).and_then(|bytes| {
-                if bytes.len() == Piece::SIZE {
-                    Ok(Bytes::from(bytes))
-                } else {
-                    Err(serde::de::Error::invalid_length(
-                        bytes.len(),
-                        &format!("Expected {} bytes", Piece::SIZE).as_str(),
-                    ))
-                }
-            })?
+            Bytes::from(hex::serde::deserialize::<_, Vec<u8>>(deserializer)?)
         } else {
             Bytes::deserialize(deserializer)?
         };
+        let length = bytes.len();
 
-        Ok(Piece(CowBytes::Shared(bytes)))
+        Piece::try_from(bytes).map_err(|()| {
+            serde::de::Error::invalid_length(
+                length,
+                &format!("Expected {} bytes", Piece::SIZE).as_str(),
+            )
+        })
     }
 }
 
