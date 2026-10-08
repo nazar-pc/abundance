@@ -21,6 +21,11 @@ where
     elements: NonNull<Element>,
     size: NonNull<u32>,
     capacity: u32,
+    // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+    //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed. Every instance
+    //  evaluates the check through this field. It is initialized in `const` blocks, which are
+    //  evaluated even if optimizations remove the field.
+    _supported: [(); NON_ZERO_SIZED::<Element>],
 }
 
 // SAFETY: Low-level (effectively internal) implementation that upholds safety requirements
@@ -119,6 +124,7 @@ where
             elements: *ptr,
             size: NonNull::from_ref(size),
             capacity,
+            _supported: const { [(); NON_ZERO_SIZED::<Element>] },
         })
     }
 
@@ -144,6 +150,7 @@ where
             elements: *ptr,
             size: NonNull::from_mut(size),
             capacity,
+            _supported: const { [(); NON_ZERO_SIZED::<Element>] },
         })
     }
 
@@ -199,6 +206,7 @@ where
             elements: NonNull::new(buffer.as_ptr().cast_mut()).expect("Not null; qed"),
             size: NonNull::from_ref(size),
             capacity: *size,
+            _supported: const { [(); NON_ZERO_SIZED::<Element>] },
         })
     }
 
@@ -225,6 +233,7 @@ where
             elements: NonNull::new(buffer.as_mut_ptr()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity: *size,
+            _supported: const { [(); NON_ZERO_SIZED::<Element>] },
         })
     }
 
@@ -259,6 +268,7 @@ where
             elements: NonNull::new(uninit.as_mut_ptr().cast_init()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity,
+            _supported: const { [(); NON_ZERO_SIZED::<Element>] },
         })
     }
 

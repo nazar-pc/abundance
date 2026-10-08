@@ -48,6 +48,11 @@ pub(crate) const SUPPORTED_CAPACITY_U16<const CAPACITY: usize>: usize = {
 pub struct FixedCapacityBytesU8<const CAPACITY: usize> {
     len: u8,
     bytes: [u8; CAPACITY],
+    // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+    //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed. Every instance
+    //  evaluates the check through this field. It is initialized in `const` blocks, which are
+    //  evaluated even if optimizations remove the field.
+    _supported: [(); SUPPORTED_CAPACITY_U8::<CAPACITY>],
 }
 
 impl<const CAPACITY: usize> Default for FixedCapacityBytesU8<CAPACITY>
@@ -59,6 +64,7 @@ where
         Self {
             len: 0,
             bytes: [0; CAPACITY],
+            _supported: const { [(); SUPPORTED_CAPACITY_U8::<CAPACITY>] },
         }
     }
 }
@@ -100,6 +106,7 @@ where
                 buffer[..bytes.len()].copy_from_slice(bytes);
                 buffer
             },
+            _supported: const { [(); SUPPORTED_CAPACITY_U8::<CAPACITY>] },
         })
     }
 
@@ -194,6 +201,11 @@ where
 pub struct FixedCapacityBytesU16<const CAPACITY: usize> {
     len: u16,
     bytes: [u8; CAPACITY],
+    // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+    //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed. Every instance
+    //  evaluates the check through this field. It is initialized in `const` blocks, which are
+    //  evaluated even if optimizations remove the field.
+    _supported: [(); SUPPORTED_CAPACITY_U16::<CAPACITY>],
 }
 
 impl<const CAPACITY: usize> Default for FixedCapacityBytesU16<CAPACITY>
@@ -205,6 +217,7 @@ where
         Self {
             len: 0,
             bytes: [0; CAPACITY],
+            _supported: const { [(); SUPPORTED_CAPACITY_U16::<CAPACITY>] },
         }
     }
 }
@@ -247,6 +260,7 @@ where
                 buffer[..bytes.len()].copy_from_slice(bytes);
                 buffer
             },
+            _supported: const { [(); SUPPORTED_CAPACITY_U16::<CAPACITY>] },
         })
     }
 

@@ -1,0 +1,39 @@
+error[E0080]: evaluation panicked: Number of array elements must be smaller than 2^32
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::SUPPORTED_ARRAY::<(), 4294967296>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  | /     assert!(
+  | |         u32::MAX as usize >= N,
+  | |         "Number of array elements must be smaller than 2^32"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn metadata::<(), 4294967296>`
+  --> tests/ui/array_size_limit_generic.rs:20:5
+   |
+20 |     metadata::<(), { 1 << 32 }>();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Type size must be smaller than 2^32
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::SUPPORTED_ARRAY::<u64, 536870912>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  | /     assert!(
+  | |         u32::MAX as usize >= size_of::<[T; N]>(),
+  | |         "Type size must be smaller than 2^32"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn metadata::<u64, 536870912>`
+  --> tests/ui/array_size_limit_generic.rs:22:5
+   |
+22 |     metadata::<u64, { 1 << 29 }>();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
