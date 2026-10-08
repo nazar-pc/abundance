@@ -1,0 +1,56 @@
+error[E0080]: evaluation panicked: Zvbc requires `ELEN >= 64`
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `<ab_riscv_primitives::prelude::ZvbcInstruction<ab_riscv_primitives::hart::BasicVectorHart<ab_riscv_primitives::prelude::Reg<u64>, ab_riscv_primitives::prelude::Elen::L32, ab_riscv_primitives::prelude::Vlen::L128>> as ab_riscv_primitives::instructions::Instruction>::OWN_ISA_EXTENSIONS` failed here
+  |
+ ::: $OUT_DIR[ab-riscv-primitives]/ZvbcInstruction_decoding_impl.rs
+  |
+  | /         assert!(
+  | |             Hart::VECTOR_LENGTHS.elen.supports(Eew::E64),
+  | |             "Zvbc requires `ELEN >= 64`",
+  | |         );
+  | |_________- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/instructions.rs
+  |
+  |             own_isa_extensions: I::OWN_ISA_EXTENSIONS,
+  |                                 ^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> $OUT_DIR[ab-riscv-primitives]/ZvbcInstruction_decoding_impl.rs
+  |
+  |       const IMPLEMENTED_EXTENSIONS: &'static [ImplementedExtension] = &[
+  |  _____________________________________________________________________^
+  | |         ImplementedExtension::new::<Self>(),
+  | |         ImplementedExtension::new::<ZveXxInstruction<Hart>>(),
+  | |         ImplementedExtension::new::<ZveXxConfigInstruction<Hart>>(),
+... |
+  | |         ImplementedExtension::new::<ZicsrInstruction<Hart>>(),
+  | |     ];
+  | |_____^
+
+note: erroneous constant encountered
+ --> src/instructions.rs
+  |
+  |             Self::IMPLEMENTED_EXTENSIONS,
+  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/instructions.rs
+  |
+  |       const ISA_STRING: &'static str = const {
+  |  ______________________________________^
+  | |         isa_string(
+  | |             <Self::Hart as HartConfig>::Reg::XLEN,
+  | |             Self::IMPLEMENTED_EXTENSIONS,
+  | |         )
+  | |     }
+  | |_____^
+
+note: erroneous constant encountered
+  --> tests/ui/vector_zvbc_elen_below_64.rs:10:13
+   |
+10 |     let _ = <ZvbcInstruction<Hart> as Instruction>::ISA_STRING;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -26,6 +26,9 @@ prettyplease = { workspace = true, optional = true }
 quote = { workspace = true, optional = true }
 syn = { workspace = true, optional = true, features = ["extra-traits", "full", "visit", "visit-mut"] }
 
+[dev-dependencies]
+trybuild = { workspace = true }
+
 [features]
 default = [
     "build",

@@ -6,7 +6,7 @@ categories = ["data-structures", "encoding", "no-std::no-alloc", "rust-patterns"
 repository = "https://github.com/nazar-pc/abundance"
 homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/shared/ab-io-type"
 license = "0BSD"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
@@ -22,6 +22,9 @@ all-features = true
 ab-io-type-derive = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
+
+[dev-dependencies]
+trybuild = { workspace = true }
 
 [features]
 scale-codec = [

@@ -93,14 +93,7 @@ const fn vector_isa_extensions(
 ///
 /// `X` is any legal value, according to the RISC-V specification, for example, Zve32x or Zve64x.
 /// The actual `ELEN` and `VLEN` values are configured by the hart configuration, `ELEN` above 64
-/// is not supported and doesn't compile:
-/// ```compile_fail
-/// use ab_riscv_primitives::prelude::*;
-///
-/// type Hart = BasicVectorHart<Reg<u64>, { Elen::L128 }, { Vlen::L128 }>;
-///
-/// let _ = <ZveXxInstruction<Hart> as Instruction>::ISA_STRING;
-/// ```
+/// is not supported and doesn't compile.
 #[instruction(
     inherit = [
         ZveXxConfigInstruction,

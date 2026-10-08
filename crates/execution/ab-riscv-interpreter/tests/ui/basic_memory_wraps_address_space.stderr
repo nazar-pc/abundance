@@ -1,0 +1,32 @@
+error[E0080]: evaluation panicked: `BasicMemory` must not wrap around the end of the address space, or an address below its base address could wrap into it
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_riscv_interpreter::basic::BasicMemory::<18446744073709551608, 16>::offset::{constant#0}` failed here
+  |
+ ::: src/basic.rs
+  |
+  | /             assert!(
+  | |                 BASE_ADDR.checked_add(SIZE as u64).is_some(),
+  | |                 "`BasicMemory` must not wrap around the end of the address space, or an address \
+  | |                 below its base address could wrap into it"
+  | |             );
+  | |_____________- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/basic.rs
+  |
+  | /         const {
+  | |             assert!(
+  | |                 BASE_ADDR.checked_add(SIZE as u64).is_some(),
+  | |                 "`BasicMemory` must not wrap around the end of the address space, or an address \
+  | |                 below its base address could wrap into it"
+  | |             );
+  | |         }
+  | |_________^
+
+note: the above error was encountered while instantiating `fn BasicMemory::<18446744073709551608, 16>::offset`
+ --> src/basic.rs
+  |
+  |         let offset = Self::offset(address);
+  |                      ^^^^^^^^^^^^^^^^^^^^^

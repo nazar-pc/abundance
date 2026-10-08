@@ -1,3 +1,11 @@
+# 0.2.1
+
+Fixes:
+
+* `BalancedMerkleTree::compute_root_only()` and `BalancedMerkleTree::verify()` no longer compile with `N` that is not a
+  power of two or is smaller than 2, previously they did in builds without debug info and ignored some of the leaves or
+  panicked at runtime
+
 # 0.2.0
 
 Breaking changes:

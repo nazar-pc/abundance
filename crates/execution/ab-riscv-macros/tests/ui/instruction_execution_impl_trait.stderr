@@ -1,0 +1,15 @@
+error: Expected `#[instruction_execution] impl ExecutableInstructionOperands for TestInstruction` or `#[instruction_execution] impl ExecutableInstructionCsr for TestInstruction` or `#[instruction_execution] impl ExecutableInstruction for TestInstruction`, but no trait was found
+  --> tests/ui/instruction_execution_impl_trait.rs:15:1
+   |
+15 | #[instruction_execution]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `instruction_execution` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Expected `impl` for `TestInstruction`, `#[instruction_execution]` attribute must be added to a trait implementation, but trait `Instruction` is not supported
+  --> tests/ui/instruction_execution_impl_trait.rs:21:1
+   |
+21 | #[instruction_execution]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `instruction_execution` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -6,7 +6,7 @@ categories = ["algorithms", "cryptography", "data-structures", "no-std::no-alloc
 repository = "https://github.com/nazar-pc/abundance"
 homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/shared/ab-merkle-tree"
 license = "0BSD"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
@@ -51,6 +51,7 @@ no-panic = { workspace = true, optional = true }
 [dev-dependencies]
 chacha20 = { workspace = true, features = ["rng"] }
 criterion = { workspace = true }
+trybuild = { workspace = true }
 
 [features]
 alloc = []

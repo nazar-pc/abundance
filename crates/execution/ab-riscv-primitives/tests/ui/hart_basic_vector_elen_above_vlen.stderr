@@ -1,0 +1,11 @@
+error[E0080]: evaluation panicked: `ELEN` must be <= `VLEN`
+ --> src/hart.rs
+  |
+  |         VectorLengths::new(ELEN, VLEN).expect("`ELEN` must be <= `VLEN`");
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `<ab_riscv_primitives::hart::BasicVectorHart<ab_riscv_primitives::prelude::Reg<u64>, ab_riscv_primitives::prelude::Elen::L128, ab_riscv_primitives::prelude::Vlen::L64> as ab_riscv_primitives::hart::VectorHartConfig>::VECTOR_LENGTHS` failed here
+
+note: erroneous constant encountered
+  --> tests/ui/hart_basic_vector_elen_above_vlen.rs:11:13
+   |
+11 |     let _ = Hart::VECTOR_LENGTHS;
+   |             ^^^^^^^^^^^^^^^^^^^^

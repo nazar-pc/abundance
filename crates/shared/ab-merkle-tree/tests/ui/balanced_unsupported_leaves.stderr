@@ -1,0 +1,41 @@
+error[E0080]: evaluation panicked: Balanced Merkle Tree must have a number of leaves that is a power of 2
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::balanced::TREE_SIZE_WITHOUT_LEAVES::<48>` failed here
+  |
+ ::: src/balanced.rs
+  |
+  | /     assert!(
+  | |         N.is_power_of_two(),
+  | |         "Balanced Merkle Tree must have a number of leaves that is a power of 2"
+  | |     );
+  | |_____- in this macro invocation
+
+error[E0080]: evaluation panicked: This Balanced Merkle Tree must have more than one leaf
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::balanced::TREE_SIZE_WITHOUT_LEAVES::<1>` failed here
+  |
+ ::: src/balanced.rs
+  |
+  | /     assert!(
+  | |         N > 1,
+  | |         "This Balanced Merkle Tree must have more than one leaf"
+  | |     );
+  | |_____- in this macro invocation
+
+error[E0080]: evaluation panicked: Balanced Merkle Tree must have a number of leaves that is a power of 2
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::balanced::TREE_SIZE_WITHOUT_LEAVES::<3>` failed here
+  |
+ ::: src/balanced.rs
+  |
+  | /     assert!(
+  | |         N.is_power_of_two(),
+  | |         "Balanced Merkle Tree must have a number of leaves that is a power of 2"
+  | |     );
+  | |_____- in this macro invocation

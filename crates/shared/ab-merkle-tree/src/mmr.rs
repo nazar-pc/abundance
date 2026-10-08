@@ -135,7 +135,10 @@ pub struct MerkleMountainRange<const MAX_N: u64> {
     stack: [[u8; OUT_LEN]; STACK_SIZE::<MAX_N>],
 }
 
-impl<const MAX_N: u64> Default for MerkleMountainRange<MAX_N> {
+impl<const MAX_N: u64> Default for MerkleMountainRange<MAX_N>
+where
+    [(); STACK_SIZE::<MAX_N>]:,
+{
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn default() -> Self {
@@ -144,7 +147,10 @@ impl<const MAX_N: u64> Default for MerkleMountainRange<MAX_N> {
 }
 
 // TODO: Think harder about proof generation and verification API here
-impl<const MAX_N: u64> MerkleMountainRange<MAX_N> {
+impl<const MAX_N: u64> MerkleMountainRange<MAX_N>
+where
+    [(); STACK_SIZE::<MAX_N>]:,
+{
     /// Create an empty instance
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
@@ -400,7 +406,7 @@ impl<const MAX_N: u64> MerkleMountainRange<MAX_N> {
 
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn add_leaf_and_compute_proof_inner(
+    fn add_leaf_and_compute_proof_inner(
         &mut self,
         leaf: &[u8; OUT_LEN],
         proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_PROOF_ELEMENTS::<MAX_N>],
@@ -500,7 +506,7 @@ impl<const MAX_N: u64> MerkleMountainRange<MAX_N> {
 
     /// Verify a Merkle proof for a leaf at the given index.
     ///
-    /// NOTE: `MAX_N` constant doesn't matter here and can be anything that is `>= 1`.
+    /// NOTE: `MAX_N` constant doesn't matter here and can be anything that is `> 1`.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn verify(

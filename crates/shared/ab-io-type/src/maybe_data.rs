@@ -1,4 +1,4 @@
-use crate::trivial_type::TrivialType;
+use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
 use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
@@ -22,6 +22,7 @@ where
 unsafe impl<Data> IoType for MaybeData<Data>
 where
     Data: TrivialType,
+    [(); NON_ZERO_SIZED::<Data>]:,
 {
     const METADATA: &[u8] = Data::METADATA;
 
@@ -112,11 +113,18 @@ where
     }
 }
 
-impl<Data> IoTypeOptional for MaybeData<Data> where Data: TrivialType {}
+impl<Data> IoTypeOptional for MaybeData<Data>
+where
+    Data: TrivialType,
+    [(); NON_ZERO_SIZED::<Data>]:,
+{
+}
 
+// Absence of data is represented by zero size, so `Data` itself must not be zero-sized
 impl<Data> MaybeData<Data>
 where
     Data: TrivialType,
+    [(); NON_ZERO_SIZED::<Data>]:,
 {
     /// Create a new shared instance from provided data reference.
     //
@@ -272,6 +280,7 @@ where
 impl<Data> MaybeData<Data>
 where
     Data: TrivialType + Default,
+    [(); NON_ZERO_SIZED::<Data>]:,
 {
     /// Get exclusive access to initialized `Data`, initializing with default value if necessary
     #[inline(always)]

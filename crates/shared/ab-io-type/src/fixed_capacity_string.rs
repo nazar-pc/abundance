@@ -1,4 +1,6 @@
-use crate::fixed_capacity_bytes::{FixedCapacityBytesU8, FixedCapacityBytesU16};
+use crate::fixed_capacity_bytes::{
+    FixedCapacityBytesU8, FixedCapacityBytesU16, SUPPORTED_CAPACITY_U8, SUPPORTED_CAPACITY_U16,
+};
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::TrivialType;
 use core::ops::{Deref, DerefMut};
@@ -12,13 +14,18 @@ use core::ops::{Deref, DerefMut};
 ///
 /// This is just a wrapper for [`FixedCapacityBytesU8`] that the type dereferences to with a
 /// different semantic meaning.
+///
+/// `CAPACITY` must not exceed `u8::MAX`.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct FixedCapacityStringU8<const CAPACITY: usize> {
     bytes: FixedCapacityBytesU8<CAPACITY>,
 }
 
-impl<const CAPACITY: usize> Default for FixedCapacityStringU8<CAPACITY> {
+impl<const CAPACITY: usize> Default for FixedCapacityStringU8<CAPACITY>
+where
+    [(); SUPPORTED_CAPACITY_U8::<CAPACITY>]:,
+{
     #[inline(always)]
     fn default() -> Self {
         Self {
@@ -42,14 +49,13 @@ impl<const CAPACITY: usize> DerefMut for FixedCapacityStringU8<CAPACITY> {
 }
 
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
-unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU8<CAPACITY> {
+unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU8<CAPACITY>
+where
+    [(); SUPPORTED_CAPACITY_U8::<CAPACITY>]:,
+{
     const METADATA: &[u8] = {
         #[inline(always)]
         const fn metadata(capacity: usize) -> ([u8; MAX_METADATA_CAPACITY], usize) {
-            assert!(
-                capacity <= u8::MAX as usize,
-                "`FixedCapacityStringU8` capacity must not exceed `u8::MAX`"
-            );
             concat_metadata_sources(&[&[
                 IoTypeMetadataKind::FixedCapacityString8b as u8,
                 capacity as u8,
@@ -59,7 +65,10 @@ unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU8<CAPACIT
     };
 }
 
-impl<const CAPACITY: usize> FixedCapacityStringU8<CAPACITY> {
+impl<const CAPACITY: usize> FixedCapacityStringU8<CAPACITY>
+where
+    [(); SUPPORTED_CAPACITY_U8::<CAPACITY>]:,
+{
     /// Try to create an instance from provided string.
     ///
     /// Returns `None` if provided string does not fit into the capacity.
@@ -88,13 +97,18 @@ impl<const CAPACITY: usize> FixedCapacityStringU8<CAPACITY> {
 ///
 /// This is just a wrapper for [`FixedCapacityBytesU16`] that the type dereferences to with a
 /// different semantic meaning.
+///
+/// `CAPACITY` must not exceed `u16::MAX` and must be a multiple of 2 to avoid padding.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct FixedCapacityStringU16<const CAPACITY: usize> {
     bytes: FixedCapacityBytesU16<CAPACITY>,
 }
 
-impl<const CAPACITY: usize> Default for FixedCapacityStringU16<CAPACITY> {
+impl<const CAPACITY: usize> Default for FixedCapacityStringU16<CAPACITY>
+where
+    [(); SUPPORTED_CAPACITY_U16::<CAPACITY>]:,
+{
     #[inline(always)]
     fn default() -> Self {
         Self {
@@ -117,15 +131,15 @@ impl<const CAPACITY: usize> DerefMut for FixedCapacityStringU16<CAPACITY> {
     }
 }
 
-// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
-unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU16<CAPACITY> {
+// SAFETY: Any bit pattern is valid and there is no padding since capacity is a multiple of 2, so it
+// is safe to implement `TrivialType` for this type
+unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU16<CAPACITY>
+where
+    [(); SUPPORTED_CAPACITY_U16::<CAPACITY>]:,
+{
     const METADATA: &[u8] = {
         #[inline(always)]
         const fn metadata(capacity: usize) -> ([u8; MAX_METADATA_CAPACITY], usize) {
-            assert!(
-                capacity <= u16::MAX as usize,
-                "`FixedCapacityStringU16` capacity must not exceed `u16::MAX`"
-            );
             concat_metadata_sources(&[
                 &[IoTypeMetadataKind::FixedCapacityString16b as u8],
                 &(capacity as u16).to_le_bytes(),
@@ -135,7 +149,10 @@ unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityStringU16<CAPACI
     };
 }
 
-impl<const CAPACITY: usize> FixedCapacityStringU16<CAPACITY> {
+impl<const CAPACITY: usize> FixedCapacityStringU16<CAPACITY>
+where
+    [(); SUPPORTED_CAPACITY_U16::<CAPACITY>]:,
+{
     /// Try to create an instance from provided string.
     ///
     /// Returns `None` if provided string does not fit into the capacity.

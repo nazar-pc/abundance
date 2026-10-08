@@ -1,0 +1,65 @@
+error[E0277]: the trait bound `bool: TrivialType` is not satisfied
+ --> tests/ui/derive_non_trivial_field.rs:6:23
+  |
+6 | #[derive(Copy, Clone, TrivialType)]
+  |                       ^^^^^^^^^^^ the trait `TrivialType` is not implemented for `bool`
+  |
+  = help: the following other types implement trait `TrivialType`:
+            ()
+            FixedCapacityBytesU16<CAPACITY>
+            FixedCapacityBytesU8<CAPACITY>
+            FixedCapacityStringU16<CAPACITY>
+            FixedCapacityStringU8<CAPACITY>
+            WithBool
+            [T; SIZE]
+            ab_io_type::bool::Bool
+          and $N others
+  = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: add `#![feature(trivial_bounds)]` to the crate attributes to enable
+  |
+4 + #![feature(trivial_bounds)]
+  |
+
+error[E0277]: the trait bound `bool: TrivialType` is not satisfied
+ --> tests/ui/derive_non_trivial_field.rs:8:8
+  |
+8 | struct WithBool {
+  |        ^^^^^^^^ the trait `TrivialType` is not implemented for `bool`
+  |
+  = help: the following other types implement trait `TrivialType`:
+            ()
+            FixedCapacityBytesU16<CAPACITY>
+            FixedCapacityBytesU8<CAPACITY>
+            FixedCapacityStringU16<CAPACITY>
+            FixedCapacityStringU8<CAPACITY>
+            WithBool
+            [T; SIZE]
+            ab_io_type::bool::Bool
+          and $N others
+note: required for `WithBool` to implement `TrivialType`
+ --> tests/ui/derive_non_trivial_field.rs:8:8
+  |
+6 | #[derive(Copy, Clone, TrivialType)]
+  |                       ----------- type parameter would need to implement `TrivialType`
+7 | #[repr(C)]
+8 | struct WithBool {
+  |        ^^^^^^^^
+  = help: consider manually implementing `TrivialType` to avoid undesired bounds caused by "imperfect derives"
+  = note: to learn more, visit <https://github.com/rust-lang/rust/issues/26925>
+
+error[E0277]: the trait bound `bool: TrivialType` is not satisfied
+ --> tests/ui/derive_non_trivial_field.rs:9:11
+  |
+9 |     flag: bool,
+  |           ^^^^ the trait `TrivialType` is not implemented for `bool`
+  |
+  = help: the following other types implement trait `TrivialType`:
+            ()
+            FixedCapacityBytesU16<CAPACITY>
+            FixedCapacityBytesU8<CAPACITY>
+            FixedCapacityStringU16<CAPACITY>
+            FixedCapacityStringU8<CAPACITY>
+            WithBool
+            [T; SIZE]
+            ab_io_type::bool::Bool
+          and $N others

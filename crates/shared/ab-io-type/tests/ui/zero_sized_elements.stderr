@@ -1,0 +1,21 @@
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<()>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[u8; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
