@@ -136,19 +136,19 @@ strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 syn = "3.0.6"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.21", default-features = false }
-tokio = { version = "1.53.1", default-features = false }
+tokio = { version = "1.53.2", default-features = false }
 tokio-stream = "0.1.19"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 transparent-wrapper = { version = "0.1.0", features = ["const-trait"] }
-trybuild = "1.0.121"
+trybuild = "1.0.122"
 ulid = "3.0.0"
 unsigned-varint = "0.8.0"
 void = "1.0.2"
 wgpu = { version = "30.0.1", default-features = false, features = ["metal", "parking_lot", "spirv", "std", "vulkan"] }
 windows = { version = "0.62.2", features = ["Win32_Storage_FileSystem"] }
 yoke = { version = "0.8.3", default-features = false }
-zeroize = "1.9.0"
+zeroize = "1.9.1"
 
 # The following libraries have a major impact on developement experience and need to be compiled with optimizations even
 # in debug builds
