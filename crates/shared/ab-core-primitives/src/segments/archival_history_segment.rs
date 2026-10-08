@@ -1,12 +1,14 @@
 use crate::pieces::{FlatPieces, InnerPiece, Piece, PiecePosition, Record};
 use crate::segments::RecordedHistorySegment;
+use alloc::boxed::Box;
 use array_reshape::Unflatten;
-use derive_more::{Deref, DerefMut};
 use std::array;
-use std::ops::{Index, IndexMut};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 /// Archived history segment after archiving is applied.
-#[derive(Debug, Clone, Eq, PartialEq, Deref, DerefMut)]
+///
+/// Dereferences to a fixed-size array of pieces, such that the number of pieces can't be changed.
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedHistorySegment(FlatPieces);
 
@@ -46,6 +48,22 @@ impl AsMut<[[InnerPiece; RecordedHistorySegment::NUM_RAW_RECORDS]; 2]> for Archi
     }
 }
 
+impl Deref for ArchivedHistorySegment {
+    type Target = [InnerPiece; Self::NUM_PIECES];
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
+impl DerefMut for ArchivedHistorySegment {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut()
+    }
+}
+
 impl Default for ArchivedHistorySegment {
     #[inline]
     fn default() -> Self {
@@ -53,19 +71,29 @@ impl Default for ArchivedHistorySegment {
     }
 }
 
+const {
+    // Indexing with `PiecePosition` (a wrapper around `u8`) relies on every possible position
+    // having a corresponding piece
+    assert!(ArchivedHistorySegment::NUM_PIECES == usize::from(u8::MAX) + 1);
+}
+
 impl Index<PiecePosition> for ArchivedHistorySegment {
     type Output = InnerPiece;
 
+    #[inline(always)]
     fn index(&self, index: PiecePosition) -> &Self::Output {
-        // SAFETY: The size of the archived history segment is known and protected invariant
-        unsafe { self.get_unchecked(usize::from(index)) }
+        self.get(usize::from(index)).expect(
+            "`PiecePosition` wraps `u8` and there are `u8::MAX + 1` pieces, checked above; qed",
+        )
     }
 }
 
 impl IndexMut<PiecePosition> for ArchivedHistorySegment {
+    #[inline(always)]
     fn index_mut(&mut self, index: PiecePosition) -> &mut Self::Output {
-        // SAFETY: The size of the archived history segment is known and protected invariant
-        unsafe { self.get_unchecked_mut(usize::from(index)) }
+        self.get_mut(usize::from(index)).expect(
+            "`PiecePosition` wraps `u8` and there are `u8::MAX + 1` pieces, checked above; qed",
+        )
     }
 }
 
@@ -105,6 +133,24 @@ impl ArchivedHistorySegment {
     /// composed of [`crate::pieces::Record`]s together with corresponding roots and
     /// proofs.
     pub const SIZE: usize = Piece::SIZE * Self::NUM_PIECES;
+
+    /// Iterator over all pieces, see [`FlatPieces::pieces()`] for details
+    #[inline]
+    pub fn pieces(&self) -> Box<dyn ExactSizeIterator<Item = Piece> + '_> {
+        self.0.pieces()
+    }
+
+    /// Iterator over source pieces, see [`FlatPieces::source_pieces()`] for details
+    #[inline]
+    pub fn source_pieces(&self) -> impl ExactSizeIterator<Item = Piece> + '_ {
+        self.0.source_pieces()
+    }
+
+    /// Iterator over parity pieces, see [`FlatPieces::parity_pieces()`] for details
+    #[inline]
+    pub fn parity_pieces(&self) -> impl ExactSizeIterator<Item = Piece> + '_ {
+        self.0.parity_pieces()
+    }
 
     /// Ensure archived history segment contains cheaply cloneable shared data.
     ///
