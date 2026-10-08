@@ -6,8 +6,8 @@ use crate::build::enum_impl::add_missing_fields::add_missing_rs_fields;
 use crate::build::enum_impl::forbidden_checker::block_contains_forbidden_syntax;
 use crate::build::enum_impl::ignored_variants_remover::remove_ignored_variants;
 use crate::build::shared::{
-    INSTRUCTION_ATTRIBUTE, collect_all_dependencies, is_enum_implemented, is_named_attribute,
-    strip_const_where_predicates,
+    INSTRUCTION_ATTRIBUTE, attribute_arguments, collect_all_dependencies, is_enum_implemented,
+    is_named_attribute, strip_const_where_predicates,
 };
 use crate::build::state::{KnownEnumDefinition, PendingEnumDisplayImpl, PendingEnumImpl, State};
 use ab_riscv_macros_common::code_utils::{post_process_rust_code, pre_process_rust_code};
@@ -256,7 +256,13 @@ pub(super) fn process_enum_impl(
         .find_map(|(index, attr)| {
             is_named_attribute(attr, INSTRUCTION_ATTRIBUTE).then_some(index)
         })?;
-    item_impl.attrs.remove(attribute_index);
+    let attribute = item_impl.attrs.remove(attribute_index);
+
+    if let Some(arguments) = attribute_arguments(&attribute) {
+        return Some(Err(anyhow::anyhow!(
+            "`#[instruction]` on an implementation doesn't take arguments, found `{arguments}`"
+        )));
+    }
 
     let Some((trait_path, _)) = &item_impl.trait_ else {
         return Some(Err(anyhow::anyhow!(

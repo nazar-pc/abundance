@@ -9,8 +9,8 @@ use crate::build::execution_impl::forbidden_checker::block_contains_forbidden_sy
 use crate::build::execution_impl::generate_threaded_fns::generate_threaded_fns;
 use crate::build::execution_impl::generate_variant_fns::generate_variant_fns;
 use crate::build::shared::{
-    INSTRUCTION_EXECUTION_ATTRIBUTE, collect_all_dependencies, is_named_attribute,
-    strip_const_where_predicates,
+    INSTRUCTION_EXECUTION_ATTRIBUTE, attribute_arguments, collect_all_dependencies,
+    is_named_attribute, strip_const_where_predicates,
 };
 use crate::build::state::{
     PendingEnumCsrImpl, PendingEnumExecutionImpl, PendingEnumOperandsImpl, State,
@@ -297,7 +297,13 @@ pub(super) fn process_execution_impl(
         .find_map(|(index, attr)| {
             is_named_attribute(attr, INSTRUCTION_EXECUTION_ATTRIBUTE).then_some(index)
         })?;
-    item_impl.attrs.remove(attribute_index);
+    let attribute = item_impl.attrs.remove(attribute_index);
+
+    if let Some(arguments) = attribute_arguments(&attribute) {
+        return Some(Err(anyhow::anyhow!(
+            "`#[instruction_execution]` doesn't take arguments, found `{arguments}`"
+        )));
+    }
 
     let Some((trait_path, _)) = &item_impl.trait_ else {
         return Some(Err(anyhow::anyhow!(

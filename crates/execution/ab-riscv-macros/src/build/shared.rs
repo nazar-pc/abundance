@@ -1,8 +1,9 @@
 use crate::build::state::{KnownEnumDefinition, State};
+use quote::ToTokens;
 use std::collections::{HashSet, VecDeque};
 use std::{iter, mem};
 use syn::punctuated::Punctuated;
-use syn::{Attribute, Ident, Token, WherePredicate, parse_quote};
+use syn::{Attribute, Ident, Meta, Token, WherePredicate, parse_quote};
 
 pub(super) const INSTRUCTION_ATTRIBUTE: &str = "instruction";
 pub(super) const INSTRUCTION_EXECUTION_ATTRIBUTE: &str = "instruction_execution";
@@ -17,6 +18,22 @@ pub(super) fn is_named_attribute(attribute: &Attribute, name: &str) -> bool {
         .segments
         .last()
         .is_some_and(|segment| segment.ident == name)
+}
+
+/// Arguments of an attribute, if there are any.
+///
+/// Empty parentheses like `#[instruction()]` are treated as no arguments, the same way attribute
+/// macros see them.
+pub(super) fn attribute_arguments(attribute: &Attribute) -> Option<String> {
+    match &attribute.meta {
+        Meta::Path(_) => None,
+        Meta::List(meta_list) => {
+            (!meta_list.tokens.is_empty()).then(|| meta_list.tokens.to_string())
+        }
+        Meta::NameValue(meta_name_value) => {
+            Some(meta_name_value.value.to_token_stream().to_string())
+        }
+    }
 }
 
 pub(super) fn collect_all_dependencies<InitialDependencies>(

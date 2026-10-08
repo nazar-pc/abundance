@@ -5,7 +5,7 @@ use syn::spanned::Spanned;
 use syn::{Error, ItemImpl, Type, parse_str};
 
 pub(super) fn instruction_execution(
-    _attr: TokenStream,
+    attr: TokenStream,
     item: TokenStream,
 ) -> Result<TokenStream, Error> {
     let mut code = item.to_string();
@@ -20,6 +20,13 @@ pub(super) fn instruction_execution(
             ),
         )
     })?;
+
+    if !attr.is_empty() {
+        return Err(Error::new_spanned(
+            attr,
+            "`#[instruction_execution]` doesn't take arguments",
+        ));
+    }
 
     let Type::Path(path) = item_impl.self_ty.as_ref() else {
         return Err(Error::new(

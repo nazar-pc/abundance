@@ -9,6 +9,7 @@ Breaking changes:
 * Generated `IMPLEMENTED_EXTENSIONS` contains `ImplementedExtension` instead of `TypeId`, which must be in scope
 * Enums in `if` conditions are satisfied when implemented (see `Instruction::IMPLEMENTED_EXTENSIONS`) rather than when
   all of their instructions are present
+* `#[instruction]` and `#[instruction_execution]` on implementations reject arguments, which previously had no effect
 
 Improvements:
 
