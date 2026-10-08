@@ -51,7 +51,8 @@ impl ChaCha8State {
             data[4 + i] = u32::from_le_bytes(chunk);
         }
 
-        // `data[12]` and `data[13]` is counter specific to each block, thus not set here
+        // `data[12]` is a 32-bit block counter set in `compute_block()`, the nonce occupies
+        // `data[13..16]`
 
         for (i, &chunk) in nonce.as_chunks::<4>().0.iter().enumerate() {
             data[13 + i] = u32::from_le_bytes(chunk);
@@ -81,7 +82,6 @@ impl ChaCha8State {
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn compute_block(mut self, counter: u32) -> ChaCha8Block {
         self.data[12] = counter;
-        // Not setting `data[13]` due to counter being limited to `u32`
 
         let initial = self.data;
 
