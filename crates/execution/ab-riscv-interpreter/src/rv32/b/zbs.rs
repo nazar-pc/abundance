@@ -57,7 +57,7 @@ where
                 ExecutionResult::Continue { rd, value: result }
             }
             Self::Bseti { rd, rs1: _, shamt } => {
-                let index = shamt;
+                let index = shamt.get();
                 let result = rs1_value | (1u32 << index);
                 ExecutionResult::Continue { rd, value: result }
             }
@@ -67,7 +67,7 @@ where
                 ExecutionResult::Continue { rd, value: result }
             }
             Self::Bclri { rd, rs1: _, shamt } => {
-                let index = shamt;
+                let index = shamt.get();
                 let result = rs1_value & !(1u32 << index);
                 ExecutionResult::Continue { rd, value: result }
             }
@@ -77,7 +77,7 @@ where
                 ExecutionResult::Continue { rd, value: result }
             }
             Self::Binvi { rd, rs1: _, shamt } => {
-                let index = shamt;
+                let index = shamt.get();
                 let result = rs1_value ^ (1u32 << index);
                 ExecutionResult::Continue { rd, value: result }
             }
@@ -87,7 +87,7 @@ where
                 ExecutionResult::Continue { rd, value: result }
             }
             Self::Bexti { rd, rs1: _, shamt } => {
-                let index = shamt;
+                let index = shamt.get();
                 let result = (rs1_value >> index) & 1;
                 ExecutionResult::Continue { rd, value: result }
             }

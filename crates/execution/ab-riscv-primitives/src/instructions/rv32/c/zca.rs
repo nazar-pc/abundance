@@ -4,7 +4,7 @@
 mod tests;
 
 use crate::hart::HartConfig;
-use crate::instructions::utils::I24;
+use crate::instructions::utils::{I24, Shamt};
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -41,9 +41,9 @@ where
     /// C.LUI  rd = sext(nzimm << 12)  (rd != x0, rd != x2, nzimm != 0)
     CLui { rd: Hart::Reg, nzimm: I24 },
     /// C.SRLI  rd' >>= shamt  (logical, 5-bit shamt; shamt=0 is a HINT)
-    CSrli { rd: Hart::Reg, shamt: u8 },
+    CSrli { rd: Hart::Reg, shamt: Shamt<u32> },
     /// C.SRAI  rd' >>= shamt  (arithmetic, 5-bit shamt; shamt=0 is a HINT)
-    CSrai { rd: Hart::Reg, shamt: u8 },
+    CSrai { rd: Hart::Reg, shamt: Shamt<u32> },
     /// C.ANDI  rd' &= sext(imm)
     CAndi { rd: Hart::Reg, imm: i8 },
     /// C.SUB  rd' -= rs2'
@@ -63,7 +63,7 @@ where
 
     // Quadrant 10
     /// C.SLLI  rd <<= shamt  (5-bit shamt; rd=x0 or shamt=0 is a HINT)
-    CSlli { rd: Hart::Reg, shamt: u8 },
+    CSlli { rd: Hart::Reg, shamt: Shamt<u32> },
     /// C.LWSP  rd = sext(mem32\[sp + uimm])  (rd != x0)
     CLwsp { rd: Hart::Reg, uimm: u8 },
     /// C.JR  pc = rs1  (rs1 != x0)
@@ -319,7 +319,10 @@ where
                             if shamt5 != 0 {
                                 None?;
                             }
-                            Some(Self::CSrli { rd, shamt: shamt40 })
+                            Some(Self::CSrli {
+                                rd,
+                                shamt: Shamt::<u32>::new(shamt40)?,
+                            })
                         }
                         // C.SRAI  (same shamt layout as C.SRLI)
                         // RV32: shamt[5]=inst[12] must be 0, else reserved (NSE)
@@ -331,7 +334,10 @@ where
                             if shamt5 != 0 {
                                 None?;
                             }
-                            Some(Self::CSrai { rd, shamt: shamt40 })
+                            Some(Self::CSrai {
+                                rd,
+                                shamt: Shamt::<u32>::new(shamt40)?,
+                            })
                         }
                         // C.ANDI  imm[5]=inst[12], imm[4:0]=inst[6:2]
                         0b10 => {
@@ -402,7 +408,10 @@ where
                     if shamt5 != 0 {
                         None?;
                     }
-                    Some(Self::CSlli { rd, shamt: shamt40 })
+                    Some(Self::CSlli {
+                        rd,
+                        shamt: Shamt::<u32>::new(shamt40)?,
+                    })
                 }
                 // C.LWSP  uimm[5]=inst[12], uimm[4:2]=inst[6:4], uimm[7:6]=inst[3:2]
                 // rd=x0 is reserved

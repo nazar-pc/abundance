@@ -191,15 +191,15 @@ where
                 ExecutionResult::Continue { rd, value }
             }
             Self::Slli { rd, rs1: _, shamt } => {
-                let value = rs1_value << shamt;
+                let value = rs1_value << shamt.get();
                 ExecutionResult::Continue { rd, value }
             }
             Self::Srli { rd, rs1: _, shamt } => {
-                let value = rs1_value >> shamt;
+                let value = rs1_value >> shamt.get();
                 ExecutionResult::Continue { rd, value }
             }
             Self::Srai { rd, rs1: _, shamt } => {
-                let value = rs1_value.cast_signed() >> shamt;
+                let value = rs1_value.cast_signed() >> shamt.get();
                 ExecutionResult::Continue {
                     rd,
                     value: value.cast_unsigned(),
@@ -214,21 +214,21 @@ where
                 }
             }
             Self::Slliw { rd, rs1: _, shamt } => {
-                let shifted = (rs1_value as u32) << shamt;
+                let shifted = (rs1_value as u32) << shamt.get();
                 ExecutionResult::Continue {
                     rd,
                     value: i64::from(shifted.cast_signed()).cast_unsigned(),
                 }
             }
             Self::Srliw { rd, rs1: _, shamt } => {
-                let shifted = (rs1_value as u32) >> shamt;
+                let shifted = (rs1_value as u32) >> shamt.get();
                 ExecutionResult::Continue {
                     rd,
                     value: i64::from(shifted.cast_signed()).cast_unsigned(),
                 }
             }
             Self::Sraiw { rd, rs1: _, shamt } => {
-                let shifted = (rs1_value as i32) >> shamt;
+                let shifted = (rs1_value as i32) >> shamt.get();
                 ExecutionResult::Continue {
                     rd,
                     value: i64::from(shifted).cast_unsigned(),

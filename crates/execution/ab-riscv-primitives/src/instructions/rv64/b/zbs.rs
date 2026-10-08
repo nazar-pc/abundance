@@ -4,6 +4,7 @@
 mod tests;
 
 use crate::hart::HartConfig;
+use crate::instructions::utils::Shamt;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -20,19 +21,19 @@ where
 {
     // Single-Bit Set
     Bset { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
-    Bseti { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Bseti { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u64> },
 
     // Single-Bit Clear
     Bclr { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
-    Bclri { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Bclri { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u64> },
 
     // Single-Bit Invert
     Binv { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
-    Binvi { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Binvi { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u64> },
 
     // Single-Bit Extract
     Bext { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
-    Bexti { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Bexti { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u64> },
 }
 
 #[instruction]
@@ -55,7 +56,7 @@ where
         let funct3 = ((instruction >> 12) & 0b111) as u8;
         let rs1_bits = ((instruction >> 15) & 0x1f) as u8;
         let rs2_bits = ((instruction >> 20) & 0x1f) as u8;
-        let shamt = ((instruction >> 20) & 0x3f) as u8;
+        let shamt = Shamt::<u64>::new(((instruction >> 20) & 0x3f) as u8)?;
         let funct7 = ((instruction >> 25) & 0b111_1111) as u8;
         let funct6 = ((instruction >> 26) & 0b11_1111) as u8;
 

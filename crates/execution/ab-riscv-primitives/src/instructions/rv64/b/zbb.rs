@@ -4,6 +4,7 @@
 mod tests;
 
 use crate::hart::HartConfig;
+use crate::instructions::utils::Shamt;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -26,8 +27,8 @@ where
     Rol { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     Rolw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     Ror { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
-    Rori { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
-    Roriw { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Rori { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u64> },
+    Roriw { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u32> },
     Rorw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     Rev8 { rd: Hart::Reg, rs1: Hart::Reg },
 }
@@ -71,7 +72,7 @@ where
                             Some(Self::Rori {
                                 rd,
                                 rs1,
-                                shamt: low6,
+                                shamt: Shamt::<u64>::new(low6)?,
                             })
                         } else {
                             None
@@ -100,7 +101,7 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 match (funct3, funct7) {
                     (0b101, 0b011_0000) => {
-                        let shamt = rs2_bits;
+                        let shamt = Shamt::<u32>::new(rs2_bits)?;
                         Some(Self::Roriw { rd, rs1, shamt })
                     }
                     _ => None,

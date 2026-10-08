@@ -5,6 +5,7 @@ mod tests;
 
 use crate::hart::HartConfig;
 use crate::instructions::rv64::b::zbb::Rv64ZbbZbkbSharedInstruction;
+use crate::instructions::utils::Shamt;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;

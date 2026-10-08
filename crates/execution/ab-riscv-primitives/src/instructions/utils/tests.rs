@@ -1,4 +1,7 @@
-use crate::instructions::utils::{I24, I24WithZeroedBits, U24};
+extern crate alloc;
+
+use crate::instructions::utils::{I24, I24WithZeroedBits, Shamt, U24};
+use alloc::format;
 
 // U24
 
@@ -297,4 +300,30 @@ fn i24_with_zeroed_bits_thirty_one_bits_unaligned_panics_in_debug() {
 #[test]
 fn i24_with_zeroed_bits_default_is_zero() {
     assert_eq!(I24WithZeroedBits::<12>::default().to_i32(), 0);
+}
+
+// Shamt
+
+#[test]
+fn shamt_below_width() {
+    assert_eq!(Shamt::<u32>::new(0).unwrap().get(), 0);
+    assert_eq!(Shamt::<u32>::new(31).unwrap().get(), 31);
+    assert_eq!(Shamt::<u64>::new(0).unwrap().get(), 0);
+    assert_eq!(Shamt::<u64>::new(63).unwrap().get(), 63);
+}
+
+#[test]
+fn shamt_width_and_above_rejected() {
+    assert!(Shamt::<u32>::new(32).is_none());
+    assert!(Shamt::<u32>::new(63).is_none());
+    assert!(Shamt::<u32>::new(u8::MAX).is_none());
+    assert!(Shamt::<u64>::new(64).is_none());
+    assert!(Shamt::<u64>::new(u8::MAX).is_none());
+}
+
+#[test]
+fn shamt_formatting() {
+    let shamt = Shamt::<u64>::new(42).unwrap();
+    assert_eq!(format!("{shamt}"), "42");
+    assert_eq!(format!("{shamt:?}"), "42");
 }

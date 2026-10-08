@@ -6,7 +6,7 @@ use crate::instructions::rv64::Rv64Instruction;
 use crate::instructions::test_utils::{
     make_b_type, make_i_type, make_j_type, make_r_type, make_s_type, make_u_type,
 };
-use crate::instructions::utils::{I24, I24WithZeroedBits};
+use crate::instructions::utils::{I24, I24WithZeroedBits, Shamt};
 use crate::registers::general_purpose::{EReg, Reg};
 use core::assert_matches;
 
@@ -375,7 +375,7 @@ fn test_slli() {
             Rv64Instruction::Slli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10,
+                shamt: Shamt::new(10).unwrap(),
                 rs2: Reg::Zero,
             }
         );
@@ -390,7 +390,7 @@ fn test_slli() {
             Rv64Instruction::Slli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 32,
+                shamt: Shamt::new(32).unwrap(),
                 rs2: Reg::Zero,
             },
             "SLLI with shamt=32 should decode correctly"
@@ -406,7 +406,7 @@ fn test_slli() {
             Rv64Instruction::Slli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 63,
+                shamt: Shamt::new(63).unwrap(),
                 rs2: Reg::Zero,
             },
             "SLLI with shamt=63 should decode correctly (tests funct6 handling)"
@@ -463,7 +463,7 @@ fn test_srli() {
             Rv64Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10,
+                shamt: Shamt::new(10).unwrap(),
                 rs2: Reg::Zero,
             }
         );
@@ -478,7 +478,7 @@ fn test_srli() {
             Rv64Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 32,
+                shamt: Shamt::new(32).unwrap(),
                 rs2: Reg::Zero,
             },
             "SRLI with shamt=32 should decode correctly"
@@ -494,7 +494,7 @@ fn test_srli() {
             Rv64Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 63,
+                shamt: Shamt::new(63).unwrap(),
                 rs2: Reg::Zero,
             },
             "SRLI with shamt=63 should decode correctly (tests funct6 handling)"
@@ -563,7 +563,7 @@ fn test_srai() {
             Rv64Instruction::Srai {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10,
+                shamt: Shamt::new(10).unwrap(),
                 rs2: Reg::Zero,
             }
         );
@@ -584,7 +584,7 @@ fn test_srai() {
             Rv64Instruction::Srai {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 32,
+                shamt: Shamt::new(32).unwrap(),
                 rs2: Reg::Zero,
             },
             "SRAI with shamt=32 should decode correctly"
@@ -606,7 +606,7 @@ fn test_srai() {
             Rv64Instruction::Srai {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 63,
+                shamt: Shamt::new(63).unwrap(),
                 rs2: Reg::Zero,
             },
             "SRAI with shamt=63 should decode correctly (tests funct6 handling)"
@@ -623,7 +623,7 @@ fn test_srai() {
             Rv64Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10,
+                shamt: Shamt::new(10).unwrap(),
                 rs2: Reg::Zero,
             },
             "Without funct6 bit 4, this is SRLI"
@@ -689,7 +689,7 @@ fn test_slliw() {
         Rv64Instruction::Slliw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 10,
+            shamt: Shamt::new(10).unwrap(),
             rs2: Reg::Zero,
         }
     );
@@ -704,7 +704,7 @@ fn test_srliw() {
         Rv64Instruction::Srliw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 10,
+            shamt: Shamt::new(10).unwrap(),
             rs2: Reg::Zero,
         }
     );
@@ -719,7 +719,7 @@ fn test_sraiw() {
         Rv64Instruction::Sraiw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 10,
+            shamt: Shamt::new(10).unwrap(),
             rs2: Reg::Zero,
         }
     );

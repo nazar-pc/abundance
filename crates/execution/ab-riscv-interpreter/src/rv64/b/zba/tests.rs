@@ -126,7 +126,7 @@ fn test_slli_uw() {
     let mut state = initialize_state([Rv64ZbaInstruction::SlliUw {
         rd: Reg::A2,
         rs1: Reg::A0,
-        shamt: 4,
+        shamt: Shamt::new(4).unwrap(),
         rs2: Reg::Zero,
     }]);
 
@@ -143,7 +143,7 @@ fn test_slli_uw_max_shamt() {
     let mut state = initialize_state([Rv64ZbaInstruction::SlliUw {
         rd: Reg::A2,
         rs1: Reg::A0,
-        shamt: 63,
+        shamt: Shamt::new(63).unwrap(),
         rs2: Reg::Zero,
     }]);
 

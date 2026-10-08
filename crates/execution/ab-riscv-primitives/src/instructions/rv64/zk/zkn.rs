@@ -14,6 +14,7 @@ use crate::instructions::rv64::zk::zkn::zknd::{
 };
 use crate::instructions::rv64::zk::zkn::zkne::Rv64ZkneInstruction;
 use crate::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
+use crate::instructions::utils::Shamt;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;

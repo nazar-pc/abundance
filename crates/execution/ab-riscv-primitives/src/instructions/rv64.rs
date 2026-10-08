@@ -13,7 +13,7 @@ pub mod zce;
 pub mod zk;
 
 use crate::hart::HartConfig;
-use crate::instructions::utils::{I24, I24WithZeroedBits};
+use crate::instructions::utils::{I24, I24WithZeroedBits, Shamt};
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -54,15 +54,15 @@ where
     Xori { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
     Ori { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
     Andi { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
-    Slli { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
-    Srli { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
-    Srai { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Slli { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u64> },
+    Srli { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u64> },
+    Srai { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u64> },
 
     // RV64 I-type W
     Addiw { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
-    Slliw { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
-    Srliw { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
-    Sraiw { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Slliw { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u32> },
+    Srliw { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u32> },
+    Sraiw { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u32> },
 
     // Loads (I-type)
     Lb { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
@@ -184,7 +184,7 @@ where
                     0b110 => Some(Self::Ori { rd, rs1, imm }),
                     0b111 => Some(Self::Andi { rd, rs1, imm }),
                     0b001 => {
-                        let shamt = (instruction >> 20) as u8 & 0b11_1111;
+                        let shamt = Shamt::<u64>::new((instruction >> 20) as u8 & 0b11_1111)?;
                         let funct6 = (instruction >> 26) & 0b11_1111;
                         if funct6 == 0b00_0000 {
                             Some(Self::Slli { rd, rs1, shamt })
@@ -193,7 +193,7 @@ where
                         }
                     }
                     0b101 => {
-                        let shamt = (instruction >> 20) as u8 & 0b11_1111;
+                        let shamt = Shamt::<u64>::new((instruction >> 20) as u8 & 0b11_1111)?;
                         let funct6 = (instruction >> 26) & 0b11_1111;
                         match funct6 {
                             0b00_0000 => Some(Self::Srli { rd, rs1, shamt }),
@@ -210,7 +210,7 @@ where
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 let imm = (instruction.cast_signed() >> 20) as i16;
                 // 5-bit for W shifts
-                let shamt = (instruction >> 20) as u8 & 0b1_1111;
+                let shamt = Shamt::<u32>::new((instruction >> 20) as u8 & 0b1_1111)?;
                 match funct3 {
                     0b000 => Some(Self::Addiw { rd, rs1, imm }),
                     0b001 => {

@@ -4,6 +4,7 @@
 mod tests;
 
 use crate::hart::HartConfig;
+use crate::instructions::utils::Shamt;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -25,7 +26,7 @@ where
     Sh2addUw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     Sh3add { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     Sh3addUw { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
-    SlliUw { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    SlliUw { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u64> },
 }
 
 #[instruction]
@@ -69,7 +70,7 @@ where
                 let rd = Reg::from_bits(rd_bits)?;
                 let rs1 = Reg::from_bits(rs1_bits)?;
                 // shamt is 6 bits: [25:20]
-                let shamt = ((instruction >> 20) & 0x3f) as u8;
+                let shamt = Shamt::<u64>::new(((instruction >> 20) & 0x3f) as u8)?;
                 match (funct3, funct6) {
                     (0b001, 0b00_0010) => Some(Self::SlliUw { rd, rs1, shamt }),
                     _ => None,

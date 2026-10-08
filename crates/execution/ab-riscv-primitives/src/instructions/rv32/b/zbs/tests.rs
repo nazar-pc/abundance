@@ -2,6 +2,7 @@ use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::b::zbs::Rv32ZbsInstruction;
 use crate::instructions::test_utils::{make_i_type_with_shamt, make_r_type};
+use crate::instructions::utils::Shamt;
 use crate::registers::general_purpose::Reg;
 
 #[test]
@@ -27,7 +28,7 @@ fn test_bseti() {
         Some(Rv32ZbsInstruction::Bseti {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 5,
+            shamt: Shamt::new(5).unwrap(),
             rs2: Reg::Zero,
         })
     );
@@ -56,7 +57,7 @@ fn test_bclri() {
         Some(Rv32ZbsInstruction::Bclri {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 10,
+            shamt: Shamt::new(10).unwrap(),
             rs2: Reg::Zero,
         })
     );
@@ -85,7 +86,7 @@ fn test_binvi() {
         Some(Rv32ZbsInstruction::Binvi {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 31,
+            shamt: Shamt::new(31).unwrap(),
             rs2: Reg::Zero,
         })
     );
@@ -114,7 +115,7 @@ fn test_bexti() {
         Some(Rv32ZbsInstruction::Bexti {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 31,
+            shamt: Shamt::new(31).unwrap(),
             rs2: Reg::Zero,
         })
     );

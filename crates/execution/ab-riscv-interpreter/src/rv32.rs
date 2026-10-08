@@ -150,15 +150,15 @@ where
                 ExecutionResult::Continue { rd, value }
             }
             Self::Slli { rd, rs1: _, shamt } => {
-                let value = rs1_value << shamt;
+                let value = rs1_value << shamt.get();
                 ExecutionResult::Continue { rd, value }
             }
             Self::Srli { rd, rs1: _, shamt } => {
-                let value = rs1_value >> shamt;
+                let value = rs1_value >> shamt.get();
                 ExecutionResult::Continue { rd, value }
             }
             Self::Srai { rd, rs1: _, shamt } => {
-                let value = rs1_value.cast_signed() >> shamt;
+                let value = rs1_value.cast_signed() >> shamt.get();
                 ExecutionResult::Continue {
                     rd,
                     value: value.cast_unsigned(),

@@ -82,15 +82,11 @@ where
                 ExecutionResult::Continue { rd, value }
             }
             Self::Rori { rd, rs1: _, shamt } => {
-                let value = rs1_value.rotate_right(u32::from(shamt & 0x3f));
+                let value = rs1_value.rotate_right(shamt.get());
                 ExecutionResult::Continue { rd, value }
             }
             Self::Roriw { rd, rs1: _, shamt } => {
-                let value = i64::from(
-                    (rs1_value as u32)
-                        .rotate_right(u32::from(shamt & 0x1f))
-                        .cast_signed(),
-                );
+                let value = i64::from((rs1_value as u32).rotate_right(shamt.get()).cast_signed());
                 ExecutionResult::Continue {
                     rd,
                     value: value.cast_unsigned(),

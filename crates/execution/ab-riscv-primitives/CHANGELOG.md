@@ -21,6 +21,9 @@ Breaking changes:
 * `I24WithZeroedBits` impls require `LOW_ZEROED_BITS` to be in `8..32` range, since a 32-bit value with fewer zeroed
   bits doesn't fit into 24 bits and shifts overflow with 32 or more, and `I24WithZeroedBits` can only be used with a
   concrete `LOW_ZEROED_BITS`, not with a generic parameter
+* Shift amount immediates (of `slli`, `srli`, `srai`, their W and compressed versions, `rori`, `roriw`, `slli.uw`,
+  `bseti`, `bclri`, `binvi` and `bexti`) are `Shamt` instead of `u8`, which is always below the width of the shifted
+  value
 
 New features:
 

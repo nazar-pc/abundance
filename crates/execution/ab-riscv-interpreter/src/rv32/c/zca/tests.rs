@@ -237,7 +237,7 @@ fn test_clui() {
 fn test_csrli() {
     let mut state = initialize_state([Rv32ZcaInstruction::CSrli {
         rd: Reg::S0,
-        shamt: 4,
+        shamt: Shamt::new(4).unwrap(),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -250,7 +250,7 @@ fn test_csrli() {
 fn test_csrai_propagates_sign() {
     let mut state = initialize_state([Rv32ZcaInstruction::CSrai {
         rd: Reg::S0,
-        shamt: 4,
+        shamt: Shamt::new(4).unwrap(),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -416,7 +416,7 @@ fn test_cbnez_taken() {
 fn test_cslli() {
     let mut state = initialize_state([Rv32ZcaInstruction::CSlli {
         rd: Reg::A0,
-        shamt: 3,
+        shamt: Shamt::new(3).unwrap(),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);

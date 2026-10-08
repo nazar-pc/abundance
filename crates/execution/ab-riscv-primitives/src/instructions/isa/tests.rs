@@ -28,7 +28,7 @@ use crate::instructions::rv64::zk::zkn::zknd::{
 };
 use crate::instructions::rv64::zk::zkn::zkne::Rv64ZkneInstruction;
 use crate::instructions::rv64::zk::zkn::zknh::Rv64ZknhInstruction;
-use crate::instructions::utils::{I24, I24WithZeroedBits};
+use crate::instructions::utils::{I24, I24WithZeroedBits, Shamt};
 use crate::instructions::v::zvexx::ZveXxInstruction;
 use crate::instructions::v::zvexx::arith::ZveXxArithInstruction;
 use crate::instructions::v::zvexx::carry::ZveXxCarryInstruction;

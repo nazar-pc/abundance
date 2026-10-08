@@ -5,7 +5,7 @@ mod tests;
 
 use crate::hart::HartConfig;
 use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
-use crate::instructions::utils::I24;
+use crate::instructions::utils::{I24, Shamt};
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::{EReg, Reg, Register};
 use ab_riscv_macros::instruction;

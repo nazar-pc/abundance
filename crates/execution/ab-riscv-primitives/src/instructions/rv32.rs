@@ -13,7 +13,7 @@ pub mod zce;
 pub mod zk;
 
 use crate::hart::HartConfig;
-use crate::instructions::utils::{I24, I24WithZeroedBits};
+use crate::instructions::utils::{I24, I24WithZeroedBits, Shamt};
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -47,9 +47,9 @@ where
     Xori { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
     Ori { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
     Andi { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
-    Slli { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
-    Srli { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
-    Srai { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Slli { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u32> },
+    Srli { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u32> },
+    Srai { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u32> },
 
     // Loads (I-type)
     Lb { rd: Hart::Reg, rs1: Hart::Reg, imm: i16 },
@@ -155,7 +155,7 @@ where
                     0b111 => Some(Self::Andi { rd, rs1, imm }),
                     0b001 => {
                         // RV32: 5-bit shamt, funct7 must be 0b0000000
-                        let shamt = (instruction >> 20) as u8 & 0b1_1111;
+                        let shamt = Shamt::<u32>::new((instruction >> 20) as u8 & 0b1_1111)?;
                         if funct7 == 0b000_0000 {
                             Some(Self::Slli { rd, rs1, shamt })
                         } else {
@@ -164,7 +164,7 @@ where
                     }
                     0b101 => {
                         // RV32: 5-bit shamt, funct7 distinguishes SRLI/SRAI
-                        let shamt = (instruction >> 20) as u8 & 0b1_1111;
+                        let shamt = Shamt::<u32>::new((instruction >> 20) as u8 & 0b1_1111)?;
                         match funct7 {
                             0b000_0000 => Some(Self::Srli { rd, rs1, shamt }),
                             0b010_0000 => Some(Self::Srai { rd, rs1, shamt }),

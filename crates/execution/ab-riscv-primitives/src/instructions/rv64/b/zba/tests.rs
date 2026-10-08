@@ -2,6 +2,7 @@ use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zba::Rv64ZbaInstruction;
 use crate::instructions::test_utils::{make_i_type_with_shamt, make_r_type};
+use crate::instructions::utils::Shamt;
 use crate::registers::general_purpose::Reg;
 
 #[test]
@@ -69,7 +70,7 @@ fn test_slli_uw() {
         Some(Rv64ZbaInstruction::SlliUw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 40,
+            shamt: Shamt::new(40).unwrap(),
             rs2: Reg::Zero,
         })
     );

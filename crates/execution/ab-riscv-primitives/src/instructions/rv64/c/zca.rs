@@ -4,7 +4,7 @@
 mod tests;
 
 use crate::hart::HartConfig;
-use crate::instructions::utils::I24;
+use crate::instructions::utils::{I24, Shamt};
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -45,9 +45,9 @@ where
     /// C.LUI  rd = sext(nzimm << 12)  (rd != x0, rd != x2, nzimm != 0)
     CLui { rd: Hart::Reg, nzimm: I24 },
     /// C.SRLI  rd' >>= shamt  (logical right shift; shamt=0 with rd'=x0 is a HINT)
-    CSrli { rd: Hart::Reg, shamt: u8 },
+    CSrli { rd: Hart::Reg, shamt: Shamt<u64> },
     /// C.SRAI  rd' >>= shamt  (arithmetic right shift; shamt=0 with rd'=x0 is a HINT)
-    CSrai { rd: Hart::Reg, shamt: u8 },
+    CSrai { rd: Hart::Reg, shamt: Shamt<u64> },
     /// C.ANDI  rd' &= sext(imm)
     CAndi { rd: Hart::Reg, imm: i8 },
     /// C.SUB  rd' -= rs2'
@@ -71,7 +71,7 @@ where
 
     // Quadrant 10
     /// C.SLLI  rd <<= shamt  (rd=x0 or shamt=0 is a HINT)
-    CSlli { rd: Hart::Reg, shamt: u8 },
+    CSlli { rd: Hart::Reg, shamt: Shamt<u64> },
     /// C.LWSP  rd = sext(mem32\[sp + uimm])  (rd != x0)
     CLwsp { rd: Hart::Reg, uimm: u8 },
     /// C.LDSP  rd = mem64\[sp + uimm]  (rd != x0)
@@ -358,7 +358,7 @@ where
                             let shamt40 = ((inst >> 2u8) & 0x1f) as u8;
                             Some(Self::CSrli {
                                 rd,
-                                shamt: (shamt5 << 5u8) | shamt40,
+                                shamt: Shamt::<u64>::new((shamt5 << 5u8) | shamt40)?,
                             })
                         }
                         // C.SRAI  (same shamt layout as C.SRLI)
@@ -369,7 +369,7 @@ where
                             let shamt40 = ((inst >> 2u8) & 0x1f) as u8;
                             Some(Self::CSrai {
                                 rd,
-                                shamt: (shamt5 << 5u8) | shamt40,
+                                shamt: Shamt::<u64>::new((shamt5 << 5u8) | shamt40)?,
                             })
                         }
                         // C.ANDI  imm[5]=inst[12], imm[4:0]=inst[6:2]
@@ -445,7 +445,7 @@ where
                     let shamt40 = ((inst >> 2u8) & 0x1f) as u8;
                     Some(Self::CSlli {
                         rd,
-                        shamt: (shamt5 << 5u8) | shamt40,
+                        shamt: Shamt::<u64>::new((shamt5 << 5u8) | shamt40)?,
                     })
                 }
                 // C.LWSP  uimm[5]=inst[12], uimm[4:2]=inst[6:4], uimm[7:6]=inst[3:2]

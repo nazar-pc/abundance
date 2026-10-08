@@ -49,6 +49,8 @@ Fixes:
 * Undefined behavior reachable from safe code: an inconsistent `vl`/`vtype` pair or an overridden `vlmax_for_vtype()`
   in an environment, a `VirtualMemory::read_slice()` implementation returning more bytes than requested in `vlm.v`, and
   widening instructions with `ELEN` above 64
+* Shift instructions with an immediate shift amount not below `XLEN` (32 for W versions) constructed manually rather
+  than decoded panicked in debug builds and produced wrong results in release builds
 * Ssstrict fixes (all matching Sail):
     * Vector memory addresses wrap around modulo `2^XLEN` (previously modulo `2^64`, which is wrong on RV32)
     * `vsetvl{i}` saturates AVL instead of truncating it to 32 bits
