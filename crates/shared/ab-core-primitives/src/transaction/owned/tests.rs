@@ -1,7 +1,7 @@
 use crate::address::Address;
 use crate::block::BlockRoot;
 use crate::transaction::owned::OwnedTransaction;
-use crate::transaction::{Gas, TransactionHeader, TransactionSlot};
+use crate::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
 
 fn header() -> TransactionHeader {
     TransactionHeader {
@@ -40,4 +40,32 @@ fn owned_transaction_from_parts_different_slot_counts() {
             usize::try_from(owned_transaction.buffer().len()).unwrap()
         );
     }
+}
+
+#[test]
+fn owned_transaction_payload_and_seal() {
+    let header = header();
+    let read_slots = slots(1, 100);
+    let write_slots = slots(2, 200);
+    let payload = [1, 2, 3];
+    let seal = [4, 5, 6, 7, 8];
+
+    let owned_transaction =
+        OwnedTransaction::from_parts(&header, &read_slots, &write_slots, &payload, &seal).unwrap();
+    let transaction = owned_transaction.transaction();
+
+    assert_eq!(transaction.payload, payload);
+    assert_eq!(transaction.seal, seal);
+    assert_eq!(
+        transaction.encoded_size(),
+        usize::try_from(owned_transaction.buffer().len()).unwrap()
+    );
+
+    let (decoded, remainder) =
+        Transaction::try_from_bytes(owned_transaction.buffer().as_slice()).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(decoded.read_slots, read_slots);
+    assert_eq!(decoded.write_slots, write_slots);
+    assert_eq!(decoded.payload, payload);
+    assert_eq!(decoded.seal, seal);
 }

@@ -92,9 +92,9 @@ pub struct SerializedTransactionLengths {
     pub read_slots: u16,
     /// Number of read-write slots
     pub write_slots: u16,
-    /// Payload length
+    /// Payload length in bytes, must be a multiple of `u128` size
     pub payload: u32,
-    /// Seal length
+    /// Seal length in bytes
     pub seal: u32,
     /// Not used and must be set to `0`
     pub padding: [u8; 4],
@@ -171,7 +171,7 @@ impl<'a> Transaction<'a> {
         let size = (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
             .checked_add(usize::from(read_slots) * size_of::<TransactionSlot>())?
             .checked_add(usize::from(write_slots) * size_of::<TransactionSlot>())?
-            .checked_add(payload as usize * size_of::<u128>())?
+            .checked_add(payload as usize)?
             .checked_add(seal as usize)?;
 
         if bytes.len() < size {
@@ -196,9 +196,12 @@ impl<'a> Transaction<'a> {
     /// * Payload as `u128`s
     /// * Seal as `u8`s
     ///
+    /// Payload and seal lengths in [`SerializedTransactionLengths`] are in bytes.
+    ///
     /// # Safety
-    /// Caller must ensure provided bytes are 16-bytes aligned and of sufficient length. Extra bytes
-    /// beyond necessary are silently ignored if provided.
+    /// Caller must ensure provided bytes are 16-bytes aligned and of sufficient length, and that
+    /// the payload length is a multiple of `u128` size (both are checked by
+    /// [`Self::try_from_bytes()`]). Extra bytes beyond necessary are silently ignored if provided.
     #[inline]
     #[expect(
         clippy::cast_ptr_alignment,
@@ -220,6 +223,10 @@ impl<'a> Transaction<'a> {
             seal,
             padding: _,
         } = lengths;
+        // Lossless, the crate only compiles for targets where `usize` is at least 32 bits (see the
+        // assertion in the crate root)
+        let payload = payload as usize;
+        let seal = seal as usize;
 
         Self {
             // SAFETY: Any bytes are valid for `TransactionHeader` and all method contract
@@ -268,7 +275,7 @@ impl<'a> Transaction<'a> {
                                 * (usize::from(read_slots) + usize::from(write_slots)),
                         )
                         .cast::<u128>(),
-                    payload as usize,
+                    payload / size_of::<u128>(),
                 )
             },
             // SAFETY: Any bytes are valid for `seal` and all method contract guarantees there are
@@ -282,9 +289,9 @@ impl<'a> Transaction<'a> {
                         .add(
                             size_of::<TransactionSlot>()
                                 * (usize::from(read_slots) + usize::from(write_slots))
-                                + payload as usize,
+                                + payload,
                         ),
-                    seal as usize,
+                    seal,
                 )
             },
         }
