@@ -1,4 +1,4 @@
-error: `#[init]` must have `Self` as either return type or last `#[output]` argument
+error: `#[init]` must return `Self` or, without a return value, have `Self` as the last `#[output]` argument
   --> tests/ui/init_without_state.rs:16:9
    |
 16 |     pub fn new() -> u8 {

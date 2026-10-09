@@ -621,14 +621,19 @@ impl MethodDetails {
     ) -> Result<TokenStream, Error> {
         let self_type = &self.self_type;
         if matches!(self.method_type, MethodType::Init) {
-            let self_return_type = self.return_type.return_type() == self_type;
-            let self_last_output_type = self.outputs.last().is_some_and(|output| output.has_self);
+            // The host stores the return value as the state of the contract, and only without one
+            // the last `#[output]`
+            let state_is_self = if self.return_type.unit_return_type() {
+                self.outputs.last().is_some_and(|output| output.has_self)
+            } else {
+                self.return_type.return_type() == self_type
+            };
 
-            if !(self_return_type || self_last_output_type) {
+            if !state_is_self {
                 return Err(Error::new(
                     fn_sig.span(),
-                    "`#[init]` must have `Self` as either return type or last `#[output]` \
-                    argument",
+                    "`#[init]` must return `Self` or, without a return value, have `Self` as the \
+                    last `#[output]` argument",
                 ));
             }
         }

@@ -389,9 +389,11 @@ pub mod __private;
 /// something useful there and written value will be propagated back to the caller to observe.
 /// `output_ptr` pointer *must not be changed* as the host will not follow it to the new
 /// address, the output size is fully constrained by capacity specified in `output_capacity`.
-/// The only exception is the last `#[output]` of `#[init]` method, which is the contract's
-/// initial state. In this case, its pointer can be changed to point to a different memory
-/// location and not being limited by `result_capacity` allocation from the host.
+/// The only exception is the last `#[output]` of `#[init]` method without a return value,
+/// which is the contract's initial state. In this case, its pointer can be changed to point to
+/// a different memory location, which is not limited by `output_capacity` allocation from the
+/// host. With a return value, the return value is the initial state, and all `#[output]`
+/// arguments are regular outputs.
 ///
 /// `#[output]` may be used as an alternative to `-> ReturnValue` and
 /// `-> Result<ReturnValue, ContractError>` in case the data structure is large and allocation
@@ -515,10 +517,10 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// The arguments are omitted in `ExternalArgs` for the last `#[output]` or `ReturnValue` when
-/// method is `#[init]` or when `ReturnValue` is `()` in other cases. For `#[init]` method's
-/// return value is the contract's initial state and is processed by the execution environment
-/// itself. When `ReturnValue` is `()`, then there is no point in having a pointer for it.
+/// Some arguments are omitted in `ExternalArgs`:
+/// * the contract's initial state produced by `#[init]` method, which is processed by the
+///   execution environment itself: `ReturnValue` or, when it is `()`, the last `#[output]`
+/// * `ReturnValue` when it is `()`, since there is no point in having a pointer for it
 ///
 /// The host will propagate the current value that `output_size` points to to the caller, so
 /// that the callee can both read and write to it.
