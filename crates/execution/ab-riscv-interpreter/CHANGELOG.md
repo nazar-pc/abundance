@@ -11,8 +11,15 @@ Breaking changes:
 * Vector types (`VectorConfig`, `VectorRegisterFile`, `VRegGroup` and others) are generic over hart configuration
   instead of `ELEN`/`VLEN`
 * `impl_vector_registers_for_mut_ref!` is removed, `&mut T` implements vector register traits generically instead
-* `BasicRegister` is a safe trait, and `BasicEagerInstructions::fetcher()` (returns `None` for a program counter that
-  is not a decoded instruction) and `OpaqueThreadedExecutionResult::new()` are safe functions
+* `BasicRegister` is a safe trait whose `offset()` returns `RegisterOffset`, which is always below 32, and
+  `BasicRegister::N` is removed: `BasicRegisters` always has 32 slots, so RVE register files have 16 unused slots.
+  `BasicEagerInstructions::fetcher()` (returns `None` for a program counter that is not a decoded instruction) and
+  `OpaqueThreadedExecutionResult::new()` are safe functions
+* `BasicMemory` impls require its region not to wrap around the end of the address space (`BASE_ADDR + SIZE` must fit
+  into `u64`), so such memory can't be constructed, and `BasicMemory` can only be used with concrete `BASE_ADDR` and
+  `SIZE`, not with generic parameters
+* `VectorRegisterFile` (and so environments executing vector instructions) doesn't compile for harts with `ELEN` other
+  than 32 or 64 bits, as required by Zve* extensions
 
 New features:
 
@@ -27,7 +34,7 @@ Improvements:
 * `BasicMemory` resolves an address into an offset with a wrapping rather than checked subtraction, which folds the
   below-the-base-address case into the bounds check that follows it instead of branching on it separately - one
   comparison instead of two on every memory access, with identical behavior as long as the memory region doesn't reach
-  the end of the address space, which is now asserted at compile time (`BASE_ADDR + SIZE` must fit into `u64`)
+  the end of the address space, which is now checked at compile time
 * Improved performance and APIs for vector extensions
 * Most `unsafe` code is gone, including all of it in vector instruction implementations outside of the register file,
   with absence of panics still verified by the `no-panic` feature
@@ -44,6 +51,8 @@ Fixes:
 * Undefined behavior reachable from safe code: an inconsistent `vl`/`vtype` pair or an overridden `vlmax_for_vtype()`
   in an environment, a `VirtualMemory::read_slice()` implementation returning more bytes than requested in `vlm.v`, and
   widening instructions with `ELEN` above 64
+* Shift instructions with an immediate shift amount not below `XLEN` (32 for W versions) constructed manually rather
+  than decoded panicked in debug builds and produced wrong results in release builds
 * Ssstrict fixes (all matching Sail):
     * Vector memory addresses wrap around modulo `2^XLEN` (previously modulo `2^64`, which is wrong on RV32)
     * `vsetvl{i}` saturates AVL instead of truncating it to 32 bits

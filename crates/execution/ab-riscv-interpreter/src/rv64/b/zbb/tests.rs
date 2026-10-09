@@ -214,7 +214,7 @@ fn test_rori() {
     let mut state = initialize_state([Rv64ZbbInstruction::Rori {
         rd: Reg::A2,
         rs1: Reg::A0,
-        shamt: 1,
+        shamt: Shamt::new(1).unwrap(),
         rs2: Reg::Zero,
     }]);
 

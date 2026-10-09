@@ -4,7 +4,7 @@
 use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
-use crate::instructions::utils::I24;
+use crate::instructions::utils::{I24, Shamt};
 use crate::registers::general_purpose::{EReg, Reg};
 use core::assert_matches;
 
@@ -542,7 +542,7 @@ fn test_csrli_basic() {
         decoded,
         Rv32ZcaInstruction::CSrli {
             rd: Reg::S0,
-            shamt: 4,
+            shamt: Shamt::new(4).unwrap(),
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         }
@@ -558,7 +558,7 @@ fn test_csrli_hint_shamt0() {
         decoded,
         Rv32ZcaInstruction::CSrli {
             rd: Reg::S0,
-            shamt: 0,
+            shamt: Shamt::new(0).unwrap(),
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         }
@@ -580,7 +580,7 @@ fn test_csrai_basic() {
         decoded,
         Rv32ZcaInstruction::CSrai {
             rd: Reg::S0,
-            shamt: 8,
+            shamt: Shamt::new(8).unwrap(),
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         }
@@ -596,7 +596,7 @@ fn test_csrai_hint_shamt0() {
         decoded,
         Rv32ZcaInstruction::CSrai {
             rd: Reg::S0,
-            shamt: 0,
+            shamt: Shamt::new(0).unwrap(),
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         }
@@ -791,7 +791,7 @@ fn test_cslli_basic() {
         decoded,
         Rv32ZcaInstruction::CSlli {
             rd: Reg::A0,
-            shamt: 3,
+            shamt: Shamt::new(3).unwrap(),
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         }
@@ -807,7 +807,7 @@ fn test_cslli_hint_shamt0() {
         decoded,
         Rv32ZcaInstruction::CSlli {
             rd: Reg::A0,
-            shamt: 0,
+            shamt: Shamt::new(0).unwrap(),
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         }
@@ -823,7 +823,7 @@ fn test_cslli_hint_rd0() {
         decoded,
         Rv32ZcaInstruction::CSlli {
             rd: Reg::Zero,
-            shamt: 3,
+            shamt: Shamt::new(3).unwrap(),
             rs1: Reg::Zero,
             rs2: Reg::Zero,
         }

@@ -4,6 +4,7 @@ use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv32::b::zbb::Rv32ZbbInstruction;
 use crate::instructions::test_utils::{make_i_type_with_shamt, make_r_type};
+use crate::instructions::utils::Shamt;
 use crate::registers::general_purpose::Reg;
 
 #[test]
@@ -217,7 +218,7 @@ fn test_rori() {
         Some(Rv32ZbbInstruction::Rori {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 5,
+            shamt: Shamt::new(5).unwrap(),
             rs2: Reg::Zero,
         })
     );

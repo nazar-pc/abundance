@@ -24,6 +24,9 @@ derive_more = { workspace = true, features = ["display"] }
 no-panic = { workspace = true, optional = true }
 thiserror = { workspace = true }
 
+[dev-dependencies]
+trybuild = { workspace = true }
+
 [features]
 guest = []
 # APIs needed for native executor

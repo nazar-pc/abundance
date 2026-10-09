@@ -12,6 +12,7 @@ use crate::instructions::rv32::zk::zbkx::Rv32ZbkxInstruction;
 use crate::instructions::rv32::zk::zkn::zknd::{Rv32AesBs, Rv32ZkndInstruction};
 use crate::instructions::rv32::zk::zkn::zkne::Rv32ZkneInstruction;
 use crate::instructions::rv32::zk::zkn::zknh::Rv32ZknhInstruction;
+use crate::instructions::utils::Shamt;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;

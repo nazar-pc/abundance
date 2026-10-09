@@ -1,0 +1,11 @@
+error: trait cannot be implemented outside `ab_core_primitives`
+  --> tests/ui/writable_body_transaction_sealed.rs:11:1
+   |
+11 | impl WritableBodyTransaction for CustomTransaction {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: trait restricted here
+  --> src/block/body/owned.rs
+   |
+   | pub impl(self) trait WritableBodyTransaction {
+   |     ^^^^^^^^^^

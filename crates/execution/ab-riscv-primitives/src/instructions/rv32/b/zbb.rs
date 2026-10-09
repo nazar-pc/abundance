@@ -4,6 +4,7 @@
 mod tests;
 
 use crate::hart::HartConfig;
+use crate::instructions::utils::Shamt;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;
@@ -25,7 +26,7 @@ where
     Xnor { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     Rol { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
     Ror { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg },
-    Rori { rd: Hart::Reg, rs1: Hart::Reg, shamt: u8 },
+    Rori { rd: Hart::Reg, rs1: Hart::Reg, shamt: Shamt<u32> },
     Rev8 { rd: Hart::Reg, rs1: Hart::Reg },
 }
 
@@ -70,7 +71,7 @@ where
                             Some(Self::Rori {
                                 rd,
                                 rs1,
-                                shamt: low5,
+                                shamt: Shamt::<u32>::new(low5)?,
                             })
                         } else {
                             None

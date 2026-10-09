@@ -1,0 +1,29 @@
+error[E0080]: evaluation panicked: Low zeroed bits must be in `8..32` range, so that the remaining bits of a 32-bit number fit into 24 bits and shifts don't overflow
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_riscv_primitives::instructions::utils::SUPPORTED_LOW_ZEROED_BITS::<7>` failed here
+  |
+ ::: src/instructions/utils.rs
+  |
+  | /     assert!(
+  | |         LOW_ZEROED_BITS >= 8 && LOW_ZEROED_BITS < 32,
+  | |         "Low zeroed bits must be in `8..32` range, so that the remaining bits of a 32-bit number fit \
+  | |         into 24 bits and shifts don't overflow"
+  | |     );
+  | |_____- in this macro invocation
+
+error[E0080]: evaluation panicked: Low zeroed bits must be in `8..32` range, so that the remaining bits of a 32-bit number fit into 24 bits and shifts don't overflow
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_riscv_primitives::instructions::utils::SUPPORTED_LOW_ZEROED_BITS::<32>` failed here
+  |
+ ::: src/instructions/utils.rs
+  |
+  | /     assert!(
+  | |         LOW_ZEROED_BITS >= 8 && LOW_ZEROED_BITS < 32,
+  | |         "Low zeroed bits must be in `8..32` range, so that the remaining bits of a 32-bit number fit \
+  | |         into 24 bits and shifts don't overflow"
+  | |     );
+  | |_____- in this macro invocation

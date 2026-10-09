@@ -1,4 +1,6 @@
-use crate::build::shared::{collect_all_dependencies, is_enum_implemented};
+use crate::build::shared::{
+    INSTRUCTION_ATTRIBUTE, collect_all_dependencies, is_enum_implemented, is_named_attribute,
+};
 use crate::build::state::{PendingEnumDefinition, State};
 use ab_riscv_macros_common::code_utils::pre_process_rust_code;
 use anyhow::Context;
@@ -443,7 +445,7 @@ pub(super) fn process_enum_definition(
         .attrs
         .iter()
         .enumerate()
-        .find_map(|(index, attr)| attr.path().is_ident("instruction").then_some(index))
+        .find_map(|(index, attr)| is_named_attribute(attr, INSTRUCTION_ATTRIBUTE).then_some(index))
     else {
         // Enum without `#[instruction]` attribute, skip it
         return Ok(());
@@ -580,7 +582,7 @@ fn get_all_inherited_instructions(
                 .attrs
                 .iter()
                 .find_map(|attribute| {
-                    if !attribute.path().is_ident("instruction") {
+                    if !is_named_attribute(attribute, INSTRUCTION_ATTRIBUTE) {
                         return None;
                     }
 
@@ -1007,7 +1009,7 @@ fn process_enum_definition_inherited(
         let mut instruction = instruction.as_ref().clone();
         instruction
             .attrs
-            .retain(|attribute| !attribute.path().is_ident("instruction"));
+            .retain(|attribute| !is_named_attribute(attribute, INSTRUCTION_ATTRIBUTE));
         instruction
     }));
 

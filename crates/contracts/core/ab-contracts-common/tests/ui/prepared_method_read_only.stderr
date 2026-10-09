@@ -1,0 +1,43 @@
+error: field `contract` cannot be mutated outside `ab_contracts_common`
+  --> tests/ui/prepared_method_read_only.rs:16:5
+   |
+16 |     prepared_method.contract = contract;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/env.rs
+   |
+   |     pub mut(self) contract: Address,
+   |         --------- field restricted here
+
+error: field `fingerprint` cannot be mutated outside `ab_contracts_common`
+  --> tests/ui/prepared_method_read_only.rs:17:5
+   |
+17 |     prepared_method.fingerprint = fingerprint;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/env.rs
+   |
+   |     pub mut(self) fingerprint: MethodFingerprint,
+   |         --------- field restricted here
+
+error: field `external_args` cannot be mutated outside `ab_contracts_common`
+  --> tests/ui/prepared_method_read_only.rs:18:5
+   |
+18 |     prepared_method.external_args = external_args;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/env.rs
+   |
+   |     pub mut(self) external_args: NonNull<c_void>,
+   |         --------- field restricted here
+
+error: field `method_context` cannot be mutated outside `ab_contracts_common`
+  --> tests/ui/prepared_method_read_only.rs:19:5
+   |
+19 |     prepared_method.method_context = method_context;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/env.rs
+   |
+   |     pub mut(self) method_context: MethodContext,
+   |         --------- field restricted here

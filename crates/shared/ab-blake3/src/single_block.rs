@@ -127,9 +127,9 @@ pub fn single_block_keyed_hash_many_exact<const NUM_BLOCKS: usize>(
     hash_block_many_exact(inputs, outputs, key_words, KEYED_HASH);
 }
 
-// The key derivation function for at most a single block worth of bytes.
-//
-// Returns `None` if either context or key material length exceed one block.
+/// The key derivation function for at most a single block worth of bytes.
+///
+/// Returns `None` if either context or key material length exceed one block.
 #[inline]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn single_block_derive_key(context: &str, key_material: &[u8]) -> Option<[u8; OUT_LEN]> {

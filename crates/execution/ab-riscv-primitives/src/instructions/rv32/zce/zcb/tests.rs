@@ -5,7 +5,7 @@ use crate::instructions::rv32::c::zca::Rv32ZcaInstruction;
 use crate::instructions::rv32::m::Rv32MInstruction;
 use crate::instructions::rv32::m::zmmul::Rv32ZmmulInstruction;
 use crate::instructions::rv32::zce::zcb::{Rv32ZcbInstruction, Rv32ZcbOnlyInstruction};
-use crate::instructions::utils::I24;
+use crate::instructions::utils::{I24, Shamt};
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::{Reg, Register};
 use ab_riscv_macros::instruction;

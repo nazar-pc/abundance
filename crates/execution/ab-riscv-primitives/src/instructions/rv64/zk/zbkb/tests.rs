@@ -4,6 +4,7 @@ use crate::hart::{BasicHart, HartConfig};
 use crate::instructions::rv64::b::zbb::{Rv64ZbbInstruction, Rv64ZbbZbkbSharedInstruction};
 use crate::instructions::rv64::zk::zbkb::Rv64ZbkbInstruction;
 use crate::instructions::test_utils::{make_i_type, make_r_type};
+use crate::instructions::utils::Shamt;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::{Reg, Register};
 use ab_riscv_macros::instruction;

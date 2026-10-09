@@ -106,11 +106,11 @@ where
                 value: nzimm.to_i32().cast_unsigned(),
             },
             Self::CSrli { rd, shamt } => {
-                let value = regs.read(rd) >> shamt;
+                let value = regs.read(rd) >> shamt.get();
                 ExecutionResult::Continue { rd, value }
             }
             Self::CSrai { rd, shamt } => {
-                let value = regs.read(rd).cast_signed() >> shamt;
+                let value = regs.read(rd).cast_signed() >> shamt.get();
                 ExecutionResult::Continue {
                     rd,
                     value: value.cast_unsigned(),
@@ -160,7 +160,7 @@ where
 
             // Quadrant 10
             Self::CSlli { rd, shamt } => {
-                let value = regs.read(rd) << shamt;
+                let value = regs.read(rd) << shamt.get();
                 ExecutionResult::Continue { rd, value }
             }
             Self::CLwsp { rd, uimm } => {

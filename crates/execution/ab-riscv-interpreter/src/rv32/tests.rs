@@ -361,7 +361,7 @@ fn test_slli() {
     let mut state = initialize_state([Rv32Instruction::Slli {
         rd: Reg::A1,
         rs1: Reg::A0,
-        shamt: 4,
+        shamt: Shamt::new(4).unwrap(),
         rs2: Reg::Zero,
     }]);
 
@@ -377,7 +377,7 @@ fn test_srli() {
     let mut state = initialize_state([Rv32Instruction::Srli {
         rd: Reg::A1,
         rs1: Reg::A0,
-        shamt: 2,
+        shamt: Shamt::new(2).unwrap(),
         rs2: Reg::Zero,
     }]);
 
@@ -393,7 +393,7 @@ fn test_srai() {
     let mut state = initialize_state([Rv32Instruction::Srai {
         rd: Reg::A1,
         rs1: Reg::A0,
-        shamt: 2,
+        shamt: Shamt::new(2).unwrap(),
         rs2: Reg::Zero,
     }]);
 

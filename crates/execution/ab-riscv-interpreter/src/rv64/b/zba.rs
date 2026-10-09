@@ -84,7 +84,7 @@ where
             }
             Self::SlliUw { rd, rs1: _, shamt } => {
                 let rs1_val = u64::from(rs1_value as u32);
-                let value = rs1_val << (shamt & 0x3f);
+                let value = rs1_val << shamt.get();
                 ExecutionResult::Continue { rd, value }
             }
         }

@@ -1,3 +1,5 @@
+mod nested;
+
 use crate::hart::{BasicHart, HartConfig};
 use crate::instructions::rv64::Rv64Instruction;
 use crate::instructions::rv64::a::zaamo::Rv64ZaamoInstruction;
@@ -10,7 +12,7 @@ use crate::instructions::rv64::m::zmmul::Rv64ZmmulInstruction;
 use crate::instructions::rv64::zabha::Rv64ZabhaInstruction;
 use crate::instructions::rv64::zacas::Rv64ZacasInstruction;
 use crate::instructions::test_utils::make_r_type;
-use crate::instructions::utils::{I24, I24WithZeroedBits};
+use crate::instructions::utils::{I24, I24WithZeroedBits, Shamt};
 use crate::instructions::zicond::ZicondInstruction;
 use crate::instructions::zicsr::ZicsrInstruction;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};

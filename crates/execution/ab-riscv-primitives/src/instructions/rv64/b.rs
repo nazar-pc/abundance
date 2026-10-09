@@ -9,6 +9,7 @@ use crate::hart::HartConfig;
 use crate::instructions::rv64::b::zba::Rv64ZbaInstruction;
 use crate::instructions::rv64::b::zbb::{Rv64ZbbInstruction, Rv64ZbbZbkbSharedInstruction};
 use crate::instructions::rv64::b::zbs::Rv64ZbsInstruction;
+use crate::instructions::utils::Shamt;
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::Register;
 use ab_riscv_macros::instruction;

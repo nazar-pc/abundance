@@ -15,9 +15,18 @@ pub use segment::{
     IndexedSegmentElement, IndexedSegmentGroup, SegmentElement, SegmentField, VRegSegmentGroup,
 };
 
-/// `VLENB` of hart configuration as `usize`
-pub(crate) const VLENB_USIZE<Hart: VectorHartConfig>: usize =
-    Hart::VECTOR_LENGTHS.vlen.bytes() as usize;
+/// `VLENB` of hart configuration as `usize`.
+///
+/// It is the size of registers in [`VectorRegisterFile`], so it also checks that `ELEN` is
+/// supported by Zve* extensions: every environment executing vector instructions stores a register
+/// file.
+pub(crate) const VLENB_USIZE<Hart: VectorHartConfig>: usize = {
+    assert!(
+        matches!(Hart::VECTOR_LENGTHS.elen, Elen::L32 | Elen::L64),
+        "Zve* extensions require `ELEN` of 32 or 64 bits"
+    );
+    Hart::VECTOR_LENGTHS.vlen.bytes() as usize
+};
 /// Element width in bytes as `usize`
 const EEW_BYTES<const EEW: Eew>: usize = EEW.bytes_width() as usize;
 
@@ -210,7 +219,10 @@ where
     }
 }
 
-/// Alignment wrapper for vector registers
+/// Vector register file container.
+///
+/// `ELEN` of the hart configuration must be 32 or 64 bits as required by Zve* extensions, which is
+/// checked at compile time.
 #[derive(Debug, Clone, Copy)]
 // Aligned to 128 bytes, which is u32 * 32 registers, the minimum reasonable value to use in most
 // cases
@@ -348,8 +360,12 @@ where
         count: u32,
     ) -> bool {
         if dst.eew != src.eew
-            || u32::from(dst_first) + count > u32::from(dst.vl.get())
-            || u32::from(src_first) + count > u32::from(src.vlmax)
+            || u32::from(dst_first)
+                .checked_add(count)
+                .is_none_or(|end| end > u32::from(dst.vl.get()))
+            || u32::from(src_first)
+                .checked_add(count)
+                .is_none_or(|end| end > u32::from(src.vlmax))
         {
             cold_path();
             return false;
@@ -377,7 +393,10 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn elements_bytes(&self, group: VRegGroup<Hart>, first: u16, count: u32) -> Option<&[u8]> {
-        if u32::from(first) + count > u32::from(group.vl().get()) {
+        if u32::from(first)
+            .checked_add(count)
+            .is_none_or(|end| end > u32::from(group.vl().get()))
+        {
             cold_path();
             return None;
         }
@@ -403,7 +422,10 @@ where
         first: u16,
         count: u32,
     ) -> Option<&mut [u8]> {
-        if u32::from(first) + count > u32::from(group.vl().get()) {
+        if u32::from(first)
+            .checked_add(count)
+            .is_none_or(|end| end > u32::from(group.vl().get()))
+        {
             cold_path();
             return None;
         }

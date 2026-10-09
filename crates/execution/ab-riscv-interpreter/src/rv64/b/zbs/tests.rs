@@ -24,7 +24,7 @@ fn test_bseti_basic() {
     let mut state = initialize_state([Rv64ZbsInstruction::Bseti {
         rd: Reg::A2,
         rs1: Reg::A0,
-        shamt: 0,
+        shamt: Shamt::new(0).unwrap(),
         rs2: Reg::Zero,
     }]);
 
@@ -74,7 +74,7 @@ fn test_bclri_basic() {
     let mut state = initialize_state([Rv64ZbsInstruction::Bclri {
         rd: Reg::A2,
         rs1: Reg::A0,
-        shamt: 0,
+        shamt: Shamt::new(0).unwrap(),
         rs2: Reg::Zero,
     }]);
 
@@ -124,7 +124,7 @@ fn test_binvi_basic() {
     let mut state = initialize_state([Rv64ZbsInstruction::Binvi {
         rd: Reg::A2,
         rs1: Reg::A0,
-        shamt: 0,
+        shamt: Shamt::new(0).unwrap(),
         rs2: Reg::Zero,
     }]);
 
@@ -181,7 +181,7 @@ fn test_bexti_basic() {
     let mut state = initialize_state([Rv64ZbsInstruction::Bexti {
         rd: Reg::A2,
         rs1: Reg::A0,
-        shamt: 2,
+        shamt: Shamt::new(2).unwrap(),
         rs2: Reg::Zero,
     }]);
 
@@ -239,7 +239,7 @@ fn test_combination() {
         Rv64ZbsInstruction::Bseti {
             rd: Reg::A3,
             rs1: Reg::A2,
-            shamt: 10,
+            shamt: Shamt::new(10).unwrap(),
             rs2: Reg::Zero,
         },
         // Extract bit 5

@@ -23,6 +23,13 @@ pub(super) fn instruction(attr: TokenStream, item: TokenStream) -> Result<TokenS
         )
     })?;
 
+    if !attr.is_empty() {
+        return Err(Error::new_spanned(
+            attr,
+            "`#[instruction]` on an implementation doesn't take arguments",
+        ));
+    }
+
     // Implementation of an enum
     process_enum_impl(item_impl)
 }

@@ -1,0 +1,17 @@
+error: `#[view]` can't consume `Self` or `&mut self`, use `&self` instead
+  --> tests/ui/view_read_only.rs:18:13
+   |
+18 |         pub fn set(&mut self) {
+   |             ^^^^^^^^^^^^^^^^^
+
+error: `#[slot]` is not allowed to mutate data here
+  --> tests/ui/view_read_only.rs:38:20
+   |
+38 |         pub fn set(#[slot] _slot: &mut ab_io_type::maybe_data::MaybeData<u8>) {}
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[env]` is not allowed to mutate data here
+  --> tests/ui/view_read_only.rs:56:28
+   |
+56 |         pub fn call_others(#[env] _env: &mut ab_contracts_common::env::Env<'_>) {}
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

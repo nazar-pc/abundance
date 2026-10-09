@@ -74,7 +74,7 @@ where
                 ExecutionResult::Continue { rd, value }
             }
             Self::Rori { rd, rs1: _, shamt } => {
-                let value = rs1_value.rotate_right(u32::from(shamt & 0x1f));
+                let value = rs1_value.rotate_right(shamt.get());
                 ExecutionResult::Continue { rd, value }
             }
             Self::Rev8 { rd, rs1: _ } => {

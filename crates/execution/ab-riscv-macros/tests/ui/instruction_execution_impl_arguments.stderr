@@ -1,0 +1,5 @@
+error: `#[instruction_execution]` doesn't take arguments
+  --> tests/ui/instruction_execution_impl_arguments.rs:11:25
+   |
+11 | #[instruction_execution(ignore = [A])]
+   |                         ^^^^^^^^^^^^

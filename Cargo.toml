@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.dependencies]
-ab-aligned-buffer = { version = "0.1.1", path = "crates/shared/ab-aligned-buffer" }
+ab-aligned-buffer = { version = "0.1.2", path = "crates/shared/ab-aligned-buffer" }
 ab-archiving = { version = "0.1.0", path = "crates/shared/ab-archiving" }
 ab-blake3 = { version = "0.2.0", path = "crates/shared/ab-blake3" }
 ab-chacha8 = { version = "0.1.1", path = "crates/shared/ab-chacha8" }

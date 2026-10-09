@@ -4,6 +4,7 @@ use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::instructions::rv64::b::zbb::Rv64ZbbInstruction;
 use crate::instructions::test_utils::{make_i_type_with_shamt, make_r_type};
+use crate::instructions::utils::Shamt;
 use crate::registers::general_purpose::Reg;
 
 #[test]
@@ -334,7 +335,7 @@ fn test_rori() {
         Some(Rv64ZbbInstruction::Rori {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 5,
+            shamt: Shamt::new(5).unwrap(),
             rs2: Reg::Zero,
         })
     );
@@ -350,7 +351,7 @@ fn test_rori_large_shamt() {
         Some(Rv64ZbbInstruction::Rori {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 40,
+            shamt: Shamt::new(40).unwrap(),
             rs2: Reg::Zero,
         })
     );
@@ -366,7 +367,7 @@ fn test_rori_real_instruction() {
         Some(Rv64ZbbInstruction::Rori {
             rd: Reg::A1,
             rs1: Reg::T1,
-            shamt: 0xe,
+            shamt: Shamt::new(0xe).unwrap(),
             rs2: Reg::Zero,
         })
     );
@@ -381,7 +382,7 @@ fn test_roriw() {
         Some(Rv64ZbbInstruction::Roriw {
             rd: Reg::Ra,
             rs1: Reg::Sp,
-            shamt: 12,
+            shamt: Shamt::new(12).unwrap(),
             rs2: Reg::Zero,
         })
     );

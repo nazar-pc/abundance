@@ -1,0 +1,46 @@
+error[E0080]: evaluation panicked: Too many arguments
+  --> tests/ui/too_many_arguments.rs:16:9
+   |
+16 |       pub fn many(
+   |  _________^
+17 | |         #[input] _a: &u8,
+18 | |         #[input] _b: &u8,
+19 | |         #[input] _c: &u8,
+...  |
+25 | |         #[input] _i: &u8,
+26 | |     ) {
+   | |_____^ evaluation of `ffi::many::METADATA` failed inside this call
+   |
+note: inside `ffi::many::metadata`
+  --> tests/ui/too_many_arguments.rs:16:9
+   |
+16 |       pub fn many(
+   |  _________^
+17 | |         #[input] _a: &u8,
+18 | |         #[input] _b: &u8,
+19 | |         #[input] _c: &u8,
+...  |
+25 | |         #[input] _i: &u8,
+26 | |     ) {
+   | |_____^ the failure occurred here
+
+note: erroneous constant encountered
+  --> tests/ui/too_many_arguments.rs:16:9
+   |
+16 |       pub fn many(
+   |  _________^
+17 | |         #[input] _a: &u8,
+18 | |         #[input] _b: &u8,
+19 | |         #[input] _c: &u8,
+...  |
+25 | |         #[input] _i: &u8,
+26 | |     ) {
+   | |_____^
+
+note: erroneous constant encountered
+  --> tests/ui/too_many_arguments.rs:13:1
+   |
+13 | #[contract]
+   | ^^^^^^^^^^^
+   |
+   = note: this note originates in the attribute macro `contract` (in Nightly builds, run with -Z macro-backtrace for more info)

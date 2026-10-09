@@ -28,22 +28,74 @@ pub enum MethodContext {
     Replace,
 }
 
-/// Method to be called by the executor
+/// Method to be called by the executor.
+///
+/// It only describes a method call and nothing in it is checked: the executor reads arguments
+/// behind `external_args` according to metadata of the method with `fingerprint`, and either checks
+/// them against that metadata or trusts the caller (like the native executor does). Fields can't be
+/// modified after creation, so that a method prepared with [`Self::new()`] can't be retargeted to
+/// a different method or arguments by accident.
 #[derive(Debug)]
 #[repr(C)]
 #[must_use]
+#[expect(
+    clippy::partial_pub_fields,
+    reason = "Lifetime marker is an implementation detail"
+)]
 pub struct PreparedMethod<'a> {
     /// Address of the contract that contains a function to the below fingerprint
-    pub contract: Address,
+    pub mut(self) contract: Address,
     /// Fingerprint of the method being called
-    pub fingerprint: MethodFingerprint,
+    pub mut(self) fingerprint: MethodFingerprint,
     /// Anonymous pointer to a struct that implements `ExternalArgs` of the method with the above
     /// `fingerprint`
-    pub external_args: NonNull<c_void>,
+    pub mut(self) external_args: NonNull<c_void>,
     /// Context for method call
-    pub method_context: MethodContext,
+    pub mut(self) method_context: MethodContext,
     /// Used to tie the lifetime to `ExternalArgs`
-    pub phantom: PhantomData<&'a ()>,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> PreparedMethod<'a> {
+    /// Prepare a single method for calling at specified address and with specified arguments.
+    ///
+    /// The result is to be used with [`Env::call_prepared()`] afterward.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn new<Args>(contract: Address, args: &'a mut Args, method_context: MethodContext) -> Self
+    where
+        Args: ExternalArgs,
+    {
+        Self {
+            contract,
+            fingerprint: Args::FINGERPRINT,
+            external_args: NonNull::from_mut(args).cast::<c_void>(),
+            method_context,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Prepare a single method for calling with arguments laid out dynamically, like in a
+    /// transaction payload.
+    ///
+    /// Prefer [`Self::new()`] when the type of arguments is known. `external_args` is expected to
+    /// start with arguments laid out like [`ExternalArgs`] of the method with `fingerprint`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn new_untyped<Args>(
+        contract: Address,
+        fingerprint: MethodFingerprint,
+        external_args: &'a mut Args,
+        method_context: MethodContext,
+    ) -> Self {
+        Self {
+            contract,
+            fingerprint,
+            external_args: NonNull::from_mut(external_args).cast::<c_void>(),
+            method_context,
+            phantom: PhantomData,
+        }
+    }
 }
 
 #[cfg(feature = "guest")]
@@ -87,7 +139,7 @@ pub trait ExecutorContext: core::fmt::Debug {
     fn call(
         &self,
         previous_env_state: &EnvState,
-        prepared_method: &mut PreparedMethod<'_>,
+        prepared_method: &PreparedMethod<'_>,
     ) -> Result<(), ContractError>;
 }
 
@@ -173,7 +225,7 @@ impl<'a> Env<'a> {
 
     /// Call a method at specified address and with specified arguments.
     ///
-    /// This is a shortcut for [`Self::prepare_method_call()`] + [`Self::call_prepared()`].
+    /// This is a shortcut for [`PreparedMethod::new()`] + [`Self::call_prepared()`].
     #[inline(always)]
     pub fn call<Args>(
         &self,
@@ -184,30 +236,8 @@ impl<'a> Env<'a> {
     where
         Args: ExternalArgs,
     {
-        let prepared_method = Self::prepare_method_call(contract, args, method_context);
+        let prepared_method = PreparedMethod::new(contract, args, method_context);
         self.call_prepared(prepared_method)
-    }
-
-    /// Prepare a single method for calling at specified address and with specified arguments.
-    ///
-    /// The result is to be used with [`Self::call_prepared()`] afterward.
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn prepare_method_call<Args>(
-        contract: Address,
-        args: &mut Args,
-        method_context: MethodContext,
-    ) -> PreparedMethod<'_>
-    where
-        Args: ExternalArgs,
-    {
-        PreparedMethod {
-            contract,
-            fingerprint: Args::FINGERPRINT,
-            external_args: NonNull::from_mut(args).cast::<c_void>(),
-            method_context,
-            phantom: PhantomData,
-        }
     }
 
     /// Call prepared method.
@@ -217,10 +247,7 @@ impl<'a> Env<'a> {
     #[inline]
     pub fn call_prepared(&self, method: PreparedMethod<'_>) -> Result<(), ContractError> {
         cfg_select! {
-            feature = "executor" => {
-                let mut method = method;
-                self.executor_context.call(&self.state, &mut method)
-            }
+            feature = "executor" => self.executor_context.call(&self.state, &method),
             feature = "guest" => __ab_host_call(&method).into(),
             _ => {
                 let _: PreparedMethod<'_> = method;

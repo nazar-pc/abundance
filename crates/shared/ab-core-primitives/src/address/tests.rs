@@ -1,5 +1,5 @@
-use ab_core_primitives::address::{Address, ShortHrp};
-use ab_core_primitives::shard::ShardIndex;
+use crate::address::{Address, ShortHrp};
+use crate::shard::ShardIndex;
 
 #[test]
 fn format() {

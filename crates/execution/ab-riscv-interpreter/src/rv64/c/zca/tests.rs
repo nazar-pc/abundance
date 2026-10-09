@@ -202,7 +202,7 @@ fn test_clui() {
 fn test_csrli() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSrli {
         rd: Reg::S0,
-        shamt: 4,
+        shamt: Shamt::new(4).unwrap(),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -215,7 +215,7 @@ fn test_csrli() {
 fn test_csrai() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSrai {
         rd: Reg::S0,
-        shamt: 4,
+        shamt: Shamt::new(4).unwrap(),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);
@@ -505,7 +505,7 @@ fn test_cadd() {
 fn test_cslli() {
     let mut state = initialize_state([Rv64ZcaInstruction::CSlli {
         rd: Reg::A0,
-        shamt: 3,
+        shamt: Shamt::new(3).unwrap(),
         rs1: Reg::Zero,
         rs2: Reg::Zero,
     }]);

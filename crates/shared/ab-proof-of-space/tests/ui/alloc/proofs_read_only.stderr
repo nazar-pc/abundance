@@ -1,0 +1,49 @@
+error: `PosProofs` cannot be constructed using a `struct` expression outside `ab_proof_of_space`
+  --> tests/ui/alloc/proofs_read_only.rs:10:5
+   |
+10 | /     PosProofs {
+11 | |         found_proofs: other.found_proofs,
+12 | |         proofs: other.proofs,
+13 | |     }
+   | |_____^
+   |
+  ::: src/lib.rs
+   |
+   |       pub mut(self) found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
+   |           --------- field restricted here
+
+error: field `found_proofs` cannot be mutated outside `ab_proof_of_space`
+  --> tests/ui/alloc/proofs_read_only.rs:17:5
+   |
+17 |     proofs.found_proofs = other.found_proofs;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/lib.rs
+   |
+   |     pub mut(self) found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
+   |         --------- field restricted here
+
+error: `Proofs` cannot be constructed using a `struct` expression outside `ab_proof_of_space`
+  --> tests/ui/alloc/proofs_read_only.rs:21:5
+   |
+21 | /     Proofs {
+22 | |         found_proofs: other.found_proofs,
+23 | |         proofs: other.proofs,
+24 | |     }
+   | |_____^
+   |
+  ::: src/chiapos.rs
+   |
+   |       pub mut(self) found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
+   |           --------- field restricted here
+
+error: field `found_proofs` cannot be mutated outside `ab_proof_of_space`
+  --> tests/ui/alloc/proofs_read_only.rs:28:5
+   |
+28 |     proofs.found_proofs = other.found_proofs;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/chiapos.rs
+   |
+   |     pub mut(self) found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
+   |         --------- field restricted here

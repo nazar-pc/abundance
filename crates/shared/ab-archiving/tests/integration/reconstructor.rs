@@ -1,7 +1,7 @@
 use ab_archiving::archiver::Archiver;
 use ab_archiving::reconstructor::{Reconstructor, ReconstructorError};
 use ab_core_primitives::block::BlockNumber;
-use ab_core_primitives::pieces::{FlatPieces, Piece};
+use ab_core_primitives::pieces::Piece;
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
     RecordedHistorySegment,
@@ -15,7 +15,7 @@ use std::{assert_matches, iter};
 
 const TEST_SHARD_INDEX: ShardIndex = ShardIndex::new(ShardIndex::MAX_SHARD_INDEX - 1).unwrap();
 
-fn pieces_to_option_of_pieces(pieces: &FlatPieces) -> Vec<Option<Piece>> {
+fn pieces_to_option_of_pieces(pieces: &ArchivedHistorySegment) -> Vec<Option<Piece>> {
     pieces.pieces().map(Some).collect()
 }
 

@@ -130,6 +130,8 @@ pub const trait Register:
     + 'static
 {
     /// XLEN
+    // TODO: Make it `final` once supported:
+    //  https://internals.rust-lang.org/t/final-associated-constants/24655?u=nazar-pc
     const XLEN: u8 = Self::Type::BITS;
     /// Whether this is RVE variant with the number of general purpose registers reduced to 16
     const RVE: bool;
@@ -380,9 +382,9 @@ pub enum Reg<Type> {
     Phantom(!, PhantomData<Type>),
 }
 
-const impl<Type> From<EReg<u64>> for Reg<Type> {
+const impl<Type> From<EReg<Type>> for Reg<Type> {
     #[inline(always)]
-    fn from(reg: EReg<u64>) -> Self {
+    fn from(reg: EReg<Type>) -> Self {
         match reg {
             EReg::Zero => Self::Zero,
             EReg::Ra => Self::Ra,

@@ -167,6 +167,11 @@ where
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn from_peaks(peaks: &MmrPeaks<MAX_N>) -> Option<Self> {
+        // Stack and peaks may have space for more leaves than `MAX_N`
+        if peaks.num_leaves > MAX_N {
+            return None;
+        }
+
         let mut result = Self {
             num_leaves: peaks.num_leaves,
             stack: [[0u8; OUT_LEN]; _],

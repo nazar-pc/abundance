@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "ab-aligned-buffer"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "stable_deref_trait",
  "yoke",
@@ -252,6 +252,7 @@ dependencies = [
  "derive_more",
  "no-panic",
  "thiserror 2.0.21",
+ "trybuild",
 ]
 
 [[package]]
@@ -263,6 +264,7 @@ dependencies = [
  "ab-core-primitives",
  "ab-io-type",
  "const_format",
+ "trybuild",
 ]
 
 [[package]]
@@ -339,6 +341,7 @@ dependencies = [
  "serde-big-array",
  "thiserror 2.0.21",
  "transparent-wrapper",
+ "trybuild",
  "yoke",
 ]
 
@@ -700,6 +703,7 @@ dependencies = [
  "seq-macro",
  "sha2 0.11.0",
  "transparent-wrapper",
+ "trybuild",
 ]
 
 [[package]]

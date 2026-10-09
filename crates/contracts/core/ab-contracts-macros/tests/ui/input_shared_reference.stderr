@@ -1,0 +1,5 @@
+error: `#[input]` must be a shared reference
+  --> tests/ui/input_shared_reference.rs:16:16
+   |
+16 |     pub fn set(#[input] _value: &mut u8) {}
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^

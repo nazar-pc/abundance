@@ -6,7 +6,7 @@ use crate::instructions::rv32::Rv32Instruction;
 use crate::instructions::test_utils::{
     make_b_type, make_i_type, make_j_type, make_r_type, make_s_type, make_u_type,
 };
-use crate::instructions::utils::{I24, I24WithZeroedBits};
+use crate::instructions::utils::{I24, I24WithZeroedBits, Shamt};
 use crate::registers::general_purpose::{EReg, Reg};
 use core::assert_matches;
 
@@ -303,7 +303,7 @@ fn test_slli() {
             Rv32Instruction::Slli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10,
+                shamt: Shamt::new(10).unwrap(),
                 rs2: Reg::Zero,
             }
         );
@@ -318,7 +318,7 @@ fn test_slli() {
             Rv32Instruction::Slli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 31,
+                shamt: Shamt::new(31).unwrap(),
                 rs2: Reg::Zero,
             }
         );
@@ -364,7 +364,7 @@ fn test_srli() {
             Rv32Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10,
+                shamt: Shamt::new(10).unwrap(),
                 rs2: Reg::Zero,
             }
         );
@@ -379,7 +379,7 @@ fn test_srli() {
             Rv32Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 31,
+                shamt: Shamt::new(31).unwrap(),
                 rs2: Reg::Zero,
             }
         );
@@ -415,7 +415,7 @@ fn test_srai() {
             Rv32Instruction::Srai {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10,
+                shamt: Shamt::new(10).unwrap(),
                 rs2: Reg::Zero,
             }
         );
@@ -436,7 +436,7 @@ fn test_srai() {
             Rv32Instruction::Srai {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 31,
+                shamt: Shamt::new(31).unwrap(),
                 rs2: Reg::Zero,
             }
         );
@@ -452,7 +452,7 @@ fn test_srai() {
             Rv32Instruction::Srli {
                 rd: Reg::Ra,
                 rs1: Reg::Sp,
-                shamt: 10,
+                shamt: Shamt::new(10).unwrap(),
                 rs2: Reg::Zero,
             },
             "Without SRAI funct7, this is SRLI"

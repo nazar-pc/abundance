@@ -239,6 +239,10 @@ fn copy_elements() {
     assert!(!vregs.copy_elements(dst, 0, src, 11, 6));
     let wider = VRegGroup::new(config, VReg::V4, Eew::E16).unwrap();
     assert!(!vregs.copy_elements(dst, 0, wider, 0, 1));
+    // Ranges whose end doesn't fit into `u32`
+    assert!(!vregs.copy_elements(dst, 1, src, 0, u32::MAX));
+    assert!(!vregs.copy_elements(dst, 0, src, 1, u32::MAX));
+    assert!(!vregs.copy_elements(dst, u16::MAX, src, u16::MAX, u32::MAX));
     assert_eq!(vregs.as_bytes(), numbered_vregs().as_bytes());
 }
 
@@ -252,6 +256,11 @@ fn elements_bytes() {
     assert_eq!(vregs.elements_bytes(src, 1, 7).map(<[u8]>::len), Some(7));
     assert!(vregs.elements_bytes(src, 1, 8).is_none());
     assert!(vregs.elements_bytes_mut(src, 0, 9).is_none());
+    // Ranges whose end doesn't fit into `u32`
+    assert!(vregs.elements_bytes(src, 1, u32::MAX).is_none());
+    assert!(vregs.elements_bytes(src, u16::MAX, u32::MAX).is_none());
+    assert!(vregs.elements_bytes_mut(src, 1, u32::MAX).is_none());
+    assert!(vregs.elements_bytes_mut(src, u16::MAX, u32::MAX).is_none());
 }
 
 #[test]

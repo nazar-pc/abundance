@@ -1509,7 +1509,7 @@ impl<'a> Transactions<'a> {
         let bytes_start = remainder;
 
         for _ in 0..num_transactions {
-            (_, remainder) = Transaction::try_from_bytes(bytes)?;
+            (_, remainder) = Transaction::try_from_bytes(remainder)?;
             remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
         }
 

@@ -72,9 +72,9 @@ pub fn single_chunk_keyed_hash(key: &[u8; KEY_LEN], input: &[u8]) -> Option<[u8;
     hash_chunk(input, key_words, KEYED_HASH)
 }
 
-// The key derivation function for at most a single chunk ([`CHUNK_LEN`]) worth of bytes.
-//
-// Returns `None` if either context or key material length exceed one chunk.
+/// The key derivation function for at most a single chunk ([`CHUNK_LEN`]) worth of bytes.
+///
+/// Returns `None` if either context or key material length exceed one chunk.
 #[inline]
 #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
 pub fn single_chunk_derive_key(context: &str, key_material: &[u8]) -> Option<[u8; OUT_LEN]> {

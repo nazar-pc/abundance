@@ -1,0 +1,11 @@
+error[E0080]: evaluation panicked: Trait implementation must match trait definition exactly
+  --> tests/ui/trait_impl_mismatch.rs:41:5
+   |
+41 |     #[contract]
+   |     ^^^^^^^^^^^ evaluation of `kind_mismatch::_` failed here
+
+error[E0080]: evaluation panicked: Trait implementation must match trait definition exactly
+  --> tests/ui/trait_impl_mismatch.rs:54:5
+   |
+54 |     #[contract]
+   |     ^^^^^^^^^^^ evaluation of `missing_attribute::_` failed here

@@ -111,7 +111,9 @@ impl AlignedPage {
     /// purposes
     #[inline(always)]
     pub fn slice_mut_to_repr(slice: &mut [Self]) -> &mut [[u8; AlignedPage::SIZE]] {
-        // SAFETY: `AlignedSectorSize` is `#[repr(C)]` and its alignment is larger than inner value
+        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
+        // alignment equal to its size, so it has no padding and the same size as the inner value,
+        // whose alignment is smaller. Any bytes written through the result are valid `AlignedPage`.
         unsafe { mem::transmute(slice) }
     }
 
@@ -121,7 +123,11 @@ impl AlignedPage {
     pub fn uninit_slice_mut_to_repr(
         slice: &mut [MaybeUninit<Self>],
     ) -> &mut [MaybeUninit<[u8; AlignedPage::SIZE]>] {
-        // SAFETY: `AlignedSectorSize` is `#[repr(C)]` and its alignment is larger than inner value
+        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
+        // alignment equal to its size, so it has no padding and the same size as the inner value,
+        // whose alignment is smaller. `MaybeUninit` preserves the size and alignment of the wrapped
+        // type, and any bytes (initialized or not) written through the result are a valid
+        // `MaybeUninit<AlignedPage>`.
         unsafe { mem::transmute(slice) }
     }
 
@@ -266,8 +272,8 @@ impl DirectIoFile {
 
     /// Read the exact number of bytes needed to fill `buf` at `offset`.
     ///
-    /// NOTE: This uses locking and buffering internally, prefer [`Self::write_all_at_raw()`] if you
-    /// can control data alignment.
+    /// NOTE: This uses locking and buffering internally, prefer [`Self::read_exact_at_raw()`] if
+    /// you can control data alignment.
     pub fn read_exact_at(&self, buf: &mut [u8], mut offset: u64) -> io::Result<()> {
         if buf.is_empty() {
             return Ok(());

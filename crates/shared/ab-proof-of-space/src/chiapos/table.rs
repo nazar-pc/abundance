@@ -64,8 +64,8 @@ const REDUCED_MATCHES_COUNT: usize = 288;
 const CACHE_LINE_SIZE: usize = 64;
 
 const {
-    debug_assert!(REDUCED_BUCKET_SIZE <= MAX_BUCKET_SIZE);
-    debug_assert!(REDUCED_MATCHES_COUNT <= MAX_BUCKET_SIZE);
+    assert!(REDUCED_BUCKET_SIZE <= MAX_BUCKET_SIZE);
+    assert!(REDUCED_MATCHES_COUNT <= MAX_BUCKET_SIZE);
 }
 
 /// Number of buckets for a given `k`

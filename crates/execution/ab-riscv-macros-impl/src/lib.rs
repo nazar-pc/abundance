@@ -173,6 +173,11 @@ use proc_macro::TokenStream;
 /// uses to replace the original code with. This is the only way to get the desired ergonomics
 /// withing current constraints of what macros are allowed to do.
 ///
+/// `process_instruction_macros()` finds annotated items anywhere in the crate's Rust files,
+/// including inline modules, and attributes may be path-qualified like
+/// `#[ab_riscv_macros::instruction]`. Attributes must be written in the source code at the start
+/// of a line (indentation is fine), ones produced by other macros (like `cfg_attr`) are not seen.
+///
 /// # [package.links]
 ///
 /// `package` section of `Cargo.toml` must contain `links = "crate-name"` in order for metadata to

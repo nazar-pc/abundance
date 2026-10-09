@@ -3,7 +3,10 @@
 #[cfg(test)]
 mod tests;
 
+use crate::registers::general_purpose::RegType;
 use core::fmt;
+use core::hint::assert_unchecked;
+use core::marker::PhantomData;
 use core::ops::{Shl, Shr};
 
 /// New type for unsigned integers that stores 24-bit numbers
@@ -235,62 +238,98 @@ impl I24 {
     }
 }
 
+/// Ensures supported number of low zeroed bits of [`I24WithZeroedBits`]
+const SUPPORTED_LOW_ZEROED_BITS<const LOW_ZEROED_BITS: u8>: usize = {
+    assert!(
+        LOW_ZEROED_BITS >= 8 && LOW_ZEROED_BITS < 32,
+        "Low zeroed bits must be in `8..32` range, so that the remaining bits of a 32-bit number fit \
+        into 24 bits and shifts don't overflow"
+    );
+    0
+};
+
 /// New type for signed integers that stores 32-bit numbers with `LOW_ZEROED_BITS` low bits zeroed
-/// and truncated to 24-bits
+/// and truncated to 24-bits.
+///
+/// `LOW_ZEROED_BITS` must be in `8..32` range.
 #[derive(Clone, Copy, Hash)]
 #[derive_const(PartialEq, Eq)]
 pub struct I24WithZeroedBits<const LOW_ZEROED_BITS: u8>([u8; 3]);
 
-const impl<const LOW_ZEROED_BITS: u8> Default for I24WithZeroedBits<LOW_ZEROED_BITS> {
+const impl<const LOW_ZEROED_BITS: u8> Default for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn default() -> Self {
         Self([0; _])
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> fmt::Debug for I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> fmt::Debug for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.to_i32(), f)
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> fmt::Display for I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> fmt::Display for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.to_i32(), f)
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> fmt::LowerHex for I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> fmt::LowerHex for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::LowerHex::fmt(&self.to_i32(), f)
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> fmt::UpperHex for I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> fmt::UpperHex for I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::UpperHex::fmt(&self.to_i32(), f)
     }
 }
 
-const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i32 {
+const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i32
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn from(v: I24WithZeroedBits<LOW_ZEROED_BITS>) -> Self {
         v.to_i32()
     }
 }
 
-const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i64 {
+const impl<const LOW_ZEROED_BITS: u8> From<I24WithZeroedBits<LOW_ZEROED_BITS>> for i64
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     #[inline(always)]
     fn from(v: I24WithZeroedBits<LOW_ZEROED_BITS>) -> Self {
         i64::from(v.to_i32())
     }
 }
 
-impl<const LOW_ZEROED_BITS: u8> I24WithZeroedBits<LOW_ZEROED_BITS> {
+impl<const LOW_ZEROED_BITS: u8> I24WithZeroedBits<LOW_ZEROED_BITS>
+where
+    [(); SUPPORTED_LOW_ZEROED_BITS::<LOW_ZEROED_BITS>]:,
+{
     /// Create a new `I24WithZeroedBits` from a signed 32-bit integer.
     ///
     /// The input value is shifted right arithmetically by `LOW_ZEROED_BITS` before being stored.
@@ -321,5 +360,70 @@ impl<const LOW_ZEROED_BITS: u8> I24WithZeroedBits<LOW_ZEROED_BITS> {
             .cast_unsigned()
             & (u32::MAX << LOW_ZEROED_BITS))
             .cast_signed()
+    }
+}
+
+/// Shift amount of an instruction, which is always below the width of `Type` in bits.
+///
+/// `Type` is the type of the shifted value: the register type for most instructions, and `u32` for
+/// instructions that operate on 32-bit words on RV64, like `slliw`. Shifts by this amount never
+/// overflow, so execution doesn't need to mask it.
+#[derive(Clone, Copy)]
+pub struct Shamt<Type> {
+    shamt: u8,
+    shifted_type: PhantomData<Type>,
+}
+
+const impl<Type> PartialEq for Shamt<Type> {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.shamt == other.shamt
+    }
+}
+
+const impl<Type> Eq for Shamt<Type> {}
+
+impl<Type> fmt::Debug for Shamt<Type> {
+    #[inline(always)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.shamt, f)
+    }
+}
+
+impl<Type> fmt::Display for Shamt<Type> {
+    #[inline(always)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.shamt, f)
+    }
+}
+
+impl<Type> Shamt<Type>
+where
+    Type: RegType,
+{
+    /// Create a new shift amount, returns `None` if it is not below the width of `Type` in bits
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn new(shamt: u8) -> Option<Self> {
+        if shamt >= Type::BITS {
+            return None;
+        }
+
+        Some(Self {
+            shamt,
+            shifted_type: PhantomData,
+        })
+    }
+
+    /// Get the shift amount, which is below the width of `Type` in bits
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn get(self) -> u32 {
+        // SAFETY: The field is private to this module and only set by the constructor, which
+        // rejects values that are not below the width of `Type` in bits
+        unsafe {
+            assert_unchecked(self.shamt < Type::BITS);
+        }
+        u32::from(self.shamt)
     }
 }

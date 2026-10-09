@@ -9,6 +9,7 @@ Breaking changes:
 * Generated `IMPLEMENTED_EXTENSIONS` contains `ImplementedExtension` instead of `TypeId`, which must be in scope
 * Enums in `if` conditions are satisfied when implemented (see `Instruction::IMPLEMENTED_EXTENSIONS`) rather than when
   all of their instructions are present
+* `#[instruction]` and `#[instruction_execution]` on implementations reject arguments, which previously had no effect
 
 Improvements:
 
@@ -18,6 +19,8 @@ Improvements:
 Fixes:
 
 * Ignored instructions no longer satisfy `if` conditions of inherited instructions
+* `process_instruction_macros()` recognizes path-qualified attributes (like `#[ab_riscv_macros::instruction]`) and
+  attributes on items in inline modules instead of silently skipping them
 
 # 0.1.1
 

@@ -423,7 +423,7 @@ pub const fn const_keyed_hash(key: &[u8; KEY_LEN], input: &[u8]) -> [u8; OUT_LEN
     const_hash_all_at_once(input, &key_words, KEYED_HASH).root_hash()
 }
 
-// The key derivation function like [`blake3::derive_key()`], but `const fn`
+/// The key derivation function like [`blake3::derive_key()`], but `const fn`
 pub const fn const_derive_key(context: &str, key_material: &[u8]) -> [u8; OUT_LEN] {
     let context_key =
         const_hash_all_at_once(context.as_bytes(), IV, DERIVE_KEY_CONTEXT).root_hash();
