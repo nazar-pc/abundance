@@ -57,16 +57,16 @@ pub(super) fn process_init_fn(
                 let Some(attr) = attrs.next() else {
                     return Err(Error::new(
                         input_span,
-                        "Each `#[init]` argument must be annotated with exactly one of: `#[env]` \
-                        or `#[input]`, in that order",
+                        "Each `#[init]` argument must be annotated with exactly one of: `#[env]`, \
+                        `#[tmp]`, `#[slot]`, `#[input]` or `#[output]`, in that order",
                     ));
                 };
 
                 if let Some(next_attr) = attrs.take(1).next() {
                     return Err(Error::new(
                         next_attr.span(),
-                        "Each `#[init]` argument must be annotated with exactly one of: `#[env]` \
-                        or `#[input]`, in that order",
+                        "Each `#[init]` argument must be annotated with exactly one of: `#[env]`, \
+                        `#[tmp]`, `#[slot]`, `#[input]` or `#[output]`, in that order",
                     ));
                 }
 

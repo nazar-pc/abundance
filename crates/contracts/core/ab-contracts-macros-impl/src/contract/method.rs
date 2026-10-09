@@ -27,6 +27,16 @@ impl MethodType {
     }
 }
 
+/// Kinds of method arguments, in the order they must appear in
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+enum ArgumentKind {
+    Env,
+    Tmp,
+    Slot,
+    Input,
+    Output,
+}
+
 #[derive(Clone)]
 struct Env {
     arg_name: Ident,
@@ -173,6 +183,23 @@ impl MethodDetails {
         Some(slot_type.unwrap_or_else(MethodReturnType::unit_type))
     }
 
+    /// The kind of the last argument processed so far
+    fn last_argument_kind(&self) -> Option<ArgumentKind> {
+        if !self.outputs.is_empty() {
+            Some(ArgumentKind::Output)
+        } else if !self.inputs.is_empty() {
+            Some(ArgumentKind::Input)
+        } else if !self.slots.is_empty() {
+            Some(ArgumentKind::Slot)
+        } else if self.tmp.is_some() {
+            Some(ArgumentKind::Tmp)
+        } else if self.env.is_some() {
+            Some(ArgumentKind::Env)
+        } else {
+            None
+        }
+    }
+
     pub(super) fn process_env_arg_ro(
         &mut self,
         input_span: Span,
@@ -195,10 +222,7 @@ impl MethodDetails {
         pat_type: &PatType,
         allow_mut: bool,
     ) -> Result<(), Error> {
-        if self.env.is_some()
-            || self.tmp.is_some()
-            || !(self.inputs.is_empty() && self.outputs.is_empty())
-        {
+        if self.last_argument_kind().is_some() {
             return Err(Error::new(
                 input_span,
                 "`#[env]` must be the first non-Self argument and only appear once",
@@ -274,10 +298,10 @@ impl MethodDetails {
         input_span: Span,
         pat_type: &PatType,
     ) -> Result<(), Error> {
-        if self.tmp.is_some() || !(self.inputs.is_empty() && self.outputs.is_empty()) {
+        if self.last_argument_kind() >= Some(ArgumentKind::Tmp) {
             return Err(Error::new(
                 input_span,
-                "`#[tmp]` must appear only once before any `#[input]` or `#[output]`",
+                "`#[tmp]` must appear only once before any `#[slot]`, `#[input]` or `#[output]`",
             ));
         }
 
@@ -328,7 +352,7 @@ impl MethodDetails {
         pat_type: &PatType,
         allow_mut: bool,
     ) -> Result<(), Error> {
-        if !(self.inputs.is_empty() && self.outputs.is_empty()) {
+        if self.last_argument_kind() > Some(ArgumentKind::Slot) {
             return Err(Error::new(
                 input_span,
                 "`#[slot]` must appear before any `#[input]` or `#[output]`",
@@ -412,7 +436,7 @@ impl MethodDetails {
         input_span: Span,
         pat_type: &PatType,
     ) -> Result<(), Error> {
-        if !self.outputs.is_empty() {
+        if self.last_argument_kind() > Some(ArgumentKind::Input) {
             return Err(Error::new(
                 input_span,
                 "`#[input]` must appear before any `#[output]`",

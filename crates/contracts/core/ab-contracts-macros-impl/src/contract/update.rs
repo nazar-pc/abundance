@@ -62,8 +62,8 @@ pub(super) fn process_update_fn(
                     return Err(Error::new(
                         input_span,
                         "Each `#[update]` argument (except `&self`/`&mut self`) must be \
-                        annotated with exactly one of: `#[env]`, `#[slot]`, `#[input]` or \
-                        `#[output]`, in that order",
+                        annotated with exactly one of: `#[env]`, `#[tmp]`, `#[slot]`, `#[input]` \
+                        or `#[output]`, in that order",
                     ));
                 };
 
@@ -71,8 +71,8 @@ pub(super) fn process_update_fn(
                     return Err(Error::new(
                         next_attr.span(),
                         "Each `#[update]` argument (except `&self`/`&mut self`) must be \
-                        annotated with exactly one of: `#[env]`, `#[slot]`, `#[input]` or \
-                        `#[output]`, in that order",
+                        annotated with exactly one of: `#[env]`, `#[tmp]`, `#[slot]`, `#[input]` \
+                        or `#[output]`, in that order",
                     ));
                 }
 
