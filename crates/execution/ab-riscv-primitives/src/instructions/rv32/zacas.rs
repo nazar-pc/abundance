@@ -21,6 +21,14 @@ where
 {
     /// Compare-and-swap word
     AmocasW { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, aq: bool, rl: bool },
+    // TODO: Register pairs are not enforced by types. Decoding only produces even `rd` and `rs2`
+    //  with `rd_hi` and `rs2_hi` being the registers right after them, and execution relies on that
+    //  instead of checking it again, like with other invariants checked by the decoder, so manually
+    //  constructed instructions can use arbitrary registers (not a memory safety issue). A type for
+    //  register pairs isn't an option yet: every instruction stores `rs1` and `rs2` with the same
+    //  type at the same position, so that reading operands compiles to reads at fixed offsets.
+    //  Revisit once `rs1` and `rs2` are no longer added to every instruction unconditionally, which
+    //  requires https://github.com/rust-lang/rfcs/pull/4001.
     /// Compare-and-swap doubleword, using register pairs `(rd, rd_hi)` and `(rs2, rs2_hi)` since
     /// RV32 registers are only 32 bits wide
     AmocasD { rd: Hart::Reg, rs1: Hart::Reg, rs2: Hart::Reg, rd_hi: Hart::Reg, rs2_hi: Hart::Reg, aq: bool, rl: bool },
