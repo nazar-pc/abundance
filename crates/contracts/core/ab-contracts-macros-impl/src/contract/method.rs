@@ -1008,7 +1008,7 @@ impl MethodDetails {
                     pub ok_result: &'internal_args mut ::core::mem::MaybeUninit<#return_type>,
                 });
 
-                preparation.push(quote! {
+                preparation.push(quote_spanned! {return_type.span() =>
                     // Ensure the return type implements not only `IoType`, which is required for
                     // crossing host/guest boundary, but also `TrivialType` and result handling is
                     // trivial without the need to worry about size and capacity.
@@ -1016,7 +1016,7 @@ impl MethodDetails {
                     const {
                         const fn assert_impl_trivial_type<T>()
                         where
-                            T: ::ab_contracts_macros::__private::IoType,
+                            T: ::ab_contracts_macros::__private::TrivialType,
                         {}
                         assert_impl_trivial_type::<#return_type>();
                     }
@@ -1676,7 +1676,7 @@ impl MethodDetails {
                 const {
                     const fn assert_impl_trivial_type<T>()
                     where
-                        T: ::ab_contracts_macros::__private::IoType,
+                        T: ::ab_contracts_macros::__private::TrivialType,
                     {}
                     assert_impl_trivial_type::<#return_type>();
                 }
