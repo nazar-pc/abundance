@@ -23,7 +23,7 @@ use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU64, Ordering};
 use stable_deref_trait::{CloneStableDeref, StableDeref};
 use yoke::CloneableCart;
 
@@ -32,13 +32,13 @@ const _: () = {
         align_of::<u128>() == size_of::<u128>(),
         "Size and alignment are both 16 bytes"
     );
-    assert!(size_of::<u128>() >= size_of::<AtomicU32>());
-    assert!(align_of::<u128>() >= align_of::<AtomicU32>());
+    assert!(size_of::<u128>() >= size_of::<AtomicU64>());
+    assert!(align_of::<u128>() >= align_of::<AtomicU64>());
 };
 
 #[repr(C, align(16))]
 struct ConstInnerBuffer {
-    strong_count: AtomicU32,
+    strong_count: AtomicU64,
 }
 
 const _: () = {
@@ -50,7 +50,7 @@ static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
     inner: InnerBuffer {
         buffer: NonNull::from_ref({
             static BUFFER: MaybeUninit<ConstInnerBuffer> = MaybeUninit::new(ConstInnerBuffer {
-                strong_count: AtomicU32::new(1),
+                strong_count: AtomicU64::new(1),
             });
 
             &BUFFER
@@ -122,7 +122,7 @@ impl InnerBuffer {
         // SAFETY: The first bytes are allocated for `strong_count`, which is a correctly aligned
         // copy type
         unsafe {
-            buffer.cast::<AtomicU32>().write(AtomicU32::new(1));
+            buffer.cast::<AtomicU64>().write(AtomicU64::new(1));
         }
         Self {
             buffer: buffer.cast::<MaybeUninit<u128>>(),
@@ -184,10 +184,10 @@ impl InnerBuffer {
     }
 
     #[inline(always)]
-    const fn strong_count_ref(&self) -> &AtomicU32 {
+    const fn strong_count_ref(&self) -> &AtomicU64 {
         // SAFETY: The first bytes are allocated for `strong_count`, which is a correctly aligned
         // copy type initialized in the constructor
-        unsafe { self.buffer.as_ptr().cast::<AtomicU32>().as_ref_unchecked() }
+        unsafe { self.buffer.as_ptr().cast::<AtomicU64>().as_ref_unchecked() }
     }
 
     #[inline(always)]
@@ -407,9 +407,6 @@ impl OwnedAlignedBuffer {
 ///
 /// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
 /// types and by extension any type that implements `TrivialType`/`IoType`.
-///
-/// NOTE: Counter for the number of shared instances is `u32` and will wrap around if exceeded
-/// breaking internal invariants (which is extremely unlikely, but still).
 #[derive(Debug, Default, Clone)]
 pub struct SharedAlignedBuffer {
     inner: InnerBuffer,
