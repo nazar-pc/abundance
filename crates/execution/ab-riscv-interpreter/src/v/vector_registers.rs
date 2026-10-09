@@ -15,9 +15,18 @@ pub use segment::{
     IndexedSegmentElement, IndexedSegmentGroup, SegmentElement, SegmentField, VRegSegmentGroup,
 };
 
-/// `VLENB` of hart configuration as `usize`
-pub(crate) const VLENB_USIZE<Hart: VectorHartConfig>: usize =
-    Hart::VECTOR_LENGTHS.vlen.bytes() as usize;
+/// `VLENB` of hart configuration as `usize`.
+///
+/// It is the size of registers in [`VectorRegisterFile`], so it also checks that `ELEN` is
+/// supported by Zve* extensions: every environment executing vector instructions stores a register
+/// file.
+pub(crate) const VLENB_USIZE<Hart: VectorHartConfig>: usize = {
+    assert!(
+        matches!(Hart::VECTOR_LENGTHS.elen, Elen::L32 | Elen::L64),
+        "Zve* extensions require `ELEN` of 32 or 64 bits"
+    );
+    Hart::VECTOR_LENGTHS.vlen.bytes() as usize
+};
 /// Element width in bytes as `usize`
 const EEW_BYTES<const EEW: Eew>: usize = EEW.bytes_width() as usize;
 
@@ -210,7 +219,10 @@ where
     }
 }
 
-/// Alignment wrapper for vector registers
+/// Vector register file container.
+///
+/// `ELEN` of the hart configuration must be 32 or 64 bits as required by Zve* extensions, which is
+/// checked at compile time.
 #[derive(Debug, Clone, Copy)]
 // Aligned to 128 bytes, which is u32 * 32 registers, the minimum reasonable value to use in most
 // cases

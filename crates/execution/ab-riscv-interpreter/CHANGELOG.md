@@ -18,6 +18,8 @@ Breaking changes:
 * `BasicMemory` impls require its region not to wrap around the end of the address space (`BASE_ADDR + SIZE` must fit
   into `u64`), so such memory can't be constructed, and `BasicMemory` can only be used with concrete `BASE_ADDR` and
   `SIZE`, not with generic parameters
+* `VectorRegisterFile` (and so environments executing vector instructions) doesn't compile for harts with `ELEN` other
+  than 32 or 64 bits, as required by Zve* extensions
 
 New features:
 
