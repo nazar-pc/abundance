@@ -1,5 +1,5 @@
 use crate::context::{MethodDetails, NativeExecutorContext};
-use ab_contracts_common::env::{Env, EnvState, ExecutorContext};
+use ab_contracts_common::env::{Env, EnvState};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, MethodKind, MethodMetadataDecoder, MethodMetadataItem, MethodsContainerKind,
 };
@@ -92,19 +92,26 @@ enum PostProcessing {
     },
 }
 
-/// Special container that allows aliasing of `Env` stored inside it and holds onto slots
-enum MaybeEnv<Env, Slots> {
-    None(Slots),
-    ReadOnly(*mut UnsafeCell<Env>),
-    ReadWrite(*mut UnsafeCell<Env>),
+/// Special container that allows aliasing of `Env` stored inside it and tracks the nested context
+/// holding slots.
+///
+/// The nested context is tracked here even when it is given to `Env`, so that the host never reads
+/// anything back from `Env` that the guest had exclusive access to (and could have replaced).
+///
+/// Variants with pointers are only created by `Self::insert_ro()`, `Self::insert_rw()` and
+/// `Self::initialize()`, which `Drop` and `Self::into_slots()` rely on.
+enum MaybeEnv<Env, Context> {
+    None(Context),
+    ReadOnly(*mut UnsafeCell<Env>, Context),
+    ReadWrite(*mut UnsafeCell<Env>, Context),
 }
 
-impl<Env, Slots> Drop for MaybeEnv<Env, Slots> {
+impl<Env, Context> Drop for MaybeEnv<Env, Context> {
     #[inline(always)]
     fn drop(&mut self) {
         match self {
             MaybeEnv::None(_) => {}
-            &mut (MaybeEnv::ReadOnly(env) | MaybeEnv::ReadWrite(env)) => {
+            &mut (MaybeEnv::ReadOnly(env, _) | MaybeEnv::ReadWrite(env, _)) => {
                 // SAFETY: As `self` is being dropped, we can safely assume any aliasing has ended
                 // and drop the original `Box`
                 let _: Box<_> = unsafe { Box::from_raw(env) };
@@ -124,7 +131,7 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
             let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get().cast_const()
         };
-        *self = Self::ReadOnly(env);
+        *self = Self::ReadOnly(env, ());
         env_ptr
     }
 
@@ -138,7 +145,7 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
             let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get()
         };
-        *self = Self::ReadWrite(env);
+        *self = Self::ReadWrite(env, ());
         env_ptr
     }
 
@@ -150,17 +157,24 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
         slots: NestedSlots<'slots>,
         env_state: EnvState,
         create_nested_context: CreateNestedContext,
-    ) -> MaybeEnv<Env<'env>, NestedSlots<'env>>
+    ) -> MaybeEnv<Env<'env>, NonNull<NativeExecutorContext<'slots>>>
     where
         CreateNestedContext:
             FnOnce(NestedSlots<'slots>, bool) -> &'env mut NativeExecutorContext<'slots>,
         'slots: 'env,
     {
+        // Only `#[view]` methods can be called through `&Env`, and without `Env` the nested context
+        // isn't used for calls at all and only holds onto slots
+        let allow_env_mutation = matches!(self, Self::ReadWrite(..));
+        let mut context = NonNull::from_mut(create_nested_context(slots, allow_env_mutation));
+
         match self {
-            Self::None(()) => MaybeEnv::None(slots),
-            Self::ReadOnly(env_ro) => {
-                let env =
-                    Env::with_executor_context(env_state, create_nested_context(slots, false));
+            Self::None(()) => MaybeEnv::None(context),
+            Self::ReadOnly(env_ro, ()) => {
+                // SAFETY: Created from an exclusive reference above. The reference given to
+                // `Env` is derived from this pointer, the pointer itself is only used again in
+                // `Self::into_slots()`, after the guest returned.
+                let env = Env::with_executor_context(env_state, unsafe { context.as_mut() });
                 {
                     // SAFETY: Nothing is accessing `env_ro` right now as per function signature,
                     // and it is guaranteed to be initialized with `Self::insert_ro()` above
@@ -173,10 +187,13 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
 
-                MaybeEnv::ReadOnly(env_ro)
+                MaybeEnv::ReadOnly(env_ro, context)
             }
-            Self::ReadWrite(env_rw) => {
-                let env = Env::with_executor_context(env_state, create_nested_context(slots, true));
+            Self::ReadWrite(env_rw, ()) => {
+                // SAFETY: Created from an exclusive reference above. The reference given to
+                // `Env` is derived from this pointer, the pointer itself is only used again in
+                // `Self::into_slots()`, after the guest returned.
+                let env = Env::with_executor_context(env_state, unsafe { context.as_mut() });
                 {
                     // SAFETY: Nothing is accessing `env_rw` right now as per function signature,
                     // and it is guaranteed to be initialized with `Self::insert_rw()` above
@@ -189,39 +206,29 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
 
-                MaybeEnv::ReadWrite(env_rw)
+                MaybeEnv::ReadWrite(env_rw, context)
             }
         }
     }
 }
 
-impl<'env> MaybeEnv<Env<'env>, NestedSlots<'env>> {
-    /// # Safety
-    /// Nothing must have a live reference to `self` or its internals
+impl<'env, 'slots> MaybeEnv<Env<'env>, NonNull<NativeExecutorContext<'slots>>> {
+    /// Free `Env` (if present) and get slots of the nested context
     #[inline(always)]
-    unsafe fn get_slots_mut<'tmp>(&'tmp mut self) -> &'tmp mut NestedSlots<'env>
-    where
-        'env: 'tmp,
-    {
-        let env = match self {
-            MaybeEnv::None(slots) => {
-                return slots;
-            }
-            MaybeEnv::ReadOnly(env) | MaybeEnv::ReadWrite(env) => env,
+    fn into_slots(self) -> &'env mut NestedSlots<'slots> {
+        let mut context = match self {
+            MaybeEnv::None(context)
+            | MaybeEnv::ReadOnly(_, context)
+            | MaybeEnv::ReadWrite(_, context) => context,
         };
-        // SAFETY: Nothing is accessing `env` right now as per function signature
-        let env = unsafe { env.as_mut_unchecked() };
-        let env = env.get_mut();
-        #[expect(
-            clippy::cast_ptr_alignment,
-            reason = "Correct original type, hence aligned correctly"
-        )]
-        // SAFETY: this is the correct original type, and nothing else is referencing it right now
-        let context = unsafe {
-            &mut *ptr::from_mut::<dyn ExecutorContext + 'tmp>(env.get_mut_executor_context())
-                .cast::<NativeExecutorContext<'env>>()
-        };
-        context.slots.get_mut()
+        // The host doesn't use `Env` anymore
+        drop(self);
+        // SAFETY: Created in `Self::initialize()` from an exclusive reference to the nested context
+        // that is borrowed for `'env`. The only reference derived from it was given to the guest
+        // through `Env`, and the guest can only use it during the FFI call, while `self` (owned by
+        // `make_ffi_call()`) can't be consumed. Consuming `self` also ensures the host doesn't
+        // access `Env` or create another reference to the nested context afterward.
+        unsafe { context.as_mut() }.slots.get_mut()
     }
 }
 
@@ -641,7 +648,7 @@ where
 
     let mut nested_context = None;
     // SAFETY: No live references to `maybe_env`
-    let mut maybe_env = unsafe {
+    let maybe_env = unsafe {
         maybe_env.initialize(slots, env_state, |slots, allow_env_mutation| {
             nested_context.insert(create_nested_context(slots, allow_env_mutation))
         })
@@ -652,8 +659,7 @@ where
     // ABI of the fingerprint, or else it wouldn't compile
     let result = Result::<(), ContractError>::from(unsafe { ffi_fn(internal_args) });
 
-    // SAFETY: No live references to `maybe_env`
-    let slots = unsafe { maybe_env.get_slots_mut() };
+    let slots = maybe_env.into_slots();
 
     if let Err(error) = result {
         slots.reset();

@@ -31,5 +31,8 @@ halfbrown = { workspace = true, features = ["arraybackend", "fxhash"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
+[dev-dependencies]
+ab-contracts-macros = { workspace = true }
+
 [lints]
 workspace = true
