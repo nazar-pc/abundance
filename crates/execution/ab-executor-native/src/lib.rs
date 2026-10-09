@@ -207,6 +207,13 @@ impl NativeExecutorBuilder {
     }
 }
 
+/// Executor of contracts compiled natively for the host.
+///
+/// It trusts contracts and data they forward (like transaction payloads): methods are called
+/// through pointers to arguments as provided by callers, without checking them against method
+/// metadata, which keeps execution as cheap as possible. Arguments that don't match metadata of
+/// the called method are undefined behavior rather than an error, which running tests under Miri
+/// can detect. Executors of untrusted contracts must check arguments against method metadata.
 #[derive(Debug)]
 pub struct NativeExecutor {
     shard_index: ShardIndex,

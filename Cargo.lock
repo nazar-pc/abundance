@@ -252,6 +252,7 @@ dependencies = [
  "derive_more",
  "no-panic",
  "thiserror 2.0.21",
+ "trybuild",
 ]
 
 [[package]]

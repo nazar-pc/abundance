@@ -20,7 +20,6 @@ use ab_core_primitives::address::Address;
 use ab_io_type::MAX_ALIGNMENT;
 use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
-use core::marker::PhantomData;
 use core::mem::{MaybeUninit, offset_of};
 use core::num::{NonZeroU8, NonZeroUsize};
 use core::ops::{Deref, DerefMut};
@@ -377,12 +376,12 @@ impl<const VERIFY: bool> DerefMut for TransactionPayloadDecoderInternal<'_, '_, 
     }
 }
 
-impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decoder, VERIFY> {
+impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp, 'decoder, VERIFY> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn decode_next_method(
         mut self,
-    ) -> Result<Option<PreparedMethod<'decoder>>, TransactionPayloadDecoderError> {
+    ) -> Result<Option<PreparedMethod<'tmp>>, TransactionPayloadDecoderError> {
         if self.payload.len() <= usize::from(MAX_ALIGNMENT) {
             return Ok(None);
         }
@@ -560,13 +559,13 @@ impl<'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'_, 'decode
             }
         }
 
-        Ok(Some(PreparedMethod {
-            contract: *contract,
-            fingerprint: *method_fingerprint,
-            external_args,
+        let decoder = self.0;
+        Ok(Some(PreparedMethod::new_untyped(
+            *contract,
+            *method_fingerprint,
+            &mut *decoder.external_args_buffer,
             method_context,
-            phantom: PhantomData,
-        }))
+        )))
     }
 
     /// Get alignment from its power of two stored in the payload, which must not exceed

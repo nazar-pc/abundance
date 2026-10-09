@@ -37,7 +37,7 @@ impl ExecutorContext for NativeExecutorContext<'_> {
     fn call(
         &self,
         previous_env_state: &EnvState,
-        prepared_method: &mut PreparedMethod<'_>,
+        prepared_method: &PreparedMethod<'_>,
     ) -> Result<(), ContractError> {
         // SAFETY: `NativeExecutorContext` is not `Sync`, slots instance was provided as `&mut` in
         // the constructor (meaning exclusive access) and this function is the only place where it
@@ -51,7 +51,7 @@ impl ExecutorContext for NativeExecutorContext<'_> {
             fingerprint,
             external_args,
             method_context,
-            phantom: _,
+            ..
         } = prepared_method;
 
         let env_state = EnvState {
@@ -87,8 +87,8 @@ impl ExecutorContext for NativeExecutorContext<'_> {
                     ContractError::NotImplemented
                 })?
         };
-        let is_allocate_new_address_method = contract == &self.system_allocator_address
-            && fingerprint == &AddressAllocatorAllocateAddressArgs::FINGERPRINT;
+        let is_allocate_new_address_method = *contract == self.system_allocator_address
+            && *fingerprint == AddressAllocatorAllocateAddressArgs::FINGERPRINT;
 
         make_ffi_call(
             self.allow_env_mutation,
@@ -96,7 +96,7 @@ impl ExecutorContext for NativeExecutorContext<'_> {
             slots,
             *contract,
             method_details,
-            external_args,
+            *external_args,
             env_state,
             |slots, allow_env_mutation| self.new_nested(slots, allow_env_mutation),
         )

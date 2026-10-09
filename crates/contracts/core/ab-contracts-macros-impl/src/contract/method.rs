@@ -1287,9 +1287,8 @@ impl MethodDetails {
 
         Ok(quote_spanned! {fn_sig.span() =>
             #[doc = #args_struct_doc]
-            // Fields are private and can only be set by `Self::new()`, because the host
-            // dereferences pointers in them according to the method signature, while
-            // `PreparedMethod::new()` that hands them over to the host is safe to call
+            // Fields are private and can only be set by `Self::new()`, so that pointers in them
+            // always match the method signature, according to which the host dereferences them
             #[derive(::core::fmt::Debug)]
             #[repr(C)]
             #[allow(rustdoc::redundant_explicit_links, reason = "Macro-generated")]

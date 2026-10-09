@@ -227,13 +227,13 @@ impl<'env> MaybeEnv<Env<'env>, NestedSlots<'env>> {
 
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub(super) fn make_ffi_call<'slots, 'external_args, CreateNestedContext>(
+pub(super) fn make_ffi_call<'slots, CreateNestedContext>(
     allow_env_mutation: bool,
     is_allocate_new_address_method: bool,
     parent_slots: &'slots mut NestedSlots<'slots>,
     contract: Address,
     method_details: MethodDetails,
-    external_args: &'external_args mut NonNull<c_void>,
+    external_args: NonNull<c_void>,
     env_state: EnvState,
     create_nested_context: CreateNestedContext,
 ) -> Result<(), ContractError>

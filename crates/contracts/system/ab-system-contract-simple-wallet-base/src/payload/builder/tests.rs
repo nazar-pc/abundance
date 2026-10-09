@@ -78,7 +78,7 @@ fn payload_encode_decode() {
             fingerprint,
             external_args,
             method_context,
-            phantom: _,
+            ..
         } = decoder.decode_next_method().unwrap().unwrap();
 
         assert_eq!(contract, expected_contract);
@@ -114,7 +114,7 @@ fn payload_encode_decode() {
             fingerprint,
             external_args,
             method_context,
-            phantom: _,
+            ..
         } = unsafe { decoder.decode_next_method_unchecked() }.unwrap();
 
         assert_eq!(contract, expected_contract);
@@ -203,7 +203,7 @@ fn payload_encode_decode_output_index() {
             fingerprint,
             external_args,
             method_context,
-            phantom: _,
+            ..
         } = decode_next_method(&mut decoder, verify).unwrap();
 
         assert_eq!(contract, expected_contract);
@@ -227,7 +227,7 @@ fn payload_encode_decode_output_index() {
             fingerprint,
             external_args,
             method_context,
-            phantom: _,
+            ..
         } = decode_next_method(&mut decoder, verify).unwrap();
 
         assert_eq!(contract, expected_contract);
