@@ -101,14 +101,14 @@ impl fmt::Debug for Address {
 impl PartialEq<&Address> for Address {
     #[inline(always)]
     fn eq(&self, other: &&Address) -> bool {
-        self.0 == other.0
+        self == *other
     }
 }
 
 impl PartialEq<Address> for &Address {
     #[inline(always)]
     fn eq(&self, other: &Address) -> bool {
-        self.0 == other.0
+        *self == other
     }
 }
 
