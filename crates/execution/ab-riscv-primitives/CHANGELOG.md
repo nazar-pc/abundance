@@ -30,7 +30,7 @@ New features:
 * `Vtype::vlmax()` and `Vtype::eew_register_count()`
 * `Instruction::ISA_STRING` with ISA string of an instruction set (as used in `Tag_RISCV_arch` attribute of ELF files)
 * Vector loads and stores with `EEW > ELEN` and `vzext.vf8`/`vsext.vf8` with `ELEN < 64` are rejected during decoding,
-  Zvbc with `ELEN < 64` and Zve* with `ELEN > 64` don't compile
+  Zvbc with `ELEN < 64` and Zve* with `ELEN` other than 32 or 64 don't compile
 
 Fixes:
 
