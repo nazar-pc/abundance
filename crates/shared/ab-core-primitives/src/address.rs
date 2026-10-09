@@ -1,5 +1,8 @@
 //! Address-related primitives
 
+#[cfg(test)]
+mod tests;
+
 use crate::shard::ShardIndex;
 use ab_io_type::trivial_type::TrivialType;
 use bech32::primitives::decode::CheckedHrpstring;
