@@ -70,7 +70,7 @@ bech32 = { version = "0.12.0", default-features = false }
 blake3 = { version = "1.8.7", default-features = false }
 bytes = { version = "1.12.1", default-features = false }
 bytesize = { version = "2.7.0", default-features = false }
-cargo-gpu-install = { version = "=0.10.0-alpha.1", git = "https://github.com/Rust-GPU/rust-gpu", rev = "e6394e08eb3356083b12f732a01906f8e49f7c4a" }
+cargo-gpu-install = { version = "0.10.0", git = "https://github.com/Rust-GPU/rust-gpu", rev = "d83e251c46a0d8e87a8b861ba984e2775e520409" }
 cargo_metadata = { version = "0.23.1" }
 chacha20 = { version = "0.10.2", default-features = false }
 clap = { version = "4.6.7", features = ["derive"] }
@@ -130,25 +130,25 @@ serde_json = "1.0.151"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.0", default-features = false }
 smallvec = { version = "1.16.2", features = ["union"] }
-spirv-std = { version = "=0.10.0-alpha.1", git = "https://github.com/Rust-GPU/rust-gpu", rev = "e6394e08eb3356083b12f732a01906f8e49f7c4a" }
+spirv-std = { version = "0.10.0", git = "https://github.com/Rust-GPU/rust-gpu", rev = "d83e251c46a0d8e87a8b861ba984e2775e520409" }
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 syn = "3.0.6"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.21", default-features = false }
-tokio = { version = "1.53.1", default-features = false }
+tokio = { version = "1.53.2", default-features = false }
 tokio-stream = "0.1.19"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 transparent-wrapper = { version = "0.1.0", features = ["const-trait"] }
-trybuild = "1.0.121"
+trybuild = "1.0.122"
 ulid = "3.0.0"
 unsigned-varint = "0.8.0"
 void = "1.0.2"
 wgpu = { version = "30.0.1", default-features = false, features = ["metal", "parking_lot", "spirv", "std", "vulkan"] }
 windows = { version = "0.62.2", features = ["Win32_Storage_FileSystem"] }
 yoke = { version = "0.8.3", default-features = false }
-zeroize = "1.9.0"
+zeroize = "1.9.1"
 
 # The following libraries have a major impact on developement experience and need to be compiled with optimizations even
 # in debug builds

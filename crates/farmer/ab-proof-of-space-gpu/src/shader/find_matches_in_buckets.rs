@@ -164,7 +164,7 @@ pub(super) unsafe fn find_matches_in_buckets_impl(
             // SAFETY: TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
             let local_matches_offset = unsafe {
-                atomic_i_add::<_, const { Scope::Workgroup as u32 }, const { Semantics::NONE.bits() }>(
+                atomic_i_add::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(
                     matches_counter,
                     local_matches_count,
                 )
