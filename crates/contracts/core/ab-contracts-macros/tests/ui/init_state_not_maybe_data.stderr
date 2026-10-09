@@ -1,0 +1,17 @@
+error[E0308]: mismatched types
+  --> tests/ui/init_state_not_maybe_data.rs:19:42
+   |
+19 |         pub fn new(#[output] state: &mut Many<Self>) {
+   |                                          ^^^^^^^^^^ expected `PhantomData<MaybeData<Example>>`, found `PhantomData<[Example; 64]>`
+   |
+   = note: expected struct `PhantomData<MaybeData<alias::Example>>`
+              found struct `PhantomData<[alias::Example; 64]>`
+
+error[E0308]: mismatched types
+  --> tests/ui/init_state_not_maybe_data.rs:39:42
+   |
+39 |         pub fn new(#[output] state: &mut VariableElements<Self>) {
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^ expected `PhantomData<MaybeData<Example>>`, found `PhantomData<VariableElements<Example>>`
+   |
+   = note: expected struct `PhantomData<MaybeData<variable_elements::Example>>`
+              found struct `PhantomData<ab_io_type::variable_elements::VariableElements<variable_elements::Example>>`

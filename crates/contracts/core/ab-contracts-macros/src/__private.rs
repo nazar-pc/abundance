@@ -6,6 +6,7 @@ pub use ab_contracts_common::{
     MAX_TOTAL_METHOD_ARGS, NativeExecutorContactMethod,
 };
 pub use ab_core_primitives::address::Address;
+pub use ab_io_type::maybe_data::MaybeData;
 pub use ab_io_type::metadata::{MAX_METADATA_CAPACITY, concat_metadata_sources};
 pub use ab_io_type::trivial_type::TrivialType;
 pub use ab_io_type::variable_bytes::VariableBytes;

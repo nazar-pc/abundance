@@ -36,6 +36,9 @@ pub mod __private;
 ///
 /// Initializer's purpose is to produce the initial state of the contract.
 ///
+/// The initial state is the return value (`Self` or `Result<Self, ContractError>`) or, without
+/// a return value, the last `#[output]`, which must be `MaybeData<Self>`.
+///
 /// This method type supports the following arguments (must be in this order):
 /// * `#[env]` read-only and read-write
 /// * `#[tmp]` read-only and read-write

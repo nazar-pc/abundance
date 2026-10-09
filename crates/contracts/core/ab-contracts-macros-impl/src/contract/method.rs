@@ -980,6 +980,23 @@ impl MethodDetails {
             }});
         }
 
+        // The host stores the last `#[output]` of `#[init]` without a return value as the state of
+        // the contract, so it must be exactly `MaybeData<Self>` and not, for example, an alias of
+        // a container of multiple values
+        if matches!(self.method_type, MethodType::Init)
+            && self.return_type.unit_return_type()
+            && let Some(state_output) = self.outputs.last()
+        {
+            let type_name = &state_output.type_name;
+            preparation.push(quote_spanned! {type_name.span() =>
+                const {
+                    let _: ::core::marker::PhantomData<
+                        ::ab_contracts_macros::__private::MaybeData<#self_type>,
+                    > = ::core::marker::PhantomData::<#type_name>;
+                }
+            });
+        }
+
         let original_method_name = &fn_sig.ident;
         let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
         let return_type = self.return_type.return_type();
