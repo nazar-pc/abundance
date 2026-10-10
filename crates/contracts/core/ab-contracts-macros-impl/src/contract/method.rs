@@ -481,10 +481,12 @@ impl MethodDetails {
         if let Type::Reference(type_reference) = &*pat_type.ty
             && type_reference.mutability.is_some()
         {
+            // Unlike inputs, reference patterns like `&mut value` are not allowed, since the output
+            // could not be modified through them
             let Pat::Ident(pat_ident) = &*pat_type.pat else {
                 return Err(Error::new(
                     pat_type.span(),
-                    "`#[output]` argument name must be an exclusive reference",
+                    "`#[output]` argument name must be a simple variable",
                 ));
             };
 
