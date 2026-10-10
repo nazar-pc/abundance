@@ -1,5 +1,5 @@
 use crate::context::{MethodDetails, NativeExecutorContext};
-use ab_contracts_common::env::{Env, EnvState, ExecutorContext};
+use ab_contracts_common::env::{Env, EnvState};
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, MethodKind, MethodMetadataDecoder, MethodMetadataItem, MethodsContainerKind,
 };
@@ -19,6 +19,25 @@ use tracing::{debug, error, warn};
 // address + data + size + capacity
 const INTERNAL_ARGS_SIZE: usize =
     usize::from(MAX_TOTAL_METHOD_ARGS) * (size_of::<*mut c_void>() * 2 + size_of::<u32>() * 2);
+
+// Only pointers and the structs below are written into `InternalArgs`. A single argument takes at
+// most `INTERNAL_ARGS_SIZE / MAX_TOTAL_METHOD_ARGS` bytes, and since sizes of written values are
+// multiples of the pointer alignment, which their alignment doesn't exceed, a cursor that starts at
+// the beginning of a buffer of pointers stays correctly aligned after every write.
+const _: () = {
+    assert!(
+        size_of::<*const Address>() + size_of::<FfiDataSizeCapacityRo>()
+            <= INTERNAL_ARGS_SIZE / usize::from(MAX_TOTAL_METHOD_ARGS)
+    );
+    assert!(
+        size_of::<*const Address>() + size_of::<FfiDataSizeCapacityRw>()
+            <= INTERNAL_ARGS_SIZE / usize::from(MAX_TOTAL_METHOD_ARGS)
+    );
+    assert!(size_of::<FfiDataSizeCapacityRo>().is_multiple_of(align_of::<*mut c_void>()));
+    assert!(size_of::<FfiDataSizeCapacityRw>().is_multiple_of(align_of::<*mut c_void>()));
+    assert!(align_of::<FfiDataSizeCapacityRo>() <= align_of::<*mut c_void>());
+    assert!(align_of::<FfiDataSizeCapacityRw>() <= align_of::<*mut c_void>());
+};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -43,7 +62,7 @@ struct FfiDataSizeCapacityRw {
 /// have the correct alignment for the type being read.
 #[inline(always)]
 unsafe fn read_external_args<T>(external_args: &mut NonNull<c_void>) -> T {
-    // SAFETY: guaranteed by this function signature
+    // SAFETY: Guaranteed by the function contract
     unsafe {
         let value = external_args.cast::<T>().read();
         *external_args = external_args.byte_add(size_of::<T>());
@@ -58,7 +77,7 @@ unsafe fn read_external_args<T>(external_args: &mut NonNull<c_void>) -> T {
 /// have the correct alignment for the type being written.
 #[inline(always)]
 unsafe fn write_internal_args<T>(internal_args: &mut NonNull<c_void>, value: T) {
-    // SAFETY: guaranteed by this function signature
+    // SAFETY: Guaranteed by the function contract
     unsafe {
         internal_args.cast::<T>().write(value);
         *internal_args = internal_args.byte_add(size_of::<T>());
@@ -92,21 +111,29 @@ enum PostProcessing {
     },
 }
 
-/// Special container that allows aliasing of `Env` stored inside it and holds onto slots
-enum MaybeEnv<Env, Slots> {
-    None(Slots),
-    ReadOnly(*mut UnsafeCell<Env>),
-    ReadWrite(*mut UnsafeCell<Env>),
+/// Special container that allows aliasing of `Env` stored inside it and tracks the nested context
+/// holding slots.
+///
+/// The nested context is tracked here even when it is given to `Env`, so that the host never reads
+/// anything back from `Env` that the guest had exclusive access to (and could have replaced).
+///
+/// Variants with pointers are only created by `Self::insert_ro()`, `Self::insert_rw()` and
+/// `Self::initialize()`, which `Drop` and `Self::into_slots()` rely on.
+enum MaybeEnv<Env, Context> {
+    None(Context),
+    ReadOnly(*mut UnsafeCell<Env>, Context),
+    ReadWrite(*mut UnsafeCell<Env>, Context),
 }
 
-impl<Env, Slots> Drop for MaybeEnv<Env, Slots> {
+impl<Env, Context> Drop for MaybeEnv<Env, Context> {
     #[inline(always)]
     fn drop(&mut self) {
         match self {
             MaybeEnv::None(_) => {}
-            &mut (MaybeEnv::ReadOnly(env) | MaybeEnv::ReadWrite(env)) => {
-                // SAFETY: As `self` is being dropped, we can safely assume any aliasing has ended
-                // and drop the original `Box`
+            &mut (MaybeEnv::ReadOnly(env, _) | MaybeEnv::ReadWrite(env, _)) => {
+                // SAFETY: Created with `Box::into_raw()` in `insert_ro()`/`insert_rw()` and only
+                // freed here. The guest gets a pointer to it only for the duration of the FFI call,
+                // during which `self` (owned by `make_ffi_call()`) can't be dropped.
                 let _: Box<_> = unsafe { Box::from_raw(env) };
             }
         }
@@ -120,11 +147,12 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
     fn insert_ro(&mut self) -> *const MaybeUninit<Env<'env>> {
         let env = Box::into_raw(Box::new(UnsafeCell::new(MaybeUninit::uninit())));
         let env_ptr = {
-            // SAFETY: Just initialized, no other references to the value
+            // SAFETY: Valid pointer from `Box::into_raw()` right above, nothing else references
+            // the value yet
             let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get().cast_const()
         };
-        *self = Self::ReadOnly(env);
+        *self = Self::ReadOnly(env, ());
         env_ptr
     }
 
@@ -134,11 +162,12 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
     fn insert_rw(&mut self) -> *mut MaybeUninit<Env<'env>> {
         let env = Box::into_raw(Box::new(UnsafeCell::new(MaybeUninit::uninit())));
         let env_ptr = {
-            // SAFETY: Just initialized, no other references to the value
+            // SAFETY: Valid pointer from `Box::into_raw()` right above, nothing else references
+            // the value yet
             let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get()
         };
-        *self = Self::ReadWrite(env);
+        *self = Self::ReadWrite(env, ());
         env_ptr
     }
 
@@ -150,20 +179,28 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
         slots: NestedSlots<'slots>,
         env_state: EnvState,
         create_nested_context: CreateNestedContext,
-    ) -> MaybeEnv<Env<'env>, NestedSlots<'env>>
+    ) -> MaybeEnv<Env<'env>, NonNull<NativeExecutorContext<'slots>>>
     where
         CreateNestedContext:
             FnOnce(NestedSlots<'slots>, bool) -> &'env mut NativeExecutorContext<'slots>,
         'slots: 'env,
     {
+        // Only `#[view]` methods can be called through `&Env`, and without `Env` the nested context
+        // isn't used for calls at all and only holds onto slots
+        let allow_env_mutation = matches!(self, Self::ReadWrite(..));
+        let mut context = NonNull::from_mut(create_nested_context(slots, allow_env_mutation));
+
         match self {
-            Self::None(()) => MaybeEnv::None(slots),
-            Self::ReadOnly(env_ro) => {
-                let env =
-                    Env::with_executor_context(env_state, create_nested_context(slots, false));
+            Self::None(()) => MaybeEnv::None(context),
+            Self::ReadOnly(env_ro, ()) => {
+                // SAFETY: Created from an exclusive reference above. The reference given to
+                // `Env` is derived from this pointer, the pointer itself is only used again in
+                // `Self::into_slots()`, after the guest returned.
+                let env = Env::with_executor_context(env_state, unsafe { context.as_mut() });
                 {
-                    // SAFETY: Nothing is accessing `env_ro` right now as per function signature,
-                    // and it is guaranteed to be initialized with `Self::insert_ro()` above
+                    // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_ro()`, which is
+                    // only freed when `self` is dropped. Only the pointer to it was given out so
+                    // far, and nothing has a live reference to it as per function contract.
                     let env_ro = unsafe { env_ro.as_mut_unchecked() };
                     env_ro.get_mut().write(env);
                 }
@@ -173,13 +210,17 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
 
-                MaybeEnv::ReadOnly(env_ro)
+                MaybeEnv::ReadOnly(env_ro, context)
             }
-            Self::ReadWrite(env_rw) => {
-                let env = Env::with_executor_context(env_state, create_nested_context(slots, true));
+            Self::ReadWrite(env_rw, ()) => {
+                // SAFETY: Created from an exclusive reference above. The reference given to
+                // `Env` is derived from this pointer, the pointer itself is only used again in
+                // `Self::into_slots()`, after the guest returned.
+                let env = Env::with_executor_context(env_state, unsafe { context.as_mut() });
                 {
-                    // SAFETY: Nothing is accessing `env_rw` right now as per function signature,
-                    // and it is guaranteed to be initialized with `Self::insert_rw()` above
+                    // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_rw()`, which is
+                    // only freed when `self` is dropped. Only the pointer to it was given out so
+                    // far, and nothing has a live reference to it as per function contract.
                     let env_rw = unsafe { env_rw.as_mut_unchecked() };
                     env_rw.get_mut().write(env);
                 }
@@ -189,45 +230,43 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
 
-                MaybeEnv::ReadWrite(env_rw)
+                MaybeEnv::ReadWrite(env_rw, context)
             }
         }
     }
 }
 
-impl<'env> MaybeEnv<Env<'env>, NestedSlots<'env>> {
-    /// # Safety
-    /// Nothing must have a live reference to `self` or its internals
+impl<'env, 'slots> MaybeEnv<Env<'env>, NonNull<NativeExecutorContext<'slots>>> {
+    /// Free `Env` (if present) and get slots of the nested context
     #[inline(always)]
-    unsafe fn get_slots_mut<'tmp>(&'tmp mut self) -> &'tmp mut NestedSlots<'env>
-    where
-        'env: 'tmp,
-    {
-        let env = match self {
-            MaybeEnv::None(slots) => {
-                return slots;
-            }
-            MaybeEnv::ReadOnly(env) | MaybeEnv::ReadWrite(env) => env,
+    fn into_slots(self) -> &'env mut NestedSlots<'slots> {
+        let mut context = match self {
+            MaybeEnv::None(context)
+            | MaybeEnv::ReadOnly(_, context)
+            | MaybeEnv::ReadWrite(_, context) => context,
         };
-        // SAFETY: Nothing is accessing `env` right now as per function signature
-        let env = unsafe { env.as_mut_unchecked() };
-        let env = env.get_mut();
-        #[expect(
-            clippy::cast_ptr_alignment,
-            reason = "Correct original type, hence aligned correctly"
-        )]
-        // SAFETY: this is the correct original type, and nothing else is referencing it right now
-        let context = unsafe {
-            &mut *ptr::from_mut::<dyn ExecutorContext + 'tmp>(env.get_mut_executor_context())
-                .cast::<NativeExecutorContext<'env>>()
-        };
-        context.slots.get_mut()
+        // The host doesn't use `Env` anymore
+        drop(self);
+        // SAFETY: Created in `Self::initialize()` from an exclusive reference to the nested context
+        // that is borrowed for `'env`. The only reference derived from it was given to the guest
+        // through `Env`, and the guest can only use it during the FFI call, while `self` (owned by
+        // `make_ffi_call()`) can't be consumed. Consuming `self` also ensures the host doesn't
+        // access `Env` or create another reference to the nested context afterward.
+        unsafe { context.as_mut() }.slots.get_mut()
     }
 }
 
+/// Call method of a contract through its FFI function.
+///
+/// # Safety
+/// `external_args` must point to arguments laid out as
+/// [`ExternalArgs`](ab_contracts_common::method::ExternalArgs) of the method described by
+/// `method_details`, with all pointers in them valid for the whole call according to the method
+/// signature. The native executor trusts contracts and their callers to uphold this, see
+/// [`NativeExecutor`](crate::NativeExecutor).
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
-pub(super) fn make_ffi_call<'slots, CreateNestedContext>(
+pub(super) unsafe fn make_ffi_call<'slots, CreateNestedContext>(
     allow_env_mutation: bool,
     is_allocate_new_address_method: bool,
     parent_slots: &'slots mut NestedSlots<'slots>,
@@ -249,7 +288,11 @@ where
     } = method_details;
 
     // Allocate a buffer that will contain incrementally built `InternalArgs` that the method
-    // expects, according to its metadata
+    // expects, according to its metadata.
+    //
+    // Writes into it are in bounds and aligned: there are at most `MAX_TOTAL_METHOD_ARGS`
+    // arguments including `self` (checked below), each written in one go, which is within bounds
+    // and keeps the cursor aligned as asserted next to `INTERNAL_ARGS_SIZE`.
     let mut internal_args =
         MaybeUninit::<[*mut c_void; INTERNAL_ARGS_SIZE / size_of::<*const c_void>()]>::uninit();
     let mut post_processing = ArrayVec::<_, { usize::from(MAX_TOTAL_METHOD_ARGS) }>::new_const();
@@ -334,8 +377,7 @@ where
                 return Err(ContractError::Forbidden);
             }
 
-            // SAFETY: `internal_args_cursor`'s memory is allocated with a sufficient size above
-            // and aligned correctly
+            // SAFETY: In bounds of `internal_args` and aligned, see its allocation
             unsafe {
                 write_internal_args(
                     internal_args_cursor,
@@ -372,8 +414,7 @@ where
                 must_be_not_empty: false,
             });
 
-            // SAFETY: `internal_args_cursor`'s memory is allocated with a sufficient size above
-            // and aligned correctly
+            // SAFETY: In bounds of `internal_args` and aligned, see its allocation
             unsafe {
                 write_internal_args(
                     internal_args_cursor,
@@ -408,8 +449,7 @@ where
                 // Allocate and create a pointer now, the actual value will be inserted towards the
                 // end of the function
                 let env_ro = maybe_env.insert_ro().cast::<Env<'_>>();
-                // SAFETY: `internal_args_cursor`'s memory is allocated with a sufficient size
-                // above and aligned correctly
+                // SAFETY: In bounds of `internal_args` and aligned, see its allocation
                 unsafe {
                     write_internal_args(internal_args_cursor, env_ro);
                 }
@@ -425,8 +465,7 @@ where
                 // end of the function
                 let env_rw = maybe_env.insert_rw().cast::<Env<'_>>();
 
-                // SAFETY: `internal_args_cursor`'s memory is allocated with a sufficient size
-                // above and aligned correctly
+                // SAFETY: In bounds of `internal_args` and aligned, see its allocation
                 unsafe {
                     write_internal_args(internal_args_cursor, env_rw);
                 }
@@ -445,8 +484,9 @@ where
                     // this contract to write something there directly
                     (&contract, Address::NULL)
                 } else {
-                    // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
-                    // moving right past that is safe
+                    // SAFETY: Arguments before this one were read in metadata order, so the
+                    // cursor points to this slot's field in `ExternalArgs`, which is a pointer to
+                    // the address, valid for reads during the call as per function contract
                     (
                         unsafe { &*read_external_args::<*const Address>(external_args_cursor) },
                         contract,
@@ -459,8 +499,7 @@ where
                 };
                 let slot_bytes = slots.use_ro(slot_key).ok_or(ContractError::Forbidden)?;
 
-                // SAFETY: `internal_args_cursor`'s memory is allocated with a sufficient size
-                // above and aligned correctly
+                // SAFETY: In bounds of `internal_args` and aligned, see its allocation
                 unsafe {
                     if !tmp {
                         write_internal_args(internal_args_cursor, owner);
@@ -487,8 +526,9 @@ where
                     // this contract to write something there directly
                     (&contract, Address::NULL, recommended_tmp_capacity)
                 } else {
-                    // SAFETY: `external_args_cursor`'s must contain a valid pointer to address,
-                    // moving right past that is safe
+                    // SAFETY: Arguments before this one were read in metadata order, so the
+                    // cursor points to this slot's field in `ExternalArgs`, which is a pointer to
+                    // the address, valid for reads during the call as per function contract
                     let address =
                         unsafe { &*read_external_args::<*const Address>(external_args_cursor) };
 
@@ -504,8 +544,7 @@ where
                     .ok_or(ContractError::Forbidden)?;
 
                 if !tmp {
-                    // SAFETY: `internal_args_cursor`'s memory is allocated with a sufficient size
-                    // above and aligned correctly
+                    // SAFETY: In bounds of `internal_args` and aligned, see its allocation
                     unsafe {
                         write_internal_args(internal_args_cursor, owner);
                     }
@@ -517,8 +556,7 @@ where
                     must_be_not_empty: false,
                 });
 
-                // SAFETY: `internal_args_cursor`'s memory is allocated with a sufficient size
-                // above and aligned correctly
+                // SAFETY: In bounds of `internal_args` and aligned, see its allocation
                 unsafe {
                     write_internal_args(
                         internal_args_cursor,
@@ -531,9 +569,10 @@ where
                 }
             }
             ArgumentKind::Input => {
-                // SAFETY: `external_args_cursor` must point to an input pointer + size + capacity.
-                // `internal_args_cursor`'s memory is allocated with a sufficient size above and
-                // aligned correctly.
+                // SAFETY: Arguments before this one were read in metadata order, so the cursor
+                // points to this input's pointer, size and capacity in `ExternalArgs` as per
+                // function contract. Writing is in bounds of `internal_args` and aligned, see its
+                // allocation.
                 unsafe {
                     let data_size_capacity =
                         read_external_args::<FfiDataSizeCapacityRw>(external_args_cursor);
@@ -563,19 +602,21 @@ where
                     }
 
                     if matches!(argument_kind, ArgumentKind::Return) {
-                        // SAFETY: `internal_args_cursor`'s memory is allocated with a sufficient
-                        // size above and aligned correctly
+                        // SAFETY: In bounds of `internal_args` and aligned, see its allocation
                         unsafe {
                             // The return type is `TrivialType` and doesn't have size/capacity
                             write_internal_args(internal_args_cursor, state_bytes.as_mut_ptr());
                         }
-                        // SAFETY: While the data is uninitialized, it will not be read except
-                        // through the above pointer until and unless the method returns
-                        // successfully, in which case the data will in fact be initialized.
-                        // It is more efficient to just set the length here right away than do
-                        // explicit post-processing below.
+                        // SAFETY: The return type is the state type (enforced by `#[contract]` for
+                        // `#[init]`), which is `TrivialType`, so its recommended capacity in
+                        // metadata is its size, and `use_rw()` above ensured at least that much
+                        // capacity. The bytes are not read until the method returns, and on
+                        // success it has written the whole state through the pointer above. On
+                        // error slots are reset and the bytes are discarded. It is more efficient
+                        // to just set the length here right away than do explicit post-processing
+                        // below.
                         unsafe {
-                            state_bytes.set_len(state_bytes.capacity());
+                            state_bytes.set_len(recommended_state_capacity);
                         }
                     } else {
                         post_processing.push(PostProcessing::Slot {
@@ -584,8 +625,7 @@ where
                             must_be_not_empty: true,
                         });
 
-                        // SAFETY: `internal_args_cursor`'s memory is allocated with a sufficient
-                        // size above and aligned correctly
+                        // SAFETY: In bounds of `internal_args` and aligned, see its allocation
                         unsafe {
                             write_internal_args(
                                 internal_args_cursor,
@@ -599,20 +639,20 @@ where
                     }
                 } else {
                     if last_argument && is_allocate_new_address_method {
-                        // SAFETY: `external_args_cursor`'s must contain a single pointer for new
-                        // address allocation.
-                        // `internal_args_cursor`'s memory is allocated with a sufficient size above
-                        // and aligned correctly.
+                        // SAFETY: Arguments before this one were read in metadata order, so the
+                        // cursor points to the return value pointer in `ExternalArgs` of
+                        // `AddressAllocator::allocate_address()` as per function contract. Writing
+                        // is in bounds of `internal_args` and aligned, see its allocation.
                         unsafe {
                             let address = read_external_args::<*mut Address>(external_args_cursor);
                             write_internal_args(internal_args_cursor, address);
                             new_address_ptr.replace(address);
                         }
                     } else if matches!(argument_kind, ArgumentKind::Return) {
-                        // SAFETY: `external_args_cursor`'s must contain a single pointer for return
-                        // value.
-                        // `internal_args_cursor`'s memory is allocated with a sufficient size above
-                        // and aligned correctly.
+                        // SAFETY: Arguments before this one were read in metadata order, so the
+                        // cursor points to the return value pointer in `ExternalArgs` as per
+                        // function contract. Writing is in bounds of `internal_args` and aligned,
+                        // see its allocation.
                         unsafe {
                             // The return type is `TrivialType` and doesn't have size/capacity
                             let data = read_external_args::<*mut u8>(external_args_cursor);
@@ -624,10 +664,10 @@ where
                             external_args_ptr: *external_args_cursor,
                         });
 
-                        // SAFETY: `external_args_cursor`'s must contain an output pointer + size
-                        // + capacity.
-                        // `internal_args_cursor`'s memory is allocated with a sufficient size above
-                        // and aligned correctly.
+                        // SAFETY: Arguments before this one were read in metadata order, so the
+                        // cursor points to this output's pointer, size and capacity in
+                        // `ExternalArgs` as per function contract. Writing is in bounds of
+                        // `internal_args` and aligned, see its allocation.
                         unsafe {
                             let data_size_capacity =
                                 read_external_args::<FfiDataSizeCapacityRw>(external_args_cursor);
@@ -640,20 +680,26 @@ where
     }
 
     let mut nested_context = None;
-    // SAFETY: No live references to `maybe_env`
-    let mut maybe_env = unsafe {
+    // SAFETY: `internal_args` only holds a raw pointer to `Env` and no references exist
+    let maybe_env = unsafe {
         maybe_env.initialize(slots, env_state, |slots, allow_env_mutation| {
             nested_context.insert(create_nested_context(slots, allow_env_mutation))
         })
     };
 
     let internal_args = internal_args.cast::<c_void>();
-    // SAFETY: FFI function was generated at the same time as corresponding `Args` and must match
-    // ABI of the fingerprint, or else it wouldn't compile
+    // SAFETY: `internal_args` was built according to `method_metadata`, which `#[contract]`
+    // generated together with `ffi_fn` for the same method (the native executor trusts contracts,
+    // including manual `Contract` implementations, to pair them correctly, see `NativeExecutor`).
+    // Pointers in it stay valid for the whole call:
+    // * state and slot buffers belong to `slots` and are registered as accessed there, so nested
+    //   calls can't modify or reallocate them
+    // * `Env` is allocated in `maybe_env` and only freed when it is consumed after the call, the
+    //   nested context lives in `nested_context`, which outlives the call
+    // * the rest comes from `external_args`, valid during the call as per function contract
     let result = Result::<(), ContractError>::from(unsafe { ffi_fn(internal_args) });
 
-    // SAFETY: No live references to `maybe_env`
-    let slots = unsafe { maybe_env.get_slots_mut() };
+    let slots = maybe_env.into_slots();
 
     if let Err(error) = result {
         slots.reset();
@@ -667,7 +713,9 @@ where
         // Assert that the API has the expected shape
         let _: fn(&mut AddressAllocator, &mut Env<'_>) -> Result<Address, ContractError> =
             AddressAllocator::allocate_address;
-        // SAFETY: Method call to address allocator succeeded, so it must have returned an address
+        // SAFETY: `new_address_ptr` is the return value pointer of
+        // `AddressAllocator::allocate_address()` (checked above), which the guest initialized since
+        // the call succeeded
         let new_address = unsafe { new_address_ptr.read() };
         if !slots.add_new_contract(new_address) {
             warn!("Failed to add new contract returned by address allocator");
@@ -682,8 +730,8 @@ where
                 slot_index,
                 must_be_not_empty,
             } => {
-                // SAFETY: Correct pointer created earlier that is not used for anything else at the
-                // moment
+                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
+                // this slot above, which is still alive, and the guest no longer accesses it
                 let FfiDataSizeCapacityRw {
                     data_ptr,
                     size,
@@ -709,8 +757,9 @@ where
                         error!("Contract returned `null` pointer for slot data");
                         return Err(ContractError::BadOutput);
                     }
-                    // SAFETY: For native execution guest behavior is assumed to be trusted and
-                    // provide a correct pointer and size
+                    // SAFETY: The guest replaced the slot contents with a different allocation,
+                    // whose first `size` bytes are initialized as required by `IoType` (the native
+                    // executor trusts contracts to uphold it, see `NativeExecutor`)
                     let data =
                         unsafe { slice::from_raw_parts(data_ptr.cast::<u8>(), size as usize) };
                     slot_bytes.copy_from_slice(data);
@@ -727,8 +776,9 @@ where
                 }
                 // Otherwise, set the size to what guest claims
                 //
-                // SAFETY: For native execution guest behavior is assumed to be trusted and provide
-                // the correct size
+                // SAFETY: Checked to be within capacity above, and the guest initialized the first
+                // `size` bytes as required by `IoType` (the native executor trusts contracts to
+                // uphold it, see `NativeExecutor`)
                 unsafe {
                     slot_bytes.set_len(size);
                 }
@@ -737,12 +787,13 @@ where
                 internal_args_ptr,
                 external_args_ptr,
             } => {
-                // SAFETY: Correct pointer created earlier that is not used for anything else at the
-                // moment
+                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
+                // this output above, which is still alive, and the guest no longer accesses it
                 let source_size =
                     unsafe { internal_args_ptr.cast::<FfiDataSizeCapacityRw>().read() }.size;
-                // SAFETY: Correct pointer created earlier that is not used for anything else at the
-                // moment
+                // SAFETY: Points to this output's pointer, size and capacity in `ExternalArgs`,
+                // which are valid for writes during the call as per function contract and not
+                // accessed by anything else, since the guest returned
                 let FfiDataSizeCapacityRw {
                     data_ptr: _,
                     size,

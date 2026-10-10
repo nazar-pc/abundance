@@ -187,14 +187,6 @@ impl<'a> Env<'a> {
         }
     }
 
-    /// Instantiate environment with executor context
-    #[cfg(feature = "executor")]
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn get_mut_executor_context(&mut self) -> &mut dyn ExecutorContext {
-        self.executor_context
-    }
-
     /// Shard index where execution is happening
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]

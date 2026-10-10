@@ -1,0 +1,14 @@
+error: `#[init]` must return `Self` or, without a return value, have `Self` as the last `#[output]` argument
+  --> tests/ui/init_return_not_state.rs:17:13
+   |
+17 |         pub fn new(#[output] state: &mut ab_io_type::maybe_data::MaybeData<Self>) -> u8 {
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[init]` must return `Self` or, without a return value, have `Self` as the last `#[output]` argument
+  --> tests/ui/init_return_not_state.rs:37:13
+   |
+37 |           pub fn new(
+   |  _____________^
+38 | |             #[output] state: &mut ab_io_type::maybe_data::MaybeData<Self>,
+39 | |         ) -> Result<u8, ab_contracts_common::ContractError> {
+   | |___________________________________________________________^

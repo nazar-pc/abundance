@@ -1,0 +1,65 @@
+error[E0277]: the trait bound `ab_io_type::variable_bytes::VariableBytes: TrivialType` is not satisfied
+  --> tests/ui/return_not_trivial_type.rs:18:30
+   |
+18 |         pub fn get(&self) -> VariableBytes<0> {
+   |                              ^^^^^^^^^^^^^^^^ the trait `TrivialType` is not implemented for `ab_io_type::variable_bytes::VariableBytes`
+   |
+   = help: the following other types implement trait `TrivialType`:
+             ()
+             EnvState
+             FixedCapacityBytesU16<CAPACITY>
+             FixedCapacityBytesU8<CAPACITY>
+             FixedCapacityStringU16<CAPACITY>
+             FixedCapacityStringU8<CAPACITY>
+             MethodContext
+             MethodFingerprint
+           and $N others
+note: required by a bound in `<Env<'_> as ExampleExt>::example_get::{constant#1}::assert_impl_trivial_type`
+  --> tests/ui/return_not_trivial_type.rs:18:13
+   |
+18 |         pub fn get(&self) -> VariableBytes<0> {
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `assert_impl_trivial_type`
+
+error[E0277]: the trait bound `ab_io_type::variable_bytes::VariableBytes: TrivialType` is not satisfied
+  --> tests/ui/return_not_trivial_type.rs:18:30
+   |
+18 |         pub fn get(&self) -> VariableBytes<0> {
+   |                              ^^^^^^^^^^^^^^^^ the trait `TrivialType` is not implemented for `ab_io_type::variable_bytes::VariableBytes`
+   |
+   = help: the following other types implement trait `TrivialType`:
+             ()
+             EnvState
+             FixedCapacityBytesU16<CAPACITY>
+             FixedCapacityBytesU8<CAPACITY>
+             FixedCapacityStringU16<CAPACITY>
+             FixedCapacityStringU8<CAPACITY>
+             MethodContext
+             MethodFingerprint
+           and $N others
+note: required by a bound in `method::ffi::get::example_get::{constant#0}::assert_impl_trivial_type`
+  --> tests/ui/return_not_trivial_type.rs:18:30
+   |
+18 |         pub fn get(&self) -> VariableBytes<0> {
+   |                              ^^^^^^^^^^^^^^^^ required by this bound in `assert_impl_trivial_type`
+
+error[E0277]: the trait bound `ab_io_type::variable_bytes::VariableBytes: TrivialType` is not satisfied
+  --> tests/ui/return_not_trivial_type.rs:32:41
+   |
+32 |         fn get(#[env] env: &Env<'_>) -> VariableBytes<0>;
+   |                                         ^^^^^^^^^^^^^^^^ the trait `TrivialType` is not implemented for `ab_io_type::variable_bytes::VariableBytes`
+   |
+   = help: the following other types implement trait `TrivialType`:
+             ()
+             EnvState
+             FixedCapacityBytesU16<CAPACITY>
+             FixedCapacityBytesU8<CAPACITY>
+             FixedCapacityStringU16<CAPACITY>
+             FixedCapacityStringU8<CAPACITY>
+             MethodContext
+             MethodFingerprint
+           and $N others
+note: required by a bound in `<Env<'_> as GetterExt>::getter_get::{constant#1}::assert_impl_trivial_type`
+  --> tests/ui/return_not_trivial_type.rs:32:9
+   |
+32 |         fn get(#[env] env: &Env<'_>) -> VariableBytes<0>;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `assert_impl_trivial_type`

@@ -39,9 +39,10 @@ impl ExecutorContext for NativeExecutorContext<'_> {
         previous_env_state: &EnvState,
         prepared_method: &PreparedMethod<'_>,
     ) -> Result<(), ContractError> {
-        // SAFETY: `NativeExecutorContext` is not `Sync`, slots instance was provided as `&mut` in
-        // the constructor (meaning exclusive access) and this function is the only place where it
-        // is accessed without recursive calls to itself
+        // SAFETY: Slots are owned by `self` and only accessed here. This function doesn't run
+        // concurrently for the same context since `NativeExecutorContext` is `!Sync`, and it isn't
+        // re-entered either: the `Env` holding `self` belongs to the caller, which is suspended
+        // until this call returns, while callees get their own nested contexts.
         // TODO: This ignores the lifetime by going through the pointer, find a way to make it work
         //  with the inherited lifetime
         let slots = unsafe { self.slots.get().as_mut_unchecked() };
@@ -90,16 +91,22 @@ impl ExecutorContext for NativeExecutorContext<'_> {
         let is_allocate_new_address_method = *contract == self.system_allocator_address
             && *fingerprint == AddressAllocatorAllocateAddressArgs::FINGERPRINT;
 
-        make_ffi_call(
-            self.allow_env_mutation,
-            is_allocate_new_address_method,
-            slots,
-            *contract,
-            method_details,
-            *external_args,
-            env_state,
-            |slots, allow_env_mutation| self.new_nested(slots, allow_env_mutation),
-        )
+        // SAFETY: `method_details` were found by the fingerprint of `prepared_method`, so
+        // `external_args` are expected to be laid out as `ExternalArgs` of this exact method. The
+        // native executor doesn't check this against metadata and trusts callers instead (see
+        // `NativeExecutor`), which is also a safety requirement of `ExternalArgs` for typed calls.
+        unsafe {
+            make_ffi_call(
+                self.allow_env_mutation,
+                is_allocate_new_address_method,
+                slots,
+                *contract,
+                method_details,
+                *external_args,
+                env_state,
+                |slots, allow_env_mutation| self.new_nested(slots, allow_env_mutation),
+            )
+        }
     }
 }
 

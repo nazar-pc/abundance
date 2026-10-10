@@ -27,6 +27,16 @@ impl MethodType {
     }
 }
 
+/// Kinds of method arguments, in the order they must appear in
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+enum ArgumentKind {
+    Env,
+    Tmp,
+    Slot,
+    Input,
+    Output,
+}
+
 #[derive(Clone)]
 struct Env {
     arg_name: Ident,
@@ -173,6 +183,23 @@ impl MethodDetails {
         Some(slot_type.unwrap_or_else(MethodReturnType::unit_type))
     }
 
+    /// The kind of the last argument processed so far
+    fn last_argument_kind(&self) -> Option<ArgumentKind> {
+        if !self.outputs.is_empty() {
+            Some(ArgumentKind::Output)
+        } else if !self.inputs.is_empty() {
+            Some(ArgumentKind::Input)
+        } else if !self.slots.is_empty() {
+            Some(ArgumentKind::Slot)
+        } else if self.tmp.is_some() {
+            Some(ArgumentKind::Tmp)
+        } else if self.env.is_some() {
+            Some(ArgumentKind::Env)
+        } else {
+            None
+        }
+    }
+
     pub(super) fn process_env_arg_ro(
         &mut self,
         input_span: Span,
@@ -195,10 +222,7 @@ impl MethodDetails {
         pat_type: &PatType,
         allow_mut: bool,
     ) -> Result<(), Error> {
-        if self.env.is_some()
-            || self.tmp.is_some()
-            || !(self.inputs.is_empty() && self.outputs.is_empty())
-        {
+        if self.last_argument_kind().is_some() {
             return Err(Error::new(
                 input_span,
                 "`#[env]` must be the first non-Self argument and only appear once",
@@ -274,10 +298,10 @@ impl MethodDetails {
         input_span: Span,
         pat_type: &PatType,
     ) -> Result<(), Error> {
-        if self.tmp.is_some() || !(self.inputs.is_empty() && self.outputs.is_empty()) {
+        if self.last_argument_kind() >= Some(ArgumentKind::Tmp) {
             return Err(Error::new(
                 input_span,
-                "`#[tmp]` must appear only once before any `#[input]` or `#[output]`",
+                "`#[tmp]` must appear only once before any `#[slot]`, `#[input]` or `#[output]`",
             ));
         }
 
@@ -328,7 +352,7 @@ impl MethodDetails {
         pat_type: &PatType,
         allow_mut: bool,
     ) -> Result<(), Error> {
-        if !(self.inputs.is_empty() && self.outputs.is_empty()) {
+        if self.last_argument_kind() > Some(ArgumentKind::Slot) {
             return Err(Error::new(
                 input_span,
                 "`#[slot]` must appear before any `#[input]` or `#[output]`",
@@ -412,7 +436,7 @@ impl MethodDetails {
         input_span: Span,
         pat_type: &PatType,
     ) -> Result<(), Error> {
-        if !self.outputs.is_empty() {
+        if self.last_argument_kind() > Some(ArgumentKind::Input) {
             return Err(Error::new(
                 input_span,
                 "`#[input]` must appear before any `#[output]`",
@@ -597,14 +621,19 @@ impl MethodDetails {
     ) -> Result<TokenStream, Error> {
         let self_type = &self.self_type;
         if matches!(self.method_type, MethodType::Init) {
-            let self_return_type = self.return_type.return_type() == self_type;
-            let self_last_output_type = self.outputs.last().is_some_and(|output| output.has_self);
+            // The host stores the return value as the state of the contract, and only without one
+            // the last `#[output]`
+            let state_is_self = if self.return_type.unit_return_type() {
+                self.outputs.last().is_some_and(|output| output.has_self)
+            } else {
+                self.return_type.return_type() == self_type
+            };
 
-            if !(self_return_type || self_last_output_type) {
+            if !state_is_self {
                 return Err(Error::new(
                     fn_sig.span(),
-                    "`#[init]` must have `Self` as either return type or last `#[output]` \
-                    argument",
+                    "`#[init]` must return `Self` or, without a return value, have `Self` as the \
+                    last `#[output]` argument",
                 ));
             }
         }
@@ -951,6 +980,23 @@ impl MethodDetails {
             }});
         }
 
+        // The host stores the last `#[output]` of `#[init]` without a return value as the state of
+        // the contract, so it must be exactly `MaybeData<Self>` and not, for example, an alias of
+        // a container of multiple values
+        if matches!(self.method_type, MethodType::Init)
+            && self.return_type.unit_return_type()
+            && let Some(state_output) = self.outputs.last()
+        {
+            let type_name = &state_output.type_name;
+            preparation.push(quote_spanned! {type_name.span() =>
+                const {
+                    let _: ::core::marker::PhantomData<
+                        ::ab_contracts_macros::__private::MaybeData<#self_type>,
+                    > = ::core::marker::PhantomData::<#type_name>;
+                }
+            });
+        }
+
         let original_method_name = &fn_sig.ident;
         let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
         let return_type = self.return_type.return_type();
@@ -962,7 +1008,7 @@ impl MethodDetails {
                     pub ok_result: &'internal_args mut ::core::mem::MaybeUninit<#return_type>,
                 });
 
-                preparation.push(quote! {
+                preparation.push(quote_spanned! {return_type.span() =>
                     // Ensure the return type implements not only `IoType`, which is required for
                     // crossing host/guest boundary, but also `TrivialType` and result handling is
                     // trivial without the need to worry about size and capacity.
@@ -970,7 +1016,7 @@ impl MethodDetails {
                     const {
                         const fn assert_impl_trivial_type<T>()
                         where
-                            T: ::ab_contracts_macros::__private::IoType,
+                            T: ::ab_contracts_macros::__private::TrivialType,
                         {}
                         assert_impl_trivial_type::<#return_type>();
                     }
@@ -1630,7 +1676,7 @@ impl MethodDetails {
                 const {
                     const fn assert_impl_trivial_type<T>()
                     where
-                        T: ::ab_contracts_macros::__private::IoType,
+                        T: ::ab_contracts_macros::__private::TrivialType,
                     {}
                     assert_impl_trivial_type::<#return_type>();
                 }

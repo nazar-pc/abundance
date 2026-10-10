@@ -1,5 +1,5 @@
-//! `#[init]` method must have `Self` as either return type or last `#[output]` argument, which the
-//! host stores as the initial state of the contract
+//! `#[init]` method must return `Self` or, without a return value, have `Self` as the last
+//! `#[output]` argument, which the host stores as the initial state of the contract
 
 use ab_contracts_macros::contract;
 use ab_io_type::trivial_type::TrivialType;
