@@ -65,10 +65,11 @@ pub enum ContractMetadataKind {
     ///   * [`Self::Return`] (yes, this is considered to be an argument)
     /// * Length of the argument name in bytes (u8, except for [`Self::EnvRo`] and [`Self::EnvRw`])
     /// * Argument name as UTF-8 bytes (except for [`Self::EnvRo`] and [`Self::EnvRw`])
-    /// * Only for [`Self::Input`] and [`Self::Output`] recursive metadata of argument's type as
-    ///   described in [`IoTypeMetadataKind`] with the following exception:
-    ///   * For last [`Self::Output`] or [`Self::Return`] this is skipped if the method is
-    ///     [`Self::Init`] since it is statically known to be `Self` and present otherwise
+    /// * Only for [`Self::Input`], [`Self::Output`] and [`Self::Return`] recursive metadata of
+    ///   argument's type as described in [`IoTypeMetadataKind`] with the following exception:
+    ///   * For the last argument of [`Self::Init`] this is skipped since it is statically known to
+    ///     be the state: [`Self::Return`] (`Self`) or, without a return value, the last
+    ///     [`Self::Output`] (`MaybeData<Self>`), it is present otherwise
     ///
     /// [`IoTypeMetadataKind`]: ab_io_type::metadata::IoTypeMetadataKind
     ///
@@ -129,8 +130,6 @@ pub enum ContractMetadataKind {
     /// Example: `#[input] balance: &Balance,`
     Input,
     /// Explicit `#[output]` argument.
-    ///
-    /// NOTE: Skipped if return type's `T` is `()`.
     ///
     /// Example: `#[output] out: &mut VariableBytes<1024>,`
     Output,

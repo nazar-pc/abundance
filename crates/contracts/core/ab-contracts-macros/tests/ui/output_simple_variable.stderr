@@ -1,0 +1,17 @@
+error: `#[output]` argument name must be a simple variable
+  --> tests/ui/output_simple_variable.rs:17:30
+   |
+17 |         pub fn get(#[output] _: &mut u8) {}
+   |                              ^^^^^^^^^^
+
+error: `#[output]` argument name must be a simple variable
+  --> tests/ui/output_simple_variable.rs:34:30
+   |
+34 |         pub fn get(#[output] (_first, _second): &mut (u8, u8)) {}
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[output]` argument name must be a simple variable
+  --> tests/ui/output_simple_variable.rs:51:30
+   |
+51 |         pub fn get(#[output] &mut _value: &mut u8) {}
+   |                              ^^^^^^^^^^^^^^^^^^^^

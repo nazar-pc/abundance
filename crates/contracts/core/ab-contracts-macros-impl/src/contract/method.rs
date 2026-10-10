@@ -481,10 +481,12 @@ impl MethodDetails {
         if let Type::Reference(type_reference) = &*pat_type.ty
             && type_reference.mutability.is_some()
         {
+            // Unlike inputs, reference patterns like `&mut value` are not allowed, since the output
+            // could not be modified through them
             let Pat::Ident(pat_ident) = &*pat_type.pat else {
                 return Err(Error::new(
                     pat_type.span(),
-                    "`#[output]` argument name must be an exclusive reference",
+                    "`#[output]` argument name must be a simple variable",
                 ));
             };
 
@@ -514,8 +516,9 @@ impl MethodDetails {
         } else {
             Err(Error::new(
                 pat_type.span(),
-                "`#[output]` must be an exclusive reference to a type implementing \
-                `IoTypeOptional`, likely `MaybeData` container",
+                "`#[output]` must be an exclusive reference to a type implementing `IoType` (it \
+                can be both read and written to) like `&mut MaybeData<Output>` or \
+                `&mut VariableBytes<1024>`",
             ))
         }
     }
@@ -1603,7 +1606,7 @@ impl MethodDetails {
             external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
         }
 
-        // For each output argument, generate a corresponding write-only argument
+        // For each output argument, generate a corresponding read-write argument
         let mut outputs_iter = self.outputs.iter().peekable();
         while let Some(output) = outputs_iter.next() {
             let type_name = &output.type_name;

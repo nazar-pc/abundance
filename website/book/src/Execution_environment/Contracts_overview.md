@@ -164,8 +164,8 @@ slots as the only way of persisting data between transactions.
 
 Not only contract methods do not have access to general purpose key-value store (even if private to the contract), they
 don't have access to any other data except what was explicitly provided as method input. They also can't return data in
-any other way except through return arguments. Execution environment will pre-allocate memory for all slots/outputs and
-provide it to the method to work with, removing a need for heap allocation in many cases.
+any other way except through return arguments. Execution environment will pre-allocate memory for all slots (and the
+caller for all outputs) and provide it to the method to work with, removing a need for heap allocation in many cases.
 
 One can think about contract logic as a pure function: it takes inputs and slots, potentially modifies slots and returns
 outputs.
@@ -222,9 +222,10 @@ impl MyContract {
 ```
 
 Environment handle (`&Env` or `&mut Env`) allows calling other contracts and request ephemeral state, contract slots can
-be read and written to, inputs are read-only and outputs are write-only. `&` or `&mut` in Rust limits what can be done
-with these types, there is no other implicit "global" way to read or update ephemeral or permanent state of the
-blockchain except through these explicit arguments.
+be read and written to, inputs are read-only and outputs can be both read and written to (the caller provides their
+current contents, which allows updating values in-place). `&` or `&mut` in Rust limits what can be done with these
+types, there is no other implicit "global" way to read or update ephemeral or permanent state of the blockchain except
+through these explicit arguments.
 
 Handling everything through explicit inputs and outputs results in straightforward implementation, analysis and testing
 approach without side effects. In many cases, even heap allocations can be avoided completely, leading to fast and
