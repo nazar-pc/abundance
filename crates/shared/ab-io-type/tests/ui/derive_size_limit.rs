@@ -11,6 +11,4 @@ struct Huge {
     b: [u8; 1 << 31],
 }
 
-fn main() {
-    let _ = <Huge as TrivialType>::SIZE;
-}
+fn main() {}

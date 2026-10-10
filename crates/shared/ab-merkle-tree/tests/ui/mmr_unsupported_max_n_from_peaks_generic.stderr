@@ -1,0 +1,31 @@
+error[E0080]: evaluation panicked: This Merkle Mountain Range must have MAX_N > 1 leaves
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::mmr::STACK_SIZE::<0>` failed here
+  |
+ ::: src/mmr.rs
+  |
+  | /     assert!(
+  | |         MAX_N > 1,
+  | |         "This Merkle Mountain Range must have MAX_N > 1 leaves"
+  | |     );
+  | |_____- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/mmr.rs
+  |
+  |         const { STACK_SIZE::<MAX_N> };
+  |                 ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/mmr.rs
+  |
+  |         const { STACK_SIZE::<MAX_N> };
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn MerkleMountainRange::<0>::from_peaks`
+  --> tests/ui/mmr_unsupported_max_n_from_peaks_generic.rs:15:5
+   |
+15 |     MerkleMountainRange::<MAX_N>::from_peaks(peaks).map(|mmr| mmr.num_leaves())
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

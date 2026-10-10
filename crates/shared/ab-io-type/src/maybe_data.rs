@@ -16,6 +16,11 @@ where
 {
     data: NonNull<Data>,
     size: NonNull<u32>,
+    // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+    //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed. Every instance
+    //  evaluates the check through this field. It is initialized in `const` blocks, which are
+    //  evaluated even if optimizations remove the field.
+    _supported: [(); NON_ZERO_SIZED::<Data>],
 }
 
 // SAFETY: Low-level (effectively internal) implementation that upholds safety requirements
@@ -75,7 +80,11 @@ where
 
         let size = NonNull::from_ref(size);
 
-        DerefWrapper(MaybeData { data: *ptr, size })
+        DerefWrapper(MaybeData {
+            data: *ptr,
+            size,
+            _supported: const { [(); NON_ZERO_SIZED::<Data>] },
+        })
     }
 
     #[inline(always)]
@@ -99,6 +108,7 @@ where
         DerefWrapper(MaybeData {
             data: *ptr,
             size: NonNull::from_mut(size),
+            _supported: const { [(); NON_ZERO_SIZED::<Data>] },
         })
     }
 
@@ -140,6 +150,7 @@ where
         DerefWrapper(Self {
             data,
             size: NonNull::from_ref(size),
+            _supported: const { [(); NON_ZERO_SIZED::<Data>] },
         })
     }
 
@@ -167,6 +178,7 @@ where
         DerefWrapper(Self {
             data: NonNull::from_mut(buffer),
             size: NonNull::from_mut(size),
+            _supported: const { [(); NON_ZERO_SIZED::<Data>] },
         })
     }
 
@@ -189,6 +201,7 @@ where
         DerefWrapper(Self {
             data: NonNull::from_mut(uninit).cast::<Data>(),
             size: NonNull::from_mut(size),
+            _supported: const { [(); NON_ZERO_SIZED::<Data>] },
         })
     }
 

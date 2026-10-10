@@ -130,6 +130,10 @@ impl UnbalancedMerkleTree {
         Item: Into<[u8; OUT_LEN]> + Copy,
         [(); SUPPORTED_LEAVES_ARRAY_SIZE::<N>]:,
     {
+        // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+        //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+        const { SUPPORTED_LEAVES_ARRAY_SIZE::<N> };
+
         // Iterating over indices rather than with `leaves.iter().copied()` allows the compiler to
         // prove that the root always exists on aarch64 and riscv64 too
         let leaves = (0..N).map(|index| *leaves.get(index).expect("Index is within array; qed"));

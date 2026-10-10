@@ -1,0 +1,83 @@
+error[E0080]: evaluation panicked: This Sparse Merkle Tree must have more than one leaf
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::sparse::ENSURE_SUPPORTED_BITS::<0>` failed here
+  |
+ ::: src/sparse.rs
+  |
+  | /     assert!(
+  | |         BITS != 0,
+  | |         "This Sparse Merkle Tree must have more than one leaf"
+  | |     );
+  | |_____- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/sparse.rs
+  |
+  |         const { ENSURE_SUPPORTED_BITS::<BITS> };
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/sparse.rs
+  |
+  |         const { ENSURE_SUPPORTED_BITS::<BITS> };
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn SparseMerkleTree::<0>::compute_root_only::<'_, [Leaf<'_>; 0]>`
+  --> tests/ui/sparse_unsupported_bits_generic.rs:15:5
+   |
+15 |     SparseMerkleTree::<BITS>::compute_root_only([])
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: This Sparse Merkle Tree doesn't support more than 2^128 leaves
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::sparse::ENSURE_SUPPORTED_BITS::<129>` failed here
+  |
+ ::: src/sparse.rs
+  |
+  | /     assert!(
+  | |         BITS <= 128,
+  | |         "This Sparse Merkle Tree doesn't support more than 2^128 leaves"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn SparseMerkleTree::<129>::compute_root_only::<'_, [Leaf<'_>; 0]>`
+  --> tests/ui/sparse_unsupported_bits_generic.rs:15:5
+   |
+15 |     SparseMerkleTree::<BITS>::compute_root_only([])
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: This Sparse Merkle Tree doesn't support more than 2^128 leaves
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::sparse::ENSURE_SUPPORTED_BITS::<130>` failed here
+  |
+ ::: src/sparse.rs
+  |
+  | /     assert!(
+  | |         BITS <= 128,
+  | |         "This Sparse Merkle Tree doesn't support more than 2^128 leaves"
+  | |     );
+  | |_____- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/sparse.rs
+  |
+  |         const { ENSURE_SUPPORTED_BITS::<BITS> };
+  |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/sparse.rs
+  |
+  |         const { ENSURE_SUPPORTED_BITS::<BITS> };
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn SparseMerkleTree::<130>::verify`
+  --> tests/ui/sparse_unsupported_bits_generic.rs:19:5
+   |
+19 |     SparseMerkleTree::<BITS>::verify(&[0; 32], proof, 0, [0; 32])
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

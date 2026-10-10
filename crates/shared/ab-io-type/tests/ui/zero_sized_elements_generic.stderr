@@ -1,0 +1,203 @@
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[u8; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn VariableElements::<[u8; 0]>::from_buffer`
+  --> tests/ui/zero_sized_elements_generic.rs:22:13
+   |
+22 |     let _ = VariableElements::<Element>::from_buffer(buffer, &0);
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[u16; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn VariableElements::<[u16; 0]>::from_buffer_mut`
+  --> tests/ui/zero_sized_elements_generic.rs:27:13
+   |
+27 |     let _ = VariableElements::<Element>::from_buffer_mut(buffer, &mut size);
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[u32; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn VariableElements::<[u32; 0]>::from_uninit`
+  --> tests/ui/zero_sized_elements_generic.rs:32:13
+   |
+32 |     let _ = VariableElements::<Element>::from_uninit(uninit, &mut size);
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[u64; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn elements_from_ptr::<[u64; 0]>`
+  --> tests/ui/zero_sized_elements_generic.rs:85:5
+   |
+85 |     elements_from_ptr::<[u64; 0]>(&NonNull::dangling());
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[u128; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn elements_from_mut_ptr::<[u128; 0]>`
+  --> tests/ui/zero_sized_elements_generic.rs:86:5
+   |
+86 |     elements_from_mut_ptr::<[u128; 0]>(&mut NonNull::dangling());
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[i8; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn VariableElements::<[i8; 0]>::get_initialized`
+  --> tests/ui/zero_sized_elements_generic.rs:49:5
+   |
+49 |     VariableElements::<Element>::get_initialized
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<()>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn MaybeData::<()>::from_ref`
+  --> tests/ui/zero_sized_elements_generic.rs:53:13
+   |
+53 |     let _ = MaybeData::<Data>::from_ref(None);
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[i16; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn MaybeData::<[i16; 0]>::from_mut`
+  --> tests/ui/zero_sized_elements_generic.rs:58:13
+   |
+58 |     let _ = MaybeData::<Data>::from_mut(buffer, &mut size);
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[i32; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn MaybeData::<[i32; 0]>::from_uninit`
+  --> tests/ui/zero_sized_elements_generic.rs:63:13
+   |
+63 |     let _ = MaybeData::<Data>::from_uninit(uninit, &mut size);
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[i64; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn data_from_ptr::<[i64; 0]>`
+  --> tests/ui/zero_sized_elements_generic.rs:91:5
+   |
+91 |     data_from_ptr::<[i64; 0]>(&NonNull::dangling());
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[i128; 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn data_from_mut_ptr::<[i128; 0]>`
+  --> tests/ui/zero_sized_elements_generic.rs:92:5
+   |
+92 |     data_from_mut_ptr::<[i128; 0]>(&mut NonNull::dangling());
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Zero-sized types are not supported
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::trivial_type::NON_ZERO_SIZED::<[(); 0]>` failed here
+  |
+ ::: src/trivial_type.rs
+  |
+  |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
+  |     ---------------------------------------------------------- in this macro invocation
+
+note: the above error was encountered while instantiating `fn MaybeData::<[(); 0]>::get`
+  --> tests/ui/zero_sized_elements_generic.rs:78:5
+   |
+78 |     MaybeData::<Data>::get
+   |     ^^^^^^^^^^^^^^^^^^^^^^
