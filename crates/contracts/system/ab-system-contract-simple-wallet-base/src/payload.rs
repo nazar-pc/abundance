@@ -277,7 +277,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     /// The size of `external_args_buffer` defines the max number of bytes allocated for
     /// `ExternalArgs`, which impacts the number of arguments that can be represented by
     /// `ExternalArgs`. The size is specified in pointers with `#[slot]` argument using one
-    /// pointer, `#[input]` two pointers, and `#[output]` three pointers each.
+    /// pointer, while `#[input]` and `#[output]` use one pointer and size + capacity each.
     ///
     /// The size of `output_buffer` defines how big the total size of `#[output]` and return values
     /// could be in all methods of the payload together.

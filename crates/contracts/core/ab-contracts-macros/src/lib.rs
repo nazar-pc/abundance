@@ -185,9 +185,10 @@ pub mod __private;
 /// same order as in function signature. It is possible for the host to build this data
 /// structure dynamically using available contact metadata.
 ///
-/// All fields in the data structure are pointers, some are read-only, some can be written to
-/// if changes need to be communicated back to the host. `read-only` here means that the host
-/// will not read the value, even if the contract modifies it.
+/// Fields in the data structure are pointers, along with sizes and capacities where needed,
+/// some are read-only, some can be written to if changes need to be communicated back to the
+/// host. `read-only` here means that the host will not read the value, even if the contract
+/// modifies it.
 ///
 /// ### `&self`
 ///
@@ -196,9 +197,9 @@ pub mod __private;
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
-///     pub state_ptr: NonNull<<StructName as IoType>::PointerType>,
-///     pub state_size: u32,
-///     pub state_capacity: u32,
+///     pub self_ptr: NonNull<<StructName as IoType>::PointerType>,
+///     pub self_size: u32,
+///     pub self_capacity: u32,
 ///     // ...
 /// }
 /// ```
@@ -207,23 +208,23 @@ pub mod __private;
 ///
 /// ### `&mut self`
 ///
-/// `&mut self` is a read-write state of the contract and generates three fields, `state_ptr`
-/// and `state_size` can be written to, while `state_capacity` is read-only:
+/// `&mut self` is a read-write state of the contract and generates three fields, `self_ptr`
+/// and `self_size` can be written to, while `self_capacity` is read-only:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
-///     pub state_ptr: NonNull<<StructName as IoType>::PointerType>,
-///     pub state_size: u32,
-///     pub state_capacity: u32,
+///     pub self_ptr: NonNull<<StructName as IoType>::PointerType>,
+///     pub self_size: u32,
+///     pub self_capacity: u32,
 ///     // ...
 /// }
 /// ```
 ///
 /// This allows a contract to not only read, but also change the current state of the contract.
-/// `state_capacity` is defined by both the type used and the size of the value used (whichever
+/// `self_capacity` is defined by both the type used and the size of the value used (whichever
 /// is bigger in the case of variable-sized types) and corresponds to the amount of memory that
-/// host allocated for the guest behind `state_ptr`. In the case of variable-sized types, guest
-/// can replace`state_ptr` with a pointer to a guest-allocated region of memory that the host
+/// host allocated for the guest behind `self_ptr`. In the case of variable-sized types, guest
+/// can replace `self_ptr` with a pointer to a guest-allocated region of memory that the host
 /// must read updated value from. This is helpful in case an increase of the value size beyond
 /// allocated capacity is needed.
 ///
@@ -250,7 +251,7 @@ pub mod __private;
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
 ///     // ...
-///     pub env_ptr: &'internal_args mut Env<'internal_args>,
+///     pub env: &'internal_args mut Env<'internal_args>,
 ///     // ...
 /// }
 /// ```
@@ -258,7 +259,7 @@ pub mod __private;
 /// ### `#[tmp] tmp: &MaybeData<Tmp>`
 ///
 /// `#[tmp] tmp: &MaybeData<Tmp>` is for accessing ephemeral value with auxiliary data and
-/// generates two fields, both of which are read-only:
+/// generates three fields, all of which are read-only:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
@@ -268,7 +269,8 @@ pub mod __private;
 ///             <StructName as Contract>::Tmp as IoType
 ///         >::PointerType,
 ///     >,
-///     pub tmp_size: NonNull<u32>,
+///     pub tmp_size: u32,
+///     pub tmp_capacity: u32,
 ///     // ...
 /// }
 /// ```
@@ -277,7 +279,7 @@ pub mod __private;
 ///
 /// ### `#[tmp] tmp: &mut MaybeData<Tmp>`
 ///
-/// `#[tmp] tmp: &MaybeData<Tmp>` is for accessing ephemeral value with auxiliary data and
+/// `#[tmp] tmp: &mut MaybeData<Tmp>` is for accessing ephemeral value with auxiliary data and
 /// generates three fields, `tmp_ptr` and `tmp_size` can be written to, while `tmp_capacity` is
 /// read-only:
 /// ```ignore
@@ -299,9 +301,9 @@ pub mod __private;
 /// contract. `tmp_capacity` is defined by both the type used and the size of the value used
 /// (whichever is bigger in the case of variable-sized types) and corresponds to the amount of
 /// memory that host allocated for the guest behind `tmp_ptr`. In the case of variable-sized
-/// types, guest can replace`tmp_ptr` with a pointer to a guest-allocated region of memory that
-/// the host must read updated value from. This is helpful in case an increase of the value
-/// size beyond allocated capacity is needed.
+/// types, guest can replace `tmp_ptr` with a pointer to a guest-allocated region of memory
+/// that the host must read updated value from. This is helpful in case an increase of the
+/// value size beyond allocated capacity is needed.
 ///
 /// ### `#[slot] slot: &MaybeData<Slot>` and `#[slot] (address, slot): (&Address, &MaybeData<Slot>)`
 ///
@@ -352,7 +354,7 @@ pub mod __private;
 /// `slot_capacity` is defined by both the type used and the size of the value used (whichever
 /// is bigger in the case of variable-sized types) and corresponds to the amount of memory that
 /// host allocated for the guest behind `slot_ptr`. In the case of variable-sized types,
-/// guest can replace`slot_ptr` with a pointer to a guest-allocated region of memory that the
+/// guest can replace `slot_ptr` with a pointer to a guest-allocated region of memory that the
 /// host must read updated value from. This is helpful in case an increase of the value size
 /// beyond allocated capacity is needed.
 ///
@@ -361,7 +363,7 @@ pub mod __private;
 /// ### `#[input] input: &InputValue`
 ///
 /// `#[input] input: &InputValue` is a read-only input to the contract call and generates three
-/// fields, both of which are read-only:
+/// fields, all of which are read-only:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
@@ -377,8 +379,8 @@ pub mod __private;
 ///
 /// `#[output] output: &mut OutputValue` is a read-write output of the contract call, where
 /// `OutputValue` is any type implementing [`IoType`], like `MaybeData<T>`, `VariableBytes<N>`
-/// or a [`TrivialType`]. It generates three fields, `output_ptr` and `output_size` can be
-/// written to, while `output_capacity` is read-only:
+/// or a [`TrivialType`]. It generates three fields, `output_size` can be written to, while
+/// `output_ptr` and `output_capacity` are read-only (see the exception for `#[init]` below):
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
@@ -502,7 +504,8 @@ pub mod __private;
 /// ### `#[output]`, `-> ReturnValue` and `-> Result<ReturnValue, ContractError>`
 ///
 /// Each `#[output]` argument in `ExternalArgs` is represented by three fields, `output_ptr`
-/// and `output_size` can be written to, while `output_capacity` is read-only:
+/// and `output_capacity` are read-only, while `output_size` is updated by the host after the
+/// method call:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct ExternalArgs<'external_args> {
