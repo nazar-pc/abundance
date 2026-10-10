@@ -164,8 +164,8 @@ slots as the only way of persisting data between transactions.
 
 Not only contract methods do not have access to general purpose key-value store (even if private to the contract), they
 don't have access to any other data except what was explicitly provided as method input. They also can't return data in
-any other way except through return arguments. Execution environment will pre-allocate memory for all slots/outputs and
-provide it to the method to work with, removing a need for heap allocation in many cases.
+any other way except through return arguments. Execution environment will pre-allocate memory for all slots (and the
+caller for all outputs) and provide it to the method to work with, removing a need for heap allocation in many cases.
 
 One can think about contract logic as a pure function: it takes inputs and slots, potentially modifies slots and returns
 outputs.
