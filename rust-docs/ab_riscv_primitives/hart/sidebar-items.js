@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BasicHart","BasicVectorHart","VectorLengths"],"trait":["HartConfig","VectorHartConfig"]};

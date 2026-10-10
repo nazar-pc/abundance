@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Slot"],"struct":["NestedSlots","SlotIndex","SlotKey","Slots"]};

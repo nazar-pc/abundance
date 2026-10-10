@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["flipper_new"],"struct":["FlipperNewArgs","InternalArgs"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_ALIGNMENT"],"mod":["bool","fixed_capacity_bytes","fixed_capacity_string","maybe_data","metadata","trivial_type","unaligned","variable_bytes","variable_elements"],"trait":["IoType","IoTypeOptional"]};

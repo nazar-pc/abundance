@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["hart","instructions","prelude","privilege","registers"]};
