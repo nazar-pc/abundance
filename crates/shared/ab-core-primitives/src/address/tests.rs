@@ -57,3 +57,17 @@ fn format() {
         }
     }
 }
+
+#[test]
+fn eq_reference() {
+    let address = Address::from(1);
+    // Same lower half, different upper half
+    let other = Address::from(1 | (1 << 64));
+    let address_ref = &address;
+    let other_ref = &other;
+
+    assert_eq!(address, address_ref);
+    assert_eq!(address_ref, address);
+    assert_ne!(address, other_ref);
+    assert_ne!(other_ref, address);
+}
