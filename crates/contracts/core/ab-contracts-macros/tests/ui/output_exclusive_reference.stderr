@@ -1,0 +1,11 @@
+error: `#[output]` must be an exclusive reference to a type implementing `IoType` (it can be both read and written to) like `&mut MaybeData<Output>` or `&mut VariableBytes<1024>`
+  --> tests/ui/output_exclusive_reference.rs:18:30
+   |
+18 |         pub fn get(#[output] _value: &u8) {}
+   |                              ^^^^^^^^^^^
+
+error: `#[output]` must be an exclusive reference to a type implementing `IoType` (it can be both read and written to) like `&mut MaybeData<Output>` or `&mut VariableBytes<1024>`
+  --> tests/ui/output_exclusive_reference.rs:35:30
+   |
+35 |         pub fn get(#[output] _value: u8) {}
+   |                              ^^^^^^^^^^

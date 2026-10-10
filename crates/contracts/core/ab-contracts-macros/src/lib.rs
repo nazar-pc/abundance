@@ -28,7 +28,8 @@ pub mod __private;
 /// * `#[input]` - a method input coming from user transaction or invocation from another
 ///   contract
 /// * `#[output]` - a method output serving as an alternative to returning values from a
-///   function directly, useful to reduce stack usage
+///   function directly, useful to reduce stack usage, its current contents provided by the
+///   caller can be read as well, which allows updating values in-place
 ///
 /// # For struct implementation
 ///
@@ -372,11 +373,12 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// ### `#[output] output: &mut MaybeData<OutputValue>`
+/// ### `#[output] output: &mut OutputValue`
 ///
-/// `#[output] output: &mut MaybeData<OutputValue>` and regular return value is a read-write
-/// output to the contract call and generates three fields, `output_ptr` and `output_size` can
-/// be written to, while `output_capacity` is read-only:
+/// `#[output] output: &mut OutputValue` is a read-write output of the contract call, where
+/// `OutputValue` is any type implementing [`IoType`], like `MaybeData<T>`, `VariableBytes<N>`
+/// or a [`TrivialType`]. It generates three fields, `output_ptr` and `output_size` can be
+/// written to, while `output_capacity` is read-only:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
@@ -388,8 +390,10 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// Initially output is initialized by the caller (typically empty), but contract can write
-/// something useful there and written value will be propagated back to the caller to observe.
+/// The caller provides `output_size` bytes of current contents of the output (typically none
+/// if it is only used to return a value, bytes beyond the size are not initialized), the
+/// contract can both read and modify them, and the modified value will be propagated back to
+/// the caller to observe.
 /// `output_ptr` pointer *must not be changed* as the host will not follow it to the new
 /// address, the output size is fully constrained by capacity specified in `output_capacity`.
 /// The only exception is the last `#[output]` of `#[init]` method without a return value,
@@ -525,8 +529,8 @@ pub mod __private;
 ///   execution environment itself: `ReturnValue` or, when it is `()`, the last `#[output]`
 /// * `ReturnValue` when it is `()`, since there is no point in having a pointer for it
 ///
-/// The host will propagate the current value that `output_size` points to to the caller, so
-/// that the callee can both read and write to it.
+/// The host passes the current `output_size` to the callee as is, so that the callee can both
+/// read and modify the output, and updates `output_size` after the call.
 ///
 /// ## Extension trait
 ///

@@ -222,9 +222,10 @@ impl MyContract {
 ```
 
 Environment handle (`&Env` or `&mut Env`) allows calling other contracts and request ephemeral state, contract slots can
-be read and written to, inputs are read-only and outputs are write-only. `&` or `&mut` in Rust limits what can be done
-with these types, there is no other implicit "global" way to read or update ephemeral or permanent state of the
-blockchain except through these explicit arguments.
+be read and written to, inputs are read-only and outputs can be both read and written to (the caller provides their
+current contents, which allows updating values in-place). `&` or `&mut` in Rust limits what can be done with these
+types, there is no other implicit "global" way to read or update ephemeral or permanent state of the blockchain except
+through these explicit arguments.
 
 Handling everything through explicit inputs and outputs results in straightforward implementation, analysis and testing
 approach without side effects. In many cases, even heap allocations can be avoided completely, leading to fast and
