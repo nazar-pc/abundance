@@ -191,7 +191,7 @@ const fn enum_capacity(mut input: &[u8], has_fields: bool) -> Option<(IoTypeDeta
         (variant_type_details, input) =
             struct_type_details(input, if has_fields { None } else { Some(0) }, false)?;
         // `+ 1` is for the discriminant
-        let variant_capacity = variant_type_details.recommended_capacity + 1;
+        let variant_capacity = variant_type_details.recommended_capacity.checked_add(1)?;
         alignment = alignment.max(variant_type_details.alignment.get());
 
         match enum_capacity {

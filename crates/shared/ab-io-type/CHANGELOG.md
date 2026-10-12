@@ -19,7 +19,7 @@ Fixes:
   size and length were truncated
 * `TrivialType` can now be derived for enums with 11 to 16 variants
 * `IoTypeMetadataKind::type_details()` now returns the alignment of elements for `VariableElements<T>` with the default
-  recommended allocation instead of 1
+  recommended allocation instead of 1, and `None` instead of overflowing for enums with a variant of `u32::MAX` bytes
 
 # 0.2.0
 

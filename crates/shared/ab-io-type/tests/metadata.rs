@@ -1202,10 +1202,60 @@ fn nested_types() {
     check_trivial_type::<Outer>("Outer", &expected, &expected_compact);
 }
 
+/// Metadata of `[u8; count]`
+fn u8_array(count: u32) -> Expected {
+    Expected::new(IoTypeMetadataKind::Array)
+        .u32(count)
+        .kind(IoTypeMetadataKind::U8)
+}
+
+/// Metadata of a tuple struct with a field of the given type followed by a `u8` field
+fn pair_with_byte(first: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::TupleStruct)
+        .name("Pair")
+        .byte(2)
+        .nested(first)
+        .kind(IoTypeMetadataKind::U8)
+}
+
+/// Metadata of an enum with a single variant with a single field of the given type
+fn enum_with(field: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::Enum)
+        .name("Enum")
+        .byte(1)
+        .name("A")
+        .byte(1)
+        .name("field")
+        .nested(field)
+}
+
 #[test]
 fn capacity_overflow_is_rejected() {
     // Crafted metadata with a capacity that doesn't fit into `u32` must be rejected instead of
     // overflowing
+
+    // Number of elements times capacity of an element
+    check_layout(&u8_array(u32::MAX).0, u32::MAX, 1);
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::Array)
+            .u32(1 << 31)
+            .kind(IoTypeMetadataKind::U16)
+            .0,
+    );
+    check_layout(
+        &Expected::new(IoTypeMetadataKind::VariableElements)
+            .u32(u32::MAX)
+            .kind(IoTypeMetadataKind::U8)
+            .0,
+        u32::MAX,
+        1,
+    );
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::VariableElements)
+            .u32(1 << 31)
+            .kind(IoTypeMetadataKind::U16)
+            .0,
+    );
 
     // Capacity of elements plus the length
     check_layout(
@@ -1252,6 +1302,27 @@ fn capacity_overflow_is_rejected() {
     check_rejected(
         &Expected::new(IoTypeMetadataKind::FixedCapacityString)
             .u32(u32::MAX - 3)
+            .0,
+    );
+
+    // Sum of capacities of fields
+    check_layout(&pair_with_byte(&u8_array(u32::MAX - 1)).0, u32::MAX, 1);
+    check_rejected(&pair_with_byte(&u8_array(u32::MAX)).0);
+
+    // Capacity of a variant plus the discriminant
+    check_layout(&enum_with(&u8_array(u32::MAX - 1)).0, u32::MAX, 1);
+    check_rejected(&enum_with(&u8_array(u32::MAX)).0);
+
+    // Overflow in nested types
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::Unaligned)
+            .nested(&enum_with(&u8_array(u32::MAX)))
+            .0,
+    );
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::Array)
+            .u32(2)
+            .nested(&u8_array(u32::MAX))
             .0,
     );
 }
