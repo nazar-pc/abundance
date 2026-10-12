@@ -25,8 +25,9 @@ Fixes:
 
 * `MaybeData` and `VariableElements` with zero-sized types no longer compile, previously `MaybeData` couldn't represent
   absence of data and `VariableElements` panicked
-* `VariableElements::copy_from()` no longer reads and writes out of bounds for elements larger than a byte, and
-  `count()` returns the number of elements instead of the size in bytes
+* `VariableElements::copy_from()` no longer reads and writes out of bounds for elements larger than a byte, `count()`
+  returns the number of elements instead of the size in bytes, and `from_uninit()` sets capacity in bytes instead of the
+  number of elements
 * Arrays of 4 GiB or larger or with `2^32` or more elements can no longer be used as `TrivialType`, previously their
   size and length were truncated
 * `TrivialType` can now be derived for enums with 11 to 16 variants and for deeply nested types, and derived metadata of
