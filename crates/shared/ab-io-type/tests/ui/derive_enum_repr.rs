@@ -31,4 +31,29 @@ enum Aligned {
     B,
 }
 
+// Variants with fields have a different layout with `C`
+#[derive(Copy, Clone, TrivialType)]
+#[repr(C, u8)]
+enum ReprCU8 {
+    A { value: u8 },
+    B { value: u8 },
+}
+
+// Options in a separate `#[repr(..)]` attribute
+#[derive(Copy, Clone, TrivialType)]
+#[repr(u8)]
+#[repr(C)]
+enum SeparateReprC {
+    A { value: u8 },
+    B { value: u8 },
+}
+
+#[derive(Copy, Clone, TrivialType)]
+#[repr(u8)]
+#[repr(align(2))]
+enum SeparateAligned {
+    A,
+    B,
+}
+
 fn main() {}

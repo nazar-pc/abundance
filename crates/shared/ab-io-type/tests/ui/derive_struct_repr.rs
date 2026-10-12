@@ -28,4 +28,12 @@ struct Numeric {
     value: u8,
 }
 
+// Options in a separate `#[repr(..)]` attribute
+#[derive(Copy, Clone, TrivialType)]
+#[repr(C)]
+#[repr(align(8))]
+struct SeparateAligned {
+    value: u64,
+}
+
 fn main() {}
