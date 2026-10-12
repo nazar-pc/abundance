@@ -177,8 +177,8 @@ impl ContractMetadataKind {
     ///
     /// Compact metadata retains the shape but throws some details. Specifically, the following
     /// transformations are applied to metadata (crucially, method names are retained!):
-    /// * Struct, trait, enum, and enum variant names removed (replaced with 0 bytes names)
-    /// * Structs and enum variants turned into tuple variants (removing field names)
+    /// * Struct, field, trait, enum, and enum variant names removed (replaced with 0 bytes names),
+    ///   so structs with named fields are the same as tuple structs
     /// * Method argument names removed
     ///
     /// This means that two methods with different argument names or struct field names, but the

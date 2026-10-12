@@ -49,8 +49,7 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             },
             metadata,
         )),
-        IoTypeMetadataKind::Struct => struct_type_details(metadata, None, false),
-        IoTypeMetadataKind::TupleStruct => struct_type_details(metadata, None, true),
+        IoTypeMetadataKind::Struct => struct_type_details(metadata, None),
         IoTypeMetadataKind::Enum => enum_capacity(metadata, true),
         IoTypeMetadataKind::EnumNoFields => enum_capacity(metadata, false),
         IoTypeMetadataKind::Array | IoTypeMetadataKind::VariableElements => {
@@ -126,7 +125,6 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
 const fn struct_type_details(
     mut input: &[u8],
     field_count: Option<u8>,
-    tuple: bool,
 ) -> Option<(IoTypeDetails, &[u8])> {
     // Skip struct name
     let struct_name_length = *input.split_off_first()?;
@@ -139,16 +137,25 @@ const fn struct_type_details(
         *input.split_off_first()?
     };
 
+    // Whether fields are named, either all fields have names or all of them have zero-length names
+    // like fields of tuple structs
+    let mut named_fields = None;
     // Capacity of arguments
     let mut capacity = 0u32;
     let mut alignment = 1u8;
     while field_count > 0 {
-        // Skip field name if needed
-        if !tuple {
-            let field_name_length = *input.split_off_first()?;
-            // TODO: `split_off()` is not `const fn` yet, even unstably
-            input = input.get(usize::from(field_name_length)..)?;
+        // Skip field name
+        let field_name_length = *input.split_off_first()?;
+        // TODO: `split_off()` is not `const fn` yet, even unstably
+        input = input.get(usize::from(field_name_length)..)?;
+
+        let named_field = field_name_length > 0;
+        if let Some(named_fields) = named_fields
+            && named_fields != named_field
+        {
+            return None;
         }
+        named_fields = Some(named_field);
 
         // Capacity of argument's type
         let type_details;
@@ -189,7 +196,7 @@ const fn enum_capacity(mut input: &[u8], has_fields: bool) -> Option<(IoTypeDeta
 
         // Variant capacity as if it was a struct
         (variant_type_details, input) =
-            struct_type_details(input, if has_fields { None } else { Some(0) }, false)?;
+            struct_type_details(input, if has_fields { None } else { Some(0) })?;
         // `+ 1` is for the discriminant
         let variant_capacity = variant_type_details.recommended_capacity.checked_add(1)?;
         alignment = alignment.max(variant_type_details.alignment.get());

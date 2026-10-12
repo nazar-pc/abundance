@@ -1,7 +1,8 @@
 //! Tests of `METADATA` of built-in types and of types with derived `TrivialType`.
 //!
 //! Every case checks exact metadata bytes, and that the metadata decodes back into the name, size
-//! and alignment of the type, compacts into expected bytes, and that no truncated metadata decodes.
+//! and alignment of the type, compacts into expected bytes that decode into the same size and
+//! alignment, and that no truncated metadata decodes.
 
 #![expect(dead_code, reason = "Types are only defined for their metadata")]
 
@@ -123,7 +124,8 @@ fn compact(metadata: &[u8]) -> Vec<u8> {
 }
 
 /// Check that metadata decodes into the expected name, capacity and alignment, compacts into the
-/// expected bytes, and that no truncated metadata decodes
+/// expected bytes that decode into the same capacity and alignment, and that no truncated metadata
+/// decodes
 #[track_caller]
 fn check_decoding(
     metadata: &[u8],
@@ -145,7 +147,19 @@ fn check_decoding(
     );
     assert_eq!(usize::from(type_details.alignment.get()), alignment);
 
-    assert_eq!(compact(metadata), expected_compact.0);
+    let compact_metadata = compact(metadata);
+    assert_eq!(compact_metadata, expected_compact.0);
+
+    // Compact metadata is valid metadata of the same shape
+    let (compact_type_details, remainder) =
+        IoTypeMetadataKind::type_details(&compact_metadata).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(
+        compact_type_details.recommended_capacity,
+        type_details.recommended_capacity
+    );
+    assert_eq!(compact_type_details.alignment, type_details.alignment);
+    assert_eq!(compact(&compact_metadata), compact_metadata);
 
     let mut compact_buffer = [0; MAX_METADATA_CAPACITY];
     for length in 0..metadata.len() {
@@ -223,10 +237,12 @@ fn point() -> (Expected, Expected) {
         .kind(IoTypeMetadataKind::U8)
         .name("y")
         .kind(IoTypeMetadataKind::U8);
-    let expected_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected_compact = Expected::new(IoTypeMetadataKind::Struct)
         .name("")
         .byte(2)
+        .name("")
         .kind(IoTypeMetadataKind::U8)
+        .name("")
         .kind(IoTypeMetadataKind::U8);
 
     (expected, expected_compact)
@@ -235,22 +251,19 @@ fn point() -> (Expected, Expected) {
 /// Expected metadata and compact metadata of a struct declared with [`named_struct!`] or
 /// [`tuple_struct!`] using the first `field_count` of [`FIELD_NAMES`]
 fn u8_struct(name: &str, field_count: u8, named: bool) -> (Expected, Expected) {
-    let kind = if named {
-        IoTypeMetadataKind::Struct
-    } else {
-        IoTypeMetadataKind::TupleStruct
-    };
-    let mut expected = Expected::new(kind).name(name).byte(field_count);
-    let mut expected_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let mut expected = Expected::new(IoTypeMetadataKind::Struct)
+        .name(name)
+        .byte(field_count);
+    let mut expected_compact = Expected::new(IoTypeMetadataKind::Struct)
         .name("")
         .byte(field_count);
 
     for field_name in &FIELD_NAMES[..usize::from(field_count)] {
-        if named {
-            expected = expected.name(field_name);
-        }
-        expected = expected.kind(IoTypeMetadataKind::U8);
-        expected_compact = expected_compact.kind(IoTypeMetadataKind::U8);
+        // Fields of tuple structs have zero-length names
+        expected = expected
+            .name(if named { field_name } else { "" })
+            .kind(IoTypeMetadataKind::U8);
+        expected_compact = expected_compact.name("").kind(IoTypeMetadataKind::U8);
     }
 
     (expected, expected_compact)
@@ -272,7 +285,10 @@ fn u8_enum(name: &str, variant_count: u8, with_fields: bool) -> (Expected, Expec
         expected_compact = expected_compact.name("");
         if with_fields {
             expected = expected.byte(1).name("value").kind(IoTypeMetadataKind::U8);
-            expected_compact = expected_compact.byte(1).kind(IoTypeMetadataKind::U8);
+            expected_compact = expected_compact
+                .byte(1)
+                .name("")
+                .kind(IoTypeMetadataKind::U8);
         }
     }
 
@@ -523,11 +539,14 @@ fn fixed_capacity_elements() {
         .kind(IoTypeMetadataKind::U32)
         .name("c")
         .kind(IoTypeMetadataKind::U32);
-    let wide_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let wide_compact = Expected::new(IoTypeMetadataKind::Struct)
         .name("")
         .byte(3)
+        .name("")
         .kind(IoTypeMetadataKind::U64)
+        .name("")
         .kind(IoTypeMetadataKind::U32)
+        .name("")
         .kind(IoTypeMetadataKind::U32);
     let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
         .u32(3)
@@ -642,27 +661,20 @@ fn empty_structs() {
     #[repr(C)]
     struct EmptyUnit;
 
-    let expected = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected_compact = Expected::new(IoTypeMetadataKind::Struct).name("").byte(0);
+
+    let expected = Expected::new(IoTypeMetadataKind::Struct)
         .name("Empty")
-        .byte(0);
-    let expected_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
-        .name("")
         .byte(0);
     check_trivial_type::<Empty>("Empty", &expected, &expected_compact);
 
-    let expected = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected = Expected::new(IoTypeMetadataKind::Struct)
         .name("EmptyTuple")
-        .byte(0);
-    let expected_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
-        .name("")
         .byte(0);
     check_trivial_type::<EmptyTuple>("EmptyTuple", &expected, &expected_compact);
 
-    let expected = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected = Expected::new(IoTypeMetadataKind::Struct)
         .name("EmptyUnit")
-        .byte(0);
-    let expected_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
-        .name("")
         .byte(0);
     check_trivial_type::<EmptyUnit>("EmptyUnit", &expected, &expected_compact);
 }
@@ -843,8 +855,8 @@ fn named_and_tuple_forms_compact_equally() {
     #[repr(C)]
     struct OuterTuple(EmptyUnit, Tuple2, [Tuple11; 2], EnumOfTuple);
 
-    // Struct, enum, variant and field names are removed, so only the number of fields and their
-    // types remain
+    // Struct, enum, variant and field names are replaced with zero-length names, so only the number
+    // of fields and their types remain
     check_same_compact::<EmptyNamed, EmptyTuple>();
     check_same_compact::<EmptyNamed, EmptyUnit>();
     check_same_compact::<Named1, Tuple1>();
@@ -938,53 +950,74 @@ fn structs_with_different_field_types() {
         .kind(IoTypeMetadataKind::Array)
         .u32(1)
         .kind(IoTypeMetadataKind::U8);
-    let expected_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected_compact = Expected::new(IoTypeMetadataKind::Struct)
         .name("")
         .byte(13)
+        .name("")
         .kind(IoTypeMetadataKind::U128)
+        .name("")
         .kind(IoTypeMetadataKind::I128)
+        .name("")
         .kind(IoTypeMetadataKind::U64)
+        .name("")
         .kind(IoTypeMetadataKind::I64)
+        .name("")
         .kind(IoTypeMetadataKind::U32)
+        .name("")
         .kind(IoTypeMetadataKind::I32)
+        .name("")
         .kind(IoTypeMetadataKind::U16)
+        .name("")
         .kind(IoTypeMetadataKind::I16)
+        .name("")
         .kind(IoTypeMetadataKind::U8)
+        .name("")
         .kind(IoTypeMetadataKind::I8)
+        .name("")
         .kind(IoTypeMetadataKind::Bool)
+        .name("")
         .kind(IoTypeMetadataKind::Unit)
+        .name("")
         .kind(IoTypeMetadataKind::Array)
         .u32(1)
         .kind(IoTypeMetadataKind::U8);
     check_trivial_type::<Primitives>("Primitives", &expected, &expected_compact);
 
-    let expected = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected = Expected::new(IoTypeMetadataKind::Struct)
         .name("Mixed")
         .byte(3)
+        .name("")
         .kind(IoTypeMetadataKind::U64)
+        .name("")
         .kind(IoTypeMetadataKind::Unaligned)
         .kind(IoTypeMetadataKind::U32)
+        .name("")
         .kind(IoTypeMetadataKind::Array)
         .u32(4)
         .kind(IoTypeMetadataKind::U8);
-    let expected_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected_compact = Expected::new(IoTypeMetadataKind::Struct)
         .name("")
         .byte(3)
+        .name("")
         .kind(IoTypeMetadataKind::U64)
+        .name("")
         .kind(IoTypeMetadataKind::Unaligned)
         .kind(IoTypeMetadataKind::U32)
+        .name("")
         .kind(IoTypeMetadataKind::Array)
         .u32(4)
         .kind(IoTypeMetadataKind::U8);
     check_trivial_type::<Mixed>("Mixed", &expected, &expected_compact);
 
-    let expected = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected = Expected::new(IoTypeMetadataKind::Struct)
         .name("Transparent")
         .byte(1)
+        .name("")
         .kind(IoTypeMetadataKind::U32);
-    let expected_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected_compact = Expected::new(IoTypeMetadataKind::Struct)
         .name("")
         .byte(1)
+        .name("")
         .kind(IoTypeMetadataKind::U32);
     check_trivial_type::<Transparent>("Transparent", &expected, &expected_compact);
 }
@@ -1102,13 +1135,17 @@ fn enums_with_different_variants() {
         .byte(3)
         .name("")
         .byte(1)
+        .name("")
         .nested(&point_compact)
         .name("")
         .byte(2)
+        .name("")
         .kind(IoTypeMetadataKind::U8)
+        .name("")
         .kind(IoTypeMetadataKind::U8)
         .name("")
         .byte(1)
+        .name("")
         .kind(IoTypeMetadataKind::Array)
         .u32(2)
         .kind(IoTypeMetadataKind::U8);
@@ -1128,10 +1165,91 @@ fn enums_with_different_variants() {
         .byte(2)
         .name("")
         .byte(1)
+        .name("")
         .kind(IoTypeMetadataKind::Unit)
         .name("")
         .byte(0);
     check_trivial_type::<MixedDataFirst>("MixedDataFirst", &expected, &expected_compact);
+}
+
+#[test]
+fn fields_are_either_named_or_unnamed() {
+    // Fields of tuple structs have zero-length names, structs that also have named fields are
+    // rejected
+    let named_first = Expected::new(IoTypeMetadataKind::Struct)
+        .name("Mixed")
+        .byte(2)
+        .name("a")
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .kind(IoTypeMetadataKind::U8);
+    let unnamed_first = Expected::new(IoTypeMetadataKind::Struct)
+        .name("Mixed")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::U8)
+        .name("b")
+        .kind(IoTypeMetadataKind::U8);
+    check_rejected(&named_first.0);
+    check_rejected(&unnamed_first.0);
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::Array)
+            .u32(1)
+            .nested(&named_first)
+            .0,
+    );
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::Struct)
+            .name("Outer")
+            .byte(1)
+            .name("inner")
+            .nested(&unnamed_first)
+            .0,
+    );
+
+    // Enum variants are encoded like structs, so each variant either has named or unnamed fields
+    let tuple_variant = Expected::new(IoTypeMetadataKind::Enum)
+        .name("Enum")
+        .byte(2)
+        .name("Named")
+        .byte(1)
+        .name("value")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(2)
+        .kind(IoTypeMetadataKind::U8)
+        .name("Tuple")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .kind(IoTypeMetadataKind::U8);
+    let tuple_variant_compact = Expected::new(IoTypeMetadataKind::Enum)
+        .name("")
+        .byte(2)
+        .name("")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(2)
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .kind(IoTypeMetadataKind::U8);
+    check_decoding(&tuple_variant.0, "Enum", 3, 1, &tuple_variant_compact);
+
+    let mixed_variant = Expected::new(IoTypeMetadataKind::Enum)
+        .name("Enum")
+        .byte(1)
+        .name("Mixed")
+        .byte(2)
+        .name("a")
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .kind(IoTypeMetadataKind::U8);
+    check_rejected(&mixed_variant.0);
 }
 
 #[test]
@@ -1156,17 +1274,21 @@ fn nested_types() {
     let (point, point_compact) = point();
     let (direction, direction_compact) = u8_enum("Direction", 2, false);
     let (value, value_compact) = u8_enum("Value", 2, true);
-    let inner = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let inner = Expected::new(IoTypeMetadataKind::Struct)
         .name("Inner")
         .byte(2)
+        .name("")
         .nested(&point)
+        .name("")
         .kind(IoTypeMetadataKind::Array)
         .u32(8)
         .kind(IoTypeMetadataKind::U8);
-    let inner_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let inner_compact = Expected::new(IoTypeMetadataKind::Struct)
         .name("")
         .byte(2)
+        .name("")
         .nested(&point_compact)
+        .name("")
         .kind(IoTypeMetadataKind::Array)
         .u32(8)
         .kind(IoTypeMetadataKind::U8);
@@ -1188,16 +1310,21 @@ fn nested_types() {
         .nested(&value)
         .name("inner")
         .nested(&inner);
-    let expected_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
+    let expected_compact = Expected::new(IoTypeMetadataKind::Struct)
         .name("")
         .byte(5)
+        .name("")
         .kind(IoTypeMetadataKind::Unaligned)
         .kind(IoTypeMetadataKind::U64)
+        .name("")
         .kind(IoTypeMetadataKind::Array)
         .u32(3)
         .nested(&point_compact)
+        .name("")
         .nested(&direction_compact)
+        .name("")
         .nested(&value_compact)
+        .name("")
         .nested(&inner_compact);
     check_trivial_type::<Outer>("Outer", &expected, &expected_compact);
 }
@@ -1211,10 +1338,12 @@ fn u8_array(count: u32) -> Expected {
 
 /// Metadata of a tuple struct with a field of the given type followed by a `u8` field
 fn pair_with_byte(first: &Expected) -> Expected {
-    Expected::new(IoTypeMetadataKind::TupleStruct)
+    Expected::new(IoTypeMetadataKind::Struct)
         .name("Pair")
         .byte(2)
+        .name("")
         .nested(first)
+        .name("")
         .kind(IoTypeMetadataKind::U8)
 }
 

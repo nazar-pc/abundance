@@ -93,28 +93,21 @@ pub enum IoTypeMetadataKind {
     I64,
     /// `i128`
     I128,
-    /// `struct S {..}`
+    /// `struct S {..}`, `struct S(..);` or `struct S;`
     ///
-    /// Structs with named fields are encoded af follows:
+    /// Structs are encoded as follows:
     /// * Length of struct name in bytes (u8)
     /// * Struct name as UTF-8 bytes
     /// * Number of fields (u8)
     ///
-    /// Each field is encoded follows:
-    /// * Length of the field name in bytes (u8)
+    /// Each field is encoded as follows:
+    /// * Length of the field name in bytes (u8), zero for fields of tuple structs
     /// * Field name as UTF-8 bytes
     /// * Recursive metadata of the field's type
+    ///
+    /// Decoders reject structs that have both fields with names and fields with zero-length
+    /// names.
     Struct,
-    /// `struct S(..);`
-    ///
-    /// Tuple structs are encoded af follows:
-    /// * Length of struct name in bytes (u8)
-    /// * Struct name as UTF-8 bytes
-    /// * Number of fields (u8)
-    ///
-    /// Each field is encoded follows:
-    /// * Recursive metadata of the field's type
-    TupleStruct,
     /// `enum E { Variant {..} }`
     ///
     /// Enums with variants that have fields are encoded as follows:
@@ -193,14 +186,13 @@ const impl TryFrom<u8> for IoTypeMetadataKind {
             10 => Self::I64,
             11 => Self::I128,
             12 => Self::Struct,
-            13 => Self::TupleStruct,
-            14 => Self::Enum,
-            15 => Self::EnumNoFields,
-            16 => Self::Array,
-            17 => Self::VariableElements,
-            18 => Self::FixedCapacityElements,
-            19 => Self::FixedCapacityString,
-            20 => Self::Unaligned,
+            13 => Self::Enum,
+            14 => Self::EnumNoFields,
+            15 => Self::Array,
+            16 => Self::VariableElements,
+            17 => Self::FixedCapacityElements,
+            18 => Self::FixedCapacityString,
+            19 => Self::Unaligned,
             _ => {
                 return Err(());
             }
@@ -212,11 +204,10 @@ impl IoTypeMetadataKind {
     // TODO: Create wrapper type for metadata bytes and move this method there
     /// Produce compact metadata.
     ///
-    /// Compact metadata retains the shape, but throws some details. Specifically, the following
-    /// transformations are applied to metadata:
-    /// * Struct names, enum names and enum variant names are removed (replaced with zero bytes
-    ///   names)
-    /// * Structs and enum variants are turned into tuple variants (removing field names)
+    /// Compact metadata retains the shape, but throws some details. Specifically, names of structs,
+    /// fields, enums and enum variants are replaced with zero-length names, so a struct with named
+    /// fields has the same compact metadata as a tuple struct with fields of the same types.
+    /// Compact metadata of valid metadata is valid metadata too.
     ///
     /// This is typically called by higher-level functions and doesn't need to be used directly.
     ///

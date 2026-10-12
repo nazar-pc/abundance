@@ -24,13 +24,8 @@ pub(super) const fn compact_metadata<'i, 'o>(
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
         }
         IoTypeMetadataKind::Struct => {
-            // Convert struct with field names to tuple struct
-            *io_type_metadata_kind_output = IoTypeMetadataKind::TupleStruct as u8;
-            (input, output) = compact_struct(input, output, None, false)?;
-        }
-        IoTypeMetadataKind::TupleStruct => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
-            (input, output) = compact_struct(input, output, None, true)?;
+            (input, output) = compact_struct(input, output, None)?;
         }
         IoTypeMetadataKind::Enum => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
@@ -64,7 +59,6 @@ const fn compact_struct<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
     arguments_count: Option<u8>,
-    tuple: bool,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
     // Remove struct name
     let struct_name_length = *input.split_off_first()?;
@@ -83,12 +77,11 @@ const fn compact_struct<'i, 'o>(
 
     // Compact arguments
     while arguments_count > 0 {
-        // Remove field name if needed
-        if !tuple {
-            let field_name_length = *input.split_off_first()?;
-            // TODO: `split_off()` is not `const fn` yet, even unstably
-            input = input.get(usize::from(field_name_length)..)?;
-        }
+        // Remove field name
+        let field_name_length = *input.split_off_first()?;
+        *output.split_off_first_mut()? = 0;
+        // TODO: `split_off()` is not `const fn` yet, even unstably
+        input = input.get(usize::from(field_name_length)..)?;
 
         // Compact argument's type
         (input, output) = compact_metadata(input, output)?;
@@ -116,10 +109,10 @@ const fn compact_enum<'i, 'o>(
     while variant_count > 0 {
         if has_fields {
             // Compact variant as if it was a struct
-            (input, output) = compact_struct(input, output, None, false)?;
+            (input, output) = compact_struct(input, output, None)?;
         } else {
             // Compact variant as if it was a struct without fields
-            (input, output) = compact_struct(input, output, Some(0), false)?;
+            (input, output) = compact_struct(input, output, Some(0))?;
         }
 
         variant_count -= 1;

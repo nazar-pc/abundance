@@ -16,14 +16,13 @@ fn check_repr() {
         (IoTypeMetadataKind::I64, 10),
         (IoTypeMetadataKind::I128, 11),
         (IoTypeMetadataKind::Struct, 12),
-        (IoTypeMetadataKind::TupleStruct, 13),
-        (IoTypeMetadataKind::Enum, 14),
-        (IoTypeMetadataKind::EnumNoFields, 15),
-        (IoTypeMetadataKind::Array, 16),
-        (IoTypeMetadataKind::VariableElements, 17),
-        (IoTypeMetadataKind::FixedCapacityElements, 18),
-        (IoTypeMetadataKind::FixedCapacityString, 19),
-        (IoTypeMetadataKind::Unaligned, 20),
+        (IoTypeMetadataKind::Enum, 13),
+        (IoTypeMetadataKind::EnumNoFields, 14),
+        (IoTypeMetadataKind::Array, 15),
+        (IoTypeMetadataKind::VariableElements, 16),
+        (IoTypeMetadataKind::FixedCapacityElements, 17),
+        (IoTypeMetadataKind::FixedCapacityString, 18),
+        (IoTypeMetadataKind::Unaligned, 19),
     ];
 
     for (kind, repr_byte) in known_variants {

@@ -3,13 +3,13 @@
 Breaking changes:
 
 * Metadata kinds for specific numbers of fields, variants and elements (like `Struct3` and `ArrayU8x32`) are removed,
-  array lengths, recommended allocations and capacities always take 4 bytes and the remaining kinds are renumbered, so
-  `METADATA` of most types changes
+  array lengths, recommended allocations and capacities always take 4 bytes, `TupleStruct` is merged into `Struct` and
+  the remaining kinds are renumbered, so `METADATA` of most types changes
 * `VariableBytes` is now an alias of `VariableElements<u8>`, and `FixedCapacityBytesU8/U16` and
   `FixedCapacityStringU8/U16` are replaced with `FixedCapacityElements<Element, CAPACITY>` (with the
   `FixedCapacityBytes<CAPACITY>` alias) and `FixedCapacityString<CAPACITY>`, which store the length as `u32`
-* `IoTypeMetadataKind::compact()` produces valid metadata for structs with more than 10 named fields, previously it
-  didn't
+* `IoTypeMetadataKind::compact()` replaces names with zero-length names, so it produces valid metadata with the same
+  capacity and alignment, previously it didn't for structs with more than 10 named fields and enums with fields
 
 Fixes:
 

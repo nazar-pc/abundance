@@ -277,16 +277,6 @@ fn parse_repr(
 }
 
 fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<TokenStream, Error> {
-    let struct_with_fields = data_struct
-        .fields
-        .iter()
-        .next()
-        .is_some_and(|field| field.ident.is_some());
-    let io_type_metadata = if struct_with_fields {
-        format_ident!("Struct")
-    } else {
-        format_ident!("TupleStruct")
-    };
     let inner_struct_metadata = generate_inner_struct_metadata(ident, &data_struct.fields, true)
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -301,7 +291,7 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
         )
         {
             ::ab_io_type::metadata::concat_metadata_sources(&[
-                &[::ab_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8],
+                &[::ab_io_type::metadata::IoTypeMetadataKind::Struct as ::core::primitive::u8],
                 #( #inner_struct_metadata )*
             ])
         }
@@ -472,8 +462,8 @@ fn generate_fields_metadata(
     fields: &Fields,
 ) -> impl Iterator<Item = Result<TokenStream, Error>> + '_ {
     // Encodes the following for each field:
-    // * Length of the field name in bytes (u8, if not tuple)
-    // * Field name as UTF-8 bytes (if not tuple)
+    // * Length of the field name in bytes (u8, zero for tuple fields)
+    // * Field name as UTF-8 bytes
     // * Recursive metadata of the field's type
     fields.iter().map(move |field| {
         let field_metadata = if let Some(field_name) = &field.ident {
@@ -495,9 +485,9 @@ fn generate_fields_metadata(
                     .map(|&char| Literal::byte_character(char)),
             );
 
-            Some(quote! { #( #field_metadata, )* })
+            quote! { #( #field_metadata, )* }
         } else {
-            None
+            quote! { 0, }
         };
         let field_type = &field.ty;
 
