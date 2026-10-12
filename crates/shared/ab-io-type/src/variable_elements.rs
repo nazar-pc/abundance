@@ -172,92 +172,77 @@ where
     ///
     /// NOTE: size is specified in bytes, not elements.
     ///
-    /// # Panics
-    /// Panics if `buffer.len * Element::SIZE() != size`
+    /// Returns `None` if `size_of_val(buffer) != size`.
     //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
     #[inline(always)]
-    #[track_caller]
     pub const fn from_buffer<'a>(
         buffer: &'a [<Self as IoType>::PointerType],
         size: &'a u32,
-    ) -> impl Deref<Target = Self> + 'a {
-        debug_assert!(
-            buffer.len() * Element::SIZE as usize == *size as usize,
-            "Invalid size"
-        );
-        // TODO: Use `debug_assert_eq` when it is available in const environment
-        // debug_assert_eq!(buffer.len(), *size as usize, "Invalid size");
+    ) -> Option<impl Deref<Target = Self> + 'a> {
+        if size_of_val(buffer) != *size as usize {
+            return None;
+        }
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             elements: NonNull::new(buffer.as_ptr().cast_mut()).expect("Not null; qed"),
             size: NonNull::from_ref(size),
             capacity: *size,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
-        })
+        }))
     }
 
     /// Create a new exclusive instance from provided memory buffer.
     ///
-    /// # Panics
-    /// Panics if `buffer.len() * Element::SIZE != size`
+    /// NOTE: size is specified in bytes, not elements.
+    ///
+    /// Returns `None` if `size_of_val(buffer) != size`.
     //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
     #[inline(always)]
-    #[track_caller]
     pub fn from_buffer_mut<'a>(
         buffer: &'a mut [<Self as IoType>::PointerType],
         size: &'a mut u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert_eq!(
-            buffer.len() * Element::SIZE as usize,
-            *size as usize,
-            "Invalid size"
-        );
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        if size_of_val(buffer) != *size as usize {
+            return None;
+        }
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             elements: NonNull::new(buffer.as_mut_ptr()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity: *size,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
-        })
+        }))
     }
 
-    /// Create a new shared instance from provided memory buffer.
+    /// Create a new exclusive instance from provided uninitialized memory buffer.
     ///
-    /// NOTE: size is specified in bytes, not elements.
+    /// `size` must be `0` since none of the elements are initialized yet, the whole buffer is used
+    /// as capacity.
     ///
-    /// # Panics
-    /// Panics if `size > CAPACITY` or `!size.is_multiple_of(Element::SIZE)`
+    /// Returns `None` if `size != 0` or if the buffer is larger than `u32::MAX` bytes.
     //
-    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
-    // shared reference for most practical purposes.
+    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
+    // exclusive reference for most practical purposes.
     #[inline(always)]
-    #[track_caller]
     pub fn from_uninit<'a>(
         uninit: &'a mut [MaybeUninit<<Self as IoType>::PointerType>],
         size: &'a mut u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
-        let capacity = size_of_val(uninit);
-        debug_assert!(
-            *size as usize <= capacity,
-            "Size {size} must not exceed capacity {capacity}"
-        );
-        debug_assert!(
-            size.is_multiple_of(Element::SIZE),
-            "Size {size} is invalid for element size {}",
-            Element::SIZE
-        );
-        let capacity = capacity as u32;
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        if *size != 0 {
+            return None;
+        }
+        let capacity = u32::try_from(size_of_val(uninit)).ok()?;
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             elements: NonNull::new(uninit.as_mut_ptr().cast_init()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
-        })
+        }))
     }
 
     // Size in bytes

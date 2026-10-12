@@ -20,7 +20,8 @@ where
 {
     let mut state_bytes = [MaybeUninit::uninit(); RECOMMENDED_STATE_CAPACITY as usize];
     let mut state_size = 0;
-    let mut new_state = VariableBytes::from_uninit(&mut state_bytes, &mut state_size);
+    let mut new_state = VariableBytes::from_uninit(&mut state_bytes, &mut state_size)
+        .expect("Size is zero and the buffer is smaller than 4 GiB; qed");
     f(&mut new_state)
 }
 
@@ -35,11 +36,13 @@ where
 {
     let mut state_bytes_a = [MaybeUninit::uninit(); RECOMMENDED_STATE_CAPACITY as usize];
     let mut state_size_a = 0;
-    let mut new_state_a = VariableBytes::from_uninit(&mut state_bytes_a, &mut state_size_a);
+    let mut new_state_a = VariableBytes::from_uninit(&mut state_bytes_a, &mut state_size_a)
+        .expect("Size is zero and the buffer is smaller than 4 GiB; qed");
 
     let mut state_bytes_b = [MaybeUninit::uninit(); RECOMMENDED_STATE_CAPACITY as usize];
     let mut state_size_b = 0;
-    let mut new_state_b = VariableBytes::from_uninit(&mut state_bytes_b, &mut state_size_b);
+    let mut new_state_b = VariableBytes::from_uninit(&mut state_bytes_b, &mut state_size_b)
+        .expect("Size is zero and the buffer is smaller than 4 GiB; qed");
 
     f(&mut new_state_a, &mut new_state_b)
 }

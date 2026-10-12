@@ -163,50 +163,46 @@ where
     /// `size` can be either `0` or `Data::SIZE`, indicating that value is missing or present
     /// accordingly.
     ///
-    /// # Panics
-    /// Panics if `size != 0 && size != Data::SIZE`
+    /// Returns `None` if `size` is neither `0` nor `Data::SIZE`.
     //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
-    #[track_caller]
     pub fn from_mut<'a>(
         buffer: &'a mut Data,
         size: &'a mut u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert!(
-            *size == 0 || *size == Data::SIZE,
-            "Invalid size {size} (self size {})",
-            Data::SIZE
-        );
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        if !(*size == 0 || *size == Data::SIZE) {
+            return None;
+        }
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             data: NonNull::from_mut(buffer),
             size: NonNull::from_mut(size),
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
-        })
+        }))
     }
 
-    /// Create a new shared instance from provided memory buffer.
+    /// Create a new exclusive instance from provided uninitialized memory.
     ///
-    /// `size` must be `0`.
+    /// `size` must be `0` since data is not initialized yet.
     ///
-    /// # Panics
-    /// Panics if `size != 0`
+    /// Returns `None` if `size != 0`.
     //
-    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
-    // shared reference for most practical purposes.
-    #[track_caller]
+    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
+    // exclusive reference for most practical purposes.
     pub fn from_uninit<'a>(
         uninit: &'a mut MaybeUninit<Data>,
         size: &'a mut u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert_eq!(*size, 0, "Invalid size");
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        if *size != 0 {
+            return None;
+        }
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             data: NonNull::from_mut(uninit).cast::<Data>(),
             size: NonNull::from_mut(size),
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
-        })
+        }))
     }
 
     /// Try to get access to initialized `Data`, returns `None` if not initialized

@@ -208,9 +208,9 @@ pub unsafe trait IoType {
 
     /// Create a mutable reference to a type, which is represented by provided memory.
     ///
-    /// Memory must be correctly aligned and sufficient in size, or else `None` will be returned,
-    /// but padding beyond the size of the type is allowed. Memory behind a pointer must not be
-    /// read or written to in the meantime either.
+    /// Memory must be correctly aligned and sufficient in size, but padding beyond the size of the
+    /// type is allowed. Memory behind a pointer must not be read or written to in the meantime
+    /// either.
     ///
     /// `size` indicates how many bytes are used within a larger allocation for types that can
     /// store a variable amount of data.

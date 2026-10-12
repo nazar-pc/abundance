@@ -17,7 +17,8 @@ Breaking changes:
   replaces structs with a single field with the type of the field and structs without fields with `()`, so a newtype has
   the same compact metadata as the type it wraps
 * `IoType::as_ptr()` and `IoType::as_mut_ptr()` are safe and return `NonNull` by value, the inherent
-  `VariableElements::as_mut_ptr()` is removed
+  `VariableElements::as_mut_ptr()` is removed, and constructors of `VariableElements` and `MaybeData` that take a size
+  return `None` for an invalid size instead of checking it only in debug builds, if at all
 
 Improvements:
 
