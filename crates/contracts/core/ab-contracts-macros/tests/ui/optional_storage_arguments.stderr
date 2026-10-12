@@ -12,7 +12,7 @@ help: the following other types implement trait `IoTypeOptional`
    | | where
    | |     Element: TrivialType,
    | |     [(); NON_ZERO_SIZED::<Element>]:,
-   | |_____________________________________^ `VariableElements<Element, RECOMMENDED_ALLOCATION>`
+   | |_____________________________________^ `ab_io_type::variable_elements::VariableElements<Element, RECOMMENDED_ALLOCATION>`
    |
   ::: $WORKSPACE/crates/shared/ab-io-type/src/maybe_data.rs
    |
@@ -42,7 +42,7 @@ help: the following other types implement trait `IoTypeOptional`
    | | where
    | |     Element: TrivialType,
    | |     [(); NON_ZERO_SIZED::<Element>]:,
-   | |_____________________________________^ `VariableElements<Element, RECOMMENDED_ALLOCATION>`
+   | |_____________________________________^ `ab_io_type::variable_elements::VariableElements<Element, RECOMMENDED_ALLOCATION>`
    |
   ::: $WORKSPACE/crates/shared/ab-io-type/src/maybe_data.rs
    |

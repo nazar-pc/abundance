@@ -277,26 +277,18 @@ fn parse_repr(
 }
 
 fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<TokenStream, Error> {
-    let num_fields = data_struct.fields.len();
     let struct_with_fields = data_struct
         .fields
         .iter()
         .next()
         .is_some_and(|field| field.ident.is_some());
-    let (io_type_metadata, with_num_fields) = if struct_with_fields {
-        match num_fields {
-            0..=10 => (format_ident!("Struct{num_fields}"), false),
-            _ => (format_ident!("Struct"), true),
-        }
+    let io_type_metadata = if struct_with_fields {
+        format_ident!("Struct")
     } else {
-        match num_fields {
-            1..=10 => (format_ident!("TupleStruct{num_fields}"), false),
-            _ => (format_ident!("TupleStruct"), true),
-        }
+        format_ident!("TupleStruct")
     };
-    let inner_struct_metadata =
-        generate_inner_struct_metadata(ident, &data_struct.fields, with_num_fields)
-            .collect::<Result<Vec<_>, _>>()?;
+    let inner_struct_metadata = generate_inner_struct_metadata(ident, &data_struct.fields, true)
+        .collect::<Result<Vec<_>, _>>()?;
 
     // Encodes the following:
     // * Type: struct
@@ -346,21 +338,17 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
         .iter()
         .next()
         .is_some_and(|variant| !variant.fields.is_empty());
-    let enum_type = if variant_has_fields {
-        "Enum"
+    let io_type_metadata = if variant_has_fields {
+        format_ident!("Enum")
     } else {
-        "EnumNoFields"
-    };
-    let (io_type_metadata, with_num_variants) = match num_variants {
-        1..=16 => (format_ident!("{enum_type}{num_variants}"), false),
-        _ => (format_ident!("{enum_type}"), true),
+        format_ident!("EnumNoFields")
     };
 
     // Encodes the following:
     // * Type: enum
     // * Length of enum name in bytes (u8)
     // * Enum name as UTF-8 bytes
-    // * Number of variants (u8, if requested)
+    // * Number of variants (u8)
     let enum_metadata_header = {
         let enum_metadata_header = [Literal::u8_unsuffixed(type_name_bytes_len)]
             .into_iter()
@@ -369,7 +357,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
                     .iter()
                     .map(|&char| Literal::byte_character(char)),
             )
-            .chain(with_num_variants.then_some(Literal::u8_unsuffixed(num_variants)));
+            .chain([Literal::u8_unsuffixed(num_variants)]);
 
         quote! {
             &[

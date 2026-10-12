@@ -199,41 +199,9 @@ unsafe impl TrivialType for i128 {
 }
 
 const fn array_metadata(size: u32, inner_metadata: &[u8]) -> ([u8; MAX_METADATA_CAPACITY], usize) {
-    if inner_metadata.len() == 1 && inner_metadata[0] == IoTypeMetadataKind::U8 as u8 {
-        if size == 8 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x8 as u8]]);
-        } else if size == 16 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x16 as u8]]);
-        } else if size == 32 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x32 as u8]]);
-        } else if size == 64 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x64 as u8]]);
-        } else if size == 128 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x128 as u8]]);
-        } else if size == 256 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x256 as u8]]);
-        } else if size == 512 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x512 as u8]]);
-        } else if size == 1024 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x1024 as u8]]);
-        } else if size == 2028 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x2028 as u8]]);
-        } else if size == 4096 {
-            return concat_metadata_sources(&[&[IoTypeMetadataKind::ArrayU8x4096 as u8]]);
-        }
-    }
-
-    let (io_type, size_bytes) = if size < 2u32.pow(8) {
-        (IoTypeMetadataKind::Array8b, 1)
-    } else if size < 2u32.pow(16) {
-        (IoTypeMetadataKind::Array16b, 2)
-    } else {
-        (IoTypeMetadataKind::Array32b, 4)
-    };
-
     concat_metadata_sources(&[
-        &[io_type as u8],
-        size.to_le_bytes().split_at(size_bytes).0,
+        &[IoTypeMetadataKind::Array as u8],
+        &size.to_le_bytes(),
         inner_metadata,
     ])
 }
