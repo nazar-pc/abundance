@@ -304,7 +304,13 @@ where
     #[must_use = "Operation may fail"]
     pub fn append(&mut self, elements: &[Element]) -> bool {
         let size = self.size();
-        if elements.len() * Element::SIZE as usize + size as usize > self.capacity as usize {
+        let Some(new_size) = u32::try_from(size_of_val(elements))
+            .ok()
+            .and_then(|appended_size| size.checked_add(appended_size))
+        else {
+            return false;
+        };
+        if new_size > self.capacity {
             return false;
         }
 
@@ -315,12 +321,16 @@ where
 
         // SAFETY: allocation range and offset are checked above, the allocation itself is
         // guaranteed by constructors
-        let mut start = unsafe { self.elements.offset(offset) };
+        let start = unsafe { self.elements.offset(offset) };
         // SAFETY: Alignment is the same, writing happens in properly allocated memory guaranteed by
         // constructors, number of elements is checked above, Rust ownership rules will prevent any
         // overlap here (creating reference to non-initialized part of allocation would already be
-        // undefined behavior anyway)
-        unsafe { ptr::copy_nonoverlapping(elements.as_ptr(), start.as_mut(), elements.len()) }
+        // undefined behavior anyway). The new size covers initialized elements only and is checked
+        // to be within capacity above.
+        unsafe {
+            ptr::copy_nonoverlapping(elements.as_ptr(), start.as_ptr(), elements.len());
+            self.size.write(new_size);
+        }
 
         true
     }

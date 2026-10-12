@@ -28,6 +28,23 @@ fn count() {
 }
 
 #[test]
+fn append() {
+    let mut buffer = [MaybeUninit::uninit(); 4];
+    let mut size = 0;
+    let mut elements = VariableElements::<u32>::from_uninit(&mut buffer, &mut size);
+
+    assert!(elements.append(&[1, 2]));
+    assert_eq!(elements.get_initialized(), &[1, 2]);
+
+    // Not enough capacity
+    assert!(!elements.append(&[3, 4, 5]));
+    assert_eq!(elements.get_initialized(), &[1, 2]);
+
+    assert!(elements.append(&[3, 4]));
+    assert_eq!(elements.get_initialized(), &[1, 2, 3, 4]);
+}
+
+#[test]
 fn copy_from() {
     // Buffers are larger than the instances, so copying too much is caught without Miri too
     let src_buffer = [1_u64, 2, 3, 4, 5, 6, 7, 8];
