@@ -118,7 +118,7 @@ jobs:
             name: Install kache
             uses: kunobi-ninja/kache-action@ad7317540dcdd71c904f7a60a87b620a0c0e67ed # v1
             with:
-              version: v0.28.1
+              version: v1.1.0
               cache-c-cpp: 'true'
               cache-dir: ${{ runner.temp }}/kache
               cache-executables: 'true'
@@ -488,46 +488,92 @@ jobs:
 
                   let inv_dir = env::var("MIRI_INVOCATIONS_DIR").expect("MIRI_INVOCATIONS_DIR not set");
                   let queue_path = env::var("MIRI_QUEUE_PATH").expect("MIRI_QUEUE_PATH not set");
-                  let inv_path = format!("{inv_dir}/{crate_name}-{}", process::id());
+
+                  // Lines are `crate-name: filter1 filter2 ...`, each filter becomes a separate invocation and one
+                  // more invocation runs everything else. Earlier filters are skipped by later invocations to avoid
+                  // running the same test more than once.
+                  let filters = env::var_os("MIRI_TEST_PARTITIONING")
+                      .and_then(|path| {
+                          fs::read_to_string(path)
+                              .unwrap()
+                              .lines()
+                              .find_map(|line| {
+                                  let line = line.split('#').next().unwrap();
+                                  let (name, filters) = line.split_once(':')?;
+                                  (name.trim().replace('-', "_") == crate_name)
+                                      .then(|| filters.split_whitespace().map(str::to_string).collect::<Vec<_>>())
+                              })
+                      })
+                      .unwrap_or_default();
 
                   let cwd = env::current_dir().unwrap();
                   let envs = env::vars().collect::<Vec<_>>();
-
-                  let mut data = String::new();
-                  writeln!(data, "{}", cwd.display()).unwrap();
-                  writeln!(data, "{}", args.len()).unwrap();
-                  for arg in &args {
-                      writeln!(data, "{arg}").unwrap();
-                  }
-                  writeln!(data, "{}", envs.len()).unwrap();
-                  for (k, v) in &envs {
-                      writeln!(data, "{k}={v}").unwrap();
-                  }
-
-                  fs::write(&inv_path, &data).unwrap();
 
                   let mut queue = fs::OpenOptions::new()
                       .create(true)
                       .append(true)
                       .open(&queue_path)
                       .unwrap();
-                  let name = std::path::Path::new(&inv_path)
-                      .file_name()
-                      .unwrap()
-                      .to_string_lossy();
-                  writeln!(queue, "Miri: running {name}").unwrap();
-                  writeln!(queue, "MIRI_REPLAY=\"{inv_path}\" \"{}\"", exe.display()).unwrap();
+
+                  for partition in 0..=filters.len() {
+                      let mut args = args.clone();
+                      if !args.iter().any(|arg| arg == "--") {
+                          args.push("--".to_string());
+                      }
+                      args.extend(filters.get(partition).cloned());
+                      for filter in &filters[..partition] {
+                          args.push("--skip".to_string());
+                          args.push(filter.clone());
+                      }
+
+                      let mut data = String::new();
+                      writeln!(data, "{}", cwd.display()).unwrap();
+                      writeln!(data, "{}", args.len()).unwrap();
+                      for arg in &args {
+                          writeln!(data, "{arg}").unwrap();
+                      }
+                      writeln!(data, "{}", envs.len()).unwrap();
+                      for (k, v) in &envs {
+                          writeln!(data, "{k}={v}").unwrap();
+                      }
+
+                      // PIDs can be reused across invocations, so pick the first file name that is not taken yet
+                      let (name, inv_path) = (0..)
+                          .map(|index| {
+                              let name = format!("{crate_name}-{}-{index}", process::id());
+                              let inv_path = format!("{inv_dir}/{name}");
+                              (name, inv_path)
+                          })
+                          .find(|(_name, inv_path)| {
+                              fs::OpenOptions::new()
+                                  .write(true)
+                                  .create_new(true)
+                                  .open(inv_path)
+                                  .is_ok()
+                          })
+                          .unwrap();
+                      fs::write(&inv_path, &data).unwrap();
+
+                      let description = match filters.get(partition) {
+                          Some(filter) => format!(" (`{filter}` partition)"),
+                          None if !filters.is_empty() => " (remaining partition)".to_string(),
+                          None => String::new(),
+                      };
+                      writeln!(queue, "Miri: running {name}{description}").unwrap();
+                      writeln!(queue, "MIRI_REPLAY=\"{inv_path}\" \"{}\"", exe.display()).unwrap();
+                  }
               }
           RUST_EOF
 
           rustc "${{ runner.temp }}/miri_wrapper.rs" -o "$miri_bin"
-        if: matrix.miri == true && matrix.type == 'together'
+        if: matrix.miri == true
 
       - name: cargo ${{ env.command }} --capture (together)
         shell: bash
-        env:
+        env: &miri-capture-env
           MIRI_INVOCATIONS_DIR: ${{ runner.temp }}/miri_invocations
           MIRI_QUEUE_PATH: ${{ runner.temp }}/queue
+          MIRI_TEST_PARTITIONING: ${{ github.workspace }}/.github/miri-test-partitioning.txt
         run: |
           cargo -Zgitoxide -Zgit ${{ env.command }} --locked
         if: matrix.miri == true && matrix.type == 'together'
@@ -602,6 +648,18 @@ jobs:
                 fi
               done
         if: matrix.type == 'guest-feature' && runner.os == 'Linux'
+
+      - name: cargo ${{ env.command }} --capture (features)
+        shell: bash
+        env: *miri-capture-env
+        run: |
+          # Commands in the queue only capture Miri invocations, which are then added to a fresh queue for workers
+          mv "${{ runner.temp }}/queue" "${{ runner.temp }}/capture_queue"
+          while IFS= read -r message && IFS= read -r command; do
+            echo "$message"
+            eval "$command"
+          done < "${{ runner.temp }}/capture_queue"
+        if: matrix.miri == true && (matrix.type == 'features' || matrix.type == 'guest-feature')
 
       - parallel:
           - shell: bash

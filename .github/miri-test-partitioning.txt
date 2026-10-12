@@ -1,0 +1,6 @@
+# Partitioning of large test binaries for running under Miri in CI, where tests within a single binary run sequentially.
+#
+# Each line is `crate-name: filter1 filter2 ...`. Every filter results in a separate invocation of the test binary with
+# that filter applied (substring match like `cargo test -- filter`), plus one more invocation that runs all remaining
+# tests. Invocations are distributed across parallel workers.
+ab-riscv-interpreter: rv32 rv64 zvexx
