@@ -28,6 +28,8 @@ Fixes:
 * `VariableElements::copy_from()` no longer reads and writes out of bounds for elements larger than a byte, `count()`
   returns the number of elements instead of the size in bytes, `from_uninit()` sets capacity in bytes instead of the
   number of elements, and `append()` updates the size, so appended elements are no longer lost
+* `MaybeData::get_mut_or_init_with()` no longer exposes uninitialized memory if the initialization function returns a
+  reference to other data
 * Arrays of 4 GiB or larger or with `2^32` or more elements can no longer be used as `TrivialType`, previously their
   size and length were truncated
 * `TrivialType` can now be derived for enums with 11 to 16 variants and for deeply nested types, and derived metadata of

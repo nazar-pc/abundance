@@ -1,7 +1,11 @@
+#[cfg(test)]
+mod tests;
+
 use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
 use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
+use core::ptr;
 use core::ptr::NonNull;
 
 /// Wrapper type for `Data` that may or may not be filled with contents.
@@ -253,7 +257,11 @@ where
     }
 
     /// Get exclusive access to initialized `Data`, running provided initialization function if
-    /// necessary
+    /// necessary.
+    ///
+    /// `init` is expected to initialize provided memory and return a reference to it, like
+    /// [`MaybeUninit::write()`] does. If it returns a reference to some other `Data` instead, that
+    /// value is copied into this instance.
     #[inline(always)]
     pub fn get_mut_or_init_with<Init>(&mut self, init: Init) -> &mut Data
     where
@@ -266,11 +274,19 @@ where
         } else {
             // SAFETY: constructor guarantees that memory is aligned
             let data = init(unsafe { self.data.as_uninit_mut() });
+            if !ptr::eq(data, self.data.as_ptr()) {
+                // SAFETY: constructor guarantees that memory is aligned and valid for writes
+                unsafe {
+                    self.data.write(*data);
+                }
+            }
             // SAFETY: guaranteed to be initialized by constructors
             unsafe {
                 self.size.write(Data::SIZE);
             }
-            data
+            // SAFETY: Provided memory is initialized, either by `init`, which can only get a
+            // reference to it by initializing it, or by the copy above
+            unsafe { self.data.as_mut() }
         }
     }
 
