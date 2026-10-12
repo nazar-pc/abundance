@@ -127,7 +127,8 @@ where
     }
 }
 
-impl<Data> IoTypeOptional for MaybeData<Data>
+// SAFETY: Size `0` means data is missing, data is only accessed when the size is the size of data
+unsafe impl<Data> IoTypeOptional for MaybeData<Data>
 where
     Data: TrivialType,
     [(); NON_ZERO_SIZED::<Data>]:,

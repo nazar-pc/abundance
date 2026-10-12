@@ -153,7 +153,9 @@ where
     }
 }
 
-impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
+// SAFETY: Size `0` means there are no initialized elements, contents are only accessed up to the
+// size
+unsafe impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
     for VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,

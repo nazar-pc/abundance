@@ -7,7 +7,7 @@ error[E0277]: the trait bound `u8: IoTypeOptional` is not satisfied
 help: the following other types implement trait `IoTypeOptional`
   --> $WORKSPACE/crates/shared/ab-io-type/src/variable_elements.rs
    |
-   | / impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
+   | / unsafe impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
    | |     for VariableElements<Element, RECOMMENDED_ALLOCATION>
    | | where
    | |     Element: TrivialType,
@@ -16,7 +16,7 @@ help: the following other types implement trait `IoTypeOptional`
    |
   ::: $WORKSPACE/crates/shared/ab-io-type/src/maybe_data.rs
    |
-   | / impl<Data> IoTypeOptional for MaybeData<Data>
+   | / unsafe impl<Data> IoTypeOptional for MaybeData<Data>
    | | where
    | |     Data: TrivialType,
    | |     [(); NON_ZERO_SIZED::<Data>]:,
@@ -37,7 +37,7 @@ error[E0277]: the trait bound `u8: IoTypeOptional` is not satisfied
 help: the following other types implement trait `IoTypeOptional`
   --> $WORKSPACE/crates/shared/ab-io-type/src/variable_elements.rs
    |
-   | / impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
+   | / unsafe impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
    | |     for VariableElements<Element, RECOMMENDED_ALLOCATION>
    | | where
    | |     Element: TrivialType,
@@ -46,7 +46,7 @@ help: the following other types implement trait `IoTypeOptional`
    |
   ::: $WORKSPACE/crates/shared/ab-io-type/src/maybe_data.rs
    |
-   | / impl<Data> IoTypeOptional for MaybeData<Data>
+   | / unsafe impl<Data> IoTypeOptional for MaybeData<Data>
    | | where
    | |     Data: TrivialType,
    | |     [(); NON_ZERO_SIZED::<Data>]:,
