@@ -75,7 +75,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 const _: () = {
                     // Assert statically that there is no unexpected padding that would be left
                     // uninitialized and unsound to access
-                    assert!(
+                    ::core::assert!(
                         0 == (
                             ::core::mem::size_of::<#type_name>()
                             #(- ::core::mem::size_of::<#field_types>() )*
@@ -86,8 +86,9 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     );
 
                     // Assert that type doesn't exceed 32-bit size limit
-                    assert!(
-                        u32::MAX as ::core::primitive::usize >= ::core::mem::size_of::<#type_name>(),
+                    ::core::assert!(
+                        ::core::primitive::u32::MAX as ::core::primitive::usize
+                            >= ::core::mem::size_of::<#type_name>(),
                         "Type size must be smaller than 2^32"
                     );
 
@@ -104,9 +105,15 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                                 "Metadata must decode, which is not the case for layouts with \
                                 padding or misaligned fields"
                             );
-                    assert!(remaining_metadata.is_empty());
-                    assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
-                    assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
+                    ::core::assert!(remaining_metadata.is_empty());
+                    ::core::assert!(
+                        ::core::mem::size_of::<#type_name>()
+                            == type_details.recommended_capacity as ::core::primitive::usize
+                    );
+                    ::core::assert!(
+                        ::core::mem::align_of::<#type_name>()
+                            == type_details.alignment.get() as ::core::primitive::usize
+                    );
                 };
 
                 #[automatically_derived]
@@ -145,7 +152,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 quote! {
                     // Assert statically that there is no unexpected padding that would be left
                     // uninitialized and unsound to access
-                    assert!(
+                    ::core::assert!(
                         0 == (
                             ::core::mem::size_of::<#type_name>()
                             - ::core::mem::size_of::<::core::primitive::#repr_numeric>()
@@ -170,8 +177,9 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     #( #padding_assertions )*
 
                     // Assert that type doesn't exceed 32-bit size limit
-                    assert!(
-                        u32::MAX as ::core::primitive::usize >= ::core::mem::size_of::<#type_name>(),
+                    ::core::assert!(
+                        ::core::primitive::u32::MAX as ::core::primitive::usize
+                            >= ::core::mem::size_of::<#type_name>(),
                         "Type size must be smaller than 2^32"
                     );
 
@@ -188,9 +196,15 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                                 "Metadata must decode, which is not the case for layouts with \
                                 padding or misaligned fields"
                             );
-                    assert!(remaining_metadata.is_empty());
-                    assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
-                    assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
+                    ::core::assert!(remaining_metadata.is_empty());
+                    ::core::assert!(
+                        ::core::mem::size_of::<#type_name>()
+                            == type_details.recommended_capacity as ::core::primitive::usize
+                    );
+                    ::core::assert!(
+                        ::core::mem::align_of::<#type_name>()
+                            == type_details.alignment.get() as ::core::primitive::usize
+                    );
                 };
 
                 #[automatically_derived]
@@ -303,7 +317,7 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
         #[inline(always)]
         const fn metadata() -> (
             [::core::primitive::u8; ::ab_io_type::metadata::MAX_METADATA_CAPACITY],
-            usize,
+            ::core::primitive::usize,
         )
         {
             ::ab_io_type::metadata::concat_metadata_sources(&[
@@ -312,11 +326,10 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
             ])
         }
 
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-        metadata()
-            .0
-            .split_at(metadata().1)
-            .0
+        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically.
+        // `split_at()` is called by path, with method call syntax a method of a trait in scope that
+        // is implemented for arrays would be called instead.
+        <[::core::primitive::u8]>::split_at(&metadata().0, metadata().1).0
     }})
 }
 
@@ -374,7 +387,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
         #[inline(always)]
         const fn metadata() -> (
             [::core::primitive::u8; ::ab_io_type::metadata::MAX_METADATA_CAPACITY],
-            usize,
+            ::core::primitive::usize,
         )
         {
             ::ab_io_type::metadata::concat_metadata_sources(&[
@@ -383,11 +396,10 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
             ])
         }
 
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-        metadata()
-            .0
-            .split_at(metadata().1)
-            .0
+        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically.
+        // `split_at()` is called by path, with method call syntax a method of a trait in scope that
+        // is implemented for arrays would be called instead.
+        <[::core::primitive::u8]>::split_at(&metadata().0, metadata().1).0
     }})
 }
 

@@ -1,0 +1,11 @@
+error[E0080]: evaluation panicked: Struct must not have implicit padding. Consider reordering fields, adding `padding: [u8; N]` field where necessary or use `Unaligned<T>` wrapper for types with larger alignment to reduce it to one byte.
+  --> tests/ui/derive_shadowed_assert.rs:16:23
+   |
+16 | #[derive(Copy, Clone, TrivialType)]
+   |                       ^^^^^^^^^^^ evaluation of `_` failed here
+
+error[E0080]: evaluation panicked: Enum must not have implicit padding. Consider reordering fields, adding `padding: [u8; N]` field where necessary or use `Unaligned<T>` wrapper for types with larger alignment to reduce it to one byte.
+  --> tests/ui/derive_shadowed_assert.rs:23:23
+   |
+23 | #[derive(Copy, Clone, TrivialType)]
+   |                       ^^^^^^^^^^^ evaluation of `_` failed here
