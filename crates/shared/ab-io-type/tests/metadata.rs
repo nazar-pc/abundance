@@ -1800,7 +1800,10 @@ fn padded_enum_of(inner: &Expected) -> Expected {
 }
 
 /// Compound types that contain the given type, each of them adds one level of nesting depth,
-/// variants of enums don't
+/// variants of enums don't.
+///
+/// `VariableElements` adds one level too, but it can only be the outermost type, see
+/// [`variable_elements_outermost()`].
 fn compound_types() -> [fn(&Expected) -> Expected; 7] {
     [
         unaligned_of,
@@ -1811,6 +1814,13 @@ fn compound_types() -> [fn(&Expected) -> Expected; 7] {
         enum_of,
         padded_enum_of,
     ]
+}
+
+/// `VariableElements` that contains the given type
+fn variable_elements_outermost(inner: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::VariableElements)
+        .u32(1)
+        .nested(inner)
 }
 
 #[test]
@@ -1845,6 +1855,9 @@ fn nesting_depth() {
         assert!(!decodes::<1>(&metadata.0));
         assert!(decodes::<2>(&metadata.0));
     }
+    let metadata = variable_elements_outermost(&u8_array(4));
+    assert!(!decodes::<1>(&metadata.0));
+    assert!(decodes::<2>(&metadata.0));
 }
 
 #[test]
@@ -1869,6 +1882,18 @@ fn nesting_depth_limit() {
     assert!(decodes::<MAX_DEPTH>(&metadata.0));
     let too_deep = compound_types[MAX_DEPTH % compound_types.len()](&metadata);
     assert!(!decodes::<MAX_DEPTH>(&too_deep.0));
+
+    // `VariableElements` around types nested one level less deep
+    let mut metadata = Expected::new(IoTypeMetadataKind::U8);
+    for level in 1..MAX_DEPTH {
+        metadata = compound_types[level % compound_types.len()](&metadata);
+    }
+    assert!(decodes::<MAX_DEPTH>(
+        &variable_elements_outermost(&metadata).0
+    ));
+    assert!(!decodes::<MAX_DEPTH>(
+        &variable_elements_outermost(&unaligned_of(&metadata)).0
+    ));
 
     // A struct without fields is one level deep
     let mut metadata = Expected::new(IoTypeMetadataKind::Struct)
@@ -1957,3 +1982,105 @@ const _: () = {
     assert!(IoTypeMetadataKind::compact::<100>(&NESTED_STRUCTS, &mut compact).is_some());
     assert!(IoTypeMetadataKind::compact::<99>(&NESTED_STRUCTS, &mut compact).is_none());
 };
+
+/// A tuple struct with fields of the given types
+fn struct_with_fields(fields: &[&Expected]) -> Expected {
+    let mut metadata = Expected::new(IoTypeMetadataKind::Struct)
+        .name("")
+        .byte(u8::try_from(fields.len()).unwrap());
+    for field in fields {
+        metadata = metadata.name("").nested(field);
+    }
+    metadata
+}
+
+/// An enum with variants that have unnamed fields of the given types
+fn enum_with_variants(variants: &[&[&Expected]]) -> Expected {
+    let mut metadata = Expected::new(IoTypeMetadataKind::Enum)
+        .name("")
+        .byte(u8::try_from(variants.len()).unwrap());
+    for fields in variants {
+        metadata = metadata.name("").byte(u8::try_from(fields.len()).unwrap());
+        for field in *fields {
+            metadata = metadata.name("").nested(field);
+        }
+    }
+    metadata
+}
+
+#[test]
+fn variable_elements_must_be_outermost() {
+    // `VariableElements` is not a `TrivialType`, so it can't be contained in other types
+    let bytes = Expected::new(IoTypeMetadataKind::VariableElements)
+        .u32(8)
+        .kind(IoTypeMetadataKind::U8);
+    check_layout(&bytes.0, 8, 1);
+
+    check_rejected(&struct_with_fields(&[&bytes]).0);
+    check_rejected(&enum_with_variants(&[&[&bytes]]).0);
+    check_rejected(&array_of(&bytes).0);
+    check_rejected(&variable_elements_outermost(&bytes).0);
+    check_rejected(&fixed_capacity_elements_of(&bytes).0);
+    check_rejected(&unaligned_of(&bytes).0);
+}
+
+#[test]
+fn layouts_with_padding_are_rejected() {
+    // Derived types with layouts that are accepted below, the derive checks their sizes and
+    // alignments against metadata during compilation
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct AlignedFields {
+        a: u16,
+        b: u8,
+        c: u8,
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum AlignedVariants {
+        A { a: u8, b: u8, c: u8 },
+        B { a: u8, b: u16 },
+    }
+
+    let byte = &Expected::new(IoTypeMetadataKind::U8);
+    let short = &Expected::new(IoTypeMetadataKind::U16);
+    let word = &Expected::new(IoTypeMetadataKind::U32);
+
+    // Fields are placed one after another like in `#[repr(C)]` structs, a field at an offset that
+    // is not a multiple of its alignment would need padding before it
+    check_layout(&struct_with_fields(&[short, byte, byte]).0, 4, 2);
+    check_layout(&struct_with_fields(&[byte, byte, short]).0, 4, 2);
+    check_rejected(&struct_with_fields(&[byte, short]).0);
+    check_rejected(&struct_with_fields(&[byte, short, byte]).0);
+    check_rejected(&struct_with_fields(&[short, byte, word]).0);
+    check_rejected(&struct_with_fields(&[byte, word, byte, byte, byte]).0);
+    // Capacity that is not a multiple of alignment would need padding after the last field
+    check_rejected(&struct_with_fields(&[short, byte]).0);
+    // Zero-sized fields have alignment too, `Unaligned` has alignment 1
+    let empty_u16_array = &Expected::new(IoTypeMetadataKind::Array)
+        .u32(0)
+        .nested(short);
+    check_layout(&struct_with_fields(&[empty_u16_array, short]).0, 2, 2);
+    check_rejected(&struct_with_fields(&[byte, empty_u16_array]).0);
+    check_layout(&struct_with_fields(&[byte, &unaligned_of(short)]).0, 3, 1);
+
+    // Fields of enum variants are placed after the 1-byte discriminant like in `#[repr(u8)]`
+    // enums, with the same rules
+    check_layout(&enum_with_variants(&[&[byte, short]]).0, 4, 2);
+    check_layout(
+        &enum_with_variants(&[&[byte, byte, byte], &[byte, short]]).0,
+        4,
+        2,
+    );
+    check_rejected(&enum_with_variants(&[&[short]]).0);
+    check_rejected(&enum_with_variants(&[&[short, byte]]).0);
+    check_rejected(&enum_with_variants(&[&[byte, byte], &[short]]).0);
+    check_rejected(&enum_with_variants(&[&[byte, short, byte]]).0);
+    // The alignment of an enum is the largest alignment of fields of all variants
+    check_rejected(&enum_with_variants(&[&[byte, byte, byte, byte], &[byte, short, byte]]).0);
+    check_rejected(&enum_with_variants(&[&[byte, short, byte], &[byte, byte, byte, byte]]).0);
+
+    check_layout(AlignedFields::METADATA, 4, 2);
+    check_layout(AlignedVariants::METADATA, 4, 2);
+}

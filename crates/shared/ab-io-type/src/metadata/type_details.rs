@@ -53,12 +53,38 @@ impl Fields {
     /// Add details of a decoded field
     #[inline(always)]
     const fn add(&mut self, type_details: IoTypeDetails) -> Option<()> {
+        // Fields are placed one after another, a field at an offset that is not a multiple of its
+        // alignment would need padding before it, which `TrivialType` doesn't allow
+        if !self
+            .capacity
+            .is_multiple_of(u32::from(type_details.alignment.get()))
+        {
+            return None;
+        }
         self.capacity = self
             .capacity
             .checked_add(type_details.recommended_capacity)?;
         self.alignment = self.alignment.max(type_details.alignment);
 
         Some(())
+    }
+
+    /// Details of all fields together
+    #[inline(always)]
+    const fn type_details(self) -> Option<IoTypeDetails> {
+        // Capacity that is not a multiple of alignment would need padding after the last field,
+        // which `TrivialType` doesn't allow
+        if !self
+            .capacity
+            .is_multiple_of(u32::from(self.alignment.get()))
+        {
+            return None;
+        }
+
+        Some(IoTypeDetails {
+            recommended_capacity: self.capacity,
+            alignment: self.alignment,
+        })
     }
 }
 
@@ -159,7 +185,18 @@ pub(super) const fn decode_type_details<const MAX_DEPTH: usize>(
                 })?;
                 None
             }
-            IoTypeMetadataKind::Array | IoTypeMetadataKind::VariableElements => {
+            IoTypeMetadataKind::Array => {
+                let num_elements = read_u32(&mut metadata)?;
+
+                stack.push(Frame::Elements { num_elements })?;
+                None
+            }
+            IoTypeMetadataKind::VariableElements => {
+                // `VariableElements` is not a `TrivialType`, so it can't be contained in other
+                // types
+                if !stack.is_empty() {
+                    return None;
+                }
                 let num_elements = read_u32(&mut metadata)?;
 
                 stack.push(Frame::Elements { num_elements })?;
@@ -220,10 +257,7 @@ const fn advance(
                 return Some(Step::Descend);
             }
 
-            IoTypeDetails {
-                recommended_capacity: fields.capacity,
-                alignment: fields.alignment,
-            }
+            fields.type_details()?
         }
         (
             Frame::Enum {
@@ -250,10 +284,7 @@ const fn advance(
                 *variant_capacity = Some(fields.capacity);
 
                 if *remaining_variants == 0 {
-                    break IoTypeDetails {
-                        recommended_capacity: fields.capacity,
-                        alignment: fields.alignment,
-                    };
+                    break fields.type_details()?;
                 }
                 *remaining_variants -= 1;
 

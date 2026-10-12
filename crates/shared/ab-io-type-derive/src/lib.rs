@@ -100,7 +100,10 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         }>(
                             <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
-                            .expect("Statically correct metadata; qed");
+                            .expect(
+                                "Metadata must decode, which is not the case for layouts with \
+                                padding or misaligned fields"
+                            );
                     assert!(remaining_metadata.is_empty());
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
                     assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
@@ -179,7 +182,10 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         }>(
                             <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
-                            .expect("Statically correct metadata; qed");
+                            .expect(
+                                "Metadata must decode, which is not the case for layouts with \
+                                padding or misaligned fields"
+                            );
                     assert!(remaining_metadata.is_empty());
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
                     assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);

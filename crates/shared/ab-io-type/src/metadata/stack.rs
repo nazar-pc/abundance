@@ -29,6 +29,12 @@ where
         Some(())
     }
 
+    /// Whether there are no frames
+    #[inline(always)]
+    pub(super) const fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// The innermost frame, `None` if the stack is empty
     #[inline(always)]
     pub(super) const fn last_mut(&mut self) -> Option<&mut Frame> {

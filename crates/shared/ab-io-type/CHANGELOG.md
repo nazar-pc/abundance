@@ -8,7 +8,8 @@ Breaking changes:
 * `VariableBytes` is now an alias of `VariableElements<u8>`, and `FixedCapacityBytesU8/U16` and
   `FixedCapacityStringU8/U16` are replaced with `FixedCapacityElements<Element, CAPACITY>` (with the
   `FixedCapacityBytes<CAPACITY>` alias) and `FixedCapacityString<CAPACITY>`, which store the length as `u32`
-* `IoTypeMetadataKind::type_details()` rejects enums without variants
+* `IoTypeMetadataKind::type_details()` rejects enums without variants, `VariableElements` inside other types and layouts
+  with padding
 * `IoTypeMetadataKind::type_details()` and `IoTypeMetadataKind::compact()` take the max nesting depth as a const generic
   parameter and return `None` for deeper metadata, their stack usage doesn't depend on metadata
 * `IoTypeMetadataKind::compact()` replaces names with zero-length names, so it produces valid metadata with the same

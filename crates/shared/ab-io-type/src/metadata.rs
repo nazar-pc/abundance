@@ -106,8 +106,8 @@ pub enum IoTypeMetadataKind {
     /// * Field name as UTF-8 bytes
     /// * Recursive metadata of the field's type
     ///
-    /// Decoders reject structs that have both fields with names and fields with zero-length
-    /// names.
+    /// Fields are laid out like in a `#[repr(C)]` struct. Decoders reject structs that have both
+    /// fields with names and fields with zero-length names, and layouts with padding.
     Struct,
     /// `enum E { A, B {..}, C(..) }`
     ///
@@ -123,9 +123,10 @@ pub enum IoTypeMetadataKind {
     /// * Fields, each encoded like a field of [`Self::Struct`], with zero-length names for fields
     ///   of tuple variants
     ///
-    /// Each variant is a 1-byte discriminant followed by its fields, all variants must have the
-    /// same size. Decoders reject enums without variants and variants that have both fields with
-    /// names and fields with zero-length names.
+    /// Each variant is a 1-byte discriminant followed by its fields laid out like in a
+    /// `#[repr(u8)]` enum, all variants must have the same size. Decoders reject enums without
+    /// variants, variants that have both fields with names and fields with zero-length names, and
+    /// layouts with padding.
     Enum,
     /// Array `[T; N]`.
     ///
@@ -138,6 +139,8 @@ pub enum IoTypeMetadataKind {
     /// Encoded as follows:
     /// * 4 bytes recommended allocation in elements (little-endian)
     /// * Recursive metadata of a contained type
+    ///
+    /// Decoders only accept it as the outermost type.
     VariableElements,
     /// [`FixedCapacityElements`](crate::fixed_capacity_elements::FixedCapacityElements).
     ///
