@@ -1,5 +1,5 @@
-use proc_macro2::{Ident, Literal, TokenStream};
-use quote::{format_ident, quote};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
+use quote::{format_ident, quote, quote_spanned};
 use std::iter;
 use syn::spanned::Spanned;
 use syn::token::Paren;
@@ -137,6 +137,40 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 .into();
             }
 
+            // Metadata identifies variants by their index, so explicit discriminants must be equal
+            // to it, which makes implicit ones equal to it too. Assertions are associated constants
+            // of the enum, so `Self` in a discriminant means the same as in the enum definition.
+            // They are only evaluated when used, so each is used by its own `const _`, which
+            // reports all wrong discriminants.
+            let discriminant_assertions = data_enum
+                .variants
+                .iter()
+                // `#[repr(u8)]` allows at most 256 variants
+                .zip(0..=u8::MAX)
+                .filter_map(|(variant, index)| {
+                    let (_eq_token, discriminant) = variant.discriminant.as_ref()?;
+                    // Errors point at the discriminant
+                    let span = Span::call_site().located_at(discriminant.span());
+                    let name = format_ident!("__TRIVIAL_TYPE_DISCRIMINANT_{index}");
+                    let message = format!(
+                        "Discriminant of `{}` must be equal to its index {index}, variants are \
+                        identified by their index in `TrivialType` metadata",
+                        variant.ident
+                    );
+
+                    Some(quote_spanned! {span=>
+                        impl #type_name {
+                            // The index goes first, so the discriminant is inferred as `u8` like
+                            // in the enum definition
+                            #[doc(hidden)]
+                            const #name: () = ::core::assert!(#index == (#discriminant), #message);
+                        }
+
+                        const _: () = #type_name::#name;
+                    })
+                })
+                .collect::<Vec<_>>();
+
             let repr_numeric = format_ident!("u8");
 
             let field_types = data_enum
@@ -173,6 +207,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             };
 
             quote! {
+                #( #discriminant_assertions )*
+
                 const _: () = {
                     #( #padding_assertions )*
 

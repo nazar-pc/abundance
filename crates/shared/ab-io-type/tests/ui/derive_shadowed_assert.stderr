@@ -9,3 +9,22 @@ error[E0080]: evaluation panicked: Enum must not have implicit padding. Consider
    |
 23 | #[derive(Copy, Clone, TrivialType)]
    |                       ^^^^^^^^^^^ evaluation of `_` failed here
+
+error[E0080]: evaluation panicked: Discriminant of `A` must be equal to its index 0, variants are identified by their index in `TrivialType` metadata
+  --> tests/ui/derive_shadowed_assert.rs:34:9
+   |
+31 | #[derive(Copy, Clone, TrivialType)]
+   |                       ----------- in this derive macro expansion
+...
+34 |     A = 1,
+   |         ^ evaluation of `Shifted::__TRIVIAL_TYPE_DISCRIMINANT_0` failed here
+   |
+   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+note: erroneous constant encountered
+  --> tests/ui/derive_shadowed_assert.rs:31:23
+   |
+31 | #[derive(Copy, Clone, TrivialType)]
+   |                       ^^^^^^^^^^^
+   |
+   = note: this note originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)

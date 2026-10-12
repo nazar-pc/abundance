@@ -27,4 +27,11 @@ enum PaddedEnum {
     B { c: u16 },
 }
 
+// Wrong discriminants are only rejected by assertions, metadata doesn't record discriminants
+#[derive(Copy, Clone, TrivialType)]
+#[repr(u8)]
+enum Shifted {
+    A = 1,
+}
+
 fn main() {}

@@ -24,6 +24,13 @@ mod no_implicit_prelude {
         A { a: u8 },
         B { b: u8 },
     }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum ExplicitDiscriminants {
+        A = 0,
+        B = 1,
+    }
 }
 
 fn main() {}

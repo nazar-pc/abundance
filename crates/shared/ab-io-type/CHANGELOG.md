@@ -20,6 +20,8 @@ Breaking changes:
   `VariableElements::as_mut_ptr()` is removed, constructors of `VariableElements` and `MaybeData` that take a size
   return `None` for an invalid size instead of checking it only in debug builds, if at all, and `IoTypeOptional` is an
   `unsafe` trait, since it must only be implemented for types with a valid empty state
+* `TrivialType` derive rejects enums with explicit discriminants that differ from variant indices, which metadata
+  doesn't record
 
 Improvements:
 

@@ -1704,6 +1704,75 @@ fn fields_are_either_named_or_unnamed() {
 }
 
 #[test]
+fn enums_with_explicit_discriminants() {
+    const ONE: u8 = 1;
+
+    // Explicit discriminants equal to variant indices don't change metadata, so it is the same as
+    // for implicit discriminants in other tests
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum NoFields3 {
+        A = 0,
+        B = 1,
+        C = 2,
+    }
+
+    // Implicit discriminants continue from explicit ones
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum NoFields12 {
+        A,
+        B = 1,
+        C,
+        D,
+        E,
+        F,
+        G,
+        H,
+        I,
+        J,
+        K = 10,
+        L,
+    }
+
+    macro_rules! last {
+        () => {
+            Self::LAST
+        };
+    }
+
+    // Discriminants are constant expressions, which can refer to `Self` and local items
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum NoFields5 {
+        A = Self::FIRST,
+        B = ONE,
+        C = ONE + 1,
+        // The type is inferred from the enum's representation
+        D = 3u16 as _,
+        // `Self` from a macro refers to the enum as well
+        E = last!(),
+    }
+
+    impl NoFields5 {
+        const FIRST: u8 = 0;
+        const LAST: u8 = 4;
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum Data2 {
+        A { value: u8 } = 0,
+        B { value: u8 } = 1,
+    }
+
+    check_fieldless_enum::<NoFields3>("NoFields3", 3);
+    check_fieldless_enum::<NoFields12>("NoFields12", 12);
+    check_fieldless_enum::<NoFields5>("NoFields5", 5);
+    check_data_enum::<Data2>("Data2", 2);
+}
+
+#[test]
 fn nested_types() {
     fieldless_enum!(Direction, [A, B]);
     data_enum!(Value, [A, B]);
