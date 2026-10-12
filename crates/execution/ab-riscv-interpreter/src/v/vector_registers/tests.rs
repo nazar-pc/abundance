@@ -6,7 +6,9 @@ use ab_riscv_primitives::prelude::*;
 
 const ELEN: Elen = Elen::L64;
 const VLEN: Vlen = Vlen::L128;
-const VLENB: usize = 16;
+const VLENB: usize = VLEN.bytes() as usize;
+const ZERO_BYTES: [u8; 32 * VLENB] = [0; _];
+const MAX_BYTES: [u8; 32 * VLENB] = [u8::MAX; _];
 
 type TestHart = BasicVectorHart<Reg<u64>, ELEN, VLEN>;
 
@@ -67,11 +69,34 @@ fn group_rejects_eew_above_elen() {
 /// Every element below `vlmax` and nothing else is accessible, `read()` and `write()` stop at `vl`
 #[test]
 fn group_elements_are_within_register_file() {
+    let mut tested_emuls = [None; EEWS.len() * 7];
     for vtype in all_vtypes() {
         let vlmax = u32::from(vtype.vlmax());
-        for vl in [0, 1, vlmax / 2, vlmax] {
+        // Smaller `vl` only changes which accesses return `None`, while `vl = vlmax` already
+        // touches every element any of them can, which is what matters for Miri
+        let vls: &[u32] = if cfg!(miri) {
+            &[vlmax]
+        } else {
+            &[0, 1, vlmax / 2, vlmax]
+        };
+        for &vl in vls {
             let config = config(vtype, vl);
             for eew in EEWS {
+                // Bounds of a group only depend on `EEW` and `EMUL` (`vlmax = EMUL * VLEN / EEW`),
+                // so under Miri different `vtype`s resulting in the same pair are redundant
+                if cfg!(miri)
+                    && let Some(emul) = vtype.vlmul().emul(eew, vtype.vsew())
+                {
+                    let key = Some((eew, emul));
+                    if tested_emuls.contains(&key) {
+                        continue;
+                    }
+                    let free = tested_emuls
+                        .iter_mut()
+                        .find(|entry| entry.is_none())
+                        .unwrap();
+                    *free = key;
+                }
                 for base in all_vregs() {
                     let Some(group) = VRegGroup::new(config, base, eew) else {
                         continue;
@@ -91,13 +116,24 @@ fn group_elements_are_within_register_file() {
                     let group_start = usize::from(base.to_bits()) * VLENB;
                     let body_end =
                         group_start + usize::try_from(vl).unwrap() * usize::from(eew.bytes_width());
-                    for (offset, byte) in vregs.as_bytes().as_flattened().iter().enumerate() {
-                        let expected = if (group_start..body_end).contains(&offset) {
-                            u8::MAX
-                        } else {
-                            0
-                        };
-                        assert_eq!(*byte, expected, "{vtype:?} {eew:?} {base:?} {offset}");
+                    let bytes = vregs.as_bytes().as_flattened();
+                    if cfg!(miri) {
+                        // Equivalent to the loop below, but a per-byte loop is very slow under Miri
+                        assert!(
+                            bytes[..group_start] == ZERO_BYTES[..group_start]
+                                && bytes[group_start..body_end] == MAX_BYTES[group_start..body_end]
+                                && bytes[body_end..] == ZERO_BYTES[body_end..],
+                            "{vtype:?} {eew:?} {base:?}"
+                        );
+                    } else {
+                        for (offset, byte) in bytes.iter().enumerate() {
+                            let expected = if (group_start..body_end).contains(&offset) {
+                                u8::MAX
+                            } else {
+                                0
+                            };
+                            assert_eq!(*byte, expected, "{vtype:?} {eew:?} {base:?} {offset}");
+                        }
                     }
                 }
             }
