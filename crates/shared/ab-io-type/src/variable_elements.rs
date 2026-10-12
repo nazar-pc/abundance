@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
 use crate::{DerefWrapper, IoType, IoTypeOptional};
@@ -354,10 +357,11 @@ where
         }
 
         // SAFETY: `src` can't be the same as `&mut self` if invariants of constructor arguments
-        // were upheld, size is checked to be within capacity above
+        // were upheld, size is checked to be within capacity above, and the number of copied
+        // elements corresponds to that size
         unsafe {
             self.elements
-                .copy_from_nonoverlapping(src.elements, src_size as usize);
+                .copy_from_nonoverlapping(src.elements, (src_size / Element::SIZE) as usize);
             self.size.write(src_size);
         }
 
