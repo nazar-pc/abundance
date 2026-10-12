@@ -12,6 +12,10 @@ Breaking changes:
 * `IoTypeMetadataKind::compact()` replaces names with zero-length names, so it produces valid metadata with the same
   capacity and alignment, previously it didn't for structs with more than 10 named fields and enums with fields
 
+Improvements:
+
+* `TrivialType` can now be derived for enums with tuple variants
+
 Fixes:
 
 * `MaybeData` and `VariableElements` with zero-sized types no longer compile, previously `MaybeData` couldn't represent

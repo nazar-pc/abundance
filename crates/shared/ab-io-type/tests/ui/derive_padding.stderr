@@ -10,3 +10,10 @@ error[E0080]: evaluation panicked: assertion failed: size_of::<PaddedEnum>() ==
    |
 15 | #[derive(Copy, Clone, TrivialType)]
    |                       ^^^^^^^^^^^ evaluation of `_` failed here
+
+error[E0080]: evaluation panicked: assertion failed: size_of::<PaddedTupleEnum>() ==
+                  type_details.recommended_capacity as ::core::primitive::usize
+  --> tests/ui/derive_padding.rs:23:23
+   |
+23 | #[derive(Copy, Clone, TrivialType)]
+   |                       ^^^^^^^^^^^ evaluation of `_` failed here

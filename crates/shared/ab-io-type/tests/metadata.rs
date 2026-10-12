@@ -780,8 +780,8 @@ fn named_and_tuple_forms_compact_equally() {
     tuple_struct!(Tuple11, [a, b, c, d, e, f, g, h, i, j, k]);
     tuple_struct!(Tuple12, [a, b, c, d, e, f, g, h, i, j, k, l]);
 
-    // Enums only support variants with named fields or without fields, the latter can be written
-    // with braces, parentheses or neither
+    // Variants have named fields, unnamed fields like tuple structs or no fields, the latter can
+    // be written with braces, parentheses or neither
     #[derive(Copy, Clone, TrivialType)]
     #[repr(u8)]
     enum EnumOfNamed {
@@ -793,9 +793,30 @@ fn named_and_tuple_forms_compact_equally() {
     #[derive(Copy, Clone, TrivialType)]
     #[repr(u8)]
     enum EnumOfTuple {
-        X { first: Tuple2 },
-        Y { second: Named2 },
-        Z { third: [Tuple1; 2] },
+        X(Tuple2),
+        Y(Named2),
+        Z([Tuple1; 2]),
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum NamedVariants {
+        A { a: u8, b: u16 },
+        B { c: [u8; 3] },
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum TupleVariants {
+        A(u8, u16),
+        B([u8; 3]),
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum MixedVariants {
+        A { a: u8, b: u16 },
+        B([u8; 3]),
     }
 
     #[derive(Copy, Clone, TrivialType)]
@@ -874,6 +895,10 @@ fn named_and_tuple_forms_compact_equally() {
     check_same_compact::<Named11, Tuple11>();
     check_same_compact::<Named12, Tuple12>();
     assert_ne!(compact(Named2::METADATA), compact(Tuple3::METADATA));
+
+    // Variants with named fields are the same as tuple variants with fields of the same types
+    check_same_compact::<NamedVariants, TupleVariants>();
+    check_same_compact::<NamedVariants, MixedVariants>();
 
     // Variants with braces or parentheses and no fields are the same as variants without fields
     check_same_compact::<UnitVariants, BracedVariants>();
@@ -1221,6 +1246,145 @@ fn enums_with_different_variants() {
         .name("")
         .kind(IoTypeMetadataKind::Unit);
     check_trivial_type::<MixedFieldlessFirst>("MixedFieldlessFirst", &expected, &expected_compact);
+}
+
+#[test]
+fn enums_with_tuple_variants() {
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum TupleOnly {
+        Pair(u8, u16),
+        Bytes([u8; 3]),
+    }
+
+    // Tuple variants can be mixed with variants with named fields and variants without fields
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum TupleShape {
+        Dot(Point),
+        Line { from: u8, to: u8 },
+        Wide([u8; 2]),
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum TupleMixed {
+        Tuple((), [u8; 0]),
+        Named { value: () },
+        Unit,
+    }
+
+    // Fields of tuple variants have zero-length names, like fields of tuple structs
+    let expected = Expected::new(IoTypeMetadataKind::Enum)
+        .name("TupleOnly")
+        .byte(2)
+        .name("Pair")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .kind(IoTypeMetadataKind::U16)
+        .name("Bytes")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(3)
+        .kind(IoTypeMetadataKind::U8);
+    let expected_compact = Expected::new(IoTypeMetadataKind::Enum)
+        .name("")
+        .byte(2)
+        .name("")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .kind(IoTypeMetadataKind::U16)
+        .name("")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(3)
+        .kind(IoTypeMetadataKind::U8);
+    check_trivial_type::<TupleOnly>("TupleOnly", &expected, &expected_compact);
+    assert_eq!(size_of::<TupleOnly>(), 4);
+    assert_eq!(align_of::<TupleOnly>(), 2);
+
+    let (point, point_compact) = point();
+    let expected = Expected::new(IoTypeMetadataKind::Enum)
+        .name("TupleShape")
+        .byte(3)
+        .name("Dot")
+        .byte(1)
+        .name("")
+        .nested(&point)
+        .name("Line")
+        .byte(2)
+        .name("from")
+        .kind(IoTypeMetadataKind::U8)
+        .name("to")
+        .kind(IoTypeMetadataKind::U8)
+        .name("Wide")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(2)
+        .kind(IoTypeMetadataKind::U8);
+    let expected_compact = Expected::new(IoTypeMetadataKind::Enum)
+        .name("")
+        .byte(3)
+        .name("")
+        .byte(1)
+        .name("")
+        .nested(&point_compact)
+        .name("")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(2)
+        .kind(IoTypeMetadataKind::U8);
+    check_trivial_type::<TupleShape>("TupleShape", &expected, &expected_compact);
+
+    let expected = Expected::new(IoTypeMetadataKind::Enum)
+        .name("TupleMixed")
+        .byte(3)
+        .name("Tuple")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::Unit)
+        .name("")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(0)
+        .kind(IoTypeMetadataKind::U8)
+        .name("Named")
+        .byte(1)
+        .name("value")
+        .kind(IoTypeMetadataKind::Unit)
+        .name("Unit")
+        .byte(0);
+    let expected_compact = Expected::new(IoTypeMetadataKind::Enum)
+        .name("")
+        .byte(3)
+        .name("")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::Unit)
+        .name("")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(0)
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Unit)
+        .name("")
+        .byte(0);
+    check_trivial_type::<TupleMixed>("TupleMixed", &expected, &expected_compact);
 }
 
 #[test]

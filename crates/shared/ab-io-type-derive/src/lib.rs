@@ -350,30 +350,12 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
         }
     };
 
-    // Encodes each variant as inner struct
+    // Encodes each variant as inner struct, fields of tuple variants have zero-length names like
+    // fields of tuple structs
     let inner = data_enum
         .variants
         .iter()
-        .flat_map(|variant| {
-            variant
-                .fields
-                .iter()
-                .find_map(|field| {
-                    if field.ident.is_none() {
-                        Some(Err(Error::new(
-                            field.span(),
-                            "Variant must have named fields",
-                        )))
-                    } else {
-                        None
-                    }
-                })
-                .into_iter()
-                .chain(generate_inner_struct_metadata(
-                    &variant.ident,
-                    &variant.fields,
-                ))
-        })
+        .flat_map(|variant| generate_inner_struct_metadata(&variant.ident, &variant.fields))
         .collect::<Result<Vec<TokenStream>, Error>>()?;
 
     Ok(quote! {{

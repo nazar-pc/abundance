@@ -108,7 +108,7 @@ pub enum IoTypeMetadataKind {
     /// Decoders reject structs that have both fields with names and fields with zero-length
     /// names.
     Struct,
-    /// `enum E { A, B {..} }`
+    /// `enum E { A, B {..}, C(..) }`
     ///
     /// Enums are encoded as follows:
     /// * Length of enum name in bytes (u8)
@@ -119,7 +119,8 @@ pub enum IoTypeMetadataKind {
     /// * Length of the variant name in bytes (u8)
     /// * Variant name as UTF-8 bytes
     /// * Number of fields (u8), zero for variants without fields
-    /// * Fields, each encoded like a field of [`Self::Struct`]
+    /// * Fields, each encoded like a field of [`Self::Struct`], with zero-length names for fields
+    ///   of tuple variants
     ///
     /// Each variant is a 1-byte discriminant followed by its fields, all variants must have the
     /// same size. Decoders reject enums without variants and variants that have both fields with
