@@ -167,6 +167,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
             quote! {
                 const _: () = {
+                    #( #padding_assertions )*
+
                     // Assert that type doesn't exceed 32-bit size limit
                     assert!(
                         u32::MAX as ::core::primitive::usize >= ::core::mem::size_of::<#type_name>(),
@@ -189,8 +191,6 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     assert!(remaining_metadata.is_empty());
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
                     assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
-
-                    #( #padding_assertions )*;
                 };
 
                 #[automatically_derived]
@@ -418,7 +418,7 @@ fn generate_inner_struct_metadata_header(
     let num_fields = u8::try_from(fields.len()).map_err(|_error| {
         Error::new(
             fields.span(),
-            format!("Must not have more than {} field", u8::MAX),
+            format!("Must not have more than {} fields", u8::MAX),
         )
     })?;
 

@@ -4,18 +4,14 @@ error[E0080]: evaluation panicked: Struct must not have implicit padding. Consid
 7 | #[derive(Copy, Clone, TrivialType)]
   |                       ^^^^^^^^^^^ evaluation of `_` failed here
 
-error[E0080]: evaluation panicked: Metadata must decode, which is not the case for layouts with padding or misaligned fields
+error[E0080]: evaluation panicked: Enum must not have implicit padding. Consider reordering fields, adding `padding: [u8; N]` field where necessary or use `Unaligned<T>` wrapper for types with larger alignment to reduce it to one byte.
   --> tests/ui/derive_padding.rs:15:23
    |
 15 | #[derive(Copy, Clone, TrivialType)]
    |                       ^^^^^^^^^^^ evaluation of `_` failed here
-   |
-   = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0080]: evaluation panicked: Metadata must decode, which is not the case for layouts with padding or misaligned fields
+error[E0080]: evaluation panicked: Enum must not have implicit padding. Consider reordering fields, adding `padding: [u8; N]` field where necessary or use `Unaligned<T>` wrapper for types with larger alignment to reduce it to one byte.
   --> tests/ui/derive_padding.rs:23:23
    |
 23 | #[derive(Copy, Clone, TrivialType)]
    |                       ^^^^^^^^^^^ evaluation of `_` failed here
-   |
-   = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,4 +1,4 @@
-error: Must not have more than 255 field
+error: Must not have more than 255 fields
   --> tests/ui/derive_too_many_fields.rs:8:21
    |
  8 |   struct TooManyFields(
