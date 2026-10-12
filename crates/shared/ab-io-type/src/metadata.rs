@@ -108,25 +108,23 @@ pub enum IoTypeMetadataKind {
     /// Decoders reject structs that have both fields with names and fields with zero-length
     /// names.
     Struct,
-    /// `enum E { Variant {..} }`
+    /// `enum E { A, B {..} }`
     ///
-    /// Enums with variants that have fields are encoded as follows:
-    /// * Length of enum name in bytes (u8)
-    /// * Enum name as UTF-8 bytes
-    /// * Number of variants (u8)
-    /// * Each enum variant as if it was a struct with fields, see [`Self::Struct`] for details
-    Enum,
-    /// `enum E { A, B }`
-    ///
-    /// Enums with variants that have no fields are encoded as follows:
+    /// Enums are encoded as follows:
     /// * Length of enum name in bytes (u8)
     /// * Enum name as UTF-8 bytes
     /// * Number of variants (u8)
     ///
-    /// Each enum variant is encoded follows:
+    /// Each variant is encoded as follows:
     /// * Length of the variant name in bytes (u8)
     /// * Variant name as UTF-8 bytes
-    EnumNoFields,
+    /// * Number of fields (u8), zero for variants without fields
+    /// * Fields, each encoded like a field of [`Self::Struct`]
+    ///
+    /// Each variant is a 1-byte discriminant followed by its fields, all variants must have the
+    /// same size. Decoders reject enums without variants and variants that have both fields with
+    /// names and fields with zero-length names.
+    Enum,
     /// Array `[T; N]`.
     ///
     /// Encoded as follows:
@@ -187,12 +185,11 @@ const impl TryFrom<u8> for IoTypeMetadataKind {
             11 => Self::I128,
             12 => Self::Struct,
             13 => Self::Enum,
-            14 => Self::EnumNoFields,
-            15 => Self::Array,
-            16 => Self::VariableElements,
-            17 => Self::FixedCapacityElements,
-            18 => Self::FixedCapacityString,
-            19 => Self::Unaligned,
+            14 => Self::Array,
+            15 => Self::VariableElements,
+            16 => Self::FixedCapacityElements,
+            17 => Self::FixedCapacityString,
+            18 => Self::Unaligned,
             _ => {
                 return Err(());
             }

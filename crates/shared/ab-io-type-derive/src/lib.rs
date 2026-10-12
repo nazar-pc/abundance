@@ -91,12 +91,14 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         "Type size must be smaller than 2^32"
                     );
 
-                    // Ensure capacity and alignment are correctly decoded from metadata
-                    let (type_details, _metadata) =
+                    // Ensure metadata decodes completely, and capacity and alignment are correctly
+                    // decoded from it
+                    let (type_details, remaining_metadata) =
                         ::ab_io_type::metadata::IoTypeMetadataKind::type_details(
                             <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
                             .expect("Statically correct metadata; qed");
+                    assert!(remaining_metadata.is_empty());
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
                     assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
                 };
@@ -165,12 +167,14 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         "Type size must be smaller than 2^32"
                     );
 
-                    // Ensure capacity and alignment are correctly decoded from metadata
-                    let (type_details, _metadata) =
+                    // Ensure metadata decodes completely, and capacity and alignment are correctly
+                    // decoded from it
+                    let (type_details, remaining_metadata) =
                         ::ab_io_type::metadata::IoTypeMetadataKind::type_details(
                             <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
                             .expect("Statically correct metadata; qed");
+                    assert!(remaining_metadata.is_empty());
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
                     assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
 
@@ -277,7 +281,7 @@ fn parse_repr(
 }
 
 fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<TokenStream, Error> {
-    let inner_struct_metadata = generate_inner_struct_metadata(ident, &data_struct.fields, true)
+    let inner_struct_metadata = generate_inner_struct_metadata(ident, &data_struct.fields)
         .collect::<Result<Vec<_>, _>>()?;
 
     // Encodes the following:
@@ -323,17 +327,6 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
             format!("Enum must not have more than {} variants", u8::MAX),
         )
     })?;
-    let variant_has_fields = data_enum
-        .variants
-        .iter()
-        .next()
-        .is_some_and(|variant| !variant.fields.is_empty());
-    let io_type_metadata = if variant_has_fields {
-        format_ident!("Enum")
-    } else {
-        format_ident!("EnumNoFields")
-    };
-
     // Encodes the following:
     // * Type: enum
     // * Length of enum name in bytes (u8)
@@ -351,7 +344,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
 
         quote! {
             &[
-                ::ab_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8,
+                ::ab_io_type::metadata::IoTypeMetadataKind::Enum as ::core::primitive::u8,
                 #( #enum_metadata_header, )*
             ]
         }
@@ -379,7 +372,6 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
                 .chain(generate_inner_struct_metadata(
                     &variant.ident,
                     &variant.fields,
-                    variant_has_fields,
                 ))
         })
         .collect::<Result<Vec<TokenStream>, Error>>()?;
@@ -408,16 +400,14 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
 fn generate_inner_struct_metadata<'a>(
     ident: &'a Ident,
     fields: &'a Fields,
-    with_num_fields: bool,
 ) -> impl Iterator<Item = Result<TokenStream, Error>> + 'a {
-    iter::once_with(move || generate_inner_struct_metadata_header(ident, fields, with_num_fields))
+    iter::once_with(move || generate_inner_struct_metadata_header(ident, fields))
         .chain(generate_fields_metadata(fields))
 }
 
 fn generate_inner_struct_metadata_header(
     ident: &Ident,
     fields: &Fields,
-    with_num_fields: bool,
 ) -> Result<TokenStream, Error> {
     let ident_string = ident.to_string();
     let ident_bytes = ident_string.as_bytes();
@@ -441,7 +431,7 @@ fn generate_inner_struct_metadata_header(
     // Encodes the following:
     // * Length of identifier in bytes (u8)
     // * Identifier as UTF-8 bytes
-    // * Number of fields (u8, if requested)
+    // * Number of fields (u8)
     Ok({
         let struct_metadata_header = [Literal::u8_unsuffixed(ident_bytes_len)]
             .into_iter()
@@ -450,7 +440,7 @@ fn generate_inner_struct_metadata_header(
                     .iter()
                     .map(|&char| Literal::byte_character(char)),
             )
-            .chain(with_num_fields.then_some(Literal::u8_unsuffixed(num_fields)));
+            .chain([Literal::u8_unsuffixed(num_fields)]);
 
         quote! {
             &[#( #struct_metadata_header, )*],

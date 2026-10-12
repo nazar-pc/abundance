@@ -272,13 +272,12 @@ fn u8_struct(name: &str, field_count: u8, named: bool) -> (Expected, Expected) {
 /// Expected metadata and compact metadata of an enum declared with [`fieldless_enum!`] or
 /// [`data_enum!`] using the first `variant_count` of [`VARIANT_NAMES`]
 fn u8_enum(name: &str, variant_count: u8, with_fields: bool) -> (Expected, Expected) {
-    let kind = if with_fields {
-        IoTypeMetadataKind::Enum
-    } else {
-        IoTypeMetadataKind::EnumNoFields
-    };
-    let mut expected = Expected::new(kind).name(name).byte(variant_count);
-    let mut expected_compact = Expected::new(kind).name("").byte(variant_count);
+    let mut expected = Expected::new(IoTypeMetadataKind::Enum)
+        .name(name)
+        .byte(variant_count);
+    let mut expected_compact = Expected::new(IoTypeMetadataKind::Enum)
+        .name("")
+        .byte(variant_count);
 
     for variant_name in &VARIANT_NAMES[..usize::from(variant_count)] {
         expected = expected.name(variant_name);
@@ -289,6 +288,9 @@ fn u8_enum(name: &str, variant_count: u8, with_fields: bool) -> (Expected, Expec
                 .byte(1)
                 .name("")
                 .kind(IoTypeMetadataKind::U8);
+        } else {
+            expected = expected.byte(0);
+            expected_compact = expected_compact.byte(0);
         }
     }
 
@@ -1110,6 +1112,15 @@ fn enums_with_different_variants() {
         Empty,
     }
 
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum MixedFieldlessFirst {
+        Empty,
+        Full { value: () },
+        AlsoEmpty,
+        AlsoFull { first: [u8; 0], second: () },
+    }
+
     let (point, point_compact) = point();
     let expected = Expected::new(IoTypeMetadataKind::Enum)
         .name("Shape")
@@ -1170,6 +1181,81 @@ fn enums_with_different_variants() {
         .name("")
         .byte(0);
     check_trivial_type::<MixedDataFirst>("MixedDataFirst", &expected, &expected_compact);
+
+    let expected = Expected::new(IoTypeMetadataKind::Enum)
+        .name("MixedFieldlessFirst")
+        .byte(4)
+        .name("Empty")
+        .byte(0)
+        .name("Full")
+        .byte(1)
+        .name("value")
+        .kind(IoTypeMetadataKind::Unit)
+        .name("AlsoEmpty")
+        .byte(0)
+        .name("AlsoFull")
+        .byte(2)
+        .name("first")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(0)
+        .kind(IoTypeMetadataKind::U8)
+        .name("second")
+        .kind(IoTypeMetadataKind::Unit);
+    let expected_compact = Expected::new(IoTypeMetadataKind::Enum)
+        .name("")
+        .byte(4)
+        .name("")
+        .byte(0)
+        .name("")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Unit)
+        .name("")
+        .byte(0)
+        .name("")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::Array)
+        .u32(0)
+        .kind(IoTypeMetadataKind::U8)
+        .name("")
+        .kind(IoTypeMetadataKind::Unit);
+    check_trivial_type::<MixedFieldlessFirst>("MixedFieldlessFirst", &expected, &expected_compact);
+}
+
+#[test]
+fn enums_without_variants_are_rejected() {
+    // Enums without variants have no values and can't derive `TrivialType`, since `#[repr(u8)]`
+    // requires variants, so their metadata is rejected
+    let empty = Expected::new(IoTypeMetadataKind::Enum)
+        .name("Empty")
+        .byte(0);
+    check_rejected(&empty.0);
+    check_rejected(&Expected::new(IoTypeMetadataKind::Enum).name("").byte(0).0);
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::Array)
+            .u32(1)
+            .nested(&empty)
+            .0,
+    );
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::Struct)
+            .name("Outer")
+            .byte(1)
+            .name("")
+            .nested(&empty)
+            .0,
+    );
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::Enum)
+            .name("Outer")
+            .byte(1)
+            .name("A")
+            .byte(1)
+            .name("inner")
+            .nested(&empty)
+            .0,
+    );
 }
 
 #[test]

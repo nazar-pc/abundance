@@ -17,9 +17,7 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
         IoTypeMetadataKind::I32 => b"i32",
         IoTypeMetadataKind::I64 => b"i64",
         IoTypeMetadataKind::I128 => b"i128",
-        IoTypeMetadataKind::Struct
-        | IoTypeMetadataKind::Enum
-        | IoTypeMetadataKind::EnumNoFields => {
+        IoTypeMetadataKind::Struct | IoTypeMetadataKind::Enum => {
             let type_name_length = *metadata.split_off_first()?;
 
             metadata.get(..usize::from(type_name_length))?

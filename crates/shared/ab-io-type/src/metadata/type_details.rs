@@ -49,9 +49,8 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
             },
             metadata,
         )),
-        IoTypeMetadataKind::Struct => struct_type_details(metadata, None),
-        IoTypeMetadataKind::Enum => enum_capacity(metadata, true),
-        IoTypeMetadataKind::EnumNoFields => enum_capacity(metadata, false),
+        IoTypeMetadataKind::Struct => struct_type_details(metadata),
+        IoTypeMetadataKind::Enum => enum_capacity(metadata),
         IoTypeMetadataKind::Array | IoTypeMetadataKind::VariableElements => {
             if metadata.is_empty() {
                 return None;
@@ -122,20 +121,13 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
 }
 
 #[inline(always)]
-const fn struct_type_details(
-    mut input: &[u8],
-    field_count: Option<u8>,
-) -> Option<(IoTypeDetails, &[u8])> {
+const fn struct_type_details(mut input: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
     // Skip struct name
     let struct_name_length = *input.split_off_first()?;
     // TODO: `split_off()` is not `const fn` yet, even unstably
     input = input.get(usize::from(struct_name_length)..)?;
 
-    let mut field_count = if let Some(field_count) = field_count {
-        field_count
-    } else {
-        *input.split_off_first()?
-    };
+    let mut field_count = *input.split_off_first()?;
 
     // Whether fields are named, either all fields have names or all of them have zero-length names
     // like fields of tuple structs
@@ -176,7 +168,7 @@ const fn struct_type_details(
 }
 
 #[inline(always)]
-const fn enum_capacity(mut input: &[u8], has_fields: bool) -> Option<(IoTypeDetails, &[u8])> {
+const fn enum_capacity(mut input: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
     // Skip enum name
     let enum_name_length = *input.split_off_first()?;
     // TODO: `split_off()` is not `const fn` yet, even unstably
@@ -195,8 +187,7 @@ const fn enum_capacity(mut input: &[u8], has_fields: bool) -> Option<(IoTypeDeta
         let variant_type_details;
 
         // Variant capacity as if it was a struct
-        (variant_type_details, input) =
-            struct_type_details(input, if has_fields { None } else { Some(0) })?;
+        (variant_type_details, input) = struct_type_details(input)?;
         // `+ 1` is for the discriminant
         let variant_capacity = variant_type_details.recommended_capacity.checked_add(1)?;
         alignment = alignment.max(variant_type_details.alignment.get());
@@ -215,7 +206,8 @@ const fn enum_capacity(mut input: &[u8], has_fields: bool) -> Option<(IoTypeDeta
         variant_count -= 1;
     }
 
-    let enum_capacity = enum_capacity.unwrap_or_default();
+    // Enums without variants have no values, such types are not allowed
+    let enum_capacity = enum_capacity?;
 
     Some((
         IoTypeDetails {

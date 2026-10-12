@@ -25,15 +25,11 @@ pub(super) const fn compact_metadata<'i, 'o>(
         }
         IoTypeMetadataKind::Struct => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
-            (input, output) = compact_struct(input, output, None)?;
+            (input, output) = compact_struct(input, output)?;
         }
         IoTypeMetadataKind::Enum => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
-            (input, output) = compact_enum(input, output, true)?;
-        }
-        IoTypeMetadataKind::EnumNoFields => {
-            *io_type_metadata_kind_output = io_type_metadata_kind_input;
-            (input, output) = compact_enum(input, output, false)?;
+            (input, output) = compact_enum(input, output)?;
         }
         IoTypeMetadataKind::Array
         | IoTypeMetadataKind::VariableElements
@@ -58,7 +54,6 @@ pub(super) const fn compact_metadata<'i, 'o>(
 const fn compact_struct<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
-    arguments_count: Option<u8>,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
     // Remove struct name
     let struct_name_length = *input.split_off_first()?;
@@ -66,14 +61,8 @@ const fn compact_struct<'i, 'o>(
     // TODO: `split_off()` is not `const fn` yet, even unstably
     input = input.get(usize::from(struct_name_length)..)?;
 
-    let mut arguments_count = if let Some(arguments_count) = arguments_count {
-        arguments_count
-    } else {
-        let arguments_count = *input.split_off_first()?;
-        *output.split_off_first_mut()? = arguments_count;
-
-        arguments_count
-    };
+    let mut arguments_count = *input.split_off_first()?;
+    *output.split_off_first_mut()? = arguments_count;
 
     // Compact arguments
     while arguments_count > 0 {
@@ -95,7 +84,6 @@ const fn compact_struct<'i, 'o>(
 const fn compact_enum<'i, 'o>(
     mut input: &'i [u8],
     mut output: &'o mut [u8],
-    has_fields: bool,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
     // Remove enum name
     let enum_name_length = *input.split_off_first()?;
@@ -107,13 +95,8 @@ const fn compact_enum<'i, 'o>(
 
     // Compact enum variants
     while variant_count > 0 {
-        if has_fields {
-            // Compact variant as if it was a struct
-            (input, output) = compact_struct(input, output, None)?;
-        } else {
-            // Compact variant as if it was a struct without fields
-            (input, output) = compact_struct(input, output, Some(0))?;
-        }
+        // Compact variant as if it was a struct
+        (input, output) = compact_struct(input, output)?;
 
         variant_count -= 1;
     }

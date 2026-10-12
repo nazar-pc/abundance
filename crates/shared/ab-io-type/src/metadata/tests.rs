@@ -17,12 +17,11 @@ fn check_repr() {
         (IoTypeMetadataKind::I128, 11),
         (IoTypeMetadataKind::Struct, 12),
         (IoTypeMetadataKind::Enum, 13),
-        (IoTypeMetadataKind::EnumNoFields, 14),
-        (IoTypeMetadataKind::Array, 15),
-        (IoTypeMetadataKind::VariableElements, 16),
-        (IoTypeMetadataKind::FixedCapacityElements, 17),
-        (IoTypeMetadataKind::FixedCapacityString, 18),
-        (IoTypeMetadataKind::Unaligned, 19),
+        (IoTypeMetadataKind::Array, 14),
+        (IoTypeMetadataKind::VariableElements, 15),
+        (IoTypeMetadataKind::FixedCapacityElements, 16),
+        (IoTypeMetadataKind::FixedCapacityString, 17),
+        (IoTypeMetadataKind::Unaligned, 18),
     ];
 
     for (kind, repr_byte) in known_variants {
