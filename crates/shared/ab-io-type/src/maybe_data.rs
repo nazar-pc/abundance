@@ -117,13 +117,13 @@ where
     }
 
     #[inline(always)]
-    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
-        &self.data
+    fn as_ptr(&self) -> NonNull<Self::PointerType> {
+        self.data
     }
 
     #[inline(always)]
-    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
-        &mut self.data
+    fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType> {
+        self.data
     }
 }
 

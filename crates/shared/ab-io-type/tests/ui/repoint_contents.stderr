@@ -1,0 +1,11 @@
+error[E0614]: type `NonNull<u32>` cannot be dereferenced
+ --> tests/ui/repoint_contents.rs:9:5
+  |
+9 |     *elements.as_mut_ptr() = NonNull::dangling();
+  |     ^^^^^^^^^^^^^^^^^^^^^^ can't be dereferenced
+
+error[E0614]: type `NonNull<<T as IoType>::PointerType>` cannot be dereferenced
+  --> tests/ui/repoint_contents.rs:16:5
+   |
+16 |     *IoType::as_mut_ptr(value) = NonNull::dangling();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ can't be dereferenced

@@ -16,6 +16,8 @@ Breaking changes:
   capacity and alignment, previously it didn't for structs with more than 10 named fields and enums with fields. It also
   replaces structs with a single field with the type of the field and structs without fields with `()`, so a newtype has
   the same compact metadata as the type it wraps
+* `IoType::as_ptr()` and `IoType::as_mut_ptr()` are safe and return `NonNull` by value, the inherent
+  `VariableElements::as_mut_ptr()` is removed
 
 Improvements:
 

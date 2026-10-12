@@ -143,13 +143,13 @@ where
     }
 
     #[inline(always)]
-    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
-        &self.elements
+    fn as_ptr(&self) -> NonNull<Self::PointerType> {
+        self.elements
     }
 
     #[inline(always)]
-    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
-        &mut self.elements
+    fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType> {
+        self.elements
     }
 }
 
@@ -375,15 +375,6 @@ where
         }
 
         true
-    }
-
-    /// Get exclusive access to the underlying pointer with no checks.
-    ///
-    /// Can be used for initialization with [`Self::assume_init()`] called afterward to confirm how
-    /// many bytes are in use right now.
-    #[inline(always)]
-    pub fn as_mut_ptr(&mut self) -> &mut NonNull<Element> {
-        &mut self.elements
     }
 
     /// Cast a shared reference to this instance into a reference to an instance of a different

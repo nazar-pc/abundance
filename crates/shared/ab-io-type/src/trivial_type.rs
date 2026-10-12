@@ -1,6 +1,6 @@
+use crate::IoType;
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::unaligned::Unaligned;
-use crate::{DerefWrapper, IoType};
 pub use ab_io_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr;
@@ -286,12 +286,12 @@ where
     }
 
     #[inline(always)]
-    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
-        DerefWrapper(NonNull::from_ref(self))
+    fn as_ptr(&self) -> NonNull<Self::PointerType> {
+        NonNull::from_ref(self)
     }
 
     #[inline(always)]
-    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
-        DerefWrapper(NonNull::from_mut(self))
+    fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType> {
+        NonNull::from_mut(self)
     }
 }
