@@ -1,4 +1,4 @@
-#![feature(get_mut_unchecked, option_into_flat_iter)]
+#![feature(option_into_flat_iter)]
 
 pub mod consensus_parameters;
 pub mod state;

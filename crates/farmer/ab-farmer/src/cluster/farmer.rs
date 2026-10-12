@@ -30,10 +30,11 @@ use futures::{FutureExt, Stream, StreamExt, select, stream};
 use parity_scale_codec::{Decode, Encode, EncodeLike, Input, Output};
 use std::future::Future;
 use std::pin::{Pin, pin};
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::{Duration, Instant};
 use tokio::time::MissedTickBehavior;
 use tracing::{Instrument, debug, error, info_span, trace, warn};
+use triomphe::Arc;
 use ulid::Ulid;
 
 const BROADCAST_NOTIFICATIONS_BUFFER: usize = 1000;
@@ -263,15 +264,15 @@ impl Farm for ClusterFarm {
         self.total_sectors_count
     }
 
-    fn plotted_sectors(&self) -> Arc<dyn PlottedSectors + 'static> {
-        Arc::new(ClusterPlottedSectors {
+    fn plotted_sectors(&self) -> StdArc<dyn PlottedSectors + 'static> {
+        StdArc::new(ClusterPlottedSectors {
             farm_id_string: self.farm_id_string.clone(),
             nats_client: self.nats_client.clone(),
         })
     }
 
-    fn piece_reader(&self) -> Arc<dyn PieceReader + 'static> {
-        Arc::new(ClusterPieceReader {
+    fn piece_reader(&self) -> StdArc<dyn PieceReader + 'static> {
+        StdArc::new(ClusterPieceReader {
             farm_id_string: self.farm_id_string.clone(),
             nats_client: self.nats_client.clone(),
         })
@@ -417,8 +418,8 @@ struct FarmDetails {
     farm_id: FarmId,
     farm_id_string: String,
     total_sectors_count: u16,
-    piece_reader: Arc<dyn PieceReader + 'static>,
-    plotted_sectors: Arc<dyn PlottedSectors + 'static>,
+    piece_reader: StdArc<dyn PieceReader + 'static>,
+    plotted_sectors: StdArc<dyn PlottedSectors + 'static>,
     _background_tasks: Option<AsyncJoinOnDrop<()>>,
 }
 
@@ -456,7 +457,7 @@ where
                     mpsc::channel(BROADCAST_NOTIFICATIONS_BUFFER);
 
                 let sector_updates_handler_id =
-                    farm.on_sector_update(Arc::new(move |(sector_index, sector_update)| {
+                    farm.on_sector_update(StdArc::new(move |(sector_index, sector_update)| {
                         if let Err(error) = sector_updates_sender.clone().try_send(
                             ClusterFarmerSectorUpdateBroadcast {
                                 farm_id,
@@ -469,7 +470,7 @@ where
                     }));
 
                 let farming_notifications_handler_id =
-                    farm.on_farming_notification(Arc::new(move |farming_notification| {
+                    farm.on_farming_notification(StdArc::new(move |farming_notification| {
                         if let Err(error) = farming_notifications_sender.clone().try_send(
                             ClusterFarmerFarmingNotificationBroadcast {
                                 farm_id,
@@ -480,18 +481,19 @@ where
                         }
                     }));
 
-                let solutions_handler_id = farm.on_solution(Arc::new(move |solution_response| {
-                    if let Err(error) =
-                        solutions_sender
-                            .clone()
-                            .try_send(ClusterFarmerSolutionBroadcast {
-                                farm_id,
-                                solution_response: solution_response.clone(),
-                            })
-                    {
-                        warn!(%farm_id, %error, "Failed to send solution notification");
-                    }
-                }));
+                let solutions_handler_id =
+                    farm.on_solution(StdArc::new(move |solution_response| {
+                        if let Err(error) =
+                            solutions_sender
+                                .clone()
+                                .try_send(ClusterFarmerSolutionBroadcast {
+                                    farm_id,
+                                    solution_response: solution_response.clone(),
+                                })
+                        {
+                            warn!(%farm_id, %error, "Failed to send solution notification");
+                        }
+                    }));
 
                 Some(AsyncJoinOnDrop::new(
                     tokio::spawn(async move {

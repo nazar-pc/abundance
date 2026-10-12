@@ -31,15 +31,16 @@ use std::fmt;
 use std::future::pending;
 use std::num::TryFromIntError;
 use std::pin::pin;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::Poll;
 use std::time::Instant;
 use tokio::task::yield_now;
 use tracing::{Instrument, warn};
+use triomphe::Arc;
 
 /// Type alias used for event handlers
-pub type HandlerFn3<A, B, C> = Arc<dyn Fn(&A, &B, &C) + Send + Sync + 'static>;
+pub type HandlerFn3<A, B, C> = StdArc<dyn Fn(&A, &B, &C) + Send + Sync + 'static>;
 type Handler3<A, B, C> = Bag<HandlerFn3<A, B, C>, A, B, C>;
 
 #[derive(Default, Debug)]
@@ -50,7 +51,7 @@ struct Handlers {
 /// GPU plotter
 pub struct GpuPlotter<PG> {
     piece_getter: PG,
-    downloading_semaphore: Arc<Semaphore>,
+    downloading_semaphore: StdArc<Semaphore>,
     gpu_records_encoders_manager: GpuRecordsEncoderManager,
     global_mutex: Arc<AsyncMutex<()>>,
     erasure_coding: ErasureCoding,
@@ -155,7 +156,7 @@ where
     /// Returns an error if empty list of encoders is provided.
     pub fn new(
         piece_getter: PG,
-        downloading_semaphore: Arc<Semaphore>,
+        downloading_semaphore: StdArc<Semaphore>,
         gpu_records_encoders: Vec<GpuRecordsEncoder>,
         global_mutex: Arc<AsyncMutex<()>>,
         erasure_coding: ErasureCoding,

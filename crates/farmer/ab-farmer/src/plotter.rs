@@ -20,8 +20,8 @@ use futures::Stream;
 use futures::channel::mpsc;
 use std::fmt;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::time::Duration;
+use triomphe::Arc;
 
 /// Sector plotting progress
 pub enum SectorPlottingProgress {

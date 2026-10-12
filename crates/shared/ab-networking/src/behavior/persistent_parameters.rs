@@ -17,12 +17,12 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::pin::Pin;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use std::{io, mem};
 use thiserror::Error;
 use tokio::time::{Sleep, sleep};
 use tracing::{debug, error, trace, warn};
+use triomphe::Arc;
 
 /// Defines optional time for address dial failure
 type FailureTime = Option<SystemTime>;

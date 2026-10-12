@@ -5,7 +5,7 @@ use event_listener::Event;
 use parking_lot::Mutex;
 use std::num::{NonZeroUsize, TryFromIntError};
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
+use triomphe::Arc;
 
 /// Wrapper around [`GpuRecordsEncoder`] that on `Drop` will return the records encoder into
 /// corresponding [`GpuRecordsEncoderManager`].

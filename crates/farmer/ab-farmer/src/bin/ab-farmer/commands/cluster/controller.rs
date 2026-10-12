@@ -28,9 +28,10 @@ use std::future::Future;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::pin::{Pin, pin};
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::Duration;
 use tracing::{Instrument, info, info_span};
+use triomphe::Arc;
 
 /// Get piece retry attempts number.
 const PIECE_GETTER_MAX_RETRIES: u16 = 7;
@@ -112,7 +113,7 @@ pub(super) async fn controller(
         (base_path, None)
     };
 
-    let plotted_pieces = Arc::new(AsyncRwLock::new(PlottedPieces::<FarmIndex>::default()));
+    let plotted_pieces = StdArc::new(AsyncRwLock::new(PlottedPieces::<FarmIndex>::default()));
 
     info!(url = %node_rpc_url, "Connecting to node RPC");
     let node_client = RpcNodeClient::new(&node_rpc_url)
@@ -134,7 +135,7 @@ pub(super) async fn controller(
         .iter()
         .map(|_cache_group| FarmerCache::new(node_client.clone(), peer_id, Some(registry)))
         .unzip::<_, _, Vec<_>, Vec<_>>();
-    let farmer_caches = Arc::from(farmer_caches.into_boxed_slice());
+    let farmer_caches = Arc::from(farmer_caches);
 
     // TODO: Metrics
 
@@ -155,7 +156,7 @@ pub(super) async fn controller(
             &base_path,
             keypair,
             network_args,
-            Arc::downgrade(&plotted_pieces),
+            StdArc::downgrade(&plotted_pieces),
             node_client.clone(),
             FarmerCaches::from(Arc::clone(&farmer_caches)),
             Some(registry),
@@ -180,16 +181,16 @@ pub(super) async fn controller(
             // caches than itself for sync purposes
             let piece_getter = FarmerPieceGetter::new(
                 piece_provider.clone(),
-                FarmerCaches::from(Arc::from(
+                FarmerCaches::from(
                     farmer_caches
                         .iter()
                         .enumerate()
                         .filter(|&(filter_index, _farmer_cache)| filter_index != index)
                         .map(|(_filter_index, farmer_cache)| farmer_cache.clone())
-                        .collect::<Box<_>>(),
-                )),
+                        .collect::<Arc<_>>(),
+                ),
                 node_client.clone(),
-                Arc::clone(&plotted_pieces),
+                StdArc::clone(&plotted_pieces),
                 DsnCacheRetryPolicy {
                     max_retries: PIECE_GETTER_MAX_RETRIES,
                     backoff: ExponentialBuilder::default()
@@ -217,7 +218,7 @@ pub(super) async fn controller(
         piece_provider,
         FarmerCaches::from(Arc::clone(&farmer_caches)),
         node_client.clone(),
-        Arc::clone(&plotted_pieces),
+        StdArc::clone(&plotted_pieces),
         DsnCacheRetryPolicy {
             max_retries: PIECE_GETTER_MAX_RETRIES,
             backoff: ExponentialBuilder::default()

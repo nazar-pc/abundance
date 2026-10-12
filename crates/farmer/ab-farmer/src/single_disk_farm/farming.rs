@@ -31,9 +31,10 @@ use futures::StreamExt;
 use futures::channel::mpsc;
 use rayon::ThreadPool;
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::Instant;
 use tracing::{Span, debug, error, info, trace, warn};
+use triomphe::Arc;
 
 /// How many non-fatal errors should happen in a row before farm is considered non-operational
 const NON_FATAL_ERROR_LIMIT: usize = 10;
@@ -206,7 +207,7 @@ pub(super) struct FarmingOptions<NC, PlotAudit> {
     pub(super) reward_address: Address,
     pub(super) node_client: NC,
     pub(super) plot_audit: PlotAudit,
-    pub(super) sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
+    pub(super) sectors_metadata: StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     pub(super) erasure_coding: ErasureCoding,
     pub(super) handlers: Arc<Handlers>,
     pub(super) sectors_being_modified: Arc<AsyncRwLock<HashSet<SectorIndex>>>,
@@ -439,7 +440,7 @@ where
             }
             handlers
                 .farming_notification
-                .call_simple(&FarmingNotification::NonFatalError(Arc::new(error)));
+                .call_simple(&FarmingNotification::NonFatalError(StdArc::new(error)));
 
             for sector_index in problematic_sectors.drain(..) {
                 // Inform others that this sector is being modified

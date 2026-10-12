@@ -42,11 +42,12 @@ use std::net::SocketAddr;
 use std::num::{NonZeroU8, NonZeroUsize};
 use std::pin::pin;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use std::{fs, iter};
 use tracing::{Instrument, error, info, info_span, warn};
+use triomphe::Arc;
 
 /// Get piece retry attempts number.
 const PIECE_GETTER_MAX_RETRIES: u16 = 7;
@@ -335,7 +336,7 @@ where
         None
     };
 
-    let plotted_pieces = Arc::new(AsyncRwLock::new(PlottedPieces::default()));
+    let plotted_pieces = StdArc::new(AsyncRwLock::new(PlottedPieces::default()));
 
     info!(url = %node_rpc_url, "Connecting to node RPC");
     let node_client = RpcNodeClient::new(&node_rpc_url)
@@ -392,7 +393,7 @@ where
             first_farm_directory,
             keypair,
             network_args,
-            Arc::downgrade(&plotted_pieces),
+            StdArc::downgrade(&plotted_pieces),
             node_client.clone(),
             farmer_caches.clone(),
             should_start_prometheus_server.then_some(&mut registry),
@@ -413,7 +414,7 @@ where
         piece_provider,
         farmer_caches,
         node_client.clone(),
-        Arc::clone(&plotted_pieces),
+        StdArc::clone(&plotted_pieces),
         DsnCacheRetryPolicy {
             max_retries: PIECE_GETTER_MAX_RETRIES,
             backoff: ExponentialBuilder::default()
@@ -493,7 +494,7 @@ where
             }
         }
     }
-    let plotter = Arc::new(PoolPlotter::new(plotters, PLOTTING_RETRY_INTERVAL));
+    let plotter = StdArc::new(PoolPlotter::new(plotters, PLOTTING_RETRY_INTERVAL));
 
     let (farms, plotting_delay_senders) = {
         let info_mutex = &AsyncMutex::new(());
@@ -512,7 +513,7 @@ where
                 let node_client = node_client.clone();
                 let farmer_app_info = farmer_app_info.clone();
                 let erasure_coding = erasure_coding.clone();
-                let plotter = Arc::clone(&plotter);
+                let plotter = StdArc::clone(&plotter);
                 let global_mutex = Arc::clone(&global_mutex);
 
                 async move {
@@ -611,7 +612,7 @@ where
         // cache hit ratio
         handler_id
             .lock()
-            .replace(farmer_cache.on_sync_progress(Arc::new({
+            .replace(farmer_cache.on_sync_progress(StdArc::new({
                 let handler_id = Arc::clone(&handler_id);
                 let plotting_delay_senders = Mutex::new(plotting_delay_senders);
 
@@ -630,12 +631,12 @@ where
         .replace_backing_caches(
             farms
                 .iter()
-                .map(|farm| Arc::new(farm.piece_cache()) as Arc<_>)
+                .map(|farm| StdArc::new(farm.piece_cache()) as StdArc<_>)
                 .collect(),
             if plot_cache {
                 farms
                     .iter()
-                    .map(|farm| Arc::new(farm.plot_cache()) as Arc<_>)
+                    .map(|farm| StdArc::new(farm.plot_cache()) as StdArc<_>)
                     .collect()
             } else {
                 Vec::new()
@@ -656,7 +657,7 @@ where
             )
         })?;
 
-        plotted_pieces.add_farm(farm_index, Arc::new(farm.piece_reader()));
+        plotted_pieces.add_farm(farm_index, StdArc::new(farm.piece_reader()));
 
         let plotted_sectors = farm.plotted_sectors();
         let mut plotted_sectors = plotted_sectors.get().await.map_err(|error| {
@@ -680,10 +681,10 @@ where
     let mut farms_stream = (FarmIndex::MIN..)
         .zip(farms)
         .map(|(farm_index, farm)| {
-            let plotted_pieces = Arc::clone(&plotted_pieces);
+            let plotted_pieces = StdArc::clone(&plotted_pieces);
             let span = info_span!("", %farm_index);
 
-            farm.on_sector_update(Arc::new(move |(_sector_index, sector_state)| {
+            farm.on_sector_update(StdArc::new(move |(_sector_index, sector_state)| {
                 // Collect newly plotted pieces
                 if let SectorUpdate::Plotting(SectorPlottingDetails::Finished {
                     plotted_sector,
@@ -882,7 +883,7 @@ where
     }
 
     let cpu_downloading_semaphore =
-        Arc::new(Semaphore::new(cpu_sector_downloading_concurrency.map_or(
+        StdArc::new(Semaphore::new(cpu_sector_downloading_concurrency.map_or(
             plotting_thread_pool_core_indices.len() * 3,
             NonZeroUsize::get,
         )));

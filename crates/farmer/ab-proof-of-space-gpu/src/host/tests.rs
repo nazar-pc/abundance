@@ -11,11 +11,10 @@ use ab_proof_of_space::chia::ChiaTable;
 use chacha20::ChaCha8Rng;
 use futures::executor::block_on;
 use rand::prelude::*;
-use rclite::Arc;
 use std::num::NonZeroU8;
 use std::slice;
-use std::sync::Arc as StdArc;
 use std::sync::atomic::AtomicBool;
+use triomphe::Arc;
 
 #[test]
 fn basic() {
@@ -59,7 +58,7 @@ fn basic() {
     let devices = block_on(Device::enumerate(|_| NonZeroU8::MIN));
     for device in devices {
         let mut device_instance = device
-            .instantiate(erasure_coding.clone(), StdArc::default())
+            .instantiate(erasure_coding.clone(), Arc::default())
             .unwrap();
 
         let mut actual_encoded_records = source_records.clone();

@@ -36,11 +36,12 @@ use parking_lot::Mutex;
 use prometheus_client::registry::Registry;
 use std::borrow::Cow;
 use std::iter::Empty;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::Duration;
 use std::{fmt, io, iter};
 use thiserror::Error;
 use tracing::{debug, info};
+use triomphe::Arc;
 
 const DEFAULT_NETWORK_PROTOCOL_VERSION: &str = "dev";
 const KADEMLIA_PROTOCOL: &str = "/subspace/kad/0.1.0";
@@ -516,8 +517,8 @@ pub fn construct(config: Config) -> Result<(Node, NodeRunner), CreationError> {
         max_pending_outgoing_connections,
     );
 
-    let shared = Arc::new(Shared::new(local_peer_id, command_sender, rate_limiter));
-    let shared_weak = Arc::downgrade(&shared);
+    let shared = StdArc::new(Shared::new(local_peer_id, command_sender, rate_limiter));
+    let shared_weak = StdArc::downgrade(&shared);
 
     let node = Node::new(shared);
     let node_runner = NodeRunner::new(NodeRunnerConfig {

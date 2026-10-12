@@ -29,9 +29,10 @@ use std::fs;
 use std::future::Future;
 use std::num::NonZeroUsize;
 use std::pin::{Pin, pin};
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::Duration;
 use tracing::{Instrument, error, info, info_span, warn};
+use triomphe::Arc;
 
 const FARM_ERROR_PRINT_INTERVAL: Duration = Duration::from_secs(30);
 /// Interval between farmer self-identification broadcast messages
@@ -226,7 +227,7 @@ where
         .map_or_else(recommended_number_of_farming_threads, NonZeroUsize::get);
 
     let global_mutex = Arc::default();
-    let plotter = Arc::new(ClusterPlotter::new(
+    let plotter = StdArc::new(ClusterPlotter::new(
         nats_client.clone(),
         sector_encoding_concurrency,
         ExponentialBuilder::default().without_max_times(),
@@ -245,7 +246,7 @@ where
                 let farmer_app_info = farmer_app_info.clone();
                 let node_client = node_client.clone();
                 let erasure_coding = erasure_coding.clone();
-                let plotter = Arc::clone(&plotter);
+                let plotter = StdArc::clone(&plotter);
                 let global_mutex = Arc::clone(&global_mutex);
 
                 async move {

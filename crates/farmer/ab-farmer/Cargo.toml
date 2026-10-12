@@ -63,6 +63,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "sync", "time"] }
 tokio-stream = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
+triomphe = { workspace = true, features = ["std"] }
 ulid = { workspace = true, features = ["serde"] }
 zeroize = { workspace = true, features = ["derive"] }
 

@@ -35,9 +35,9 @@ use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use futures::channel::mpsc;
 use futures::prelude::*;
-use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, info, trace, warn};
+use triomphe::Arc;
 
 /// Do not wait for acknowledgements beyond this time limit
 const ACKNOWLEDGEMENT_TIMEOUT: Duration = Duration::from_mins(2);

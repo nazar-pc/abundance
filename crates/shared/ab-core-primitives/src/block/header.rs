@@ -731,9 +731,9 @@ pub struct BeaconChainHeader<'a> {
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: rclite::Arc<once_cell::race::OnceBox<BlockRoot>>,
+    cached_block_root: triomphe::Arc<once_cell::race::OnceBox<BlockRoot>>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: rclite::Arc<std::sync::OnceLock<BlockRoot>>,
+    cached_block_root: triomphe::Arc<std::sync::OnceLock<BlockRoot>>,
 }
 
 impl<'a> Deref for BeaconChainHeader<'a> {
@@ -815,7 +815,7 @@ impl<'a> BeaconChainHeader<'a> {
             consensus_parameters,
             pre_seal_bytes,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
-            cached_block_root: rclite::Arc::default(),
+            cached_block_root: triomphe::Arc::default(),
         };
 
         if !header.is_internally_consistent() {
@@ -883,7 +883,7 @@ impl<'a> BeaconChainHeader<'a> {
                     feature = "alloc",
                     not(any(target_os = "none", target_os = "unknown"))
                 ))]
-                cached_block_root: rclite::Arc::default(),
+                cached_block_root: triomphe::Arc::default(),
             },
             remainder,
         ))
@@ -1017,9 +1017,9 @@ pub struct IntermediateShardHeader<'a> {
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: rclite::Arc<once_cell::race::OnceBox<BlockRoot>>,
+    cached_block_root: triomphe::Arc<once_cell::race::OnceBox<BlockRoot>>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: rclite::Arc<std::sync::OnceLock<BlockRoot>>,
+    cached_block_root: triomphe::Arc<std::sync::OnceLock<BlockRoot>>,
 }
 
 impl<'a> Deref for IntermediateShardHeader<'a> {
@@ -1103,7 +1103,7 @@ impl<'a> IntermediateShardHeader<'a> {
             child_shard_blocks,
             pre_seal_bytes,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
-            cached_block_root: rclite::Arc::default(),
+            cached_block_root: triomphe::Arc::default(),
         };
 
         if !header.is_internally_consistent() {
@@ -1173,7 +1173,7 @@ impl<'a> IntermediateShardHeader<'a> {
                     feature = "alloc",
                     not(any(target_os = "none", target_os = "unknown"))
                 ))]
-                cached_block_root: rclite::Arc::default(),
+                cached_block_root: triomphe::Arc::default(),
             },
             remainder,
         ))
@@ -1305,9 +1305,9 @@ pub struct LeafShardHeader<'a> {
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: rclite::Arc<once_cell::race::OnceBox<BlockRoot>>,
+    cached_block_root: triomphe::Arc<once_cell::race::OnceBox<BlockRoot>>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: rclite::Arc<std::sync::OnceLock<BlockRoot>>,
+    cached_block_root: triomphe::Arc<std::sync::OnceLock<BlockRoot>>,
 }
 
 impl<'a> Deref for LeafShardHeader<'a> {
@@ -1386,7 +1386,7 @@ impl<'a> LeafShardHeader<'a> {
             beacon_chain_info,
             pre_seal_bytes,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
-            cached_block_root: rclite::Arc::default(),
+            cached_block_root: triomphe::Arc::default(),
         };
 
         if !header.is_internally_consistent() {
@@ -1451,7 +1451,7 @@ impl<'a> LeafShardHeader<'a> {
                     feature = "alloc",
                     not(any(target_os = "none", target_os = "unknown"))
                 ))]
-                cached_block_root: rclite::Arc::default(),
+                cached_block_root: triomphe::Arc::default(),
             },
             remainder,
         ))

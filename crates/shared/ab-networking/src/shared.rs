@@ -11,9 +11,9 @@ use libp2p::gossipsub::{PublishError, Sha256Topic, SubscriptionError};
 use libp2p::kad::{PeerRecord, RecordKey};
 use libp2p::{Multiaddr, PeerId};
 use parking_lot::Mutex;
-use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use tokio::sync::OwnedSemaphorePermit;
+use triomphe::Arc;
 
 /// Represents Kademlia events (RoutablePeer, PendingRoutablePeer, UnroutablePeer).
 #[derive(Clone, Debug)]

@@ -22,7 +22,6 @@ use parking_lot::Mutex;
 use prometheus_client::registry::Registry;
 use std::num::NonZeroU32;
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::task::Poll;
 use std::{fs, io, iter};
@@ -30,6 +29,7 @@ use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::task;
 use tracing::{Span, debug, info, warn};
+use triomphe::Arc;
 
 /// How many pieces should be skipped before stopping to check the rest of contents, this allows to
 /// not miss most of the pieces after one or two corrupted pieces

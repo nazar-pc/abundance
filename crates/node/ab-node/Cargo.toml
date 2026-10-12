@@ -37,11 +37,11 @@ core_affinity = { workspace = true }
 futures = { workspace = true, features = ["alloc"] }
 gdt-cpus = { workspace = true }
 mimalloc = { workspace = true }
-rclite = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing = { workspace = true, features = ["std"] }
+triomphe = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

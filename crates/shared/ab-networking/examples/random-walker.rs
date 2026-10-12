@@ -13,9 +13,10 @@ use libp2p::multiaddr::Protocol;
 use libp2p::{Multiaddr, PeerId};
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
+use triomphe::Arc;
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -217,7 +218,7 @@ async fn start_walking(node: Node, retries: u32, print_failed_addresses: bool) {
     let discovered_peers = Arc::new(Mutex::new(HashMap::<PeerId, PeerDiscovered>::new()));
     node.on_discovered_peer({
         let discovered_peers = Arc::clone(&discovered_peers);
-        Arc::new(move |event| {
+        StdArc::new(move |event| {
             discovered_peers
                 .lock()
                 .insert(event.peer_id(), event.clone());
@@ -329,7 +330,7 @@ async fn request_sample_piece(
             Vec::new(),
             PieceByIndexRequest {
                 piece_index: sample_piece_index,
-                cached_pieces: Arc::default(),
+                cached_pieces: StdArc::default(),
             },
         )
         .await;
@@ -385,7 +386,7 @@ async fn configure_dsn(
     let (node, mut node_runner_1) = ab_networking::construct(config).unwrap();
 
     let (node_address_sender, node_address_receiver) = oneshot::channel();
-    let on_new_listener_handler = node.on_new_listener(Arc::new({
+    let on_new_listener_handler = node.on_new_listener(StdArc::new({
         let node_address_sender = Mutex::new(Some(node_address_sender));
 
         move |address| {

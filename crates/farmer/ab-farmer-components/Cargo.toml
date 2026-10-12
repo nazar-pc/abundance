@@ -57,6 +57,7 @@ serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "signal", "sync"] }
 tracing = { workspace = true }
+triomphe = { workspace = true, features = ["std"] }
 
 [target.'cfg(windows)'.dependencies]
 windows = { workspace = true }

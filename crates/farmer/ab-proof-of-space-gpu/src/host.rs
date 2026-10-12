@@ -22,12 +22,11 @@ use futures::{StreamExt, TryStreamExt};
 use parking_lot::Mutex;
 use rayon::prelude::*;
 use rayon::{ThreadPool, ThreadPoolBuilder};
-use rclite::Arc;
 use std::num::NonZeroU8;
 use std::simd::Simd;
-use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{fmt, iter};
+use triomphe::Arc;
 use wgpu::{
     AdapterInfo, Backend, BackendOptions, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer, BufferAddress,
@@ -232,7 +231,7 @@ impl Device {
     pub fn instantiate(
         &self,
         erasure_coding: ErasureCoding,
-        global_mutex: StdArc<AsyncMutex<()>>,
+        global_mutex: Arc<AsyncMutex<()>>,
     ) -> anyhow::Result<GpuRecordsEncoder> {
         GpuRecordsEncoder::new(
             self.id,
@@ -250,7 +249,7 @@ pub struct GpuRecordsEncoder {
     thread_pool: ThreadPool,
     adapter_info: AdapterInfo,
     erasure_coding: ErasureCoding,
-    global_mutex: StdArc<AsyncMutex<()>>,
+    global_mutex: Arc<AsyncMutex<()>>,
 }
 
 impl fmt::Debug for GpuRecordsEncoder {
@@ -361,7 +360,7 @@ impl GpuRecordsEncoder {
         devices: Vec<(wgpu::Device, Queue, ShaderModule)>,
         adapter_info: AdapterInfo,
         erasure_coding: ErasureCoding,
-        global_mutex: StdArc<AsyncMutex<()>>,
+        global_mutex: Arc<AsyncMutex<()>>,
     ) -> anyhow::Result<Self> {
         let thread_pool = ThreadPoolBuilder::new()
             .thread_name(move |thread_index| format!("pos-gpu-{id}.{thread_index}"))

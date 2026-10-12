@@ -6,10 +6,10 @@ use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_direct_io_file::DirectIoFile;
 use bytesize::ByteSize;
 use clap::Parser;
-use rclite::Arc;
 use std::fs::OpenOptions;
 use std::io;
 use std::path::PathBuf;
+use triomphe::Arc;
 
 /// Error for [`FormatDb`]
 #[derive(Debug, thiserror::Error)]

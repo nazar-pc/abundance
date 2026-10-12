@@ -19,9 +19,10 @@ use prometheus_client::registry::Registry;
 use std::future::Future;
 use std::num::NonZeroUsize;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::Duration;
 use tracing::info;
+use triomphe::Arc;
 
 const PLOTTING_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -210,7 +211,7 @@ where
     }
 
     let downloading_semaphore =
-        Arc::new(Semaphore::new(cpu_sector_downloading_concurrency.map_or(
+        StdArc::new(Semaphore::new(cpu_sector_downloading_concurrency.map_or(
             plotting_thread_pool_core_indices.len() + 1,
             NonZeroUsize::get,
         )));

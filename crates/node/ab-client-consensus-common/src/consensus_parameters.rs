@@ -18,6 +18,7 @@ use ab_core_primitives::solutions::{ShardMembershipEntropy, SolutionRange};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::sync::Arc as StdArc;
+use triomphe::Arc;
 
 struct SolutionRanges {
     current: SolutionRange,
@@ -409,7 +410,7 @@ pub trait DeriveSuperSegmentsForBlockChainInfo: Send + Sync {
     fn shard_segment_roots(
         &self,
         block_number: BlockNumber,
-    ) -> Result<StdArc<[ShardSegmentRoot]>, ShardSegmentRootsError>;
+    ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError>;
 }
 
 impl<T> DeriveSuperSegmentsForBlockChainInfo for T
@@ -450,7 +451,7 @@ where
     fn shard_segment_roots(
         &self,
         block_number: BlockNumber,
-    ) -> Result<StdArc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
+    ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
         BeaconChainInfo::shard_segment_roots(self, block_number)
     }
 }

@@ -22,10 +22,9 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use ab_core_primitives::segments::SuperSegmentRoot;
 use ab_core_primitives::shard::ShardIndex;
-use rclite::Arc;
 use std::iter;
-use std::sync::Arc as StdArc;
 use std::time::SystemTime;
+use triomphe::Arc;
 
 /// Error for [`BeaconChainBlockBuilder`]
 #[derive(Debug, thiserror::Error)]
@@ -242,7 +241,7 @@ where
     fn execute_block(
         &self,
         parent_block_details: &BlockDetails,
-    ) -> (Blake3Hash, StdArc<[ContractSlotState]>) {
+    ) -> (Blake3Hash, Arc<[ContractSlotState]>) {
         let global_state = GlobalState::new(&parent_block_details.system_contract_states);
 
         // TODO: Execute block

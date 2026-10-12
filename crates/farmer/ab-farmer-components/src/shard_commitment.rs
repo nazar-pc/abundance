@@ -13,7 +13,7 @@ use parking_lot::RwLock;
 use schnellru::{ByLength, LruMap};
 use std::iter;
 use std::mem::MaybeUninit;
-use std::sync::Arc;
+use triomphe::Arc;
 
 const SHARD_COMMITMENTS_ROOT_CACHE_SIZE: ByLength = ByLength::new(32);
 

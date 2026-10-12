@@ -12,9 +12,8 @@ use ab_core_primitives::segments::{
 };
 use ab_core_primitives::shard::ShardIndex;
 use ab_merkle_tree::mmr::MerkleMountainRange;
-use rclite::Arc;
 use std::io;
-use std::sync::Arc as StdArc;
+use triomphe::Arc;
 
 const MAX_U32_AS_U64: u64 = u64::from(u32::MAX);
 /// Type alias for Merkle Mountain Range with block roots.
@@ -40,7 +39,7 @@ pub struct BlockDetails {
     /// Merkle Mountain Range with block
     pub mmr_with_block: Arc<BlockMerkleMountainRange>,
     /// System contracts state after block
-    pub system_contract_states: StdArc<[ContractSlotState]>,
+    pub system_contract_states: Arc<[ContractSlotState]>,
 }
 
 // TODO: Probably move it elsewhere
@@ -266,7 +265,7 @@ pub trait BeaconChainInfo: ChainInfo<OwnedBeaconChainBlock> {
     fn shard_segment_roots(
         &self,
         block_number: BlockNumber,
-    ) -> Result<StdArc<[ShardSegmentRoot]>, ShardSegmentRootsError>;
+    ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError>;
 
     /// Returns the last observed super segment header
     fn last_super_segment_header(&self) -> Option<SuperSegmentHeader>;

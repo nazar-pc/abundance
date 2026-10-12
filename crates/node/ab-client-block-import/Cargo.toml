@@ -23,11 +23,11 @@ anyhow = { workspace = true }
 async-lock = { workspace = true, features = ["std"] }
 futures = { workspace = true, features = ["alloc"] }
 parking_lot = { workspace = true }
-rclite = { workspace = true }
 send-future = { workspace = true }
 stable_deref_trait = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+triomphe = { workspace = true, features = ["std"] }
 yoke = { workspace = true }
 
 [lints]

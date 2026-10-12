@@ -11,10 +11,10 @@ use libp2p::{PeerId, core, identity, noise};
 use parking_lot::Mutex;
 use std::io;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use tracing::debug;
+use triomphe::Arc;
 
 // Builds the transport stack that LibP2P will communicate over along with a relay client.
 pub(super) fn build_transport(

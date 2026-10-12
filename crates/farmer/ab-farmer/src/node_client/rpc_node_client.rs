@@ -16,7 +16,7 @@ use jsonrpsee::core::client::{ClientT, Error as JsonError, SubscriptionClientT};
 use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use std::pin::Pin;
-use std::sync::Arc;
+use triomphe::Arc;
 
 /// TODO: Node is having a hard time responding for many piece requests, specifically this results
 ///  in subscriptions become broken on the node: https://github.com/paritytech/jsonrpsee/issues/1409

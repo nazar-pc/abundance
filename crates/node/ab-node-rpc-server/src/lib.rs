@@ -45,9 +45,9 @@ use schnellru::{ByLength, LruMap};
 use std::collections::{HashMap, VecDeque};
 use std::io;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tracing::{error, info, warn};
+use triomphe::Arc;
 
 const CACHED_SUPER_SEGMENTS_CAPACITY: usize = 5;
 const CACHED_ARCHIVED_SEGMENT_TIMEOUT: Duration = Duration::from_mins(1);

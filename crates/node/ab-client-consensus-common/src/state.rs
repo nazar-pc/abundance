@@ -5,8 +5,9 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_merkle_tree::sparse::{Leaf, SparseMerkleTree};
 use blake3::hash;
 use std::collections::BTreeMap;
+use std::mem::MaybeUninit;
 use std::num::NonZeroU128;
-use std::sync::Arc as StdArc;
+use triomphe::{Arc, UniqueArc};
 
 type Smt128 = SparseMerkleTree<{ size_of::<Address>() as u8 * u8::BITS as u8 }>;
 
@@ -37,9 +38,9 @@ impl GlobalState {
         }
     }
 
-    pub fn to_system_contract_states(&self) -> StdArc<[ContractSlotState]> {
+    pub fn to_system_contract_states(&self) -> Arc<[ContractSlotState]> {
         let mut system_contract_states =
-            StdArc::<[ContractSlotState]>::new_uninit_slice(self.total_len);
+            UniqueArc::<[MaybeUninit<ContractSlotState>]>::new_uninit_slice(self.total_len);
 
         self.state
             .iter()
@@ -50,15 +51,14 @@ impl GlobalState {
                     contents: contents.clone(),
                 })
             })
-            // SAFETY: A single pointer and a single use
-            .zip(unsafe { StdArc::get_mut_unchecked(&mut system_contract_states) })
+            .zip(system_contract_states.iter_mut())
             .for_each(|(input, output)| {
                 output.write(input);
             });
 
         // SAFETY: Just initialized all entries, internal invariant guarantees that `self.total_len`
         // matches the number of entries deep in the state tree
-        unsafe { system_contract_states.assume_init() }
+        unsafe { UniqueArc::assume_init_slice(system_contract_states) }.shareable()
     }
 
     pub fn root(&self) -> Blake3Hash {

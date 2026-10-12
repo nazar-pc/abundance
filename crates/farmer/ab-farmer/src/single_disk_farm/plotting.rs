@@ -28,12 +28,13 @@ use std::io;
 use std::num::NonZeroUsize;
 use std::ops::Range;
 use std::pin::pin;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::{Duration, Instant};
 use thiserror::Error;
 use tokio::sync::watch;
 use tokio::task;
 use tracing::{Instrument, debug, info, info_span, trace, warn};
+use triomphe::Arc;
 
 const FARMER_APP_INFO_RETRY_INTERVAL: Duration = Duration::from_millis(500);
 const PLOTTING_RETRY_DELAY: Duration = Duration::from_secs(1);
@@ -91,11 +92,11 @@ pub(super) struct SectorPlottingOptions<'a, NC> {
     pub(super) node_client: &'a NC,
     pub(super) pieces_in_sector: u16,
     pub(super) sector_size: usize,
-    pub(super) plot_file: Arc<DirectIoFileWrapper>,
+    pub(super) plot_file: StdArc<DirectIoFileWrapper>,
     pub(super) metadata_file: Arc<DirectIoFileWrapper>,
     pub(super) handlers: &'a Handlers,
     pub(super) global_mutex: &'a AsyncMutex<()>,
-    pub(super) plotter: Arc<dyn Plotter>,
+    pub(super) plotter: StdArc<dyn Plotter>,
     pub(super) metrics: Option<Arc<SingleDiskFarmMetrics>>,
 }
 
@@ -556,7 +557,7 @@ where
 async fn plot_single_sector_internal(
     sector_index: SectorIndex,
     sector_size: usize,
-    plot_file: &Arc<DirectIoFileWrapper>,
+    plot_file: &StdArc<DirectIoFileWrapper>,
     metadata_file: &Arc<DirectIoFileWrapper>,
     handlers: &Handlers,
     global_mutex: &AsyncMutex<()>,
@@ -676,7 +677,7 @@ async fn plot_single_sector_internal(
 
                 trace!(sector_chunk_size, "Writing sector chunk to disk");
                 let write_fut = task::spawn_blocking({
-                    let plot_file = Arc::clone(plot_file);
+                    let plot_file = StdArc::clone(plot_file);
 
                     move || plot_file.write_all_at(&sector_chunk, sector_write_offset)
                 });
@@ -736,7 +737,7 @@ pub(super) struct PlottingSchedulerOptions<NC> {
     pub(super) min_sector_lifetime: HistorySize,
     pub(super) node_client: NC,
     pub(super) handlers: Arc<Handlers>,
-    pub(super) sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
+    pub(super) sectors_metadata: StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     pub(super) sectors_to_plot_sender: mpsc::Sender<SectorToPlot>,
     // Max delay between segment header being acknowledged by farmer and potentially
     // triggering replotting
@@ -850,7 +851,7 @@ async fn send_plotting_notifications<NC>(
     min_sector_lifetime: HistorySize,
     node_client: &NC,
     handlers: &Handlers,
-    sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
+    sectors_metadata: StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     mut new_segment_index_receiver: watch::Receiver<SegmentIndex>,
     mut sectors_to_plot_sender: mpsc::Sender<SectorToPlot>,
     metrics: Option<&Arc<SingleDiskFarmMetrics>>,

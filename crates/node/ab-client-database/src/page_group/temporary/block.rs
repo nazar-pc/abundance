@@ -4,9 +4,8 @@ use ab_client_api::{BlockMerkleMountainRange, ContractSlotState};
 use ab_core_primitives::address::Address;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::mmr::MerkleMountainRangeBytes;
-use rclite::Arc;
 use std::mem::MaybeUninit;
-use std::sync::Arc as StdArc;
+use triomphe::{Arc, UniqueArc};
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -26,7 +25,7 @@ pub(crate) struct StorageItemTemporaryBlock {
     pub(crate) header: SharedAlignedBuffer,
     pub(crate) body: SharedAlignedBuffer,
     pub(crate) mmr_with_block: Arc<BlockMerkleMountainRange>,
-    pub(crate) system_contract_states: StdArc<[ContractSlotState]>,
+    pub(crate) system_contract_states: Arc<[ContractSlotState]>,
     // TODO: State, segment headers
 }
 
@@ -297,12 +296,11 @@ impl StorageItemTemporaryBlock {
         };
 
         let mut system_contract_states =
-            StdArc::<[ContractSlotState]>::new_uninit_slice(num_system_contract_states as usize);
+            UniqueArc::<[MaybeUninit<ContractSlotState>]>::new_uninit_slice(
+                num_system_contract_states as usize,
+            );
 
-        for system_contract_state in
-            // SAFETY: A single pointer and a single use
-            unsafe { StdArc::get_mut_unchecked(&mut system_contract_states) }
-        {
+        for system_contract_state in system_contract_states.iter_mut() {
             // Alignment padding (if needed)
             if !read_len.is_multiple_of(size_of::<u64>()) {
                 let new_read_len = read_len.next_multiple_of(size_of::<u64>());
@@ -363,7 +361,8 @@ impl StorageItemTemporaryBlock {
         }
 
         // SAFETY: Just initialized all entries
-        let system_contract_states = unsafe { system_contract_states.assume_init() };
+        let system_contract_states =
+            unsafe { UniqueArc::assume_init_slice(system_contract_states) }.shareable();
 
         Ok(Self {
             header,

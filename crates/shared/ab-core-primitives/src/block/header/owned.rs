@@ -13,7 +13,7 @@ use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use derive_more::From;
-use rclite::Arc;
+use triomphe::Arc;
 use yoke::Yoke;
 
 /// Generic owned block header
@@ -282,7 +282,7 @@ impl OwnedBeaconChainHeader {
     /// Number of clones in memory
     #[inline(always)]
     pub fn ref_count(&self) -> usize {
-        self.inner.strong_count()
+        Arc::count(&self.inner)
     }
 
     /// Get [`BeaconChainHeader`] out of [`OwnedBeaconChainHeader`]
@@ -479,7 +479,7 @@ impl OwnedIntermediateShardHeader {
     /// Number of clones in memory
     #[inline(always)]
     pub fn ref_count(&self) -> usize {
-        self.inner.strong_count()
+        Arc::count(&self.inner)
     }
 
     /// Get [`IntermediateShardHeader`] out of [`OwnedIntermediateShardHeader`]
@@ -632,7 +632,7 @@ impl OwnedLeafShardHeader {
     /// Number of clones in memory
     #[inline(always)]
     pub fn ref_count(&self) -> usize {
-        self.inner.strong_count()
+        Arc::count(&self.inner)
     }
 
     /// Get [`LeafShardHeader`] out of [`OwnedLeafShardHeader`]

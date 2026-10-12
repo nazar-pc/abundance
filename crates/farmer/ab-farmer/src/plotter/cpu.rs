@@ -31,16 +31,17 @@ use std::future::pending;
 use std::marker::PhantomData;
 use std::num::NonZeroUsize;
 use std::pin::pin;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::Poll;
 use std::time::Instant;
 use std::{fmt, iter};
 use tokio::task::yield_now;
 use tracing::{Instrument, warn};
+use triomphe::Arc;
 
 /// Type alias used for event handlers
-pub type HandlerFn3<A, B, C> = Arc<dyn Fn(&A, &B, &C) + Send + Sync + 'static>;
+pub type HandlerFn3<A, B, C> = StdArc<dyn Fn(&A, &B, &C) + Send + Sync + 'static>;
 type Handler3<A, B, C> = Bag<HandlerFn3<A, B, C>, A, B, C>;
 
 #[derive(Default, Debug)]
@@ -51,7 +52,7 @@ struct Handlers {
 /// CPU plotter
 pub struct CpuPlotter<PG, PosTable> {
     piece_getter: PG,
-    downloading_semaphore: Arc<Semaphore>,
+    downloading_semaphore: StdArc<Semaphore>,
     plotting_thread_pool_manager: PlottingThreadPoolManager,
     record_encoding_concurrency: NonZeroUsize,
     global_mutex: Arc<AsyncMutex<()>>,
@@ -160,7 +161,7 @@ where
     /// Create a new instance
     pub fn new(
         piece_getter: PG,
-        downloading_semaphore: Arc<Semaphore>,
+        downloading_semaphore: StdArc<Semaphore>,
         plotting_thread_pool_manager: PlottingThreadPoolManager,
         record_encoding_concurrency: NonZeroUsize,
         global_mutex: Arc<AsyncMutex<()>>,

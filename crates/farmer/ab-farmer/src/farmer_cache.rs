@@ -36,7 +36,7 @@ use rayon::prelude::*;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::future::join;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::Poll;
 use std::time::Duration;
@@ -44,6 +44,7 @@ use std::{fmt, mem};
 use tokio::sync::Semaphore;
 use tokio::task::yield_now;
 use tracing::{Instrument, debug, error, info, info_span, trace, warn};
+use triomphe::Arc;
 
 const WORKER_CHANNEL_CAPACITY: usize = 100;
 const SYNC_BATCH_SIZE: usize = 256;
@@ -53,7 +54,7 @@ const SYNC_CONCURRENT_BATCHES: usize = 4;
 const INTERMEDIATE_CACHE_UPDATE_INTERVAL: usize = 100;
 const INITIAL_SYNC_FARM_INFO_CHECK_INTERVAL: Duration = Duration::from_secs(1);
 
-type HandlerFn<A> = Arc<dyn Fn(&A) + Send + Sync + 'static>;
+type HandlerFn<A> = StdArc<dyn Fn(&A) + Send + Sync + 'static>;
 type Handler<A> = Bag<HandlerFn<A>, A>;
 type CacheIndex = u8;
 
@@ -79,13 +80,13 @@ impl FarmerCacheOffset {
 
 #[derive(Debug, Clone)]
 struct CacheBackend {
-    backend: Arc<dyn PieceCache>,
+    backend: StdArc<dyn PieceCache>,
     used_capacity: u32,
     total_capacity: u32,
 }
 
 impl std::ops::Deref for CacheBackend {
-    type Target = Arc<dyn PieceCache>;
+    type Target = StdArc<dyn PieceCache>;
 
     fn deref(&self) -> &Self::Target {
         &self.backend
@@ -93,7 +94,7 @@ impl std::ops::Deref for CacheBackend {
 }
 
 impl CacheBackend {
-    fn new(backend: Arc<dyn PieceCache>, total_capacity: u32) -> Self {
+    fn new(backend: StdArc<dyn PieceCache>, total_capacity: u32) -> Self {
         Self {
             backend,
             used_capacity: 0,
@@ -127,7 +128,7 @@ struct CacheState {
 #[derive(Debug)]
 enum WorkerCommand {
     ReplaceBackingCaches {
-        new_piece_caches: Vec<Arc<dyn PieceCache>>,
+        new_piece_caches: Vec<StdArc<dyn PieceCache>>,
     },
     ForgetKey {
         key: RecordKey,
@@ -288,7 +289,7 @@ where
         &self,
         piece_getter: &PG,
         last_segment_index_internal: &mut SegmentIndex,
-        new_piece_caches: Vec<Arc<dyn PieceCache>>,
+        new_piece_caches: Vec<StdArc<dyn PieceCache>>,
     ) where
         PG: PieceGetter,
     {
@@ -1016,7 +1017,7 @@ where
 #[derive(Debug)]
 struct PlotCaches {
     /// Additional piece caches
-    caches: AsyncRwLock<Vec<Arc<dyn PlotCache>>>,
+    caches: AsyncRwLock<Vec<StdArc<dyn PlotCache>>>,
     /// Next plot cache to use for storing pieces
     next_plot_cache: AtomicUsize,
 }
@@ -1613,8 +1614,8 @@ impl FarmerCache {
     /// Initialize replacement of backing caches
     pub async fn replace_backing_caches(
         &self,
-        new_piece_caches: Vec<Arc<dyn PieceCache>>,
-        new_plot_caches: Vec<Arc<dyn PlotCache>>,
+        new_piece_caches: Vec<StdArc<dyn PieceCache>>,
+        new_plot_caches: Vec<StdArc<dyn PlotCache>>,
     ) {
         if let Err(error) = self
             .worker_sender
@@ -1649,7 +1650,7 @@ impl From<Arc<[FarmerCache]>> for FarmerCaches {
 impl From<FarmerCache> for FarmerCaches {
     fn from(cache: FarmerCache) -> Self {
         Self {
-            caches: Arc::new([cache]),
+            caches: Arc::from_iter([cache]),
         }
     }
 }

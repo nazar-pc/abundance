@@ -42,13 +42,14 @@ use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc as StdArc, Weak};
 use std::time::Duration;
 use std::{fmt, slice};
 use tokio::sync::OwnedSemaphorePermit;
 use tokio::task::yield_now;
 use tokio::time::Sleep;
 use tracing::{debug, error, trace, warn};
+use triomphe::Arc;
 
 enum QueryResultSender {
     Value {
@@ -180,7 +181,7 @@ impl NodeRunner {
         let (removed_addresses_tx, removed_addresses_rx) = mpsc::unbounded();
         let mut address_removal_task_handler_id = None;
         if let Some(handler_id) = known_peers_registry.on_unreachable_address({
-            Arc::new(move |event| {
+            StdArc::new(move |event| {
                 if let Err(error) = removed_addresses_tx.unbounded_send(event.clone()) {
                     debug!(?error, ?event, "Cannot send PeerAddressRemovedEvent");
                 }

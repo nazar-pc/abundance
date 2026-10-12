@@ -17,8 +17,9 @@ use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, StreamExt};
 use std::collections::HashSet;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use tracing::{error, warn};
+use triomphe::Arc;
 
 #[derive(Debug)]
 struct ReadPieceRequest {
@@ -55,8 +56,8 @@ impl DiskPieceReader {
         public_key_hash: Blake3Hash,
         shard_commitments_roots_cache: ShardCommitmentsRootsCache,
         pieces_in_sector: u16,
-        plot_file: Arc<DirectIoFileWrapper>,
-        sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
+        plot_file: StdArc<DirectIoFileWrapper>,
+        sectors_metadata: StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
         erasure_coding: ErasureCoding,
         sectors_being_modified: Arc<AsyncRwLock<HashSet<SectorIndex>>>,
         global_mutex: Arc<AsyncMutex<()>>,
@@ -115,7 +116,7 @@ async fn read_pieces<PosTable, S>(
     shard_commitments_roots_cache: ShardCommitmentsRootsCache,
     pieces_in_sector: u16,
     plot_file: S,
-    sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
+    sectors_metadata: StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     erasure_coding: ErasureCoding,
     sectors_being_modified: Arc<AsyncRwLock<HashSet<SectorIndex>>>,
     mut read_piece_receiver: mpsc::Receiver<ReadPieceRequest>,
