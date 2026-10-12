@@ -41,6 +41,25 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 ///
 /// **Do not implement this trait explicitly!** Use `#[derive(TrivialType)]` instead, which will
 /// ensure safety requirements are upheld.
+///
+/// # Deriving
+/// `#[derive(TrivialType)]` supports structs and enums and checks the following requirements at
+/// compile time:
+/// * no generic parameters, and types of all fields implement `TrivialType`
+/// * structs are `#[repr(C)]` or `#[repr(transparent)]` without other options
+/// * enums are `#[repr(u8)]` without other options
+/// * no `#[repr(align(N))]` or `#[repr(packed)]` in any `#[repr(..)]` attribute, [`Unaligned`] can
+///   be used to reduce the alignment of a field to one byte instead
+/// * no implicit padding, explicit `padding: [u8; N]` fields can be added where necessary. Each
+///   variant of an enum is laid out like a `#[repr(C)]` struct with the discriminant as the first
+///   field, so fields of all variants must have the same total size
+/// * explicit discriminants of enum variants are equal to the index of the variant, metadata
+///   identifies variants by their index and doesn't record discriminants
+/// * at most 255 fields in a struct or enum variant and at most 255 variants in an enum, names of
+///   the type, its fields and variants are at most 255 bytes long
+/// * size is smaller than 2^32 bytes
+/// * metadata, including metadata of field types, is at most [`MAX_METADATA_CAPACITY`] bytes,
+///   otherwise const evaluation panics with an opaque error
 pub unsafe trait TrivialType
 where
     Self: Copy,

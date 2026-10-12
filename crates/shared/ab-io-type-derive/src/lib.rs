@@ -4,6 +4,10 @@ use std::iter;
 use syn::spanned::Spanned;
 use syn::{Data, DataEnum, DataStruct, DeriveInput, Error, Fields, parse_macro_input};
 
+/// Derive macro for `TrivialType` trait of `ab-io-type` crate.
+///
+/// See the documentation of the trait for supported types and requirements, which are checked at
+/// compile time.
 #[proc_macro_derive(TrivialType)]
 pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
