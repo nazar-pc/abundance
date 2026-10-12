@@ -40,18 +40,16 @@ pub(super) const fn compact_metadata<'i, 'o>(
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
             (input, output) = compact_enum(input, output, false)?;
         }
-        IoTypeMetadataKind::Array | IoTypeMetadataKind::VariableElements => {
+        IoTypeMetadataKind::Array
+        | IoTypeMetadataKind::VariableElements
+        | IoTypeMetadataKind::FixedCapacityElements => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
             (input, output) = copy_n_bytes(input, output, 4)?;
             (input, output) = compact_metadata(input, output)?;
         }
-        IoTypeMetadataKind::FixedCapacityBytes8b | IoTypeMetadataKind::FixedCapacityString8b => {
+        IoTypeMetadataKind::FixedCapacityString => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
-            (input, output) = copy_n_bytes(input, output, 1)?;
-        }
-        IoTypeMetadataKind::FixedCapacityBytes16b | IoTypeMetadataKind::FixedCapacityString16b => {
-            *io_type_metadata_kind_output = io_type_metadata_kind_input;
-            (input, output) = copy_n_bytes(input, output, 2)?;
+            (input, output) = copy_n_bytes(input, output, 4)?;
         }
         IoTypeMetadataKind::Unaligned => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;

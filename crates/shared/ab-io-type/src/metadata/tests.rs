@@ -21,11 +21,9 @@ fn check_repr() {
         (IoTypeMetadataKind::EnumNoFields, 15),
         (IoTypeMetadataKind::Array, 16),
         (IoTypeMetadataKind::VariableElements, 17),
-        (IoTypeMetadataKind::FixedCapacityBytes8b, 18),
-        (IoTypeMetadataKind::FixedCapacityBytes16b, 19),
-        (IoTypeMetadataKind::FixedCapacityString8b, 20),
-        (IoTypeMetadataKind::FixedCapacityString16b, 21),
-        (IoTypeMetadataKind::Unaligned, 22),
+        (IoTypeMetadataKind::FixedCapacityElements, 18),
+        (IoTypeMetadataKind::FixedCapacityString, 19),
+        (IoTypeMetadataKind::Unaligned, 20),
     ];
 
     for (kind, repr_byte) in known_variants {

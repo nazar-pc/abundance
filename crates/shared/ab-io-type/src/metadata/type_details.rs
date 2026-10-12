@@ -1,4 +1,5 @@
 use crate::metadata::{IoTypeDetails, IoTypeMetadataKind};
+use crate::trivial_type::TrivialType;
 use core::num::NonZeroU8;
 
 #[inline(always)]
@@ -74,30 +75,36 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
                 metadata,
             ))
         }
-        IoTypeMetadataKind::FixedCapacityBytes8b | IoTypeMetadataKind::FixedCapacityString8b => {
-            let num_bytes = *metadata.split_off_first()?;
+        IoTypeMetadataKind::FixedCapacityElements => {
+            let capacity;
+            (capacity, metadata) = metadata.split_first_chunk()?;
+            let capacity = u32::from_le_bytes(*capacity);
 
-            Some((
-                IoTypeDetails::bytes(u32::from(num_bytes) + size_of::<u8>() as u32),
-                metadata,
-            ))
-        }
-        IoTypeMetadataKind::FixedCapacityBytes16b | IoTypeMetadataKind::FixedCapacityString16b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let mut num_bytes = [0; const { size_of::<u16>() }];
-            (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>())?;
-            let num_bytes = u16::from_le_bytes(num_bytes) as u32;
+            let type_details;
+            (type_details, metadata) = decode_type_details(metadata)?;
+            // The length is stored as `u32`, extended to the alignment of elements if it is larger,
+            // such that elements are aligned
+            let len_size = u32::from(type_details.alignment.get()).max(u32::SIZE);
+            let recommended_capacity = type_details
+                .recommended_capacity
+                .checked_mul(capacity)?
+                .checked_add(len_size)?;
 
             Some((
                 IoTypeDetails {
-                    recommended_capacity: num_bytes + size_of::<u16>() as u32,
-                    alignment: NonZeroU8::new(2).expect("Not zero; qed"),
+                    recommended_capacity,
+                    alignment: type_details.alignment,
                 },
                 metadata,
             ))
+        }
+        IoTypeMetadataKind::FixedCapacityString => {
+            let capacity;
+            (capacity, metadata) = metadata.split_first_chunk()?;
+            // The length is stored as `u32`
+            let recommended_capacity = u32::from_le_bytes(*capacity).checked_add(u32::SIZE)?;
+
+            Some((IoTypeDetails::bytes(recommended_capacity), metadata))
         }
         IoTypeMetadataKind::Unaligned => {
             if metadata.is_empty() {
@@ -147,12 +154,7 @@ const fn struct_type_details(
         let type_details;
         (type_details, input) = decode_type_details(input)?;
         capacity = capacity.checked_add(type_details.recommended_capacity)?;
-        // TODO: `core::cmp::max()` isn't const yet due to trait bounds
-        alignment = if type_details.alignment.get() > alignment {
-            type_details.alignment.get()
-        } else {
-            alignment
-        };
+        alignment = alignment.max(type_details.alignment.get());
 
         field_count -= 1;
     }
@@ -190,12 +192,7 @@ const fn enum_capacity(mut input: &[u8], has_fields: bool) -> Option<(IoTypeDeta
             struct_type_details(input, if has_fields { None } else { Some(0) }, false)?;
         // `+ 1` is for the discriminant
         let variant_capacity = variant_type_details.recommended_capacity + 1;
-        // TODO: `core::cmp::max()` isn't const yet due to trait bounds
-        alignment = if variant_type_details.alignment.get() > alignment {
-            variant_type_details.alignment.get()
-        } else {
-            alignment
-        };
+        alignment = alignment.max(variant_type_details.alignment.get());
 
         match enum_capacity {
             Some(capacity) => {

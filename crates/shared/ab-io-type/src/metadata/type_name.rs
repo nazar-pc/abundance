@@ -27,12 +27,8 @@ pub(super) const fn type_name(mut metadata: &[u8]) -> Option<&[u8]> {
         }
         IoTypeMetadataKind::Array => b"[T; N]",
         IoTypeMetadataKind::VariableElements => b"VariableElements",
-        IoTypeMetadataKind::FixedCapacityBytes8b | IoTypeMetadataKind::FixedCapacityBytes16b => {
-            b"FixedCapacityBytes"
-        }
-        IoTypeMetadataKind::FixedCapacityString8b | IoTypeMetadataKind::FixedCapacityString16b => {
-            b"FixedCapacityString"
-        }
+        IoTypeMetadataKind::FixedCapacityElements => b"FixedCapacityElements",
+        IoTypeMetadataKind::FixedCapacityString => b"FixedCapacityString",
         IoTypeMetadataKind::Unaligned => b"Unaligned",
     })
 }

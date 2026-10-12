@@ -6,8 +6,9 @@
 #![expect(dead_code, reason = "Types are only defined for their metadata")]
 
 use ab_io_type::bool::Bool;
-use ab_io_type::fixed_capacity_bytes::{FixedCapacityBytesU8, FixedCapacityBytesU16};
-use ab_io_type::fixed_capacity_string::{FixedCapacityStringU8, FixedCapacityStringU16};
+use ab_io_type::fixed_capacity_bytes::FixedCapacityBytes;
+use ab_io_type::fixed_capacity_elements::FixedCapacityElements;
+use ab_io_type::fixed_capacity_string::FixedCapacityString;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
 use ab_io_type::trivial_type::TrivialType;
@@ -97,12 +98,6 @@ impl Expected {
         self
     }
 
-    /// Append a little-endian `u16`
-    fn u16(mut self, value: u16) -> Self {
-        self.0.extend_from_slice(&value.to_le_bytes());
-        self
-    }
-
     /// Append a little-endian `u32`
     fn u32(mut self, value: u32) -> Self {
         self.0.extend_from_slice(&value.to_le_bytes());
@@ -159,6 +154,21 @@ fn check_decoding(
         assert!(IoTypeMetadataKind::type_details(truncated).is_none());
         assert!(IoTypeMetadataKind::compact(truncated, &mut compact_buffer).is_none());
     }
+}
+
+/// Check that metadata doesn't decode
+#[track_caller]
+fn check_rejected(metadata: &[u8]) {
+    assert!(IoTypeMetadataKind::type_details(metadata).is_none());
+}
+
+/// Check that metadata decodes completely into the given capacity and alignment
+#[track_caller]
+fn check_layout(metadata: &[u8], capacity: u32, alignment: u8) {
+    let (type_details, remainder) = IoTypeMetadataKind::type_details(metadata).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(type_details.recommended_capacity, capacity);
+    assert_eq!(type_details.alignment.get(), alignment);
 }
 
 /// Check `METADATA` of a [`TrivialType`] and its decoding, see [`check_decoding()`]
@@ -426,18 +436,145 @@ fn unaligned() {
 }
 
 #[test]
-fn fixed_capacity_bytes_and_strings() {
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityBytes8b).byte(10);
-    check_trivial_type::<FixedCapacityBytesU8<10>>("FixedCapacityBytes", &expected, &expected);
+fn fixed_capacity_elements() {
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct Wide {
+        a: u64,
+        b: u32,
+        c: u32,
+    }
 
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityBytes16b).u16(300);
-    check_trivial_type::<FixedCapacityBytesU16<300>>("FixedCapacityBytes", &expected, &expected);
+    let name = "FixedCapacityElements";
 
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString8b).byte(10);
-    check_trivial_type::<FixedCapacityStringU8<10>>("FixedCapacityString", &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(0)
+        .kind(IoTypeMetadataKind::U8);
+    check_trivial_type::<FixedCapacityBytes<0>>(name, &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(10)
+        .kind(IoTypeMetadataKind::U8);
+    check_trivial_type::<FixedCapacityBytes<10>>(name, &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(70_000)
+        .kind(IoTypeMetadataKind::U8);
+    check_trivial_type::<FixedCapacityBytes<70_000>>(name, &expected, &expected);
+    // The largest size
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(u32::MAX - 4)
+        .kind(IoTypeMetadataKind::U8);
+    check_trivial_type::<FixedCapacityBytes<{ u32::MAX as usize - 4 }>>(name, &expected, &expected);
 
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString16b).u16(300);
-    check_trivial_type::<FixedCapacityStringU16<300>>("FixedCapacityString", &expected, &expected);
+    // The length is extended to the alignment of elements, which is the alignment of the container
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .kind(IoTypeMetadataKind::U16);
+    check_trivial_type::<FixedCapacityElements<u16, 3>>(name, &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .kind(IoTypeMetadataKind::U32);
+    check_trivial_type::<FixedCapacityElements<u32, 3>>(name, &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<FixedCapacityElements<u64, 3>>(name, &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(0)
+        .kind(IoTypeMetadataKind::U128);
+    check_trivial_type::<FixedCapacityElements<u128, 0>>(name, &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .kind(IoTypeMetadataKind::U128);
+    check_trivial_type::<FixedCapacityElements<u128, 3>>(name, &expected, &expected);
+    // The largest capacity, the size is `u32::MAX - 15`
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32((1 << 28) - 2)
+        .kind(IoTypeMetadataKind::U128);
+    check_trivial_type::<FixedCapacityElements<u128, { (1 << 28) - 2 }>>(
+        name, &expected, &expected,
+    );
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .kind(IoTypeMetadataKind::Array)
+        .u32(2)
+        .kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<FixedCapacityElements<[u64; 2], 3>>(name, &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .kind(IoTypeMetadataKind::Unaligned)
+        .kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<FixedCapacityElements<Unaligned<u64>, 3>>(name, &expected, &expected);
+
+    let (point, point_compact) = point();
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(5)
+        .nested(&point);
+    let expected_compact = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(5)
+        .nested(&point_compact);
+    check_trivial_type::<FixedCapacityElements<Point, 5>>(name, &expected, &expected_compact);
+
+    let wide = Expected::new(IoTypeMetadataKind::Struct)
+        .name("Wide")
+        .byte(3)
+        .name("a")
+        .kind(IoTypeMetadataKind::U64)
+        .name("b")
+        .kind(IoTypeMetadataKind::U32)
+        .name("c")
+        .kind(IoTypeMetadataKind::U32);
+    let wide_compact = Expected::new(IoTypeMetadataKind::TupleStruct)
+        .name("")
+        .byte(3)
+        .kind(IoTypeMetadataKind::U64)
+        .kind(IoTypeMetadataKind::U32)
+        .kind(IoTypeMetadataKind::U32);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .nested(&wide);
+    let expected_compact = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .nested(&wide_compact);
+    check_trivial_type::<FixedCapacityElements<Wide, 3>>(name, &expected, &expected_compact);
+
+    // Zero-sized elements only take space for the length
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .kind(IoTypeMetadataKind::Unit);
+    check_trivial_type::<FixedCapacityElements<(), 3>>(name, &expected, &expected);
+
+    // Nested in other types
+    let expected = Expected::new(IoTypeMetadataKind::Array)
+        .u32(2)
+        .kind(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<[FixedCapacityElements<u64, 3>; 2]>("[T; N]", &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(2)
+        .kind(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(3)
+        .kind(IoTypeMetadataKind::U8);
+    check_trivial_type::<FixedCapacityElements<FixedCapacityBytes<3>, 2>>(
+        name, &expected, &expected,
+    );
+}
+
+#[test]
+fn fixed_capacity_string() {
+    let name = "FixedCapacityString";
+
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(0);
+    check_trivial_type::<FixedCapacityString<0>>(name, &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(10);
+    check_trivial_type::<FixedCapacityString<10>>(name, &expected, &expected);
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(70_000);
+    check_trivial_type::<FixedCapacityString<70_000>>(name, &expected, &expected);
+    // The largest size
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(u32::MAX - 4);
+    check_trivial_type::<FixedCapacityString<{ u32::MAX as usize - 4 }>>(
+        name, &expected, &expected,
+    );
 }
 
 #[test]
@@ -737,6 +874,7 @@ fn named_and_tuple_forms_compact_equally() {
     check_same_compact::<MaybeData<Named2>, MaybeData<Tuple2>>();
     check_same_compact::<VariableElements<Named2>, VariableElements<Tuple2>>();
     check_same_compact::<VariableElements<Named11, 300>, VariableElements<Tuple11, 300>>();
+    check_same_compact::<FixedCapacityElements<Named2, 3>, FixedCapacityElements<Tuple2, 3>>();
     check_same_compact::<EnumOfNamed, EnumOfTuple>();
     check_same_compact::<OuterNamed, OuterTuple>();
 }
@@ -1062,4 +1200,58 @@ fn nested_types() {
         .nested(&value_compact)
         .nested(&inner_compact);
     check_trivial_type::<Outer>("Outer", &expected, &expected_compact);
+}
+
+#[test]
+fn capacity_overflow_is_rejected() {
+    // Crafted metadata with a capacity that doesn't fit into `u32` must be rejected instead of
+    // overflowing
+
+    // Capacity of elements plus the length
+    check_layout(
+        &Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+            .u32(u32::MAX - 4)
+            .kind(IoTypeMetadataKind::U8)
+            .0,
+        u32::MAX,
+        1,
+    );
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+            .u32(u32::MAX - 3)
+            .kind(IoTypeMetadataKind::U8)
+            .0,
+    );
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+            .u32(u32::MAX)
+            .kind(IoTypeMetadataKind::U8)
+            .0,
+    );
+    // The length takes 16 bytes with `u128` elements, so `(1 << 28) - 2` elements is the largest
+    // capacity, see `fixed_capacity_elements()`
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+            .u32((1 << 28) - 1)
+            .kind(IoTypeMetadataKind::U128)
+            .0,
+    );
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+            .u32(1 << 31)
+            .kind(IoTypeMetadataKind::U16)
+            .0,
+    );
+    check_layout(
+        &Expected::new(IoTypeMetadataKind::FixedCapacityString)
+            .u32(u32::MAX - 4)
+            .0,
+        u32::MAX,
+        1,
+    );
+    check_rejected(
+        &Expected::new(IoTypeMetadataKind::FixedCapacityString)
+            .u32(u32::MAX - 3)
+            .0,
+    );
 }

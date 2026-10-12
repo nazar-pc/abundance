@@ -146,32 +146,25 @@ pub enum IoTypeMetadataKind {
     /// * 4 bytes recommended allocation in elements (little-endian)
     /// * Recursive metadata of a contained type
     VariableElements,
-    /// Fixed capacity bytes with up to 2^8 bytes capacity.
+    /// [`FixedCapacityElements`](crate::fixed_capacity_elements::FixedCapacityElements).
     ///
     /// Encoded as follows:
-    /// * 1 byte capacity
-    FixedCapacityBytes8b,
-    /// Fixed capacity bytes with up to 2^16 bytes capacity.
+    /// * 4 bytes capacity in elements (little-endian)
+    /// * Recursive metadata of a contained type
     ///
-    /// Encoded as follows:
-    /// * 2 bytes capacity (little-endian)
-    FixedCapacityBytes16b,
-    /// Fixed capacity UTF-8 string with up to 2^8 bytes capacity.
+    /// Elements follow a little-endian `u32` length, padded with zeroes to the alignment of
+    /// elements if it is larger.
+    FixedCapacityElements,
+    /// [`FixedCapacityString`](crate::fixed_capacity_string::FixedCapacityString).
     ///
     /// This is a string only by convention, there is no runtime verification done, contents is
     /// treated as regular bytes.
     ///
     /// Encoded as follows:
-    /// * 1 byte capacity
-    FixedCapacityString8b,
-    /// Fixed capacity UTF-8 bytes with up to 2^16 bytes capacity.
+    /// * 4 bytes capacity in bytes (little-endian)
     ///
-    /// This is a string only by convention, there is no runtime verification done, contents is
-    /// treated as regular bytes.
-    ///
-    /// Encoded as follows:
-    /// * 2 bytes capacity (little-endian)
-    FixedCapacityString16b,
+    /// Bytes follow a little-endian `u32` length.
+    FixedCapacityString,
     /// Unaligned wrapper over another [`TrivialType`].
     ///
     /// [`TrivialType`]: crate::trivial_type::TrivialType
@@ -205,11 +198,9 @@ const impl TryFrom<u8> for IoTypeMetadataKind {
             15 => Self::EnumNoFields,
             16 => Self::Array,
             17 => Self::VariableElements,
-            18 => Self::FixedCapacityBytes8b,
-            19 => Self::FixedCapacityBytes16b,
-            20 => Self::FixedCapacityString8b,
-            21 => Self::FixedCapacityString16b,
-            22 => Self::Unaligned,
+            18 => Self::FixedCapacityElements,
+            19 => Self::FixedCapacityString,
+            20 => Self::Unaligned,
             _ => {
                 return Err(());
             }

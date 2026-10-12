@@ -56,6 +56,7 @@
 #![feature(
     cast_maybe_uninit,
     const_block_items,
+    const_cmp,
     const_convert,
     const_index,
     const_option_ops,
@@ -73,6 +74,7 @@
 
 pub mod bool;
 pub mod fixed_capacity_bytes;
+pub mod fixed_capacity_elements;
 pub mod fixed_capacity_string;
 pub mod maybe_data;
 pub mod metadata;

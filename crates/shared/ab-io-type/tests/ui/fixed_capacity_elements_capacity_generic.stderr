@@ -1,0 +1,103 @@
+error[E0080]: evaluation panicked: Capacity must not exceed `u32::MAX`
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::fixed_capacity_elements::SUPPORTED_CAPACITY::<(), 4294967296>` failed here
+  |
+ ::: src/fixed_capacity_elements.rs
+  |
+  | /     assert!(
+  | |         u32::MAX as usize >= CAPACITY,
+  | |         "Capacity must not exceed `u32::MAX`"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn ab_io_type::fixed_capacity_elements::FixedCapacityElements::<(), 4294967296>::try_from_slice`
+  --> tests/ui/fixed_capacity_elements_capacity_generic.rs:23:13
+   |
+23 |     let _ = FixedCapacityElements::<Element, CAPACITY>::try_from_slice(elements);
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Type size must be smaller than 2^32
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::fixed_capacity_elements::SUPPORTED_CAPACITY::<u8, 4294967292>` failed here
+  |
+ ::: src/fixed_capacity_elements.rs
+  |
+  | /     assert!(
+  | |         u32::MAX as usize >= size_of::<[Element; CAPACITY]>()
+  | |             && u32::MAX as usize - size_of::<[Element; CAPACITY]>() >= LEN_SIZE::<Element>,
+  | |         "Type size must be smaller than 2^32"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn bytes_default::<4294967292>`
+  --> tests/ui/fixed_capacity_elements_capacity_generic.rs:54:5
+   |
+54 |     bytes_default::<{ u32::MAX as usize - 3 }>();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Type size must be smaller than 2^32
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::fixed_capacity_elements::SUPPORTED_CAPACITY::<u8, 4294967293>` failed here
+  |
+ ::: src/fixed_capacity_elements.rs
+  |
+  | /     assert!(
+  | |         u32::MAX as usize >= size_of::<[Element; CAPACITY]>()
+  | |             && u32::MAX as usize - size_of::<[Element; CAPACITY]>() >= LEN_SIZE::<Element>,
+  | |         "Type size must be smaller than 2^32"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn ab_io_type::fixed_capacity_string::FixedCapacityString::<4294967293>::try_from_str`
+  --> tests/ui/fixed_capacity_elements_capacity_generic.rs:40:13
+   |
+40 |     let _ = FixedCapacityString::<CAPACITY>::try_from_str(string);
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Type size must be smaller than 2^32
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::fixed_capacity_elements::SUPPORTED_CAPACITY::<u128, 268435455>` failed here
+  |
+ ::: src/fixed_capacity_elements.rs
+  |
+  | /     assert!(
+  | |         u32::MAX as usize >= size_of::<[Element; CAPACITY]>()
+  | |             && u32::MAX as usize - size_of::<[Element; CAPACITY]>() >= LEN_SIZE::<Element>,
+  | |         "Type size must be smaller than 2^32"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn ab_io_type::fixed_capacity_elements::FixedCapacityElements::<u128, 268435455>::len`
+  --> tests/ui/fixed_capacity_elements_capacity_generic.rs:36:5
+   |
+36 |     FixedCapacityElements::<Element, CAPACITY>::len
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: Type size must be smaller than 2^32
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::fixed_capacity_elements::SUPPORTED_CAPACITY::<u16, 2147483648>` failed here
+  |
+ ::: src/fixed_capacity_elements.rs
+  |
+  | /     assert!(
+  | |         u32::MAX as usize >= size_of::<[Element; CAPACITY]>()
+  | |             && u32::MAX as usize - size_of::<[Element; CAPACITY]>() >= LEN_SIZE::<Element>,
+  | |         "Type size must be smaller than 2^32"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn metadata::<u16, 2147483648>`
+  --> tests/ui/fixed_capacity_elements_capacity_generic.rs:60:5
+   |
+60 |     metadata::<u16, { 1 << 31 }>();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
