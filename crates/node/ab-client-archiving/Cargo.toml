@@ -26,6 +26,7 @@ futures = { workspace = true, features = ["alloc"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt", "time"] }
 tracing = { workspace = true }
+triomphe = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 use rayon::{ThreadPool, ThreadPoolBuildError};
 use std::num::NonZeroUsize;
 use std::ops::Deref;
-use std::sync::Arc;
+use triomphe::Arc;
 
 /// A wrapper around thread pool pair for plotting purposes
 #[derive(Debug)]

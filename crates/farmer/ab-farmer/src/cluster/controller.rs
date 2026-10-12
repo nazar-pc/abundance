@@ -38,9 +38,9 @@ use parking_lot::Mutex;
 use rand::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::Poll;
 use tracing::{debug, error, trace, warn};
+use triomphe::Arc;
 
 /// Special "cache group" that all controllers subscribe to and that can be used to query any cache
 /// group. The cache group for each query is chosen at random.

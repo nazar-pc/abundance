@@ -7,8 +7,9 @@ use clap::Parser;
 use prometheus_client::registry::Registry;
 use std::collections::BTreeSet;
 use std::num::{NonZeroU8, NonZeroUsize};
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use tracing::{debug, info, warn};
+use triomphe::Arc;
 
 #[derive(Debug, Parser)]
 pub(in super::super) struct GpuPlottingOptions {
@@ -160,7 +161,7 @@ where
         info!("{}: {} ({device_type})", device.id(), device.name());
     }
 
-    let downloading_semaphore = Arc::new(Semaphore::new(
+    let downloading_semaphore = StdArc::new(Semaphore::new(
         gpu_sector_downloading_concurrency.map_or(used_gpu_devices.len() * 3, NonZeroUsize::get),
     ));
 

@@ -19,11 +19,12 @@ use async_lock::{
 use async_trait::async_trait;
 use futures::{FutureExt, Stream, StreamExt, select};
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::{Duration, Instant};
 use tokio::sync::watch;
 use tokio_stream::wrappers::WatchStream;
 use tracing::{info, trace, warn};
+use triomphe::Arc;
 
 const SEGMENT_HEADERS_SYNC_INTERVAL: Duration = Duration::from_secs(1);
 const FARMER_APP_INFO_DEDUPLICATION_WINDOW: Duration = Duration::from_secs(1);
@@ -174,7 +175,7 @@ pub struct CachingProxyNodeClient<NC> {
     slot_info_receiver: watch::Receiver<Option<SlotInfo>>,
     new_super_segment_headers_receiver: watch::Receiver<Option<SuperSegmentHeader>>,
     block_sealing_receiver: watch::Receiver<Option<BlockSealInfo>>,
-    super_segment_headers: Arc<AsyncRwLock<SuperSegmentHeaders>>,
+    super_segment_headers: StdArc<AsyncRwLock<SuperSegmentHeaders>>,
     last_farmer_app_info: Arc<AsyncMutex<(FarmerAppInfo, Instant)>>,
     _background_task: Arc<AsyncJoinOnDrop<()>>,
 }
@@ -197,7 +198,7 @@ where
         super_segment_headers.write_cache(headers);
         info!("Downloaded all super segment headers from node successfully");
 
-        let super_segment_headers = Arc::new(AsyncRwLock::new(super_segment_headers));
+        let super_segment_headers = StdArc::new(AsyncRwLock::new(super_segment_headers));
 
         let (slot_info_sender, slot_info_receiver) = watch::channel(None::<SlotInfo>);
         let slot_info_proxy_fut = {
@@ -224,7 +225,7 @@ where
         let (new_super_segment_headers_sender, new_super_segment_headers_receiver) =
             watch::channel(None::<SuperSegmentHeader>);
         let super_segment_headers_maintenance_fut = {
-            let super_segment_headers = Arc::clone(&super_segment_headers);
+            let super_segment_headers = StdArc::clone(&super_segment_headers);
 
             async move {
                 let mut last_super_segment_index = None;

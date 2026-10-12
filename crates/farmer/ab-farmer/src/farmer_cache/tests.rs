@@ -25,10 +25,11 @@ use rand::prelude::*;
 use std::collections::HashMap;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tempfile::tempdir;
+use triomphe::Arc;
 
 #[derive(Debug, Clone)]
 struct MockNodeClient {
@@ -205,7 +206,7 @@ async fn basic() {
 
         let (sender, receiver) = oneshot::channel();
         farmer_cache
-            .on_sync_progress(Arc::new({
+            .on_sync_progress(StdArc::new({
                 let sender = Mutex::new(Some(sender));
 
                 move |progress| {
@@ -220,7 +221,7 @@ async fn basic() {
         farmer_cache
             .replace_backing_caches(
                 vec![
-                    Arc::new(
+                    StdArc::new(
                         DiskPieceCache::open(
                             path1.as_ref(),
                             NonZeroU32::new(1).unwrap(),
@@ -229,7 +230,7 @@ async fn basic() {
                         )
                         .unwrap(),
                     ),
-                    Arc::new(
+                    StdArc::new(
                         DiskPieceCache::open(
                             path2.as_ref(),
                             NonZeroU32::new(1).unwrap(),
@@ -415,7 +416,7 @@ async fn basic() {
 
         let (sender, receiver) = oneshot::channel();
         farmer_cache
-            .on_sync_progress(Arc::new({
+            .on_sync_progress(StdArc::new({
                 let sender = Mutex::new(Some(sender));
 
                 move |progress| {
@@ -431,7 +432,7 @@ async fn basic() {
         farmer_cache
             .replace_backing_caches(
                 vec![
-                    Arc::new(
+                    StdArc::new(
                         DiskPieceCache::open(
                             path1.as_ref(),
                             NonZeroU32::new(1).unwrap(),
@@ -440,7 +441,7 @@ async fn basic() {
                         )
                         .unwrap(),
                     ),
-                    Arc::new(
+                    StdArc::new(
                         DiskPieceCache::open(
                             path2.as_ref(),
                             NonZeroU32::new(1).unwrap(),
@@ -507,7 +508,7 @@ async fn duplicate_indices() {
 
         let (sender, receiver) = oneshot::channel();
         farmer_cache
-            .on_sync_progress(Arc::new({
+            .on_sync_progress(StdArc::new({
                 let sender = Mutex::new(Some(sender));
 
                 move |progress| {
@@ -521,7 +522,7 @@ async fn duplicate_indices() {
             .detach();
         farmer_cache
             .replace_backing_caches(
-                vec![Arc::new(
+                vec![StdArc::new(
                     DiskPieceCache::open(path, NonZeroU32::new(1).unwrap(), None, None).unwrap(),
                 )],
                 vec![],
@@ -558,7 +559,7 @@ async fn duplicate_indices() {
 
         let (sender, receiver) = oneshot::channel();
         farmer_cache
-            .on_sync_progress(Arc::new({
+            .on_sync_progress(StdArc::new({
                 let sender = Mutex::new(Some(sender));
 
                 move |progress| {
@@ -575,7 +576,7 @@ async fn duplicate_indices() {
         farmer_cache
             .replace_backing_caches(
                 vec![
-                    Arc::new(
+                    StdArc::new(
                         DiskPieceCache::open(
                             path1.as_ref(),
                             NonZeroU32::new(1).unwrap(),
@@ -584,7 +585,7 @@ async fn duplicate_indices() {
                         )
                         .unwrap(),
                     ),
-                    Arc::new(
+                    StdArc::new(
                         DiskPieceCache::open(
                             path2.as_ref(),
                             NonZeroU32::new(1).unwrap(),

@@ -19,11 +19,12 @@ use async_trait::async_trait;
 use bytes::BytesMut;
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc as StdArc, Weak};
 use std::{io, mem};
 use thiserror::Error;
 use tokio::task;
 use tracing::{debug, info, trace, warn};
+use triomphe::Arc;
 
 /// Disk plot cache open error
 #[derive(Debug, Error)]
@@ -82,8 +83,8 @@ impl PlotCache for DiskPlotCache {
 
 impl DiskPlotCache {
     pub(crate) fn new(
-        file: &Arc<DirectIoFileWrapper>,
-        sectors_metadata: &Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
+        file: &StdArc<DirectIoFileWrapper>,
+        sectors_metadata: &StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
         target_sector_count: u16,
         sector_size: u64,
     ) -> Self {
@@ -128,8 +129,8 @@ impl DiskPlotCache {
         info!("Finished checking plot cache contents");
 
         Self {
-            file: Arc::downgrade(file),
-            sectors_metadata: Arc::downgrade(sectors_metadata),
+            file: StdArc::downgrade(file),
+            sectors_metadata: StdArc::downgrade(sectors_metadata),
             cached_pieces: Arc::new(RwLock::new(cached_pieces)),
             target_sector_count,
             sector_size,

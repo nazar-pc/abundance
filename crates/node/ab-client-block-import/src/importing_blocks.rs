@@ -5,12 +5,11 @@ use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use async_lock::{RwLock, RwLockWriteGuard};
 use parking_lot::Mutex;
-use rclite::Arc;
 use stable_deref_trait::StableDeref;
 use std::collections::VecDeque;
 use std::mem;
 use std::ops::Deref;
-use std::sync::Arc as StdArc;
+use triomphe::Arc;
 use yoke::{Yoke, Yokeable};
 
 #[expect(clippy::inline_modules, reason = "Intentional tiny module inline")]
@@ -18,8 +17,7 @@ mod private {
     use ab_client_api::{BlockMerkleMountainRange, ContractSlotState};
     use ab_core_primitives::block::BlockRoot;
     use async_lock::RwLock;
-    use rclite::Arc;
-    use std::sync::Arc as StdArc;
+    use triomphe::Arc;
 
     // Needs to be public to appear in `impl Deref for ImportingBlockEntry`
     #[derive(Debug)]
@@ -27,7 +25,7 @@ mod private {
         pub(super) block_root: BlockRoot,
         pub(super) header: BlockHeader,
         pub(super) mmr: Arc<BlockMerkleMountainRange>,
-        pub(super) system_contract_states: RwLock<Option<StdArc<[ContractSlotState]>>>,
+        pub(super) system_contract_states: RwLock<Option<Arc<[ContractSlotState]>>>,
     }
 }
 
@@ -37,7 +35,7 @@ pub(crate) enum ParentBlockImportStatus<BlockHeader> {
         entry: ImportingBlockEntry<BlockHeader>,
     },
     Imported {
-        system_contract_states: StdArc<[ContractSlotState]>,
+        system_contract_states: Arc<[ContractSlotState]>,
     },
 }
 
@@ -49,7 +47,7 @@ where
     ///
     /// Returns `Some(system_contract_states)` if a block was imported successfully and `None`
     /// otherwise.
-    pub(crate) async fn wait(self) -> Option<StdArc<[ContractSlotState]>> {
+    pub(crate) async fn wait(self) -> Option<Arc<[ContractSlotState]>> {
         match self {
             Self::Importing { entry } => entry.wait().await,
             Self::Imported {
@@ -111,7 +109,7 @@ where
     ///
     /// Returns `Some(system_contract_states)` if a block was imported successfully and `None`
     /// otherwise.
-    pub(crate) async fn wait(self) -> Option<StdArc<[ContractSlotState]>> {
+    pub(crate) async fn wait(self) -> Option<Arc<[ContractSlotState]>> {
         self.inner
             .system_contract_states
             .read()
@@ -123,7 +121,7 @@ where
 
 // The only reason this wrapper exists is to be able to implement [`Yokeable`] on it
 #[derive(Debug)]
-struct ImportingBlockHandleGuard<'a>(RwLockWriteGuard<'a, Option<StdArc<[ContractSlotState]>>>);
+struct ImportingBlockHandleGuard<'a>(RwLockWriteGuard<'a, Option<Arc<[ContractSlotState]>>>);
 
 // SAFETY: Lifetime parameter on `RwLockWriteGuard` is covariant
 unsafe impl<'a> Yokeable<'a> for ImportingBlockHandleGuard<'static> {
@@ -212,7 +210,7 @@ where
     /// Set system contract states, indicating that the import of the corresponding block has
     /// finished successfully
     #[inline(always)]
-    pub(crate) fn set_success(mut self, system_contract_states: StdArc<[ContractSlotState]>) {
+    pub(crate) fn set_success(mut self, system_contract_states: Arc<[ContractSlotState]>) {
         self.guard.with_mut(|guard| {
             guard.0.replace(system_contract_states);
         });

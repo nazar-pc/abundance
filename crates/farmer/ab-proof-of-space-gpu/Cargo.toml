@@ -32,9 +32,9 @@ async-lock = { workspace = true, features = ["std"] }
 futures = { workspace = true, features = ["std"] }
 parking_lot = { workspace = true }
 rayon = { workspace = true }
-rclite = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+triomphe = { workspace = true, features = ["std"] }
 wgpu = { workspace = true }
 
 [dev-dependencies]

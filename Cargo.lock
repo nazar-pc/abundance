@@ -59,8 +59,8 @@ dependencies = [
  "ab-aligned-buffer",
  "ab-core-primitives",
  "ab-merkle-tree",
- "rclite",
  "thiserror 2.0.21",
+ "triomphe",
 ]
 
 [[package]]
@@ -79,6 +79,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "triomphe",
 ]
 
 [[package]]
@@ -106,8 +107,8 @@ dependencies = [
  "ab-client-consensus-common",
  "ab-core-primitives",
  "anyhow",
- "rclite",
  "thiserror 2.0.21",
+ "triomphe",
 ]
 
 [[package]]
@@ -123,11 +124,11 @@ dependencies = [
  "async-lock",
  "futures",
  "parking_lot",
- "rclite",
  "send-future",
  "stable_deref_trait",
  "thiserror 2.0.21",
  "tracing",
+ "triomphe",
  "yoke",
 ]
 
@@ -158,6 +159,7 @@ dependencies = [
  "blake3",
  "futures",
  "thiserror 2.0.21",
+ "triomphe",
 ]
 
 [[package]]
@@ -175,12 +177,12 @@ dependencies = [
  "enum-map",
  "futures",
  "rand 0.10.3",
- "rclite",
  "replace_with",
  "smallvec",
  "strum",
  "thiserror 2.0.21",
  "tracing",
+ "triomphe",
 ]
 
 [[package]]
@@ -204,10 +206,10 @@ dependencies = [
  "futures",
  "parity-scale-codec",
  "parking_lot",
- "rclite",
  "schnellru",
  "tokio",
  "tracing",
+ "triomphe",
 ]
 
 [[package]]
@@ -335,12 +337,12 @@ dependencies = [
  "once_cell",
  "parity-scale-codec",
  "rayon",
- "rclite",
  "replace_with",
  "serde",
  "serde-big-array",
  "thiserror 2.0.21",
  "transparent-wrapper",
+ "triomphe",
  "trybuild",
  "yoke",
 ]
@@ -359,6 +361,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "triomphe",
 ]
 
 [[package]]
@@ -510,6 +513,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "triomphe",
  "ulid",
  "zeroize",
 ]
@@ -542,6 +546,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "triomphe",
  "windows",
 ]
 
@@ -623,6 +628,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "triomphe",
  "unsigned-varint",
  "void",
 ]
@@ -654,11 +660,11 @@ dependencies = [
  "futures",
  "gdt-cpus",
  "mimalloc",
- "rclite",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "triomphe",
 ]
 
 [[package]]
@@ -684,6 +690,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "triomphe",
 ]
 
 [[package]]
@@ -700,7 +707,6 @@ dependencies = [
  "derive_more",
  "no-panic",
  "rayon",
- "rclite",
  "seq-macro",
  "sha2 0.11.0",
  "transparent-wrapper",
@@ -726,10 +732,10 @@ dependencies = [
  "parking_lot",
  "rand 0.10.3",
  "rayon",
- "rclite",
  "spirv-std",
  "thiserror 2.0.21",
  "tracing",
+ "triomphe",
  "wgpu",
 ]
 
@@ -1422,15 +1428,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdeb9d870516001442e364c5220d3574d2da8dc765554b4a617230d33fa58ef5"
 dependencies = [
  "objc2",
-]
-
-[[package]]
-name = "branches"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7436b21fd6195415058eb41c9090e156b556bc7e0377bb57c5c026a421521525"
-dependencies = [
- "rustc_version",
 ]
 
 [[package]]
@@ -5181,15 +5178,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rclite"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6716a637a8a17bce72da6b6ddab8548619cc748658c41ab6ee5c4a3c1001385"
-dependencies = [
- "branches",
-]
-
-[[package]]
 name = "readme-rustdocifier"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6419,6 +6407,12 @@ dependencies = [
  "quote",
  "syn 3.0.6",
 ]
+
+[[package]]
+name = "triomphe"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d15f4f5898bcfc5d8a8e45ed30b2f108d710c1a2e5489dbf80e078f707181bc"
 
 [[package]]
 name = "try-lock"

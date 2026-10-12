@@ -17,8 +17,8 @@ all-features = true
 ab-aligned-buffer = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-merkle-tree = { workspace = true }
-rclite = { workspace = true }
 thiserror = { workspace = true }
+triomphe = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true

@@ -21,12 +21,13 @@ use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::pin::pin;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 use tokio::task;
 use tokio::time::MissedTickBehavior;
 use tracing::{debug, error, info, trace, warn};
+use triomphe::Arc;
 
 /// Number of farms in a cluster is currently limited to 2^16
 pub type FarmIndex = u16;
@@ -192,7 +193,7 @@ impl KnownFarmers {
 pub async fn maintain_farms(
     instance: &str,
     nats_client: &NatsClient,
-    plotted_pieces: &Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
+    plotted_pieces: &StdArc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     identification_broadcast_interval: Duration,
 ) -> anyhow::Result<()> {
     let mut known_farmers = KnownFarmers::new(identification_broadcast_interval);
@@ -230,7 +231,7 @@ pub async fn maintain_farms(
         select! {
             (farm_index, result) = farms.select_next_some() => {
                 farms_to_add_remove.push(farm_index, Box::pin(async move {
-                    let plotted_pieces = Arc::clone(plotted_pieces);
+                    let plotted_pieces = StdArc::clone(plotted_pieces);
 
                     let delete_farm_fut = task::spawn_blocking(move || {
                         plotted_pieces.write_blocking().delete_farm(farm_index);
@@ -302,7 +303,7 @@ pub async fn maintain_farms(
                         total_sectors_count,
                     } = farm_details;
 
-                    let plotted_pieces = Arc::clone(plotted_pieces);
+                    let plotted_pieces = StdArc::clone(plotted_pieces);
                     let close_receiver = close_receiver.resubscribe();
                     farms_to_add_remove.push(
                         farm_index,
@@ -409,7 +410,7 @@ async fn initialize_farm(
     farm_index: FarmIndex,
     farm_id: FarmId,
     total_sectors_count: u16,
-    plotted_pieces: Arc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
+    plotted_pieces: StdArc<AsyncRwLock<PlottedPieces<FarmIndex>>>,
     nats_client: &NatsClient,
 ) -> anyhow::Result<ClusterFarm> {
     let farm = ClusterFarm::new(farm_id, total_sectors_count, nats_client.clone())
@@ -418,7 +419,7 @@ async fn initialize_farm(
 
     // Buffer sectors that are plotted while already plotted sectors are being iterated over
     let plotted_sectors_buffer = Arc::new(Mutex::new(Vec::new()));
-    let sector_update_handler = farm.on_sector_update(Arc::new({
+    let sector_update_handler = farm.on_sector_update(StdArc::new({
         let plotted_sectors_buffer = Arc::clone(&plotted_sectors_buffer);
 
         move |(_sector_index, sector_update)| {

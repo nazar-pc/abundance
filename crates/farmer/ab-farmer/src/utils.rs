@@ -17,12 +17,12 @@ use std::num::NonZeroUsize;
 use std::ops::Deref;
 use std::pin::{Pin, pin};
 use std::process::exit;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{fmt, io, iter, thread};
 use tokio::runtime::Handle;
 use tokio::task;
 use tracing::{debug, warn};
+use triomphe::Arc;
 
 /// It doesn't make a lot of sense to have a huge number of farming threads, 32 is plenty
 const MAX_DEFAULT_FARMING_THREADS: usize = 32;

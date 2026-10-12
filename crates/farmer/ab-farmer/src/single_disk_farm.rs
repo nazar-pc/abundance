@@ -76,7 +76,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use std::{fmt, fs, io};
@@ -85,6 +85,7 @@ use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 use tokio::task;
 use tracing::{Instrument, Span, error, info, trace, warn};
+use triomphe::Arc;
 
 // Refuse to compile on non-64-bit platforms, offsets may fail on those when converting from u64 to
 // usize depending on chain parameters
@@ -331,7 +332,7 @@ where
     /// Address where farming rewards should go
     pub reward_address: Address,
     /// Plotter
-    pub plotter: Arc<dyn Plotter + Send + Sync>,
+    pub plotter: StdArc<dyn Plotter + Send + Sync>,
     /// Erasure coding instance to use.
     pub erasure_coding: ErasureCoding,
     /// Percentage of allocated space dedicated for caching purposes
@@ -763,11 +764,11 @@ struct SingleDiskFarmInit {
     identity: Identity,
     single_disk_farm_info: SingleDiskFarmInfo,
     single_disk_farm_info_lock: Option<SingleDiskFarmInfoLock>,
-    plot_file: Arc<DirectIoFileWrapper>,
+    plot_file: StdArc<DirectIoFileWrapper>,
     metadata_file: DirectIoFileWrapper,
     metadata_header: PlotMetadataHeader,
     target_sector_count: u16,
-    sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
+    sectors_metadata: StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     piece_cache_capacity: u32,
     plot_cache: DiskPlotCache,
 }
@@ -783,7 +784,7 @@ pub struct SingleDiskFarm {
     single_disk_farm_info: SingleDiskFarmInfo,
     shard_commitments_roots_cache: ShardCommitmentsRootsCache,
     /// Metadata of all sectors plotted so far
-    sectors_metadata: Arc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
+    sectors_metadata: StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     pieces_in_sector: u16,
     total_sectors_count: u16,
     span: Span,
@@ -820,12 +821,12 @@ impl Farm for SingleDiskFarm {
         self.total_sectors_count
     }
 
-    fn plotted_sectors(&self) -> Arc<dyn PlottedSectors + 'static> {
-        Arc::new(self.plotted_sectors())
+    fn plotted_sectors(&self) -> StdArc<dyn PlottedSectors + 'static> {
+        StdArc::new(self.plotted_sectors())
     }
 
-    fn piece_reader(&self) -> Arc<dyn PieceReader + 'static> {
-        Arc::new(self.piece_reader())
+    fn piece_reader(&self) -> StdArc<dyn PieceReader + 'static> {
+        StdArc::new(self.piece_reader())
     }
 
     fn on_sector_update(
@@ -1007,11 +1008,11 @@ impl SingleDiskFarm {
 
         let plotting_join_handle = task::spawn_blocking({
             let shard_commitments_roots_cache = shard_commitments_roots_cache.clone();
-            let sectors_metadata = Arc::clone(&sectors_metadata);
+            let sectors_metadata = StdArc::clone(&sectors_metadata);
             let handlers = Arc::clone(&handlers);
             let sectors_being_modified = Arc::clone(&sectors_being_modified);
             let node_client = node_client.clone();
-            let plot_file = Arc::clone(&plot_file);
+            let plot_file = StdArc::clone(&plot_file);
             let error_sender = Arc::clone(&error_sender);
             let span = span.clone();
             let global_mutex = Arc::clone(&global_mutex);
@@ -1099,7 +1100,7 @@ impl SingleDiskFarm {
             min_sector_lifetime: farmer_app_info.protocol_info.min_sector_lifetime,
             node_client: node_client.clone(),
             handlers: Arc::clone(&handlers),
-            sectors_metadata: Arc::clone(&sectors_metadata),
+            sectors_metadata: StdArc::clone(&sectors_metadata),
             sectors_to_plot_sender,
             new_segment_processing_delay: NEW_SEGMENT_PROCESSING_DELAY,
             metrics: metrics.clone(),
@@ -1124,7 +1125,7 @@ impl SingleDiskFarm {
             let erasure_coding = erasure_coding.clone();
             let handlers = Arc::clone(&handlers);
             let sectors_being_modified = Arc::clone(&sectors_being_modified);
-            let sectors_metadata = Arc::clone(&sectors_metadata);
+            let sectors_metadata = StdArc::clone(&sectors_metadata);
             let mut start_receiver = start_sender.subscribe();
             let mut stop_receiver = stop_sender.subscribe();
             let node_client = node_client.clone();
@@ -1196,7 +1197,7 @@ impl SingleDiskFarm {
             shard_commitments_roots_cache.clone(),
             pieces_in_sector,
             plot_file,
-            Arc::clone(&sectors_metadata),
+            StdArc::clone(&sectors_metadata),
             erasure_coding,
             sectors_being_modified,
             global_mutex,
@@ -1478,7 +1479,7 @@ impl SingleDiskFarm {
                 sectors_metadata.push(sector_metadata);
             }
 
-            Arc::new(AsyncRwLock::new(sectors_metadata))
+            StdArc::new(AsyncRwLock::new(sectors_metadata))
         };
 
         let plot_file = DirectIoFileWrapper::open(directory.join(Self::PLOT_FILE))?;
@@ -1493,7 +1494,7 @@ impl SingleDiskFarm {
             plot_file.set_len(allocated_space_distribution.plot_file_size)?;
         }
 
-        let plot_file = Arc::new(plot_file);
+        let plot_file = StdArc::new(plot_file);
 
         let plot_cache = DiskPlotCache::new(
             &plot_file,
@@ -1686,7 +1687,7 @@ impl SingleDiskFarm {
             shard_commitments_roots_cache: self.shard_commitments_roots_cache.clone(),
             pieces_in_sector: self.pieces_in_sector,
             farmer_protocol_info: self.farmer_protocol_info,
-            sectors_metadata: Arc::clone(&self.sectors_metadata),
+            sectors_metadata: StdArc::clone(&self.sectors_metadata),
         }
     }
 

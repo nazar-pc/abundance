@@ -32,8 +32,9 @@ use std::fmt;
 use std::hash::Hash;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::Path;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc as StdArc, Weak};
 use tracing::{Instrument, debug, error, info, warn};
+use triomphe::Arc;
 
 /// How many super segment headers can be requested at a time.
 ///
@@ -137,7 +138,7 @@ where
 
                     let maybe_weak_node = Arc::clone(&maybe_weak_node);
                     let farmer_caches = farmer_caches.clone();
-                    let mut cached_pieces = Arc::unwrap_or_clone(cached_pieces);
+                    let mut cached_pieces = StdArc::unwrap_or_clone(cached_pieces);
 
                     async move {
                         let piece_from_cache =
@@ -186,7 +187,7 @@ where
 
                 let weak_plotted_pieces = Weak::clone(&weak_plotted_pieces);
                 let farmer_caches = farmer_caches.clone();
-                let mut cached_pieces = Arc::unwrap_or_clone(cached_pieces);
+                let mut cached_pieces = StdArc::unwrap_or_clone(cached_pieces);
 
                 async move {
                     let piece_from_cache =
@@ -236,7 +237,8 @@ where
                         SuperSegmentHeaderRequest::SuperSegmentIndices {
                             super_segment_indices,
                         } => {
-                            let super_segment_indices = Arc::unwrap_or_clone(super_segment_indices);
+                            let super_segment_indices =
+                                StdArc::unwrap_or_clone(super_segment_indices);
 
                             if super_segment_indices.len() > SUPER_SEGMENT_HEADERS_LIMIT as usize {
                                 debug!(
@@ -315,7 +317,7 @@ where
     let (node, node_runner) = construct(config)?;
     maybe_weak_node.lock().replace(node.downgrade());
 
-    node.on_new_listener(Arc::new({
+    node.on_new_listener(StdArc::new({
         let node = node.clone();
 
         move |address| {

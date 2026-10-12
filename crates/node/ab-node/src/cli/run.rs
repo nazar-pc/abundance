@@ -37,18 +37,17 @@ use futures::prelude::*;
 use futures::select;
 use futures::task::noop_waker_ref;
 use gdt_cpus::{ThreadPriority, set_thread_priority};
-use rclite::Arc;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::pin::pin;
-use std::sync::Arc as StdArc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use std::{io, thread};
 use tokio::runtime::Handle;
 use tracing::{Span, debug, error, info, warn};
+use triomphe::Arc;
 
 // TODO: Get rid of this, make verifier clean up cache based on slots of finalized blocks
 /// This is over 15 minutes of slots assuming there are no forks, should be both sufficient and not
@@ -439,7 +438,7 @@ impl Run {
                 genesis_block_builder: || GenesisBlockBuilderResult {
                     block: genesis_block.clone(),
                     // TODO: Fill correct initial state
-                    system_contract_states: StdArc::new([]),
+                    system_contract_states: Arc::from(Vec::new()),
                 },
                 storage_backend,
                 ..

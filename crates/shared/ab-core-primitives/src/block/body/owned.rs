@@ -20,7 +20,7 @@ use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use core::iter::TrustedLen;
 use derive_more::From;
-use rclite::Arc;
+use triomphe::Arc;
 use yoke::Yoke;
 
 /// Generic owned block body
@@ -487,7 +487,7 @@ impl OwnedBeaconChainBody {
     /// Number of clones in memory
     #[inline(always)]
     pub fn ref_count(&self) -> usize {
-        self.inner.strong_count()
+        Arc::count(&self.inner)
     }
 
     /// Get [`BeaconChainBody`] out of [`OwnedBeaconChainBody`]
@@ -692,7 +692,7 @@ impl OwnedIntermediateShardBody {
     /// Number of clones in memory
     #[inline(always)]
     pub fn ref_count(&self) -> usize {
-        self.inner.strong_count()
+        Arc::count(&self.inner)
     }
 
     /// Get [`IntermediateShardBody`] out of [`OwnedIntermediateShardBody`]
@@ -858,7 +858,7 @@ impl OwnedLeafShardBody {
     /// Number of clones in memory
     #[inline(always)]
     pub fn ref_count(&self) -> usize {
-        self.inner.strong_count()
+        Arc::count(&self.inner)
     }
 
     /// Get [`LeafShardBody`] out of [`OwnedLeafShardBody`]

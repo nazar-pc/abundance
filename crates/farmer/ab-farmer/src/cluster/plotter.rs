@@ -31,12 +31,13 @@ use std::error::Error;
 use std::future::pending;
 use std::num::NonZeroUsize;
 use std::pin::pin;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::task::Poll;
 use std::time::{Duration, Instant};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::time::MissedTickBehavior;
 use tracing::{Instrument, debug, info, info_span, trace, warn};
+use triomphe::Arc;
 use ulid::Ulid;
 
 const FREE_CAPACITY_CHECK_INTERVAL: Duration = Duration::from_secs(1);
@@ -46,7 +47,7 @@ const PING_INTERVAL: Duration = Duration::from_secs(10);
 const PING_TIMEOUT: Duration = Duration::from_mins(1);
 
 /// Type alias used for event handlers
-pub type HandlerFn3<A, B, C> = Arc<dyn Fn(&A, &B, &C) + Send + Sync + 'static>;
+pub type HandlerFn3<A, B, C> = StdArc<dyn Fn(&A, &B, &C) + Send + Sync + 'static>;
 type Handler3<A, B, C> = Bag<HandlerFn3<A, B, C>, A, B, C>;
 
 /// An ephemeral identifier for a plotter
@@ -130,7 +131,7 @@ struct Handlers {
 /// Cluster plotter
 #[derive(Debug)]
 pub struct ClusterPlotter {
-    sector_encoding_semaphore: Arc<Semaphore>,
+    sector_encoding_semaphore: StdArc<Semaphore>,
     retry_backoff_policy: ExponentialBuilder,
     nats_client: NatsClient,
     handlers: Arc<Handlers>,
@@ -171,7 +172,7 @@ impl Plotter for ClusterPlotter {
 
         // Done outside the future below as a backpressure, ensuring that it is not possible to
         // schedule unbounded number of plotting tasks
-        let sector_encoding_permit = match Arc::clone(&self.sector_encoding_semaphore)
+        let sector_encoding_permit = match StdArc::clone(&self.sector_encoding_semaphore)
             .acquire_owned()
             .await
         {
@@ -224,7 +225,7 @@ impl Plotter for ClusterPlotter {
         let start = Instant::now();
 
         let Ok(sector_encoding_permit) =
-            Arc::clone(&self.sector_encoding_semaphore).try_acquire_owned()
+            StdArc::clone(&self.sector_encoding_semaphore).try_acquire_owned()
         else {
             return false;
         };
@@ -252,7 +253,8 @@ impl ClusterPlotter {
         sector_encoding_concurrency: NonZeroUsize,
         retry_backoff_policy: ExponentialBuilder,
     ) -> Self {
-        let sector_encoding_semaphore = Arc::new(Semaphore::new(sector_encoding_concurrency.get()));
+        let sector_encoding_semaphore =
+            StdArc::new(Semaphore::new(sector_encoding_concurrency.get()));
 
         let (tasks_sender, mut tasks_receiver) = mpsc::channel(1);
 

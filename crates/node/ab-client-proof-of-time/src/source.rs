@@ -16,10 +16,10 @@ use ab_core_primitives::pot::{PotCheckpoints, PotParametersChange, SlotNumber};
 use derive_more::{Deref, DerefMut};
 use futures::channel::mpsc;
 use futures::{FutureExt, StreamExt, select};
-use rclite::Arc;
 use std::future;
 use tokio::sync::broadcast;
 use tracing::{debug, trace, warn};
+use triomphe::Arc;
 
 const SLOTS_CHANNEL_CAPACITY: usize = 10;
 

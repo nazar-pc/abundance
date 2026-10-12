@@ -45,7 +45,6 @@
     const_convert,
     const_trait_impl,
     default_field_values,
-    get_mut_unchecked,
     iter_collect_into,
     maybe_uninit_as_bytes,
     maybe_uninit_fill
@@ -83,7 +82,6 @@ use async_lock::{
     RwLock as AsyncRwLock, RwLockUpgradableReadGuard, RwLockWriteGuard as AsyncRwLockWriteGuard,
 };
 use rand::rngs::SysError;
-use rclite::Arc;
 use replace_with::replace_with_or_abort;
 use smallvec::{SmallVec, smallvec};
 use std::any::Any;
@@ -91,9 +89,9 @@ use std::collections::{HashMap, VecDeque};
 use std::hash::{BuildHasherDefault, Hasher};
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::Deref;
-use std::sync::Arc as StdArc;
 use std::{fmt, io};
 use tracing::error;
+use triomphe::Arc;
 
 /// Unique identifier for a database
 #[derive(Debug, Copy, Clone, Eq, PartialEq, TrivialType)]
@@ -147,7 +145,7 @@ pub struct GenesisBlockBuilderResult<Block> {
     /// Genesis block
     pub block: Block,
     /// System contracts state in the genesis block
-    pub system_contract_states: StdArc<[ContractSlotState]>,
+    pub system_contract_states: Arc<[ContractSlotState]>,
 }
 
 /// Options for [`ClientDatabase`]
@@ -363,7 +361,7 @@ where
 #[derive(Debug)]
 struct BeaconChainBlockDetails {
     // Shard segment roots, only present for beacon chain blocks
-    shard_segment_roots: StdArc<[ShardSegmentRoot]>,
+    shard_segment_roots: Arc<[ShardSegmentRoot]>,
 }
 
 impl BeaconChainBlockDetails {
@@ -1295,7 +1293,7 @@ where
     fn shard_segment_roots(
         &self,
         block_number: BlockNumber,
-    ) -> Result<StdArc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
+    ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
         // most locks are read locks
         let state = self.inner.state.read_blocking();
@@ -1315,7 +1313,7 @@ where
             .first()
             .expect("There is always at least one block candidate; qed");
 
-        Ok(StdArc::clone(
+        Ok(Arc::clone(
             &block
                 .beacon_chain_block_details()
                 .as_ref()
@@ -1868,9 +1866,7 @@ where
                         header: block.header().buffer().clone(),
                         body: block.body().buffer().clone(),
                         mmr_with_block: Arc::clone(&block_details.mmr_with_block),
-                        system_contract_states: StdArc::clone(
-                            &block_details.system_contract_states,
-                        ),
+                        system_contract_states: Arc::clone(&block_details.system_contract_states),
                     }))
                     .await?;
 

@@ -20,11 +20,10 @@ use ab_proof_of_space::Table;
 use async_lock::Mutex as AsyncMutex;
 use futures::channel::mpsc;
 use futures::prelude::*;
-use rclite::Arc;
 use send_future::SendFuture;
 use std::marker::PhantomData;
-use std::sync::Arc as StdArc;
 use tracing::{info, warn};
+use triomphe::Arc;
 
 /// Errors for [`BeaconChainBlockImport`]
 #[derive(Debug, thiserror::Error)]
@@ -358,7 +357,7 @@ where
                 block.clone(),
                 BlockDetails {
                     mmr_with_block: Arc::clone(importing_handle.mmr()),
-                    system_contract_states: StdArc::clone(&system_contract_states),
+                    system_contract_states: Arc::clone(&system_contract_states),
                 },
             )
             .await?;

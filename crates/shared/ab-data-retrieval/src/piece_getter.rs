@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use futures::{Stream, StreamExt, stream};
 use std::fmt;
 use std::future::Future;
-use std::sync::Arc;
+use triomphe::Arc;
 
 /// Trait representing a way to get pieces
 #[async_trait]

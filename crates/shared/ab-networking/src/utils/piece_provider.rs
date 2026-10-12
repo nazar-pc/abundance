@@ -26,10 +26,11 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::future::ready;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::task::{Context, Poll};
 use tokio_stream::StreamMap;
 use tracing::{Instrument, debug, trace, warn};
+use triomphe::Arc;
 
 /// Validates piece against using its root.
 #[async_trait]
@@ -165,7 +166,7 @@ where
                     Vec::new(),
                     PieceByIndexRequest {
                         piece_index,
-                        cached_pieces: Arc::default(),
+                        cached_pieces: StdArc::default(),
                     },
                 )
                 .await
@@ -208,7 +209,7 @@ where
                 Vec::new(),
                 PieceByIndexRequest {
                     piece_index,
-                    cached_pieces: Arc::default(),
+                    cached_pieces: StdArc::default(),
                 },
             )
             .await
@@ -340,7 +341,7 @@ where
                     Vec::new(),
                     PieceByIndexRequest {
                         piece_index,
-                        cached_pieces: Arc::default(),
+                        cached_pieces: StdArc::default(),
                     },
                 )
                 .await
@@ -514,7 +515,7 @@ where
                     piece_validator,
                     peer_id,
                     Vec::new(),
-                    Arc::new(check_cached_pieces),
+                    StdArc::new(check_cached_pieces),
                     piece_index,
                     HashSet::new(),
                     HashSet::new(),
@@ -573,7 +574,7 @@ where
                         piece_validator,
                         peer_id,
                         Vec::new(),
-                        Arc::new(check_cached_pieces),
+                        StdArc::new(check_cached_pieces),
                         piece_index,
                         HashSet::new(),
                         HashSet::new(),
@@ -631,7 +632,7 @@ where
                         piece_validator,
                         peer_id,
                         addresses,
-                        Arc::new(check_cached_pieces),
+                        StdArc::new(check_cached_pieces),
                         piece_index,
                         HashSet::new(),
                         HashSet::new(),
@@ -780,7 +781,7 @@ fn process_downloading_result<'a, 'b, PV>(
         Vec::new(),
         // Sample more random cached piece indices for connected peer, algorithm can be
         // improved, but has to be something simple and this should do it for now
-        Arc::new(sample_cached_piece_indices(
+        StdArc::new(sample_cached_piece_indices(
             pieces_to_download.keys(),
             &cached_pieces,
             &not_cached_pieces,
@@ -839,7 +840,7 @@ async fn download_cached_piece_from_peer<'a, PV>(
     piece_validator: &'a PV,
     peer_id: PeerId,
     addresses: Vec<Multiaddr>,
-    check_cached_pieces: Arc<Vec<PieceIndex>>,
+    check_cached_pieces: StdArc<Vec<PieceIndex>>,
     piece_index: PieceIndex,
     mut cached_pieces: HashSet<PieceIndex>,
     mut not_cached_pieces: HashSet<PieceIndex>,
@@ -854,7 +855,7 @@ where
             addresses,
             CachedPieceByIndexRequest {
                 piece_index,
-                cached_pieces: Arc::clone(&check_cached_pieces),
+                cached_pieces: StdArc::clone(&check_cached_pieces),
             },
         )
         .await

@@ -15,10 +15,11 @@ use libp2p::identity::Keypair;
 use libp2p::multiaddr::Protocol;
 use parking_lot::Mutex;
 use std::io;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, trace, warn};
+use triomphe::Arc;
 
 /// Defines initial duration between get_piece calls.
 const GET_PIECE_INITIAL_INTERVAL: Duration = Duration::from_secs(5);
@@ -356,7 +357,7 @@ pub async fn configure_dsn(
     let (node, mut node_runner_1) = ab_networking::construct(config).unwrap();
 
     let (node_address_sender, node_address_receiver) = oneshot::channel();
-    let on_new_listener_handler = node.on_new_listener(Arc::new({
+    let on_new_listener_handler = node.on_new_listener(StdArc::new({
         let node_address_sender = Mutex::new(Some(node_address_sender));
 
         move |address| {

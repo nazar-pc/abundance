@@ -32,11 +32,11 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use thiserror::Error;
 use tracing::{Instrument, debug, error, trace, warn};
+use triomphe::Arc;
 use ulid::Ulid;
 
 const EXPECTED_MESSAGE_SIZE: usize = 2 * 1024 * 1024;
