@@ -23,7 +23,7 @@ pub enum ContractMetadataKind {
     /// * Encoding of the `#[slot]` type as described in [`IoTypeMetadataKind`]
     /// * Encoding of the `#[tmp]` type as described in [`IoTypeMetadataKind`]
     /// * Number of methods (u8)
-    /// * Recursive metadata of methods as defined in one of:
+    /// * Metadata of methods, each as defined in one of:
     ///   * [`Self::Init`]
     ///   * [`Self::UpdateStateless`]
     ///   * [`Self::UpdateStatefulRo`]
@@ -39,7 +39,7 @@ pub enum ContractMetadataKind {
     /// * Length of trait name in bytes (u8)
     /// * Trait name as UTF-8 bytes
     /// * Number of methods (u8)
-    /// * Recursive metadata of methods as defined in one of:
+    /// * Metadata of methods, each as defined in one of:
     ///   * [`Self::UpdateStateless`]
     ///   * [`Self::ViewStateless`]
     Trait,
