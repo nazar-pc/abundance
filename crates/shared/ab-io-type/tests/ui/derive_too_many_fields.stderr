@@ -1,0 +1,12 @@
+error: Must not have more than 255 field
+  --> tests/ui/derive_too_many_fields.rs:8:21
+   |
+ 8 |   struct TooManyFields(
+   |  _____________________^
+ 9 | |     u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
+10 | |     u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
+11 | |     u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
+...  |
+19 | |     u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8
+20 | | );
+   | |_^

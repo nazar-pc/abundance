@@ -1,0 +1,5 @@
+error: `TrivialType` can't be derived on generic types
+ --> tests/ui/derive_generic.rs:7:8
+  |
+7 | struct Generic<T> {
+  |        ^^^^^^^

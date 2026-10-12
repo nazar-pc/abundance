@@ -11,4 +11,10 @@ struct Huge {
     b: [u8; 1 << 31],
 }
 
+#[derive(Copy, Clone, TrivialType)]
+#[repr(u8)]
+enum HugeEnum {
+    A { a: [u8; 1 << 31], b: [u8; 1 << 31] },
+}
+
 fn main() {}

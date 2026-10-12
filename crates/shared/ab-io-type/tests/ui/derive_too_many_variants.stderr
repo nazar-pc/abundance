@@ -1,0 +1,5 @@
+error: Enum must not have more than 255 variants
+ --> tests/ui/derive_too_many_variants.rs:8:6
+  |
+8 | enum TooManyVariants {
+  |      ^^^^^^^^^^^^^^^

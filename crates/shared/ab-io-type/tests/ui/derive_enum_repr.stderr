@@ -1,0 +1,27 @@
+error: `TrivialType` derive for enums only supports `#[repr(u8)]`, ambiguous or larger discriminant size is not allowed
+ --> tests/ui/derive_enum_repr.rs:6:23
+  |
+6 | #[derive(Copy, Clone, TrivialType)]
+  |                       ^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: `TrivialType` derive for enums only supports `#[repr(u8)]`, ambiguous or larger discriminant size is not allowed
+  --> tests/ui/derive_enum_repr.rs:13:23
+   |
+13 | #[derive(Copy, Clone, TrivialType)]
+   |                       ^^^^^^^^^^^
+   |
+   = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Unsupported `#[repr(..)]`
+  --> tests/ui/derive_enum_repr.rs:21:8
+   |
+21 | #[repr(i8)]
+   |        ^^
+
+error: `TrivialType` doesn't allow `#[repr(align(N))]` or `#[repr(packed(N))]
+  --> tests/ui/derive_enum_repr.rs:29:6
+   |
+29 | enum Aligned {
+   |      ^^^^^^^

@@ -1,0 +1,31 @@
+error: `TrivialType` doesn't allow `#[repr(align(N))]` or `#[repr(packed(N))]
+ --> tests/ui/derive_struct_repr.rs:8:8
+  |
+8 | struct Aligned {
+  |        ^^^^^^^
+
+error: `TrivialType` doesn't allow `#[repr(align(N))]` or `#[repr(packed(N))]
+  --> tests/ui/derive_struct_repr.rs:14:8
+   |
+14 | struct Packed {
+   |        ^^^^^^
+
+error: Unsupported `#[repr(..)]`
+  --> tests/ui/derive_struct_repr.rs:19:8
+   |
+19 | #[repr(Rust)]
+   |        ^^^^
+
+error: `TrivialType` on structs requires `#[repr(C)]` or `#[repr(transparent)]
+  --> tests/ui/derive_struct_repr.rs:27:8
+   |
+27 | struct Numeric {
+   |        ^^^^^^^
+
+error: the `repr(u8)` attribute cannot be used on structs
+  --> tests/ui/derive_struct_repr.rs:26:3
+   |
+26 | #[repr(u8)]
+   |   ^^^^^^^^
+   |
+   = help: the `repr(u8)` attribute can only be applied to enums
