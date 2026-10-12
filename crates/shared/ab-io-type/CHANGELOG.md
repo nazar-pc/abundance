@@ -9,6 +9,8 @@ Breaking changes:
   `FixedCapacityStringU8/U16` are replaced with `FixedCapacityElements<Element, CAPACITY>` (with the
   `FixedCapacityBytes<CAPACITY>` alias) and `FixedCapacityString<CAPACITY>`, which store the length as `u32`
 * `IoTypeMetadataKind::type_details()` rejects enums without variants
+* `IoTypeMetadataKind::type_details()` and `IoTypeMetadataKind::compact()` take the max nesting depth as a const generic
+  parameter and return `None` for deeper metadata, their stack usage doesn't depend on metadata
 * `IoTypeMetadataKind::compact()` replaces names with zero-length names, so it produces valid metadata with the same
   capacity and alignment, previously it didn't for structs with more than 10 named fields and enums with fields
 
@@ -22,8 +24,8 @@ Fixes:
   absence of data and `VariableElements` panicked
 * Arrays of 4 GiB or larger or with `2^32` or more elements can no longer be used as `TrivialType`, previously their
   size and length were truncated
-* `TrivialType` can now be derived for enums with 11 to 16 variants, and derived metadata of enums whose first variant
-  has no fields while later variants have zero-sized fields is now valid
+* `TrivialType` can now be derived for enums with 11 to 16 variants and for deeply nested types, and derived metadata of
+  enums whose first variant has no fields while later variants have zero-sized fields is now valid
 * `IoTypeMetadataKind::type_details()` now returns the alignment of elements for `VariableElements<T>` with the default
   recommended allocation instead of 1, and `None` instead of overflowing for enums with a variant of `u32::MAX` bytes
 

@@ -4,7 +4,9 @@ mod method;
 mod update;
 mod view;
 
-use crate::contract::common::{derive_ident_metadata, extract_ident_from_type};
+use crate::contract::common::{
+    derive_ident_metadata, extract_ident_from_type, max_depth_assertion,
+};
 use crate::contract::init::process_init_fn;
 use crate::contract::method::{ExtTraitComponents, MethodDetails};
 use crate::contract::update::{process_update_fn, process_update_fn_definition};
@@ -237,12 +239,18 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
             //  environment yet
             let (impl_compact_metadata, impl_compact_metadata_size) =
                 ::ab_contracts_macros::__private::ContractMetadataKind::compact(METADATA)
-                    .expect("Generated metadata is correct; qed");
+                    .expect(
+                        "Generated metadata is correct and its types are not nested deeper than \
+                        `MAX_METADATA_DEPTH`; qed"
+                    );
             let (def_compact_metadata, def_compact_metadata_size) =
                 ::ab_contracts_macros::__private::ContractMetadataKind::compact(
                     <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA,
                 )
-                    .expect("Generated metadata is correct; qed");
+                    .expect(
+                        "Generated metadata is correct and its types are not nested deeper than \
+                        `MAX_METADATA_DEPTH`; qed"
+                    );
             assert!(
                 impl_compact_metadata_size == def_compact_metadata_size,
                 "Trait implementation must match trait definition exactly"
@@ -390,6 +398,21 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         ));
     };
 
+    let max_depth_assertions = [
+        max_depth_assertion(
+            struct_name,
+            "State type must not be nested deeper than `MAX_METADATA_DEPTH`",
+        ),
+        max_depth_assertion(
+            &slot_type,
+            "`#[slot]` type must not be nested deeper than `MAX_METADATA_DEPTH`",
+        ),
+        max_depth_assertion(
+            &tmp_type,
+            "`#[tmp]` type must not be nested deeper than `MAX_METADATA_DEPTH`",
+        ),
+    ];
+
     let metadata_const = {
         let num_methods = u8::try_from(contract_details.methods.len()).map_err(|_error| {
             Error::new(
@@ -489,6 +512,12 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
                     .as_ptr()
                     .cast()
             };
+        };
+
+        // Contracts decode metadata of these types with `MAX_METADATA_DEPTH` as the max nesting
+        // depth, so deeper types must not compile
+        const _: () = {
+            #( #max_depth_assertions )*
         };
 
         impl ::ab_contracts_macros::__private::Contract for #struct_name {

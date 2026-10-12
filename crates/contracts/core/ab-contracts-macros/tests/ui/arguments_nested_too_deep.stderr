@@ -1,0 +1,93 @@
+error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+  --> tests/ui/arguments_nested_too_deep.rs:37:13
+   |
+37 |         pub fn get(#[input] _value: &L33) {}
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `<input::ffi::get::ExampleGetArgs<'_> as ab_contracts_common::method::ExternalArgs>::FINGERPRINT` failed here
+
+note: erroneous constant encountered
+  --> tests/ui/arguments_nested_too_deep.rs:34:5
+   |
+34 |     #[contract]
+   |     ^^^^^^^^^^^
+   |
+   = note: this note originates in the attribute macro `contract` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0080]: evaluation panicked: `#[input]` type must not be nested deeper than `MAX_METADATA_DEPTH`
+  --> tests/ui/arguments_nested_too_deep.rs:37:38
+   |
+37 |         pub fn get(#[input] _value: &L33) {}
+   |                                      ^^^ evaluation of `input::ffi::get::_` failed here
+
+error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+  --> tests/ui/arguments_nested_too_deep.rs:55:13
+   |
+55 |         pub fn get(#[output] _value: &mut L33) {}
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `<output::ffi::get::ExampleGetArgs<'_> as ab_contracts_common::method::ExternalArgs>::FINGERPRINT` failed here
+
+note: erroneous constant encountered
+  --> tests/ui/arguments_nested_too_deep.rs:52:5
+   |
+52 |     #[contract]
+   |     ^^^^^^^^^^^
+   |
+   = note: this note originates in the attribute macro `contract` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0080]: evaluation panicked: `#[output]` type must not be nested deeper than `MAX_METADATA_DEPTH`
+  --> tests/ui/arguments_nested_too_deep.rs:55:43
+   |
+55 |         pub fn get(#[output] _value: &mut L33) {}
+   |                                           ^^^ evaluation of `output::ffi::get::_` failed here
+
+error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+  --> tests/ui/arguments_nested_too_deep.rs:73:13
+   |
+73 |         pub fn get() -> L33 {
+   |             ^^^^^^^^^^^^^^^ evaluation of `<return_type::ffi::get::ExampleGetArgs<'_> as ab_contracts_common::method::ExternalArgs>::FINGERPRINT` failed here
+
+note: erroneous constant encountered
+  --> tests/ui/arguments_nested_too_deep.rs:70:5
+   |
+70 |     #[contract]
+   |     ^^^^^^^^^^^
+   |
+   = note: this note originates in the attribute macro `contract` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0080]: evaluation panicked: Return type must not be nested deeper than `MAX_METADATA_DEPTH`
+  --> tests/ui/arguments_nested_too_deep.rs:73:25
+   |
+73 |         pub fn get() -> L33 {
+   |                         ^^^ evaluation of `return_type::ffi::get::_` failed here
+
+error[E0080]: evaluation panicked: `#[input]` type must not be nested deeper than `MAX_METADATA_DEPTH`
+  --> tests/ui/arguments_nested_too_deep.rs:87:55
+   |
+87 |         fn get(#[env] env: &Env<'_>, #[input] value: &L33);
+   |                                                       ^^^ evaluation of `trait_definition::ffi::get::_` failed here
+
+error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+   --> tests/ui/arguments_nested_too_deep.rs:107:5
+    |
+107 |     #[contract]
+    |     ^^^^^^^^^^^ evaluation of `trait_implementation::_` failed here
+    |
+    = note: this error originates in the attribute macro `contract` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+   --> tests/ui/arguments_nested_too_deep.rs:110:9
+    |
+110 |         fn get(#[env] _env: &Env<'_>, #[input] _value: &L33) {}
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `<trait_implementation::getter_ffi::get::GetterGetArgs<'_> as ab_contracts_common::method::ExternalArgs>::FINGERPRINT` failed here
+
+note: erroneous constant encountered
+   --> tests/ui/arguments_nested_too_deep.rs:107:5
+    |
+107 |     #[contract]
+    |     ^^^^^^^^^^^
+    |
+    = note: this note originates in the attribute macro `contract` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0080]: evaluation panicked: `#[input]` type must not be nested deeper than `MAX_METADATA_DEPTH`
+   --> tests/ui/arguments_nested_too_deep.rs:110:57
+    |
+110 |         fn get(#[env] _env: &Env<'_>, #[input] _value: &L33) {}
+    |                                                         ^^^ evaluation of `trait_implementation::getter_ffi::get::_` failed here

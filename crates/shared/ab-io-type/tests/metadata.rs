@@ -16,6 +16,8 @@ use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 use ab_io_type::variable_elements::VariableElements;
 
+/// Max nesting depth of metadata decoded in tests
+const MAX_DEPTH: usize = 32;
 /// Field names used by [`u8_struct()`]
 const FIELD_NAMES: [&str; 12] = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
 /// Variant names used by [`u8_enum()`]
@@ -116,7 +118,7 @@ impl Expected {
 fn compact(metadata: &[u8]) -> Vec<u8> {
     let mut compact = [0; MAX_METADATA_CAPACITY];
     let (remainder, compact_remainder) =
-        IoTypeMetadataKind::compact(metadata, &mut compact).unwrap();
+        IoTypeMetadataKind::compact::<MAX_DEPTH>(metadata, &mut compact).unwrap();
     assert!(remainder.is_empty());
     let compact_length = MAX_METADATA_CAPACITY - compact_remainder.len();
 
@@ -139,7 +141,8 @@ fn check_decoding(
         Some(name.as_bytes())
     );
 
-    let (type_details, remainder) = IoTypeMetadataKind::type_details(metadata).unwrap();
+    let (type_details, remainder) =
+        IoTypeMetadataKind::type_details::<MAX_DEPTH>(metadata).unwrap();
     assert!(remainder.is_empty());
     assert_eq!(
         usize::try_from(type_details.recommended_capacity).unwrap(),
@@ -152,7 +155,7 @@ fn check_decoding(
 
     // Compact metadata is valid metadata of the same shape
     let (compact_type_details, remainder) =
-        IoTypeMetadataKind::type_details(&compact_metadata).unwrap();
+        IoTypeMetadataKind::type_details::<MAX_DEPTH>(&compact_metadata).unwrap();
     assert!(remainder.is_empty());
     assert_eq!(
         compact_type_details.recommended_capacity,
@@ -165,21 +168,22 @@ fn check_decoding(
     for length in 0..metadata.len() {
         let truncated = &metadata[..length];
 
-        assert!(IoTypeMetadataKind::type_details(truncated).is_none());
-        assert!(IoTypeMetadataKind::compact(truncated, &mut compact_buffer).is_none());
+        assert!(IoTypeMetadataKind::type_details::<MAX_DEPTH>(truncated).is_none());
+        assert!(IoTypeMetadataKind::compact::<MAX_DEPTH>(truncated, &mut compact_buffer).is_none());
     }
 }
 
 /// Check that metadata doesn't decode
 #[track_caller]
 fn check_rejected(metadata: &[u8]) {
-    assert!(IoTypeMetadataKind::type_details(metadata).is_none());
+    assert!(IoTypeMetadataKind::type_details::<MAX_DEPTH>(metadata).is_none());
 }
 
 /// Check that metadata decodes completely into the given capacity and alignment
 #[track_caller]
 fn check_layout(metadata: &[u8], capacity: u32, alignment: u8) {
-    let (type_details, remainder) = IoTypeMetadataKind::type_details(metadata).unwrap();
+    let (type_details, remainder) =
+        IoTypeMetadataKind::type_details::<MAX_DEPTH>(metadata).unwrap();
     assert!(remainder.is_empty());
     assert_eq!(type_details.recommended_capacity, capacity);
     assert_eq!(type_details.alignment.get(), alignment);
@@ -1705,3 +1709,251 @@ fn capacity_overflow_is_rejected() {
             .0,
     );
 }
+
+/// Check whether all decoders accept valid metadata with max nesting depth `DEPTH`, they must
+/// agree with each other, and compact metadata must decode too
+#[track_caller]
+fn decodes<const DEPTH: usize>(metadata: &[u8]) -> bool {
+    let type_details = IoTypeMetadataKind::type_details::<DEPTH>(metadata)
+        .is_some_and(|(_type_details, remainder)| remainder.is_empty());
+
+    let mut compact = vec![0; metadata.len()];
+    let compact_length = IoTypeMetadataKind::compact::<DEPTH>(metadata, &mut compact).map(
+        |(remainder, compact_remainder)| {
+            assert!(remainder.is_empty());
+            metadata.len() - compact_remainder.len()
+        },
+    );
+    if let Some(compact_length) = compact_length {
+        assert!(IoTypeMetadataKind::type_details::<DEPTH>(&compact[..compact_length]).is_some());
+    }
+
+    assert_eq!(compact_length.is_some(), type_details);
+    type_details
+}
+
+/// `Unaligned` that contains the given type
+fn unaligned_of(inner: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::Unaligned).nested(inner)
+}
+
+/// An array with one element of the given type
+fn array_of(inner: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::Array)
+        .u32(1)
+        .nested(inner)
+}
+
+/// `FixedCapacityElements` with capacity for one element of the given type
+fn fixed_capacity_elements_of(inner: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(1)
+        .nested(inner)
+}
+
+/// A struct with a named field of the given type
+fn named_struct_of(inner: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::Struct)
+        .name("Named")
+        .byte(1)
+        .name("inner")
+        .nested(inner)
+}
+
+/// A tuple struct with a field of the given type followed by a `u8` field
+fn tuple_struct_of(inner: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::Struct)
+        .name("Tuple")
+        .byte(2)
+        .name("")
+        .nested(inner)
+        .name("")
+        .kind(IoTypeMetadataKind::U8)
+}
+
+/// An enum with a variant with a field of the given type
+fn enum_of(inner: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::Enum)
+        .name("Enum")
+        .byte(1)
+        .name("A")
+        .byte(1)
+        .name("inner")
+        .nested(inner)
+}
+
+/// An enum with a variant with `u8` fields and a variant with a field of the given type, the `u8`
+/// fields pad the first variant to the capacity of the second one
+fn padded_enum_of(inner: &Expected) -> Expected {
+    let (inner_details, _remainder) =
+        IoTypeMetadataKind::type_details::<MAX_DEPTH>(&inner.0).unwrap();
+    let padding = u8::try_from(inner_details.recommended_capacity).unwrap();
+    let mut metadata = Expected::new(IoTypeMetadataKind::Enum)
+        .name("Enum")
+        .byte(2)
+        .name("A")
+        .byte(padding);
+    for _ in 0..padding {
+        metadata = metadata.name("").kind(IoTypeMetadataKind::U8);
+    }
+    metadata.name("B").byte(1).name("").nested(inner)
+}
+
+/// Compound types that contain the given type, each of them adds one level of nesting depth,
+/// variants of enums don't
+fn compound_types() -> [fn(&Expected) -> Expected; 7] {
+    [
+        unaligned_of,
+        array_of,
+        fixed_capacity_elements_of,
+        named_struct_of,
+        tuple_struct_of,
+        enum_of,
+        padded_enum_of,
+    ]
+}
+
+#[test]
+fn nesting_depth() {
+    let unit_struct = Expected::new(IoTypeMetadataKind::Struct)
+        .name("Unit")
+        .byte(0);
+    let fieldless_enum = Expected::new(IoTypeMetadataKind::Enum)
+        .name("Enum")
+        .byte(2)
+        .name("A")
+        .byte(0)
+        .name("B")
+        .byte(0);
+
+    // Primitive types and `FixedCapacityString` don't contain other types
+    for metadata in [
+        Expected::new(IoTypeMetadataKind::U8),
+        Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(4),
+    ] {
+        assert!(decodes::<0>(&metadata.0));
+    }
+
+    // Compound types add one level of nesting depth, even when they don't contain other types
+    for metadata in [&unit_struct, &u8_array(4), &fieldless_enum] {
+        assert!(!decodes::<0>(&metadata.0));
+        assert!(decodes::<1>(&metadata.0));
+    }
+
+    for compound_type in compound_types() {
+        let metadata = compound_type(&u8_array(4));
+        assert!(!decodes::<1>(&metadata.0));
+        assert!(decodes::<2>(&metadata.0));
+    }
+}
+
+#[test]
+fn nesting_depth_limit() {
+    let compound_types = compound_types();
+
+    // Each compound type on its own
+    for compound_type in compound_types {
+        let mut metadata = Expected::new(IoTypeMetadataKind::U8);
+        for _ in 0..MAX_DEPTH {
+            metadata = compound_type(&metadata);
+        }
+        assert!(decodes::<MAX_DEPTH>(&metadata.0));
+        assert!(!decodes::<MAX_DEPTH>(&compound_type(&metadata).0));
+    }
+
+    // All of them interleaved
+    let mut metadata = Expected::new(IoTypeMetadataKind::U8);
+    for level in 0..MAX_DEPTH {
+        metadata = compound_types[level % compound_types.len()](&metadata);
+    }
+    assert!(decodes::<MAX_DEPTH>(&metadata.0));
+    let too_deep = compound_types[MAX_DEPTH % compound_types.len()](&metadata);
+    assert!(!decodes::<MAX_DEPTH>(&too_deep.0));
+
+    // A struct without fields is one level deep
+    let mut metadata = Expected::new(IoTypeMetadataKind::Struct)
+        .name("Unit")
+        .byte(0);
+    for level in 1..MAX_DEPTH {
+        metadata = compound_types[level % compound_types.len()](&metadata);
+    }
+    assert!(decodes::<MAX_DEPTH>(&metadata.0));
+    assert!(!decodes::<MAX_DEPTH>(&unaligned_of(&metadata).0));
+}
+
+#[test]
+fn derived_types_nested_deeply() {
+    /// Declares tuple structs nested in each other, the first one contains `$inner`
+    macro_rules! nested_structs {
+        ($inner:ty, $name:ident $(, $rest:ident )*) => {
+            #[derive(Copy, Clone, TrivialType)]
+            #[repr(C)]
+            struct $name($inner);
+
+            nested_structs!($name $(, $rest )*);
+        };
+        ($inner:ty) => {};
+    }
+
+    // Derived `TrivialType` checks during compilation that metadata decodes with the length of
+    // metadata as the max nesting depth, so the derive doesn't limit the nesting depth itself
+    nested_structs!(
+        u8, L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, L19,
+        L20, L21, L22, L23, L24, L25, L26, L27, L28, L29, L30, L31, L32, L33, L34, L35, L36, L37,
+        L38, L39, L40, L41, L42, L43, L44, L45, L46, L47, L48, L49, L50, L51, L52, L53, L54, L55,
+        L56, L57, L58, L59, L60, L61, L62, L63, L64
+    );
+
+    assert!(decodes::<64>(L64::METADATA));
+    assert!(!decodes::<63>(L64::METADATA));
+}
+
+#[test]
+fn deeply_nested_metadata_is_rejected() {
+    // Decoders must reject crafted metadata nested too deep without running out of stack
+    let mut metadata = vec![IoTypeMetadataKind::Unaligned as u8; 10_000];
+    metadata.push(IoTypeMetadataKind::U8 as u8);
+
+    // Stack usage of decoders doesn't depend on metadata, so a small stack is enough
+    std::thread::scope(|scope| {
+        let small_stack_thread = std::thread::Builder::new()
+            .stack_size(64 * 1024)
+            .spawn_scoped(scope, || decodes::<MAX_DEPTH>(&metadata))
+            .unwrap();
+        assert!(!small_stack_thread.join().unwrap());
+    });
+
+    // Metadata decodes with a large enough max depth
+    assert!(!decodes::<9_999>(&metadata));
+    assert!(decodes::<10_000>(&metadata));
+}
+
+/// Metadata of tuple structs with a single field nested in each other around `u8`
+const fn nested_structs_metadata<const LENGTH: usize>() -> [u8; LENGTH] {
+    let mut metadata = [IoTypeMetadataKind::U8 as u8; LENGTH];
+    let mut offset = 0;
+    while offset + 4 < LENGTH {
+        metadata[offset] = IoTypeMetadataKind::Struct as u8;
+        // Zero-length struct name
+        metadata[offset + 1] = 0;
+        // Number of fields
+        metadata[offset + 2] = 1;
+        // Zero-length field name
+        metadata[offset + 3] = 0;
+        offset += 4;
+    }
+    metadata
+}
+
+/// 100 nested structs
+const NESTED_STRUCTS: [u8; 401] = nested_structs_metadata();
+
+// Decoders don't use recursion, so the depth of metadata decoded during constant evaluation is not
+// limited by the max number of stack frames of the compiler
+const _: () = {
+    assert!(IoTypeMetadataKind::type_details::<100>(&NESTED_STRUCTS).is_some());
+    assert!(IoTypeMetadataKind::type_details::<99>(&NESTED_STRUCTS).is_none());
+    let mut compact = [0; NESTED_STRUCTS.len()];
+    assert!(IoTypeMetadataKind::compact::<100>(&NESTED_STRUCTS, &mut compact).is_some());
+    assert!(IoTypeMetadataKind::compact::<99>(&NESTED_STRUCTS, &mut compact).is_none());
+};

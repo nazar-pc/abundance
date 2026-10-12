@@ -1,4 +1,4 @@
-use crate::metadata::ContractMetadataKind;
+use crate::metadata::{ContractMetadataKind, MAX_METADATA_DEPTH};
 use ab_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
 
 #[inline(always)]
@@ -36,11 +36,11 @@ const fn compact_metadata_inner<'i, 'o>(
             *output.split_off_first_mut()? = *input.split_off_first()?;
 
             // Compact contract state type
-            (input, output) = IoTypeMetadataKind::compact(input, output)?;
+            (input, output) = IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(input, output)?;
             // Compact contract `#[slot]` type
-            (input, output) = IoTypeMetadataKind::compact(input, output)?;
+            (input, output) = IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(input, output)?;
             // Compact contract `#[tmp]` type
-            (input, output) = IoTypeMetadataKind::compact(input, output)?;
+            (input, output) = IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(input, output)?;
 
             let mut num_methods = *input.split_off_first()?;
             *output.split_off_first_mut()? = num_methods;
@@ -258,7 +258,7 @@ const fn compact_method_argument<'i, 'o>(
             );
             if !skip_argument_type {
                 // Compact argument type
-                (input, output) = IoTypeMetadataKind::compact(input, output)?;
+                (input, output) = IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(input, output)?;
             }
         }
     }

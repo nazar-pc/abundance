@@ -1,5 +1,6 @@
 use proc_macro2::{Ident, Literal, TokenStream};
-use quote::quote;
+use quote::{quote, quote_spanned};
+use syn::spanned::Spanned;
 use syn::{Error, Type};
 
 pub(super) fn extract_ident_from_type(ty: &Type) -> Option<&Ident> {
@@ -27,4 +28,18 @@ pub(super) fn derive_ident_metadata(ident: &Ident) -> Result<TokenStream, Error>
     Ok(quote! {
         &[#ident_bytes_len], #ident_bytes
     })
+}
+
+/// Assertion that metadata of a type decodes with `MAX_METADATA_DEPTH` as the max nesting depth,
+/// like contracts decode it
+pub(super) fn max_depth_assertion(type_name: &Type, error_message: &str) -> TokenStream {
+    quote_spanned! {type_name.span() =>
+        assert!(
+            ::ab_contracts_macros::__private::IoTypeMetadataKind::type_details::<{
+                ::ab_contracts_macros::__private::MAX_METADATA_DEPTH
+            }>(<#type_name as ::ab_contracts_macros::__private::IoType>::METADATA)
+            .is_some(),
+            #error_message
+        );
+    }
 }

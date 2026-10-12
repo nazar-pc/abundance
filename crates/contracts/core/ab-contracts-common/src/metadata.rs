@@ -6,6 +6,9 @@ mod tests;
 use crate::metadata::compact::compact_metadata;
 use ab_io_type::metadata::MAX_METADATA_CAPACITY;
 
+/// Maximum nesting depth of I/O type metadata in contracts
+pub const MAX_METADATA_DEPTH: usize = 32;
+
 /// Metadata for smart contact methods.
 ///
 /// Metadata encoding consists of this enum variant treated as `u8` followed by optional metadata
@@ -188,7 +191,8 @@ impl ContractMetadataKind {
     ///
     /// [`MethodFingerprint`]: crate::method::MethodFingerprint
     ///
-    /// Returns `None` if the input is invalid or too long.
+    /// Returns `None` if the input is invalid, too long or nested deeper than
+    /// [`MAX_METADATA_DEPTH`].
     pub const fn compact(metadata: &[u8]) -> Option<([u8; MAX_METADATA_CAPACITY], usize)> {
         compact_metadata(metadata, false)
     }
@@ -202,7 +206,8 @@ impl ContractMetadataKind {
     ///
     /// [`MethodFingerprint`]: crate::method::MethodFingerprint
     ///
-    /// Returns `None` if the input is invalid or too long.
+    /// Returns `None` if the input is invalid, too long or nested deeper than
+    /// [`MAX_METADATA_DEPTH`].
     pub const fn compact_external_args(
         metadata: &[u8],
     ) -> Option<([u8; MAX_METADATA_CAPACITY], usize)> {

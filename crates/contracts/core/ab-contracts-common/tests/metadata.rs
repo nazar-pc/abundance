@@ -1,7 +1,8 @@
 //! Tests of contract metadata and of metadata of types used by contracts
 
 use ab_contracts_common::env::{EnvState, MethodContext};
-use ab_contracts_common::metadata::ContractMetadataKind;
+use ab_contracts_common::metadata::decode::{ArgumentKind, MetadataDecoder, MetadataDecodingError};
+use ab_contracts_common::metadata::{ContractMetadataKind, MAX_METADATA_DEPTH};
 use ab_contracts_common::method::MethodFingerprint;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::balance::Balance;
@@ -19,12 +20,12 @@ where
 {
     let mut compact = [0; MAX_METADATA_CAPACITY];
     let (remainder, compact_remainder) =
-        IoTypeMetadataKind::compact(T::METADATA, &mut compact).unwrap();
+        IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(T::METADATA, &mut compact).unwrap();
     assert!(remainder.is_empty());
     let compact_length = MAX_METADATA_CAPACITY - compact_remainder.len();
 
     let (type_details, remainder) =
-        IoTypeMetadataKind::type_details(&compact[..compact_length]).unwrap();
+        IoTypeMetadataKind::type_details::<MAX_METADATA_DEPTH>(&compact[..compact_length]).unwrap();
     assert!(remainder.is_empty());
     assert_eq!(
         usize::try_from(type_details.recommended_capacity).unwrap(),
@@ -187,4 +188,64 @@ fn methods_must_not_be_contracts_or_traits() {
         assert!(compact(&nested).is_none());
         assert!(compact_external_args(&nested).is_none());
     }
+}
+
+/// Metadata of `depth` `Unaligned` nested in each other around `u8`
+fn nested_unaligned(depth: usize) -> Vec<u8> {
+    let mut metadata = vec![IoTypeMetadataKind::Unaligned as u8; depth];
+    metadata.push(IoTypeMetadataKind::U8 as u8);
+    metadata
+}
+
+/// Metadata of a method with `#[input] value` of a type nested `depth` levels deep
+fn method_with_nested_input(depth: usize) -> Vec<u8> {
+    [
+        &[ContractMetadataKind::ViewStateless as u8, 6][..],
+        b"method",
+        &[1, ContractMetadataKind::Input as u8, 5],
+        b"value",
+        &nested_unaligned(depth),
+    ]
+    .concat()
+}
+
+/// Decode the first argument of the first method of contract metadata with [`MetadataDecoder`]
+fn decode_first_argument(metadata: &[u8]) -> Result<(), MetadataDecodingError<'_>> {
+    let mut decoder = MetadataDecoder::new(metadata);
+    let item = decoder.decode_next().unwrap()?;
+    let mut methods_decoder = item.into_decoder();
+    let (mut arguments_decoder, _method) = methods_decoder.decode_next().unwrap().decode_next()?;
+    arguments_decoder.decode_next().unwrap().map(|_argument| ())
+}
+
+#[test]
+fn io_types_nested_too_deep_are_rejected() {
+    let method_at_limit = method_with_nested_input(MAX_METADATA_DEPTH);
+    let method_too_deep = method_with_nested_input(MAX_METADATA_DEPTH + 1);
+    assert!(compact(&method_at_limit).is_some());
+    assert!(compact_external_args(&method_at_limit).is_some());
+    assert!(MethodFingerprint::new(&method_at_limit).is_some());
+    assert!(compact(&method_too_deep).is_none());
+    assert!(compact_external_args(&method_too_deep).is_none());
+    assert!(MethodFingerprint::new(&method_too_deep).is_none());
+
+    let state_at_limit = nested_unaligned(MAX_METADATA_DEPTH);
+    let state_too_deep = nested_unaligned(MAX_METADATA_DEPTH + 1);
+    let contract_at_limit = contract_with_method(&state_at_limit, &method_at_limit);
+    assert!(compact(&contract_at_limit).is_some());
+    assert!(compact(&contract_with_method(&state_too_deep, &method_at_limit)).is_none());
+    assert!(compact(&contract_with_method(&state_at_limit, &method_too_deep)).is_none());
+
+    decode_first_argument(&contract_at_limit).unwrap();
+    assert!(matches!(
+        decode_first_argument(&contract_with_method(&state_too_deep, &method_at_limit)),
+        Err(MetadataDecodingError::InvalidStateIoType)
+    ));
+    assert!(matches!(
+        decode_first_argument(&contract_with_method(&state_at_limit, &method_too_deep)),
+        Err(MetadataDecodingError::InvalidArgumentIoType {
+            argument_name: b"value",
+            argument_kind: ArgumentKind::Input,
+        })
+    ));
 }

@@ -1,4 +1,5 @@
 mod compact;
+mod stack;
 #[cfg(test)]
 mod tests;
 mod type_details;
@@ -214,13 +215,16 @@ impl IoTypeMetadataKind {
     /// the data structure to be processed, the remainder of input and output are returned to the
     /// caller.
     ///
-    /// Unexpected metadata kind results in `None` being returned.
+    /// `None` is returned for an unexpected metadata kind, metadata nested deeper than `MAX_DEPTH`
+    /// (see [`Self::type_details()`]), truncated metadata and `output` that is too small for
+    /// compact metadata. Metadata is not validated otherwise, [`Self::type_details()`] does
+    /// that.
     #[inline]
-    pub const fn compact<'i, 'o>(
+    pub const fn compact<'i, 'o, const MAX_DEPTH: usize>(
         input: &'i [u8],
         output: &'o mut [u8],
     ) -> Option<(&'i [u8], &'o mut [u8])> {
-        compact_metadata(input, output)
+        compact_metadata::<MAX_DEPTH>(input, output)
     }
 
     // TODO: Create wrapper type for metadata bytes and move this method there
@@ -238,10 +242,18 @@ impl IoTypeMetadataKind {
     /// If actual data is larger, it will be passed down to the guest as it is, if smaller than host
     /// should allocate recommended capacity for guest anyway.
     ///
-    /// Returns type details and whatever slice of bytes from `input` that is left after
-    /// type decoding.
+    /// Returns type details and whatever slice of bytes from `metadata` that is left after
+    /// type decoding. Invalid metadata and metadata nested deeper than `MAX_DEPTH` result in `None`
+    /// being returned.
+    ///
+    /// `MAX_DEPTH` is the max nesting depth of compound types (structs, enums, arrays,
+    /// `VariableElements`, `FixedCapacityElements` and `Unaligned`), like 2 for
+    /// `Unaligned<[u8; 4]>`. Variants of an enum don't count, only types of their fields do. There
+    /// is no recursion, so stack usage grows with `MAX_DEPTH`, but doesn't depend on metadata.
     #[inline]
-    pub const fn type_details(metadata: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
-        decode_type_details(metadata)
+    pub const fn type_details<const MAX_DEPTH: usize>(
+        metadata: &[u8],
+    ) -> Option<(IoTypeDetails, &[u8])> {
+        decode_type_details::<MAX_DEPTH>(metadata)
     }
 }

@@ -92,9 +92,12 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     );
 
                     // Ensure metadata decodes completely, and capacity and alignment are correctly
-                    // decoded from it
+                    // decoded from it. Every level of nesting takes at least one byte of metadata,
+                    // so its length is enough as the max nesting depth.
                     let (type_details, remaining_metadata) =
-                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details(
+                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details::<{
+                            <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA.len()
+                        }>(
                             <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
                             .expect("Statically correct metadata; qed");
@@ -168,9 +171,12 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     );
 
                     // Ensure metadata decodes completely, and capacity and alignment are correctly
-                    // decoded from it
+                    // decoded from it. Every level of nesting takes at least one byte of metadata,
+                    // so its length is enough as the max nesting depth.
                     let (type_details, remaining_metadata) =
-                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details(
+                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details::<{
+                            <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA.len()
+                        }>(
                             <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
                             .expect("Statically correct metadata; qed");
