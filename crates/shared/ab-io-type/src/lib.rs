@@ -38,11 +38,11 @@
 //! readable way.
 //!
 //! The metadata contains both the memory layout and the names of data structures and fields.
-//! Metadata can also be compressed into an equivalent layout without field names to shrink the size
-//! of the metadata further when human readability is not necessary. Compressed metadata can also
-//! be hashed to get a "fingerprint" of the data structure, which may be used to distinguish a
-//! compatible FFI interface from an incompatible one based on the data layout, not just the number
-//! of bytes.
+//! Metadata can also be compressed into an equivalent layout without names and with newtypes
+//! replaced by the types they wrap to shrink the size of the metadata further when human
+//! readability is not necessary. Compressed metadata can also be hashed to get a "fingerprint" of
+//! the data structure, which may be used to distinguish a compatible FFI interface from an
+//! incompatible one based on the data layout, not just the number of bytes.
 //!
 //! ## Overall
 //!

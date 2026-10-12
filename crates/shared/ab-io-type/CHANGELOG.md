@@ -13,7 +13,9 @@ Breaking changes:
 * `IoTypeMetadataKind::type_details()` and `IoTypeMetadataKind::compact()` take the max nesting depth as a const generic
   parameter and return `None` for deeper metadata, their stack usage doesn't depend on metadata
 * `IoTypeMetadataKind::compact()` replaces names with zero-length names, so it produces valid metadata with the same
-  capacity and alignment, previously it didn't for structs with more than 10 named fields and enums with fields
+  capacity and alignment, previously it didn't for structs with more than 10 named fields and enums with fields. It also
+  replaces structs with a single field with the type of the field and structs without fields with `()`, so a newtype has
+  the same compact metadata as the type it wraps
 
 Improvements:
 

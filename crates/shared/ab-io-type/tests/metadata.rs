@@ -269,6 +269,10 @@ fn u8_struct(name: &str, field_count: u8, named: bool) -> (Expected, Expected) {
             .kind(IoTypeMetadataKind::U8);
         expected_compact = expected_compact.name("").kind(IoTypeMetadataKind::U8);
     }
+    // A struct with a single field compacts into the type of the field
+    if field_count == 1 {
+        expected_compact = Expected::new(IoTypeMetadataKind::U8);
+    }
 
     (expected, expected_compact)
 }
@@ -667,7 +671,8 @@ fn empty_structs() {
     #[repr(C)]
     struct EmptyUnit;
 
-    let expected_compact = Expected::new(IoTypeMetadataKind::Struct).name("").byte(0);
+    // Structs without fields have the same capacity and alignment as `()`, which they compact into
+    let expected_compact = Expected::new(IoTypeMetadataKind::Unit);
 
     let expected = Expected::new(IoTypeMetadataKind::Struct)
         .name("Empty")
@@ -1045,12 +1050,204 @@ fn structs_with_different_field_types() {
         .byte(1)
         .name("")
         .kind(IoTypeMetadataKind::U32);
+    let expected_compact = Expected::new(IoTypeMetadataKind::U32);
+    check_trivial_type::<Transparent>("Transparent", &expected, &expected_compact);
+}
+
+#[test]
+fn newtypes_compact_into_wrapped_types() {
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct Named {
+        value: u64,
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct Tuple(u64);
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct Outer(Middle);
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(transparent)]
+    struct Middle(Inner);
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct Inner {
+        value: u16,
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct Empty;
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct WrappedEmpty(Empty);
+
+    // The alignment of elements above 4 changes the size of the length of `FixedCapacityElements`
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct Wide(u128);
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct Pair(Tuple, Named);
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    struct PlainPair(u64, u64);
+
+    // Enums are retained even with a single variant with a single field, since the discriminant is
+    // a part of their layout, but types of fields of variants are compacted
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum Single {
+        Value(Unaligned<Tuple>),
+    }
+
+    // A struct with a single field compacts into the type of the field, regardless of names
+    let expected = Expected::new(IoTypeMetadataKind::Struct)
+        .name("Named")
+        .byte(1)
+        .name("value")
+        .kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<Named>("Named", &expected, &Expected::new(IoTypeMetadataKind::U64));
+    let tuple = Expected::new(IoTypeMetadataKind::Struct)
+        .name("Tuple")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<Tuple>("Tuple", &tuple, &Expected::new(IoTypeMetadataKind::U64));
+
+    // Recursively
+    let expected = Expected::new(IoTypeMetadataKind::Struct)
+        .name("Outer")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Struct)
+        .name("Middle")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Struct)
+        .name("Inner")
+        .byte(1)
+        .name("value")
+        .kind(IoTypeMetadataKind::U16);
+    check_trivial_type::<Outer>("Outer", &expected, &Expected::new(IoTypeMetadataKind::U16));
+    let expected = Expected::new(IoTypeMetadataKind::Struct)
+        .name("WrappedEmpty")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Struct)
+        .name("Empty")
+        .byte(0);
+    check_trivial_type::<WrappedEmpty>(
+        "WrappedEmpty",
+        &expected,
+        &Expected::new(IoTypeMetadataKind::Unit),
+    );
+
+    // Contained in other types
+    let expected = Expected::new(IoTypeMetadataKind::Array)
+        .u32(3)
+        .nested(&tuple);
+    let expected_compact = Expected::new(IoTypeMetadataKind::Array)
+        .u32(3)
+        .kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<[Tuple; 3]>("[T; N]", &expected, &expected_compact);
+
+    let expected = Expected::new(IoTypeMetadataKind::Unaligned).nested(&tuple);
+    let expected_compact =
+        Expected::new(IoTypeMetadataKind::Unaligned).kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<Unaligned<Tuple>>("Unaligned", &expected, &expected_compact);
+
+    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(2)
+        .nested(
+            &Expected::new(IoTypeMetadataKind::Struct)
+                .name("Wide")
+                .byte(1)
+                .name("")
+                .kind(IoTypeMetadataKind::U128),
+        );
+    let expected_compact = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+        .u32(2)
+        .kind(IoTypeMetadataKind::U128);
+    check_trivial_type::<FixedCapacityElements<Wide, 2>>(
+        "FixedCapacityElements",
+        &expected,
+        &expected_compact,
+    );
+
+    let expected = Expected::new(IoTypeMetadataKind::VariableElements)
+        .u32(4)
+        .nested(&tuple);
+    let expected_compact = Expected::new(IoTypeMetadataKind::VariableElements)
+        .u32(4)
+        .kind(IoTypeMetadataKind::U64);
+    check_io_type::<VariableElements<Tuple, 4>>(
+        "VariableElements",
+        32,
+        8,
+        &expected,
+        &expected_compact,
+    );
+
+    let expected = Expected::new(IoTypeMetadataKind::Struct)
+        .name("Pair")
+        .byte(2)
+        .name("")
+        .nested(&tuple)
+        .name("")
+        .kind(IoTypeMetadataKind::Struct)
+        .name("Named")
+        .byte(1)
+        .name("value")
+        .kind(IoTypeMetadataKind::U64);
     let expected_compact = Expected::new(IoTypeMetadataKind::Struct)
+        .name("")
+        .byte(2)
+        .name("")
+        .kind(IoTypeMetadataKind::U64)
+        .name("")
+        .kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<Pair>("Pair", &expected, &expected_compact);
+
+    let expected = Expected::new(IoTypeMetadataKind::Enum)
+        .name("Single")
+        .byte(1)
+        .name("Value")
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Unaligned)
+        .nested(&tuple);
+    let expected_compact = Expected::new(IoTypeMetadataKind::Enum)
         .name("")
         .byte(1)
         .name("")
-        .kind(IoTypeMetadataKind::U32);
-    check_trivial_type::<Transparent>("Transparent", &expected, &expected_compact);
+        .byte(1)
+        .name("")
+        .kind(IoTypeMetadataKind::Unaligned)
+        .kind(IoTypeMetadataKind::U64);
+    check_trivial_type::<Single>("Single", &expected, &expected_compact);
+
+    // So newtypes have the same compact metadata as the types they wrap
+    check_same_compact::<Named, u64>();
+    check_same_compact::<Tuple, u64>();
+    check_same_compact::<Outer, u16>();
+    check_same_compact::<Empty, ()>();
+    check_same_compact::<WrappedEmpty, ()>();
+    check_same_compact::<[Tuple; 3], [u64; 3]>();
+    check_same_compact::<Unaligned<Tuple>, Unaligned<u64>>();
+    check_same_compact::<MaybeData<Tuple>, MaybeData<u64>>();
+    check_same_compact::<FixedCapacityElements<Wide, 2>, FixedCapacityElements<u128, 2>>();
+    check_same_compact::<VariableElements<Tuple, 4>, VariableElements<u64, 4>>();
+    check_same_compact::<Pair, PlainPair>();
+    assert_ne!(compact(Pair::METADATA), compact(<[u64; 2]>::METADATA));
 }
 
 #[test]

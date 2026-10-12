@@ -206,10 +206,19 @@ impl IoTypeMetadataKind {
     // TODO: Create wrapper type for metadata bytes and move this method there
     /// Produce compact metadata.
     ///
-    /// Compact metadata retains the shape, but throws some details. Specifically, names of structs,
-    /// fields, enums and enum variants are replaced with zero-length names, so a struct with named
-    /// fields has the same compact metadata as a tuple struct with fields of the same types.
-    /// Compact metadata of valid metadata is valid metadata too.
+    /// Compact metadata retains the layout, but throws some details. Specifically:
+    /// * Names of structs, fields, enums and enum variants are replaced with zero-length names, so
+    ///   a struct with named fields has the same compact metadata as a tuple struct with fields of
+    ///   the same types
+    /// * A struct with a single field is replaced with compact metadata of the type of the field
+    ///   and a struct without fields with `()`, so a newtype like `struct Wrapper(u64);` has the
+    ///   same compact metadata as `u64`, also when contained in other types
+    ///
+    /// Enums are retained, even with a single variant or a single field, since the discriminant is
+    /// a part of their layout.
+    ///
+    /// Compact metadata of valid metadata is valid metadata too, it decodes into the same capacity
+    /// and alignment (see [`Self::type_details()`]), and compacting it again doesn't change it.
     ///
     /// This is typically called by higher-level functions and doesn't need to be used directly.
     ///

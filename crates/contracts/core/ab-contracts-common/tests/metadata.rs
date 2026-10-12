@@ -12,9 +12,8 @@ use ab_core_primitives::transaction::{Gas, TransactionHeader, TransactionSlot};
 use ab_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
 use ab_io_type::trivial_type::TrivialType;
 
-/// Check that compact metadata of `T` decodes into the size and alignment of `T`
-#[track_caller]
-fn check_compact_metadata<T>()
+/// Compact metadata of `T`
+fn compact_type<T>() -> Vec<u8>
 where
     T: TrivialType,
 {
@@ -23,9 +22,18 @@ where
         IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(T::METADATA, &mut compact).unwrap();
     assert!(remainder.is_empty());
     let compact_length = MAX_METADATA_CAPACITY - compact_remainder.len();
+    compact[..compact_length].to_vec()
+}
 
+/// Check that compact metadata of `T` decodes into the size and alignment of `T`
+#[track_caller]
+fn check_compact_metadata<T>()
+where
+    T: TrivialType,
+{
+    let compact = compact_type::<T>();
     let (type_details, remainder) =
-        IoTypeMetadataKind::type_details::<MAX_METADATA_DEPTH>(&compact[..compact_length]).unwrap();
+        IoTypeMetadataKind::type_details::<MAX_METADATA_DEPTH>(&compact).unwrap();
     assert!(remainder.is_empty());
     assert_eq!(
         usize::try_from(type_details.recommended_capacity).unwrap(),
@@ -47,6 +55,28 @@ fn compact_metadata_decodes() {
     check_compact_metadata::<ShardIndex>();
     check_compact_metadata::<TransactionHeader>();
     check_compact_metadata::<TransactionSlot>();
+}
+
+#[test]
+fn newtypes_compact_into_wrapped_types() {
+    // Structs with a single field compact into the type of the field, recursively
+    assert_eq!(compact_type::<BlockNumber>(), compact_type::<u64>());
+    assert_eq!(compact_type::<Gas>(), compact_type::<u64>());
+    assert_eq!(compact_type::<ShardIndex>(), compact_type::<u32>());
+    assert_eq!(compact_type::<BlockRoot>(), compact_type::<[u8; 32]>());
+    assert_eq!(
+        compact_type::<MethodFingerprint>(),
+        compact_type::<[u8; 32]>()
+    );
+    assert_eq!(
+        compact_type::<[BlockNumber; 2]>(),
+        compact_type::<[u64; 2]>()
+    );
+
+    // Structs with more fields are retained, so `Address` (two `u64`) differs from `u128`, but has
+    // the same compact metadata as `Balance`
+    assert_eq!(compact_type::<Address>(), compact_type::<Balance>());
+    assert_ne!(compact_type::<Address>(), compact_type::<u128>());
 }
 
 /// Metadata of a method of `kind` named `method` with a single `#[input] value: u8` argument and

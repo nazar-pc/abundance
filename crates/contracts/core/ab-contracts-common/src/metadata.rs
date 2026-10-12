@@ -182,13 +182,18 @@ impl ContractMetadataKind {
     /// transformations are applied to metadata (crucially, method names are retained!):
     /// * Struct, field, trait, enum, and enum variant names removed (replaced with 0 bytes names),
     ///   so structs with named fields are the same as tuple structs
+    /// * Structs with a single field replaced with the type of the field and structs without fields
+    ///   with `()` (see [`IoTypeMetadataKind::compact()`]), so newtypes are the same as the types
+    ///   they wrap
     /// * Method argument names removed
     ///
-    /// This means that two methods with different argument names or struct field names, but the
-    /// same shape otherwise are considered identical, allowing for limited future refactoring
-    /// opportunities without changing compact metadata shape, which is important for
-    /// [`MethodFingerprint`] (though [`Self::compact_external_args()`] is used by it internally).
+    /// This means that two methods with different argument names, struct field names or newtypes
+    /// (like `BlockNumber` instead of `u64`), but the same shape otherwise are considered
+    /// identical, allowing for limited future refactoring opportunities without changing compact
+    /// metadata shape, which is important for [`MethodFingerprint`] (though
+    /// [`Self::compact_external_args()`] is used by it internally).
     ///
+    /// [`IoTypeMetadataKind::compact()`]: ab_io_type::metadata::IoTypeMetadataKind::compact
     /// [`MethodFingerprint`]: crate::method::MethodFingerprint
     ///
     /// Returns `None` if the input is invalid, too long or nested deeper than

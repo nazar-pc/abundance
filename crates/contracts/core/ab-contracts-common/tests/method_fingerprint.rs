@@ -4,6 +4,8 @@
 
 use ab_contracts_common::metadata::ContractMetadataKind;
 use ab_contracts_common::method::MethodFingerprint;
+use ab_core_primitives::address::Address;
+use ab_core_primitives::block::BlockNumber;
 use ab_io_type::trivial_type::TrivialType;
 
 #[derive(Copy, Clone, TrivialType)]
@@ -16,6 +18,10 @@ struct Named {
 #[derive(Copy, Clone, TrivialType)]
 #[repr(C)]
 struct Tuple(u8, [u8; 2]);
+
+#[derive(Copy, Clone, TrivialType)]
+#[repr(C)]
+struct Wrapper(Named);
 
 #[derive(Copy, Clone, TrivialType)]
 #[repr(u8)]
@@ -78,5 +84,32 @@ fn named_and_tuple_forms_have_same_fingerprint() {
     assert_ne!(
         fingerprint::<Named>("method", "named"),
         fingerprint::<[Named; 3]>("method", "named")
+    );
+}
+
+#[test]
+fn newtypes_have_same_fingerprint_as_wrapped_types() {
+    // Structs with a single field are replaced with the type of the field
+    assert_eq!(
+        fingerprint::<Wrapper>("method", "wrapper"),
+        fingerprint::<Named>("method", "named")
+    );
+    assert_eq!(
+        fingerprint::<BlockNumber>("method", "number"),
+        fingerprint::<u64>("method", "number")
+    );
+    assert_eq!(
+        fingerprint::<[BlockNumber; 3]>("method", "numbers"),
+        fingerprint::<[u64; 3]>("method", "numbers")
+    );
+
+    // Structs with more fields and enums are not
+    assert_ne!(
+        fingerprint::<Address>("method", "address"),
+        fingerprint::<u128>("method", "address")
+    );
+    assert_ne!(
+        fingerprint::<EnumOfNamed>("method", "named"),
+        fingerprint::<Named>("method", "named")
     );
 }
