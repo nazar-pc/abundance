@@ -19,7 +19,16 @@ enum PaddedEnum {
     B { c: u16 },
 }
 
+// The same padding in a tuple variant
+#[derive(Copy, Clone, TrivialType)]
+#[repr(u8)]
+enum PaddedTupleEnum {
+    A(u8, u8),
+    B(u16),
+}
+
 fn main() {
     let _ = PaddedStruct { a: 1, b: 2 }.as_bytes();
     let _ = PaddedEnum::A { a: 1, b: 2 }.as_bytes();
+    let _ = PaddedTupleEnum::A(1, 2).as_bytes();
 }

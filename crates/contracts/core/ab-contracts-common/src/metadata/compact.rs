@@ -1,4 +1,4 @@
-use crate::metadata::ContractMetadataKind;
+use crate::metadata::{ContractMetadataKind, MAX_METADATA_DEPTH};
 use ab_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
 
 #[inline(always)]
@@ -29,34 +29,31 @@ const fn compact_metadata_inner<'i, 'o>(
     mut output: &'o mut [u8],
     for_external_args: bool,
 ) -> Option<(&'i [u8], &'o mut [u8])> {
-    let contract_metadata_kind_input = *input.split_off_first()?;
-    let contract_metadata_kind_output = output.split_off_first_mut()?;
-    let contract_metadata_kind =
-        ContractMetadataKind::try_from(contract_metadata_kind_input).ok()?;
+    let contract_metadata_kind = ContractMetadataKind::try_from(*input.first()?).ok()?;
 
     match contract_metadata_kind {
         ContractMetadataKind::Contract => {
-            *contract_metadata_kind_output = contract_metadata_kind_input;
+            *output.split_off_first_mut()? = *input.split_off_first()?;
 
             // Compact contract state type
-            (input, output) = IoTypeMetadataKind::compact(input, output)?;
+            (input, output) = IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(input, output)?;
             // Compact contract `#[slot]` type
-            (input, output) = IoTypeMetadataKind::compact(input, output)?;
+            (input, output) = IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(input, output)?;
             // Compact contract `#[tmp]` type
-            (input, output) = IoTypeMetadataKind::compact(input, output)?;
+            (input, output) = IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(input, output)?;
 
             let mut num_methods = *input.split_off_first()?;
             *output.split_off_first_mut()? = num_methods;
 
             // Compact methods
             while num_methods > 0 {
-                (input, output) = compact_metadata_inner(input, output, for_external_args)?;
+                (input, output) = compact_method(input, output, for_external_args)?;
 
                 num_methods -= 1;
             }
         }
         ContractMetadataKind::Trait => {
-            *contract_metadata_kind_output = contract_metadata_kind_input;
+            *output.split_off_first_mut()? = *input.split_off_first()?;
 
             // Remove trait name
             let trait_name_length = *input.split_off_first()?;
@@ -69,7 +66,7 @@ const fn compact_metadata_inner<'i, 'o>(
 
             // Compact methods
             while num_methods > 0 {
-                (input, output) = compact_metadata_inner(input, output, for_external_args)?;
+                (input, output) = compact_method(input, output, for_external_args)?;
 
                 num_methods -= 1;
             }
@@ -80,51 +77,7 @@ const fn compact_metadata_inner<'i, 'o>(
         | ContractMetadataKind::UpdateStatefulRw
         | ContractMetadataKind::ViewStateless
         | ContractMetadataKind::ViewStateful => {
-            *contract_metadata_kind_output = match contract_metadata_kind {
-                ContractMetadataKind::Init => contract_metadata_kind_input,
-                ContractMetadataKind::UpdateStateless
-                | ContractMetadataKind::UpdateStatefulRo
-                | ContractMetadataKind::UpdateStatefulRw => {
-                    if for_external_args {
-                        // For `ExternalArgs` the kind of `#[update]` doesn't matter
-                        ContractMetadataKind::UpdateStateless as u8
-                    } else {
-                        contract_metadata_kind_input
-                    }
-                }
-                ContractMetadataKind::ViewStateless | ContractMetadataKind::ViewStateful => {
-                    if for_external_args {
-                        // For `ExternalArgs` the kind of `#[view]` doesn't matter
-                        ContractMetadataKind::ViewStateless as u8
-                    } else {
-                        contract_metadata_kind_input
-                    }
-                }
-                _ => {
-                    // Just matched above
-                    unreachable!();
-                }
-            };
-
-            // Copy method name
-            let method_name_length = *input.first()?;
-            (input, output) = copy_n_bytes(input, output, 1 + usize::from(method_name_length))?;
-
-            let mut num_arguments = *input.split_off_first()?;
-            *output.split_off_first_mut()? = num_arguments;
-
-            // Compact arguments
-            while num_arguments > 0 {
-                num_arguments -= 1;
-
-                (input, output) = compact_method_argument(
-                    input,
-                    output,
-                    contract_metadata_kind,
-                    num_arguments == 0,
-                    for_external_args,
-                )?;
-            }
+            (input, output) = compact_method(input, output, for_external_args)?;
         }
         ContractMetadataKind::EnvRo
         | ContractMetadataKind::EnvRw
@@ -138,6 +91,78 @@ const fn compact_metadata_inner<'i, 'o>(
             // Can't start with an argument
             return None;
         }
+    }
+
+    Some((input, output))
+}
+
+/// Compact a method, methods of contracts and traits are compacted with this function rather than
+/// with [`compact_metadata_inner()`], so they can't be contracts or traits themselves
+#[inline(always)]
+const fn compact_method<'i, 'o>(
+    mut input: &'i [u8],
+    mut output: &'o mut [u8],
+    for_external_args: bool,
+) -> Option<(&'i [u8], &'o mut [u8])> {
+    let contract_metadata_kind_input = *input.split_off_first()?;
+    let contract_metadata_kind_output = output.split_off_first_mut()?;
+    let contract_metadata_kind =
+        ContractMetadataKind::try_from(contract_metadata_kind_input).ok()?;
+
+    *contract_metadata_kind_output = match contract_metadata_kind {
+        ContractMetadataKind::Init => contract_metadata_kind_input,
+        ContractMetadataKind::UpdateStateless
+        | ContractMetadataKind::UpdateStatefulRo
+        | ContractMetadataKind::UpdateStatefulRw => {
+            if for_external_args {
+                // For `ExternalArgs` the kind of `#[update]` doesn't matter
+                ContractMetadataKind::UpdateStateless as u8
+            } else {
+                contract_metadata_kind_input
+            }
+        }
+        ContractMetadataKind::ViewStateless | ContractMetadataKind::ViewStateful => {
+            if for_external_args {
+                // For `ExternalArgs` the kind of `#[view]` doesn't matter
+                ContractMetadataKind::ViewStateless as u8
+            } else {
+                contract_metadata_kind_input
+            }
+        }
+        ContractMetadataKind::Contract
+        | ContractMetadataKind::Trait
+        | ContractMetadataKind::EnvRo
+        | ContractMetadataKind::EnvRw
+        | ContractMetadataKind::TmpRo
+        | ContractMetadataKind::TmpRw
+        | ContractMetadataKind::SlotRo
+        | ContractMetadataKind::SlotRw
+        | ContractMetadataKind::Input
+        | ContractMetadataKind::Output
+        | ContractMetadataKind::Return => {
+            // Not a method
+            return None;
+        }
+    };
+
+    // Copy method name
+    let method_name_length = *input.first()?;
+    (input, output) = copy_n_bytes(input, output, 1 + usize::from(method_name_length))?;
+
+    let mut num_arguments = *input.split_off_first()?;
+    *output.split_off_first_mut()? = num_arguments;
+
+    // Compact arguments
+    while num_arguments > 0 {
+        num_arguments -= 1;
+
+        (input, output) = compact_method_argument(
+            input,
+            output,
+            contract_metadata_kind,
+            num_arguments == 0,
+            for_external_args,
+        )?;
     }
 
     Some((input, output))
@@ -233,7 +258,7 @@ const fn compact_method_argument<'i, 'o>(
             );
             if !skip_argument_type {
                 // Compact argument type
-                (input, output) = IoTypeMetadataKind::compact(input, output)?;
+                (input, output) = IoTypeMetadataKind::compact::<MAX_METADATA_DEPTH>(input, output)?;
             }
         }
     }

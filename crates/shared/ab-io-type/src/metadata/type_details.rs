@@ -1,391 +1,341 @@
+use crate::metadata::stack::Stack;
 use crate::metadata::{IoTypeDetails, IoTypeMetadataKind};
+use crate::trivial_type::TrivialType;
 use core::num::NonZeroU8;
 
-#[inline(always)]
-pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDetails, &[u8])> {
-    let kind = IoTypeMetadataKind::try_from(*metadata.split_off_first()?).ok()?;
-
-    match kind {
-        IoTypeMetadataKind::Unit => Some((
-            IoTypeDetails {
-                recommended_capacity: 0,
-                alignment: NonZeroU8::new(1).expect("Not zero; qed"),
-            },
-            metadata,
-        )),
-        IoTypeMetadataKind::Bool | IoTypeMetadataKind::U8 | IoTypeMetadataKind::I8 => Some((
-            IoTypeDetails {
-                recommended_capacity: 1,
-                alignment: NonZeroU8::new(1).expect("Not zero; qed"),
-            },
-            metadata,
-        )),
-        IoTypeMetadataKind::U16 | IoTypeMetadataKind::I16 => Some((
-            IoTypeDetails {
-                recommended_capacity: 2,
-                alignment: NonZeroU8::new(2).expect("Not zero; qed"),
-            },
-            metadata,
-        )),
-        IoTypeMetadataKind::U32 | IoTypeMetadataKind::I32 => Some((
-            IoTypeDetails {
-                recommended_capacity: 4,
-                alignment: NonZeroU8::new(4).expect("Not zero; qed"),
-            },
-            metadata,
-        )),
-        IoTypeMetadataKind::U64 | IoTypeMetadataKind::I64 => Some((
-            IoTypeDetails {
-                recommended_capacity: 8,
-                alignment: NonZeroU8::new(8).expect("Not zero; qed"),
-            },
-            metadata,
-        )),
-        IoTypeMetadataKind::U128 | IoTypeMetadataKind::I128 => Some((
-            IoTypeDetails {
-                recommended_capacity: 16,
-                alignment: NonZeroU8::new(16).expect("Not zero; qed"),
-            },
-            metadata,
-        )),
-        IoTypeMetadataKind::Struct => struct_type_details(metadata, None, false),
-        IoTypeMetadataKind::Struct0 => struct_type_details(metadata, Some(0), false),
-        IoTypeMetadataKind::Struct1 => struct_type_details(metadata, Some(1), false),
-        IoTypeMetadataKind::Struct2 => struct_type_details(metadata, Some(2), false),
-        IoTypeMetadataKind::Struct3 => struct_type_details(metadata, Some(3), false),
-        IoTypeMetadataKind::Struct4 => struct_type_details(metadata, Some(4), false),
-        IoTypeMetadataKind::Struct5 => struct_type_details(metadata, Some(5), false),
-        IoTypeMetadataKind::Struct6 => struct_type_details(metadata, Some(6), false),
-        IoTypeMetadataKind::Struct7 => struct_type_details(metadata, Some(7), false),
-        IoTypeMetadataKind::Struct8 => struct_type_details(metadata, Some(8), false),
-        IoTypeMetadataKind::Struct9 => struct_type_details(metadata, Some(9), false),
-        IoTypeMetadataKind::Struct10 => struct_type_details(metadata, Some(10), false),
-        IoTypeMetadataKind::TupleStruct => struct_type_details(metadata, None, true),
-        IoTypeMetadataKind::TupleStruct1 => struct_type_details(metadata, Some(1), true),
-        IoTypeMetadataKind::TupleStruct2 => struct_type_details(metadata, Some(2), true),
-        IoTypeMetadataKind::TupleStruct3 => struct_type_details(metadata, Some(3), true),
-        IoTypeMetadataKind::TupleStruct4 => struct_type_details(metadata, Some(4), true),
-        IoTypeMetadataKind::TupleStruct5 => struct_type_details(metadata, Some(5), true),
-        IoTypeMetadataKind::TupleStruct6 => struct_type_details(metadata, Some(6), true),
-        IoTypeMetadataKind::TupleStruct7 => struct_type_details(metadata, Some(7), true),
-        IoTypeMetadataKind::TupleStruct8 => struct_type_details(metadata, Some(8), true),
-        IoTypeMetadataKind::TupleStruct9 => struct_type_details(metadata, Some(9), true),
-        IoTypeMetadataKind::TupleStruct10 => struct_type_details(metadata, Some(10), true),
-        IoTypeMetadataKind::Enum => enum_capacity(metadata, None, true),
-        IoTypeMetadataKind::Enum1 => enum_capacity(metadata, Some(1), true),
-        IoTypeMetadataKind::Enum2 => enum_capacity(metadata, Some(2), true),
-        IoTypeMetadataKind::Enum3 => enum_capacity(metadata, Some(3), true),
-        IoTypeMetadataKind::Enum4 => enum_capacity(metadata, Some(4), true),
-        IoTypeMetadataKind::Enum5 => enum_capacity(metadata, Some(5), true),
-        IoTypeMetadataKind::Enum6 => enum_capacity(metadata, Some(6), true),
-        IoTypeMetadataKind::Enum7 => enum_capacity(metadata, Some(7), true),
-        IoTypeMetadataKind::Enum8 => enum_capacity(metadata, Some(8), true),
-        IoTypeMetadataKind::Enum9 => enum_capacity(metadata, Some(9), true),
-        IoTypeMetadataKind::Enum10 => enum_capacity(metadata, Some(10), true),
-        IoTypeMetadataKind::EnumNoFields => enum_capacity(metadata, None, false),
-        IoTypeMetadataKind::EnumNoFields1 => enum_capacity(metadata, Some(1), false),
-        IoTypeMetadataKind::EnumNoFields2 => enum_capacity(metadata, Some(2), false),
-        IoTypeMetadataKind::EnumNoFields3 => enum_capacity(metadata, Some(3), false),
-        IoTypeMetadataKind::EnumNoFields4 => enum_capacity(metadata, Some(4), false),
-        IoTypeMetadataKind::EnumNoFields5 => enum_capacity(metadata, Some(5), false),
-        IoTypeMetadataKind::EnumNoFields6 => enum_capacity(metadata, Some(6), false),
-        IoTypeMetadataKind::EnumNoFields7 => enum_capacity(metadata, Some(7), false),
-        IoTypeMetadataKind::EnumNoFields8 => enum_capacity(metadata, Some(8), false),
-        IoTypeMetadataKind::EnumNoFields9 => enum_capacity(metadata, Some(9), false),
-        IoTypeMetadataKind::EnumNoFields10 => enum_capacity(metadata, Some(10), false),
-        IoTypeMetadataKind::Array8b | IoTypeMetadataKind::VariableElements8b => {
-            let num_elements = *metadata.split_off_first()?;
-
-            let type_details;
-            (type_details, metadata) = decode_type_details(metadata)?;
-            let recommended_capacity = type_details
-                .recommended_capacity
-                .checked_mul(u32::from(num_elements))?;
-            Some((
-                IoTypeDetails {
-                    recommended_capacity,
-                    alignment: type_details.alignment,
-                },
-                metadata,
-            ))
-        }
-        IoTypeMetadataKind::Array16b | IoTypeMetadataKind::VariableElements16b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let mut num_elements = [0; const { size_of::<u16>() }];
-            (metadata, _) = copy_n_bytes(metadata, &mut num_elements, size_of::<u16>())?;
-            let num_elements = u16::from_le_bytes(num_elements) as u32;
-
-            let type_details;
-            (type_details, metadata) = decode_type_details(metadata)?;
-            let recommended_capacity = type_details
-                .recommended_capacity
-                .checked_mul(num_elements)?;
-            Some((
-                IoTypeDetails {
-                    recommended_capacity,
-                    alignment: type_details.alignment,
-                },
-                metadata,
-            ))
-        }
-        IoTypeMetadataKind::Array32b | IoTypeMetadataKind::VariableElements32b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let mut num_elements = [0; const { size_of::<u32>() }];
-            (metadata, _) = copy_n_bytes(metadata, &mut num_elements, size_of::<u32>())?;
-            let num_elements = u32::from_le_bytes(num_elements);
-
-            let type_details;
-            (type_details, metadata) = decode_type_details(metadata)?;
-            let recommended_capacity = type_details
-                .recommended_capacity
-                .checked_mul(num_elements)?;
-            Some((
-                IoTypeDetails {
-                    recommended_capacity,
-                    alignment: type_details.alignment,
-                },
-                metadata,
-            ))
-        }
-        IoTypeMetadataKind::ArrayU8x8 => Some((IoTypeDetails::bytes(8), metadata)),
-        IoTypeMetadataKind::ArrayU8x16 => Some((IoTypeDetails::bytes(16), metadata)),
-        IoTypeMetadataKind::ArrayU8x32 => Some((IoTypeDetails::bytes(32), metadata)),
-        IoTypeMetadataKind::ArrayU8x64 => Some((IoTypeDetails::bytes(64), metadata)),
-        IoTypeMetadataKind::ArrayU8x128 => Some((IoTypeDetails::bytes(128), metadata)),
-        IoTypeMetadataKind::ArrayU8x256 => Some((IoTypeDetails::bytes(256), metadata)),
-        IoTypeMetadataKind::ArrayU8x512 => Some((IoTypeDetails::bytes(512), metadata)),
-        IoTypeMetadataKind::ArrayU8x1024 => Some((IoTypeDetails::bytes(1024), metadata)),
-        IoTypeMetadataKind::ArrayU8x2028 => Some((IoTypeDetails::bytes(2028), metadata)),
-        IoTypeMetadataKind::ArrayU8x4096 => Some((IoTypeDetails::bytes(4096), metadata)),
-        IoTypeMetadataKind::VariableBytes8b => {
-            let num_bytes = *metadata.split_off_first()?;
-
-            Some((IoTypeDetails::bytes(u32::from(num_bytes)), metadata))
-        }
-        IoTypeMetadataKind::VariableBytes16b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let mut num_bytes = [0; const { size_of::<u16>() }];
-            (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>())?;
-            let num_bytes = u16::from_le_bytes(num_bytes) as u32;
-
-            Some((IoTypeDetails::bytes(num_bytes), metadata))
-        }
-        IoTypeMetadataKind::VariableBytes32b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let mut num_bytes = [0; const { size_of::<u32>() }];
-            (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u32>())?;
-            let num_bytes = u32::from_le_bytes(num_bytes);
-
-            Some((IoTypeDetails::bytes(num_bytes), metadata))
-        }
-        IoTypeMetadataKind::VariableBytes0 => Some((IoTypeDetails::bytes(0), metadata)),
-        IoTypeMetadataKind::VariableBytes512 => Some((IoTypeDetails::bytes(512), metadata)),
-        IoTypeMetadataKind::VariableBytes1024 => Some((IoTypeDetails::bytes(1024), metadata)),
-        IoTypeMetadataKind::VariableBytes2028 => Some((IoTypeDetails::bytes(2028), metadata)),
-        IoTypeMetadataKind::VariableBytes4096 => Some((IoTypeDetails::bytes(4096), metadata)),
-        IoTypeMetadataKind::VariableBytes8192 => Some((IoTypeDetails::bytes(8192), metadata)),
-        IoTypeMetadataKind::VariableBytes16384 => Some((IoTypeDetails::bytes(16384), metadata)),
-        IoTypeMetadataKind::VariableBytes32768 => Some((IoTypeDetails::bytes(32768), metadata)),
-        IoTypeMetadataKind::VariableBytes65536 => Some((IoTypeDetails::bytes(65536), metadata)),
-        IoTypeMetadataKind::VariableBytes131072 => Some((IoTypeDetails::bytes(131_072), metadata)),
-        IoTypeMetadataKind::VariableBytes262144 => Some((IoTypeDetails::bytes(262_144), metadata)),
-        IoTypeMetadataKind::VariableBytes524288 => Some((IoTypeDetails::bytes(524_288), metadata)),
-        IoTypeMetadataKind::VariableBytes1048576 => {
-            Some((IoTypeDetails::bytes(1_048_576), metadata))
-        }
-        IoTypeMetadataKind::VariableElements0 => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            (_, metadata) = decode_type_details(metadata)?;
-            Some((
-                IoTypeDetails {
-                    recommended_capacity: 0,
-                    alignment: NonZeroU8::new(1).expect("Not zero; qed"),
-                },
-                metadata,
-            ))
-        }
-        IoTypeMetadataKind::FixedCapacityBytes8b | IoTypeMetadataKind::FixedCapacityString8b => {
-            let num_bytes = *metadata.split_off_first()?;
-
-            Some((
-                IoTypeDetails::bytes(u32::from(num_bytes) + size_of::<u8>() as u32),
-                metadata,
-            ))
-        }
-        IoTypeMetadataKind::FixedCapacityBytes16b | IoTypeMetadataKind::FixedCapacityString16b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let mut num_bytes = [0; const { size_of::<u16>() }];
-            (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>())?;
-            let num_bytes = u16::from_le_bytes(num_bytes) as u32;
-
-            Some((
-                IoTypeDetails {
-                    recommended_capacity: num_bytes + size_of::<u16>() as u32,
-                    alignment: NonZeroU8::new(2).expect("Not zero; qed"),
-                },
-                metadata,
-            ))
-        }
-        IoTypeMetadataKind::Unaligned => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let type_details;
-            (type_details, metadata) = decode_type_details(metadata)?;
-
-            Some((
-                IoTypeDetails::bytes(type_details.recommended_capacity),
-                metadata,
-            ))
-        }
-    }
+/// Fields of a struct or of an enum variant
+#[derive(Debug, Copy, Clone)]
+struct Fields {
+    /// The number of fields that were not reached yet
+    remaining: u8,
+    /// Whether fields are named, `None` before the first field
+    named: Option<bool>,
+    /// Capacity of decoded fields, for enum variants including the discriminant before them, which
+    /// is also the offset of the next field
+    capacity: u32,
+    /// Alignment of decoded fields, for enums including fields of previous variants
+    alignment: NonZeroU8,
 }
 
-#[inline(always)]
-const fn struct_type_details(
-    mut input: &[u8],
-    field_count: Option<u8>,
-    tuple: bool,
-) -> Option<(IoTypeDetails, &[u8])> {
-    // Skip struct name
-    let struct_name_length = *input.split_off_first()?;
-    // TODO: `split_off()` is not `const fn` yet, even unstably
-    input = input.get(usize::from(struct_name_length)..)?;
-
-    let mut field_count = if let Some(field_count) = field_count {
-        field_count
-    } else {
-        *input.split_off_first()?
-    };
-
-    // Capacity of arguments
-    let mut capacity = 0u32;
-    let mut alignment = 1u8;
-    while field_count > 0 {
-        // Skip field name if needed
-        if !tuple {
-            let field_name_length = *input.split_off_first()?;
-            // TODO: `split_off()` is not `const fn` yet, even unstably
-            input = input.get(usize::from(field_name_length)..)?;
-        }
-
-        // Capacity of argument's type
-        let type_details;
-        (type_details, input) = decode_type_details(input)?;
-        capacity = capacity.checked_add(type_details.recommended_capacity)?;
-        // TODO: `core::cmp::max()` isn't const yet due to trait bounds
-        alignment = if type_details.alignment.get() > alignment {
-            type_details.alignment.get()
-        } else {
-            alignment
-        };
-
-        field_count -= 1;
+impl Fields {
+    /// Read the number of fields, the first field is placed at `offset`
+    #[inline(always)]
+    const fn new(metadata: &mut &[u8], offset: u32, alignment: NonZeroU8) -> Option<Self> {
+        Some(Self {
+            remaining: *metadata.split_off_first()?,
+            named: None,
+            capacity: offset,
+            alignment,
+        })
     }
 
-    Some((
-        IoTypeDetails {
-            recommended_capacity: capacity,
-            alignment: NonZeroU8::new(alignment).expect("At least one; qed"),
-        },
-        input,
-    ))
-}
+    /// Move to the next field and skip its name, returns `false` if there are no more fields
+    #[inline(always)]
+    const fn next(&mut self, metadata: &mut &[u8]) -> Option<bool> {
+        if self.remaining == 0 {
+            return Some(false);
+        }
+        self.remaining -= 1;
 
-#[inline(always)]
-const fn enum_capacity(
-    mut input: &[u8],
-    variant_count: Option<u8>,
-    has_fields: bool,
-) -> Option<(IoTypeDetails, &[u8])> {
-    // Skip enum name
-    let enum_name_length = *input.split_off_first()?;
-    // TODO: `split_off()` is not `const fn` yet, even unstably
-    input = input.get(usize::from(enum_name_length)..)?;
+        // Either all fields have names or all of them have zero-length names like fields of tuple
+        // structs
+        let named = skip_name(metadata)? > 0;
+        if let Some(named_fields) = self.named
+            && named_fields != named
+        {
+            return None;
+        }
+        self.named = Some(named);
 
-    let mut variant_count = if let Some(variant_count) = variant_count {
-        variant_count
-    } else {
-        *input.split_off_first()?
-    };
+        Some(true)
+    }
 
-    // Capacity of variants
-    let mut enum_capacity = None;
-    let mut alignment = 1u8;
-    while variant_count > 0 {
-        if input.is_empty() {
+    /// Add details of a decoded field
+    #[inline(always)]
+    const fn add(&mut self, type_details: IoTypeDetails) -> Option<()> {
+        // Fields are placed one after another, a field at an offset that is not a multiple of its
+        // alignment would need padding before it, which `TrivialType` doesn't allow
+        if !self
+            .capacity
+            .is_multiple_of(u32::from(type_details.alignment.get()))
+        {
+            return None;
+        }
+        self.capacity = self
+            .capacity
+            .checked_add(type_details.recommended_capacity)?;
+        self.alignment = self.alignment.max(type_details.alignment);
+
+        Some(())
+    }
+
+    /// Details of all fields together
+    #[inline(always)]
+    const fn type_details(self) -> Option<IoTypeDetails> {
+        // Capacity that is not a multiple of alignment would need padding after the last field,
+        // which `TrivialType` doesn't allow
+        if !self
+            .capacity
+            .is_multiple_of(u32::from(self.alignment.get()))
+        {
             return None;
         }
 
-        let variant_type_details;
-
-        // Variant capacity as if it was a struct
-        (variant_type_details, input) =
-            struct_type_details(input, if has_fields { None } else { Some(0) }, false)?;
-        // `+ 1` is for the discriminant
-        let variant_capacity = variant_type_details.recommended_capacity + 1;
-        // TODO: `core::cmp::max()` isn't const yet due to trait bounds
-        alignment = if variant_type_details.alignment.get() > alignment {
-            variant_type_details.alignment.get()
-        } else {
-            alignment
-        };
-
-        match enum_capacity {
-            Some(capacity) => {
-                if capacity != variant_capacity {
-                    return None;
-                }
-            }
-            None => {
-                enum_capacity.replace(variant_capacity);
-            }
-        }
-
-        variant_count -= 1;
+        Some(IoTypeDetails {
+            recommended_capacity: self.capacity,
+            alignment: self.alignment,
+        })
     }
-
-    let enum_capacity = enum_capacity.unwrap_or_default();
-
-    Some((
-        IoTypeDetails {
-            recommended_capacity: enum_capacity,
-            alignment: NonZeroU8::new(alignment).expect("At least one; qed"),
-        },
-        input,
-    ))
 }
 
-/// Copies `n` bytes from input to output and returns both input and output after `n` bytes offset
+/// A compound type whose contained types are being decoded
+#[derive(Debug, Copy, Clone)]
+enum Frame {
+    /// [`IoTypeMetadataKind::Array`] or [`IoTypeMetadataKind::VariableElements`]
+    Elements { num_elements: u32 },
+    /// [`IoTypeMetadataKind::FixedCapacityElements`]
+    FixedCapacityElements { capacity: u32 },
+    /// [`IoTypeMetadataKind::Unaligned`]
+    Unaligned,
+    /// [`IoTypeMetadataKind::Struct`]
+    Struct(Fields),
+    /// [`IoTypeMetadataKind::Enum`]
+    Enum {
+        /// Fields of the current variant
+        fields: Fields,
+        /// The number of variants after the current one
+        remaining_variants: u8,
+        /// Capacity of decoded variants, `None` before the first variant is decoded
+        variant_capacity: Option<u32>,
+    },
+}
+
+/// What follows after a compound type was advanced
+#[derive(Debug)]
+enum Step {
+    /// Another contained type
+    Descend,
+    /// Nothing, the compound type is complete
+    Complete(IoTypeDetails),
+}
+
+/// Decode type details without recursion, metadata nested deeper than `MAX_DEPTH` is rejected
+#[inline]
+pub(super) const fn decode_type_details<const MAX_DEPTH: usize>(
+    mut metadata: &[u8],
+) -> Option<(IoTypeDetails, &[u8])> {
+    // Compound types whose contained types are being decoded, the filler frame is never used
+    let mut stack = Stack::<Frame, MAX_DEPTH>::new(Frame::Unaligned);
+
+    loop {
+        let kind = IoTypeMetadataKind::try_from(*metadata.split_off_first()?).ok()?;
+
+        // Details of a complete type, `None` for a compound type whose contained types follow
+        let mut type_details = match kind {
+            IoTypeMetadataKind::Unit => Some(IoTypeDetails {
+                recommended_capacity: 0,
+                alignment: NonZeroU8::new(1).expect("Not zero; qed"),
+            }),
+            IoTypeMetadataKind::Bool | IoTypeMetadataKind::U8 | IoTypeMetadataKind::I8 => {
+                Some(IoTypeDetails {
+                    recommended_capacity: 1,
+                    alignment: NonZeroU8::new(1).expect("Not zero; qed"),
+                })
+            }
+            IoTypeMetadataKind::U16 | IoTypeMetadataKind::I16 => Some(IoTypeDetails {
+                recommended_capacity: 2,
+                alignment: NonZeroU8::new(2).expect("Not zero; qed"),
+            }),
+            IoTypeMetadataKind::U32 | IoTypeMetadataKind::I32 => Some(IoTypeDetails {
+                recommended_capacity: 4,
+                alignment: NonZeroU8::new(4).expect("Not zero; qed"),
+            }),
+            IoTypeMetadataKind::U64 | IoTypeMetadataKind::I64 => Some(IoTypeDetails {
+                recommended_capacity: 8,
+                alignment: NonZeroU8::new(8).expect("Not zero; qed"),
+            }),
+            IoTypeMetadataKind::U128 | IoTypeMetadataKind::I128 => Some(IoTypeDetails {
+                recommended_capacity: 16,
+                alignment: NonZeroU8::new(16).expect("Not zero; qed"),
+            }),
+            IoTypeMetadataKind::Struct => {
+                // Skip struct name
+                skip_name(&mut metadata)?;
+                let fields = Fields::new(&mut metadata, 0, NonZeroU8::MIN)?;
+
+                stack.push(Frame::Struct(fields))?;
+                None
+            }
+            IoTypeMetadataKind::Enum => {
+                // Skip enum name
+                skip_name(&mut metadata)?;
+                let variant_count = *metadata.split_off_first()?;
+                // Enums without variants have no values, such types are not allowed
+                let remaining_variants = variant_count.checked_sub(1)?;
+
+                // Skip name of the first variant
+                skip_name(&mut metadata)?;
+                // Fields of a variant follow its 1-byte discriminant
+                let fields = Fields::new(&mut metadata, 1, NonZeroU8::MIN)?;
+
+                stack.push(Frame::Enum {
+                    fields,
+                    remaining_variants,
+                    variant_capacity: None,
+                })?;
+                None
+            }
+            IoTypeMetadataKind::Array => {
+                let num_elements = read_u32(&mut metadata)?;
+
+                stack.push(Frame::Elements { num_elements })?;
+                None
+            }
+            IoTypeMetadataKind::VariableElements => {
+                // `VariableElements` is not a `TrivialType`, so it can't be contained in other
+                // types
+                if !stack.is_empty() {
+                    return None;
+                }
+                let num_elements = read_u32(&mut metadata)?;
+
+                stack.push(Frame::Elements { num_elements })?;
+                None
+            }
+            IoTypeMetadataKind::FixedCapacityElements => {
+                let capacity = read_u32(&mut metadata)?;
+
+                stack.push(Frame::FixedCapacityElements { capacity })?;
+                None
+            }
+            IoTypeMetadataKind::FixedCapacityString => {
+                // The length is stored as `u32`
+                let recommended_capacity = read_u32(&mut metadata)?.checked_add(u32::SIZE)?;
+
+                Some(IoTypeDetails::bytes(recommended_capacity))
+            }
+            IoTypeMetadataKind::Unaligned => {
+                stack.push(Frame::Unaligned)?;
+                None
+            }
+        };
+
+        // Advance enclosing compound types until one of them expects another contained type
+        loop {
+            let Some(frame) = stack.last_mut() else {
+                // The outermost type is complete
+                return Some((type_details?, metadata));
+            };
+
+            match advance(frame, type_details, &mut metadata)? {
+                Step::Descend => {
+                    break;
+                }
+                Step::Complete(complete_type_details) => {
+                    type_details = Some(complete_type_details);
+                    stack.pop()?;
+                }
+            }
+        }
+    }
+}
+
+/// Advance a compound type right after it was read (`contained` is `None`) or after its contained
+/// type was decoded (`contained` has its details)
 #[inline(always)]
-const fn copy_n_bytes<'i, 'o>(
-    input: &'i [u8],
-    output: &'o mut [u8],
-    n: usize,
-) -> Option<(&'i [u8], &'o mut [u8])> {
-    let (source, input) = input.split_at_checked(n)?;
-    let (target, output) = output.split_at_mut_checked(n)?;
+const fn advance(
+    frame: &mut Frame,
+    contained: Option<IoTypeDetails>,
+    metadata: &mut &[u8],
+) -> Option<Step> {
+    let type_details = match (frame, contained) {
+        (Frame::Struct(fields), contained) => {
+            if let Some(contained) = contained {
+                fields.add(contained)?;
+            }
+            if fields.next(metadata)? {
+                return Some(Step::Descend);
+            }
 
-    target.copy_from_slice(source);
+            fields.type_details()?
+        }
+        (
+            Frame::Enum {
+                fields,
+                remaining_variants,
+                variant_capacity,
+            },
+            contained,
+        ) => {
+            if let Some(contained) = contained {
+                fields.add(contained)?;
+            }
+            loop {
+                if fields.next(metadata)? {
+                    return Some(Step::Descend);
+                }
 
-    Some((input, output))
+                // The current variant is complete, all variants must have the same capacity
+                if let Some(variant_capacity) = *variant_capacity
+                    && variant_capacity != fields.capacity
+                {
+                    return None;
+                }
+                *variant_capacity = Some(fields.capacity);
+
+                if *remaining_variants == 0 {
+                    break fields.type_details()?;
+                }
+                *remaining_variants -= 1;
+
+                // Skip name of the next variant
+                skip_name(metadata)?;
+                // Fields of a variant follow its 1-byte discriminant
+                *fields = Fields::new(metadata, 1, fields.alignment)?;
+            }
+        }
+        // Other compound types contain exactly one type
+        (_, None) => {
+            return Some(Step::Descend);
+        }
+        (Frame::Elements { num_elements }, Some(contained)) => IoTypeDetails {
+            recommended_capacity: contained.recommended_capacity.checked_mul(*num_elements)?,
+            alignment: contained.alignment,
+        },
+        (Frame::FixedCapacityElements { capacity }, Some(contained)) => {
+            // The length is stored as `u32`, extended to the alignment of elements if it is larger,
+            // such that elements are aligned
+            let len_size = u32::from(contained.alignment.get()).max(u32::SIZE);
+
+            IoTypeDetails {
+                recommended_capacity: contained
+                    .recommended_capacity
+                    .checked_mul(*capacity)?
+                    .checked_add(len_size)?,
+                alignment: contained.alignment,
+            }
+        }
+        (Frame::Unaligned, Some(contained)) => IoTypeDetails::bytes(contained.recommended_capacity),
+    };
+
+    Some(Step::Complete(type_details))
+}
+
+/// Read a little-endian `u32`
+#[inline(always)]
+const fn read_u32(metadata: &mut &[u8]) -> Option<u32> {
+    let bytes;
+    (bytes, *metadata) = metadata.split_first_chunk()?;
+
+    Some(u32::from_le_bytes(*bytes))
+}
+
+/// Skip a name, returns its length
+#[inline(always)]
+const fn skip_name(metadata: &mut &[u8]) -> Option<u8> {
+    let name_length = *metadata.split_off_first()?;
+    // TODO: `split_off()` is not `const fn` yet, even unstably
+    *metadata = (*metadata).get(usize::from(name_length)..)?;
+
+    Some(name_length)
 }

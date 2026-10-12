@@ -1,4 +1,4 @@
-use crate::metadata::ContractMetadataKind;
+use crate::metadata::{ContractMetadataKind, MAX_METADATA_DEPTH};
 use ab_io_type::metadata::{IoTypeDetails, IoTypeMetadataKind};
 use core::mem::ManuallyDrop;
 use derive_destructure2::destructure;
@@ -187,18 +187,21 @@ impl<'metadata> MetadataDecoder<'metadata> {
 
         // Decode the recommended capacity of the state type
         let state_type_details;
-        (state_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
-            .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+        (state_type_details, self.metadata) =
+            IoTypeMetadataKind::type_details::<MAX_METADATA_DEPTH>(self.metadata)
+                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
         // Decode the recommended capacity of the `#[slot]` type
         let slot_type_details;
-        (slot_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
-            .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+        (slot_type_details, self.metadata) =
+            IoTypeMetadataKind::type_details::<MAX_METADATA_DEPTH>(self.metadata)
+                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
         // Decode the recommended capacity of the `#[tmp]` type
         let tmp_type_details;
-        (tmp_type_details, self.metadata) = IoTypeMetadataKind::type_details(self.metadata)
-            .ok_or(MetadataDecodingError::InvalidStateIoType)?;
+        (tmp_type_details, self.metadata) =
+            IoTypeMetadataKind::type_details::<MAX_METADATA_DEPTH>(self.metadata)
+                .ok_or(MetadataDecodingError::InvalidStateIoType)?;
 
         // Decode the number of methods
         let num_methods = *self
@@ -700,14 +703,14 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                     | ArgumentKind::SlotRo
                     | ArgumentKind::SlotRw => None,
                     ArgumentKind::Input => {
+                        let decoded =
+                            IoTypeMetadataKind::type_details::<MAX_METADATA_DEPTH>(self.metadata);
                         let recommended_capacity;
                         (recommended_capacity, *self.metadata) =
-                            IoTypeMetadataKind::type_details(self.metadata).ok_or(
-                                MetadataDecodingError::InvalidArgumentIoType {
-                                    argument_name,
-                                    argument_kind,
-                                },
-                            )?;
+                            decoded.ok_or(MetadataDecodingError::InvalidArgumentIoType {
+                                argument_name,
+                                argument_kind,
+                            })?;
 
                         Some(recommended_capacity)
                     }
@@ -718,14 +721,15 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                         if matches!((self.method_kind, last_argument), (MethodKind::Init, true)) {
                             None
                         } else {
+                            let decoded = IoTypeMetadataKind::type_details::<MAX_METADATA_DEPTH>(
+                                self.metadata,
+                            );
                             let recommended_capacity;
                             (recommended_capacity, *self.metadata) =
-                                IoTypeMetadataKind::type_details(self.metadata).ok_or(
-                                    MetadataDecodingError::InvalidArgumentIoType {
-                                        argument_name,
-                                        argument_kind,
-                                    },
-                                )?;
+                                decoded.ok_or(MetadataDecodingError::InvalidArgumentIoType {
+                                    argument_name,
+                                    argument_kind,
+                                })?;
 
                             Some(recommended_capacity)
                         }

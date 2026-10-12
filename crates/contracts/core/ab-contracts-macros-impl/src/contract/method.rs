@@ -1,4 +1,6 @@
-use crate::contract::common::{derive_ident_metadata, extract_ident_from_type};
+use crate::contract::common::{
+    derive_ident_metadata, extract_ident_from_type, max_depth_assertion,
+};
 use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
@@ -1351,7 +1353,10 @@ impl MethodDetails {
             unsafe impl ::ab_contracts_macros::__private::ExternalArgs for #args_struct_name<'_> {
                 const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
                     ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA)
-                        .expect("Metadata is statically correct; qed");
+                        .expect(
+                            "Generated metadata is correct and its types are not nested deeper \
+                            than `MAX_METADATA_DEPTH`; qed"
+                        );
                 const METADATA: &'static [::core::primitive::u8] = METADATA;
             }
 
@@ -1388,6 +1393,8 @@ impl MethodDetails {
         // `method_metadata` will generate metadata about method arguments, each element in this
         // vector corresponds to one argument
         let mut method_metadata = Vec::new();
+        // Assertions for types whose metadata is included in `method_metadata`
+        let mut max_depth_assertions = Vec::new();
 
         if let Some(env) = &self.env {
             let env_metadata_type = if env.mutability.is_some() {
@@ -1442,6 +1449,10 @@ impl MethodDetails {
                 #arg_name_metadata,
                 <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
+            max_depth_assertions.push(max_depth_assertion(
+                type_name,
+                "`#[input]` type must not be nested deeper than `MAX_METADATA_DEPTH`",
+            ));
         }
 
         let mut outputs_iter = self.outputs.iter().peekable();
@@ -1458,6 +1469,10 @@ impl MethodDetails {
                 None
             } else {
                 let type_name = &output.type_name;
+                max_depth_assertions.push(max_depth_assertion(
+                    type_name,
+                    "`#[output]` type must not be nested deeper than `MAX_METADATA_DEPTH`",
+                ));
                 Some(quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
                 })
@@ -1478,6 +1493,10 @@ impl MethodDetails {
                 None
             } else {
                 let return_type = self.return_type.return_type();
+                max_depth_assertions.push(max_depth_assertion(
+                    return_type,
+                    "Return type must not be nested deeper than `MAX_METADATA_DEPTH`",
+                ));
                 Some(quote! {
                     <#return_type as ::ab_contracts_macros::__private::IoType>::METADATA,
                 })
@@ -1563,6 +1582,12 @@ impl MethodDetails {
                     .0
                     .split_at(metadata().1)
                     .0;
+
+            // Contracts decode metadata of these types with `MAX_METADATA_DEPTH` as the max
+            // nesting depth, so deeper types must not compile
+            const _: () = {
+                #( #max_depth_assertions )*
+            };
         })
     }
 

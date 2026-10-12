@@ -5,10 +5,14 @@ error[E0277]: the trait bound `u8: IoTypeOptional` is not satisfied
    |                                ^^ the trait `IoTypeOptional` is not implemented for `u8`
    |
 help: the following other types implement trait `IoTypeOptional`
-  --> $WORKSPACE/crates/shared/ab-io-type/src/variable_bytes.rs
+  --> $WORKSPACE/crates/shared/ab-io-type/src/variable_elements.rs
    |
-   |   impl<const RECOMMENDED_ALLOCATION: u32> IoTypeOptional for VariableBytes<RECOMMENDED_ALLOCATION> {}
-   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `VariableBytes<RECOMMENDED_ALLOCATION>`
+   | / impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
+   | |     for VariableElements<Element, RECOMMENDED_ALLOCATION>
+   | | where
+   | |     Element: TrivialType,
+   | |     [(); NON_ZERO_SIZED::<Element>]:,
+   | |_____________________________________^ `ab_io_type::variable_elements::VariableElements<Element, RECOMMENDED_ALLOCATION>`
    |
   ::: $WORKSPACE/crates/shared/ab-io-type/src/maybe_data.rs
    |
@@ -17,15 +21,6 @@ help: the following other types implement trait `IoTypeOptional`
    | |     Data: TrivialType,
    | |     [(); NON_ZERO_SIZED::<Data>]:,
    | |__________________________________^ `MaybeData<Data>`
-   |
-  ::: $WORKSPACE/crates/shared/ab-io-type/src/variable_elements.rs
-   |
-   | / impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
-   | |     for VariableElements<Element, RECOMMENDED_ALLOCATION>
-   | | where
-   | |     Element: TrivialType,
-   | |     [(); NON_ZERO_SIZED::<Element>]:,
-   | |_____________________________________^ `VariableElements<Element, RECOMMENDED_ALLOCATION>`
 note: required by a bound in `ffi::touch::example_touch::{constant#0}::assert_impl_io_type_optional`
   --> tests/ui/optional_storage_arguments.rs:13:1
    |
@@ -40,10 +35,14 @@ error[E0277]: the trait bound `u8: IoTypeOptional` is not satisfied
    |                                                    ^^ the trait `IoTypeOptional` is not implemented for `u8`
    |
 help: the following other types implement trait `IoTypeOptional`
-  --> $WORKSPACE/crates/shared/ab-io-type/src/variable_bytes.rs
+  --> $WORKSPACE/crates/shared/ab-io-type/src/variable_elements.rs
    |
-   |   impl<const RECOMMENDED_ALLOCATION: u32> IoTypeOptional for VariableBytes<RECOMMENDED_ALLOCATION> {}
-   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `VariableBytes<RECOMMENDED_ALLOCATION>`
+   | / impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
+   | |     for VariableElements<Element, RECOMMENDED_ALLOCATION>
+   | | where
+   | |     Element: TrivialType,
+   | |     [(); NON_ZERO_SIZED::<Element>]:,
+   | |_____________________________________^ `ab_io_type::variable_elements::VariableElements<Element, RECOMMENDED_ALLOCATION>`
    |
   ::: $WORKSPACE/crates/shared/ab-io-type/src/maybe_data.rs
    |
@@ -52,15 +51,6 @@ help: the following other types implement trait `IoTypeOptional`
    | |     Data: TrivialType,
    | |     [(); NON_ZERO_SIZED::<Data>]:,
    | |__________________________________^ `MaybeData<Data>`
-   |
-  ::: $WORKSPACE/crates/shared/ab-io-type/src/variable_elements.rs
-   |
-   | / impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
-   | |     for VariableElements<Element, RECOMMENDED_ALLOCATION>
-   | | where
-   | |     Element: TrivialType,
-   | |     [(); NON_ZERO_SIZED::<Element>]:,
-   | |_____________________________________^ `VariableElements<Element, RECOMMENDED_ALLOCATION>`
 note: required by a bound in `ffi::touch::example_touch::{constant#1}::assert_impl_io_type_optional`
   --> tests/ui/optional_storage_arguments.rs:13:1
    |

@@ -1,0 +1,17 @@
+error[E0080]: evaluation panicked: State type must not be nested deeper than `MAX_METADATA_DEPTH`
+  --> tests/ui/state_nested_too_deep.rs:36:10
+   |
+36 |     impl Example {
+   |          ^^^^^^^ evaluation of `state::_` failed here
+
+error[E0080]: evaluation panicked: `#[slot]` type must not be nested deeper than `MAX_METADATA_DEPTH`
+  --> tests/ui/state_nested_too_deep.rs:59:40
+   |
+59 |         pub fn set(#[slot] _slot: &mut MaybeData<L33>) {}
+   |                                        ^^^^^^^^^^^^^^ evaluation of `slot::_` failed here
+
+error[E0080]: evaluation panicked: `#[tmp]` type must not be nested deeper than `MAX_METADATA_DEPTH`
+  --> tests/ui/state_nested_too_deep.rs:78:38
+   |
+78 |         pub fn set(#[tmp] _tmp: &mut MaybeData<L33>) {}
+   |                                      ^^^^^^^^^^^^^^ evaluation of `tmp::_` failed here

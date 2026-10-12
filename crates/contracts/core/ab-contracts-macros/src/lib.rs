@@ -31,6 +31,10 @@ pub mod __private;
 ///   function directly, useful to reduce stack usage, its current contents provided by the
 ///   caller can be read as well, which allows updating values in-place
 ///
+/// Metadata of the state type and of `#[tmp]`, `#[slot]`, `#[input]`, `#[output]` and return
+/// types must not be nested deeper than [`MAX_METADATA_DEPTH`], which is checked during
+/// compilation.
+///
 /// # For struct implementation
 ///
 /// ## #\[init]
@@ -637,4 +641,5 @@ pub mod __private;
 /// [`Env`]: ab_contracts_common::env::Env
 /// [`Env::call()`]: ab_contracts_common::env::Env::call()
 /// [`ContractMetadataKind`]: ab_contracts_common::metadata::ContractMetadataKind
+/// [`MAX_METADATA_DEPTH`]: ab_contracts_common::metadata::MAX_METADATA_DEPTH
 pub use ab_contracts_macros_impl::contract;

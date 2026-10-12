@@ -91,12 +91,20 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         "Type size must be smaller than 2^32"
                     );
 
-                    // Ensure capacity and alignment are correctly decoded from metadata
-                    let (type_details, _metadata) =
-                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details(
+                    // Ensure metadata decodes completely, and capacity and alignment are correctly
+                    // decoded from it. Every level of nesting takes at least one byte of metadata,
+                    // so its length is enough as the max nesting depth.
+                    let (type_details, remaining_metadata) =
+                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details::<{
+                            <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA.len()
+                        }>(
                             <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
-                            .expect("Statically correct metadata; qed");
+                            .expect(
+                                "Metadata must decode, which is not the case for layouts with \
+                                padding or misaligned fields"
+                            );
+                    assert!(remaining_metadata.is_empty());
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
                     assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
                 };
@@ -165,12 +173,20 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         "Type size must be smaller than 2^32"
                     );
 
-                    // Ensure capacity and alignment are correctly decoded from metadata
-                    let (type_details, _metadata) =
-                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details(
+                    // Ensure metadata decodes completely, and capacity and alignment are correctly
+                    // decoded from it. Every level of nesting takes at least one byte of metadata,
+                    // so its length is enough as the max nesting depth.
+                    let (type_details, remaining_metadata) =
+                        ::ab_io_type::metadata::IoTypeMetadataKind::type_details::<{
+                            <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA.len()
+                        }>(
                             <#type_name as ::ab_io_type::trivial_type::TrivialType>::METADATA,
                         )
-                            .expect("Statically correct metadata; qed");
+                            .expect(
+                                "Metadata must decode, which is not the case for layouts with \
+                                padding or misaligned fields"
+                            );
+                    assert!(remaining_metadata.is_empty());
                     assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
                     assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
 
@@ -277,26 +293,8 @@ fn parse_repr(
 }
 
 fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<TokenStream, Error> {
-    let num_fields = data_struct.fields.len();
-    let struct_with_fields = data_struct
-        .fields
-        .iter()
-        .next()
-        .is_some_and(|field| field.ident.is_some());
-    let (io_type_metadata, with_num_fields) = if struct_with_fields {
-        match num_fields {
-            0..=10 => (format_ident!("Struct{num_fields}"), false),
-            _ => (format_ident!("Struct"), true),
-        }
-    } else {
-        match num_fields {
-            1..=10 => (format_ident!("TupleStruct{num_fields}"), false),
-            _ => (format_ident!("TupleStruct"), true),
-        }
-    };
-    let inner_struct_metadata =
-        generate_inner_struct_metadata(ident, &data_struct.fields, with_num_fields)
-            .collect::<Result<Vec<_>, _>>()?;
+    let inner_struct_metadata = generate_inner_struct_metadata(ident, &data_struct.fields)
+        .collect::<Result<Vec<_>, _>>()?;
 
     // Encodes the following:
     // * Type: struct
@@ -309,7 +307,7 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
         )
         {
             ::ab_io_type::metadata::concat_metadata_sources(&[
-                &[::ab_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8],
+                &[::ab_io_type::metadata::IoTypeMetadataKind::Struct as ::core::primitive::u8],
                 #( #inner_struct_metadata )*
             ])
         }
@@ -341,26 +339,11 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
             format!("Enum must not have more than {} variants", u8::MAX),
         )
     })?;
-    let variant_has_fields = data_enum
-        .variants
-        .iter()
-        .next()
-        .is_some_and(|variant| !variant.fields.is_empty());
-    let enum_type = if variant_has_fields {
-        "Enum"
-    } else {
-        "EnumNoFields"
-    };
-    let (io_type_metadata, with_num_variants) = match num_variants {
-        1..=16 => (format_ident!("{enum_type}{num_variants}"), false),
-        _ => (format_ident!("{enum_type}"), true),
-    };
-
     // Encodes the following:
     // * Type: enum
     // * Length of enum name in bytes (u8)
     // * Enum name as UTF-8 bytes
-    // * Number of variants (u8, if requested)
+    // * Number of variants (u8)
     let enum_metadata_header = {
         let enum_metadata_header = [Literal::u8_unsuffixed(type_name_bytes_len)]
             .into_iter()
@@ -369,41 +352,22 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
                     .iter()
                     .map(|&char| Literal::byte_character(char)),
             )
-            .chain(with_num_variants.then_some(Literal::u8_unsuffixed(num_variants)));
+            .chain([Literal::u8_unsuffixed(num_variants)]);
 
         quote! {
             &[
-                ::ab_io_type::metadata::IoTypeMetadataKind::#io_type_metadata as ::core::primitive::u8,
+                ::ab_io_type::metadata::IoTypeMetadataKind::Enum as ::core::primitive::u8,
                 #( #enum_metadata_header, )*
             ]
         }
     };
 
-    // Encodes each variant as inner struct
+    // Encodes each variant as inner struct, fields of tuple variants have zero-length names like
+    // fields of tuple structs
     let inner = data_enum
         .variants
         .iter()
-        .flat_map(|variant| {
-            variant
-                .fields
-                .iter()
-                .find_map(|field| {
-                    if field.ident.is_none() {
-                        Some(Err(Error::new(
-                            field.span(),
-                            "Variant must have named fields",
-                        )))
-                    } else {
-                        None
-                    }
-                })
-                .into_iter()
-                .chain(generate_inner_struct_metadata(
-                    &variant.ident,
-                    &variant.fields,
-                    variant_has_fields,
-                ))
-        })
+        .flat_map(|variant| generate_inner_struct_metadata(&variant.ident, &variant.fields))
         .collect::<Result<Vec<TokenStream>, Error>>()?;
 
     Ok(quote! {{
@@ -430,16 +394,14 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
 fn generate_inner_struct_metadata<'a>(
     ident: &'a Ident,
     fields: &'a Fields,
-    with_num_fields: bool,
 ) -> impl Iterator<Item = Result<TokenStream, Error>> + 'a {
-    iter::once_with(move || generate_inner_struct_metadata_header(ident, fields, with_num_fields))
+    iter::once_with(move || generate_inner_struct_metadata_header(ident, fields))
         .chain(generate_fields_metadata(fields))
 }
 
 fn generate_inner_struct_metadata_header(
     ident: &Ident,
     fields: &Fields,
-    with_num_fields: bool,
 ) -> Result<TokenStream, Error> {
     let ident_string = ident.to_string();
     let ident_bytes = ident_string.as_bytes();
@@ -463,7 +425,7 @@ fn generate_inner_struct_metadata_header(
     // Encodes the following:
     // * Length of identifier in bytes (u8)
     // * Identifier as UTF-8 bytes
-    // * Number of fields (u8, if requested)
+    // * Number of fields (u8)
     Ok({
         let struct_metadata_header = [Literal::u8_unsuffixed(ident_bytes_len)]
             .into_iter()
@@ -472,7 +434,7 @@ fn generate_inner_struct_metadata_header(
                     .iter()
                     .map(|&char| Literal::byte_character(char)),
             )
-            .chain(with_num_fields.then_some(Literal::u8_unsuffixed(num_fields)));
+            .chain([Literal::u8_unsuffixed(num_fields)]);
 
         quote! {
             &[#( #struct_metadata_header, )*],
@@ -484,8 +446,8 @@ fn generate_fields_metadata(
     fields: &Fields,
 ) -> impl Iterator<Item = Result<TokenStream, Error>> + '_ {
     // Encodes the following for each field:
-    // * Length of the field name in bytes (u8, if not tuple)
-    // * Field name as UTF-8 bytes (if not tuple)
+    // * Length of the field name in bytes (u8, zero for tuple fields)
+    // * Field name as UTF-8 bytes
     // * Recursive metadata of the field's type
     fields.iter().map(move |field| {
         let field_metadata = if let Some(field_name) = &field.ident {
@@ -507,9 +469,9 @@ fn generate_fields_metadata(
                     .map(|&char| Literal::byte_character(char)),
             );
 
-            Some(quote! { #( #field_metadata, )* })
+            quote! { #( #field_metadata, )* }
         } else {
-            None
+            quote! { 0, }
         };
         let field_type = &field.ty;
 

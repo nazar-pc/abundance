@@ -563,7 +563,7 @@ dependencies = [
 
 [[package]]
 name = "ab-io-type"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "ab-io-type-derive",
  "parity-scale-codec",
@@ -573,7 +573,7 @@ dependencies = [
 
 [[package]]
 name = "ab-io-type-derive"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "proc-macro2",
  "quote",

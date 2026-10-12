@@ -40,24 +40,9 @@ where
             recommended_allocation: u32,
             inner_metadata: &[u8],
         ) -> ([u8; MAX_METADATA_CAPACITY], usize) {
-            if recommended_allocation == 0 {
-                return concat_metadata_sources(&[
-                    &[IoTypeMetadataKind::VariableElements0 as u8],
-                    inner_metadata,
-                ]);
-            }
-
-            let (io_type, size_bytes) = if recommended_allocation < 2u32.pow(8) {
-                (IoTypeMetadataKind::VariableElements8b, 1)
-            } else if recommended_allocation < 2u32.pow(16) {
-                (IoTypeMetadataKind::VariableElements16b, 2)
-            } else {
-                (IoTypeMetadataKind::VariableElements32b, 4)
-            };
-
             concat_metadata_sources(&[
-                &[io_type as u8],
-                recommended_allocation.to_le_bytes().split_at(size_bytes).0,
+                &[IoTypeMetadataKind::VariableElements as u8],
+                &recommended_allocation.to_le_bytes(),
                 inner_metadata,
             ])
         }
