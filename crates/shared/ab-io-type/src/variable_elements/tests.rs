@@ -2,6 +2,16 @@ use crate::trivial_type::TrivialType;
 use crate::variable_elements::VariableElements;
 
 #[test]
+fn count() {
+    let buffer = [1_u32, 2, 3];
+    let size = 3 * u32::SIZE;
+    let elements = VariableElements::<u32>::from_buffer(&buffer, &size);
+
+    assert_eq!(elements.size(), 3 * u32::SIZE);
+    assert_eq!(elements.count(), 3);
+}
+
+#[test]
 fn copy_from() {
     // Buffers are larger than the instances, so copying too much is caught without Miri too
     let src_buffer = [1_u64, 2, 3, 4, 5, 6, 7, 8];

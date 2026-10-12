@@ -276,8 +276,7 @@ where
     /// Number of elements
     #[inline(always)]
     pub const fn count(&self) -> u32 {
-        // SAFETY: guaranteed to be initialized by constructors
-        unsafe { self.size.read() }
+        self.size() / Element::SIZE
     }
 
     /// Try to get access to initialized elements
