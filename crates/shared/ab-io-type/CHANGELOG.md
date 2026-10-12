@@ -1,4 +1,9 @@
-# 0.2.1
+# 0.3.0
+
+Breaking changes:
+
+* Metadata kinds of `VariableBytes` are removed and the kinds after them are renumbered
+* `VariableBytes` is now an alias of `VariableElements<u8>`
 
 Fixes:
 

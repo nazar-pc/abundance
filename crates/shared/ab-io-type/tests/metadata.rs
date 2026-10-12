@@ -12,7 +12,6 @@ use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
-use ab_io_type::variable_bytes::VariableBytes;
 use ab_io_type::variable_elements::VariableElements;
 
 /// Field names used by [`u8_struct()`]
@@ -462,49 +461,6 @@ fn fixed_capacity_bytes_and_strings() {
 
     let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString16b).u16(300);
     check_trivial_type::<FixedCapacityStringU16<300>>("FixedCapacityString", &expected, &expected);
-}
-
-#[test]
-fn variable_bytes() {
-    let name = "VariableBytes";
-
-    // Recommended allocations with a dedicated metadata kind
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes0);
-    check_io_type::<VariableBytes<0>>(name, 0, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes512);
-    check_io_type::<VariableBytes<512>>(name, 512, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes1024);
-    check_io_type::<VariableBytes<1024>>(name, 1024, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes4096);
-    check_io_type::<VariableBytes<4096>>(name, 4096, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes8192);
-    check_io_type::<VariableBytes<8192>>(name, 8192, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes16384);
-    check_io_type::<VariableBytes<16_384>>(name, 16_384, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes32768);
-    check_io_type::<VariableBytes<32_768>>(name, 32_768, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes65536);
-    check_io_type::<VariableBytes<65_536>>(name, 65_536, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes131072);
-    check_io_type::<VariableBytes<131_072>>(name, 131_072, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes262144);
-    check_io_type::<VariableBytes<262_144>>(name, 262_144, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes524288);
-    check_io_type::<VariableBytes<524_288>>(name, 524_288, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes1048576);
-    check_io_type::<VariableBytes<1_048_576>>(name, 1_048_576, 1, &expected, &expected);
-
-    // Other recommended allocations, encoded in 1, 2 or 4 bytes
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes8b).byte(1);
-    check_io_type::<VariableBytes<1>>(name, 1, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes8b).byte(255);
-    check_io_type::<VariableBytes<255>>(name, 255, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes16b).u16(256);
-    check_io_type::<VariableBytes<256>>(name, 256, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes16b).u16(65_535);
-    check_io_type::<VariableBytes<65_535>>(name, 65_535, 1, &expected, &expected);
-    let expected = Expected::new(IoTypeMetadataKind::VariableBytes32b).u32(65_537);
-    check_io_type::<VariableBytes<65_537>>(name, 65_537, 1, &expected, &expected);
 }
 
 #[test]

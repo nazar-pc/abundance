@@ -295,47 +295,6 @@ pub enum IoTypeMetadataKind {
     ArrayU8x2028,
     /// Compact alias for `[u8; 4096]`
     ArrayU8x4096,
-    /// Variable bytes with up to 2^8 bytes recommended allocation.
-    ///
-    /// Encoded as follows:
-    /// * 1 byte recommended allocation in bytes
-    VariableBytes8b,
-    /// Variable bytes with up to 2^16 bytes recommended allocation.
-    ///
-    /// Encoded as follows:
-    /// * 2 bytes recommended allocation in bytes (little-endian)
-    VariableBytes16b,
-    /// Variable bytes with up to 2^32 bytes recommended allocation.
-    ///
-    /// Encoded as follows:
-    /// * 4 bytes recommended allocation in bytes (little-endian)
-    VariableBytes32b,
-    /// Compact alias [`VariableBytes<0>`](crate::variable_bytes::VariableBytes)
-    VariableBytes0,
-    /// Compact alias [`VariableBytes<512>`](crate::variable_bytes::VariableBytes)
-    VariableBytes512,
-    /// Compact alias [`VariableBytes<1024>`](crate::variable_bytes::VariableBytes)
-    VariableBytes1024,
-    /// Compact alias [`VariableBytes<2028>`](crate::variable_bytes::VariableBytes)
-    VariableBytes2028,
-    /// Compact alias [`VariableBytes<4096>`](crate::variable_bytes::VariableBytes)
-    VariableBytes4096,
-    /// Compact alias [`VariableBytes<8192>`](crate::variable_bytes::VariableBytes)
-    VariableBytes8192,
-    /// Compact alias [`VariableBytes<16384>`](crate::variable_bytes::VariableBytes)
-    VariableBytes16384,
-    /// Compact alias [`VariableBytes<32768>`](crate::variable_bytes::VariableBytes)
-    VariableBytes32768,
-    /// Compact alias [`VariableBytes<65536>`](crate::variable_bytes::VariableBytes)
-    VariableBytes65536,
-    /// Compact alias [`VariableBytes<131072>`](crate::variable_bytes::VariableBytes)
-    VariableBytes131072,
-    /// Compact alias [`VariableBytes<262144>`](crate::variable_bytes::VariableBytes)
-    VariableBytes262144,
-    /// Compact alias [`VariableBytes<524288>`](crate::variable_bytes::VariableBytes)
-    VariableBytes524288,
-    /// Compact alias [`VariableBytes<1048576>`](crate::variable_bytes::VariableBytes)
-    VariableBytes1048576,
     /// Variable elements with up to 2^8 elements recommended allocation.
     ///
     /// Encoded as follows:
@@ -470,31 +429,15 @@ const impl TryFrom<u8> for IoTypeMetadataKind {
             67 => Self::ArrayU8x1024,
             68 => Self::ArrayU8x2028,
             69 => Self::ArrayU8x4096,
-            70 => Self::VariableBytes8b,
-            71 => Self::VariableBytes16b,
-            72 => Self::VariableBytes32b,
-            73 => Self::VariableBytes0,
-            74 => Self::VariableBytes512,
-            75 => Self::VariableBytes1024,
-            76 => Self::VariableBytes2028,
-            77 => Self::VariableBytes4096,
-            78 => Self::VariableBytes8192,
-            79 => Self::VariableBytes16384,
-            80 => Self::VariableBytes32768,
-            81 => Self::VariableBytes65536,
-            82 => Self::VariableBytes131072,
-            83 => Self::VariableBytes262144,
-            84 => Self::VariableBytes524288,
-            85 => Self::VariableBytes1048576,
-            86 => Self::VariableElements8b,
-            87 => Self::VariableElements16b,
-            88 => Self::VariableElements32b,
-            89 => Self::VariableElements0,
-            90 => Self::FixedCapacityBytes8b,
-            91 => Self::FixedCapacityBytes16b,
-            92 => Self::FixedCapacityString8b,
-            93 => Self::FixedCapacityString16b,
-            94 => Self::Unaligned,
+            70 => Self::VariableElements8b,
+            71 => Self::VariableElements16b,
+            72 => Self::VariableElements32b,
+            73 => Self::VariableElements0,
+            74 => Self::FixedCapacityBytes8b,
+            75 => Self::FixedCapacityBytes16b,
+            76 => Self::FixedCapacityString8b,
+            77 => Self::FixedCapacityString16b,
+            78 => Self::Unaligned,
             _ => {
                 return Err(());
             }

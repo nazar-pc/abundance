@@ -163,48 +163,6 @@ pub(super) const fn decode_type_details(mut metadata: &[u8]) -> Option<(IoTypeDe
         IoTypeMetadataKind::ArrayU8x1024 => Some((IoTypeDetails::bytes(1024), metadata)),
         IoTypeMetadataKind::ArrayU8x2028 => Some((IoTypeDetails::bytes(2028), metadata)),
         IoTypeMetadataKind::ArrayU8x4096 => Some((IoTypeDetails::bytes(4096), metadata)),
-        IoTypeMetadataKind::VariableBytes8b => {
-            let num_bytes = *metadata.split_off_first()?;
-
-            Some((IoTypeDetails::bytes(u32::from(num_bytes)), metadata))
-        }
-        IoTypeMetadataKind::VariableBytes16b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let mut num_bytes = [0; const { size_of::<u16>() }];
-            (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u16>())?;
-            let num_bytes = u16::from_le_bytes(num_bytes) as u32;
-
-            Some((IoTypeDetails::bytes(num_bytes), metadata))
-        }
-        IoTypeMetadataKind::VariableBytes32b => {
-            if metadata.is_empty() {
-                return None;
-            }
-
-            let mut num_bytes = [0; const { size_of::<u32>() }];
-            (metadata, _) = copy_n_bytes(metadata, &mut num_bytes, size_of::<u32>())?;
-            let num_bytes = u32::from_le_bytes(num_bytes);
-
-            Some((IoTypeDetails::bytes(num_bytes), metadata))
-        }
-        IoTypeMetadataKind::VariableBytes0 => Some((IoTypeDetails::bytes(0), metadata)),
-        IoTypeMetadataKind::VariableBytes512 => Some((IoTypeDetails::bytes(512), metadata)),
-        IoTypeMetadataKind::VariableBytes1024 => Some((IoTypeDetails::bytes(1024), metadata)),
-        IoTypeMetadataKind::VariableBytes2028 => Some((IoTypeDetails::bytes(2028), metadata)),
-        IoTypeMetadataKind::VariableBytes4096 => Some((IoTypeDetails::bytes(4096), metadata)),
-        IoTypeMetadataKind::VariableBytes8192 => Some((IoTypeDetails::bytes(8192), metadata)),
-        IoTypeMetadataKind::VariableBytes16384 => Some((IoTypeDetails::bytes(16384), metadata)),
-        IoTypeMetadataKind::VariableBytes32768 => Some((IoTypeDetails::bytes(32768), metadata)),
-        IoTypeMetadataKind::VariableBytes65536 => Some((IoTypeDetails::bytes(65536), metadata)),
-        IoTypeMetadataKind::VariableBytes131072 => Some((IoTypeDetails::bytes(131_072), metadata)),
-        IoTypeMetadataKind::VariableBytes262144 => Some((IoTypeDetails::bytes(262_144), metadata)),
-        IoTypeMetadataKind::VariableBytes524288 => Some((IoTypeDetails::bytes(524_288), metadata)),
-        IoTypeMetadataKind::VariableBytes1048576 => {
-            Some((IoTypeDetails::bytes(1_048_576), metadata))
-        }
         IoTypeMetadataKind::VariableElements0 => {
             if metadata.is_empty() {
                 return None;

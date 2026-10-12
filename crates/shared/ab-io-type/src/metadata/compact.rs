@@ -240,36 +240,13 @@ pub(super) const fn compact_metadata<'i, 'o>(
         | IoTypeMetadataKind::ArrayU8x4096 => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
         }
-        IoTypeMetadataKind::VariableBytes8b
-        | IoTypeMetadataKind::FixedCapacityBytes8b
-        | IoTypeMetadataKind::FixedCapacityString8b => {
+        IoTypeMetadataKind::FixedCapacityBytes8b | IoTypeMetadataKind::FixedCapacityString8b => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
             (input, output) = copy_n_bytes(input, output, 1)?;
         }
-        IoTypeMetadataKind::VariableBytes16b
-        | IoTypeMetadataKind::FixedCapacityBytes16b
-        | IoTypeMetadataKind::FixedCapacityString16b => {
+        IoTypeMetadataKind::FixedCapacityBytes16b | IoTypeMetadataKind::FixedCapacityString16b => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
             (input, output) = copy_n_bytes(input, output, 2)?;
-        }
-        IoTypeMetadataKind::VariableBytes32b => {
-            *io_type_metadata_kind_output = io_type_metadata_kind_input;
-            (input, output) = copy_n_bytes(input, output, 4)?;
-        }
-        IoTypeMetadataKind::VariableBytes0
-        | IoTypeMetadataKind::VariableBytes512
-        | IoTypeMetadataKind::VariableBytes1024
-        | IoTypeMetadataKind::VariableBytes2028
-        | IoTypeMetadataKind::VariableBytes4096
-        | IoTypeMetadataKind::VariableBytes8192
-        | IoTypeMetadataKind::VariableBytes16384
-        | IoTypeMetadataKind::VariableBytes32768
-        | IoTypeMetadataKind::VariableBytes65536
-        | IoTypeMetadataKind::VariableBytes131072
-        | IoTypeMetadataKind::VariableBytes262144
-        | IoTypeMetadataKind::VariableBytes524288
-        | IoTypeMetadataKind::VariableBytes1048576 => {
-            *io_type_metadata_kind_output = io_type_metadata_kind_input;
         }
         IoTypeMetadataKind::VariableElements0 | IoTypeMetadataKind::Unaligned => {
             *io_type_metadata_kind_output = io_type_metadata_kind_input;
