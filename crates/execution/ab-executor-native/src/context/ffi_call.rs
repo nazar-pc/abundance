@@ -826,13 +826,17 @@ where
 
     let slots = maybe_env.into_slots();
 
-    if let Err(error) = result {
-        slots.reset();
+    let result = result.and_then(|()| {
+        // SAFETY: The call succeeded, `new_address_ptr` and `post_processing` were created above
+        // for it, and `internal_args` and `external_args` they point into are still valid
+        unsafe { post_process_ffi_call(slots, new_address_ptr, &post_processing) }
+    });
 
-        return Err(error);
+    if result.is_err() {
+        // Roll back changes of the call, including those of nested calls, whether the method
+        // returned an error or the host rejected its results
+        slots.reset();
     }
 
-    // SAFETY: The call succeeded, `new_address_ptr` and `post_processing` were created above for
-    // it, and `internal_args` and `external_args` they point into are still valid
-    unsafe { post_process_ffi_call(slots, new_address_ptr, &post_processing) }
+    result
 }

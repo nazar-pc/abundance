@@ -362,7 +362,9 @@ pub mod __private;
 /// host must read updated value from. This is helpful in case an increase of the value size
 /// beyond allocated capacity is needed.
 ///
-/// Slot changes done by the method call will not be persisted if it returns an error.
+/// Slot changes done by the method call will not be persisted if it returns an error or the
+/// host rejects its results (like an invalid slot size), including changes done by methods it
+/// called, even if those calls succeeded.
 ///
 /// ### `#[input] input: &InputValue`
 ///

@@ -91,16 +91,46 @@ enum SlotState {
     },
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone)]
+enum SlotAccessKind {
+    /// Slot is currently accessed for reads
+    ReadOnly,
+    /// Slot is currently accessed for writes
+    ReadWrite,
+    /// Modification by nested instances that already integrated their changes into the parent,
+    /// with the state of the slot from before the modification, such that the parent can roll it
+    /// back
+    Integrated { previous: SlotState },
+}
+
+#[derive(Debug, Clone)]
 struct SlotAccess {
     slot_index: SlotIndex,
-    /// `false` for read-only and `true` for read-write
-    read_write: bool,
+    kind: SlotAccessKind,
+}
+
+/// Find the active access of a slot: `Some(false)` for read-only and `Some(true)` for read-write.
+///
+/// A slot can have multiple accesses, but only the latest one can be active.
+#[inline(always)]
+fn active_access(slot_access: &[SlotAccess], slot_index: SlotIndex) -> Option<bool> {
+    let slot_access = slot_access
+        .iter()
+        .rev()
+        .find(|slot_access| slot_access.slot_index == slot_index)?;
+
+    match slot_access.kind {
+        SlotAccessKind::ReadOnly => Some(false),
+        SlotAccessKind::ReadWrite => Some(true),
+        SlotAccessKind::Integrated { .. } => None,
+    }
 }
 
 #[derive(Debug, Clone)]
 struct Inner {
     slots: SmallVec<[(SlotKey, SlotState); INLINE_SIZE]>,
+    /// Accesses of slots, including those of nested instances that already integrated their
+    /// changes into the parent, which may still need to roll them back
     slot_access: SmallVec<[SlotAccess; INLINE_SIZE]>,
     /// The list of new addresses that were created during transaction processing and couldn't be
     /// known beforehand.
@@ -161,10 +191,15 @@ impl Slots {
     /// be reset with [`NestedSlots::reset()`]).
     #[inline(always)]
     pub fn new_nested_rw(&mut self) -> NestedSlots<'_> {
+        let parent_slots_len = self.0.slots.len();
+        let parent_new_contracts_len = self.0.new_contracts.len();
+
         NestedSlots(NestedSlotsInner::ReadWrite {
             inner: &mut self.0,
             parent_slot_access_len: 0,
-            original_parent: true,
+            parent_slots_len,
+            parent_new_contracts_len,
+            parent_slot_access_start: None,
         })
     }
 
@@ -269,7 +304,12 @@ enum NestedSlotsInner<'a> {
     ReadWrite {
         inner: &'a mut Inner,
         parent_slot_access_len: usize,
-        original_parent: bool,
+        /// Slots added after this length are removed on reset
+        parent_slots_len: usize,
+        /// New contracts added after this length are removed on reset
+        parent_new_contracts_len: usize,
+        /// Accesses of the parent start at this index, `None` when the parent is [`Slots`]
+        parent_slot_access_start: Option<usize>,
     },
     /// Read-only instance, non-exclusive access to [`Inner`], but not allowed to modify anything
     ReadOnly { inner: &'a Inner },
@@ -281,12 +321,17 @@ pub struct NestedSlots<'a>(NestedSlotsInner<'a>);
 impl Drop for NestedSlots<'_> {
     #[inline(always)]
     fn drop(&mut self) {
-        let (inner, parent_slot_access_len, original_parent) = match &mut self.0 {
+        let (inner, parent_slot_access_len, parent_slot_access_start) = match &mut self.0 {
             NestedSlotsInner::ReadWrite {
                 inner,
                 parent_slot_access_len,
-                original_parent,
-            } => (&mut **inner, *parent_slot_access_len, *original_parent),
+                parent_slot_access_start,
+                ..
+            } => (
+                &mut **inner,
+                *parent_slot_access_len,
+                *parent_slot_access_start,
+            ),
             NestedSlotsInner::ReadOnly { .. } => {
                 // No need to integrate changes into the parent
                 return;
@@ -296,13 +341,21 @@ impl Drop for NestedSlots<'_> {
         let slots = &mut inner.slots;
         let slot_access = &mut inner.slot_access;
 
-        // Fix-up slots that were modified during access
-        for slot_access in slot_access.drain(parent_slot_access_len..) {
+        // Fix-up slots that were accessed by this instance. Accesses that modified a slot become
+        // modifications with the previous state of the slot, such that the parent can roll them
+        // back later.
+        for slot_access in slot_access.iter_mut().skip(parent_slot_access_len) {
+            if matches!(slot_access.kind, SlotAccessKind::Integrated { .. }) {
+                // Modification by a nested instance that already integrated its changes
+                continue;
+            }
+
             let slot = &mut slots
                 .get_mut(usize::from(slot_access.slot_index))
                 .expect("Accessed slot exists; qed")
                 .1;
 
+            let mut previous = None;
             replace_with_or_abort(slot, |slot| match slot {
                 SlotState::Original(_buffer) => {
                     unreachable!("Slot can't be in `Original` state after being accessed; qed")
@@ -310,20 +363,58 @@ impl Drop for NestedSlots<'_> {
                 SlotState::OriginalReadOnly(buffer) => SlotState::Original(buffer),
                 SlotState::Modified(buffer) => SlotState::Modified(buffer),
                 SlotState::ModifiedReadOnly(buffer) => SlotState::Modified(buffer),
-                SlotState::OriginalReadWrite { buffer, .. }
-                | SlotState::ModifiedReadWrite { buffer, .. } => {
+                SlotState::OriginalReadWrite {
+                    buffer,
+                    previous: previous_buffer,
+                } => {
+                    previous = Some(SlotState::Original(previous_buffer));
+                    SlotState::Modified(buffer.into_shared())
+                }
+                SlotState::ModifiedReadWrite {
+                    buffer,
+                    previous: previous_buffer,
+                } => {
+                    previous = Some(SlotState::Modified(previous_buffer));
                     SlotState::Modified(buffer.into_shared())
                 }
             });
+            if let Some(previous) = previous {
+                slot_access.kind = SlotAccessKind::Integrated { previous };
+            }
         }
 
-        if original_parent {
+        let Some(parent_slot_access_start) = parent_slot_access_start else {
+            // There is no parent to roll back changes
+            slot_access.clear();
+
             // Remove temporary values for `Address::NULL` contract, these are used as `#[tmp]`
             // "slots" by convention in the execution environment since there is no code behind
             // `Address::NULL` to possibly use it for anything
-            inner
-                .slots
-                .retain(|(slot_key, _slot)| slot_key.contract != Address::NULL);
+            slots.retain(|(slot_key, _slot)| slot_key.contract != Address::NULL);
+            return;
+        };
+
+        // Keep only what the parent needs to roll back changes: one modification per slot, the
+        // earliest one, which has the oldest state of the slot
+        let accesses = slot_access
+            .drain(parent_slot_access_len..)
+            .collect::<SmallVec<[_; INLINE_SIZE]>>();
+        for access in accesses {
+            if !matches!(access.kind, SlotAccessKind::Integrated { .. }) {
+                // Accesses that didn't modify the slot have nothing to roll back
+                continue;
+            }
+
+            if slot_access
+                .iter()
+                .skip(parent_slot_access_start)
+                .any(|slot_access| slot_access.slot_index == access.slot_index)
+            {
+                // The parent already has an earlier modification of the slot with an older state
+                continue;
+            }
+
+            slot_access.push(access);
         }
     }
 }
@@ -356,19 +447,27 @@ impl<'a> NestedSlots<'a> {
     where
         'a: 'b,
     {
-        let inner = match &mut self.0 {
-            NestedSlotsInner::ReadWrite { inner, .. } => &mut **inner,
+        let (inner, parent_slot_access_start) = match &mut self.0 {
+            NestedSlotsInner::ReadWrite {
+                inner,
+                parent_slot_access_len,
+                ..
+            } => (&mut **inner, *parent_slot_access_len),
             NestedSlotsInner::ReadOnly { .. } => {
                 return None;
             }
         };
 
         let parent_slot_access_len = inner.slot_access.len();
+        let parent_slots_len = inner.slots.len();
+        let parent_new_contracts_len = inner.new_contracts.len();
 
         Some(NestedSlots(NestedSlotsInner::ReadWrite {
             inner,
             parent_slot_access_len,
-            original_parent: false,
+            parent_slots_len,
+            parent_new_contracts_len,
+            parent_slot_access_start: Some(parent_slot_access_start),
         }))
     }
 
@@ -443,10 +542,7 @@ impl<'a> NestedSlots<'a> {
         let slot_index = SlotIndex(slot_index);
 
         // Ensure code is not currently being written to
-        if slot_access
-            .iter()
-            .any(|slot_access| slot_access.slot_index == slot_index && slot_access.read_write)
-        {
+        if active_access(slot_access, slot_index) == Some(true) {
             return None;
         }
 
@@ -519,16 +615,14 @@ impl<'a> NestedSlots<'a> {
 
         if let Some(slot_index) = maybe_slot_index {
             // Ensure that the slot is not currently being written to
-            if let Some(read_write) = slot_access.iter().find_map(|slot_access| {
-                (slot_access.slot_index == slot_index).then_some(slot_access.read_write)
-            }) {
+            if let Some(read_write) = active_access(slot_access, slot_index) {
                 if read_write {
                     return None;
                 }
             } else {
                 slot_access.push(SlotAccess {
                     slot_index,
-                    read_write: false,
+                    kind: SlotAccessKind::ReadOnly,
                 });
             }
 
@@ -574,7 +668,7 @@ impl<'a> NestedSlots<'a> {
 
             slot_access.push(SlotAccess {
                 slot_index: SlotIndex(slots.len()),
-                read_write: false,
+                kind: SlotAccessKind::ReadOnly,
             });
 
             let slot = SlotState::OriginalReadOnly(SharedAlignedBuffer::default());
@@ -603,10 +697,7 @@ impl<'a> NestedSlots<'a> {
 
         if let Some(slot_index) = maybe_slot_index {
             // Ensure that the slot is not currently being written to
-            if let Some(read_write) = slot_access.iter().find_map(|slot_access| {
-                (slot_access.slot_index == slot_index).then_some(slot_access.read_write)
-            }) && read_write
-            {
+            if active_access(slot_access, slot_index) == Some(true) {
                 return None;
             }
 
@@ -682,16 +773,13 @@ impl<'a> NestedSlots<'a> {
 
         if let Some(slot_index) = maybe_slot_index {
             // Ensure that slot is not accessed right now
-            if slot_access
-                .iter()
-                .any(|slot_access| slot_access.slot_index == slot_index)
-            {
+            if active_access(slot_access, slot_index).is_some() {
                 return None;
             }
 
             slot_access.push(SlotAccess {
                 slot_index,
-                read_write: true,
+                kind: SlotAccessKind::ReadWrite,
             });
 
             let slot = &mut slots
@@ -755,7 +843,7 @@ impl<'a> NestedSlots<'a> {
             let slot_index = SlotIndex(slots.len());
             slot_access.push(SlotAccess {
                 slot_index,
-                read_write: true,
+                kind: SlotAccessKind::ReadWrite,
             });
 
             let slot = SlotState::OriginalReadWrite {
@@ -805,30 +893,46 @@ impl<'a> NestedSlots<'a> {
         }
     }
 
-    /// Reset any changes that might have been done on this level
+    /// Reset any changes that might have been done on this level, including changes of nested
+    /// instances that already integrated them
     #[cold]
     pub fn reset(&mut self) {
-        let (inner, parent_slot_access_len) = match &mut self.0 {
-            NestedSlotsInner::ReadWrite {
-                inner,
-                parent_slot_access_len,
-                original_parent: _,
-            } => (&mut **inner, *parent_slot_access_len),
-            NestedSlotsInner::ReadOnly { .. } => {
-                // No need to integrate changes into the parent
-                return;
-            }
-        };
+        let (inner, parent_slot_access_len, parent_slots_len, parent_new_contracts_len) =
+            match &mut self.0 {
+                NestedSlotsInner::ReadWrite {
+                    inner,
+                    parent_slot_access_len,
+                    parent_slots_len,
+                    parent_new_contracts_len,
+                    parent_slot_access_start: _,
+                } => (
+                    &mut **inner,
+                    *parent_slot_access_len,
+                    *parent_slots_len,
+                    *parent_new_contracts_len,
+                ),
+                NestedSlotsInner::ReadOnly { .. } => {
+                    // No need to integrate changes into the parent
+                    return;
+                }
+            };
 
         let slots = &mut inner.slots;
         let slot_access = &mut inner.slot_access;
 
-        // Fix-up slots that were modified during access
-        for slot_access in slot_access.drain(parent_slot_access_len..) {
+        // Fix-up slots that were modified during access. Accesses are rolled back from the latest
+        // to the earliest, such that each slot ends up in the state from before the earliest one.
+        for slot_access in slot_access.drain(parent_slot_access_len..).rev() {
             let slot = &mut slots
                 .get_mut(usize::from(slot_access.slot_index))
                 .expect("Accessed slot exists; qed")
                 .1;
+
+            if let SlotAccessKind::Integrated { previous } = slot_access.kind {
+                *slot = previous;
+                continue;
+            }
+
             replace_with_or_abort(slot, |slot| match slot {
                 SlotState::Original(_buffer) => {
                     unreachable!("Slot can't be in `Original` state after being accessed; qed");
@@ -840,5 +944,9 @@ impl<'a> NestedSlots<'a> {
                 SlotState::ModifiedReadWrite { previous, .. } => SlotState::Modified(previous),
             });
         }
+
+        // Slots and contracts that didn't exist before can't be accessed by the parent anymore
+        slots.truncate(parent_slots_len);
+        inner.new_contracts.truncate(parent_new_contracts_len);
     }
 }
