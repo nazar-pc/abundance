@@ -93,6 +93,8 @@ impl Fields {
 enum Frame {
     /// [`IoTypeMetadataKind::Array`] or [`IoTypeMetadataKind::VariableElements`]
     Elements { num_elements: u32 },
+    /// [`IoTypeMetadataKind::MaybeData`]
+    MaybeData,
     /// [`IoTypeMetadataKind::FixedCapacityElements`]
     FixedCapacityElements { capacity: u32 },
     /// [`IoTypeMetadataKind::Unaligned`]
@@ -189,6 +191,15 @@ pub(super) const fn decode_type_details<const MAX_DEPTH: usize>(
                 let num_elements = read_u32(&mut metadata)?;
 
                 stack.push(Frame::Elements { num_elements })?;
+                None
+            }
+            IoTypeMetadataKind::MaybeData => {
+                // `MaybeData` is not a `TrivialType`, so it can't be contained in other types
+                if !stack.is_empty() {
+                    return None;
+                }
+
+                stack.push(Frame::MaybeData)?;
                 None
             }
             IoTypeMetadataKind::VariableElements => {
@@ -302,6 +313,7 @@ const fn advance(
             recommended_capacity: contained.recommended_capacity.checked_mul(*num_elements)?,
             alignment: contained.alignment,
         },
+        (Frame::MaybeData, Some(contained)) => contained,
         (Frame::FixedCapacityElements { capacity }, Some(contained)) => {
             // The length is stored as `u32`, extended to the alignment of elements if it is larger,
             // such that elements are aligned

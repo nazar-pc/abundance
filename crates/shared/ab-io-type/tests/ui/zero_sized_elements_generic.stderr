@@ -111,7 +111,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
-note: the above error was encountered while instantiating `fn MaybeData::<()>::from_ref`
+note: the above error was encountered while instantiating `fn ab_io_type::maybe_data::MaybeData::<()>::from_ref`
   --> tests/ui/zero_sized_elements_generic.rs:53:13
    |
 53 |     let _ = MaybeData::<Data>::from_ref(None);
@@ -128,7 +128,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
-note: the above error was encountered while instantiating `fn MaybeData::<[i16; 0]>::from_mut`
+note: the above error was encountered while instantiating `fn ab_io_type::maybe_data::MaybeData::<[i16; 0]>::from_mut`
   --> tests/ui/zero_sized_elements_generic.rs:58:13
    |
 58 |     let _ = MaybeData::<Data>::from_mut(buffer, &mut size);
@@ -145,7 +145,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
-note: the above error was encountered while instantiating `fn MaybeData::<[i32; 0]>::from_uninit`
+note: the above error was encountered while instantiating `fn ab_io_type::maybe_data::MaybeData::<[i32; 0]>::from_uninit`
   --> tests/ui/zero_sized_elements_generic.rs:63:13
    |
 63 |     let _ = MaybeData::<Data>::from_uninit(uninit, &mut size);
@@ -196,7 +196,7 @@ error[E0080]: evaluation panicked: Zero-sized types are not supported
   |     assert!(T::SIZE > 0, "Zero-sized types are not supported");
   |     ---------------------------------------------------------- in this macro invocation
 
-note: the above error was encountered while instantiating `fn MaybeData::<[(); 0]>::get`
+note: the above error was encountered while instantiating `fn ab_io_type::maybe_data::MaybeData::<[(); 0]>::get`
   --> tests/ui/zero_sized_elements_generic.rs:78:5
    |
 78 |     MaybeData::<Data>::get

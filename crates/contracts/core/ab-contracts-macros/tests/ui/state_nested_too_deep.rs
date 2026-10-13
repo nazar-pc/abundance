@@ -17,7 +17,7 @@ macro_rules! nested_structs {
 
 nested_structs!(
     u8, L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13, L14, L15, L16, L17, L18, L19, L20,
-    L21, L22, L23, L24, L25, L26, L27, L28, L29, L30, L31, L32, L33
+    L21, L22, L23, L24, L25, L26, L27, L28, L29, L30, L31, L32
 );
 
 mod state {
@@ -42,7 +42,7 @@ mod state {
 }
 
 mod slot {
-    use super::L33;
+    use super::L32;
     use ab_contracts_macros::contract;
     use ab_io_type::maybe_data::MaybeData;
     use ab_io_type::trivial_type::TrivialType;
@@ -55,13 +55,14 @@ mod slot {
 
     #[contract]
     impl Example {
+        // `MaybeData` adds a level, so the `#[slot]` type is nested as deep as `L33`
         #[update]
-        pub fn set(#[slot] _slot: &mut MaybeData<L33>) {}
+        pub fn set(#[slot] _slot: &mut MaybeData<L32>) {}
     }
 }
 
 mod tmp {
-    use super::L33;
+    use super::L32;
     use ab_contracts_macros::contract;
     use ab_io_type::maybe_data::MaybeData;
     use ab_io_type::trivial_type::TrivialType;
@@ -74,14 +75,15 @@ mod tmp {
 
     #[contract]
     impl Example {
+        // `MaybeData` adds a level, so the `#[tmp]` type is nested as deep as `L33`
         #[update]
-        pub fn set(#[tmp] _tmp: &mut MaybeData<L33>) {}
+        pub fn set(#[tmp] _tmp: &mut MaybeData<L32>) {}
     }
 }
 
 /// Types nested exactly `MAX_METADATA_DEPTH` levels deep are allowed
 mod max_depth {
-    use super::{L31, L32};
+    use super::L31;
     use ab_contracts_macros::contract;
     use ab_io_type::maybe_data::MaybeData;
     use ab_io_type::trivial_type::TrivialType;
@@ -95,8 +97,9 @@ mod max_depth {
 
     #[contract]
     impl Example {
+        // `MaybeData` adds a level, so `#[tmp]` and `#[slot]` types are nested as deep as `L32`
         #[update]
-        pub fn set(#[tmp] _tmp: &mut MaybeData<L32>, #[slot] _slot: &mut MaybeData<L32>) {}
+        pub fn set(#[tmp] _tmp: &mut MaybeData<L31>, #[slot] _slot: &mut MaybeData<L31>) {}
     }
 }
 

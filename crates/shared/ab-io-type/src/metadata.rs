@@ -134,6 +134,13 @@ pub enum IoTypeMetadataKind {
     /// * 4 bytes number of elements (little-endian)
     /// * Recursive metadata of a contained type
     Array,
+    /// [`MaybeData`](crate::maybe_data::MaybeData).
+    ///
+    /// Encoded as follows:
+    /// * Recursive metadata of a contained type
+    ///
+    /// Decoders only accept it as the outermost type.
+    MaybeData,
     /// [`VariableElements`](crate::variable_elements::VariableElements).
     ///
     /// Encoded as follows:
@@ -191,10 +198,11 @@ const impl TryFrom<u8> for IoTypeMetadataKind {
             12 => Self::Struct,
             13 => Self::Enum,
             14 => Self::Array,
-            15 => Self::VariableElements,
-            16 => Self::FixedCapacityElements,
-            17 => Self::FixedCapacityString,
-            18 => Self::Unaligned,
+            15 => Self::MaybeData,
+            16 => Self::VariableElements,
+            17 => Self::FixedCapacityElements,
+            18 => Self::FixedCapacityString,
+            19 => Self::Unaligned,
             _ => {
                 return Err(());
             }
@@ -258,7 +266,7 @@ impl IoTypeMetadataKind {
     /// type decoding. Invalid metadata and metadata nested deeper than `MAX_DEPTH` result in `None`
     /// being returned.
     ///
-    /// `MAX_DEPTH` is the max nesting depth of compound types (structs, enums, arrays,
+    /// `MAX_DEPTH` is the max nesting depth of compound types (structs, enums, arrays, `MaybeData`,
     /// `VariableElements`, `FixedCapacityElements` and `Unaligned`), like 2 for
     /// `Unaligned<[u8; 4]>`. Variants of an enum don't count, only types of their fields do. There
     /// is no recursion, so stack usage grows with `MAX_DEPTH`, but doesn't depend on metadata.
