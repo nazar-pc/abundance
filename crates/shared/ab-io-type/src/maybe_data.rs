@@ -10,9 +10,9 @@ use core::ptr::NonNull;
 
 /// Wrapper type for `Data` that may or may not be filled with contents.
 ///
-/// This is somewhat similar to [`VariableBytes`](crate::variable_bytes::VariableBytes), but instead
-/// of variable size, data structure allows either having it or not having the contents, which is a
-/// simpler and more convenient API that is also sufficient in many cases.
+/// This is somewhat similar to [`VariableElements`](crate::variable_elements::VariableElements),
+/// but instead of a variable number of elements, data structure allows either having it or not
+/// having the contents, which is a simpler and more appropriate API in many cases.
 #[derive(Debug)]
 pub struct MaybeData<Data>
 where
