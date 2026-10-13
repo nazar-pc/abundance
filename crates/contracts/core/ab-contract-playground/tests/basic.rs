@@ -91,7 +91,7 @@ fn basic() {
             env.playground_balance_output(
                 playground_token,
                 &alice,
-                &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                &mut MaybeData::from_mut(&mut balance, &mut balance_size).unwrap(),
                 &mut balance_2,
             )
             .unwrap();
@@ -128,7 +128,7 @@ fn basic() {
                 env.playground_balance_output(
                     playground_token,
                     &bob,
-                    &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                    &mut MaybeData::from_mut(&mut balance, &mut balance_size).unwrap(),
                     &mut balance_2,
                 )
                 .unwrap();
@@ -142,7 +142,7 @@ fn basic() {
                 env.playground_balance_output(
                     playground_token,
                     &alice,
-                    &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                    &mut MaybeData::from_mut(&mut balance, &mut balance_size).unwrap(),
                     &mut balance_2,
                 )
                 .unwrap();
@@ -181,7 +181,7 @@ fn basic() {
                 env.playground_balance_output(
                     playground_token,
                     &bob,
-                    &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                    &mut MaybeData::from_mut(&mut balance, &mut balance_size).unwrap(),
                     &mut balance_2,
                 )
                 .unwrap();
@@ -195,7 +195,7 @@ fn basic() {
                 env.playground_balance_output(
                     playground_token,
                     &bob,
-                    &mut MaybeData::from_mut(&mut balance, &mut balance_size),
+                    &mut MaybeData::from_mut(&mut balance, &mut balance_size).unwrap(),
                     &mut balance_2,
                 )
                 .unwrap();

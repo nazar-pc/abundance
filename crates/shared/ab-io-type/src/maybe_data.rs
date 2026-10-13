@@ -1,7 +1,11 @@
+#[cfg(test)]
+mod tests;
+
 use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
 use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
+use core::ptr;
 use core::ptr::NonNull;
 
 /// Wrapper type for `Data` that may or may not be filled with contents.
@@ -113,17 +117,18 @@ where
     }
 
     #[inline(always)]
-    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
-        &self.data
+    fn as_ptr(&self) -> NonNull<Self::PointerType> {
+        self.data
     }
 
     #[inline(always)]
-    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
-        &mut self.data
+    fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType> {
+        self.data
     }
 }
 
-impl<Data> IoTypeOptional for MaybeData<Data>
+// SAFETY: Size `0` means data is missing, data is only accessed when the size is the size of data
+unsafe impl<Data> IoTypeOptional for MaybeData<Data>
 where
     Data: TrivialType,
     [(); NON_ZERO_SIZED::<Data>]:,
@@ -159,50 +164,46 @@ where
     /// `size` can be either `0` or `Data::SIZE`, indicating that value is missing or present
     /// accordingly.
     ///
-    /// # Panics
-    /// Panics if `size != 0 && size != Data::SIZE`
+    /// Returns `None` if `size` is neither `0` nor `Data::SIZE`.
     //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
-    #[track_caller]
     pub fn from_mut<'a>(
         buffer: &'a mut Data,
         size: &'a mut u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert!(
-            *size == 0 || *size == Data::SIZE,
-            "Invalid size {size} (self size {})",
-            Data::SIZE
-        );
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        if !(*size == 0 || *size == Data::SIZE) {
+            return None;
+        }
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             data: NonNull::from_mut(buffer),
             size: NonNull::from_mut(size),
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
-        })
+        }))
     }
 
-    /// Create a new shared instance from provided memory buffer.
+    /// Create a new exclusive instance from provided uninitialized memory.
     ///
-    /// `size` must be `0`.
+    /// `size` must be `0` since data is not initialized yet.
     ///
-    /// # Panics
-    /// Panics if `size != 0`
+    /// Returns `None` if `size != 0`.
     //
-    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
-    // shared reference for most practical purposes.
-    #[track_caller]
+    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
+    // exclusive reference for most practical purposes.
     pub fn from_uninit<'a>(
         uninit: &'a mut MaybeUninit<Data>,
         size: &'a mut u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert_eq!(*size, 0, "Invalid size");
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        if *size != 0 {
+            return None;
+        }
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             data: NonNull::from_mut(uninit).cast::<Data>(),
             size: NonNull::from_mut(size),
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
-        })
+        }))
     }
 
     /// Try to get access to initialized `Data`, returns `None` if not initialized
@@ -253,7 +254,11 @@ where
     }
 
     /// Get exclusive access to initialized `Data`, running provided initialization function if
-    /// necessary
+    /// necessary.
+    ///
+    /// `init` is expected to initialize provided memory and return a reference to it, like
+    /// [`MaybeUninit::write()`] does. If it returns a reference to some other `Data` instead, that
+    /// value is copied into this instance.
     #[inline(always)]
     pub fn get_mut_or_init_with<Init>(&mut self, init: Init) -> &mut Data
     where
@@ -266,11 +271,19 @@ where
         } else {
             // SAFETY: constructor guarantees that memory is aligned
             let data = init(unsafe { self.data.as_uninit_mut() });
+            if !ptr::eq(data, self.data.as_ptr()) {
+                // SAFETY: constructor guarantees that memory is aligned and valid for writes
+                unsafe {
+                    self.data.write(*data);
+                }
+            }
             // SAFETY: guaranteed to be initialized by constructors
             unsafe {
                 self.size.write(Data::SIZE);
             }
-            data
+            // SAFETY: Provided memory is initialized, either by `init`, which can only get a
+            // reference to it by initializing it, or by the copy above
+            unsafe { self.data.as_mut() }
         }
     }
 

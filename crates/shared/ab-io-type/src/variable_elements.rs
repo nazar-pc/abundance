@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
 use crate::{DerefWrapper, IoType, IoTypeOptional};
@@ -140,17 +143,19 @@ where
     }
 
     #[inline(always)]
-    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>> {
-        &self.elements
+    fn as_ptr(&self) -> NonNull<Self::PointerType> {
+        self.elements
     }
 
     #[inline(always)]
-    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>> {
-        &mut self.elements
+    fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType> {
+        self.elements
     }
 }
 
-impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
+// SAFETY: Size `0` means there are no initialized elements, contents are only accessed up to the
+// size
+unsafe impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
     for VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
@@ -169,92 +174,77 @@ where
     ///
     /// NOTE: size is specified in bytes, not elements.
     ///
-    /// # Panics
-    /// Panics if `buffer.len * Element::SIZE() != size`
+    /// Returns `None` if `size_of_val(buffer) != size`.
     //
     // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
     // shared reference for most practical purposes.
     #[inline(always)]
-    #[track_caller]
     pub const fn from_buffer<'a>(
         buffer: &'a [<Self as IoType>::PointerType],
         size: &'a u32,
-    ) -> impl Deref<Target = Self> + 'a {
-        debug_assert!(
-            buffer.len() * Element::SIZE as usize == *size as usize,
-            "Invalid size"
-        );
-        // TODO: Use `debug_assert_eq` when it is available in const environment
-        // debug_assert_eq!(buffer.len(), *size as usize, "Invalid size");
+    ) -> Option<impl Deref<Target = Self> + 'a> {
+        if size_of_val(buffer) != *size as usize {
+            return None;
+        }
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             elements: NonNull::new(buffer.as_ptr().cast_mut()).expect("Not null; qed"),
             size: NonNull::from_ref(size),
             capacity: *size,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
-        })
+        }))
     }
 
     /// Create a new exclusive instance from provided memory buffer.
     ///
-    /// # Panics
-    /// Panics if `buffer.len() * Element::SIZE != size`
+    /// NOTE: size is specified in bytes, not elements.
+    ///
+    /// Returns `None` if `size_of_val(buffer) != size`.
     //
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes.
     #[inline(always)]
-    #[track_caller]
     pub fn from_buffer_mut<'a>(
         buffer: &'a mut [<Self as IoType>::PointerType],
         size: &'a mut u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
-        debug_assert_eq!(
-            buffer.len() * Element::SIZE as usize,
-            *size as usize,
-            "Invalid size"
-        );
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        if size_of_val(buffer) != *size as usize {
+            return None;
+        }
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             elements: NonNull::new(buffer.as_mut_ptr()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity: *size,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
-        })
+        }))
     }
 
-    /// Create a new shared instance from provided memory buffer.
+    /// Create a new exclusive instance from provided uninitialized memory buffer.
     ///
-    /// NOTE: size is specified in bytes, not elements.
+    /// `size` must be `0` since none of the elements are initialized yet, the whole buffer is used
+    /// as capacity.
     ///
-    /// # Panics
-    /// Panics if `size > CAPACITY` or `!size.is_multiple_of(Element::SIZE)`
+    /// Returns `None` if `size != 0` or if the buffer is larger than `u32::MAX` bytes.
     //
-    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
-    // shared reference for most practical purposes.
+    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
+    // exclusive reference for most practical purposes.
     #[inline(always)]
-    #[track_caller]
     pub fn from_uninit<'a>(
         uninit: &'a mut [MaybeUninit<<Self as IoType>::PointerType>],
         size: &'a mut u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
-        let capacity = uninit.len();
-        debug_assert!(
-            *size as usize <= capacity,
-            "Size {size} must not exceed capacity {capacity}"
-        );
-        debug_assert!(
-            size.is_multiple_of(Element::SIZE),
-            "Size {size} is invalid for element size {}",
-            Element::SIZE
-        );
-        let capacity = capacity as u32;
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        if *size != 0 {
+            return None;
+        }
+        let capacity = u32::try_from(size_of_val(uninit)).ok()?;
 
-        DerefWrapper(Self {
+        Some(DerefWrapper(Self {
             elements: NonNull::new(uninit.as_mut_ptr().cast_init()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
-        })
+        }))
     }
 
     // Size in bytes
@@ -273,8 +263,7 @@ where
     /// Number of elements
     #[inline(always)]
     pub const fn count(&self) -> u32 {
-        // SAFETY: guaranteed to be initialized by constructors
-        unsafe { self.size.read() }
+        self.size() / Element::SIZE
     }
 
     /// Try to get access to initialized elements
@@ -302,7 +291,13 @@ where
     #[must_use = "Operation may fail"]
     pub fn append(&mut self, elements: &[Element]) -> bool {
         let size = self.size();
-        if elements.len() * Element::SIZE as usize + size as usize > self.capacity as usize {
+        let Some(new_size) = u32::try_from(size_of_val(elements))
+            .ok()
+            .and_then(|appended_size| size.checked_add(appended_size))
+        else {
+            return false;
+        };
+        if new_size > self.capacity {
             return false;
         }
 
@@ -313,12 +308,16 @@ where
 
         // SAFETY: allocation range and offset are checked above, the allocation itself is
         // guaranteed by constructors
-        let mut start = unsafe { self.elements.offset(offset) };
+        let start = unsafe { self.elements.offset(offset) };
         // SAFETY: Alignment is the same, writing happens in properly allocated memory guaranteed by
         // constructors, number of elements is checked above, Rust ownership rules will prevent any
         // overlap here (creating reference to non-initialized part of allocation would already be
-        // undefined behavior anyway)
-        unsafe { ptr::copy_nonoverlapping(elements.as_ptr(), start.as_mut(), elements.len()) }
+        // undefined behavior anyway). The new size covers initialized elements only and is checked
+        // to be within capacity above.
+        unsafe {
+            ptr::copy_nonoverlapping(elements.as_ptr(), start.as_ptr(), elements.len());
+            self.size.write(new_size);
+        }
 
         true
     }
@@ -354,23 +353,15 @@ where
         }
 
         // SAFETY: `src` can't be the same as `&mut self` if invariants of constructor arguments
-        // were upheld, size is checked to be within capacity above
+        // were upheld, size is checked to be within capacity above, and the number of copied
+        // elements corresponds to that size
         unsafe {
             self.elements
-                .copy_from_nonoverlapping(src.elements, src_size as usize);
+                .copy_from_nonoverlapping(src.elements, (src_size / Element::SIZE) as usize);
             self.size.write(src_size);
         }
 
         true
-    }
-
-    /// Get exclusive access to the underlying pointer with no checks.
-    ///
-    /// Can be used for initialization with [`Self::assume_init()`] called afterward to confirm how
-    /// many bytes are in use right now.
-    #[inline(always)]
-    pub fn as_mut_ptr(&mut self) -> &mut NonNull<Element> {
-        &mut self.elements
     }
 
     /// Cast a shared reference to this instance into a reference to an instance of a different

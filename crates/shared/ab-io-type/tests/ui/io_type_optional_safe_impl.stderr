@@ -1,0 +1,11 @@
+error[E0200]: the trait `IoTypeOptional` requires an `unsafe impl` declaration
+  --> tests/ui/io_type_optional_safe_impl.rs:13:1
+   |
+13 | impl IoTypeOptional for Value {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: the trait `IoTypeOptional` enforces invariants that the compiler can't check. Review the trait documentation and make sure this implementation upholds those invariants before adding the `unsafe` keyword
+help: add `unsafe` to this trait implementation
+   |
+13 | unsafe impl IoTypeOptional for Value {}
+   | ++++++

@@ -1,0 +1,11 @@
+error: `TrivialType` on structs requires `#[repr(C)]` or `#[repr(transparent)]` without other options
+ --> tests/ui/derive_missing_repr.rs:6:8
+  |
+6 | struct NoReprStruct {
+  |        ^^^^^^^^^^^^
+
+error: `TrivialType` on enums requires `#[repr(u8)]` without other options
+  --> tests/ui/derive_missing_repr.rs:11:6
+   |
+11 | enum NoReprEnum {
+   |      ^^^^^^^^^^

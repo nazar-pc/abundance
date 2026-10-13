@@ -1,0 +1,37 @@
+error: `TrivialType` on structs requires `#[repr(C)]` or `#[repr(transparent)]` without other options
+ --> tests/ui/derive_struct_repr.rs:7:11
+  |
+7 | #[repr(C, align(8))]
+  |           ^^^^^
+
+error: `TrivialType` on structs requires `#[repr(C)]` or `#[repr(transparent)]` without other options
+  --> tests/ui/derive_struct_repr.rs:13:11
+   |
+13 | #[repr(C, packed)]
+   |           ^^^^^^
+
+error: `TrivialType` on structs requires `#[repr(C)]` or `#[repr(transparent)]` without other options
+  --> tests/ui/derive_struct_repr.rs:19:8
+   |
+19 | #[repr(Rust)]
+   |        ^^^^
+
+error: `TrivialType` on structs requires `#[repr(C)]` or `#[repr(transparent)]` without other options
+  --> tests/ui/derive_struct_repr.rs:26:8
+   |
+26 | #[repr(u8)]
+   |        ^^
+
+error: `TrivialType` on structs requires `#[repr(C)]` or `#[repr(transparent)]` without other options
+  --> tests/ui/derive_struct_repr.rs:34:8
+   |
+34 | #[repr(align(8))]
+   |        ^^^^^
+
+error: the `repr(u8)` attribute cannot be used on structs
+  --> tests/ui/derive_struct_repr.rs:26:3
+   |
+26 | #[repr(u8)]
+   |   ^^^^^^^^
+   |
+   = help: the `repr(u8)` attribute can only be applied to enums

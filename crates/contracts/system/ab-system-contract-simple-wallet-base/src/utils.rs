@@ -23,7 +23,8 @@ pub fn initialize_state(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(), 
             MethodContext::Reset,
             Address::SYSTEM_STATE,
             &env.own_address(),
-            &VariableBytes::from_buffer(state.as_bytes(), &state.size()),
+            &VariableBytes::from_buffer(state.as_bytes(), &state.size())
+                .expect("Size of a trivial type matches its bytes; qed"),
         )
     }
 }
@@ -93,8 +94,10 @@ pub fn execute(
             MethodContext::Reset,
             Address::SYSTEM_STATE,
             &env.own_address(),
-            &VariableBytes::from_buffer(old_state.as_bytes(), &old_state.size()),
-            &VariableBytes::from_buffer(new_state.as_bytes(), &new_state.size()),
+            &VariableBytes::from_buffer(old_state.as_bytes(), &old_state.size())
+                .expect("Size of a trivial type matches its bytes; qed"),
+            &VariableBytes::from_buffer(new_state.as_bytes(), &new_state.size())
+                .expect("Size of a trivial type matches its bytes; qed"),
         )
         .map(|_| ())
     }
@@ -127,7 +130,8 @@ pub fn change_public_key(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(),
             MethodContext::Reset,
             Address::SYSTEM_STATE,
             &env.own_address(),
-            &VariableBytes::from_buffer(new_state.as_bytes(), &new_state.size()),
+            &VariableBytes::from_buffer(new_state.as_bytes(), &new_state.size())
+                .expect("Size of a trivial type matches its bytes; qed"),
         )
     }
 }
@@ -141,7 +145,8 @@ fn load_current_state(env: &Env<'_>) -> Result<WalletState, ContractError> {
         env.state_read(
             Address::SYSTEM_STATE,
             &env.own_address(),
-            &mut VariableBytes::from_uninit(current_state.as_bytes_mut(), &mut current_state_size),
+            &mut VariableBytes::from_uninit(current_state.as_bytes_mut(), &mut current_state_size)
+                .expect("Size is zero and `WalletState` is smaller than 4 GiB; qed"),
         )?;
         if current_state_size != WalletState::SIZE {
             return Err(ContractError::BadOutput);

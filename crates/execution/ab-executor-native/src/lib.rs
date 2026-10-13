@@ -307,20 +307,24 @@ impl NativeExecutor {
         let read_slots_size =
             u32::try_from(size_of_val::<[TransactionSlot]>(transaction.read_slots))
                 .map_err(|_error| ContractError::BadInput)?;
-        let read_slots = VariableElements::from_buffer(transaction.read_slots, &read_slots_size);
+        let read_slots = VariableElements::from_buffer(transaction.read_slots, &read_slots_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let write_slots_size =
             u32::try_from(size_of_val::<[TransactionSlot]>(transaction.write_slots))
                 .map_err(|_error| ContractError::BadInput)?;
-        let write_slots = VariableElements::from_buffer(transaction.write_slots, &write_slots_size);
+        let write_slots = VariableElements::from_buffer(transaction.write_slots, &write_slots_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let payload_size = u32::try_from(size_of_val::<[u128]>(transaction.payload))
             .map_err(|_error| ContractError::BadInput)?;
-        let payload = VariableElements::from_buffer(transaction.payload, &payload_size);
+        let payload = VariableElements::from_buffer(transaction.payload, &payload_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let seal_size = u32::try_from(size_of_val::<[u8]>(transaction.seal))
             .map_err(|_error| ContractError::BadInput)?;
-        let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
+        let seal = VariableBytes::from_buffer(transaction.seal, &seal_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
@@ -365,20 +369,24 @@ impl NativeExecutor {
         let read_slots_size =
             u32::try_from(size_of_val::<[TransactionSlot]>(transaction.read_slots))
                 .map_err(|_error| ContractError::BadInput)?;
-        let read_slots = VariableElements::from_buffer(transaction.read_slots, &read_slots_size);
+        let read_slots = VariableElements::from_buffer(transaction.read_slots, &read_slots_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let write_slots_size =
             u32::try_from(size_of_val::<[TransactionSlot]>(transaction.write_slots))
                 .map_err(|_error| ContractError::BadInput)?;
-        let write_slots = VariableElements::from_buffer(transaction.write_slots, &write_slots_size);
+        let write_slots = VariableElements::from_buffer(transaction.write_slots, &write_slots_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let payload_size = u32::try_from(size_of_val::<[u128]>(transaction.payload))
             .map_err(|_error| ContractError::BadInput)?;
-        let payload = VariableElements::from_buffer(transaction.payload, &payload_size);
+        let payload = VariableElements::from_buffer(transaction.payload, &payload_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let seal_size = u32::try_from(size_of_val::<[u8]>(transaction.seal))
             .map_err(|_error| ContractError::BadInput)?;
-        let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
+        let seal = VariableBytes::from_buffer(transaction.seal, &seal_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let mut executor_context = NativeExecutorContext::new(
             self.shard_index,
@@ -424,20 +432,24 @@ impl NativeExecutor {
         let read_slots_size =
             u32::try_from(size_of_val::<[TransactionSlot]>(transaction.read_slots))
                 .map_err(|_error| ContractError::BadInput)?;
-        let read_slots = VariableElements::from_buffer(transaction.read_slots, &read_slots_size);
+        let read_slots = VariableElements::from_buffer(transaction.read_slots, &read_slots_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let write_slots_size =
             u32::try_from(size_of_val::<[TransactionSlot]>(transaction.write_slots))
                 .map_err(|_error| ContractError::BadInput)?;
-        let write_slots = VariableElements::from_buffer(transaction.write_slots, &write_slots_size);
+        let write_slots = VariableElements::from_buffer(transaction.write_slots, &write_slots_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let payload_size = u32::try_from(size_of_val::<[u128]>(transaction.payload))
             .map_err(|_error| ContractError::BadInput)?;
-        let payload = VariableElements::from_buffer(transaction.payload, &payload_size);
+        let payload = VariableElements::from_buffer(transaction.payload, &payload_size)
+            .expect("Size is computed from the buffer above; qed");
 
         let seal_size = u32::try_from(size_of_val::<[u8]>(transaction.seal))
             .map_err(|_error| ContractError::BadInput)?;
-        let seal = VariableBytes::from_buffer(transaction.seal, &seal_size);
+        let seal = VariableBytes::from_buffer(transaction.seal, &seal_size)
+            .expect("Size is computed from the buffer above; qed");
 
         // TODO: Make it more efficient by not recreating NativeExecutorContext twice here
         {

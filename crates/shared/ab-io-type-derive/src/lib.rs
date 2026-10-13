@@ -1,13 +1,13 @@
-use proc_macro2::{Ident, Literal, TokenStream};
-use quote::{format_ident, quote};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
+use quote::{format_ident, quote, quote_spanned};
 use std::iter;
 use syn::spanned::Spanned;
-use syn::token::Paren;
-use syn::{
-    Attribute, Data, DataEnum, DataStruct, DeriveInput, Error, Fields, LitInt, parenthesized,
-    parse_macro_input,
-};
+use syn::{Data, DataEnum, DataStruct, DeriveInput, Error, Fields, parse_macro_input};
 
+/// Derive macro for `TrivialType` trait of `ab-io-type` crate.
+///
+/// See the documentation of the trait for supported types and requirements, which are checked at
+/// compile time.
 #[proc_macro_derive(TrivialType)]
 pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -21,42 +21,17 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         .into();
     }
 
-    let maybe_repr_attr = input.attrs.iter().find(|attr| attr.path().is_ident("repr"));
-
-    let Some(repr_attr) = maybe_repr_attr else {
-        return Error::new(input.ident.span(), "`TrivialType` requires `#[repr(..)]`")
-            .to_compile_error()
-            .into();
-    };
-
-    let (repr_c, repr_transparent, repr_numeric, repr_align, repr_packed) =
-        match parse_repr(repr_attr) {
-            Ok(result) => result,
-            Err(error) => {
-                return error.to_compile_error().into();
-            }
-        };
-
-    if repr_align.is_some() || repr_packed.is_some() {
-        return Error::new(
-            input.ident.span(),
-            "`TrivialType` doesn't allow `#[repr(align(N))]` or `#[repr(packed(N))]",
-        )
-        .to_compile_error()
-        .into();
-    }
-
     let type_name = &input.ident;
 
     let output = match &input.data {
         Data::Struct(data_struct) => {
-            if !(repr_c || repr_transparent) {
-                return Error::new(
-                    input.ident.span(),
-                    "`TrivialType` on structs requires `#[repr(C)]` or `#[repr(transparent)]",
-                )
-                .into_compile_error()
-                .into();
+            if let Err(error) = check_repr(
+                &input,
+                &["C", "transparent"],
+                "`TrivialType` on structs requires `#[repr(C)]` or `#[repr(transparent)]` without \
+                other options",
+            ) {
+                return error.to_compile_error().into();
             }
             let field_types = data_struct
                 .fields
@@ -75,7 +50,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 const _: () = {
                     // Assert statically that there is no unexpected padding that would be left
                     // uninitialized and unsound to access
-                    assert!(
+                    ::core::assert!(
                         0 == (
                             ::core::mem::size_of::<#type_name>()
                             #(- ::core::mem::size_of::<#field_types>() )*
@@ -86,8 +61,9 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     );
 
                     // Assert that type doesn't exceed 32-bit size limit
-                    assert!(
-                        u32::MAX as ::core::primitive::usize >= ::core::mem::size_of::<#type_name>(),
+                    ::core::assert!(
+                        ::core::primitive::u32::MAX as ::core::primitive::usize
+                            >= ::core::mem::size_of::<#type_name>(),
                         "Type size must be smaller than 2^32"
                     );
 
@@ -104,9 +80,15 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                                 "Metadata must decode, which is not the case for layouts with \
                                 padding or misaligned fields"
                             );
-                    assert!(remaining_metadata.is_empty());
-                    assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
-                    assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
+                    ::core::assert!(remaining_metadata.is_empty());
+                    ::core::assert!(
+                        ::core::mem::size_of::<#type_name>()
+                            == type_details.recommended_capacity as ::core::primitive::usize
+                    );
+                    ::core::assert!(
+                        ::core::mem::align_of::<#type_name>()
+                            == type_details.alignment.get() as ::core::primitive::usize
+                    );
                 };
 
                 #[automatically_derived]
@@ -119,18 +101,51 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             }
         }
         Data::Enum(data_enum) => {
-            // Require defined size of the discriminant instead of allowing compiler to guess
-            if repr_numeric != Some(8) {
-                return Error::new(
-                    input.generics.span(),
-                    "`TrivialType` derive for enums only supports `#[repr(u8)]`, ambiguous \
-                    or larger discriminant size is not allowed",
-                )
-                .to_compile_error()
-                .into();
+            // Require defined size of the discriminant instead of allowing compiler to guess. With
+            // `#[repr(u8)]` each variant is laid out like a `#[repr(C)]` struct with the
+            // discriminant as the first field, which padding assertions rely on, `#[repr(C, u8)]`
+            // has a different layout.
+            if let Err(error) = check_repr(
+                &input,
+                &["u8"],
+                "`TrivialType` on enums requires `#[repr(u8)]` without other options",
+            ) {
+                return error.to_compile_error().into();
             }
 
-            let repr_numeric = format_ident!("u8");
+            // Metadata identifies variants by their index, so explicit discriminants must be equal
+            // to it, which makes implicit ones equal to it too. Assertions are associated constants
+            // of the enum, so `Self` in a discriminant means the same as in the enum definition.
+            // They are only evaluated when used, so each is used by its own `const _`, which
+            // reports all wrong discriminants.
+            let discriminant_assertions = data_enum
+                .variants
+                .iter()
+                // `#[repr(u8)]` allows at most 256 variants
+                .zip(0..=u8::MAX)
+                .filter_map(|(variant, index)| {
+                    let (_eq_token, discriminant) = variant.discriminant.as_ref()?;
+                    // Errors point at the discriminant
+                    let span = Span::call_site().located_at(discriminant.span());
+                    let name = format_ident!("__TRIVIAL_TYPE_DISCRIMINANT_{index}");
+                    let message = format!(
+                        "Discriminant of `{}` must be equal to its index {index}, variants are \
+                        identified by their index in `TrivialType` metadata",
+                        variant.ident
+                    );
+
+                    Some(quote_spanned! {span=>
+                        impl #type_name {
+                            // The index goes first, so the discriminant is inferred as `u8` like
+                            // in the enum definition
+                            #[doc(hidden)]
+                            const #name: () = ::core::assert!(#index == (#discriminant), #message);
+                        }
+
+                        const _: () = #type_name::#name;
+                    })
+                })
+                .collect::<Vec<_>>();
 
             let field_types = data_enum
                 .variants
@@ -145,10 +160,10 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 quote! {
                     // Assert statically that there is no unexpected padding that would be left
                     // uninitialized and unsound to access
-                    assert!(
+                    ::core::assert!(
                         0 == (
                             ::core::mem::size_of::<#type_name>()
-                            - ::core::mem::size_of::<::core::primitive::#repr_numeric>()
+                            - ::core::mem::size_of::<::core::primitive::u8>()
                             #(- ::core::mem::size_of::<#field_types>() )*
                         ),
                         "Enum must not have implicit padding. Consider reordering fields, adding \
@@ -166,10 +181,15 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             };
 
             quote! {
+                #( #discriminant_assertions )*
+
                 const _: () = {
+                    #( #padding_assertions )*
+
                     // Assert that type doesn't exceed 32-bit size limit
-                    assert!(
-                        u32::MAX as ::core::primitive::usize >= ::core::mem::size_of::<#type_name>(),
+                    ::core::assert!(
+                        ::core::primitive::u32::MAX as ::core::primitive::usize
+                            >= ::core::mem::size_of::<#type_name>(),
                         "Type size must be smaller than 2^32"
                     );
 
@@ -186,11 +206,15 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                                 "Metadata must decode, which is not the case for layouts with \
                                 padding or misaligned fields"
                             );
-                    assert!(remaining_metadata.is_empty());
-                    assert!(size_of::<#type_name>() == type_details.recommended_capacity as ::core::primitive::usize);
-                    assert!(align_of::<#type_name>() == type_details.alignment.get() as ::core::primitive::usize);
-
-                    #( #padding_assertions )*;
+                    ::core::assert!(remaining_metadata.is_empty());
+                    ::core::assert!(
+                        ::core::mem::size_of::<#type_name>()
+                            == type_details.recommended_capacity as ::core::primitive::usize
+                    );
+                    ::core::assert!(
+                        ::core::mem::align_of::<#type_name>()
+                            == type_details.alignment.get() as ::core::primitive::usize
+                    );
                 };
 
                 #[automatically_derived]
@@ -215,81 +239,32 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     output.into()
 }
 
-#[expect(clippy::type_complexity, reason = "Private one-off function")]
-fn parse_repr(
-    repr_attr: &Attribute,
-) -> Result<(bool, bool, Option<u8>, Option<usize>, Option<usize>), Error> {
-    let mut repr_c = false;
-    let mut repr_transparent = false;
-    let mut repr_numeric = None::<u8>;
-    let mut repr_align = None::<usize>;
-    let mut repr_packed = None::<usize>;
+/// Check that `#[repr(..)]` attributes of the type contain at least one of `allowed` options and no
+/// other options, returns an error with `message` otherwise
+fn check_repr(input: &DeriveInput, allowed: &[&str], message: &str) -> Result<(), Error> {
+    let mut found_allowed = false;
 
-    // Based on https://docs.rs/syn/2.0.93/syn/struct.Attribute.html#method.parse_nested_meta
-    repr_attr.parse_nested_meta(|meta| {
-        if meta.path.is_ident("C") {
-            repr_c = true;
-            return Ok(());
-        }
-        if meta.path.is_ident("u8") {
-            repr_numeric.replace(8);
-            return Ok(());
-        }
-        if meta.path.is_ident("u16") {
-            repr_numeric.replace(16);
-            return Ok(());
-        }
-        if meta.path.is_ident("u32") {
-            repr_numeric.replace(32);
-            return Ok(());
-        }
-        if meta.path.is_ident("u64") {
-            repr_numeric.replace(64);
-            return Ok(());
-        }
-        if meta.path.is_ident("u128") {
-            repr_numeric.replace(128);
-            return Ok(());
-        }
-        if meta.path.is_ident("transparent") {
-            repr_transparent = true;
-            return Ok(());
-        }
-
-        // #[repr(align(N))]
-        if meta.path.is_ident("align") {
-            let content;
-            parenthesized!(content in meta.input);
-            let lit = content.parse::<LitInt>()?;
-            let n = lit.base10_parse::<usize>()?;
-            repr_align = Some(n);
-            return Ok(());
-        }
-
-        // #[repr(packed)] or #[repr(packed(N))], omitted N means 1
-        if meta.path.is_ident("packed") {
-            if meta.input.peek(Paren) {
-                let content;
-                parenthesized!(content in meta.input);
-                let lit = content.parse::<LitInt>()?;
-                let n = lit.base10_parse::<usize>()?;
-                repr_packed = Some(n);
+    // All `#[repr(..)]` attributes are combined by the compiler
+    let repr_attrs = input
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("repr"));
+    for repr_attr in repr_attrs {
+        repr_attr.parse_nested_meta(|meta| {
+            if allowed.iter().any(|option| meta.path.is_ident(option)) {
+                found_allowed = true;
+                Ok(())
             } else {
-                repr_packed = Some(1);
+                Err(meta.error(message))
             }
-            return Ok(());
-        }
+        })?;
+    }
 
-        Err(meta.error("Unsupported `#[repr(..)]`"))
-    })?;
+    if !found_allowed {
+        return Err(Error::new(input.ident.span(), message));
+    }
 
-    Ok((
-        repr_c,
-        repr_transparent,
-        repr_numeric,
-        repr_align,
-        repr_packed,
-    ))
+    Ok(())
 }
 
 fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<TokenStream, Error> {
@@ -303,7 +278,7 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
         #[inline(always)]
         const fn metadata() -> (
             [::core::primitive::u8; ::ab_io_type::metadata::MAX_METADATA_CAPACITY],
-            usize,
+            ::core::primitive::usize,
         )
         {
             ::ab_io_type::metadata::concat_metadata_sources(&[
@@ -312,11 +287,10 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
             ])
         }
 
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-        metadata()
-            .0
-            .split_at(metadata().1)
-            .0
+        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically.
+        // `split_at()` is called by path, with method call syntax a method of a trait in scope that
+        // is implemented for arrays would be called instead.
+        <[::core::primitive::u8]>::split_at(&metadata().0, metadata().1).0
     }})
 }
 
@@ -374,7 +348,7 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
         #[inline(always)]
         const fn metadata() -> (
             [::core::primitive::u8; ::ab_io_type::metadata::MAX_METADATA_CAPACITY],
-            usize,
+            ::core::primitive::usize,
         )
         {
             ::ab_io_type::metadata::concat_metadata_sources(&[
@@ -383,11 +357,10 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
             ])
         }
 
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-        metadata()
-            .0
-            .split_at(metadata().1)
-            .0
+        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically.
+        // `split_at()` is called by path, with method call syntax a method of a trait in scope that
+        // is implemented for arrays would be called instead.
+        <[::core::primitive::u8]>::split_at(&metadata().0, metadata().1).0
     }})
 }
 
@@ -418,7 +391,7 @@ fn generate_inner_struct_metadata_header(
     let num_fields = u8::try_from(fields.len()).map_err(|_error| {
         Error::new(
             fields.span(),
-            format!("Must not have more than {} field", u8::MAX),
+            format!("Must not have more than {} fields", u8::MAX),
         )
     })?;
 

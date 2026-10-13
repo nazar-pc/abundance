@@ -208,9 +208,9 @@ pub unsafe trait IoType {
 
     /// Create a mutable reference to a type, which is represented by provided memory.
     ///
-    /// Memory must be correctly aligned and sufficient in size, or else `None` will be returned,
-    /// but padding beyond the size of the type is allowed. Memory behind a pointer must not be
-    /// read or written to in the meantime either.
+    /// Memory must be correctly aligned and sufficient in size, but padding beyond the size of the
+    /// type is allowed. Memory behind a pointer must not be read or written to in the meantime
+    /// either.
     ///
     /// `size` indicates how many bytes are used within a larger allocation for types that can
     /// store a variable amount of data.
@@ -228,28 +228,28 @@ pub unsafe trait IoType {
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a;
 
-    /// Get a raw pointer to the underlying data with no checks.
+    /// Get a raw pointer to the underlying data.
     ///
-    /// # Safety
-    /// While calling this function is technically safe, it and allows to ignore many of its
-    /// invariants, so requires extra care. In particular, no modifications must be done to the
-    /// value while this returned pointer might be used and no changes must be done through the
-    /// returned pointer. Also, lifetimes are only superficial here and can be easily (and
-    /// incorrectly) ignored by using `Copy`.
-    unsafe fn as_ptr(&self) -> impl Deref<Target = NonNull<Self::PointerType>>;
+    /// The pointer can be used for reading [`Self::size()`] bytes as long as the value is not
+    /// modified, it must not be used for writing.
+    fn as_ptr(&self) -> NonNull<Self::PointerType>;
 
-    /// Get an exclusive raw pointer to the underlying data with no checks.
+    /// Get an exclusive raw pointer to the underlying data.
     ///
-    /// # Safety
-    /// While calling this function is technically safe, it and allows to ignore many of its
-    /// invariants, so requires extra care. In particular, the value's contents must not be read or
-    /// written to while returned point might be used. Also, lifetimes are only superficial here and
-    /// can be easily (and incorrectly) ignored by using `Copy`.
-    unsafe fn as_mut_ptr(&mut self) -> impl DerefMut<Target = NonNull<Self::PointerType>>;
+    /// The pointer can be used for reading [`Self::size()`] bytes and writing up to
+    /// [`Self::capacity()`] bytes as long as the value is not accessed otherwise in the meantime.
+    /// [`Self::set_size()`] needs to be called afterward if the number of initialized bytes
+    /// changes.
+    fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType>;
 }
 
 /// Marker trait, companion to [`IoType`] that indicates the ability to store optional contents.
 ///
-/// This means that zero bytes size is a valid invariant. This type is never implemented for types
+/// This means that zero bytes size is a valid invariant. This trait is never implemented for types
 /// implementing [`TrivialType`] because they always have fixed size, and it is not zero.
-pub trait IoTypeOptional: IoType {}
+///
+/// # Safety
+/// Size `0` must be a valid state that doesn't require any initialized memory:
+/// [`IoType::from_ptr()`] and [`IoType::from_mut_ptr()`] must be sound to call with `size` of `0`
+/// and uninitialized memory behind the pointer, and must not expose that memory as initialized.
+pub unsafe trait IoTypeOptional: IoType {}

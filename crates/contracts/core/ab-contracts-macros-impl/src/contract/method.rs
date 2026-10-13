@@ -1240,12 +1240,10 @@ impl MethodDetails {
                 #arg_name: &'external_args #type_name,
             });
             method_args_fields.push(quote! {
-                // SAFETY: This pointer is used as input to FFI call, and underlying data
-                // will not be modified, also the pointer will not outlive the reference
-                // from which it was created despite copying
-                #ptr_field: unsafe {
-                    *::ab_contracts_macros::__private::IoType::as_ptr(#arg_name)
-                },
+                // This pointer is used as input to FFI call, and underlying data will not be
+                // modified, also the pointer will not outlive the reference from which it was
+                // created despite copying
+                #ptr_field: ::ab_contracts_macros::__private::IoType::as_ptr(#arg_name),
                 #size_field: ::ab_contracts_macros::__private::IoType::size(#arg_name),
                 #capacity_field: ::ab_contracts_macros::__private::IoType::capacity(#arg_name),
             });
@@ -1297,12 +1295,10 @@ impl MethodDetails {
                 }
             });
             method_args_fields.push(quote! {
-                // SAFETY: This pointer is used as input to FFI call, and underlying data will only
-                // be modified there, also the pointer will not outlive the reference from which it
-                // was created despite copying
-                #ptr_field: unsafe {
-                    *::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name)
-                },
+                // This pointer is used as input to FFI call, and underlying data will only be
+                // modified there, also the pointer will not outlive the reference from which it was
+                // created despite copying
+                #ptr_field: ::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name),
                 #size_field: ::ab_contracts_macros::__private::IoType::size(#arg_name),
                 #capacity_field: ::ab_contracts_macros::__private::IoType::capacity(#arg_name),
             });

@@ -50,7 +50,7 @@ fn init_return_value_is_state() {
         env.init_return_and_output_init(
             MethodContext::Keep,
             contract,
-            &mut MaybeData::from_mut(&mut other, &mut other_size),
+            &mut MaybeData::from_mut(&mut other, &mut other_size).unwrap(),
         )
         .unwrap();
         (contract, other, other_size)

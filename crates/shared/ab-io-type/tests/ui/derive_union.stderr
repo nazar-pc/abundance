@@ -1,0 +1,5 @@
+error: `TrivialType` can be derived for structs and enums, but not unions
+ --> tests/ui/derive_union.rs:7:1
+  |
+7 | union Union {
+  | ^^^^^

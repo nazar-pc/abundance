@@ -12,7 +12,7 @@ fn read_trivial_type() {
 
     {
         let size = 4;
-        let bytes = VariableBytes::<0>::from_buffer(&buffer[..4], &size);
+        let bytes = VariableBytes::<0>::from_buffer(&buffer[..4], &size).unwrap();
         assert_eq!(
             bytes.read_trivial_type::<u32>(),
             Some(u32::from_le_bytes([1, 2, 3, 4]))
@@ -21,7 +21,7 @@ fn read_trivial_type() {
 
     {
         let size = 4;
-        let bytes = VariableBytes::<0>::from_buffer(&buffer[1..5], &size);
+        let bytes = VariableBytes::<0>::from_buffer(&buffer[1..5], &size).unwrap();
         assert_eq!(
             bytes.read_trivial_type::<u32>(),
             Some(u32::from_le_bytes([2, 3, 4, 5]))
@@ -31,7 +31,7 @@ fn read_trivial_type() {
     // Not enough bytes
     {
         let size = 3;
-        let bytes = VariableBytes::<0>::from_buffer(&buffer[..3], &size);
+        let bytes = VariableBytes::<0>::from_buffer(&buffer[..3], &size).unwrap();
         assert_eq!(bytes.read_trivial_type::<u32>(), None);
     }
 }

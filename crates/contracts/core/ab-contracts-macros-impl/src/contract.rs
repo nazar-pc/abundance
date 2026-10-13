@@ -562,6 +562,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
                     code_bytes(),
                     &CODE_SIZE
                 )
+                .expect("Size is the length of the code, which is a short string; qed")
             }
         }
 
