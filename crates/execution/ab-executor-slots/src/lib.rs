@@ -4,6 +4,9 @@
 )]
 #![no_std]
 
+#[cfg(test)]
+mod tests;
+
 extern crate alloc;
 
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
@@ -810,7 +813,7 @@ impl<'a> NestedSlots<'a> {
                 inner,
                 parent_slot_access_len,
                 original_parent: _,
-            } => (&mut **inner, parent_slot_access_len),
+            } => (&mut **inner, *parent_slot_access_len),
             NestedSlotsInner::ReadOnly { .. } => {
                 // No need to integrate changes into the parent
                 return;
@@ -821,7 +824,7 @@ impl<'a> NestedSlots<'a> {
         let slot_access = &mut inner.slot_access;
 
         // Fix-up slots that were modified during access
-        for slot_access in slot_access.drain(*parent_slot_access_len..) {
+        for slot_access in slot_access.drain(parent_slot_access_len..) {
             let slot = &mut slots
                 .get_mut(usize::from(slot_access.slot_index))
                 .expect("Accessed slot exists; qed")
@@ -837,7 +840,5 @@ impl<'a> NestedSlots<'a> {
                 SlotState::ModifiedReadWrite { previous, .. } => SlotState::Modified(previous),
             });
         }
-
-        *parent_slot_access_len = 0;
     }
 }
