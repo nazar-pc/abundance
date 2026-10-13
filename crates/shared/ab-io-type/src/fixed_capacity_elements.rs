@@ -126,11 +126,9 @@ where
             ])
         }
 
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-        metadata(CAPACITY as u32, Element::METADATA)
-            .0
-            .split_at(metadata(CAPACITY as u32, Element::METADATA).1)
-            .0
+        // The reference extends the lifetime of metadata scratch to that of the constant
+        let (metadata_scratch, metadata_size) = &metadata(CAPACITY as u32, Element::METADATA);
+        metadata_scratch.split_at(*metadata_size).0
     };
 }
 

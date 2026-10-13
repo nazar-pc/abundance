@@ -50,11 +50,10 @@ where
             ])
         }
 
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-        metadata(RECOMMENDED_ALLOCATION, Element::METADATA)
-            .0
-            .split_at(metadata(RECOMMENDED_ALLOCATION, Element::METADATA).1)
-            .0
+        // The reference extends the lifetime of metadata scratch to that of the constant
+        let (metadata_scratch, metadata_size) =
+            &metadata(RECOMMENDED_ALLOCATION, Element::METADATA);
+        metadata_scratch.split_at(*metadata_size).0
     };
 
     // TODO: Use `[Element; U32_TO_USIZE::<RECOMMENDED_ALLOCATION>]` with `generic_const_args`

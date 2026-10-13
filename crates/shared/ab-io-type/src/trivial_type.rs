@@ -235,11 +235,9 @@ where
 {
     // Casting `SIZE` to `u32` is lossless, which is checked by the `SUPPORTED_ARRAY` bound
     const METADATA: &[u8] = {
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-        array_metadata(SIZE as u32, T::METADATA)
-            .0
-            .split_at(array_metadata(SIZE as u32, T::METADATA).1)
-            .0
+        // The reference extends the lifetime of metadata scratch to that of the constant
+        let (metadata_scratch, metadata_size) = &array_metadata(SIZE as u32, T::METADATA);
+        metadata_scratch.split_at(*metadata_size).0
     };
 }
 
