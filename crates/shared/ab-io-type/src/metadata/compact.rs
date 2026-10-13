@@ -4,9 +4,10 @@ use crate::metadata::stack::Stack;
 /// A compound type whose contained types are being compacted
 #[derive(Debug, Copy, Clone)]
 enum Frame {
-    /// [`IoTypeMetadataKind::Array`], [`IoTypeMetadataKind::VariableElements`],
-    /// [`IoTypeMetadataKind::FixedCapacityElements`], [`IoTypeMetadataKind::Unaligned`] or
-    /// [`IoTypeMetadataKind::Struct`] with a single field, which contain exactly one type
+    /// [`IoTypeMetadataKind::Array`], [`IoTypeMetadataKind::MaybeData`],
+    /// [`IoTypeMetadataKind::VariableElements`], [`IoTypeMetadataKind::FixedCapacityElements`],
+    /// [`IoTypeMetadataKind::Unaligned`] or [`IoTypeMetadataKind::Struct`] with a single field,
+    /// which contain exactly one type
     Wrapper,
     /// [`IoTypeMetadataKind::Struct`] without fields or with more than one field, or
     /// [`IoTypeMetadataKind::Enum`]. A struct with more than one field is compacted like an enum
@@ -113,7 +114,7 @@ pub(super) const fn compact_metadata<'i, 'o, const MAX_DEPTH: usize>(
 
                 None
             }
-            IoTypeMetadataKind::Unaligned => Some(Frame::Wrapper),
+            IoTypeMetadataKind::MaybeData | IoTypeMetadataKind::Unaligned => Some(Frame::Wrapper),
         };
 
         if let Some(frame) = frame {

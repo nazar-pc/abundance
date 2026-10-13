@@ -4,7 +4,7 @@ error[E0308]: mismatched types
 19 |         pub fn new(#[output] state: &mut Many<Self>) {
    |                                          ^^^^^^^^^^ expected `PhantomData<MaybeData<Example>>`, found `PhantomData<[Example; 64]>`
    |
-   = note: expected struct `PhantomData<MaybeData<alias::Example>>`
+   = note: expected struct `PhantomData<ab_io_type::maybe_data::MaybeData<alias::Example>>`
               found struct `PhantomData<[alias::Example; 64]>`
 
 error[E0308]: mismatched types
@@ -13,5 +13,5 @@ error[E0308]: mismatched types
 39 |         pub fn new(#[output] state: &mut VariableElements<Self>) {
    |                                          ^^^^^^^^^^^^^^^^^^^^^^ expected `PhantomData<MaybeData<Example>>`, found `PhantomData<VariableElements<Example>>`
    |
-   = note: expected struct `PhantomData<MaybeData<variable_elements::Example>>`
+   = note: expected struct `PhantomData<ab_io_type::maybe_data::MaybeData<variable_elements::Example>>`
               found struct `PhantomData<ab_io_type::variable_elements::VariableElements<variable_elements::Example>>`

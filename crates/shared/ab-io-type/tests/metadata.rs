@@ -647,12 +647,21 @@ fn variable_elements() {
 
 #[test]
 fn maybe_data() {
-    // `MaybeData` has the same metadata as the type inside
-    let (point, point_compact) = point();
-    check_io_type::<MaybeData<Point>>("Point", 2, 1, &point, &point_compact);
+    let name = "MaybeData";
 
-    let expected = Expected::new(IoTypeMetadataKind::U64);
-    check_io_type::<MaybeData<u64>>("u64", 8, 8, &expected, &expected);
+    let (point, point_compact) = point();
+    let expected = Expected::new(IoTypeMetadataKind::MaybeData).nested(&point);
+    let expected_compact = Expected::new(IoTypeMetadataKind::MaybeData).nested(&point_compact);
+    check_io_type::<MaybeData<Point>>(name, 2, 1, &expected, &expected_compact);
+
+    let expected = Expected::new(IoTypeMetadataKind::MaybeData).kind(IoTypeMetadataKind::U64);
+    check_io_type::<MaybeData<u64>>(name, 8, 8, &expected, &expected);
+
+    // Data may be missing, so `MaybeData` doesn't compact into the type of data
+    assert_ne!(
+        compact(<MaybeData<u64> as ab_io_type::IoType>::METADATA),
+        compact(u64::METADATA)
+    );
 }
 
 #[test]
@@ -2068,8 +2077,8 @@ fn padded_enum_of(inner: &Expected) -> Expected {
 /// Compound types that contain the given type, each of them adds one level of nesting depth,
 /// variants of enums don't.
 ///
-/// `VariableElements` adds one level too, but it can only be the outermost type, see
-/// [`variable_elements_outermost()`].
+/// `MaybeData` and `VariableElements` add one level too, but they can only be the outermost type,
+/// see [`maybe_data_outermost()`] and [`variable_elements_outermost()`].
 fn compound_types() -> [fn(&Expected) -> Expected; 7] {
     [
         unaligned_of,
@@ -2080,6 +2089,11 @@ fn compound_types() -> [fn(&Expected) -> Expected; 7] {
         enum_of,
         padded_enum_of,
     ]
+}
+
+/// `MaybeData` that contains the given type
+fn maybe_data_outermost(inner: &Expected) -> Expected {
+    Expected::new(IoTypeMetadataKind::MaybeData).nested(inner)
 }
 
 /// `VariableElements` that contains the given type
@@ -2121,9 +2135,11 @@ fn nesting_depth() {
         assert!(!decodes::<1>(&metadata.0));
         assert!(decodes::<2>(&metadata.0));
     }
-    let metadata = variable_elements_outermost(&u8_array(4));
-    assert!(!decodes::<1>(&metadata.0));
-    assert!(decodes::<2>(&metadata.0));
+    for outermost_type in [maybe_data_outermost, variable_elements_outermost] {
+        let metadata = outermost_type(&u8_array(4));
+        assert!(!decodes::<1>(&metadata.0));
+        assert!(decodes::<2>(&metadata.0));
+    }
 }
 
 #[test]
@@ -2149,17 +2165,17 @@ fn nesting_depth_limit() {
     let too_deep = compound_types[MAX_DEPTH % compound_types.len()](&metadata);
     assert!(!decodes::<MAX_DEPTH>(&too_deep.0));
 
-    // `VariableElements` around types nested one level less deep
+    // `MaybeData` and `VariableElements` around types nested one level less deep
     let mut metadata = Expected::new(IoTypeMetadataKind::U8);
     for level in 1..MAX_DEPTH {
         metadata = compound_types[level % compound_types.len()](&metadata);
     }
-    assert!(decodes::<MAX_DEPTH>(
-        &variable_elements_outermost(&metadata).0
-    ));
-    assert!(!decodes::<MAX_DEPTH>(
-        &variable_elements_outermost(&unaligned_of(&metadata)).0
-    ));
+    for outermost_type in [maybe_data_outermost, variable_elements_outermost] {
+        assert!(decodes::<MAX_DEPTH>(&outermost_type(&metadata).0));
+        assert!(!decodes::<MAX_DEPTH>(
+            &outermost_type(&unaligned_of(&metadata)).0
+        ));
+    }
 
     // A struct without fields is one level deep
     let mut metadata = Expected::new(IoTypeMetadataKind::Struct)
@@ -2285,9 +2301,25 @@ fn variable_elements_must_be_outermost() {
     check_rejected(&struct_with_fields(&[&bytes]).0);
     check_rejected(&enum_with_variants(&[&[&bytes]]).0);
     check_rejected(&array_of(&bytes).0);
+    check_rejected(&maybe_data_outermost(&bytes).0);
     check_rejected(&variable_elements_outermost(&bytes).0);
     check_rejected(&fixed_capacity_elements_of(&bytes).0);
     check_rejected(&unaligned_of(&bytes).0);
+}
+
+#[test]
+fn maybe_data_must_be_outermost() {
+    // `MaybeData` is not a `TrivialType`, so it can't be contained in other types
+    let maybe_data = maybe_data_outermost(&Expected::new(IoTypeMetadataKind::U64));
+    check_layout(&maybe_data.0, 8, 8);
+
+    check_rejected(&struct_with_fields(&[&maybe_data]).0);
+    check_rejected(&enum_with_variants(&[&[&maybe_data]]).0);
+    check_rejected(&array_of(&maybe_data).0);
+    check_rejected(&maybe_data_outermost(&maybe_data).0);
+    check_rejected(&variable_elements_outermost(&maybe_data).0);
+    check_rejected(&fixed_capacity_elements_of(&maybe_data).0);
+    check_rejected(&unaligned_of(&maybe_data).0);
 }
 
 #[test]

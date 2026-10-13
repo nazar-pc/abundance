@@ -4,12 +4,13 @@ Breaking changes:
 
 * Metadata kinds for specific numbers of fields, variants and elements (like `Struct3` and `ArrayU8x32`) are removed,
   array lengths, recommended allocations and capacities always take 4 bytes, `TupleStruct` and `EnumNoFields` are merged
-  into `Struct` and `Enum`, and the remaining kinds are renumbered, so `METADATA` of most types changes
+  into `Struct` and `Enum`, `MaybeData` has its own kind instead of the metadata of its data, and the remaining kinds
+  are renumbered, so `METADATA` of most types changes
 * `VariableBytes` is now an alias of `VariableElements<u8>`, and `FixedCapacityBytesU8/U16` and
   `FixedCapacityStringU8/U16` are replaced with `FixedCapacityElements<Element, CAPACITY>` (with the
   `FixedCapacityBytes<CAPACITY>` alias) and `FixedCapacityString<CAPACITY>`, which store the length as `u32`
-* `IoTypeMetadataKind::type_details()` rejects enums without variants, `VariableElements` inside other types and layouts
-  with padding
+* `IoTypeMetadataKind::type_details()` rejects enums without variants, `MaybeData` and `VariableElements` inside other
+  types and layouts with padding
 * `IoTypeMetadataKind::type_details()` and `IoTypeMetadataKind::compact()` take the max nesting depth as a const generic
   parameter and return `None` for deeper metadata, their stack usage doesn't depend on metadata
 * `IoTypeMetadataKind::compact()` replaces names with zero-length names, so it produces valid metadata with the same

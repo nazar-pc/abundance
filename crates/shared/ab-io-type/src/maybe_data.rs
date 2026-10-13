@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
 use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
@@ -33,7 +34,17 @@ where
     Data: TrivialType,
     [(); NON_ZERO_SIZED::<Data>]:,
 {
-    const METADATA: &[u8] = Data::METADATA;
+    const METADATA: &[u8] = {
+        const fn metadata(inner_metadata: &[u8]) -> ([u8; MAX_METADATA_CAPACITY], usize) {
+            concat_metadata_sources(&[&[IoTypeMetadataKind::MaybeData as u8], inner_metadata])
+        }
+
+        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
+        metadata(Data::METADATA)
+            .0
+            .split_at(metadata(Data::METADATA).1)
+            .0
+    };
 
     type PointerType = Data;
 
