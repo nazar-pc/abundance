@@ -39,11 +39,9 @@ where
             concat_metadata_sources(&[&[IoTypeMetadataKind::MaybeData as u8], inner_metadata])
         }
 
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-        metadata(Data::METADATA)
-            .0
-            .split_at(metadata(Data::METADATA).1)
-            .0
+        // The reference extends the lifetime of metadata scratch to that of the constant
+        let (metadata_scratch, metadata_size) = &metadata(Data::METADATA);
+        metadata_scratch.split_at(*metadata_size).0
     };
 
     type PointerType = Data;

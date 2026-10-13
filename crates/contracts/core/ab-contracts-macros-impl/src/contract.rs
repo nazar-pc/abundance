@@ -328,12 +328,9 @@ fn generate_trait_metadata(
                 ])
             }
 
-            // Strange syntax to allow Rust to extend the lifetime of metadata scratch
-            // automatically
-            metadata()
-                .0
-                .split_at(metadata().1)
-                .0
+            // The reference extends the lifetime of metadata scratch to that of the constant
+            let (metadata_scratch, metadata_size) = &metadata();
+            <[_]>::split_at(metadata_scratch, *metadata_size).0
         };
     })
 }
@@ -446,12 +443,9 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
                     ])
                 }
 
-                // Strange syntax to allow Rust to extend the lifetime of metadata scratch
-                // automatically
-                metadata()
-                    .0
-                    .split_at(metadata().1)
-                    .0
+                // The reference extends the lifetime of metadata scratch to that of the constant
+                let (metadata_scratch, metadata_size) = &metadata();
+                <[_]>::split_at(metadata_scratch, *metadata_size).0
             };
         }
     };

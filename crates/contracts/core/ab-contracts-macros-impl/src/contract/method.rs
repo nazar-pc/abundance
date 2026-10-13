@@ -1572,12 +1572,11 @@ impl MethodDetails {
             /// Method metadata, see [`ContractMetadataKind`] for encoding details
             ///
             /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
-            // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically
-            pub const METADATA: &[::core::primitive::u8] =
-                metadata()
-                    .0
-                    .split_at(metadata().1)
-                    .0;
+            pub const METADATA: &[::core::primitive::u8] = {
+                // The reference extends the lifetime of metadata scratch to that of the constant
+                let (metadata_scratch, metadata_size) = &metadata();
+                <[_]>::split_at(metadata_scratch, *metadata_size).0
+            };
 
             // Contracts decode metadata of these types with `MAX_METADATA_DEPTH` as the max
             // nesting depth, so deeper types must not compile

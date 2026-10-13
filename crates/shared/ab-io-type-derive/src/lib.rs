@@ -287,10 +287,11 @@ fn generate_struct_metadata(ident: &Ident, data_struct: &DataStruct) -> Result<T
             ])
         }
 
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically.
+        // The reference extends the lifetime of metadata scratch to that of the constant
+        let (metadata_scratch, metadata_size) = &metadata();
         // `split_at()` is called by path, with method call syntax a method of a trait in scope that
-        // is implemented for arrays would be called instead.
-        <[::core::primitive::u8]>::split_at(&metadata().0, metadata().1).0
+        // is implemented for arrays would be called instead
+        <[_]>::split_at(metadata_scratch, *metadata_size).0
     }})
 }
 
@@ -357,10 +358,11 @@ fn generate_enum_metadata(ident: &Ident, data_enum: &DataEnum) -> Result<TokenSt
             ])
         }
 
-        // Strange syntax to allow Rust to extend the lifetime of metadata scratch automatically.
+        // The reference extends the lifetime of metadata scratch to that of the constant
+        let (metadata_scratch, metadata_size) = &metadata();
         // `split_at()` is called by path, with method call syntax a method of a trait in scope that
-        // is implemented for arrays would be called instead.
-        <[::core::primitive::u8]>::split_at(&metadata().0, metadata().1).0
+        // is implemented for arrays would be called instead
+        <[_]>::split_at(metadata_scratch, *metadata_size).0
     }})
 }
 
