@@ -1,0 +1,11 @@
+error[E0200]: the trait `ExecutorContext` requires an `unsafe impl` declaration
+  --> tests/ui/executor/executor_context_safe_impl.rs:10:1
+   |
+10 | impl ExecutorContext for NoopContext {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: the trait `ExecutorContext` enforces invariants that the compiler can't check. Review the trait documentation and make sure this implementation upholds those invariants before adding the `unsafe` keyword
+help: add `unsafe` to this trait implementation
+   |
+10 | unsafe impl ExecutorContext for NoopContext {
+   | ++++++

@@ -11,7 +11,8 @@ use ab_system_contract_code::CodeExt;
 #[derive(Debug)]
 struct ForeignContext;
 
-impl ExecutorContext for ForeignContext {
+// SAFETY: Never returns `Ok(())` and doesn't access anything behind pointers in prepared methods
+unsafe impl ExecutorContext for ForeignContext {
     fn call(&self, _: &EnvState, _: &PreparedMethod<'_>) -> Result<(), ContractError> {
         Err(ContractError::Forbidden)
     }
