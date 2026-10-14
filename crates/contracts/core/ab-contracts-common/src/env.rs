@@ -32,9 +32,11 @@ pub enum MethodContext {
 ///
 /// It only describes a method call and nothing in it is checked: the executor reads arguments
 /// behind `external_args` according to metadata of the method with `fingerprint`, and either checks
-/// them against that metadata or trusts the caller (like the native executor does). Fields can't be
-/// modified after creation, so that a method prepared with [`Self::new()`] can't be retargeted to
-/// a different method or arguments by accident.
+/// them against that metadata or trusts the caller (like the native executor does). The arguments
+/// meet the safety requirements of [`Self::new_untyped()`] for the lifetime `'a`, which
+/// [`Self::new()`] ensures with typed arguments. Fields can't be modified after creation, so that a
+/// method prepared with [`Self::new()`] can't be retargeted to a different method or arguments by
+/// accident.
 #[derive(Debug)]
 #[repr(C)]
 #[must_use]
@@ -78,11 +80,29 @@ impl<'a> PreparedMethod<'a> {
     /// Prepare a single method for calling with arguments laid out dynamically, like in a
     /// transaction payload.
     ///
-    /// Prefer [`Self::new()`] when the type of arguments is known. `external_args` is expected to
-    /// start with arguments laid out like [`ExternalArgs`] of the method with `fingerprint`.
+    /// Prefer [`Self::new()`] when the type of arguments is known.
+    ///
+    /// # Safety
+    /// `external_args` must start with arguments laid out like [`ExternalArgs`] of the method with
+    /// `fingerprint`, and for the lifetime `'a`:
+    /// * the pointer of each slot must be aligned and point to an [`Address`] valid for reads
+    /// * the pointer of each input must be valid for reads of its size, with that many bytes
+    ///   initialized
+    /// * the pointer of each output must be valid for reads and writes of its capacity, with its
+    ///   size not exceeding the capacity and that many bytes initialized
+    /// * the pointer of the return value (if the method has one) must be aligned and valid for
+    ///   reads and writes of a value of the return type, while its contents don't need to be
+    ///   initialized
+    /// * outputs and the return value must not overlap each other, slot addresses, inputs or
+    ///   `external_args`, and must not be accessed other than through `external_args`, while slot
+    ///   addresses and inputs must not be written to
+    ///
+    /// Whether sizes and alignment of inputs and outputs match the types of the method's arguments
+    /// is not part of this contract, since only the executor has the method's metadata to check
+    /// them against.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn new_untyped<Args>(
+    pub unsafe fn new_untyped<Args>(
         contract: Address,
         fingerprint: MethodFingerprint,
         external_args: &'a mut Args,

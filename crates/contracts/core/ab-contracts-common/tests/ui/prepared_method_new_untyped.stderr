@@ -1,0 +1,7 @@
+error[E0133]: call to unsafe function `PreparedMethod::<'a>::new_untyped` is unsafe and requires unsafe block
+  --> tests/ui/prepared_method_new_untyped.rs:13:5
+   |
+13 |     PreparedMethod::new_untyped(contract, fingerprint, external_args, MethodContext::Keep)
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ call to unsafe function
+   |
+   = note: consult the function's documentation for information on how to avoid undefined behavior

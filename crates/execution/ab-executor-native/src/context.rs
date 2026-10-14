@@ -99,9 +99,12 @@ unsafe impl ExecutorContext for NativeExecutorContext<'_> {
             && *fingerprint == AddressAllocatorAllocateAddressArgs::FINGERPRINT;
 
         // SAFETY: `method_details` were found by the fingerprint of `prepared_method`, so
-        // `external_args` are expected to be laid out as `ExternalArgs` of this exact method. The
-        // native executor doesn't check this against metadata and trusts callers instead (see
-        // `NativeExecutor`), which is also a safety requirement of `ExternalArgs` for typed calls.
+        // `external_args` are laid out as `ExternalArgs` of this exact method, as required by
+        // `ExternalArgs` for typed calls and by `PreparedMethod::new_untyped()` otherwise. Sizes
+        // and alignment of inputs and outputs are not checked against metadata, the native
+        // executor trusts callers instead (see `NativeExecutor`).
+        // TODO: Check sizes and alignment of inputs and outputs in `external_args` against the
+        //  method's metadata, which `PreparedMethod::new_untyped()` leaves to the executor
         unsafe {
             make_ffi_call(
                 self.allow_env_mutation,
