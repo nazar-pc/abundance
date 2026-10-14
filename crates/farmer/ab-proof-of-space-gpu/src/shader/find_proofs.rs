@@ -12,13 +12,13 @@ use crate::shader::types::{Position, PositionExt};
 #[cfg(not(target_arch = "spirv"))]
 use ab_core_primitives::pos::PosProof;
 use core::mem::MaybeUninit;
-use spirv_std::arch::{
+use spirv_std_nightly::arch::{
     atomic_or, subgroup_ballot, subgroup_memory_barrier, subgroup_shuffle, subgroup_u_min,
     workgroup_memory_barrier_with_group_sync,
 };
-use spirv_std::glam::UVec3;
-use spirv_std::memory::{Scope, Semantics};
-use spirv_std::spirv;
+use spirv_std_nightly::glam::UVec3;
+use spirv_std_nightly::memory::{Scope, Semantics};
+use spirv_std_nightly::spirv;
 
 // TODO: Same number as hardcoded in `#[spirv(compute(threads(..)))]` below, can be removed once
 //  https://github.com/Rust-GPU/rust-gpu/discussions/287 is resolved
@@ -183,7 +183,7 @@ fn find_local_proof_targets<const SUBGROUP_SIZE: u32>(
             // SAFETY: TODO: Probably should not be unsafe to begin with:
             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
             unsafe {
-                atomic_or::<_, { Scope::Workgroup as u32 }, { Semantics::NONE.bits() }>(
+                atomic_or::<_, { Scope::Workgroup }, const { Semantics::NONE }>(
                     found_proofs_word,
                     found_proofs_words.x << local_word_shift,
                 );
@@ -403,12 +403,9 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             // SAFETY: TODO: Probably should not be unsafe to begin with:
                             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
                             unsafe {
-                                atomic_or::<
-                                    _,
-                                    { Scope::Subgroup as u32 },
-                                    { Semantics::NONE.bits() },
-                                >(
-                                    word, local_proof_words[0].to_be()
+                                atomic_or::<_, { Scope::Subgroup }, const { Semantics::NONE }>(
+                                    word,
+                                    local_proof_words[0].to_be(),
                                 );
                             }
                         }
@@ -422,12 +419,9 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             // SAFETY: TODO: Probably should not be unsafe to begin with:
                             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
                             unsafe {
-                                atomic_or::<
-                                    _,
-                                    { Scope::Subgroup as u32 },
-                                    { Semantics::NONE.bits() },
-                                >(
-                                    word, local_proof_words[1].to_be()
+                                atomic_or::<_, { Scope::Subgroup }, const { Semantics::NONE }>(
+                                    word,
+                                    local_proof_words[1].to_be(),
                                 );
                             }
                         }
@@ -440,12 +434,9 @@ fn find_proofs_impl<const SUBGROUP_SIZE: u32>(
                             // SAFETY: TODO: Probably should not be unsafe to begin with:
                             //  https://github.com/Rust-GPU/rust-gpu/pull/394#issuecomment-3316594485
                             unsafe {
-                                atomic_or::<
-                                    _,
-                                    { Scope::Subgroup as u32 },
-                                    { Semantics::NONE.bits() },
-                                >(
-                                    word, local_proof_words[2].to_be()
+                                atomic_or::<_, { Scope::Subgroup }, const { Semantics::NONE }>(
+                                    word,
+                                    local_proof_words[2].to_be(),
                                 );
                             }
                         }
