@@ -3,8 +3,8 @@ use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata
 use crate::unaligned::Unaligned;
 pub use ab_io_type_derive::TrivialType;
 use core::ops::{Deref, DerefMut};
-use core::ptr;
 use core::ptr::NonNull;
+use core::{ptr, slice};
 
 const SIZE_OF<T>: usize = size_of::<T>();
 /// Ensures the number of array elements (encoded in metadata) and array size fit into `u32`
@@ -542,6 +542,51 @@ where
 
         // SAFETY: guaranteed by this function signature
         unsafe { ptr.as_mut() }
+    }
+
+    #[inline(always)]
+    #[track_caller]
+    unsafe fn try_from_ptr<'a>(
+        ptr: &'a NonNull<Self::PointerType>,
+        size: &'a u32,
+        capacity: u32,
+    ) -> Option<impl Deref<Target = Self> + 'a> {
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        if !(*size == T::SIZE && *size <= capacity) {
+            return None;
+        }
+        // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for reads of
+        // `size` initialized bytes, which are not written to during the call (function contract)
+        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+        T::try_from_bytes_unaligned(bytes)?;
+
+        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, the memory holds a valid
+        // value of `T` as checked above, `ptr` is aligned and the memory is not written to while
+        // the returned value exists (function contract)
+        Some(unsafe { Self::from_ptr(ptr, size, capacity) })
+    }
+
+    #[inline(always)]
+    #[track_caller]
+    unsafe fn try_from_mut_ptr<'a>(
+        ptr: &'a mut NonNull<Self::PointerType>,
+        size: &'a mut u32,
+        capacity: u32,
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        if !(*size == T::SIZE && *size <= capacity) {
+            return None;
+        }
+        // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for reads of
+        // `size` initialized bytes, which are not accessed otherwise during the call (function
+        // contract), the slice is not used after parsing
+        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+        T::try_from_bytes_unaligned(bytes)?;
+
+        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, the memory holds a valid
+        // value of `T` as checked above, `ptr` is aligned and the memory is not accessed otherwise
+        // while the returned value exists (function contract)
+        Some(unsafe { Self::from_mut_ptr(ptr, size, capacity) })
     }
 
     #[inline(always)]

@@ -151,11 +151,13 @@ impl<T> DerefMut for DerefWrapper<T> {
 /// [`VariableBytes`](variable_bytes::VariableBytes).
 ///
 /// # Safety
-/// This trait is used for types with memory transmutation capabilities, it must not be relied on
-/// with untrusted data. Serializing and deserializing of types that implement this trait is simply
-/// casting of underlying memory. As a result, all the types implementing this trait must not use
-/// implicit padding, unions, or anything similar that might make it unsound to access any bits of
-/// the type.
+/// This trait is used for types with memory transmutation capabilities. Memory with untrusted
+/// contents is parsed with [`IoType::try_from_ptr()`] and [`IoType::try_from_mut_ptr()`].
+/// Serializing and deserializing of types that implement this trait is simply casting of underlying
+/// memory. As a result, all the types implementing this trait must not use implicit padding,
+/// unions, or anything similar that might make it unsound to access any bits of the type.
+/// [`IoType::try_from_ptr()`] and [`IoType::try_from_mut_ptr()`] return `Some` only if
+/// [`IoType::from_ptr()`] and [`IoType::from_mut_ptr()`] with the same arguments would be sound.
 ///
 /// Helper functions are provided to make casting to/from bytes a bit safer than it would otherwise,
 /// but extra care is still needed.
@@ -165,7 +167,8 @@ impl<T> DerefMut for DerefWrapper<T> {
 /// more flexibility is needed.
 ///
 /// In case of variable state size is needed, create a wrapper struct around `VariableBytes` and
-/// implement traits on it by forwarding everything to the inner implementation.
+/// implement traits on it by forwarding everything to the inner implementation, including
+/// [`IoType::try_from_ptr()`] and [`IoType::try_from_mut_ptr()`].
 pub unsafe trait IoType {
     /// Data structure metadata in binary form, describing shape and types of the contents, see
     /// [`IoTypeMetadataKind`] for encoding details
@@ -197,7 +200,8 @@ pub unsafe trait IoType {
     /// of data due to the read-only nature of read-only access here.
     ///
     /// # Safety
-    /// Input bytes must be previously produced by taking underlying bytes of the same type.
+    /// The memory holds a valid value of the type with a valid size, for example one that
+    /// [`Self::try_from_ptr()`] accepts.
     // `impl Deref` is used to tie lifetime of returned value to inputs but still treat it as a
     // shared reference for most practical purposes. While lifetime here is somewhat superficial due
     // to the `Copy` nature of the value, it must be respected. Size must point to properly
@@ -219,7 +223,8 @@ pub unsafe trait IoType {
     /// store a variable amount of data.
     ///
     /// # Safety
-    /// Input bytes must be previously produced by taking underlying bytes of the same type.
+    /// The memory holds a valid value of the type with a valid size, for example one that
+    /// [`Self::try_from_mut_ptr()`] accepts.
     // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
     // exclusive reference for most practical purposes. While lifetime here is somewhat superficial
     // due to the `Copy` nature of the value, it must be respected. Size must point to properly
@@ -230,6 +235,48 @@ pub unsafe trait IoType {
         size: &'a mut u32,
         capacity: u32,
     ) -> impl DerefMut<Target = Self> + 'a;
+
+    /// Create a reference to a type, which is represented by provided memory, if the memory holds a
+    /// valid value.
+    ///
+    /// In contrast to [`Self::from_ptr()`], `size`, `capacity` and the contents are checked.
+    /// Returns `None` if `size` exceeds `capacity`, `size` or `capacity` is not valid for the type
+    /// or the first `size` bytes are not a valid value. Valid sizes are the size of a
+    /// [`TrivialType`], `0` or the size of the data for [`MaybeData`] and multiples of the element
+    /// size for [`VariableElements`]. The capacity of [`MaybeData`] must be `0` or at least the
+    /// size of the data.
+    ///
+    /// # Safety
+    /// `ptr` is aligned for `Self::PointerType`. If `size` doesn't exceed `capacity`, `ptr` is
+    /// valid for reads of `size` bytes, which are initialized and not written to during the call
+    /// and while the returned value exists.
+    ///
+    /// [`MaybeData`]: maybe_data::MaybeData
+    /// [`VariableElements`]: variable_elements::VariableElements
+    #[track_caller]
+    unsafe fn try_from_ptr<'a>(
+        ptr: &'a NonNull<Self::PointerType>,
+        size: &'a u32,
+        capacity: u32,
+    ) -> Option<impl Deref<Target = Self> + 'a>;
+
+    /// Like [`Self::try_from_ptr()`], but returns an exclusive reference.
+    ///
+    /// Also returns `None` if `capacity` is too small for writing a value, like for [`MaybeData`]
+    /// with a capacity smaller than its data.
+    ///
+    /// # Safety
+    /// `ptr` is aligned for `Self::PointerType` and valid for reads and writes of `capacity` bytes,
+    /// the first `size` of which are initialized if `size` doesn't exceed `capacity`. The memory is
+    /// not accessed otherwise during the call and while the returned value exists.
+    ///
+    /// [`MaybeData`]: maybe_data::MaybeData
+    #[track_caller]
+    unsafe fn try_from_mut_ptr<'a>(
+        ptr: &'a mut NonNull<Self::PointerType>,
+        size: &'a mut u32,
+        capacity: u32,
+    ) -> Option<impl DerefMut<Target = Self> + 'a>;
 
     /// Get a raw pointer to the underlying data.
     ///
@@ -253,6 +300,7 @@ pub unsafe trait IoType {
 ///
 /// # Safety
 /// Size `0` must be a valid state that doesn't require any initialized memory:
-/// [`IoType::from_ptr()`] and [`IoType::from_mut_ptr()`] must be sound to call with `size` of `0`
-/// and uninitialized memory behind the pointer, and must not expose that memory as initialized.
+/// [`IoType::from_ptr()`], [`IoType::from_mut_ptr()`], [`IoType::try_from_ptr()`] and
+/// [`IoType::try_from_mut_ptr()`] must be sound to call with `size` of `0` and uninitialized memory
+/// behind the pointer, and must not expose that memory as initialized.
 pub unsafe trait IoTypeOptional: IoType {}

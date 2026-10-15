@@ -2,12 +2,38 @@
 mod tests;
 
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
-use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
+use crate::trivial_type::{NON_ZERO_SIZED, TrivialType, try_skip_valid};
 use crate::{DerefWrapper, IoType, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::{ptr, slice};
+
+/// Whether `size` and `capacity` are valid for [`VariableElements`] and the first `size` bytes
+/// behind `ptr` are valid elements.
+///
+/// # Safety
+/// If `size` doesn't exceed `capacity`, `ptr` is valid for reads of `size` bytes, which are
+/// initialized and not written to during the call.
+#[inline(always)]
+unsafe fn contents_are_valid<Element>(ptr: NonNull<Element>, size: u32, capacity: u32) -> bool
+where
+    Element: TrivialType,
+    [(); NON_ZERO_SIZED::<Element>]:,
+{
+    // TODO: Technically redundant with the where-clause, which is not enforced in generic code
+    //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
+    if size_of::<Element>() == 0 {
+        return false;
+    }
+    if !(size <= capacity && size.is_multiple_of(Element::SIZE)) {
+        return false;
+    }
+    // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for reads of
+    // `size` initialized bytes, which are not written to during the call (function contract)
+    let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size as usize) };
+    try_skip_valid::<Element>(bytes, bytes.len() / size_of::<Element>()).is_some()
+}
 
 /// Container for storing variable number of elements.
 ///
@@ -139,6 +165,47 @@ where
             capacity,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
         })
+    }
+
+    #[inline(always)]
+    #[track_caller]
+    unsafe fn try_from_ptr<'a>(
+        ptr: &'a NonNull<Self::PointerType>,
+        size: &'a u32,
+        capacity: u32,
+    ) -> Option<impl Deref<Target = Self> + 'a> {
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        // SAFETY: If `size` doesn't exceed `capacity`, `ptr` is valid for reads of `size`
+        // initialized bytes, which are not written to during the call (function contract)
+        if !unsafe { contents_are_valid(*ptr, *size, capacity) } {
+            return None;
+        }
+
+        // SAFETY: `size` and `capacity` are valid and the first `size` bytes are valid elements
+        // as checked above, `ptr` is aligned and the memory is not written to while the returned
+        // value exists (function contract)
+        Some(unsafe { Self::from_ptr(ptr, size, capacity) })
+    }
+
+    #[inline(always)]
+    #[track_caller]
+    unsafe fn try_from_mut_ptr<'a>(
+        ptr: &'a mut NonNull<Self::PointerType>,
+        size: &'a mut u32,
+        capacity: u32,
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        // SAFETY: `ptr` is valid for reads of `capacity` bytes, the first `size` of which are
+        // initialized if `size` doesn't exceed `capacity`, and the memory is not accessed
+        // otherwise during the call (function contract)
+        if !unsafe { contents_are_valid(*ptr, *size, capacity) } {
+            return None;
+        }
+
+        // SAFETY: `size` and `capacity` are valid and the first `size` bytes are valid elements
+        // as checked above, `ptr` is aligned, valid for writes of `capacity` bytes and the memory
+        // is not accessed otherwise while the returned value exists (function contract)
+        Some(unsafe { Self::from_mut_ptr(ptr, size, capacity) })
     }
 
     #[inline(always)]

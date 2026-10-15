@@ -26,6 +26,7 @@ Breaking changes:
   `#[repr(C, u8)]`
 * `TrivialType` requires `'static` and the parsing step `try_from_bytes_unaligned()`, which the derive implements
 * Provided methods of `TrivialType` can't be overridden
+* `IoType` requires `try_from_ptr()` and `try_from_mut_ptr()`
 
 Improvements:
 
@@ -35,6 +36,7 @@ Improvements:
 * `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()`, `try_read_unaligned()` and
   `try_read_unaligned_exact()` parse bytes safely, checking enum discriminants and the length of
   `FixedCapacityElements`
+* `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking size, capacity and contents
 
 Fixes:
 
