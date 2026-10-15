@@ -25,12 +25,16 @@ Breaking changes:
   doesn't record. It also checks all `#[repr(..)]` attributes instead of only the first one and rejects enums with
   `#[repr(C, u8)]`
 * `TrivialType` requires `'static` and the parsing step `try_from_bytes_unaligned()`, which the derive implements
+* Provided methods of `TrivialType` can't be overridden
 
 Improvements:
 
 * `TrivialType` can now be derived for enums with tuple variants
 * `AnyBitPattern` is implemented for `TrivialType`s whose every bit pattern is a valid value, which implement the
   unsafe `AnyBitPatternMarker`, the derive implements it for structs whose fields all implement it
+* `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()`, `try_read_unaligned()` and
+  `try_read_unaligned_exact()` parse bytes safely, checking enum discriminants and the length of
+  `FixedCapacityElements`
 
 Fixes:
 

@@ -82,6 +82,11 @@ unsafe impl TrivialType for Counted {
     }
 }
 
+/// Bytes aligned to 8 bytes
+#[derive(Debug, PartialEq, Eq)]
+#[repr(C, align(8))]
+struct Aligned<const N: usize>([u8; N]);
+
 /// Parse the beginning of `bytes` with the parsing step, returns a copy of the value and the
 /// remaining bytes
 fn parse<T>(bytes: &[u8]) -> Option<(T, &[u8])>
@@ -278,4 +283,101 @@ fn unaligned() {
     );
     assert!(Unaligned::<Ctx>::try_from_bytes_unaligned(&[3]).is_none());
     assert!(Unaligned::<Msg>::try_from_bytes_unaligned(&[2, 0, 3, 9]).is_none());
+}
+
+#[test]
+fn aligned_references() {
+    let aligned = Aligned([1, 0, 0, 0, 0, 0, 0, 0, 2]);
+    let (value, remainder) = u64::try_from_bytes(&aligned.0).unwrap();
+    assert_eq!(*value, 1);
+    assert_eq!(remainder, &[2]);
+    assert_eq!(u64::try_from_bytes(&aligned.0[..7]), None);
+
+    // Misaligned bytes are rejected, unless they are read as a copy
+    let (_first, misaligned) = aligned.0.split_first().unwrap();
+    assert_eq!(u64::try_from_bytes(misaligned), None);
+    assert_eq!(u64::try_from_bytes_exact(misaligned), None);
+    assert_eq!(
+        u64::try_read_unaligned(misaligned),
+        Some((2 << 56, &[][..]))
+    );
+    assert_eq!(u64::try_read_unaligned_exact(misaligned), Some(2 << 56));
+
+    // Types with alignment 1 are never misaligned
+    assert_eq!(
+        <[u8; 2]>::try_from_bytes(misaligned),
+        Some((&[0, 0], &misaligned[2..]))
+    );
+}
+
+#[test]
+fn exact() {
+    let aligned = Aligned([1, 0, 0, 0, 0, 0, 0, 0, 2]);
+    assert_eq!(u64::try_from_bytes_exact(&aligned.0[..8]), Some(&1));
+    assert_eq!(u64::try_from_bytes_exact(&aligned.0), None);
+    assert_eq!(u64::try_from_bytes_exact(&aligned.0[..7]), None);
+    assert_eq!(u64::try_read_unaligned_exact(&aligned.0[..8]), Some(1));
+    assert_eq!(u64::try_read_unaligned_exact(&aligned.0), None);
+    assert_eq!(u64::try_read_unaligned_exact(&aligned.0[..7]), None);
+
+    // Zero-sized types are parsed from empty input
+    assert_eq!(<()>::try_from_bytes_exact(&[]), Some(&()));
+    assert_eq!(<()>::try_from_bytes_exact(&[1]), None);
+    assert_eq!(Empty::try_read_unaligned_exact(&[]), Some(Empty));
+}
+
+#[test]
+fn exclusive_references() {
+    let mut aligned = Aligned([0; 10]);
+    let (value, remainder) = u64::try_from_bytes_mut(&mut aligned.0).unwrap();
+    *value = 0x0102;
+    // Both parts stay usable, interleaved writes don't invalidate each other
+    remainder.fill(7);
+    *value += 1;
+    remainder[0] = 8;
+    assert_eq!(aligned, Aligned([3, 1, 0, 0, 0, 0, 0, 0, 8, 7]));
+
+    // Misaligned and short bytes are rejected
+    let (_first, misaligned) = aligned.0.split_first_mut().unwrap();
+    assert!(u64::try_from_bytes_mut(misaligned).is_none());
+    assert!(u64::try_from_bytes_mut(&mut aligned.0[..7]).is_none());
+
+    // Valid values written through the reference are parsed back
+    let mut bytes = [0, 0, 0, 0];
+    let (with_ctx, remainder) = WithCtx::try_from_bytes_mut(&mut bytes).unwrap();
+    assert!(remainder.is_empty());
+    with_ctx.ctx = Ctx::C;
+    with_ctx.rest = [4, 5];
+    assert_eq!(bytes, [0, 2, 4, 5]);
+}
+
+/// Every parsing method rejects bytes that are not a valid value
+#[test]
+fn invalid_values_are_rejected() {
+    assert_eq!(Ctx::try_from_bytes(&[3]), None);
+    assert_eq!(Ctx::try_from_bytes_exact(&[3]), None);
+    assert!(Ctx::try_from_bytes_mut(&mut [3]).is_none());
+    assert_eq!(Ctx::try_read_unaligned(&[3]), None);
+    assert_eq!(Ctx::try_read_unaligned_exact(&[3]), None);
+
+    assert_eq!(WithCtx::try_from_bytes(&[0, 3, 0, 0]), None);
+    assert_eq!(WithCtx::try_from_bytes_exact(&[0, 3, 0, 0]), None);
+    assert!(WithCtx::try_from_bytes_mut(&mut [0, 3, 0, 0]).is_none());
+    assert_eq!(WithCtx::try_read_unaligned(&[0, 3, 0, 0]), None);
+    assert_eq!(WithCtx::try_read_unaligned_exact(&[0, 3, 0, 0]), None);
+}
+
+/// The unsafe methods that skip parsing only require the bytes of the value itself to be a valid
+/// value, bytes after it are not cast to `Self` (Miri checks this with
+/// `-Zmiri-recursive-validation`)
+#[test]
+fn unchecked_methods_ignore_bytes_after_the_value() {
+    let mut bytes = [1, 7];
+    // SAFETY: The first byte is a valid value of `Ctx`
+    assert_eq!(unsafe { Ctx::from_bytes(&bytes) }, Some(&Ctx::B));
+    // SAFETY: The first byte is a valid value of `Ctx`
+    let value = unsafe { Ctx::from_bytes_mut(&mut bytes) };
+    assert_eq!(value, Some(&mut Ctx::B));
+    // SAFETY: The first byte is a valid value of `Ctx`
+    assert_eq!(unsafe { Ctx::read_unaligned(&bytes) }, Some(Ctx::B));
 }

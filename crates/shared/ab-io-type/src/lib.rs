@@ -17,9 +17,10 @@
 //! uninitialized bytes and are fully represented by their byte representation.
 //!
 //! What this means is that serialization to bytes can be done by simply casting a pointer to a data
-//! structure to an array of bytes. Similarly, deserialization of correctly aligned memory is simply
-//! casting of a pointer back to the data structure. The trait provides a few helper methods for
-//! dealing with serialization/deserialization.
+//! structure to an array of bytes. Similarly, deserialization parses bytes, checking that they are
+//! a valid value of the type, which for types that accept every bit pattern compiles to a length
+//! check, and then casts the pointer. The trait provides a few helper methods for dealing with
+//! serialization/deserialization.
 //!
 //! ## `IoType`
 //! This trait is implemented for all types that implement [`TrivialType`] and for a few additional
@@ -46,9 +47,10 @@
 //!
 //! ## Overall
 //!
-//! These traits are designed for zero-cost zero-copy serialization/deserialization. Any correctly
-//! aligned memory (both normal and memory-mapped files with `mmap`) can be interpreted as
-//! ready-to-use data structures without even reading them first.
+//! These traits are designed for zero-cost zero-copy serialization/deserialization. Correctly
+//! aligned memory (both normal and memory-mapped files with `mmap`) is used in place as
+//! ready-to-use data structures after parsing, which for types that accept every bit pattern is a
+//! length check that doesn't read the memory.
 //!
 //! Does not require a standard library (`no_std`) or an allocator.
 
@@ -63,6 +65,7 @@
     const_split_off_first_last,
     const_trait_impl,
     const_try,
+    final_associated_functions,
     generic_const_args,
     generic_const_items,
     macroless_generic_const_args,
