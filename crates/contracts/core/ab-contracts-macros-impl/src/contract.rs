@@ -273,7 +273,7 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
 
         // `dyn ContractTrait` here is a bit of a hack that allows treating a trait as a type for
         // convenient API in native execution environment
-        impl ::ab_contracts_macros::__private::ContractTrait<dyn #trait_name> for #struct_name {
+        unsafe impl ::ab_contracts_macros::__private::ContractTrait<dyn #trait_name> for #struct_name {
             #method_fn_pointers_const
         }
 
@@ -514,7 +514,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
             #( #max_depth_assertions )*
         };
 
-        impl ::ab_contracts_macros::__private::Contract for #struct_name {
+        unsafe impl ::ab_contracts_macros::__private::Contract for #struct_name {
             #metadata_const
             #method_fn_pointers_const
             #[doc(hidden)]

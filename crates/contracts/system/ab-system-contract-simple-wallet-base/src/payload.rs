@@ -560,12 +560,40 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
         }
 
         let decoder = self.0;
-        Ok(Some(PreparedMethod::new_untyped(
-            *contract,
-            *method_fingerprint,
-            &mut *decoder.external_args_buffer,
-            method_context,
-        )))
+        // SAFETY: Bounds and alignment are checked above with `VERIFY` and guaranteed by trusted
+        // input otherwise, and for as long as the returned value borrows the decoder:
+        // * `external_args_buffer` starts with arguments written above in the order and layout of
+        //   `ExternalArgs` for the slots, inputs and outputs the payload declares: a pointer for
+        //   each slot, then pointer, size and capacity for each input and output, where a return
+        //   value is written like the last output, with size and capacity after its pointer that
+        //   `ExternalArgs` doesn't have
+        // * slot addresses are aligned, and slot addresses and inputs point into the payload or
+        //   into outputs of earlier methods up to their sizes, which executors keep within
+        //   capacities with that many bytes initialized, as `ExecutorContext` requires
+        // * outputs are allocated in `output_buffer` with their capacity by moving its cursor past
+        //   each of them, so they don't overlap each other or outputs of earlier methods, while the
+        //   payload and `external_args_buffer` are borrowed separately from `output_buffer`
+        // * the payload, `external_args_buffer` and `output_buffer` stay borrowed by the decoder,
+        //   so nothing else accesses them, and the payload and outputs of earlier methods are only
+        //   read
+        // * the payload is trusted to declare the arguments of the method with `method_fingerprint`
+        //   and enough capacity and alignment for its return value, which can't be checked without
+        //   the method's metadata, the same way `NativeExecutor` trusts transaction payloads (see
+        //   `SimpleWalletBase::execute()` for what makes them trusted)
+        // TODO: Under Stacked Borrows, allocating an output invalidates all pointers into
+        //  `output_buffer` created before it, including slot addresses and inputs of the same
+        //  method that refer to earlier outputs, since `allocate_output_buffer_ptr()` reborrows the
+        //  whole `output_buffer`
+        let prepared_method = unsafe {
+            PreparedMethod::new_untyped(
+                *contract,
+                *method_fingerprint,
+                &mut *decoder.external_args_buffer,
+                method_context,
+            )
+        };
+
+        Ok(Some(prepared_method))
     }
 
     /// Get alignment from its power of two stored in the payload, which must not exceed
