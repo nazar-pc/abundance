@@ -1,5 +1,6 @@
 use crate::metadata::IoTypeMetadataKind;
-use crate::trivial_type::{AnyBitPatternMarker, TrivialType};
+use crate::trivial_type::{AnyBitPatternMarker, TrivialType, try_from_bytes_any_bit_pattern};
+use crate::unaligned::Unaligned;
 use core::ops::Not;
 
 /// Just like `bool`, but any bit pattern is valid.
@@ -41,9 +42,15 @@ impl From<Bool> for bool {
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for Bool {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Bool as u8];
+
+    #[inline(always)]
+    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+        try_from_bytes_any_bit_pattern(bytes)
+    }
 }
 
-// SAFETY: One byte, any value of which is valid, `0` is `false` and everything else is `true`
+// SAFETY: One byte, any value of which is valid, `0` is `false` and everything else is `true`, the
+// parsing step only checks the length
 unsafe impl AnyBitPatternMarker for Bool {}
 
 impl Bool {

@@ -36,6 +36,14 @@ where
     FixedCapacityElements::<Element, CAPACITY>::len
 }
 
+// Parsing creates instances from bytes instead of with a constructor
+fn elements_try_from_bytes_unaligned<Element, const CAPACITY: usize>(bytes: &[u8])
+where
+    Element: TrivialType,
+{
+    let _ = FixedCapacityElements::<Element, CAPACITY>::try_from_bytes_unaligned(bytes);
+}
+
 fn string_try_from_str<const CAPACITY: usize>(string: &str) {
     let _ = FixedCapacityString::<CAPACITY>::try_from_str(string);
 }
@@ -50,6 +58,7 @@ where
 fn main() {
     // Capacity above `u32::MAX`, the size of zero-sized elements fits
     elements_try_from_slice::<(), { 1 << 32 }>(&[]);
+    elements_try_from_bytes_unaligned::<(), { (1 << 32) + 1 }>(&[]);
     // Capacity fits, but the size doesn't because of the length
     bytes_default::<{ u32::MAX as usize - 3 }>();
     string_try_from_str::<{ u32::MAX as usize - 2 }>("a");

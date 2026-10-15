@@ -46,13 +46,29 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 }
             };
 
+            // Fields are parsed in order: they follow each other without padding (asserted below),
+            // so each field's step consumes exactly the bytes of that field, and the bytes are a
+            // valid value of the struct when every field is a valid value
+            let parsing_step = generate_parsing_step(quote! {
+                let fields = bytes;
+                #(
+                    let (_value, fields) =
+                        <#field_types as ::ab_io_type::trivial_type::TrivialType>
+                            ::try_from_bytes_unaligned(fields)?;
+                )*
+                // Empty, there is no padding after the last field
+                let _: &[::core::primitive::u8] = fields;
+            });
+
             // Bounds are higher-ranked, so that a field type without the marker makes the bound
             // false instead of being a "trivial bound" error. They also contain no type parameter,
             // which keeps a future `try_as_dyn()` probe working.
             let marker_impl = quote! {
                 // SAFETY: Padding is rejected by the assertions generated with the `TrivialType`
                 // impl, so the bytes of a value are exactly the bytes of its fields, and the impl
-                // only applies when every field accepts any bit pattern
+                // only applies when every field accepts any bit pattern. The parsing step only
+                // calls parsing steps of fields after checking the length, which accept every
+                // pattern of the field's bytes.
                 #[automatically_derived]
                 unsafe impl ::ab_io_type::trivial_type::AnyBitPatternMarker for #type_name
                 where
@@ -115,6 +131,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     #( #field_types: ::ab_io_type::trivial_type::TrivialType, )*
                 {
                     const METADATA: &[::core::primitive::u8] = #struct_metadata;
+
+                    #parsing_step
                 }
 
                 #marker_impl
@@ -193,6 +211,42 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 }
             });
 
+            // The discriminant must be the index of a variant, which is its discriminant (asserted
+            // above), then fields of that variant are parsed in order. Each variant is laid out
+            // like a `#[repr(C)]` struct with the discriminant as the first field, without padding
+            // (asserted below), so each field's step consumes exactly the bytes of that field, and
+            // the bytes are a valid value of the enum when every field of the variant is a valid
+            // value.
+            let variant_arms = data_enum
+                .variants
+                .iter()
+                // `#[repr(u8)]` allows at most 256 variants
+                .zip(0..=u8::MAX)
+                .map(|(variant, index)| {
+                    let field_types = variant.fields.iter().map(|field| &field.ty);
+
+                    quote! {
+                        #index => {
+                            #(
+                                let (_value, fields) =
+                                    <#field_types as ::ab_io_type::trivial_type::TrivialType>
+                                        ::try_from_bytes_unaligned(fields)?;
+                            )*
+                            // Empty, there is no padding after the last field
+                            let _: &[::core::primitive::u8] = fields;
+                        }
+                    }
+                });
+            let parsing_step = generate_parsing_step(quote! {
+                let (&discriminant, fields) = <[::core::primitive::u8]>::split_first(bytes)?;
+                match discriminant {
+                    #( #variant_arms )*
+                    _ => {
+                        return ::core::option::Option::None;
+                    }
+                }
+            });
+
             let enum_metadata = match generate_enum_metadata(type_name, data_enum) {
                 Ok(struct_metadata) => struct_metadata,
                 Err(error) => {
@@ -243,6 +297,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     #( #field_types: ::ab_io_type::trivial_type::TrivialType, )*
                 {
                     const METADATA: &[::core::primitive::u8] = #enum_metadata;
+
+                    #parsing_step
                 }
             }
         }
@@ -257,6 +313,41 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     };
 
     output.into()
+}
+
+/// Generate the parsing step of `TrivialType`, which checks the size, runs `checks` with `bytes` of
+/// the size of the type in scope, which must return `None` for invalid bytes, and then casts
+/// `bytes` to the type
+fn generate_parsing_step(checks: TokenStream) -> TokenStream {
+    // The value is the only local of the step with a prefixed name: a constant with the same name
+    // in the module of the type would turn the binding into a constant pattern, which compiles for
+    // types with a single value, and the step would return the constant instead of a reference
+    // into `bytes`. Constants named like the other locals only cause compile errors.
+    quote! {
+        #[inline(always)]
+        fn try_from_bytes_unaligned(
+            bytes: &[::core::primitive::u8],
+        ) -> ::core::option::Option<(
+            &::ab_io_type::unaligned::Unaligned<Self>,
+            &[::core::primitive::u8],
+        )> {
+            let (bytes, remainder) = <[::core::primitive::u8]>::split_at_checked(
+                bytes,
+                ::core::mem::size_of::<Self>(),
+            )?;
+            #checks
+            // SAFETY: `bytes` have the size of the type and `checks` return `None` unless every
+            // field, of the variant whose index is the discriminant for an enum, is a valid value.
+            // Variants have discriminants equal to their indices and fields follow each other
+            // without padding (both asserted next to the type), and `Unaligned<Self>` has
+            // alignment 1.
+            let __ab_io_type_value = unsafe {
+                &*<[::core::primitive::u8]>::as_ptr(bytes)
+                    .cast::<::ab_io_type::unaligned::Unaligned<Self>>()
+            };
+            ::core::option::Option::Some((__ab_io_type_value, remainder))
+        }
+    }
 }
 
 /// Check that `#[repr(..)]` attributes of the type contain at least one of `allowed` options and no

@@ -4,6 +4,7 @@
 #[no_implicit_prelude]
 mod no_implicit_prelude {
     use ::ab_io_type::trivial_type::TrivialType;
+    use ::ab_io_type::unaligned::Unaligned;
     use ::core::clone::Clone;
     use ::core::marker::Copy;
 
@@ -23,6 +24,13 @@ mod no_implicit_prelude {
     enum Enum {
         A { a: u8 },
         B { b: u8 },
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
+    enum TupleVariants {
+        A(u8, Unaligned<u16>),
+        B([u8; 3]),
     }
 
     #[derive(Copy, Clone, TrivialType)]

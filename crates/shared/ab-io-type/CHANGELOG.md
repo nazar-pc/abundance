@@ -24,6 +24,7 @@ Breaking changes:
 * `TrivialType` derive rejects enums with explicit discriminants that differ from variant indices, which metadata
   doesn't record. It also checks all `#[repr(..)]` attributes instead of only the first one and rejects enums with
   `#[repr(C, u8)]`
+* `TrivialType` requires `'static` and the parsing step `try_from_bytes_unaligned()`, which the derive implements
 
 Improvements:
 

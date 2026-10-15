@@ -4,6 +4,7 @@ mod tests;
 use crate::fixed_capacity_elements::{FixedCapacityElements, SUPPORTED_CAPACITY};
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::TrivialType;
+use crate::unaligned::Unaligned;
 use core::ops::{Deref, DerefMut};
 
 /// Container for storing a UTF-8 string limited by the specified fixed bytes capacity.
@@ -47,7 +48,8 @@ impl<const CAPACITY: usize> DerefMut for FixedCapacityString<CAPACITY> {
     }
 }
 
-// SAFETY: The only field is `TrivialType`, so the layout is the same and there is no padding
+// SAFETY: The only field is `TrivialType`, so the layout is the same and there is no padding, the
+// parsing step parses the field
 unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityString<CAPACITY>
 where
     [(); SUPPORTED_CAPACITY::<u8, CAPACITY>]:,
@@ -66,6 +68,16 @@ where
         let (metadata_scratch, metadata_size) = &metadata(CAPACITY as u32);
         metadata_scratch.split_at(*metadata_size).0
     };
+
+    #[inline(always)]
+    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+        let (_value, remainder) =
+            FixedCapacityElements::<u8, CAPACITY>::try_from_bytes_unaligned(bytes)?;
+        // SAFETY: `bytes` start with a valid value of the only field (parsing step contract), which
+        // has the same layout as `Self`, `Unaligned<Self>` has alignment 1 and the size of `Self`
+        let value = unsafe { bytes.as_ptr().cast::<Unaligned<Self>>().as_ref_unchecked() };
+        Some((value, remainder))
+    }
 }
 
 impl<const CAPACITY: usize> FixedCapacityString<CAPACITY>

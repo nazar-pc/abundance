@@ -42,7 +42,7 @@ where
     }
 }
 
-// SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
+// SAFETY: Same bytes and validity as `Data`, the parsing step parses `Data`
 unsafe impl<Data> TrivialType for Unaligned<Data>
 where
     Data: TrivialType,
@@ -56,9 +56,19 @@ where
         let (metadata_scratch, metadata_size) = &metadata(Data::METADATA);
         metadata_scratch.split_at(*metadata_size).0
     };
+
+    #[inline(always)]
+    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+        let (_value, remainder) = Data::try_from_bytes_unaligned(bytes)?;
+        // SAFETY: `bytes` start with a valid value of `Data` (parsing step contract), which has the
+        // same bytes and validity as `Self`, `Unaligned<Self>` has alignment 1 and the size of
+        // `Self`
+        let value = unsafe { bytes.as_ptr().cast::<Unaligned<Self>>().as_ref_unchecked() };
+        Some((value, remainder))
+    }
 }
 
-// SAFETY: Same bytes and validity as `Data`
+// SAFETY: Same bytes and validity as `Data`, the parsing step parses `Data`
 unsafe impl<Data> AnyBitPatternMarker for Unaligned<Data> where
     Data: TrivialType + AnyBitPatternMarker
 {
