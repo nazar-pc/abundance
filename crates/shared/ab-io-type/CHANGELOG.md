@@ -27,6 +27,8 @@ Breaking changes:
 * `TrivialType` requires `'static` and the parsing step `try_from_bytes_unaligned()`, which the derive implements
 * Provided methods of `TrivialType` can't be overridden
 * `IoType` requires `try_from_ptr()` and `try_from_mut_ptr()`
+* `VariableBytes::read_trivial_type()`, which created invalid enum values from bytes in safe code, is removed,
+  `TrivialType::try_read_unaligned()` replaces it
 
 Improvements:
 

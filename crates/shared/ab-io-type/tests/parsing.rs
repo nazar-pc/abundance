@@ -9,6 +9,7 @@ use ab_io_type::fixed_capacity_elements::FixedCapacityElements;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
+use ab_io_type::variable_bytes::VariableBytes;
 use ab_io_type::variable_elements::VariableElements;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
@@ -385,6 +386,48 @@ fn unchecked_methods_ignore_bytes_after_the_value() {
     assert_eq!(value, Some(&mut Ctx::B));
     // SAFETY: The first byte is a valid value of `Ctx`
     assert_eq!(unsafe { Ctx::read_unaligned(&bytes) }, Some(Ctx::B));
+}
+
+#[test]
+fn read_from_variable_bytes() {
+    // Aligned for `u32`, so that both aligned and unaligned reads happen
+    let buffer = [
+        u32::from_le_bytes([1, 2, 3, 4]),
+        u32::from_le_bytes([5, 6, 7, 8]),
+    ];
+    let buffer = buffer.as_bytes();
+
+    {
+        let size = 4;
+        let bytes = VariableBytes::<0>::from_buffer(&buffer[..4], &size).unwrap();
+        assert_eq!(
+            u32::try_read_unaligned(bytes.get_initialized()),
+            Some((u32::from_le_bytes([1, 2, 3, 4]), &[][..]))
+        );
+    }
+
+    {
+        let size = 4;
+        let bytes = VariableBytes::<0>::from_buffer(&buffer[1..5], &size).unwrap();
+        assert_eq!(
+            u32::try_read_unaligned(bytes.get_initialized()),
+            Some((u32::from_le_bytes([2, 3, 4, 5]), &[][..]))
+        );
+    }
+
+    // Not enough bytes
+    {
+        let size = 3;
+        let bytes = VariableBytes::<0>::from_buffer(&buffer[..3], &size).unwrap();
+        assert_eq!(u32::try_read_unaligned(bytes.get_initialized()), None);
+    }
+
+    // Not a valid value
+    {
+        let size = 1;
+        let bytes = VariableBytes::<0>::from_buffer(&[7], &size).unwrap();
+        assert_eq!(Ctx::try_read_unaligned(bytes.get_initialized()), None);
+    }
 }
 
 #[test]

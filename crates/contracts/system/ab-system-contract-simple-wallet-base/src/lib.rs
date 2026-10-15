@@ -125,7 +125,7 @@ impl SimpleWalletBase {
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
-        let Some(seal) = seal.read_trivial_type::<Seal>() else {
+        let Some((seal, _remainder)) = Seal::try_read_unaligned(seal.get_initialized()) else {
             return Err(ContractError::BadInput);
         };
 
