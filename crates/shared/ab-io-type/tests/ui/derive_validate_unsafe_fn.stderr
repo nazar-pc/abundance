@@ -1,0 +1,11 @@
+error[E0133]: call to unsafe function `is_valid` is unsafe and requires unsafe block
+ --> tests/ui/derive_validate_unsafe_fn.rs:8:27
+  |
+6 | #[derive(Copy, Clone, TrivialType)]
+  |                       ----------- in this derive macro expansion
+7 | #[repr(C)]
+8 | #[trivial_type(validate = is_valid)]
+  |                           ^^^^^^^^ call to unsafe function
+  |
+  = note: consult the function's documentation for information on how to avoid undefined behavior
+  = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,0 +1,17 @@
+error: `#[trivial_type(..)]` is only supported on the type
+  --> tests/ui/derive_validate_placement.rs:15:5
+   |
+15 |     #[trivial_type(validate = is_valid)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[trivial_type(..)]` is only supported on the type
+  --> tests/ui/derive_validate_placement.rs:22:5
+   |
+22 |     #[trivial_type(validate = is_valid)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[trivial_type(..)]` is only supported on the type
+  --> tests/ui/derive_validate_placement.rs:30:7
+   |
+30 |     A(#[trivial_type(validate = is_valid)] u8),
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

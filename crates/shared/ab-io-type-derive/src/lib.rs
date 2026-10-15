@@ -2,13 +2,13 @@ use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use std::iter;
 use syn::spanned::Spanned;
-use syn::{Data, DataEnum, DataStruct, DeriveInput, Error, Fields, parse_macro_input};
+use syn::{Data, DataEnum, DataStruct, DeriveInput, Error, ExprPath, Fields, parse_macro_input};
 
 /// Derive macro for `TrivialType` trait of `ab-io-type` crate.
 ///
 /// See the documentation of the trait for supported types and requirements, which are checked at
 /// compile time.
-#[proc_macro_derive(TrivialType)]
+#[proc_macro_derive(TrivialType, attributes(trivial_type))]
 pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -20,6 +20,13 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         .into_compile_error()
         .into();
     }
+
+    let validate = match parse_validate(&input) {
+        Ok(validate) => validate,
+        Err(error) => {
+            return error.to_compile_error().into();
+        }
+    };
 
     let type_name = &input.ident;
 
@@ -49,7 +56,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             // Fields are parsed in order: they follow each other without padding (asserted below),
             // so each field's step consumes exactly the bytes of that field, and the bytes are a
             // valid value of the struct when every field is a valid value
-            let parsing_step = generate_parsing_step(quote! {
+            let checks = quote! {
                 let fields = bytes;
                 #(
                     let (_value, fields) =
@@ -58,25 +65,33 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 )*
                 // Empty, there is no padding after the last field
                 let _: &[::core::primitive::u8] = fields;
-            });
+            };
+            let parsing_step = generate_parsing_step(checks, validate.as_ref());
 
-            // Bounds are higher-ranked, so that a field type without the marker makes the bound
-            // false instead of being a "trivial bound" error. They also contain no type parameter,
-            // which keeps a future `try_as_dyn()` probe working.
-            let marker_impl = quote! {
-                // SAFETY: Padding is rejected by the assertions generated with the `TrivialType`
-                // impl, so the bytes of a value are exactly the bytes of its fields, and the impl
-                // only applies when every field accepts any bit pattern. The parsing step only
-                // calls parsing steps of fields after checking the length, which accept every
-                // pattern of the field's bytes.
-                #[automatically_derived]
-                unsafe impl ::ab_io_type::trivial_type::AnyBitPatternMarker for #type_name
-                where
-                    #(
-                        for<'__ab_io_type> #field_types:
-                            ::ab_io_type::trivial_type::AnyBitPatternMarker,
-                    )*
-                {
+            // A `validate` function rejects some values whose fields are all valid, so such a type
+            // doesn't accept every bit pattern even if its fields do. Bounds are higher-ranked, so
+            // that a field type without the marker makes the bound false instead of being a
+            // "trivial bound" error. They also contain no type parameter, which keeps a future
+            // `try_as_dyn()` probe working.
+            let marker_impl = if validate.is_some() {
+                TokenStream::new()
+            } else {
+                quote! {
+                    // SAFETY: Padding is rejected by the assertions generated with the
+                    // `TrivialType` impl, so the bytes of a value are exactly the bytes of its
+                    // fields, and the impl only applies when every field accepts any bit pattern.
+                    // The parsing step only calls parsing steps of fields after checking the
+                    // length, which accept every pattern of the field's bytes, and there is no
+                    // `validate` function.
+                    #[automatically_derived]
+                    unsafe impl ::ab_io_type::trivial_type::AnyBitPatternMarker for #type_name
+                    where
+                        #(
+                            for<'__ab_io_type> #field_types:
+                                ::ab_io_type::trivial_type::AnyBitPatternMarker,
+                        )*
+                    {
+                    }
                 }
             };
 
@@ -237,7 +252,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         }
                     }
                 });
-            let parsing_step = generate_parsing_step(quote! {
+            let checks = quote! {
                 let (&discriminant, fields) = <[::core::primitive::u8]>::split_first(bytes)?;
                 match discriminant {
                     #( #variant_arms )*
@@ -245,7 +260,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         return ::core::option::Option::None;
                     }
                 }
-            });
+            };
+            let parsing_step = generate_parsing_step(checks, validate.as_ref());
 
             let enum_metadata = match generate_enum_metadata(type_name, data_enum) {
                 Ok(struct_metadata) => struct_metadata,
@@ -315,10 +331,101 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     output.into()
 }
 
+/// Parse `#[trivial_type(..)]` attributes, returns the path of the `validate` function if there is
+/// one
+fn parse_validate(input: &DeriveInput) -> Result<Option<ExprPath>, Error> {
+    // Registering the helper attribute makes it legal on fields and variants too, where the derive
+    // would ignore it, and an ignored `validate` lets parsing create values that `unsafe` code
+    // relies on never existing
+    let nested_attrs = match &input.data {
+        Data::Struct(data_struct) => data_struct
+            .fields
+            .iter()
+            .flat_map(|field| &field.attrs)
+            .collect::<Vec<_>>(),
+        Data::Enum(data_enum) => data_enum
+            .variants
+            .iter()
+            .flat_map(|variant| {
+                variant
+                    .attrs
+                    .iter()
+                    .chain(variant.fields.iter().flat_map(|field| &field.attrs))
+            })
+            .collect::<Vec<_>>(),
+        Data::Union(data_union) => data_union
+            .fields
+            .named
+            .iter()
+            .flat_map(|field| &field.attrs)
+            .collect::<Vec<_>>(),
+    };
+    if let Some(attr) = nested_attrs
+        .into_iter()
+        .find(|attr| attr.path().is_ident("trivial_type"))
+    {
+        return Err(Error::new_spanned(
+            attr,
+            "`#[trivial_type(..)]` is only supported on the type",
+        ));
+    }
+
+    let mut validate = None;
+    let attrs = input
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("trivial_type"));
+    for attr in attrs {
+        let mut has_options = false;
+        attr.parse_nested_meta(|meta| {
+            has_options = true;
+            if !meta.path.is_ident("validate") {
+                return Err(meta.error("Unsupported `#[trivial_type(..)]` option"));
+            }
+            if validate.is_some() {
+                return Err(meta.error("`validate` is specified more than once"));
+            }
+            // Parsed like a path in an expression, so generic arguments are written as `::<..>`
+            // and a qualified self type is supported, like in the generated call
+            let path = meta.value()?.parse::<ExprPath>()?;
+            if let Some(attr) = path.attrs.first() {
+                return Err(Error::new_spanned(
+                    attr,
+                    "Attributes are not supported in `validate = path`",
+                ));
+            }
+            validate = Some(path);
+            Ok(())
+        })?;
+
+        if !has_options {
+            return Err(Error::new_spanned(
+                attr,
+                "`#[trivial_type(..)]` requires an option, like `validate = path`",
+            ));
+        }
+    }
+
+    Ok(validate)
+}
+
 /// Generate the parsing step of `TrivialType`, which checks the size, runs `checks` with `bytes` of
-/// the size of the type in scope, which must return `None` for invalid bytes, and then casts
-/// `bytes` to the type
-fn generate_parsing_step(checks: TokenStream) -> TokenStream {
+/// the size of the type in scope, which must return `None` for invalid bytes, casts `bytes` to the
+/// type and calls the `validate` function with the value if there is one
+fn generate_parsing_step(checks: TokenStream, validate: Option<&ExprPath>) -> TokenStream {
+    let validation = if let Some(path) = validate {
+        // Errors, like a wrong signature or an `unsafe` function, point at the path in the
+        // attribute
+        let span = Span::call_site().located_at(path.span());
+        quote_spanned! {span=>
+            if !#path(::ab_io_type::unaligned::Unaligned::<Self>::as_inner(__ab_io_type_value)) {
+                return ::core::option::Option::None;
+            }
+        }
+    } else {
+        TokenStream::new()
+    };
+
     // The value is the only local of the step with a prefixed name: a constant with the same name
     // in the module of the type would turn the binding into a constant pattern, which compiles for
     // types with a single value, and the step would return the constant instead of a reference
@@ -345,6 +452,9 @@ fn generate_parsing_step(checks: TokenStream) -> TokenStream {
                 &*<[::core::primitive::u8]>::as_ptr(bytes)
                     .cast::<::ab_io_type::unaligned::Unaligned<Self>>()
             };
+            // The `validate` function, if any, rejects values whose invariants don't hold. It is
+            // called outside of the `unsafe` block above, so it can't be an `unsafe` function.
+            #validation
             ::core::option::Option::Some((__ab_io_type_value, remainder))
         }
     }

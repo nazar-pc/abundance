@@ -71,8 +71,21 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 ///   variant
 /// * deriving means that any combination of valid field values is a valid value of the type,
 ///   private fields and `#[non_exhaustive]` included, because parsing creates values without
-///   calling constructors
-/// * structs implement [`AnyBitPatternMarker`] when all their fields do
+///   calling constructors, unless `#[trivial_type(validate = path)]` rejects it
+/// * structs implement [`AnyBitPatternMarker`] when all their fields do, unless they use
+///   `#[trivial_type(validate = path)]`
+///
+/// Invariants that `unsafe` code relies on are checked with `#[trivial_type(validate = path)]`.
+/// `path` is called as `path(value: Self) -> bool` after all fields were parsed and must return
+/// `false` for every value that `unsafe` code relying on the invariants can't handle. It must not
+/// panic, since parsing is used in code that is verified not to panic, and a `const fn` is
+/// recommended, the derive may become `const` later. Such types don't implement
+/// [`AnyBitPatternMarker`].
+///
+/// It is called by every parsing method, including those of arrays of the type, of [`Unaligned`]
+/// and of containers through [`IoType::try_from_ptr()`] and [`IoType::try_from_mut_ptr()`]. The
+/// unsafe methods that skip parsing, [`IoType::from_ptr()`], [`IoType::from_mut_ptr()`] and derives
+/// of other crates, like SCALE's `Decode` and serde's `Deserialize`, don't call it.
 pub unsafe trait TrivialType
 where
     Self: Copy + 'static,
@@ -263,14 +276,15 @@ where
 /// Every bit pattern of the type is a valid value.
 ///
 /// Together with [`TrivialType`] it provides [`AnyBitPattern`], which is the bound to use.
-/// `#[derive(TrivialType)]` implements it for structs whose fields all implement it.
+/// `#[derive(TrivialType)]` implements it for structs whose fields all implement it, unless they
+/// use `#[trivial_type(validate = path)]`.
 ///
 /// # Safety
 /// Every pattern of `size_of::<Self>()` initialized bytes is a valid value of `Self` that no
 /// invariant of `Self` excludes, not even one that only safe code relies on (like a length that
-/// must not exceed a capacity), so bytes of `Self` never need to be checked. If `Self` implements
-/// [`TrivialType`], its parsing step [`TrivialType::try_from_bytes_unaligned()`] accepts every
-/// such pattern.
+/// must not exceed a capacity, or one that `#[trivial_type(validate = path)]` checks), so bytes of
+/// `Self` never need to be checked. If `Self` implements [`TrivialType`], its parsing step
+/// [`TrivialType::try_from_bytes_unaligned()`] accepts every such pattern.
 #[diagnostic::on_unimplemented(message = "`{Self}` doesn't accept every bit pattern")]
 pub unsafe trait AnyBitPatternMarker {}
 

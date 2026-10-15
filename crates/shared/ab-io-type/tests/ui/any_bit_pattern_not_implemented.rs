@@ -1,5 +1,6 @@
-//! `AnyBitPattern` is not implemented for types with invalid bit patterns: enums, structs and
-//! arrays containing them, and containers whose length must not exceed their capacity
+//! `AnyBitPattern` is not implemented for types with invalid bit patterns: enums, types with a
+//! `validate` function, structs and arrays containing them, and containers whose length must not
+//! exceed their capacity
 
 use ab_io_type::fixed_capacity_bytes::FixedCapacityBytes;
 use ab_io_type::fixed_capacity_string::FixedCapacityString;
@@ -27,6 +28,25 @@ struct WithBytes {
     bytes: FixedCapacityBytes<4>,
 }
 
+#[derive(Copy, Clone, TrivialType)]
+#[repr(C)]
+#[trivial_type(validate = Self::is_valid)]
+struct NonMax {
+    value: u32,
+}
+
+impl NonMax {
+    const fn is_valid(value: Self) -> bool {
+        value.value != u32::MAX
+    }
+}
+
+#[derive(Copy, Clone, TrivialType)]
+#[repr(C)]
+struct WithNonMax {
+    non_max: NonMax,
+}
+
 fn require<T>()
 where
     T: AnyBitPattern,
@@ -38,6 +58,8 @@ fn main() {
     require::<WithCtx>();
     require::<[Ctx; 2]>();
     require::<Unaligned<Ctx>>();
+    require::<NonMax>();
+    require::<WithNonMax>();
     require::<FixedCapacityBytes<4>>();
     require::<FixedCapacityString<4>>();
     require::<WithBytes>();

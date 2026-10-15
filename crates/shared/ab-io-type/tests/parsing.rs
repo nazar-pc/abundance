@@ -12,6 +12,7 @@ use ab_io_type::unaligned::Unaligned;
 use ab_io_type::variable_bytes::VariableBytes;
 use ab_io_type::variable_elements::VariableElements;
 use core::mem::MaybeUninit;
+use core::num::NonZeroU32;
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
@@ -85,6 +86,43 @@ unsafe impl TrivialType for Counted {
         // a valid reference to it
         let value = unsafe { &*bytes.as_ptr().cast::<Unaligned<Self>>() };
         Some((value, bytes))
+    }
+}
+
+/// `u32` other than `u32::MAX`, which `unsafe` code relies on
+#[derive(Debug, Copy, Clone, PartialEq, Eq, TrivialType)]
+#[repr(C)]
+#[trivial_type(validate = Self::is_valid)]
+struct NonMax {
+    value: u32,
+}
+
+impl NonMax {
+    const fn is_valid(value: Self) -> bool {
+        value.value != u32::MAX
+    }
+
+    fn plus_one(self) -> NonZeroU32 {
+        // SAFETY: `value` is not `u32::MAX` (type invariant), so adding one doesn't wrap to zero
+        unsafe { NonZeroU32::new_unchecked(self.value.wrapping_add(1)) }
+    }
+}
+
+/// Variant `A` holds a value below 10
+#[derive(Debug, Copy, Clone, PartialEq, Eq, TrivialType)]
+#[repr(u8)]
+#[trivial_type(validate = Self::is_valid)]
+enum Bounded {
+    A(u8),
+    B(u8),
+}
+
+impl Bounded {
+    const fn is_valid(value: Self) -> bool {
+        match value {
+            Self::A(byte) => byte < 10,
+            Self::B(_) => true,
+        }
     }
 }
 
@@ -289,6 +327,41 @@ fn unaligned() {
     );
     assert!(Unaligned::<Ctx>::try_from_bytes_unaligned(&[3]).is_none());
     assert!(Unaligned::<Msg>::try_from_bytes_unaligned(&[2, 0, 3, 9]).is_none());
+}
+
+#[test]
+fn validate() {
+    assert_eq!(parse::<NonMax>(&[0xff; 4]), None);
+    let (value, remainder) = parse::<NonMax>(&[1, 0, 0, 0]).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(value.plus_one().get(), 2);
+
+    // Every element is checked, in every parsing method
+    assert_eq!(
+        parse::<[NonMax; 2]>(&[1, 0, 0, 0, 2, 0, 0, 0]),
+        Some(([NonMax { value: 1 }, NonMax { value: 2 }], &[][..]))
+    );
+    assert_eq!(
+        parse::<[NonMax; 2]>(&[1, 0, 0, 0, 0xff, 0xff, 0xff, 0xff]),
+        None
+    );
+    assert_eq!(parse::<Unaligned<NonMax>>(&[0xff; 4]), None);
+    assert_eq!(NonMax::try_read_unaligned_exact(&[0xff; 4]), None);
+
+    // Containers check it through `try_from_ptr()`
+    let mut value = u32::MAX;
+    let mut ptr = NonNull::from_mut(&mut value).cast::<NonMax>();
+    let mut size = 4;
+    // SAFETY: Aligned, 4 initialized bytes that are not accessed otherwise
+    assert!(unsafe { MaybeData::<NonMax>::try_from_ptr(&ptr, &size, 4) }.is_none());
+    // SAFETY: Aligned, 4 initialized bytes that are not accessed otherwise
+    assert!(unsafe { MaybeData::<NonMax>::try_from_mut_ptr(&mut ptr, &mut size, 4) }.is_none());
+
+    // Enums are checked after the discriminant and fields of the variant
+    assert_eq!(parse::<Bounded>(&[0, 10]), None);
+    assert_eq!(parse::<Bounded>(&[0, 9]), Some((Bounded::A(9), &[][..])));
+    assert_eq!(parse::<Bounded>(&[1, 10]), Some((Bounded::B(10), &[][..])));
+    assert_eq!(parse::<Bounded>(&[2, 0]), None);
 }
 
 #[test]

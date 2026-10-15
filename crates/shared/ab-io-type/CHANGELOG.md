@@ -39,6 +39,7 @@ Improvements:
   `try_read_unaligned_exact()` parse bytes safely, checking enum discriminants and the length of
   `FixedCapacityElements`
 * `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking size, capacity and contents
+* `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
 
 Fixes:
 

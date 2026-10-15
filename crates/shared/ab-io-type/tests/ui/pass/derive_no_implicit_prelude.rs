@@ -39,6 +39,36 @@ mod no_implicit_prelude {
         A = 0,
         B = 1,
     }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    #[trivial_type(validate = Self::is_valid)]
+    struct Validated {
+        value: u32,
+    }
+
+    impl Validated {
+        const fn is_valid(value: Self) -> bool {
+            value.value != u32::MAX
+        }
+    }
+
+    trait Check {
+        fn check(value: Self) -> bool;
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    #[trivial_type(validate = <Self as Check>::check)]
+    struct QualifiedValidated {
+        value: u32,
+    }
+
+    impl Check for QualifiedValidated {
+        fn check(value: Self) -> bool {
+            value.value != u32::MAX
+        }
+    }
 }
 
 fn main() {}
