@@ -2,8 +2,8 @@
 #![cfg(not(feature = "guest"))]
 
 use crate::ffi::flip::FlipperFlipArgs;
-use ab_contracts_common::Contract;
 use ab_contracts_common::env::MethodContext;
+use ab_contracts_common::{Contract, ContractError};
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::TxHandler;
 use ab_core_primitives::address::Address;
@@ -127,6 +127,26 @@ fn flip() {
                 slots,
             )
             .unwrap();
+    }
+
+    // Bytes after the seal are rejected
+    {
+        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
+        let mut seal_with_extra_byte = seal.as_bytes().to_vec();
+        seal_with_extra_byte.push(0);
+        assert_eq!(
+            executor.transaction_verify(
+                Transaction {
+                    header: &header,
+                    payload: &payload,
+                    read_slots,
+                    write_slots,
+                    seal: &seal_with_extra_byte,
+                },
+                slots,
+            ),
+            Err(ContractError::BadInput)
+        );
     }
 
     for nonce in (nonce..).take(2) {
