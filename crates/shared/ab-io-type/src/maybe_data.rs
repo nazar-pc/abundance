@@ -3,7 +3,7 @@ mod tests;
 
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
-use crate::{DerefWrapper, IoType, IoTypeOptional};
+use crate::{DerefWrapper, IoType, IoTypeMut, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
@@ -235,7 +235,7 @@ where
     pub fn from_mut<'a>(
         buffer: &'a mut Data,
         size: &'a mut u32,
-    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+    ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
         if !(*size == 0 || *size == Data::SIZE) {
             return None;
         }
@@ -258,7 +258,7 @@ where
     pub fn from_uninit<'a>(
         uninit: &'a mut MaybeUninit<Data>,
         size: &'a mut u32,
-    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+    ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
         if *size != 0 {
             return None;
         }

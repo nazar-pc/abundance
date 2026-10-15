@@ -304,3 +304,49 @@ pub unsafe trait IoType {
 /// [`IoType::try_from_mut_ptr()`] must be sound to call with `size` of `0` and uninitialized memory
 /// behind the pointer, and must not expose that memory as initialized.
 pub unsafe trait IoTypeOptional: IoType {}
+
+/// Exclusive access to an [`IoType`] value.
+///
+/// It is implemented for:
+/// * every [`IoType`]
+/// * views that constructors of containers return over exclusive memory, like
+///   [`MaybeData::from_mut()`] and [`VariableElements::from_uninit()`]
+///
+/// This allows generic code to accept both.
+///
+/// [`MaybeData::from_mut()`]: maybe_data::MaybeData::from_mut
+/// [`VariableElements::from_uninit()`]: variable_elements::VariableElements::from_uninit
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` doesn't give exclusive access to an `IoType` value"
+)]
+pub trait IoTypeMut {
+    /// The type of the value
+    type Target: IoType;
+
+    /// Exclusive access to the value
+    fn io_type_mut(&mut self) -> &mut Self::Target;
+}
+
+impl<T> IoTypeMut for T
+where
+    T: IoType,
+{
+    type Target = T;
+
+    #[inline(always)]
+    fn io_type_mut(&mut self) -> &mut Self::Target {
+        self
+    }
+}
+
+impl<T> IoTypeMut for DerefWrapper<T>
+where
+    T: IoType,
+{
+    type Target = T;
+
+    #[inline(always)]
+    fn io_type_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}

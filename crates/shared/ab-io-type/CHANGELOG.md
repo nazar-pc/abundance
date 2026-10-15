@@ -40,6 +40,9 @@ Improvements:
   `FixedCapacityElements`
 * `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking size, capacity and contents
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
+* `IoTypeMut` gives exclusive access to an `IoType` value, it is implemented for every `IoType` and for values that
+  `MaybeData::from_mut()`, `MaybeData::from_uninit()`, `VariableElements::from_buffer_mut()` and
+  `VariableElements::from_uninit()` return
 
 Fixes:
 
