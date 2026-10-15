@@ -35,10 +35,11 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 /// [`Self::try_from_bytes_unaligned()`] checks that they are a valid value of the type, which is
 /// a length check for types that accept every bit pattern (see [`AnyBitPattern`]).
 ///
-/// A valid value is one whose every field is a valid value of its type, like the index of a
-/// variant for the discriminant of an enum, and that satisfies the invariants `unsafe` code relies
-/// on. Parsing may reject more, like a length of `FixedCapacityElements` above its capacity, but
-/// doesn't check encoding rules, like the bytes of its length prefix after the length.
+/// A valid value is one whose every field is a valid value of its type, like `0` or `1` for a
+/// `bool` and the index of a variant for the discriminant of an enum, and that satisfies the
+/// invariants `unsafe` code relies on. Parsing may reject more, like a length of
+/// `FixedCapacityElements` above its capacity, but doesn't check encoding rules, like the bytes of
+/// its length prefix after the length.
 ///
 /// # Safety
 /// * There is no padding, every byte is initialized and there is no interior mutability
@@ -302,7 +303,7 @@ impl<T> AnyBitPattern for T where T: TrivialType + AnyBitPatternMarker {}
 
 /// Parsing step of a type whose every bit pattern is a valid value
 #[inline(always)]
-pub(crate) fn try_from_bytes_any_bit_pattern<T>(bytes: &[u8]) -> Option<(&Unaligned<T>, &[u8])>
+fn try_from_bytes_any_bit_pattern<T>(bytes: &[u8]) -> Option<(&Unaligned<T>, &[u8])>
 where
     T: TrivialType + AnyBitPatternMarker,
 {
@@ -348,6 +349,20 @@ unsafe impl TrivialType for () {
 }
 // SAFETY: Zero-sized, its only value has no bytes, the parsing step only checks the length
 unsafe impl AnyBitPatternMarker for () {}
+// SAFETY: One byte, the parsing step accepts only `0` and `1`, the valid values of `bool`
+unsafe impl TrivialType for bool {
+    const METADATA: &[u8] = &[IoTypeMetadataKind::Bool as u8];
+
+    #[inline(always)]
+    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+        let (&[0 | 1], remainder) = bytes.split_first_chunk::<1>()? else {
+            return None;
+        };
+        // SAFETY: `Unaligned<bool>` is one byte with alignment 1, the first byte is `0` or `1`
+        let value = unsafe { bytes.as_ptr().cast::<Unaligned<Self>>().as_ref_unchecked() };
+        Some((value, remainder))
+    }
+}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u8 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U8 as u8];

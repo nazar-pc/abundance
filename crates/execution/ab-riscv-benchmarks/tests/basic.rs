@@ -4,6 +4,7 @@ use ab_blake3::OUT_LEN;
 use ab_contract_file::ContractFile;
 use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
+use ab_io_type::trivial_type::TrivialType;
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
@@ -32,7 +33,7 @@ enum RunType {
 
 fn call_method<IA, CIA>(method_name: &str, create_internal_args: CIA, run_type: RunType) -> IA
 where
-    IA: Copy,
+    IA: TrivialType,
     CIA: FnOnce(u64) -> IA,
 {
     let mut methods = HashMap::new();
@@ -73,7 +74,8 @@ where
 
     {
         let internal_args = create_internal_args(internal_args_addr);
-        // SAFETY: Byte representation of `#[repr(C)]` without any padding, hence fully initialized
+        // SAFETY: Byte representation of a `TrivialType`, which has no padding, hence fully
+        // initialized
         let internal_args_bytes = unsafe {
             slice::from_raw_parts(ptr::from_ref(&internal_args).cast::<u8>(), size_of::<IA>())
         };
@@ -156,15 +158,12 @@ where
         }
     };
 
-    // SAFETY: Byte representation of `#[repr(C)]` without any padding, hence fully initialized
-    *unsafe {
+    IA::try_read_unaligned_exact(
         memory
             .read_slice(internal_args_addr, size_of::<IA>() as u32)
-            .unwrap()
-            .as_ptr()
-            .cast::<IA>()
-            .as_ref_unchecked()
-    }
+            .unwrap(),
+    )
+    .unwrap()
 }
 
 // TODO: Unlock if it becomes fast enough to run in CI
@@ -208,7 +207,11 @@ fn ed25519_verify_valid_lazy() {
     let message = [2; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));
 
-    assert!(Benchmarks::ed25519_verify(&public_key, &signature, &message).get());
+    assert!(Benchmarks::ed25519_verify(
+        &public_key,
+        &signature,
+        &message
+    ));
 
     let internal_args = call_method(
         "benchmarks_ed25519_verify",
@@ -218,7 +221,7 @@ fn ed25519_verify_valid_lazy() {
         RunType::Lazy,
     );
 
-    assert!(internal_args.result.get());
+    assert!(internal_args.result);
 }
 
 // TODO: Unlock if it becomes fast enough to run in CI
@@ -231,7 +234,11 @@ fn ed25519_verify_invalid_lazy() {
     let other_message = [3; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));
 
-    assert!(!Benchmarks::ed25519_verify(&public_key, &signature, &other_message).get());
+    assert!(!Benchmarks::ed25519_verify(
+        &public_key,
+        &signature,
+        &other_message
+    ));
 
     let internal_args = call_method(
         "benchmarks_ed25519_verify",
@@ -241,7 +248,7 @@ fn ed25519_verify_invalid_lazy() {
         RunType::Lazy,
     );
 
-    assert!(!internal_args.result.get());
+    assert!(!internal_args.result);
 }
 
 // TODO: Unlock if it becomes fast enough to run in CI
@@ -253,7 +260,11 @@ fn ed25519_verify_valid_eager() {
     let message = [2; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));
 
-    assert!(Benchmarks::ed25519_verify(&public_key, &signature, &message).get());
+    assert!(Benchmarks::ed25519_verify(
+        &public_key,
+        &signature,
+        &message
+    ));
 
     let internal_args = call_method(
         "benchmarks_ed25519_verify",
@@ -263,7 +274,7 @@ fn ed25519_verify_valid_eager() {
         RunType::Eager,
     );
 
-    assert!(internal_args.result.get());
+    assert!(internal_args.result);
 }
 
 // TODO: Unlock if it becomes fast enough to run in CI
@@ -276,7 +287,11 @@ fn ed25519_verify_invalid_eager() {
     let other_message = [3; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));
 
-    assert!(!Benchmarks::ed25519_verify(&public_key, &signature, &other_message).get());
+    assert!(!Benchmarks::ed25519_verify(
+        &public_key,
+        &signature,
+        &other_message
+    ));
 
     let internal_args = call_method(
         "benchmarks_ed25519_verify",
@@ -286,7 +301,7 @@ fn ed25519_verify_invalid_eager() {
         RunType::Eager,
     );
 
-    assert!(!internal_args.result.get());
+    assert!(!internal_args.result);
 }
 
 #[cfg_attr(
@@ -308,12 +323,9 @@ fn blake3_hash_chunk_eager_threaded() {
     assert_eq!(expected_hash, actual_hash);
 }
 
-// TODO: Unlock if it becomes fast enough to run in CI
+// TODO: Unlock if it becomes fast enough to run in CI, ignoring it under Miri on x86-64 without
+//  AVX instead, since AVX is not the default feature on x86-64
 #[cfg_attr(miri, ignore)]
-#[cfg_attr(
-    all(miri, target_arch = "x86_64", not(target_feature = "avx")),
-    ignore = "AVX is not the default feature on x86-64"
-)]
 #[test]
 fn ed25519_verify_valid_eager_threaded() {
     let signing_key = SigningKey::from([1; _]);
@@ -321,7 +333,11 @@ fn ed25519_verify_valid_eager_threaded() {
     let message = [2; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));
 
-    assert!(Benchmarks::ed25519_verify(&public_key, &signature, &message).get());
+    assert!(Benchmarks::ed25519_verify(
+        &public_key,
+        &signature,
+        &message
+    ));
 
     let internal_args = call_method(
         "benchmarks_ed25519_verify",
@@ -331,15 +347,12 @@ fn ed25519_verify_valid_eager_threaded() {
         RunType::EagerThreaded,
     );
 
-    assert!(internal_args.result.get());
+    assert!(internal_args.result);
 }
 
-// TODO: Unlock if it becomes fast enough to run in CI
+// TODO: Unlock if it becomes fast enough to run in CI, ignoring it under Miri on x86-64 without
+//  AVX instead, since AVX is not the default feature on x86-64
 #[cfg_attr(miri, ignore)]
-#[cfg_attr(
-    all(miri, target_arch = "x86_64", not(target_feature = "avx")),
-    ignore = "AVX is not the default feature on x86-64"
-)]
 #[test]
 fn ed25519_verify_invalid_eager_threaded() {
     let signing_key = SigningKey::from([1; _]);
@@ -348,7 +361,11 @@ fn ed25519_verify_invalid_eager_threaded() {
     let other_message = [3; OUT_LEN];
     let signature = Ed25519Signature::from(signing_key.sign(&message));
 
-    assert!(!Benchmarks::ed25519_verify(&public_key, &signature, &other_message).get());
+    assert!(!Benchmarks::ed25519_verify(
+        &public_key,
+        &signature,
+        &other_message
+    ));
 
     let internal_args = call_method(
         "benchmarks_ed25519_verify",
@@ -358,5 +375,5 @@ fn ed25519_verify_invalid_eager_threaded() {
         RunType::EagerThreaded,
     );
 
-    assert!(!internal_args.result.get());
+    assert!(!internal_args.result);
 }

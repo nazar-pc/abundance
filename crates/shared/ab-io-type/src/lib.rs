@@ -74,7 +74,6 @@
 )]
 #![no_std]
 
-pub mod bool;
 pub mod fixed_capacity_bytes;
 pub mod fixed_capacity_elements;
 pub mod fixed_capacity_string;

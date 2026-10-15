@@ -4,7 +4,6 @@ use ab_core_primitives::address::Address;
 use ab_core_primitives::shard::ShardIndex;
 use ab_example_contract_flipper::{Flipper, FlipperExt};
 use ab_executor_native::NativeExecutor;
-use ab_io_type::bool::Bool;
 use ab_system_contract_code::CodeExt;
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 
@@ -24,7 +23,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             .unwrap();
 
         // Initialize state
-        env.flipper_new(MethodContext::Keep, flipper_address, &Bool::new(true))
+        env.flipper_new(MethodContext::Keep, flipper_address, &true)
             .unwrap();
 
         flipper_address

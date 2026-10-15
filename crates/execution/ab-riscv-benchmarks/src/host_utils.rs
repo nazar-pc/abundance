@@ -1,7 +1,7 @@
 use ab_blake3::{CHUNK_LEN, OUT_LEN};
 use ab_contract_file::instruction::{ContractInstruction, ContractRegister};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
-use ab_io_type::bool::Bool;
+use ab_io_type::trivial_type::TrivialType;
 use core::mem::offset_of;
 
 /// Contract file bytes
@@ -17,7 +17,7 @@ pub const RISCV_CONTRACT_BYTES: &[u8] = cfg_select! {
 /// Helper data structure for [`Benchmarks::blake3_hash_chunk()`] method
 ///
 /// [`Benchmarks::blake3_hash_chunk()`]: crate::Benchmarks::blake3_hash_chunk
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Blake3HashChunkInternalArgs {
     chunk_ptr: u64,
@@ -27,14 +27,6 @@ pub struct Blake3HashChunkInternalArgs {
     chunk: [u8; CHUNK_LEN],
     result: [u8; OUT_LEN],
 }
-
-const _: () = {
-    assert!(
-        size_of::<Blake3HashChunkInternalArgs>()
-            == offset_of!(Blake3HashChunkInternalArgs, result) + size_of::<[u8; OUT_LEN]>(),
-        "`Blake3HashChunkInternalArgs` must not have implicit padding"
-    );
-};
 
 impl Blake3HashChunkInternalArgs {
     /// Create a new instance
@@ -60,7 +52,7 @@ impl Blake3HashChunkInternalArgs {
 /// Helper data structure for [`Benchmarks::ed25519_verify()`] method
 ///
 /// [`Benchmarks::ed25519_verify()`]: crate::Benchmarks::ed25519_verify
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Ed25519VerifyInternalArgs {
     pub public_key_ptr: u64,
@@ -76,21 +68,13 @@ pub struct Ed25519VerifyInternalArgs {
     pub public_key: Ed25519PublicKey,
     pub signature: Ed25519Signature,
     pub message: [u8; OUT_LEN],
-    pub result: Bool,
+    pub result: bool,
     /// Explicit trailing padding.
     ///
     /// The host copies the byte representation of this data structure into guest memory, which is
     /// only sound if every byte of it is initialized, hence implicit padding must not exist here.
     pub padding: [u8; 7],
 }
-
-const _: () = {
-    assert!(
-        size_of::<Ed25519VerifyInternalArgs>()
-            == offset_of!(Ed25519VerifyInternalArgs, padding) + size_of::<[u8; 7]>(),
-        "`Ed25519VerifyInternalArgs` must not have implicit padding"
-    );
-};
 
 impl Ed25519VerifyInternalArgs {
     /// Create a new instance
@@ -114,13 +98,13 @@ impl Ed25519VerifyInternalArgs {
             public_key,
             signature,
             message,
-            result: Bool::new(false),
+            result: false,
             padding: [0; _],
         }
     }
 
     /// Extract result
-    pub fn result(&self) -> Bool {
+    pub fn result(&self) -> bool {
         self.result
     }
 }

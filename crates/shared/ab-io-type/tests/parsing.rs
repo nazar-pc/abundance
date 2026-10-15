@@ -4,7 +4,6 @@
 //! undefined behavior, which Miri detects, so these tests are also run under Miri.
 
 use ab_io_type::IoType;
-use ab_io_type::bool::Bool;
 use ab_io_type::fixed_capacity_elements::FixedCapacityElements;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
@@ -61,11 +60,18 @@ struct WithCtx {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, TrivialType)]
+#[repr(C)]
+struct WithBool {
+    value: u8,
+    flag: bool,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, TrivialType)]
 #[repr(u8)]
 enum Msg {
     A([u8; 3]),
     B(u8, Unaligned<u16>),
-    C { flag: Bool, ctx: Ctx, rest: u8 },
+    C { flag: bool, ctx: Ctx, rest: u8 },
 }
 
 /// Number of times the parsing step of [`Counted`] was called
@@ -270,7 +276,7 @@ fn data_enum() {
         parse::<Msg>(&[2, 1, 2, 9]),
         Some((
             Msg::C {
-                flag: Bool::new(true),
+                flag: true,
                 ctx: Ctx::C,
                 rest: 9
             },
@@ -364,6 +370,51 @@ fn validate() {
     assert_eq!(parse::<Bounded>(&[0, 9]), Some((Bounded::A(9), &[][..])));
     assert_eq!(parse::<Bounded>(&[1, 10]), Some((Bounded::B(10), &[][..])));
     assert_eq!(parse::<Bounded>(&[2, 0]), None);
+}
+
+#[test]
+fn booleans() {
+    assert_eq!(parse::<bool>(&[0]), Some((false, &[][..])));
+    assert_eq!(parse::<bool>(&[1, 2]), Some((true, &[2][..])));
+    assert_eq!(parse::<bool>(&[]), None);
+    // Every other byte is rejected
+    for byte in 2..=u8::MAX {
+        assert_eq!(parse::<bool>(&[byte]), None);
+    }
+
+    // Every element and field is checked
+    assert_eq!(
+        parse::<[bool; 3]>(&[1, 0, 1]),
+        Some(([true, false, true], &[][..]))
+    );
+    assert_eq!(parse::<[bool; 3]>(&[1, 0, 2]), None);
+    assert_eq!(
+        parse::<Unaligned<bool>>(&[1]),
+        Some((Unaligned::new(true), &[][..]))
+    );
+    assert_eq!(parse::<Unaligned<bool>>(&[2]), None);
+    assert_eq!(
+        parse::<WithBool>(&[7, 1]),
+        Some((
+            WithBool {
+                value: 7,
+                flag: true
+            },
+            &[][..]
+        ))
+    );
+    assert_eq!(parse::<WithBool>(&[7, 2]), None);
+    assert_eq!(parse::<Msg>(&[2, 2, 2, 9]), None);
+    assert_eq!(
+        parse::<Msg>(&[0, 2, 2, 9]),
+        Some((Msg::A([2, 2, 9]), &[][..]))
+    );
+
+    // A value written through an exclusive reference is stored as `0` or `1`
+    let mut bytes = [0];
+    let (value, _remainder) = bool::try_from_bytes_mut(&mut bytes).unwrap();
+    *value = true;
+    assert_eq!(bytes, [1]);
 }
 
 #[test]
@@ -542,6 +593,15 @@ fn plain_try_from_ptr() {
         let parsed = unsafe { Ctx::try_from_ptr(&ptr, &1, 1) };
         assert_eq!(parsed.as_deref(), Some(&Ctx::C));
     }
+    // A valid discriminant of `Ctx` is not a valid `bool`
+    let mut ptr = NonNull::from_mut(&mut byte).cast::<bool>();
+    let mut size = 1;
+    // SAFETY: Alignment 1, the size and capacity of `bool`, one initialized byte that is not
+    // accessed otherwise
+    assert!(unsafe { bool::try_from_ptr(&ptr, &size, 1) }.is_none());
+    // SAFETY: Alignment 1, the size and capacity of `bool`, one initialized byte that is not
+    // accessed otherwise
+    assert!(unsafe { bool::try_from_mut_ptr(&mut ptr, &mut size, 1) }.is_none());
 }
 
 #[test]
