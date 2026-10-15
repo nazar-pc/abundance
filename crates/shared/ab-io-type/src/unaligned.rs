@@ -1,5 +1,5 @@
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
-use crate::trivial_type::TrivialType;
+use crate::trivial_type::{AnyBitPatternMarker, TrivialType};
 use core::fmt;
 #[cfg(feature = "scale-codec")]
 use parity_scale_codec::{Decode, Encode, EncodeLike, MaxEncodedLen, Output};
@@ -56,6 +56,12 @@ where
         let (metadata_scratch, metadata_size) = &metadata(Data::METADATA);
         metadata_scratch.split_at(*metadata_size).0
     };
+}
+
+// SAFETY: Same bytes and validity as `Data`
+unsafe impl<Data> AnyBitPatternMarker for Unaligned<Data> where
+    Data: TrivialType + AnyBitPatternMarker
+{
 }
 
 #[cfg(feature = "scale-codec")]

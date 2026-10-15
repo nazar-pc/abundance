@@ -1,5 +1,5 @@
 use crate::metadata::IoTypeMetadataKind;
-use crate::trivial_type::TrivialType;
+use crate::trivial_type::{AnyBitPatternMarker, TrivialType};
 use core::ops::Not;
 
 /// Just like `bool`, but any bit pattern is valid.
@@ -42,6 +42,9 @@ impl From<Bool> for bool {
 unsafe impl TrivialType for Bool {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Bool as u8];
 }
+
+// SAFETY: One byte, any value of which is valid, `0` is `false` and everything else is `true`
+unsafe impl AnyBitPatternMarker for Bool {}
 
 impl Bool {
     /// Create a new instance from existing boolean value

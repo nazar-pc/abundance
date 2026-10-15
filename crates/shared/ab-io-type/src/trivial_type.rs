@@ -172,50 +172,100 @@ where
     }
 }
 
+// TODO: This trait only exists because `try_as_dyn()`, the only way to detect it in generic code,
+//  skips impls whose bounds mention a type parameter inside a constant, like the array size limit
+//  of `TrivialType for [T; N]`. Merge it into `AnyBitPattern` once that is fixed:
+//  https://github.com/rust-lang/rust/issues/164149
+/// Every bit pattern of the type is a valid value.
+///
+/// Together with [`TrivialType`] it provides [`AnyBitPattern`], which is the bound to use.
+/// `#[derive(TrivialType)]` implements it for structs whose fields all implement it.
+///
+/// # Safety
+/// Every pattern of `size_of::<Self>()` initialized bytes is a valid value of `Self` that no
+/// invariant of `Self` excludes, not even one that only safe code relies on (like a length that
+/// must not exceed a capacity), so bytes of `Self` never need to be checked
+#[diagnostic::on_unimplemented(message = "`{Self}` doesn't accept every bit pattern")]
+pub unsafe trait AnyBitPatternMarker {}
+
+/// [`TrivialType`] whose every bit pattern is a valid value.
+///
+/// Implemented for every type that implements [`TrivialType`] and [`AnyBitPatternMarker`].
+#[diagnostic::on_unimplemented(message = "`{Self}` doesn't accept every bit pattern")]
+pub trait AnyBitPattern
+where
+    Self: TrivialType + AnyBitPatternMarker,
+{
+}
+
+impl<T> AnyBitPattern for T where T: TrivialType + AnyBitPatternMarker {}
+
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for () {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Unit as u8];
 }
+// SAFETY: Zero-sized, its only value has no bytes
+unsafe impl AnyBitPatternMarker for () {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u8 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U8 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for u8 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u16 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U16 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for u16 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u32 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U32 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for u32 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u64 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U64 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for u64 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u128 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U128 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for u128 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i8 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I8 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for i8 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i16 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I16 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for i16 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i32 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I32 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for i32 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i64 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I64 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for i64 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i128 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I128 as u8];
 }
+// SAFETY: Any bit pattern is a valid value of integers
+unsafe impl AnyBitPatternMarker for i128 {}
 
 const fn array_metadata(size: u32, inner_metadata: &[u8]) -> ([u8; MAX_METADATA_CAPACITY], usize) {
     concat_metadata_sources(&[
@@ -240,6 +290,10 @@ where
         metadata_scratch.split_at(*metadata_size).0
     };
 }
+
+// SAFETY: Elements follow each other without padding, any bit pattern of each is a valid value.
+// There is no array size limit here, `AnyBitPattern` requires `[T; N]: TrivialType`, which has it.
+unsafe impl<const SIZE: usize, T> AnyBitPatternMarker for [T; SIZE] where T: AnyBitPatternMarker {}
 
 // SAFETY: All `TrivialType` instances are valid for `IoType`
 unsafe impl<T> IoType for T

@@ -46,6 +46,24 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 }
             };
 
+            // Bounds are higher-ranked, so that a field type without the marker makes the bound
+            // false instead of being a "trivial bound" error. They also contain no type parameter,
+            // which keeps a future `try_as_dyn()` probe working.
+            let marker_impl = quote! {
+                // SAFETY: Padding is rejected by the assertions generated with the `TrivialType`
+                // impl, so the bytes of a value are exactly the bytes of its fields, and the impl
+                // only applies when every field accepts any bit pattern
+                #[automatically_derived]
+                unsafe impl ::ab_io_type::trivial_type::AnyBitPatternMarker for #type_name
+                where
+                    #(
+                        for<'__ab_io_type> #field_types:
+                            ::ab_io_type::trivial_type::AnyBitPatternMarker,
+                    )*
+                {
+                }
+            };
+
             quote! {
                 const _: () = {
                     // Assert statically that there is no unexpected padding that would be left
@@ -98,6 +116,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 {
                     const METADATA: &[::core::primitive::u8] = #struct_metadata;
                 }
+
+                #marker_impl
             }
         }
         Data::Enum(data_enum) => {

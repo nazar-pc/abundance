@@ -27,8 +27,8 @@ pub(crate) const SUPPORTED_CAPACITY<Element, const CAPACITY: usize>: usize = {
     0
 };
 
-// TODO: Require `AnyBitPattern` for elements once it exists, such that parsing doesn't need to
-//  check unused elements, which could then be filled with zeroes instead of requiring `Default`
+// TODO: Require `AnyBitPattern` for elements, such that parsing doesn't need to check unused
+//  elements, which could then be filled with zeroes instead of requiring `Default`
 /// Container for storing a number of elements limited by the specified fixed capacity.
 ///
 /// See also [`FixedCapacityBytes`] and [`FixedCapacityString`].

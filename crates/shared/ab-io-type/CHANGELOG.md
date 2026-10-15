@@ -28,6 +28,8 @@ Breaking changes:
 Improvements:
 
 * `TrivialType` can now be derived for enums with tuple variants
+* `AnyBitPattern` is implemented for `TrivialType`s whose every bit pattern is a valid value, which implement the
+  unsafe `AnyBitPatternMarker`, the derive implements it for structs whose fields all implement it
 
 Fixes:
 
