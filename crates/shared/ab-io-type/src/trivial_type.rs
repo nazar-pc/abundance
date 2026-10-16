@@ -315,7 +315,7 @@ where
 
 /// Returns the bytes after `count` valid values of `T` at the beginning of `bytes`
 #[inline(always)]
-pub(crate) fn try_skip_valid<T>(mut bytes: &[u8], count: usize) -> Option<&[u8]>
+pub(crate) fn try_skip_valid<T>(bytes: &[u8], count: usize) -> Option<&[u8]>
 where
     T: TrivialType,
 {
@@ -328,11 +328,13 @@ where
         }
         return Some(bytes);
     }
-    for _ in 0..count {
-        let (_value, remainder) = T::try_from_bytes_unaligned(bytes)?;
-        bytes = remainder;
+    // With all elements split off first, every step gets exactly the bytes of one element, so for
+    // types whose step only checks the length the loop is optimized away
+    let (elements, remainder) = bytes.split_at_checked(count.checked_mul(size_of::<T>())?)?;
+    for element in elements.as_chunks::<{ SIZE_OF::<T> }>().0 {
+        T::try_from_bytes_unaligned(element)?;
     }
-    Some(bytes)
+    Some(remainder)
 }
 
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
