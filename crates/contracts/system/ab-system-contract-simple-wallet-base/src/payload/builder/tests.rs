@@ -8,6 +8,7 @@ use ab_contracts_common::env::{MethodContext, PreparedMethod};
 use ab_contracts_common::method::ExternalArgs;
 use ab_contracts_macros::contract;
 use ab_core_primitives::address::Address;
+use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
 use core::ptr;
@@ -31,8 +32,8 @@ impl DemoContract {
     }
 
     #[view]
-    pub fn get(&self, #[output] value: &mut u8) {
-        *value = self.value;
+    pub fn get(&self, #[output] value: &mut MaybeData<u8>) {
+        value.replace(self.value);
     }
 }
 
@@ -160,11 +161,14 @@ fn payload_encode_decode_output_index() {
     // The output of the first method is used as the input of the second method
     let payload = {
         let mut unused_output = 0;
+        let mut unused_output_size = 0;
         let mut builder = TransactionPayloadBuilder::default();
         builder
             .with_method_call(
                 &expected_contract,
-                &DemoContractGetArgs::new(&mut unused_output),
+                &DemoContractGetArgs::new(
+                    &mut MaybeData::from_mut(&mut unused_output, &mut unused_output_size).unwrap(),
+                ),
                 TransactionMethodContext::Null,
                 &[],
                 &[],

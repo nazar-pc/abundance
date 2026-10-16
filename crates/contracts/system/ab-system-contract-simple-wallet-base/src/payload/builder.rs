@@ -91,6 +91,17 @@ impl TransactionPayloadBuilder {
     /// `slot_output_index` and `input_output_index` are used for referencing earlier outputs as
     /// slots or inputs of this method, its values are optional, see [`TransactionInput`] for more
     /// details.
+    ///
+    /// Outputs are given to the method empty, with size `0`, so methods called from transactions
+    /// must accept empty outputs, like [`MaybeData`] and [`VariableElements`]. A method with an
+    /// `#[output]` of a [`TrivialType`] can't be called directly from a transaction, since its
+    /// value has to be initialized first, for example by a separate method. Initializing values
+    /// is domain-specific, so the payload format doesn't do it. Executors that check arguments
+    /// against the method's metadata reject such calls, while the native executor trusts
+    /// transactions, so with it such a call violates the requirements of the called method.
+    ///
+    /// [`MaybeData`]: ab_io_type::maybe_data::MaybeData
+    /// [`VariableElements`]: ab_io_type::variable_elements::VariableElements
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn with_method_call<Args>(
         &mut self,

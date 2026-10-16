@@ -258,6 +258,9 @@ struct OutputBufferOffsetsCursor {
 }
 
 /// Decoder for transaction payload created using `TransactionPayloadBuilder`.
+///
+/// Outputs are given to methods empty, with size `0`, so methods called from transactions must
+/// accept empty outputs, see `TransactionPayloadBuilder::with_method_call()`.
 #[derive(Debug)]
 pub struct TransactionPayloadDecoder<'a> {
     payload: &'a [u8],
