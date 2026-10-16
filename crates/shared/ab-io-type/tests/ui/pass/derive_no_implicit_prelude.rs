@@ -4,6 +4,7 @@
 #[no_implicit_prelude]
 mod no_implicit_prelude {
     use ::ab_io_type::trivial_type::TrivialType;
+    use ::ab_io_type::unaligned::Unaligned;
     use ::core::clone::Clone;
     use ::core::marker::Copy;
 
@@ -27,9 +28,46 @@ mod no_implicit_prelude {
 
     #[derive(Copy, Clone, TrivialType)]
     #[repr(u8)]
+    enum TupleVariants {
+        A(u8, Unaligned<u16>),
+        B([u8; 3]),
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(u8)]
     enum ExplicitDiscriminants {
         A = 0,
         B = 1,
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    #[trivial_type(validate = Self::is_valid)]
+    struct Validated {
+        value: u32,
+    }
+
+    impl Validated {
+        const fn is_valid(value: Self) -> bool {
+            value.value != u32::MAX
+        }
+    }
+
+    trait Check {
+        fn check(value: Self) -> bool;
+    }
+
+    #[derive(Copy, Clone, TrivialType)]
+    #[repr(C)]
+    #[trivial_type(validate = <Self as Check>::check)]
+    struct QualifiedValidated {
+        value: u32,
+    }
+
+    impl Check for QualifiedValidated {
+        fn check(value: Self) -> bool {
+            value.value != u32::MAX
+        }
     }
 }
 

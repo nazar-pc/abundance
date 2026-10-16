@@ -114,7 +114,9 @@ impl SimpleWalletBase {
         })
     }
 
-    /// Reads state of `owner` and returns `Ok(())` if authorization succeeds
+    /// Reads state of `owner` and returns `Ok(())` if authorization succeeds.
+    ///
+    /// `seal` must hold exactly the bytes of a [`Seal`].
     #[view]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn authorize(
@@ -125,7 +127,7 @@ impl SimpleWalletBase {
         #[input] payload: &TxHandlerPayload,
         #[input] seal: &TxHandlerSeal,
     ) -> Result<(), ContractError> {
-        let Some(seal) = seal.read_trivial_type::<Seal>() else {
+        let Some(seal) = Seal::try_read_unaligned_exact(seal.get_initialized()) else {
             return Err(ContractError::BadInput);
         };
 

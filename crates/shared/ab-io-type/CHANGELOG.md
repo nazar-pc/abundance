@@ -24,10 +24,25 @@ Breaking changes:
 * `TrivialType` derive rejects enums with explicit discriminants that differ from variant indices, which metadata
   doesn't record. It also checks all `#[repr(..)]` attributes instead of only the first one and rejects enums with
   `#[repr(C, u8)]`
+* `TrivialType` requires `'static` and the parsing step `try_from_bytes_unaligned()`, which the derive implements
+* Provided methods of `TrivialType` can't be overridden
+* `IoType` requires `try_from_ptr()` and `try_from_mut_ptr()`
+* `VariableBytes::read_trivial_type()`, which created invalid enum values from bytes in safe code, is removed,
+  `TrivialType::try_read_unaligned()` replaces it
 
 Improvements:
 
 * `TrivialType` can now be derived for enums with tuple variants
+* `AnyBitPattern` is implemented for `TrivialType`s whose every bit pattern is a valid value, which implement the
+  unsafe `AnyBitPatternMarker`, the derive implements it for structs whose fields all implement it
+* `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()`, `try_read_unaligned()` and
+  `try_read_unaligned_exact()` parse bytes safely, checking enum discriminants and the length of
+  `FixedCapacityElements`
+* `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking size, capacity and contents
+* `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
+* `IoTypeMut` gives exclusive access to an `IoType` value, it is implemented for every `IoType` and for values that
+  `MaybeData::from_mut()`, `MaybeData::from_uninit()`, `VariableElements::from_buffer_mut()` and
+  `VariableElements::from_uninit()` return
 
 Fixes:
 

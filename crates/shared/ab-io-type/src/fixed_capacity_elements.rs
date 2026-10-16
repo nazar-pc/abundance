@@ -2,7 +2,8 @@
 mod tests;
 
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
-use crate::trivial_type::TrivialType;
+use crate::trivial_type::{TrivialType, try_skip_valid};
+use crate::unaligned::Unaligned;
 use core::fmt;
 
 /// Size of the prefix of [`FixedCapacityElements`] that stores the number of elements.
@@ -27,8 +28,8 @@ pub(crate) const SUPPORTED_CAPACITY<Element, const CAPACITY: usize>: usize = {
     0
 };
 
-// TODO: Require `AnyBitPattern` for elements once it exists, such that parsing doesn't need to
-//  check unused elements, which could then be filled with zeroes instead of requiring `Default`
+// TODO: Require `AnyBitPattern` for elements, such that parsing doesn't need to check unused
+//  elements, which could then be filled with zeroes instead of requiring `Default`
 /// Container for storing a number of elements limited by the specified fixed capacity.
 ///
 /// See also [`FixedCapacityBytes`] and [`FixedCapacityString`].
@@ -47,14 +48,16 @@ pub(crate) const SUPPORTED_CAPACITY<Element, const CAPACITY: usize>: usize = {
 /// `CAPACITY` must not exceed `u32::MAX`, and the size of the container must be smaller than
 /// 2^32.
 ///
-/// The length is not checked when an instance is created from bytes. Methods don't panic if it
-/// exceeds `CAPACITY`, but such an instance has no accessible elements and nothing can be appended
-/// to it until a valid length is set with [`Self::truncate()`] or [`Self::copy_from()`]. The rest
-/// of the length prefix is not checked either, it is set to zero bytes whenever the length is set.
+/// Parsing rejects a length above `CAPACITY`, but doesn't check the rest of the length prefix,
+/// which is set to zero bytes whenever the length is set. The unsafe methods of [`TrivialType`]
+/// that skip parsing can create an instance with a larger length: methods don't panic then, but
+/// such an instance has no accessible elements and nothing can be appended to it until a valid
+/// length is set with [`Self::truncate()`] or [`Self::copy_from()`].
 ///
 /// Elements beyond the length are not part of the value. [`Default`] and [`Self::try_from_slice()`]
 /// fill them with default elements, while [`Self::truncate()`] and [`Self::copy_from()`] leave
-/// them as they are, so bytes of instances with the same elements can differ.
+/// them as they are, so bytes of instances with the same elements can differ. Parsing checks all
+/// `CAPACITY` elements, they are values of `Element` too.
 ///
 /// [`FixedCapacityBytes`]: crate::fixed_capacity_bytes::FixedCapacityBytes
 /// [`FixedCapacityString`]: crate::fixed_capacity_string::FixedCapacityString
@@ -65,7 +68,6 @@ pub struct FixedCapacityElements<Element, const CAPACITY: usize>
 where
     Element: TrivialType,
 {
-    // TODO: Reject a length above `CAPACITY` once typed parsing exists
     len: [u8; LEN_SIZE::<Element>],
     elements: [Element; CAPACITY],
     // TODO: Technically redundant with the where-clause, which is not enforced in generic code
@@ -106,7 +108,8 @@ where
 // SAFETY: The length prefix consists of bytes and elements are `TrivialType`. There is no padding:
 // the size of the length prefix is a multiple of the alignment of elements, so elements follow it
 // immediately, and the size of elements is a multiple of their alignment, which is the alignment of
-// the container, so there is no padding after elements either.
+// the container, so there is no padding after elements either. The parsing step checks the length
+// and every element.
 unsafe impl<Element, const CAPACITY: usize> TrivialType for FixedCapacityElements<Element, CAPACITY>
 where
     Element: TrivialType,
@@ -130,6 +133,23 @@ where
         let (metadata_scratch, metadata_size) = &metadata(CAPACITY as u32, Element::METADATA);
         metadata_scratch.split_at(*metadata_size).0
     };
+
+    #[inline(always)]
+    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+        let (bytes, remainder) = bytes.split_at_checked(size_of::<Self>())?;
+        let len = u32::from_le_bytes(*bytes.first_chunk()?);
+        // Casting `CAPACITY` to `u32` is lossless, which is checked by the `SUPPORTED_CAPACITY`
+        // bound
+        if len > CAPACITY as u32 {
+            return None;
+        }
+        try_skip_valid::<Element>(bytes.get(LEN_SIZE::<Element>..)?, CAPACITY)?;
+        // SAFETY: The length prefix consists of bytes, the length doesn't exceed `CAPACITY` and
+        // every element is a valid value as checked above, they follow each other without padding
+        // (see above), `Unaligned<Self>` has alignment 1 and the size of `Self`
+        let value = unsafe { bytes.as_ptr().cast::<Unaligned<Self>>().as_ref_unchecked() };
+        Some((value, remainder))
+    }
 }
 
 impl<Element, const CAPACITY: usize> FixedCapacityElements<Element, CAPACITY>

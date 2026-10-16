@@ -1,0 +1,29 @@
+error: Unsupported `#[trivial_type(..)]` option
+ --> tests/ui/derive_validate_options.rs:7:16
+  |
+7 | #[trivial_type(validates = is_valid)]
+  |                ^^^^^^^^^
+
+error: `validate` is specified more than once
+  --> tests/ui/derive_validate_options.rs:15:16
+   |
+15 | #[trivial_type(validate = is_valid)]
+   |                ^^^^^^^^
+
+error: `#[trivial_type(..)]` requires an option, like `validate = path`
+  --> tests/ui/derive_validate_options.rs:22:1
+   |
+22 | #[trivial_type()]
+   | ^^^^^^^^^^^^^^^^^
+
+error: expected `,`
+  --> tests/ui/derive_validate_options.rs:29:35
+   |
+29 | #[trivial_type(validate = is_valid<u32>)]
+   |                                   ^
+
+error: Attributes are not supported in `validate = path`
+  --> tests/ui/derive_validate_options.rs:36:27
+   |
+36 | #[trivial_type(validate = #[inline] is_valid)]
+   |                           ^^^^^^^^^

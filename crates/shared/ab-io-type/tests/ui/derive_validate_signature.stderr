@@ -1,0 +1,18 @@
+error[E0308]: mismatched types
+  --> tests/ui/derive_validate_signature.rs:7:27
+   |
+ 5 | #[derive(Copy, Clone, TrivialType)]
+   |                       ----------- in this derive macro expansion
+ 6 | #[repr(C)]
+ 7 | #[trivial_type(validate = Self::is_valid)]
+   |                           ^^^^^^^^^^^^^^
+   |                           |
+   |                           expected `&NonMax`, found `NonMax`
+   |                           arguments to this function are incorrect
+   |
+note: method defined here
+  --> tests/ui/derive_validate_signature.rs:13:14
+   |
+13 |     const fn is_valid(&self) -> bool {
+   |              ^^^^^^^^ -----
+   = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)

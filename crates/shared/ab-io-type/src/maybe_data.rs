@@ -3,11 +3,11 @@ mod tests;
 
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
-use crate::{DerefWrapper, IoType, IoTypeOptional};
+use crate::{DerefWrapper, IoType, IoTypeMut, IoTypeOptional};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
-use core::ptr;
 use core::ptr::NonNull;
+use core::{ptr, slice};
 
 /// Wrapper type for `Data` that may or may not be filled with contents.
 ///
@@ -126,6 +126,61 @@ where
     }
 
     #[inline(always)]
+    #[track_caller]
+    unsafe fn try_from_ptr<'a>(
+        ptr: &'a NonNull<Self::PointerType>,
+        size: &'a u32,
+        capacity: u32,
+    ) -> Option<impl Deref<Target = Self> + 'a> {
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        // Read-only instance can have 0 capacity if empty
+        if !((*size == 0 || (*size == Data::SIZE && *size <= capacity))
+            && (capacity == 0 || capacity >= Data::SIZE))
+        {
+            return None;
+        }
+        if *size == Data::SIZE {
+            // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for
+            // reads of `size` initialized bytes, which are not written to during the call
+            // (function contract)
+            let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+            Data::try_from_bytes_unaligned(bytes)?;
+        }
+
+        // SAFETY: `size` and `capacity` are valid as checked above, with size `0` nothing is read,
+        // otherwise the memory holds a valid value of `Data` as checked above, `ptr` is aligned and
+        // the memory is not written to while the returned value exists (function contract)
+        Some(unsafe { Self::from_ptr(ptr, size, capacity) })
+    }
+
+    #[inline(always)]
+    #[track_caller]
+    unsafe fn try_from_mut_ptr<'a>(
+        ptr: &'a mut NonNull<Self::PointerType>,
+        size: &'a mut u32,
+        capacity: u32,
+    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+        debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        // Data can be written even if the size is `0`, so the capacity must fit it
+        if !(Data::SIZE <= capacity && (*size == 0 || *size == Data::SIZE)) {
+            return None;
+        }
+        if *size == Data::SIZE {
+            // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for
+            // reads of `size` initialized bytes, which are not accessed otherwise during the call
+            // (function contract), the slice is not used after parsing
+            let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+            Data::try_from_bytes_unaligned(bytes)?;
+        }
+
+        // SAFETY: `size` and `capacity` are valid as checked above, with size `0` nothing is read,
+        // otherwise the memory holds a valid value of `Data` as checked above, `ptr` is aligned,
+        // valid for writes of `capacity` bytes and the memory is not accessed otherwise while the
+        // returned value exists (function contract)
+        Some(unsafe { Self::from_mut_ptr(ptr, size, capacity) })
+    }
+
+    #[inline(always)]
     fn as_ptr(&self) -> NonNull<Self::PointerType> {
         self.data
     }
@@ -180,7 +235,7 @@ where
     pub fn from_mut<'a>(
         buffer: &'a mut Data,
         size: &'a mut u32,
-    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+    ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
         if !(*size == 0 || *size == Data::SIZE) {
             return None;
         }
@@ -203,7 +258,7 @@ where
     pub fn from_uninit<'a>(
         uninit: &'a mut MaybeUninit<Data>,
         size: &'a mut u32,
-    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+    ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
         if *size != 0 {
             return None;
         }

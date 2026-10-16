@@ -1,7 +1,9 @@
-//! Tests of the layout and `Debug` output of `FixedCapacityElements` and `FixedCapacityString`.
+//! Tests of the layout, parsing and `Debug` output of `FixedCapacityElements` and
+//! `FixedCapacityString`.
 //!
 //! The layout must have the alignment of elements and no padding, regardless of the alignment of
-//! elements.
+//! elements. Parsing must reject a length above the capacity and invalid elements, including
+//! unused ones.
 
 use ab_io_type::fixed_capacity_bytes::FixedCapacityBytes;
 use ab_io_type::fixed_capacity_elements::FixedCapacityElements;
@@ -26,6 +28,14 @@ struct Wide {
     a: u64,
     b: u32,
     c: u32,
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, TrivialType)]
+#[repr(u8)]
+enum Color {
+    #[default]
+    Red,
+    Green,
 }
 
 /// Containers can be fields of derived structs, which reject padding between fields
@@ -128,6 +138,56 @@ fn layout() {
     );
     // Zero-sized elements only take space for the length
     check_layout!((), 3, [(), ()], [2, 0, 0, 0]);
+}
+
+/// Parse a container from `bytes`, which must contain nothing else
+fn parse<Container>(bytes: &[u8]) -> Option<Container>
+where
+    Container: TrivialType,
+{
+    let (container, remainder) = Container::try_from_bytes_unaligned(bytes)?;
+    assert!(remainder.is_empty());
+    Some(container.as_inner())
+}
+
+#[test]
+fn parsing() {
+    let container = parse::<FixedCapacityBytes<4>>(&bytes(4, 4, &[1, 2, 3, 4])).unwrap();
+    assert_eq!(container.get_elements(), &[1, 2, 3, 4]);
+    let container = parse::<FixedCapacityBytes<4>>(&bytes(1, 4, &[1, 2, 3, 4])).unwrap();
+    assert_eq!(container.get_elements(), &[1]);
+    // Too short
+    assert!(parse::<FixedCapacityBytes<4>>(&bytes(1, 4, &[1, 2, 3])).is_none());
+
+    // The length must not exceed the capacity
+    assert!(parse::<FixedCapacityBytes<4>>(&bytes(5, 4, &[1, 2, 3, 4])).is_none());
+    assert!(parse::<FixedCapacityBytes<4>>(&bytes(u32::MAX, 4, &[1, 2, 3, 4])).is_none());
+    assert!(parse::<FixedCapacityBytes<0>>(&bytes(1, 4, &[])).is_none());
+
+    // Bytes of the length prefix after the length are not checked
+    let mut prefix = 2u32.to_le_bytes().to_vec();
+    prefix.extend_from_slice(&[0xff; 4]);
+    let container = parse::<FixedCapacityElements<u64, 2>>(
+        &[
+            prefix,
+            7u64.to_le_bytes().to_vec(),
+            8u64.to_le_bytes().to_vec(),
+        ]
+        .concat(),
+    )
+    .unwrap();
+    assert_eq!(container.get_elements(), &[7, 8]);
+
+    // Elements beyond the length are checked too
+    let container = parse::<FixedCapacityElements<Color, 2>>(&bytes(1, 4, &[1, 0])).unwrap();
+    assert_eq!(container.get_elements(), &[Color::Green]);
+    assert!(parse::<FixedCapacityElements<Color, 2>>(&bytes(1, 4, &[1, 2])).is_none());
+    assert!(parse::<FixedCapacityElements<Color, 2>>(&bytes(0, 4, &[2, 0])).is_none());
+
+    // Strings are bytes, there is no UTF-8 check
+    let string = parse::<FixedCapacityString<4>>(&bytes(2, 4, &[0xff, 0xfe, 0, 0])).unwrap();
+    assert_eq!(string.get_elements(), &[0xff, 0xfe]);
+    assert!(parse::<FixedCapacityString<4>>(&bytes(5, 4, &[0; 4])).is_none());
 }
 
 #[test]

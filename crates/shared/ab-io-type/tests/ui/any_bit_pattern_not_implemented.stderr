@@ -1,0 +1,295 @@
+error[E0277]: `Ctx` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_not_implemented.rs:57:15
+   |
+57 |     require::<Ctx>();
+   |               ^^^ unsatisfied trait bound
+   |
+help: the trait `AnyBitPatternMarker` is not implemented for `Ctx`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:12:1
+   |
+12 | enum Ctx {
+   | ^^^^^^^^
+   = help: the following other types implement trait `AnyBitPatternMarker`:
+             ()
+             WithBytes
+             WithCtx
+             WithNonMax
+             [T; SIZE]
+             ab_io_type::bool::Bool
+             ab_io_type::unaligned::Unaligned<Data>
+             i128
+           and $N others
+   = note: required for `Ctx` to implement `AnyBitPattern`
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:52:8
+   |
+50 | fn require<T>()
+   |    ------- required by a bound in this function
+51 | where
+52 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`
+
+error[E0277]: `Ctx` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_not_implemented.rs:58:15
+   |
+58 |     require::<WithCtx>();
+   |               ^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `AnyBitPatternMarker` is not implemented for `Ctx`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:12:1
+   |
+12 | enum Ctx {
+   | ^^^^^^^^
+   = help: the following other types implement trait `AnyBitPatternMarker`:
+             ()
+             WithBytes
+             WithCtx
+             WithNonMax
+             [T; SIZE]
+             ab_io_type::bool::Bool
+             ab_io_type::unaligned::Unaligned<Data>
+             i128
+           and $N others
+note: required for `WithCtx` to implement `AnyBitPatternMarker`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:19:8
+   |
+17 | #[derive(Copy, Clone, TrivialType)]
+   |                       ----------- type parameter would need to implement `AnyBitPatternMarker`
+18 | #[repr(C)]
+19 | struct WithCtx {
+   |        ^^^^^^^
+   = help: consider manually implementing `AnyBitPatternMarker` to avoid undesired bounds caused by "imperfect derives"
+   = note: to learn more, visit <https://github.com/rust-lang/rust/issues/26925>
+   = note: required for `WithCtx` to implement `AnyBitPattern`
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:52:8
+   |
+50 | fn require<T>()
+   |    ------- required by a bound in this function
+51 | where
+52 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`
+
+error[E0277]: `Ctx` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_not_implemented.rs:59:15
+   |
+59 |     require::<[Ctx; 2]>();
+   |               ^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `AnyBitPatternMarker` is not implemented for `Ctx`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:12:1
+   |
+12 | enum Ctx {
+   | ^^^^^^^^
+   = help: the following other types implement trait `AnyBitPatternMarker`:
+             ()
+             WithBytes
+             WithCtx
+             WithNonMax
+             [T; SIZE]
+             ab_io_type::bool::Bool
+             ab_io_type::unaligned::Unaligned<Data>
+             i128
+           and $N others
+   = note: required for `[Ctx; 2]` to implement `AnyBitPatternMarker`
+   = note: required for `[Ctx; 2]` to implement `AnyBitPattern`
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:52:8
+   |
+50 | fn require<T>()
+   |    ------- required by a bound in this function
+51 | where
+52 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`
+
+error[E0277]: `Ctx` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_not_implemented.rs:60:15
+   |
+60 |     require::<Unaligned<Ctx>>();
+   |               ^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `AnyBitPatternMarker` is not implemented for `Ctx`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:12:1
+   |
+12 | enum Ctx {
+   | ^^^^^^^^
+   = help: the following other types implement trait `AnyBitPatternMarker`:
+             ()
+             WithBytes
+             WithCtx
+             WithNonMax
+             [T; SIZE]
+             ab_io_type::bool::Bool
+             ab_io_type::unaligned::Unaligned<Data>
+             i128
+           and $N others
+   = note: required for `ab_io_type::unaligned::Unaligned<Ctx>` to implement `AnyBitPatternMarker`
+   = note: required for `ab_io_type::unaligned::Unaligned<Ctx>` to implement `AnyBitPattern`
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:52:8
+   |
+50 | fn require<T>()
+   |    ------- required by a bound in this function
+51 | where
+52 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`
+
+error[E0277]: `NonMax` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_not_implemented.rs:61:15
+   |
+61 |     require::<NonMax>();
+   |               ^^^^^^ unsatisfied trait bound
+   |
+help: the trait `AnyBitPatternMarker` is not implemented for `NonMax`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:34:1
+   |
+34 | struct NonMax {
+   | ^^^^^^^^^^^^^
+   = help: the following other types implement trait `AnyBitPatternMarker`:
+             ()
+             WithBytes
+             WithCtx
+             WithNonMax
+             [T; SIZE]
+             ab_io_type::bool::Bool
+             ab_io_type::unaligned::Unaligned<Data>
+             i128
+           and $N others
+   = note: required for `NonMax` to implement `AnyBitPattern`
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:52:8
+   |
+50 | fn require<T>()
+   |    ------- required by a bound in this function
+51 | where
+52 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`
+
+error[E0277]: `NonMax` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_not_implemented.rs:62:15
+   |
+62 |     require::<WithNonMax>();
+   |               ^^^^^^^^^^ unsatisfied trait bound
+   |
+help: the trait `AnyBitPatternMarker` is not implemented for `NonMax`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:34:1
+   |
+34 | struct NonMax {
+   | ^^^^^^^^^^^^^
+   = help: the following other types implement trait `AnyBitPatternMarker`:
+             ()
+             WithBytes
+             WithCtx
+             WithNonMax
+             [T; SIZE]
+             ab_io_type::bool::Bool
+             ab_io_type::unaligned::Unaligned<Data>
+             i128
+           and $N others
+note: required for `WithNonMax` to implement `AnyBitPatternMarker`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:46:8
+   |
+44 | #[derive(Copy, Clone, TrivialType)]
+   |                       ----------- type parameter would need to implement `AnyBitPatternMarker`
+45 | #[repr(C)]
+46 | struct WithNonMax {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `AnyBitPatternMarker` to avoid undesired bounds caused by "imperfect derives"
+   = note: to learn more, visit <https://github.com/rust-lang/rust/issues/26925>
+   = note: required for `WithNonMax` to implement `AnyBitPattern`
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:52:8
+   |
+50 | fn require<T>()
+   |    ------- required by a bound in this function
+51 | where
+52 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`
+
+error[E0277]: `ab_io_type::fixed_capacity_elements::FixedCapacityElements<u8, 4>` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_not_implemented.rs:63:15
+   |
+63 |     require::<FixedCapacityBytes<4>>();
+   |               ^^^^^^^^^^^^^^^^^^^^^ the trait `AnyBitPatternMarker` is not implemented for `ab_io_type::fixed_capacity_elements::FixedCapacityElements<u8, 4>`
+   |
+   = help: the following other types implement trait `AnyBitPatternMarker`:
+             ()
+             WithBytes
+             WithCtx
+             WithNonMax
+             [T; SIZE]
+             ab_io_type::bool::Bool
+             ab_io_type::unaligned::Unaligned<Data>
+             i128
+           and $N others
+   = note: required for `ab_io_type::fixed_capacity_elements::FixedCapacityElements<u8, 4>` to implement `AnyBitPattern`
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:52:8
+   |
+50 | fn require<T>()
+   |    ------- required by a bound in this function
+51 | where
+52 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`
+
+error[E0277]: `ab_io_type::fixed_capacity_string::FixedCapacityString<4>` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_not_implemented.rs:64:15
+   |
+64 |     require::<FixedCapacityString<4>>();
+   |               ^^^^^^^^^^^^^^^^^^^^^^ the trait `AnyBitPatternMarker` is not implemented for `ab_io_type::fixed_capacity_string::FixedCapacityString<4>`
+   |
+   = help: the following other types implement trait `AnyBitPatternMarker`:
+             ()
+             WithBytes
+             WithCtx
+             WithNonMax
+             [T; SIZE]
+             ab_io_type::bool::Bool
+             ab_io_type::unaligned::Unaligned<Data>
+             i128
+           and $N others
+   = note: required for `ab_io_type::fixed_capacity_string::FixedCapacityString<4>` to implement `AnyBitPattern`
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:52:8
+   |
+50 | fn require<T>()
+   |    ------- required by a bound in this function
+51 | where
+52 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`
+
+error[E0277]: `ab_io_type::fixed_capacity_elements::FixedCapacityElements<u8, 4>` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_not_implemented.rs:65:15
+   |
+65 |     require::<WithBytes>();
+   |               ^^^^^^^^^ the trait `AnyBitPatternMarker` is not implemented for `ab_io_type::fixed_capacity_elements::FixedCapacityElements<u8, 4>`
+   |
+   = help: the following other types implement trait `AnyBitPatternMarker`:
+             ()
+             WithBytes
+             WithCtx
+             WithNonMax
+             [T; SIZE]
+             ab_io_type::bool::Bool
+             ab_io_type::unaligned::Unaligned<Data>
+             i128
+           and $N others
+note: required for `WithBytes` to implement `AnyBitPatternMarker`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:26:8
+   |
+24 | #[derive(Copy, Clone, TrivialType)]
+   |                       ----------- type parameter would need to implement `AnyBitPatternMarker`
+25 | #[repr(C)]
+26 | struct WithBytes {
+   |        ^^^^^^^^^
+   = help: consider manually implementing `AnyBitPatternMarker` to avoid undesired bounds caused by "imperfect derives"
+   = note: to learn more, visit <https://github.com/rust-lang/rust/issues/26925>
+   = note: required for `WithBytes` to implement `AnyBitPattern`
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_not_implemented.rs:52:8
+   |
+50 | fn require<T>()
+   |    ------- required by a bound in this function
+51 | where
+52 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`

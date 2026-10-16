@@ -1,0 +1,9 @@
+error[E0119]: conflicting implementations of trait `AnyBitPattern` for type `Header`
+  --> tests/ui/any_bit_pattern_direct_impl.rs:13:1
+   |
+13 | impl AnyBitPattern for Header {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: conflicting implementation in crate `ab_io_type`:
+           - impl<T> AnyBitPattern for T
+             where T: TrivialType, T: AnyBitPatternMarker;
