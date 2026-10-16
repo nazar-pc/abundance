@@ -732,7 +732,7 @@ dependencies = [
  "parking_lot",
  "rand 0.10.3",
  "rayon",
- "spirv-std",
+ "spirv-std-nightly",
  "thiserror 2.0.21",
  "tracing",
  "triomphe",
@@ -1514,8 +1514,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-gpu-install"
-version = "0.10.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=d83e251c46a0d8e87a8b861ba984e2775e520409#d83e251c46a0d8e87a8b861ba984e2775e520409"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8c6cf4445c1a98835b492cc3840743bb48530c9fb793a83b8059f3544a67ae8"
 dependencies = [
  "anyhow",
  "cargo_metadata 0.21.0",
@@ -5323,8 +5324,9 @@ checksum = "6b1e7f9a428571be2dc5bc0505c13fb6bf936822b894ec87abf8a08a4e51742d"
 
 [[package]]
 name = "rustc_codegen_spirv-types"
-version = "0.10.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=d83e251c46a0d8e87a8b861ba984e2775e520409#d83e251c46a0d8e87a8b861ba984e2775e520409"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bea10c6f2c154049f810e5cb154b32467f02a6b3eb58e4cb9837eca39545adca"
 dependencies = [
  "rspirv",
  "semver",
@@ -5818,8 +5820,9 @@ dependencies = [
 
 [[package]]
 name = "spirv-builder"
-version = "0.10.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=d83e251c46a0d8e87a8b861ba984e2775e520409#d83e251c46a0d8e87a8b861ba984e2775e520409"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7cf86e49e88ca58b901c3c586a73d9e1d6e25cafb6b36de9b53e09dc34ff15a"
 dependencies = [
  "cargo_metadata 0.21.0",
  "log",
@@ -5834,8 +5837,9 @@ dependencies = [
 
 [[package]]
 name = "spirv-std"
-version = "0.10.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=d83e251c46a0d8e87a8b861ba984e2775e520409#d83e251c46a0d8e87a8b861ba984e2775e520409"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfc9588ef2583f006a87af3f6fccda3a425bbc35ef9665a0cca5b1778c38b2d7"
 dependencies = [
  "bitflags",
  "glam",
@@ -5847,8 +5851,9 @@ dependencies = [
 
 [[package]]
 name = "spirv-std-macros"
-version = "0.10.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=d83e251c46a0d8e87a8b861ba984e2775e520409#d83e251c46a0d8e87a8b861ba984e2775e520409"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a22441c9289917af52f3062dbd8abc443c757ba3e84f5fe5d42685846fdc11f4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5857,9 +5862,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "spirv-std-nightly"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6784558f73b9d3e1c8c986537c5801738e67454eb26960961fc1a53269f7858d"
+dependencies = [
+ "spirv-std",
+ "spirv-std-macros",
+]
+
+[[package]]
 name = "spirv-std-types"
-version = "0.10.0"
-source = "git+https://github.com/Rust-GPU/rust-gpu?rev=d83e251c46a0d8e87a8b861ba984e2775e520409#d83e251c46a0d8e87a8b861ba984e2775e520409"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02a52487ced352ef71eadfa854e30ca3f3e6e3dde5ba57b14c78dd9c0fb995aa"
 
 [[package]]
 name = "stable_deref_trait"
