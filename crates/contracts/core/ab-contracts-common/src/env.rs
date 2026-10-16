@@ -97,9 +97,11 @@ impl<'a> PreparedMethod<'a> {
     ///   `external_args`, and must not be accessed other than through `external_args`, while slot
     ///   addresses and inputs must not be written to
     ///
-    /// Whether sizes and alignment of inputs and outputs match the types of the method's arguments
-    /// is not part of this contract, since only the executor has the method's metadata to check
-    /// them against.
+    /// Whether sizes, capacities and alignment of inputs and outputs match the method's metadata
+    /// is not part of this contract, since only the executor has the metadata and guarantees it:
+    /// the RISC-V VM checks them, while the native executor trusts callers and only catches
+    /// mismatches with debug assertions. Neither are their contents, which the called method
+    /// parses.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub unsafe fn new_untyped<Args>(

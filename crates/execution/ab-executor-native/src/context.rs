@@ -101,11 +101,13 @@ unsafe impl ExecutorContext for NativeExecutorContext<'_> {
 
         // SAFETY: `method_details` were found by the fingerprint of `prepared_method`, so
         // `external_args` are laid out as `ExternalArgs` of this exact method, as required by
-        // `ExternalArgs` for typed calls and by `PreparedMethod::new_untyped()` otherwise. Sizes
-        // and alignment of inputs and outputs are not checked against metadata, the native
-        // executor trusts callers instead (see `NativeExecutor`).
-        // TODO: Check sizes and alignment of inputs and outputs in `external_args` against the
-        //  method's metadata, which `PreparedMethod::new_untyped()` leaves to the executor
+        // `ExternalArgs` for typed calls and by `PreparedMethod::new_untyped()` otherwise. Sizes,
+        // capacities and alignment of inputs and outputs are not checked against metadata, the
+        // native executor trusts callers instead and mismatches are only caught by debug
+        // assertions of the called method, which parses the contents (see `NativeExecutor`).
+        // TODO: Check sizes, capacities and alignment of inputs and outputs in `external_args`
+        //  against the method's metadata, which `PreparedMethod::new_untyped()` leaves to the
+        //  executor
         unsafe {
             make_ffi_call(
                 self.allow_env_mutation,

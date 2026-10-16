@@ -938,11 +938,25 @@ impl MethodDetails {
                     assert_impl_io_type::<#type_name>();
                 }
 
-                <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                    &args.#ptr_field,
-                    &args.#size_field,
-                    args.#capacity_field,
-                )
+                // The caller provides inputs, so their contents are parsed
+                // SAFETY: The pointer is aligned for the type's `PointerType`, the size doesn't
+                // exceed the capacity and both are valid for the type, and the pointer is valid
+                // for reads of the size, with that many bytes initialized and not written to
+                // before this function returns, as required by the `# Safety` section of this
+                // function
+                match unsafe {
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::try_from_ptr(
+                        &args.#ptr_field,
+                        &args.#size_field,
+                        args.#capacity_field,
+                    )
+                } {
+                    ::core::option::Option::Some(input) => input,
+                    ::core::option::Option::None => {
+                        return ::ab_contracts_macros::__private::ContractError::BadInput
+                            .exit_code();
+                    }
+                }
             }});
         }
 
@@ -977,11 +991,26 @@ impl MethodDetails {
                     assert_impl_io_type::<#type_name>();
                 }
 
-                <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
-                    &mut args.#ptr_field,
-                    &mut args.#size_field,
-                    args.#capacity_field,
-                )
+                // The caller provides initial contents of outputs, so they are parsed
+                // SAFETY: The pointer is aligned for the type's `PointerType`, the size doesn't
+                // exceed the capacity and both are valid for the type, and the pointer is valid
+                // for reads and writes of the capacity, the first size bytes of which are
+                // initialized, and the memory is not accessed other than through this pointer
+                // before this function returns, as required by the `# Safety` section of this
+                // function
+                match unsafe {
+                    <#type_name as ::ab_contracts_macros::__private::IoType>::try_from_mut_ptr(
+                        &mut args.#ptr_field,
+                        &mut args.#size_field,
+                        args.#capacity_field,
+                    )
+                } {
+                    ::core::option::Option::Some(output) => output,
+                    ::core::option::Option::None => {
+                        return ::ab_contracts_macros::__private::ContractError::BadInput
+                            .exit_code();
+                    }
+                }
             }});
         }
 
@@ -1105,9 +1134,29 @@ impl MethodDetails {
                 /// NOTE: Calling this function directly shouldn't be necessary except maybe in
                 /// contract's own tests.
                 ///
+                /// Contents of `#[input]` and `#[output]` arguments are parsed, the exit code of
+                /// `ContractError::BadInput` is returned if they are not valid values of their
+                /// types.
+                ///
                 /// # Safety
                 ///
                 /// Caller must ensure the provided pointer corresponds to the expected ABI.
+                /// Sizes, capacities and alignment of inputs and outputs match the method's
+                /// metadata, which the executor guarantees (the RISC-V VM checks them, the
+                /// native executor trusts callers and only catches mismatches with debug
+                /// assertions): pointers are aligned for the `IoType::PointerType` of their
+                /// types, and sizes and capacities are valid for their types, as
+                /// `IoType::try_from_ptr()` requires for inputs and `IoType::try_from_mut_ptr()`
+                /// for outputs. The pointer of an input is valid for reads of its size, with that
+                /// many bytes initialized and not written to during the call. The pointer of an
+                /// output is valid for reads and writes of its capacity, the first size bytes of
+                /// which are initialized, and the memory is not accessed other than through this
+                /// pointer during the call.
+                ///
+                /// The state, `#[tmp]` and `#[slot]` arguments are not parsed: their pointers
+                /// are aligned and point to valid values of their types with valid sizes and
+                /// capacities, accessed like inputs if they are read-only and like outputs
+                /// otherwise.
                 #[cfg_attr(feature = "guest", unsafe(no_mangle))]
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes without `Self`")]
                 #[allow(clippy::absurd_extreme_comparisons, reason = "Macro-generated code doesn't know the size upfront")]
