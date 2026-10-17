@@ -9,14 +9,13 @@ use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::{ptr, slice};
 
-/// Whether `size` and `capacity` are valid for [`VariableElements`] and the first `size` bytes
-/// behind `ptr` are valid elements.
+/// Whether the first `size` bytes behind `ptr` are valid elements of [`VariableElements`].
 ///
 /// # Safety
-/// If `size` doesn't exceed `capacity`, `ptr` is valid for reads of `size` bytes, which are
-/// initialized and not written to during the call.
+/// `ptr` is valid for reads of `size` bytes, which are initialized and not written to during the
+/// call.
 #[inline(always)]
-unsafe fn contents_are_valid<Element>(ptr: NonNull<Element>, size: u32, capacity: u32) -> bool
+unsafe fn contents_are_valid<Element>(ptr: NonNull<Element>, size: u32) -> bool
 where
     Element: TrivialType,
     [(); NON_ZERO_SIZED::<Element>]:,
@@ -26,11 +25,8 @@ where
     if size_of::<Element>() == 0 {
         return false;
     }
-    if !(size <= capacity && size.is_multiple_of(Element::SIZE)) {
-        return false;
-    }
-    // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for reads of
-    // `size` initialized bytes, which are not written to during the call (function contract)
+    // SAFETY: `ptr` is valid for reads of `size` initialized bytes, which are not written to
+    // during the call (function contract)
     let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size as usize) };
     try_skip_valid::<Element>(bytes, bytes.len() / size_of::<Element>()).is_some()
 }
@@ -175,15 +171,24 @@ where
         capacity: u32,
     ) -> Option<impl Deref<Target = Self> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        // SAFETY: If `size` doesn't exceed `capacity`, `ptr` is valid for reads of `size`
-        // initialized bytes, which are not written to during the call (function contract)
-        if !unsafe { contents_are_valid(*ptr, *size, capacity) } {
+        debug_assert!(
+            *size <= capacity,
+            "Size {size} must not exceed capacity {capacity}"
+        );
+        debug_assert!(
+            size.is_multiple_of(Element::SIZE),
+            "Size {size} is invalid for element size {}",
+            Element::SIZE
+        );
+        // SAFETY: `ptr` is valid for reads of `size` initialized bytes, which are not written to
+        // during the call (function contract)
+        if !unsafe { contents_are_valid(*ptr, *size) } {
             return None;
         }
 
-        // SAFETY: `size` and `capacity` are valid and the first `size` bytes are valid elements
-        // as checked above, `ptr` is aligned and the memory is not written to while the returned
-        // value exists (function contract)
+        // SAFETY: `size` and `capacity` are valid, `ptr` is aligned and the memory is not written
+        // to while the returned value exists (function contract), and the first `size` bytes are
+        // valid elements as checked above
         Some(unsafe { Self::from_ptr(ptr, size, capacity) })
     }
 
@@ -195,16 +200,25 @@ where
         capacity: u32,
     ) -> Option<impl DerefMut<Target = Self> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        // SAFETY: `ptr` is valid for reads of `capacity` bytes, the first `size` of which are
-        // initialized if `size` doesn't exceed `capacity`, and the memory is not accessed
-        // otherwise during the call (function contract)
-        if !unsafe { contents_are_valid(*ptr, *size, capacity) } {
+        debug_assert!(
+            *size <= capacity,
+            "Size {size} must not exceed capacity {capacity}"
+        );
+        debug_assert!(
+            size.is_multiple_of(Element::SIZE),
+            "Size {size} is invalid for element size {}",
+            Element::SIZE
+        );
+        // SAFETY: `size` doesn't exceed `capacity`, `ptr` is valid for reads of `capacity` bytes,
+        // the first `size` of which are initialized, and the memory is not accessed otherwise
+        // during the call (function contract)
+        if !unsafe { contents_are_valid(*ptr, *size) } {
             return None;
         }
 
-        // SAFETY: `size` and `capacity` are valid and the first `size` bytes are valid elements
-        // as checked above, `ptr` is aligned, valid for writes of `capacity` bytes and the memory
-        // is not accessed otherwise while the returned value exists (function contract)
+        // SAFETY: `size` and `capacity` are valid, `ptr` is aligned, valid for writes of `capacity`
+        // bytes and the memory is not accessed otherwise while the returned value exists (function
+        // contract), and the first `size` bytes are valid elements as checked above
         Some(unsafe { Self::from_mut_ptr(ptr, size, capacity) })
     }
 

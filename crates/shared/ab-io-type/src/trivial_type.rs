@@ -568,17 +568,19 @@ where
         capacity: u32,
     ) -> Option<impl Deref<Target = Self> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        if !(*size == T::SIZE && *size <= capacity) {
-            return None;
-        }
-        // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for reads of
-        // `size` initialized bytes, which are not written to during the call (function contract)
-        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+        debug_assert_eq!(*size, T::SIZE, "Invalid size");
+        debug_assert!(
+            *size <= capacity,
+            "Size {size} must not exceed capacity {capacity}"
+        );
+        // SAFETY: `ptr` is valid for reads of `size` bytes, which is the size of `T`, initialized
+        // and not written to during the call (function contract)
+        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<T>()) };
         T::try_from_bytes_unaligned(bytes)?;
 
-        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, the memory holds a valid
-        // value of `T` as checked above, `ptr` is aligned and the memory is not written to while
-        // the returned value exists (function contract)
+        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, `ptr` is aligned and the
+        // memory is not written to while the returned value exists (function contract), and it
+        // holds a valid value of `T` as checked above
         Some(unsafe { Self::from_ptr(ptr, size, capacity) })
     }
 
@@ -590,18 +592,20 @@ where
         capacity: u32,
     ) -> Option<impl DerefMut<Target = Self> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        if !(*size == T::SIZE && *size <= capacity) {
-            return None;
-        }
-        // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for reads of
-        // `size` initialized bytes, which are not accessed otherwise during the call (function
-        // contract), the slice is not used after parsing
-        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+        debug_assert_eq!(*size, T::SIZE, "Invalid size");
+        debug_assert!(
+            *size <= capacity,
+            "Size {size} must not exceed capacity {capacity}"
+        );
+        // SAFETY: `ptr` is valid for reads of `size` bytes, which is the size of `T`, initialized
+        // and not accessed otherwise during the call (function contract), the slice is not used
+        // after parsing
+        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<T>()) };
         T::try_from_bytes_unaligned(bytes)?;
 
-        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, the memory holds a valid
-        // value of `T` as checked above, `ptr` is aligned and the memory is not accessed otherwise
-        // while the returned value exists (function contract)
+        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, `ptr` is aligned and the
+        // memory is not accessed otherwise while the returned value exists (function contract),
+        // and it holds a valid value of `T` as checked above
         Some(unsafe { Self::from_mut_ptr(ptr, size, capacity) })
     }
 
