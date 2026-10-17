@@ -1,8 +1,10 @@
 //! This module contains generic utilities for serializing and deserializing method calls to/from
 //! payload bytes.
 //!
-//! It can be reused to implement a different wallet implementation as well as read and verify the
-//! contents of the transaction (for example, to display it on the screen of the hardware wallet).
+//! It can be reused to implement a different wallet implementation. The decoder decodes methods
+//! only to call them, so displaying the contents of the transaction without executing it (for
+//! example, on the screen of the hardware wallet) needs a separate parser, which can use the types
+//! that describe individual bytes of the payload, like [`TransactionInput`].
 //!
 //! Builder interface requires heap allocations and can be enabled with `payload-builder` feature,
 //! while the rest works in `no_std` environment without a global allocator.
@@ -13,9 +15,9 @@ pub mod builder;
 mod tests;
 
 use crate::EXTERNAL_ARGS_BUFFER_SIZE;
-use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
-use ab_contracts_common::env::{MethodContext, PreparedMethod};
+use ab_contracts_common::env::{Env, MethodContext, PreparedMethod};
 use ab_contracts_common::method::MethodFingerprint;
+use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_core_primitives::address::Address;
 use ab_io_type::MAX_ALIGNMENT;
 use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
@@ -201,6 +203,81 @@ impl TransactionInput {
     }
 }
 
+#[derive(Debug, Copy, Eq, PartialEq, Clone)]
+pub enum TransactionOutputType {
+    Output { alignment_power: u8 },
+    ReturnValue { alignment_power: u8 },
+}
+
+/// The type of transaction output could be either `#[output]` or return value.
+///
+/// Both are allocated with the capacity and alignment specified in the payload and pushed into a
+/// virtual "stack" that later methods can refer to, see [`TransactionInput`]. `#[output]` is given
+/// to the method empty and has the size the method wrote into it. The return value doesn't have a
+/// size in `ExternalArgs`, executors only write the value, so its size is set to its capacity
+/// right away, which is the size of its type.
+#[derive(Debug, Copy, Clone)]
+pub struct TransactionOutput(TransactionOutputType);
+
+impl TransactionOutput {
+    /// `#[output]` with specified alignment.
+    ///
+    /// Valid alignment values are: 1, 2, 4, 8, 16.
+    #[inline(always)]
+    pub const fn new_output(alignment: NonZeroU8) -> Option<Self> {
+        match alignment.get() {
+            1 | 2 | 4 | 8 | 16 => Some(Self(TransactionOutputType::Output {
+                alignment_power: alignment.ilog2() as u8,
+            })),
+            _ => None,
+        }
+    }
+
+    /// Return value with specified alignment.
+    ///
+    /// Valid alignment values are: 1, 2, 4, 8, 16.
+    #[inline(always)]
+    pub const fn new_return_value(alignment: NonZeroU8) -> Option<Self> {
+        match alignment.get() {
+            1 | 2 | 4 | 8 | 16 => Some(Self(TransactionOutputType::ReturnValue {
+                alignment_power: alignment.ilog2() as u8,
+            })),
+            _ => None,
+        }
+    }
+
+    /// Create an instance from `u8`.
+    ///
+    /// The alignment power is not checked here, [`TransactionPayloadDecoder::call_next_method()`]
+    /// rejects alignment powers larger than that of [`MAX_ALIGNMENT`].
+    #[inline(always)]
+    pub const fn from_u8(n: u8) -> Self {
+        let alignment_power = n & 0b0111_1111;
+        // The first bit is set to 1 for output and 0 for return value
+        if n & 0b1000_0000 == 0 {
+            Self(TransactionOutputType::ReturnValue { alignment_power })
+        } else {
+            Self(TransactionOutputType::Output { alignment_power })
+        }
+    }
+
+    /// Convert instance into `u8`
+    #[inline(always)]
+    pub const fn into_u8(self) -> u8 {
+        // The first bit is set to 1 for output and 0 for return value
+        match self.0 {
+            TransactionOutputType::Output { alignment_power } => 0b1000_0000 | alignment_power,
+            TransactionOutputType::ReturnValue { alignment_power } => alignment_power,
+        }
+    }
+
+    /// Returns whether this is `#[output]` or return value, with its alignment power
+    #[inline(always)]
+    pub const fn output_type(self) -> TransactionOutputType {
+        self.0
+    }
+}
+
 /// Errors for [`TransactionPayloadDecoder`]
 #[derive(Debug, thiserror::Error)]
 pub enum TransactionPayloadDecoderError {
@@ -236,6 +313,17 @@ pub enum TransactionPayloadDecoderError {
     OutputBufferOffsetsTooSmall,
 }
 
+/// Errors for [`TransactionPayloadDecoder::call_next_method()`]
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionPayloadCallError {
+    /// Decoder error
+    #[error("Decoder error: {0}")]
+    Decoder(TransactionPayloadDecoderError),
+    /// Method call error
+    #[error("Method call error: {0}")]
+    Method(ContractError),
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct OutputBufferDetails {
     /// Offset of output bytes inside `output_buffer`
@@ -244,7 +332,8 @@ pub struct OutputBufferDetails {
     ///
     /// NOTE: It temporarily stores the offset (in bytes) into `external_args_buffer` while
     /// decoding a method. Before decoding the next method, the previous `external_args_buffer`
-    /// is read and an updated size is read from it to correct the value.
+    /// is read and an updated size is read from it to correct the value: the size executors wrote
+    /// for `#[output]`, or the size the decoder wrote for the return value.
     size_or_external_args_offset: u32,
 }
 
@@ -259,8 +348,19 @@ struct OutputBufferOffsetsCursor {
 
 /// Decoder for transaction payload created using `TransactionPayloadBuilder`.
 ///
+/// The payload must be trusted (see [`SimpleWalletBase::execute()`]): what it declares about the
+/// arguments of each method, such as the capacity of the return value, which must be the size of
+/// the return type, can't be checked without the method's metadata.
+///
 /// Outputs are given to methods empty, with size `0`, so methods called from transactions must
 /// accept empty outputs, see `TransactionPayloadBuilder::with_method_call()`.
+///
+/// Return values are given their size when a method is decoded, before it is called, since
+/// executors only write the value (see [`TransactionOutput`]). Each method is called right after
+/// it is decoded and decoding stops at the first method that fails, so later methods can only
+/// refer to return values of methods that succeeded and wrote them.
+///
+/// [`SimpleWalletBase::execute()`]: crate::SimpleWalletBase::execute
 #[derive(Debug)]
 pub struct TransactionPayloadDecoder<'a> {
     payload: &'a [u8],
@@ -317,9 +417,42 @@ impl<'a> TransactionPayloadDecoder<'a> {
         }
     }
 
-    /// Decode the next method (if any) in the payload
+    /// Decode the next method (if any) in the payload and call it.
+    ///
+    /// Returns the decoder for the remaining methods if the method succeeded, or `None` if there
+    /// are no more methods in the payload. The decoder is consumed when decoding or the method
+    /// fails, since later methods might refer to return values that the failed method didn't
+    /// write.
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn decode_next_method(
+    pub fn call_next_method(
+        mut self,
+        env: &Env<'_>,
+    ) -> Result<Option<Self>, TransactionPayloadCallError> {
+        // SAFETY: The decoder is only returned to the caller after the decoded method returned
+        // `Ok(())`, so every method decoded earlier did, and decoding stops at the first error
+        let maybe_prepared_method = unsafe { self.decode_next_method() };
+        let Some(prepared_method) =
+            maybe_prepared_method.map_err(TransactionPayloadCallError::Decoder)?
+        else {
+            return Ok(None);
+        };
+
+        env.call_prepared(prepared_method)
+            .map_err(TransactionPayloadCallError::Method)?;
+
+        Ok(Some(self))
+    }
+
+    /// Decode the next method (if any) in the payload.
+    ///
+    /// # Safety
+    /// Every method decoded earlier must have had its outputs and return value written the way
+    /// `ExecutorContext` requires for a call that returns `Ok(())`, as a successful
+    /// [`Env::call_prepared()`] does (with the `guest` feature, the host is trusted to write them
+    /// the same way), before the next method is decoded, and decoding must stop at the first error.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    unsafe fn decode_next_method(
         &mut self,
     ) -> Result<Option<PreparedMethod<'_>>, TransactionPayloadDecoderError> {
         TransactionPayloadDecoderInternal(self).decode_next_method()
@@ -340,6 +473,9 @@ unsafe fn write_external_args<T>(external_args: &mut NonNull<c_void>, value: T) 
     }
 }
 
+/// # Safety
+/// Every method decoded earlier must have had its outputs and return value written as
+/// [`TransactionPayloadDecoder::decode_next_method()`] requires before the next method is decoded.
 struct TransactionPayloadDecoderInternal<'tmp, 'decoder>(
     &'tmp mut TransactionPayloadDecoder<'decoder>,
 );
@@ -446,7 +582,9 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
                             );
                         }
 
-                        // SAFETY: All bytes are valid as long as alignment and size match
+                        // SAFETY: `bytes` are initialized (see `get_from_output_buffer()`), have
+                        // the size of `Address` (checked above), and every bit pattern is a valid
+                        // `Address`
                         let maybe_address = unsafe { Address::from_bytes(bytes) };
 
                         let Some(address) = maybe_address else {
@@ -501,7 +639,19 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
 
             for _ in 0..num_output_arguments {
                 let recommended_capacity = *self.get_trivial_type::<u32>()?;
-                let alignment_power = *self.get_trivial_type::<u8>()?;
+                let (alignment_power, size) = match TransactionOutput::from_u8(self.read_u8()?)
+                    .output_type()
+                {
+                    TransactionOutputType::Output { alignment_power } => (alignment_power, 0),
+                    TransactionOutputType::ReturnValue { alignment_power } => {
+                        // Executors write the return value through its pointer, but not its size,
+                        // which `ExternalArgs` don't have, so it is set to the capacity right away,
+                        // which is the size of the return type. A failed method might not have
+                        // written its return value, but no later method sees its size then, since
+                        // decoding stops at the first failed method.
+                        (alignment_power, recommended_capacity)
+                    }
+                };
                 let alignment = Self::alignment_from_power(alignment_power)?;
 
                 // SAFETY: `external_args_cursor` is created from `external_args` and is within the
@@ -525,7 +675,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
                         external_args_cursor,
                         FfiDataSizeCapacityRw {
                             data_ptr: data.as_ptr(),
-                            size: 0,
+                            size,
                             capacity: recommended_capacity,
                         },
                     );
@@ -543,7 +693,12 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         //   `ExternalArgs` doesn't have
         // * slot addresses are aligned, and slot addresses and inputs point into the payload or
         //   into outputs of earlier methods up to their sizes, which executors keep within
-        //   capacities with that many bytes initialized, as `ExecutorContext` requires
+        //   capacities with that many bytes initialized, as `ExecutorContext` requires, while the
+        //   size of a return value of an earlier method is its capacity, the size of the return
+        //   type, which has no padding (`TrivialType`): every method decoded earlier had a valid
+        //   value of its return type written, as the struct's `# Safety` requires, and slots and
+        //   inputs are decoded before outputs of this method are allocated, so they can't refer to
+        //   its own return value
         // * outputs are allocated in `output_buffer` with their capacity by moving its cursor past
         //   each of them, so they don't overlap each other or outputs of earlier methods, while the
         //   payload and `external_args_buffer` are borrowed separately from `output_buffer`
@@ -551,7 +706,9 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         //   so nothing else accesses them, and the payload and outputs of earlier methods are only
         //   read
         // * the payload is trusted to declare the arguments of the method with `method_fingerprint`
-        //   and enough capacity and alignment for its return value, which can't be checked without
+        //   and the size and alignment of the return type as the capacity and alignment of its
+        //   return value, and to declare as the return value only one that executors write (not the
+        //   state returned by `#[init]`, which they store instead), which can't be checked without
         //   the method's metadata, the same way `NativeExecutor` trusts transaction payloads (see
         //   `SimpleWalletBase::execute()` for what makes them trusted)
         // TODO: Under Stacked Borrows, allocating an output invalidates all pointers into
@@ -804,7 +961,13 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         };
 
         // SAFETY: Offset was created as the result of writing value at the correct
-        // offset into `output_buffer_details` earlier
+        // offset into `output_buffer_details` earlier, and `size` bytes at it are initialized:
+        // slots and inputs of a method are decoded before its outputs are allocated, so they refer
+        // to outputs of methods decoded earlier, which had their outputs and return value written
+        // as the struct's `# Safety` requires, so the size of an output is `0` or the size written
+        // for it, which is within its capacity with that many bytes initialized, and the size of a
+        // return value is its capacity, the size of the return type, which has no padding
+        // (`TrivialType`), and a valid value of that type was written
         let bytes = unsafe {
             let bytes_ptr = self
                 .output_buffer

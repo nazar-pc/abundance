@@ -4,12 +4,13 @@
 mod tests;
 
 use crate::payload::{
-    FfiDataSizeCapacityRo, TransactionInput, TransactionMethodContext, TransactionSlot,
+    FfiDataSizeCapacityRo, TransactionInput, TransactionMethodContext, TransactionOutput,
+    TransactionSlot,
 };
 use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::metadata::decode::{
-    ArgumentKind, MetadataDecodingError, MethodMetadataDecoder, MethodMetadataItem,
+    ArgumentKind, MetadataDecodingError, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
     MethodsContainerKind,
 };
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
@@ -65,7 +66,7 @@ pub enum TransactionPayloadBuilderError<'a> {
 
 /// Builder for payload to be used with [`TxHandler`] (primarily for [`SimpleWallet`]).
 ///
-/// Decoding can be done with [`TransactionPayloadDecoder`]
+/// Methods in the payload are decoded and called with [`TransactionPayloadDecoder`]
 ///
 /// [`TxHandler`]: ab_contracts_standards::tx_handler::TxHandler
 /// [`SimpleWallet`]: crate::SimpleWalletBase
@@ -106,6 +107,13 @@ impl TransactionPayloadBuilder {
     /// is domain-specific, so the payload format doesn't do it. Executors that check arguments
     /// against the method's metadata reject such calls, while the native executor trusts
     /// transactions, so with it such a call violates the requirements of the called method.
+    ///
+    /// The return value is given the size of its type, since executors write the whole value, so
+    /// later methods can refer to it as an input or a slot. The state returned by an `#[init]`
+    /// method is the exception: executors store it as the state of the contract instead of writing
+    /// it to the caller, so it is encoded as an output with capacity `0`, like the state in the
+    /// last `#[output]` of `#[init]` without a return value, and later methods referring to it get
+    /// it empty.
     ///
     /// On error, part of the method call might have already been added to the payload.
     ///
@@ -195,6 +203,8 @@ impl TransactionPayloadBuilder {
         let mut num_slot_arguments = 0u8;
         let mut num_input_arguments = 0u8;
         let mut num_output_arguments = 0u8;
+        // Offset of the return value among outputs if executors write it to the caller
+        let mut return_value_offset = None;
 
         let mut input_output_type_details =
             [MaybeUninit::<IoTypeDetails>::uninit(); MAX_TOTAL_METHOD_ARGS as usize];
@@ -220,6 +230,14 @@ impl TransactionPayloadBuilder {
                     num_input_arguments += 1;
                 }
                 ArgumentKind::Output | ArgumentKind::Return => {
+                    // Executors store the state returned by `#[init]` instead of writing it to the
+                    // caller, so it is encoded as an output, like the state in the last `#[output]`
+                    // of `#[init]` without a return value
+                    if matches!(item.argument_kind, ArgumentKind::Return)
+                        && !matches!(method_kind, MethodKind::Init)
+                    {
+                        return_value_offset = Some(usize::from(num_output_arguments));
+                    }
                     input_output_type_details
                         [usize::from(num_input_arguments + num_output_arguments)]
                     .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
@@ -311,15 +329,20 @@ impl TransactionPayloadBuilder {
             }
         }
 
-        for type_details in output_type_details {
+        for (output_offset, type_details) in output_type_details.iter().enumerate() {
+            let output_type = if return_value_offset == Some(output_offset) {
+                TransactionOutput::new_return_value(type_details.alignment)
+            } else {
+                TransactionOutput::new_output(type_details.alignment)
+            }
+            .ok_or(TransactionPayloadBuilderError::InvalidAlignment(
+                type_details.alignment,
+            ))?;
             self.extend_payload_with_alignment(
                 &type_details.recommended_capacity.to_le_bytes(),
                 align_of_val(&type_details.recommended_capacity),
             )?;
-            self.extend_payload_with_alignment(
-                &[type_details.alignment.ilog2() as u8],
-                align_of::<u8>(),
-            )?;
+            self.push_payload_byte(output_type.into_u8())?;
         }
 
         Ok(())
@@ -341,14 +364,13 @@ impl TransactionPayloadBuilder {
     /// * Number of `#[input]` arguments: `u8`
     /// * For each `#[input]` argument:
     ///     * [`TransactionInput`] for each `#[input]` argument as `u8`
-    /// * Number of `#[output]` arguments: `u8`
+    /// * Number of `#[output]` arguments, including the return value: `u8`
     /// * For each [`TransactionSlot`], whose type is [`TransactionSlotType::Address`]:
     ///     * [`Address`]
     /// * For each [`TransactionInput`], whose type is [`TransactionInputType::Value`]:
     ///     * Input size as little-endian `u32` followed by the input itself
-    /// * For each `#[output]`:
-    ///     * recommended capacity as little-endian `u32` followed by alignment power as `u8`
-    ///       (`NonZeroU8::ilog2(alignment)`)
+    /// * For each `#[output]` and the return value:
+    ///     * recommended capacity as little-endian `u32` followed by [`TransactionOutput`] as `u8`
     ///
     /// [`TransactionSlotType::Address`]: crate::payload::TransactionSlotType::Address
     /// [`TransactionInputType::Value`]: crate::payload::TransactionInputType::Value

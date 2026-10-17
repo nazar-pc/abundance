@@ -1,11 +1,13 @@
 #![expect(unreachable_pub, reason = "Macro requirements and generated code")]
 
 use crate::payload::builder::tests::ffi::get::DemoContractGetArgs;
+use crate::payload::builder::tests::ffi::new::DemoContractNewArgs;
 use crate::payload::builder::tests::ffi::set::DemoContractSetArgs;
+use crate::payload::builder::tests::ffi::value::DemoContractValueArgs;
 use crate::payload::builder::{TransactionPayloadBuilder, TransactionPayloadBuilderError};
 use crate::payload::{
-    FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, TransactionMethodContext,
-    TransactionPayloadDecoder,
+    FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, TransactionMethodContext, TransactionOutput,
+    TransactionOutputType, TransactionPayloadDecoder,
 };
 use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER_SIZE};
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
@@ -39,6 +41,23 @@ impl DemoContract {
     pub fn get(&self, #[output] value: &mut MaybeData<u8>) {
         value.replace(self.value);
     }
+
+    #[view]
+    pub fn value(&self) -> u8 {
+        self.value
+    }
+}
+
+/// Capacity and type of the last output of the last method call added to `builder`, which end the
+/// payload
+fn last_output(builder: &TransactionPayloadBuilder) -> (u32, TransactionOutputType) {
+    let (&output, before_output) = builder.payload.split_last().unwrap();
+    let (_, &capacity) = before_output.split_last_chunk().unwrap();
+
+    (
+        u32::from_le_bytes(capacity),
+        TransactionOutput::from_u8(output).output_type(),
+    )
 }
 
 // TODO: Test output indices and more complex types
@@ -76,13 +95,14 @@ fn payload_encode_decode() {
         },
     );
 
+    // SAFETY: No methods were decoded before
     let PreparedMethod {
         contract,
         fingerprint,
         external_args,
         method_context,
         ..
-    } = decoder.decode_next_method().unwrap().unwrap();
+    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
 
     assert_eq!(contract, expected_contract);
     assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
@@ -95,7 +115,8 @@ fn payload_encode_decode() {
 
     // There is some padding, but it is correctly determined that there is no payload anymore
     assert!(!decoder.payload.is_empty());
-    assert!(decoder.decode_next_method().unwrap().is_none());
+    // SAFETY: The method decoded before has no outputs or return value
+    assert!(unsafe { decoder.decode_next_method() }.unwrap().is_none());
 }
 
 #[test]
@@ -146,13 +167,14 @@ fn payload_encode_decode_output_index() {
         },
     );
 
+    // SAFETY: No methods were decoded before
     let PreparedMethod {
         contract,
         fingerprint,
         external_args,
         method_context,
         ..
-    } = decoder.decode_next_method().unwrap().unwrap();
+    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
 
     assert_eq!(contract, expected_contract);
     assert_eq!(fingerprint, DemoContractGetArgs::FINGERPRINT);
@@ -170,13 +192,15 @@ fn payload_encode_decode_output_index() {
         output.size = u8::SIZE;
     }
 
+    // SAFETY: The output of the method decoded before was written above like by a successful
+    // call
     let PreparedMethod {
         contract,
         fingerprint,
         external_args,
         method_context,
         ..
-    } = decoder.decode_next_method().unwrap().unwrap();
+    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
 
     assert_eq!(contract, expected_contract);
     assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
@@ -190,7 +214,175 @@ fn payload_encode_decode_output_index() {
         assert_eq!(unsafe { input.data_ptr.read() }, output_value);
     }
 
-    assert!(decoder.decode_next_method().unwrap().is_none());
+    // SAFETY: The method decoded before has no outputs or return value
+    assert!(unsafe { decoder.decode_next_method() }.unwrap().is_none());
+}
+
+#[test]
+fn payload_encode_output_types() {
+    let contract = Address::SYSTEM_SIMPLE_WALLET_BASE;
+
+    // `#[output]` with the capacity of `MaybeData<u8>`
+    {
+        let mut value = 0;
+        let mut size = 0;
+        let mut builder = TransactionPayloadBuilder::new(1024);
+        builder
+            .with_method_call(
+                &contract,
+                &DemoContractGetArgs::new(&mut MaybeData::from_mut(&mut value, &mut size).unwrap()),
+                TransactionMethodContext::Null,
+                &[],
+                &[],
+            )
+            .unwrap();
+
+        assert_eq!(
+            last_output(&builder),
+            (
+                u8::SIZE,
+                TransactionOutputType::Output { alignment_power: 0 }
+            )
+        );
+    }
+
+    // Return value with the size of the return type as its capacity
+    {
+        let mut builder = TransactionPayloadBuilder::new(1024);
+        builder
+            .with_method_call(
+                &contract,
+                &DemoContractValueArgs::new(&mut MaybeUninit::uninit()),
+                TransactionMethodContext::Null,
+                &[],
+                &[],
+            )
+            .unwrap();
+
+        assert_eq!(
+            last_output(&builder),
+            (
+                u8::SIZE,
+                TransactionOutputType::ReturnValue { alignment_power: 0 }
+            )
+        );
+    }
+
+    // The state returned by `#[init]` is not written to the caller, so it is an output without
+    // capacity, which stays empty
+    {
+        let mut builder = TransactionPayloadBuilder::new(1024);
+        builder
+            .with_method_call(
+                &contract,
+                &DemoContractNewArgs::new(&1),
+                TransactionMethodContext::Null,
+                &[],
+                &[],
+            )
+            .unwrap();
+
+        assert_eq!(
+            last_output(&builder),
+            (0, TransactionOutputType::Output { alignment_power: 0 })
+        );
+    }
+}
+
+#[test]
+fn payload_encode_decode_return_value() {
+    let expected_contract = Address::SYSTEM_SIMPLE_WALLET_BASE;
+    let return_value = 42;
+
+    // The return value of the first method is used as the input of the second method
+    let payload = {
+        let mut builder = TransactionPayloadBuilder::new(1024);
+        builder
+            .with_method_call(
+                &expected_contract,
+                &DemoContractValueArgs::new(&mut MaybeUninit::uninit()),
+                TransactionMethodContext::Null,
+                &[],
+                &[],
+            )
+            .unwrap();
+        builder
+            .with_method_call(
+                &expected_contract,
+                &DemoContractSetArgs::new(&0),
+                TransactionMethodContext::Wallet,
+                &[],
+                &[Some(0)],
+            )
+            .unwrap();
+        builder.into_aligned_bytes()
+    };
+
+    let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
+    let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
+    let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
+
+    let mut decoder = TransactionPayloadDecoder::new(
+        payload.as_u128_slice(),
+        &mut external_args_buffer,
+        &mut output_buffer,
+        &mut output_buffer_details,
+        |method_context| match method_context {
+            TransactionMethodContext::Null => MethodContext::Reset,
+            TransactionMethodContext::Wallet => MethodContext::Keep,
+        },
+    );
+
+    // SAFETY: No methods were decoded before
+    let PreparedMethod {
+        contract,
+        fingerprint,
+        external_args,
+        method_context,
+        ..
+    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
+
+    assert_eq!(contract, expected_contract);
+    assert_eq!(fingerprint, DemoContractValueArgs::FINGERPRINT);
+    assert_eq!(method_context, MethodContext::Reset);
+    // Simulate the host writing the return value of the method, which has no size in
+    // `ExternalArgs`
+    {
+        // SAFETY: The method has a single return value, whose pointer the decoder follows with
+        // its size and capacity
+        let ok_result = unsafe { external_args.cast::<FfiDataSizeCapacityRw>().read() };
+        assert_eq!(ok_result.size, u8::SIZE);
+        assert_eq!(ok_result.capacity, u8::SIZE);
+        // SAFETY: Output buffer has the requested capacity
+        unsafe {
+            ok_result.data_ptr.write(return_value);
+        }
+    }
+
+    // SAFETY: The return value of the method decoded before was written above like by a
+    // successful call
+    let PreparedMethod {
+        contract,
+        fingerprint,
+        external_args,
+        method_context,
+        ..
+    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
+
+    assert_eq!(contract, expected_contract);
+    assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
+    assert_eq!(method_context, MethodContext::Keep);
+    {
+        // SAFETY: The method has a single `#[input]` argument
+        let input = unsafe { external_args.cast::<FfiDataSizeCapacityRo>().read() };
+        assert_eq!(input.size, u8::SIZE);
+        assert_eq!(input.capacity, u8::SIZE);
+        // SAFETY: Input points to the return value of the previous method
+        assert_eq!(unsafe { input.data_ptr.read() }, return_value);
+    }
+
+    // SAFETY: The method decoded before has no outputs or return value
+    assert!(unsafe { decoder.decode_next_method() }.unwrap().is_none());
 }
 
 /// Add a call of `DemoContract::set()` to `builder`
