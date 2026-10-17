@@ -18,7 +18,7 @@ use ab_contracts_common::env::{MethodContext, PreparedMethod};
 use ab_contracts_common::method::MethodFingerprint;
 use ab_core_primitives::address::Address;
 use ab_io_type::MAX_ALIGNMENT;
-use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
 use core::ffi::c_void;
 use core::mem::{MaybeUninit, offset_of};
 use core::num::{NonZeroU8, NonZeroUsize};
@@ -622,12 +622,12 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
         Ok(NonZeroUsize::new(1 << alignment_power).expect("Power of two is not zero; qed"))
     }
 
-    /// Get a reference to a [`TrivialType`] value inside the payload
+    /// Get a reference to an [`AnyBitPattern`] value inside the payload
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn get_trivial_type<T>(&mut self) -> Result<&'decoder T, TransactionPayloadDecoderError>
     where
-        T: TrivialType,
+        T: AnyBitPattern,
     {
         self.ensure_alignment(NonZeroUsize::new(align_of::<T>()).expect("Not zero; qed"))?;
 
@@ -642,7 +642,10 @@ impl<'tmp, 'decoder, const VERIFY: bool> TransactionPayloadDecoderInternal<'tmp,
             (bytes, self.payload) = unsafe { self.payload.split_at_unchecked(size_of::<T>()) };
         }
 
-        // SAFETY: Correctly aligned bytes of the correct size
+        // SAFETY: `bytes` are aligned for `T`, initialized and have the size of `T` as ensured
+        // above, so they are a valid value of `T`, which accepts every bit pattern
+        // (`AnyBitPattern`), and the shared reference to them doesn't allow writing to the payload,
+        // since `T` has no interior mutability (`TrivialType`)
         let value_ref = unsafe { bytes.as_ptr().cast::<T>().as_ref().expect("Not null; qed") };
 
         Ok(value_ref)
