@@ -1,8 +1,12 @@
 #![expect(unreachable_pub, reason = "Macro requirements and generated code")]
 
-use crate::payload::builder::TransactionPayloadBuilder;
+use crate::payload::builder::tests::ffi::get::DemoContractGetArgs;
 use crate::payload::builder::tests::ffi::set::DemoContractSetArgs;
-use crate::payload::{TransactionMethodContext, TransactionPayloadDecoder};
+use crate::payload::builder::{TransactionPayloadBuilder, TransactionPayloadBuilderError};
+use crate::payload::{
+    FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, TransactionMethodContext,
+    TransactionPayloadDecoder,
+};
 use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER_SIZE};
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
 use ab_contracts_common::method::ExternalArgs;
@@ -44,7 +48,7 @@ fn payload_encode_decode() {
     let new_value = 42;
 
     let payload = {
-        let mut builder = TransactionPayloadBuilder::default();
+        let mut builder = TransactionPayloadBuilder::new(1024);
         builder
             .with_method_call(
                 &expected_contract,
@@ -62,7 +66,7 @@ fn payload_encode_decode() {
     let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
     let mut decoder = TransactionPayloadDecoder::new(
-        &payload,
+        payload.as_u128_slice(),
         &mut external_args_buffer,
         &mut output_buffer,
         &mut output_buffer_details,
@@ -94,15 +98,8 @@ fn payload_encode_decode() {
     assert!(decoder.decode_next_method().unwrap().is_none());
 }
 
-// TODO: `Vec::push()` in `TransactionPayloadBuilder::push_payload_byte()` is only proven to not
-//  panic when the whole payload is constant-folded, which is not the case with multiple method
-//  calls, so this test fails `no-panic` build even with much higher inlining threshold
-#[cfg(not(feature = "no-panic"))]
 #[test]
 fn payload_encode_decode_output_index() {
-    use crate::payload::builder::tests::ffi::get::DemoContractGetArgs;
-    use crate::payload::{FfiDataSizeCapacityRo, FfiDataSizeCapacityRw};
-
     let expected_contract = Address::SYSTEM_SIMPLE_WALLET_BASE;
     let output_value = 42;
 
@@ -110,7 +107,7 @@ fn payload_encode_decode_output_index() {
     let payload = {
         let mut unused_output = 0;
         let mut unused_output_size = 0;
-        let mut builder = TransactionPayloadBuilder::default();
+        let mut builder = TransactionPayloadBuilder::new(1024);
         builder
             .with_method_call(
                 &expected_contract,
@@ -139,7 +136,7 @@ fn payload_encode_decode_output_index() {
     let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
     let mut decoder = TransactionPayloadDecoder::new(
-        &payload,
+        payload.as_u128_slice(),
         &mut external_args_buffer,
         &mut output_buffer,
         &mut output_buffer_details,
@@ -194,4 +191,60 @@ fn payload_encode_decode_output_index() {
     }
 
     assert!(decoder.decode_next_method().unwrap().is_none());
+}
+
+/// Add a call of `DemoContract::set()` to `builder`
+fn with_set_method_call(
+    builder: &mut TransactionPayloadBuilder,
+) -> Result<(), TransactionPayloadBuilderError<'static>> {
+    builder.with_method_call(
+        &Address::SYSTEM_SIMPLE_WALLET_BASE,
+        &DemoContractSetArgs::new(&42),
+        TransactionMethodContext::Wallet,
+        &[],
+        &[],
+    )
+}
+
+#[test]
+fn payload_max_size() {
+    // Size of a payload with a single method call
+    let payload_size = {
+        let mut builder = TransactionPayloadBuilder::new(1024);
+        with_set_method_call(&mut builder).unwrap();
+        builder.into_aligned_bytes().len()
+    };
+
+    // The maximum size is rounded down to a multiple of `u128` size, which the payload fits into
+    for max_size in [payload_size, payload_size + u128::SIZE - 1] {
+        let mut builder = TransactionPayloadBuilder::new(max_size);
+        with_set_method_call(&mut builder).unwrap();
+        assert_eq!(
+            builder.into_aligned_bytes().len(),
+            payload_size,
+            "Max size {max_size}"
+        );
+    }
+
+    // A method call that doesn't fit is an error, the payload is not reallocated and nothing is
+    // written past its maximum size
+    for (max_size, num_method_calls) in [(payload_size - 1, 1), (payload_size, 2)] {
+        let mut builder = TransactionPayloadBuilder::new(max_size);
+        let capacity = builder.payload.capacity();
+        let ptr = builder.payload.as_ptr();
+        for _ in 1..num_method_calls {
+            with_set_method_call(&mut builder).unwrap();
+        }
+
+        assert!(
+            matches!(
+                with_set_method_call(&mut builder),
+                Err(TransactionPayloadBuilderError::PayloadTooLarge)
+            ),
+            "Max size {max_size}"
+        );
+        assert!(builder.payload.len() <= capacity, "Max size {max_size}");
+        assert_eq!(builder.payload.capacity(), capacity, "Max size {max_size}");
+        assert_eq!(builder.payload.as_ptr(), ptr, "Max size {max_size}");
+    }
 }

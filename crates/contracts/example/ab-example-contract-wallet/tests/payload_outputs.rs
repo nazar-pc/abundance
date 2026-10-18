@@ -85,7 +85,7 @@ fn maybe_data_output() {
     let payload = {
         let mut value = 0;
         let mut size = 0;
-        let mut builder = TransactionPayloadBuilder::default();
+        let mut builder = TransactionPayloadBuilder::new(1024);
         builder
             .with_method_call(
                 &outputs_address,
@@ -101,13 +101,20 @@ fn maybe_data_output() {
     };
     let read_slots = &[];
     let write_slots = &[];
-    let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, 0);
+    let seal = hash_and_sign(
+        &keypair,
+        &header,
+        read_slots,
+        write_slots,
+        payload.as_u128_slice(),
+        0,
+    );
 
     assert_eq!(
         executor.transaction_execute(
             Transaction {
                 header: &header,
-                payload: &payload,
+                payload: payload.as_u128_slice(),
                 read_slots,
                 write_slots,
                 seal: seal.as_bytes(),

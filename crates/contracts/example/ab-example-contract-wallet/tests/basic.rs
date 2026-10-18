@@ -94,7 +94,7 @@ fn flip() {
         contract: wallet_address,
     };
     let payload = {
-        let mut builder = TransactionPayloadBuilder::default();
+        let mut builder = TransactionPayloadBuilder::new(1024);
         builder
             .with_method_call(
                 &flipper_address,
@@ -114,12 +114,19 @@ fn flip() {
     let nonce = 0;
 
     {
-        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        );
         executor
             .transaction_verify(
                 Transaction {
                     header: &header,
-                    payload: &payload,
+                    payload: payload.as_u128_slice(),
                     read_slots,
                     write_slots,
                     seal: seal.as_bytes(),
@@ -131,14 +138,21 @@ fn flip() {
 
     // Bytes after the seal are rejected
     {
-        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        );
         let mut seal_with_extra_byte = seal.as_bytes().to_vec();
         seal_with_extra_byte.push(0);
         assert_eq!(
             executor.transaction_verify(
                 Transaction {
                     header: &header,
-                    payload: &payload,
+                    payload: payload.as_u128_slice(),
                     read_slots,
                     write_slots,
                     seal: &seal_with_extra_byte,
@@ -150,13 +164,20 @@ fn flip() {
     }
 
     for nonce in (nonce..).take(2) {
-        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        );
 
         executor
             .transaction_execute(
                 Transaction {
                     header: &header,
-                    payload: &payload,
+                    payload: payload.as_u128_slice(),
                     read_slots,
                     write_slots,
                     seal: seal.as_bytes(),

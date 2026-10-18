@@ -1,3 +1,4 @@
+use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_contracts_common::method::ExternalArgs;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockRoot;
@@ -13,7 +14,7 @@ pub struct OwnedTransaction {
     pub header: TransactionHeader,
     pub read_slots: Vec<TransactionSlot>,
     pub write_slots: Vec<TransactionSlot>,
-    pub payload: Vec<u128>,
+    pub payload: OwnedAlignedBuffer,
     pub seal: Vec<u8>,
 }
 
@@ -24,7 +25,7 @@ impl OwnedTransaction {
             header: &self.header,
             read_slots: &self.read_slots,
             write_slots: &self.write_slots,
-            payload: &self.payload,
+            payload: self.payload.as_u128_slice(),
             seal: &self.seal,
         }
     }
@@ -37,11 +38,13 @@ pub struct TransactionBuilder {
 }
 
 impl TransactionBuilder {
-    /// Create a transaction for `contract`
-    pub fn new(contract: Address) -> Self {
+    /// Create a transaction for `contract` with a payload of up to `max_payload_size` bytes.
+    ///
+    /// See [`TransactionPayloadBuilder::new()`] for details of `max_payload_size`.
+    pub fn new(contract: Address, max_payload_size: u32) -> Self {
         Self {
             contract,
-            transaction_payload_builder: TransactionPayloadBuilder::default(),
+            transaction_payload_builder: TransactionPayloadBuilder::new(max_payload_size),
         }
     }
 
