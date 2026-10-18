@@ -1,0 +1,22 @@
+error[E0277]: `Small` can't be given to a call as an `#[output]` of type `Small`
+  --> tests/ui/output_arg_validate_hook.rs:27:10
+   |
+27 |     give(&mut Small { value: 1 });
+   |     ---- ^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut Small` (or a view of one) whose contents accept every bit pattern
+   |     |
+   |     required by a bound introduced by this call
+   |
+help: the trait `OutputArg<Small>` is not implemented for `Small`
+  --> tests/ui/output_arg_validate_hook.rs:10:1
+   |
+10 | struct Small {
+   | ^^^^^^^^^^^^
+   = note: a failed call can leave invalid contents behind, so only memory whose contents accept every bit pattern can be given to a call directly
+note: required by a bound in `give`
+  --> tests/ui/output_arg_validate_hook.rs:22:13
+   |
+20 | fn give<Output>(_output: &mut Output)
+   |    ---- required by a bound in this function
+21 | where
+22 |     Output: OutputArg<Small>,
+   |             ^^^^^^^^^^^^^^^^ required by this bound in `give`

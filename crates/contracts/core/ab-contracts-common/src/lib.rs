@@ -13,6 +13,7 @@ pub mod env;
 mod error;
 pub mod metadata;
 pub mod method;
+pub mod output;
 
 use crate::method::MethodFingerprint;
 use ab_io_type::IoType;
