@@ -399,7 +399,9 @@ unsafe fn post_process_ffi_call(
 /// `external_args` must point to arguments laid out as
 /// [`ExternalArgs`](ab_contracts_common::method::ExternalArgs) of the method described by
 /// `method_details`, with all pointers in them valid for the whole call according to the method
-/// signature. The native executor trusts contracts and their callers to uphold this, see
+/// signature, and contents of outputs must not be accessed after the call as values of their types
+/// without being parsed first, unless every bit pattern is a valid value. The native executor
+/// trusts contracts and their callers to uphold this, see
 /// [`NativeExecutor`](crate::NativeExecutor).
 #[inline(always)]
 #[expect(clippy::too_many_arguments, reason = "Internal API")]
@@ -834,6 +836,11 @@ where
     // * `Env` is allocated in `maybe_env` and only freed when it is consumed after the call, the
     //   nested context lives in `nested_context`, which outlives the call
     // * the rest comes from `external_args`, valid during the call as per function contract
+    // Contents of outputs are not accessed after the call without being parsed, unless every bit
+    // pattern is valid, as per function contract. The exception is the state output of `#[init]`,
+    // which post-processing stores as the state of the contract, as the `# Safety` of the FFI
+    // function allows: after a successful call it is either empty, which post-processing rejects,
+    // or holds a valid value of the state.
     let result = Result::<(), ContractError>::from(unsafe { ffi_fn(internal_args) });
 
     let slots = maybe_env.into_slots();

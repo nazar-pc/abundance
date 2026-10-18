@@ -509,8 +509,9 @@ pub mod __private;
 /// `ExternalArgs::new()` method is generated for convenient construction of the instance,
 /// though in most cases [Extension trait] is used with a more convenient API. Fields are
 /// private and are only set by `ExternalArgs::new()`, since the host dereferences pointers in
-/// them according to the method signature. Updated size of each `#[output]` can be read with
-/// an `output_size()` getter after the method call.
+/// them according to the method signature. Each `#[output]` is given as `&mut impl
+/// OutputArg<OutputValue>` (see [Extension trait] for why), and its updated size can be read
+/// with an `output_size()` getter after the method call.
 ///
 /// [Extension trait]: #extension-trait
 ///
@@ -579,20 +580,28 @@ pub mod __private;
 /// ## Extension trait
 ///
 /// Extension trait is just a convenient wrapper, whose safe methods take strongly typed
-/// arguments, construct `ExternalArgs` while respecting Rust safety invariants, and calls
+/// arguments, construct `ExternalArgs` while respecting Rust safety invariants, and call
 /// [`Env::call()`] with it. Extension trait usage is not mandatory, but it does make method
 /// calls much more convenient in most simple cases.
 ///
-/// Generated methods reflect `ExternalArgs` fields with just context (except when calling
-/// `#[view]` method where context is not applicable), and the address of the contract being
-/// called is added at the beginning:
+/// Generated methods are named like FFI functions and take `&self` for `#[view]` methods and
+/// `&mut self` otherwise. Their arguments reflect `ExternalArgs` fields, preceded by the
+/// method context (except when calling a `#[view]` method, where context is not applicable)
+/// and the address of the contract being called:
 /// ```ignore
 /// // This
+/// #[contract]
 /// impl Token {
-///     // ...
-///
 ///     #[view]
 ///     pub fn balance(#[slot] target: &MaybeData<Slot>) -> Balance {
+///         // ...
+///     }
+///
+///     #[view]
+///     pub fn balances(
+///         #[slot] target: &MaybeData<Slot>,
+///         #[output] balances: &mut VariableElements<Balance>,
+///     ) {
 ///         // ...
 ///     }
 ///
@@ -609,43 +618,42 @@ pub mod __private;
 ///
 /// // Will generate this
 /// pub trait TokenExt {
-///     fn balance(
+///     fn token_balance(
 ///         &self,
-///         contract: &Address,
+///         contract: Address,
 ///         target: &Address,
 ///     ) -> Result<Balance, ContractError>;
 ///
-///     fn transfer(
-///         self: &&mut Self,
-///         method_context: &MethodContext,
-///         contract: &Address,
+///     fn token_balances(
+///         &self,
+///         contract: Address,
+///         target: &Address,
+///         balances: &mut impl OutputArg<VariableElements<Balance>>,
+///     ) -> Result<(), ContractError>;
+///
+///     fn token_transfer(
+///         &mut self,
+///         method_context: MethodContext,
+///         contract: Address,
 ///         from: &Address,
 ///         to: &Address,
 ///         amount: &Balance,
 ///     ) -> Result<(), ContractError>;
 /// }
 ///
-/// impl TokenExt for Env {
-///     fn balance(
-///         &self,
-///         contract: &Address,
-///         target: &Address,
-///     ) -> Result<Balance, ContractError> {
-///         // ...
-///     }
-///
-///     fn transfer(
-///         self: &&mut Self,
-///         method_context: &MethodContext,
-///         contract: &Address,
-///         from: &Address,
-///         to: &Address,
-///         amount: &Balance,
-///     ) -> Result<(), ContractError> {
-///         // ...
-///     }
+/// impl TokenExt for Env<'_> {
+///     // ...
 /// }
 /// ```
+///
+/// Each `#[output]` is given as [`OutputArg`]. A call can leave contents behind in it that are
+/// not valid values, for example when it fails halfway. Memory whose contents accept every bit
+/// pattern (see [`AnyBitPattern`]) is given directly, like `&mut value` for a `u64` or
+/// `&mut VariableElements::from_uninit(..).expect(..)` for `VariableElements<Balance>`. Memory
+/// of other types is given in a [`Lent`], which parses the contents before they are accessed.
+/// After a successful call, the size of each output is set to the one the callee reported. The
+/// return value is parsed, and [`ContractError::BadOutput`] is returned if it is not a valid
+/// value of its type, with sizes of outputs already set.
 ///
 /// The name of the extension trait is created as struct or trait name followed by `Ext`
 /// suffix.
@@ -673,6 +681,9 @@ pub mod __private;
 ///
 /// [`Contract`]: ab_contracts_common::Contract
 /// [`ContractError::BadInput`]: ab_contracts_common::ContractError::BadInput
+/// [`ContractError::BadOutput`]: ab_contracts_common::ContractError::BadOutput
+/// [`OutputArg`]: ab_contracts_common::output::OutputArg
+/// [`Lent`]: ab_contracts_common::output::Lent
 /// [`TrivialType`]: ab_io_type::trivial_type::TrivialType
 /// [`AnyBitPattern`]: ab_io_type::trivial_type::AnyBitPattern
 /// [`IoType::try_from_ptr()`]: ab_io_type::IoType::try_from_ptr()

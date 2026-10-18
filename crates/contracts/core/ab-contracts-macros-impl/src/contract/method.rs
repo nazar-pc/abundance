@@ -852,9 +852,9 @@ impl MethodDetails {
                 // rejected, so this memory is one of its `#[output]`s or memory that outlives this
                 // function. The method can only reach the latter through references it owns, which
                 // are gone once it returns, so afterward that memory is only accessible through the
-                // `Lent` it was lent in, which parses it first. Calls keep valid values in the
-                // outputs they are given (`ExecutorContext` contract, upheld by the host for
-                // guests), so the caller of this function can access them afterward.
+                // `Lent` it was lent in, which parses it first. After the call, the caller of this
+                // function only accesses the contents of outputs by parsing them, unless every bit
+                // pattern is valid (`# Safety` of this function).
                 let #env_local = unsafe { macro_shorten_env(args.#env_field) };
             });
 
@@ -1098,7 +1098,7 @@ impl MethodDetails {
                 // The caller provides initial contents of outputs, so they are parsed
                 // SAFETY: The pointer is aligned for the type's `PointerType`, the size doesn't
                 // exceed the capacity and both are valid for the type, and the pointer is valid
-                // for reads and writes of the capacity, the first size bytes of which are
+                // for writes of the capacity and for reads of the size, with that many bytes
                 // initialized, and the memory is not accessed other than through this pointer
                 // before this function returns, as required by the `# Safety` section of this
                 // function
@@ -1254,8 +1254,8 @@ impl MethodDetails {
                 /// `IoType::try_from_ptr()` requires for inputs and `IoType::try_from_mut_ptr()`
                 /// for outputs. The pointer of an input is valid for reads of its size, with that
                 /// many bytes initialized and not written to during the call. The pointer of an
-                /// output is valid for reads and writes of its capacity, the first size bytes of
-                /// which are initialized, and the memory is not accessed other than through this
+                /// output is valid for writes of its capacity and for reads of its size, with that
+                /// many bytes initialized, and the memory is not accessed other than through this
                 /// pointer during the call.
                 ///
                 /// The state, `#[tmp]` and `#[slot]` arguments are not parsed: their pointers
@@ -1264,10 +1264,18 @@ impl MethodDetails {
                 /// otherwise.
                 ///
                 /// The `Env` behind `#[env]` (if present) is created as
-                /// `Env::with_executor_context()` requires for an `Env` given to code by
-                /// reference, or by the host in `guest` builds. The method gets it with a
-                /// lifetime that only covers the call, for which it can borrow its `#[output]`s
-                /// other than the state and lend them to calls (see `Env::lend_output()`).
+                /// `Env::with_executor_context()` requires for an `Env` given to code by reference,
+                /// or by the host in `guest` builds. The method gets it with a lifetime that only
+                /// covers the call. For that lifetime, it can borrow its `#[output]`s other than
+                /// the state and lend them to calls (see `Env::lend_output()`), which can leave
+                /// contents behind that are not valid values. Hence, after the call, the contents
+                /// of outputs must not be accessed as values of their types without being parsed
+                /// first, unless every bit pattern is a valid value. `OutputArg` ensures this for
+                /// callers of extension methods. The exception is the last `#[output]` of `#[init]`
+                /// without a return value, which is the initial state. The method can't lend it
+                /// with `Env::lend_output()`, since `#[contract]` rejects a named lifetime on it,
+                /// so after a successful call it is either empty or holds a valid value of the
+                /// state.
                 #[cfg_attr(feature = "guest", unsafe(no_mangle))]
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes without `Self`")]
                 #[allow(clippy::absurd_extreme_comparisons, reason = "Macro-generated code doesn't know the size upfront")]
@@ -1352,6 +1360,8 @@ impl MethodDetails {
         let mut external_args_fields = Vec::new();
         // Arguments of `::new()` method
         let mut method_args = Vec::new();
+        // Statements in `::new()` method before `Self` is created
+        let mut method_preparation = Vec::new();
         // Fields set on `Self` in `::new()` method
         let mut method_args_fields = Vec::new();
         // Getters for fields that the caller needs to read after the method call
@@ -1446,7 +1456,9 @@ impl MethodDetails {
             });
 
             method_args.push(quote! {
-                #arg_name: &'external_args mut #type_name,
+                #arg_name: &'external_args mut impl ::ab_contracts_macros::__private::OutputArg<
+                    #type_name,
+                >,
             });
             getters.push(quote! {
                 #[doc = #size_getter_doc]
@@ -1456,13 +1468,18 @@ impl MethodDetails {
                     self.#size_field
                 }
             });
+            // The memory is only accessed through the pointer while the output stays exclusively
+            // borrowed, for the lifetime of the struct
+            method_preparation.push(quote! {
+                let (#ptr_field, #size_field, #capacity_field) =
+                    ::ab_contracts_macros::__private::OutputArg::<#type_name>::as_raw_output(
+                        #arg_name,
+                    );
+            });
             method_args_fields.push(quote! {
-                // This pointer is used as input to FFI call, and underlying data will only be
-                // modified there, also the pointer will not outlive the reference from which it was
-                // created despite copying
-                #ptr_field: ::ab_contracts_macros::__private::IoType::as_mut_ptr(#arg_name),
-                #size_field: ::ab_contracts_macros::__private::IoType::size(#arg_name),
-                #capacity_field: ::ab_contracts_macros::__private::IoType::capacity(#arg_name),
+                #ptr_field,
+                #size_field,
+                #capacity_field,
             });
         }
 
@@ -1521,16 +1538,29 @@ impl MethodDetails {
             impl<'external_args> #args_struct_name<'external_args> {
                 /// Create a new instance.
                 ///
-                /// NOTE: Make sure to query updated sizes of outputs with `*_size()` getters after
-                /// calling the contract.
+                /// A call can leave contents behind in outputs that are not valid values of their
+                /// types, even when it succeeds. Hence outputs are given as `OutputArg`, which
+                /// makes sure contents are parsed before they are accessed, unless every bit
+                /// pattern is a valid value. After a successful call, query updated sizes of
+                /// outputs with `*_size()` getters and set them with
+                /// `OutputArg::set_output_size()`. The return value (if there is one) is
+                /// initialized after a successful call, but it is not necessarily a valid value of
+                /// its type and must be parsed, for example with `IoType::try_from_ptr()`.
                 #[allow(
                     clippy::new_without_default,
                     reason = "Do not want `Default` in auto-generated code"
                 )]
                 #[allow(clippy::used_underscore_binding, reason = "Macro-generated")]
+                #[allow(
+                    clippy::impl_trait_in_params,
+                    reason = "Macro-generated, a generic parameter per output is harder to \
+                    generate and reads worse in documentation"
+                )]
                 pub fn new(
                     #( #method_args )*
                 ) -> Self {
+                    #( #method_preparation )*
+
                     Self {
                         #( #method_args_fields )*
                         _lifetime: ::core::marker::PhantomData,
@@ -1756,11 +1786,12 @@ impl MethodDetails {
     ) -> Result<ExtTraitComponents, Error> {
         let self_type = &self.self_type;
 
-        let mut preparation = Vec::new();
         let mut method_args = Vec::new();
         let mut external_args_args = Vec::new();
         let mut result_processing_before = Vec::new();
-        let mut result_processing_after = Vec::new();
+        // Sizes of outputs are set before the return value is processed, so they match what the
+        // callee left in outputs even when the return value is rejected
+        let mut size_write_backs = Vec::new();
 
         // Address of the contract
         method_args.push(quote_spanned! {fn_sig.span() =>
@@ -1806,16 +1837,21 @@ impl MethodDetails {
             }
 
             method_args.push(quote_spanned! {fn_sig.span() =>
-                #arg_name: &mut #type_name,
+                #arg_name: &mut impl ::ab_contracts_macros::__private::OutputArg<#type_name>,
             });
             external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
             result_processing_before.push(quote_spanned! {fn_sig.span() =>
                 let #size_var = args.#size_field();
             });
-            result_processing_after.push(quote_spanned! {fn_sig.span() =>
-                // SAFETY: The host updates size correctly
+            size_write_backs.push(quote_spanned! {fn_sig.span() =>
+                // SAFETY: The executor keeps the size of the output valid for its type and within
+                // its capacity, with that many bytes initialized (`ExecutorContext` contract,
+                // upheld by the host for guests)
                 unsafe {
-                    ::ab_contracts_macros::__private::IoType::set_size(#arg_name, #size_var);
+                    ::ab_contracts_macros::__private::OutputArg::<#type_name>::set_output_size(
+                        #arg_name,
+                        #size_var,
+                    );
                 }
             });
         }
@@ -1834,53 +1870,24 @@ impl MethodDetails {
                 method_context: ::ab_contracts_macros::__private::MethodContext,
             }
         });
+        let method_args_attrs = quote_spanned! {fn_sig.span() =>
+            #[allow(dead_code, reason = "Macro-generated")]
+            #[allow(clippy::used_underscore_binding, reason = "Macro-generated")]
+            #[allow(
+                clippy::impl_trait_in_params,
+                reason = "Macro-generated, a generic parameter per output is harder to generate \
+                and reads worse in documentation"
+            )]
+        };
         // Initializer's return type will be `()` for the caller of `#[init]` since the state is
         // stored by the host and not returned to the caller. Similarly, it is skipped for a unit
         // return type.
-        let method_signature = if matches!(self.method_type, MethodType::Init)
-            || self.return_type.unit_return_type()
-        {
+        let return_value = (!(matches!(self.method_type, MethodType::Init)
+            || self.return_type.unit_return_type()))
+        .then(|| self.return_type.return_type());
+        let method_signature = if let Some(return_type) = return_value {
             quote_spanned! {fn_sig.span() =>
-                #[allow(dead_code, reason = "Macro-generated")]
-                #[allow(clippy::used_underscore_binding, reason = "Macro-generated")]
-                #[allow(clippy::semicolon_if_nothing_returned, reason = "Macro-generated")]
-                fn #ext_method_name(
-                    #env_self,
-                    #method_context_arg
-                    #( #method_args )*
-                ) -> ::core::result::Result<(), ::ab_contracts_macros::__private::ContractError>
-            }
-        } else {
-            let return_type = self.return_type.return_type();
-
-            preparation.push(quote_spanned! {fn_sig.span() =>
-                // Ensure the return type implements not only `IoType`, which is required for
-                // crossing host/guest boundary, but also `TrivialType` and result handling is
-                // trivial without the need to worry about size and capacity.
-                // `#[output]` must be used for a variable size result.
-                const {
-                    const fn assert_impl_trivial_type<T>()
-                    where
-                        T: ::ab_contracts_macros::__private::TrivialType,
-                    {}
-                    assert_impl_trivial_type::<#return_type>();
-                }
-
-                let mut ok_result = ::core::mem::MaybeUninit::uninit();
-            });
-            external_args_args.push(quote_spanned! {fn_sig.span() =>
-                &mut ok_result
-            });
-            result_processing_after.push(quote_spanned! {fn_sig.span() =>
-                // SAFETY: The non-error result indicates successful storing of the result
-                unsafe {
-                    ok_result.assume_init()
-                }
-            });
-
-            quote_spanned! {fn_sig.span() =>
-                #[allow(dead_code, reason = "Macro-generated")]
-                #[allow(clippy::used_underscore_binding, reason = "Macro-generated")]
+                #method_args_attrs
                 fn #ext_method_name(
                     #env_self,
                     #method_context_arg
@@ -1889,6 +1896,16 @@ impl MethodDetails {
                     #return_type,
                     ::ab_contracts_macros::__private::ContractError,
                 >
+            }
+        } else {
+            quote_spanned! {fn_sig.span() =>
+                #method_args_attrs
+                #[allow(clippy::semicolon_if_nothing_returned, reason = "Macro-generated")]
+                fn #ext_method_name(
+                    #env_self,
+                    #method_context_arg
+                    #( #method_args )*
+                ) -> ::core::result::Result<(), ::ab_contracts_macros::__private::ContractError>
             }
         };
 
@@ -1926,28 +1943,79 @@ impl MethodDetails {
                 method_context
             }
         };
+        let ok_result_declaration = if return_value.is_some() {
+            external_args_args.push(quote_spanned! {fn_sig.span() =>
+                &mut ok_result
+            });
+            Some(quote_spanned! {fn_sig.span() =>
+                let mut ok_result = ::core::mem::MaybeUninit::uninit();
+            })
+        } else {
+            None
+        };
+        let call = quote_spanned! {fn_sig.span() =>
+            #ok_result_declaration
+
+            let mut args = #original_method_name::#args_struct_name::new(
+                #( #external_args_args, )*
+            );
+
+            self.call(contract, &mut args, #method_context_value)?;
+
+            #( #result_processing_before )*
+            #( #size_write_backs )*
+        };
+
+        let Some(return_type) = return_value else {
+            let r#impl = quote_spanned! {fn_sig.span() =>
+                #[inline]
+                #method_signature {
+                    #call
+
+                    Ok(())
+                }
+            };
+
+            return Ok(ExtTraitComponents { definition, r#impl });
+        };
+
         let r#impl = quote_spanned! {fn_sig.span() =>
             #[inline]
             #method_signature {
-                #( #preparation )*
+                // Ensure the return type implements not only `IoType`, which is required for
+                // crossing host/guest boundary, but also `TrivialType` and result handling is
+                // trivial without the need to worry about size and capacity.
+                // `#[output]` must be used for a variable size result.
+                const {
+                    const fn assert_impl_trivial_type<T>()
+                    where
+                        T: ::ab_contracts_macros::__private::TrivialType,
+                    {}
+                    assert_impl_trivial_type::<#return_type>();
+                }
 
-                let mut args = #original_method_name::#args_struct_name::new(
-                    #( #external_args_args, )*
-                );
+                #call
 
-                self.call(contract, &mut args, #method_context_value)?;
-
-                #( #result_processing_before )*
-
-                #[allow(
-                    clippy::let_unit_value,
-                    reason = "Sometimes there is no result to process and block is empty"
-                )]
-                let result = {
-                    #( #result_processing_after )*
-                };
-
-                Ok(result)
+                // The callee isn't trusted to write a valid value, so the return value is parsed
+                let ok_result_ptr = ::core::ptr::NonNull::from_ref(&ok_result).cast::<
+                    <#return_type as ::ab_contracts_macros::__private::IoType>::PointerType,
+                >();
+                // SAFETY: The pointer is aligned for `PointerType`, which is the return type itself
+                // (`TrivialType`), the size and the capacity are its size, and the executor
+                // initialized it before returning `Ok(())` (`ExecutorContext` contract, upheld by
+                // the host for guests), while nothing writes to it during parsing
+                match unsafe {
+                    <#return_type as ::ab_contracts_macros::__private::IoType>::try_from_ptr(
+                        &ok_result_ptr,
+                        &<#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                        <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
+                    )
+                } {
+                    ::core::option::Option::Some(result) => ::core::result::Result::Ok(*result),
+                    ::core::option::Option::None => ::core::result::Result::Err(
+                        ::ab_contracts_macros::__private::ContractError::BadOutput,
+                    ),
+                }
             }
         };
 
