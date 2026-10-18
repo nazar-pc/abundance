@@ -46,6 +46,22 @@ pub mod __private;
 /// and `#[tmp]` and `#[slot]` arguments are storage of the contract, which is only written by
 /// the contract itself or on its behalf, so they are not parsed.
 ///
+/// A method gets [`Env`] with a lifetime that covers its call. To lend an `#[output]` to calls
+/// with [`Env::lend_output()`], the method must declare the output with that lifetime:
+/// ```ignore
+/// #[update]
+/// pub fn forward<'a>(#[env] env: &mut Env<'a>, #[output] out: &'a mut Output) {
+///     let mut out = env.lend_output(out);
+///     // ...
+/// }
+/// ```
+///
+/// A `#[view]` method does the same with `&Env<'a>`. With elided lifetimes compilation will
+/// fail with "lifetime may not live long enough", and rustc will suggest the signature above.
+/// Lifetimes of the state, `#[tmp]` and `#[slot]` arguments, and of the last `#[output]` of
+/// `#[init]` without a return value, which is the initial state, can't be named: they are
+/// trusted without being parsed, so they must not be lent.
+///
 /// # For struct implementation
 ///
 /// ## #\[init]
@@ -665,6 +681,7 @@ pub mod __private;
 /// [`ExternalArgs`]: ab_contracts_common::method::ExternalArgs
 /// [`Env`]: ab_contracts_common::env::Env
 /// [`Env::call()`]: ab_contracts_common::env::Env::call()
+/// [`Env::lend_output()`]: ab_contracts_common::env::Env::lend_output()
 /// [`ContractMetadataKind`]: ab_contracts_common::metadata::ContractMetadataKind
 /// [`MAX_METADATA_DEPTH`]: ab_contracts_common::metadata::MAX_METADATA_DEPTH
 pub use ab_contracts_macros_impl::contract;

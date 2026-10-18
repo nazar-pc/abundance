@@ -198,9 +198,10 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // `Self::into_slots()`, after the guest returned.
                 let executor_context = unsafe { context.as_ref() };
                 // SAFETY: Created outside of contract code and given by reference only to the FFI
-                // function that `#[contract]` generates for the method, which gives the method no
-                // other memory borrowed for the lifetime of `Env`, and only dropped in
-                // `Self::into_slots()` after the method returned
+                // function that `#[contract]` generates for the method, which borrows no memory for
+                // the lifetime of `Env` and gives the method `Env` with a lifetime that only covers
+                // the call (see its `# Safety`), and only dropped in `Self::into_slots()` after the
+                // method returned
                 let env = unsafe { Env::with_executor_context(env_state, executor_context) };
                 {
                     // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_ro()`, which is
@@ -223,9 +224,10 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // `Self::into_slots()`, after the guest returned.
                 let executor_context = unsafe { context.as_ref() };
                 // SAFETY: Created outside of contract code and given by reference only to the FFI
-                // function that `#[contract]` generates for the method, which gives the method no
-                // other memory borrowed for the lifetime of `Env`, and only dropped in
-                // `Self::into_slots()` after the method returned
+                // function that `#[contract]` generates for the method, which borrows no memory for
+                // the lifetime of `Env` and gives the method `Env` with a lifetime that only covers
+                // the call (see its `# Safety`), and only dropped in `Self::into_slots()` after the
+                // method returned
                 let env = unsafe { Env::with_executor_context(env_state, executor_context) };
                 {
                     // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_rw()`, which is

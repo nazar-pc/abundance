@@ -8,9 +8,13 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Paren;
 use syn::{
-    Attribute, Error, GenericArgument, Meta, Pat, PatType, PathArguments, Receiver, ReceiverKind,
-    ReturnType, Signature, Token, Type, TypeTuple,
+    Attribute, Error, GenericArgument, Lifetime, Meta, Pat, PatType, PathArguments, Receiver,
+    ReceiverKind, ReturnType, Signature, Token, Type, TypeTuple,
 };
+
+const SLOT_NAMED_LIFETIME_ERROR: &str = "`#[slot]` must not have named lifetimes, since slots \
+    are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend \
+    a copy made with `Lent::new()` instead";
 
 #[derive(Copy, Clone)]
 pub(super) enum MethodType {
@@ -71,6 +75,8 @@ struct Output {
     type_name: Type,
     arg_name: Ident,
     has_self: bool,
+    /// Lifetime of the reference, unless it is elided or `'_`
+    named_lifetime: Option<Lifetime>,
 }
 
 enum MethodReturnType {
@@ -278,12 +284,20 @@ impl MethodDetails {
         allow_mut: bool,
     ) -> Result<(), Error> {
         // Only accept `&self` or `&mut self`
-        let ReceiverKind::Reference(_, _, mutability) = receiver.kind else {
+        let ReceiverKind::Reference(_, lifetime, mutability) = &receiver.kind else {
             return Err(Error::new(
                 input_span,
                 "Can't consume `Self`, use `&self` or `&mut self` instead",
             ));
         };
+        if let Some(lifetime) = named_lifetime(lifetime.as_ref()) {
+            return Err(Error::new(
+                lifetime.span(),
+                "The state must not have a named lifetime, since it is trusted without being \
+                parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made \
+                with `Lent::new()` instead",
+            ));
+        }
         if mutability.is_some() && !allow_mut {
             return Err(Error::new(
                 input_span,
@@ -291,7 +305,7 @@ impl MethodDetails {
             ));
         }
 
-        self.state.replace(mutability);
+        self.state.replace(*mutability);
         Ok(())
     }
 
@@ -315,6 +329,14 @@ impl MethodDetails {
                     "`#[tmp]` argument name must be either a simple variable or a reference",
                 ));
             };
+            if let Some(lifetime) = named_lifetime(type_reference.lifetime.as_ref()) {
+                return Err(Error::new(
+                    lifetime.span(),
+                    "`#[tmp]` must not have a named lifetime, since it is trusted without being \
+                    parsed and must not be lent to calls with `Env::lend_output()`, lend a copy \
+                    made with `Lent::new()` instead",
+                ));
+            }
 
             self.tmp.replace(Tmp {
                 type_name: type_reference.elem.as_ref().clone(),
@@ -377,6 +399,9 @@ impl MethodDetails {
                         "`#[slot]` argument name must be either a simple variable or a reference",
                     ));
                 };
+                if let Some(lifetime) = named_lifetime(type_reference.lifetime.as_ref()) {
+                    return Err(Error::new(lifetime.span(), SLOT_NAMED_LIFETIME_ERROR));
+                }
 
                 self.slots.push(Slot {
                     with_address_arg: false,
@@ -403,6 +428,11 @@ impl MethodDetails {
                             input_span,
                             "`#[slot]` is not allowed to mutate data here",
                         ));
+                    }
+                    for type_reference in [address_type, outer_slot_type] {
+                        if let Some(lifetime) = named_lifetime(type_reference.lifetime.as_ref()) {
+                            return Err(Error::new(lifetime.span(), SLOT_NAMED_LIFETIME_ERROR));
+                        }
                     }
 
                     self.slots.push(Slot {
@@ -513,6 +543,7 @@ impl MethodDetails {
                 type_name,
                 arg_name: pat_ident.ident.clone(),
                 has_self,
+                named_lifetime: named_lifetime(type_reference.lifetime.as_ref()).cloned(),
             });
             Ok(())
         } else {
@@ -641,6 +672,19 @@ impl MethodDetails {
                     last `#[output]` argument",
                 ));
             }
+
+            if self.return_type.unit_return_type()
+                && let Some(state_output) = self.outputs.last()
+                && let Some(lifetime) = &state_output.named_lifetime
+            {
+                return Err(Error::new(
+                    lifetime.span(),
+                    "The last `#[output]` of `#[init]` without a return value is the initial \
+                    state, which must not have a named lifetime, since the state is trusted \
+                    without being parsed and must not be lent to calls with \
+                    `Env::lend_output()`",
+                ));
+            }
         }
 
         let original_method_name = &fn_sig.ident;
@@ -693,6 +737,11 @@ impl MethodDetails {
         let mut internal_args_pointers = Vec::new();
         // `preparation` will generate code used before calling the original function
         let mut preparation = Vec::new();
+        // `output_views` will generate local variables with views of outputs, which live until
+        // the function returns
+        let mut output_views = Vec::new();
+        // `env_derivation` will generate a local variable with `Env` for the original function
+        let mut env_derivation = None;
         // `original_fn_args` will generate arguments for calling original method implementation
         let mut original_fn_args = Vec::new();
 
@@ -751,13 +800,65 @@ impl MethodDetails {
         if let Some(env) = &self.env {
             let env_field = &env.arg_name;
             let mutability = env.mutability;
+            let env_local = format_ident!("macro_{env_field}");
 
             internal_args_pointers.push(quote! {
                 // Use `Env` to check if the method argument had the correct type at compile time
                 pub #env_field: &'internal_args #mutability ::ab_contracts_macros::__private::Env<'internal_args>,
             });
 
-            original_fn_args.push(quote! { args.#env_field });
+            // The lifetime of `Env` is inferred to cover the call, so that the method can declare
+            // its outputs with it to lend them to calls (see `Env::lend_output()`). It is bounded
+            // by the lifetime of the reference in `args`, otherwise a method that declares `Env`
+            // with `'static` would get it with that lifetime and could keep it after the call.
+            let (from_reference, as_reference) = if mutability.is_some() {
+                (format_ident!("from_mut"), format_ident!("as_mut"))
+            } else {
+                (format_ident!("from_ref"), format_ident!("as_ref"))
+            };
+            env_derivation.replace(quote! {
+                /// Shorten the lifetime of `Env` to that of the reference.
+                ///
+                /// # Safety
+                /// The `Env` behind `env` must not be used after `'call` other than being dropped,
+                /// since an `Env` of lifetime `'call` can be written into it through an exclusive
+                /// reference. Memory borrowed for `'call` by code that uses the returned `Env` must
+                /// not be accessed after `'call` other than by parsing it, unless its contents
+                /// accept every bit pattern (see `Env::with_executor_context()`).
+                // TODO: Drop the first requirement once `Env` is immovable with the `Move` trait
+                //  (https://github.com/rust-lang/rust/issues/149607): no `Env` could be written
+                //  into the one behind `env` then, so the type system would guarantee that it
+                //  keeps its lifetime
+                #[inline(always)]
+                unsafe fn macro_shorten_env<'call>(
+                    env: &'call #mutability ::ab_contracts_macros::__private::Env<'_>,
+                ) -> &'call #mutability ::ab_contracts_macros::__private::Env<'call> {
+                    // SAFETY: The pointer comes from a reference to a valid `Env` and is valid for
+                    // `'call`, only the lifetime of `Env` is shortened, the rest is guaranteed by
+                    // the function contract
+                    unsafe {
+                        ::core::ptr::NonNull::#from_reference(env)
+                            .cast::<::ab_contracts_macros::__private::Env<'call>>()
+                            .#as_reference()
+                    }
+                }
+
+                // SAFETY: This meets both requirements of `macro_shorten_env()`. First, the method
+                // may write an `Env` of the shorter lifetime into the one it gets. The executor
+                // doesn't use that `Env` after the call other than to drop it
+                // (`Env::with_executor_context()` contract), and this function doesn't use it
+                // either. Second, the method may mutably borrow memory for the shorter lifetime and
+                // lend it to calls. Named lifetimes of the state, `#[tmp]` and `#[slot]` are
+                // rejected, so this memory is one of its `#[output]`s or memory that outlives this
+                // function. The method can only reach the latter through references it owns, which
+                // are gone once it returns, so afterward that memory is only accessible through the
+                // `Lent` it was lent in, which parses it first. Calls keep valid values in the
+                // outputs they are given (`ExecutorContext` contract, upheld by the host for
+                // guests), so the caller of this function can access them afterward.
+                let #env_local = unsafe { macro_shorten_env(args.#env_field) };
+            });
+
+            original_fn_args.push(quote! { #env_local });
         }
 
         // Optional tmp argument
@@ -969,6 +1070,7 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
+            let output_local = format_ident!("macro_{arg_name}");
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -980,7 +1082,9 @@ impl MethodDetails {
                 pub #capacity_field: ::core::primitive::u32,
             });
 
-            original_fn_args.push(quote! {&mut *{
+            // A local variable rather than a temporary, so that the method can borrow the output
+            // for the lifetime of `Env`
+            output_views.push(quote! {let mut #output_local = {
                 // Ensure the output type implements `IoType`, which is required for crossing the
                 // host/guest boundary
                 const {
@@ -1011,7 +1115,8 @@ impl MethodDetails {
                             .exit_code();
                     }
                 }
-            }});
+            };});
+            original_fn_args.push(quote! { &mut *#output_local });
         }
 
         // The host stores the last `#[output]` of `#[init]` without a return value as the state of
@@ -1157,6 +1262,12 @@ impl MethodDetails {
                 /// are aligned and point to valid values of their types with valid sizes and
                 /// capacities, accessed like inputs if they are read-only and like outputs
                 /// otherwise.
+                ///
+                /// The `Env` behind `#[env]` (if present) is created as
+                /// `Env::with_executor_context()` requires for an `Env` given to code by
+                /// reference, or by the host in `guest` builds. The method gets it with a
+                /// lifetime that only covers the call, for which it can borrow its `#[output]`s
+                /// other than the state and lend them to calls (see `Env::lend_output()`).
                 #[cfg_attr(feature = "guest", unsafe(no_mangle))]
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes without `Self`")]
                 #[allow(clippy::absurd_extreme_comparisons, reason = "Macro-generated code doesn't know the size upfront")]
@@ -1164,6 +1275,8 @@ impl MethodDetails {
                     args: &mut InternalArgs<'_>,
                 ) -> ::ab_contracts_macros::__private::ExitCode {
                     #( #preparation )*
+                    #( #output_views )*
+                    #env_derivation
 
                     // Call inner function via normal Rust API
                     #[allow(
@@ -1840,6 +1953,16 @@ impl MethodDetails {
 
         Ok(ExtTraitComponents { definition, r#impl })
     }
+}
+
+/// Returns `lifetime` unless it is elided or `'_`.
+///
+/// A method that gets `Env<'a>` can lend memory borrowed for `'a` to calls with
+/// `Env::lend_output()`, after which its contents must be parsed before they are accessed.
+/// Generated code gives a method `Env` with a lifetime that only covers the call, so the method can
+/// only borrow arguments for it whose lifetimes it names.
+fn named_lifetime(lifetime: Option<&Lifetime>) -> Option<&Lifetime> {
+    lifetime.filter(|lifetime| lifetime.ident != "_")
 }
 
 fn extract_arg_name(mut pat: &Pat) -> Option<Ident> {
