@@ -209,9 +209,8 @@ where
             "Size {size} is invalid for element size {}",
             Element::SIZE
         );
-        // SAFETY: `size` doesn't exceed `capacity`, `ptr` is valid for reads of `capacity` bytes,
-        // the first `size` of which are initialized, and the memory is not accessed otherwise
-        // during the call (function contract)
+        // SAFETY: `ptr` is valid for reads of the first `size` bytes, which are initialized, and
+        // the memory is not accessed otherwise during the call (function contract)
         if !unsafe { contents_are_valid(*ptr, *size) } {
             return None;
         }

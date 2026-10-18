@@ -45,6 +45,8 @@ Improvements:
 * `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking its contents, while size, capacity
   and alignment must be valid for the type, like for `from_ptr()` and `from_mut_ptr()`
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
+* `IoType::set_size()` requires a size that is valid for the type, while the contents don't need to be a valid value
+  when it is called, as long as they are parsed before they are accessed
 * `IoTypeMut` gives exclusive access to an `IoType` value, it is implemented for every `IoType` and for values that
   `MaybeData::from_mut()`, `MaybeData::from_uninit()`, `VariableElements::from_buffer_mut()` and
   `VariableElements::from_uninit()` return. It is an `unsafe` trait, so that generic code can rely on

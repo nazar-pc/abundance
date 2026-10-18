@@ -184,10 +184,13 @@ pub unsafe trait IoType {
     /// Number of bytes are allocated right now
     fn capacity(&self) -> u32;
 
-    /// Set the number of used bytes
+    /// Set the number of used bytes.
     ///
     /// # Safety
-    /// `size` must be set to number of properly initialized bytes
+    /// `size` must be valid for the type (see [`Self::try_from_ptr()`]) and not exceed the
+    /// capacity, and that many bytes must be initialized. They don't need to be a valid value of
+    /// the type, but then the contents must not be accessed through this value until they are
+    /// parsed, for example with [`Self::try_from_mut_ptr()`].
     unsafe fn set_size(&mut self, size: u32);
 
     /// Create a reference to a type, which is represented by provided memory.
@@ -264,9 +267,9 @@ pub unsafe trait IoType {
     /// # Safety
     /// `ptr`, `size` and `capacity` are valid as required by [`Self::try_from_ptr()`], except that
     /// the capacity of [`MaybeData`] is at least the size of the data, since data can be written
-    /// into it even if it is empty. `ptr` is valid for reads and writes of `capacity` bytes, the
-    /// first `size` of which are initialized. The memory is not accessed otherwise during the call
-    /// and while the returned value exists.
+    /// into it even if it is empty. `ptr` is valid for writes of `capacity` bytes and for reads of
+    /// the first `size`, which are initialized, while the bytes after them may be uninitialized.
+    /// The memory is not accessed otherwise during the call and while the returned value exists.
     ///
     /// [`MaybeData`]: maybe_data::MaybeData
     #[track_caller]

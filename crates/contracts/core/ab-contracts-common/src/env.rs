@@ -162,8 +162,9 @@ pub struct EnvState {
 /// * only write to contents of outputs within their capacity, to sizes of outputs in
 ///   [`ExternalArgs`] and to the return value (if there is one)
 /// * keep the size of each output in [`ExternalArgs`] within its capacity, with that many bytes of
-///   the output initialized as a valid value of its type, as
-///   [`IoType::set_size()`](ab_io_type::IoType::set_size) requires
+///   the output initialized as a valid value of its type, since extension methods set it on the
+///   output they were given with [`IoType::set_size()`](ab_io_type::IoType::set_size) and don't
+///   parse the contents
 /// * write a valid value of the return type to the return value (if there is one) before returning
 ///   `Ok(())`
 /// * not access memory behind any of these pointers after [`Self::call()`] returns
