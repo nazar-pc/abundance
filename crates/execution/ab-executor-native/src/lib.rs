@@ -330,13 +330,15 @@ impl NativeExecutor {
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size)
             .expect("Size is computed from the buffer above; qed");
 
-        let mut executor_context = NativeExecutorContext::new(
+        let executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_ro(),
             false,
         );
-        let env = Env::with_executor_context(env_state, &mut executor_context);
+        // SAFETY: Created outside of contract code and given by reference only to an extension
+        // method, which borrows no memory for the lifetime of `Env`, and only dropped afterward
+        let env = unsafe { Env::with_executor_context(env_state, &executor_context) };
         env.tx_handler_authorize(
             transaction.header.contract,
             transaction.header,
@@ -392,14 +394,16 @@ impl NativeExecutor {
         let seal = VariableBytes::from_buffer(transaction.seal, &seal_size)
             .expect("Size is computed from the buffer above; qed");
 
-        let mut executor_context = NativeExecutorContext::new(
+        let executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_rw(),
             true,
         );
 
-        let mut env = Env::with_executor_context(env_state, &mut executor_context);
+        // SAFETY: Created outside of contract code and given by reference only to an extension
+        // method, which borrows no memory for the lifetime of `Env`, and only dropped afterward
+        let mut env = unsafe { Env::with_executor_context(env_state, &executor_context) };
         env.tx_handler_execute(
             MethodContext::Reset,
             transaction.header.contract,
@@ -457,13 +461,15 @@ impl NativeExecutor {
 
         // TODO: Make it more efficient by not recreating NativeExecutorContext twice here
         {
-            let mut executor_context = NativeExecutorContext::new(
+            let executor_context = NativeExecutorContext::new(
                 self.shard_index,
                 &self.methods_by_code,
                 slots.new_nested_ro(),
                 false,
             );
-            let env = Env::with_executor_context(env_state, &mut executor_context);
+            // SAFETY: Created outside of contract code and given by reference only to an extension
+            // method, which borrows no memory for the lifetime of `Env`, and only dropped afterward
+            let env = unsafe { Env::with_executor_context(env_state, &executor_context) };
             env.tx_handler_authorize(
                 transaction.header.contract,
                 transaction.header,
@@ -475,13 +481,15 @@ impl NativeExecutor {
         }
 
         {
-            let mut executor_context = NativeExecutorContext::new(
+            let executor_context = NativeExecutorContext::new(
                 self.shard_index,
                 &self.methods_by_code,
                 slots.new_nested_rw(),
                 true,
             );
-            let mut env = Env::with_executor_context(env_state, &mut executor_context);
+            // SAFETY: Created outside of contract code and given by reference only to an extension
+            // method, which borrows no memory for the lifetime of `Env`, and only dropped afterward
+            let mut env = unsafe { Env::with_executor_context(env_state, &executor_context) };
             env.tx_handler_execute(
                 MethodContext::Reset,
                 transaction.header.contract,
@@ -520,13 +528,16 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
-        let mut executor_context = NativeExecutorContext::new(
+        let executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_rw(),
             true,
         );
-        let mut env = Env::with_executor_context(env_state, &mut executor_context);
+        // SAFETY: Created outside of contract code and given by reference only to a callback that
+        // is generic over the lifetime of `Env`, so it can only borrow `'static` memory for that
+        // lifetime, and only dropped afterward
+        let mut env = unsafe { Env::with_executor_context(env_state, &executor_context) };
         calls(&mut env)
     }
 
@@ -547,13 +558,16 @@ impl NativeExecutor {
             caller: Address::NULL,
         };
 
-        let mut executor_context = NativeExecutorContext::new(
+        let executor_context = NativeExecutorContext::new(
             self.shard_index,
             &self.methods_by_code,
             slots.new_nested_ro(),
             false,
         );
-        let env = Env::with_executor_context(env_state, &mut executor_context);
+        // SAFETY: Created outside of contract code and given by reference only to a callback that
+        // is generic over the lifetime of `Env`, so it can only borrow `'static` memory for that
+        // lifetime, and only dropped afterward
+        let env = unsafe { Env::with_executor_context(env_state, &executor_context) };
         callback(&env)
     }
 }

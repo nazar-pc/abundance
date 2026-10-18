@@ -183,6 +183,12 @@ compile_error!(
     "`executor` and `guest` features are mutually exclusive due to it affecting `Env` layout"
 );
 
+// TODO: Make `Env` immovable once the `Move` trait is available in nightly, see
+//  https://github.com/rust-lang/rust/issues/149607 and
+//  https://goals.rust-lang.org/2026/move-trait.html. Code that gets `&mut Env` couldn't replace it
+//  with another `Env` then, so the type system would guarantee that an `Env` given to code by
+//  reference is the same afterward, and the second requirement in the `# Safety` of
+//  `Env::with_executor_context()` could be removed
 /// Ephemeral execution environment.
 ///
 /// In guest environment equivalent to just [`EnvState`], while on Unix and Windows an executor
@@ -192,9 +198,16 @@ compile_error!(
 pub struct Env<'a> {
     state: EnvState,
     #[cfg(feature = "executor")]
-    executor_context: &'a mut dyn ExecutorContext,
-    #[cfg(not(feature = "executor"))]
-    phantom_data: PhantomData<&'a ()>,
+    executor_context: &'a dyn ExecutorContext,
+    /// Makes `Env` invariant over `'a`.
+    ///
+    /// Code that gets `Env<'a>` may give calls memory that it borrowed for `'a`, and a call can
+    /// leave contents behind in that memory that are not a valid value. The borrow stops that code
+    /// from accessing the memory again before `'a` ends, and afterward the memory is only accessed
+    /// by parsing it first (see `Env::with_executor_context()`). If `Env<'a>` could be shortened
+    /// to `Env<'short>`, the code could give calls memory borrowed only for `'short` and then
+    /// access it directly once `'short` ends, while it may still hold an invalid value.
+    invariant_lifetime: PhantomData<fn(&'a ()) -> &'a ()>,
 }
 
 // TODO: API to "attach" data structures to the environment to make sure pointers to it can be
@@ -208,17 +221,34 @@ pub struct Env<'a> {
     )
 )]
 impl<'a> Env<'a> {
-    /// Instantiate environment with executor context
+    /// Instantiate environment with executor context.
+    ///
+    /// # Safety
+    /// Code that uses the returned `Env` may rely on its lifetime `'a`: memory it borrows for `'a`
+    /// stays inaccessible to others until `'a` ends, and contents it leaves behind in that memory
+    /// may not be a valid value. Hence:
+    /// * memory borrowed for `'a` by code that uses the `Env` must not be accessed after `'a` ends
+    ///   other than by parsing it, unless its contents accept every bit pattern. For example, a
+    ///   method that creates an `Env` to lend memory it received must give it a lifetime that lasts
+    ///   until the method returns, like the lifetime of the `Env` it received.
+    /// * once the `Env` was given to code by reference, it must not be used afterward other than
+    ///   being dropped, since that code may have replaced it with another `Env` whose lifetime only
+    ///   lasts until it returns
+    // TODO: Remove the second requirement once `Env` is immovable with the `Move` trait
+    //  (https://github.com/rust-lang/rust/issues/149607): code given the `Env` by reference
+    //  couldn't replace it then, so the type system would guarantee that it is the same `Env`
+    //  afterward
     #[cfg(feature = "executor")]
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn with_executor_context(
+    pub unsafe fn with_executor_context(
         state: EnvState,
-        executor_context: &'a mut dyn ExecutorContext,
+        executor_context: &'a dyn ExecutorContext,
     ) -> Self {
         Self {
             state,
             executor_context,
+            invariant_lifetime: PhantomData,
         }
     }
 

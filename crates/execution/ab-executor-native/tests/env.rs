@@ -44,7 +44,14 @@ impl EnvSwapper {
         };
         // Zero-sized, so it doesn't actually leak memory
         let foreign_context = Box::leak(Box::new(ForeignContext));
-        let mut foreign_env = Env::with_executor_context(env_state, foreign_context);
+        // SAFETY: The lifetime is that of the `Env` this method received, which lasts until the
+        // method returns, and no memory is borrowed for it. After the swap the returned `Env` is
+        // only dropped by the executor, which doesn't use an `Env` after giving it to a method.
+        let mut foreign_env = unsafe { Env::with_executor_context(env_state, foreign_context) };
+        // TODO: Once `Env` is immovable with the `Move` trait
+        //  (https://github.com/rust-lang/rust/issues/149607), the type system will reject this
+        //  swap, so this test should become a ui test checking that a method can't replace its
+        //  `Env`
         core::mem::swap(env, &mut foreign_env);
 
         self.value = 1;

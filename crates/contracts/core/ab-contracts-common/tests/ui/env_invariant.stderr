@@ -1,0 +1,14 @@
+error: lifetime may not live long enough
+ --> tests/ui/env_invariant.rs:7:5
+  |
+6 | fn shorten<'short, 'long: 'short>(env: &'short Env<'long>) -> &'short Env<'short> {
+  |            ------  ----- lifetime `'long` defined here
+  |            |
+  |            lifetime `'short` defined here
+7 |     env
+  |     ^^^ function was supposed to return data with lifetime `'long` but it is returning data with lifetime `'short`
+  |
+  = help: consider adding the following bound: `'short: 'long`
+  = note: requirement occurs because of the type `Env<'_>`, which makes the generic argument `'_` invariant
+  = note: the struct `Env<'a>` is invariant over the parameter `'a`
+  = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance

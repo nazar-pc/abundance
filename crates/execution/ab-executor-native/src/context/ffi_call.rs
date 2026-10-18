@@ -188,15 +188,20 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
         // Only `#[view]` methods can be called through `&Env`, and without `Env` the nested context
         // isn't used for calls at all and only holds onto slots
         let allow_env_mutation = matches!(self, Self::ReadWrite(..));
-        let mut context = NonNull::from_mut(create_nested_context(slots, allow_env_mutation));
+        let context = NonNull::from_mut(create_nested_context(slots, allow_env_mutation));
 
         match self {
             Self::None(()) => MaybeEnv::None(context),
             Self::ReadOnly(env_ro, ()) => {
-                // SAFETY: Created from an exclusive reference above. The reference given to
+                // SAFETY: Created from an exclusive reference above. The shared reference given to
                 // `Env` is derived from this pointer, the pointer itself is only used again in
                 // `Self::into_slots()`, after the guest returned.
-                let env = Env::with_executor_context(env_state, unsafe { context.as_mut() });
+                let executor_context = unsafe { context.as_ref() };
+                // SAFETY: Created outside of contract code and given by reference only to the FFI
+                // function that `#[contract]` generates for the method, which gives the method no
+                // other memory borrowed for the lifetime of `Env`, and only dropped in
+                // `Self::into_slots()` after the method returned
+                let env = unsafe { Env::with_executor_context(env_state, executor_context) };
                 {
                     // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_ro()`, which is
                     // only freed when `self` is dropped. Only the pointer to it was given out so
@@ -213,10 +218,15 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 MaybeEnv::ReadOnly(env_ro, context)
             }
             Self::ReadWrite(env_rw, ()) => {
-                // SAFETY: Created from an exclusive reference above. The reference given to
+                // SAFETY: Created from an exclusive reference above. The shared reference given to
                 // `Env` is derived from this pointer, the pointer itself is only used again in
                 // `Self::into_slots()`, after the guest returned.
-                let env = Env::with_executor_context(env_state, unsafe { context.as_mut() });
+                let executor_context = unsafe { context.as_ref() };
+                // SAFETY: Created outside of contract code and given by reference only to the FFI
+                // function that `#[contract]` generates for the method, which gives the method no
+                // other memory borrowed for the lifetime of `Env`, and only dropped in
+                // `Self::into_slots()` after the method returned
+                let env = unsafe { Env::with_executor_context(env_state, executor_context) };
                 {
                     // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_rw()`, which is
                     // only freed when `self` is dropped. Only the pointer to it was given out so
