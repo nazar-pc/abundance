@@ -6,7 +6,6 @@
 
 #![expect(dead_code, reason = "Types are only defined for their metadata")]
 
-use ab_io_type::bool::Bool;
 use ab_io_type::fixed_capacity_bytes::FixedCapacityBytes;
 use ab_io_type::fixed_capacity_elements::FixedCapacityElements;
 use ab_io_type::fixed_capacity_string::FixedCapacityString;
@@ -349,7 +348,7 @@ where
 fn primitives() {
     let cases = [
         (<()>::METADATA, IoTypeMetadataKind::Unit, "()", 0, 1),
-        (Bool::METADATA, IoTypeMetadataKind::Bool, "bool", 1, 1),
+        (bool::METADATA, IoTypeMetadataKind::Bool, "bool", 1, 1),
         (u8::METADATA, IoTypeMetadataKind::U8, "u8", 1, 1),
         (u16::METADATA, IoTypeMetadataKind::U16, "u16", 2, 2),
         (u32::METADATA, IoTypeMetadataKind::U32, "u32", 4, 4),
@@ -951,7 +950,7 @@ fn structs_with_different_field_types() {
         h: i16,
         i: u8,
         j: i8,
-        k: Bool,
+        k: bool,
         l: (),
         padding: [u8; 1],
     }

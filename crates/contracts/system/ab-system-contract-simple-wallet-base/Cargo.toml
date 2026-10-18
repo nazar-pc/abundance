@@ -14,6 +14,7 @@ include = [
 all-features = true
 
 [dependencies]
+ab-aligned-buffer = { workspace = true, optional = true }
 ab-contracts-common = { workspace = true }
 ab-contracts-macros = { workspace = true }
 ab-contracts-standards = { workspace = true }
@@ -32,7 +33,9 @@ guest = [
     "ab-contracts-standards/guest",
 ]
 # Enables payload builder API
-payload-builder = []
+payload-builder = [
+    "dep:ab-aligned-buffer",
+]
 # Check that code can't panic under any conditions
 no-panic = [
     "dep:no-panic",

@@ -74,7 +74,6 @@
 )]
 #![no_std]
 
-pub mod bool;
 pub mod fixed_capacity_bytes;
 pub mod fixed_capacity_elements;
 pub mod fixed_capacity_string;
@@ -239,17 +238,17 @@ pub unsafe trait IoType {
     /// Create a reference to a type, which is represented by provided memory, if the memory holds a
     /// valid value.
     ///
-    /// In contrast to [`Self::from_ptr()`], `size`, `capacity` and the contents are checked.
-    /// Returns `None` if `size` exceeds `capacity`, `size` or `capacity` is not valid for the type
-    /// or the first `size` bytes are not a valid value. Valid sizes are the size of a
-    /// [`TrivialType`], `0` or the size of the data for [`MaybeData`] and multiples of the element
-    /// size for [`VariableElements`]. The capacity of [`MaybeData`] must be `0` or at least the
-    /// size of the data.
+    /// In contrast to [`Self::from_ptr()`], the contents are checked, `None` is returned if the
+    /// first `size` bytes are not a valid value. Alignment, `size` and `capacity` are trusted like
+    /// in [`Self::from_ptr()`] and only checked with debug assertions.
     ///
     /// # Safety
-    /// `ptr` is aligned for `Self::PointerType`. If `size` doesn't exceed `capacity`, `ptr` is
-    /// valid for reads of `size` bytes, which are initialized and not written to during the call
-    /// and while the returned value exists.
+    /// `ptr` is aligned for `Self::PointerType`, `size` doesn't exceed `capacity`, and both are
+    /// valid for the type: `size` is the size of a [`TrivialType`], `0` or the size of the data for
+    /// [`MaybeData`] and a multiple of the element size for [`VariableElements`], and the capacity
+    /// of [`MaybeData`] is `0` or at least the size of the data. `ptr` is valid for reads of `size`
+    /// bytes, which are initialized and not written to during the call and while the returned value
+    /// exists.
     ///
     /// [`MaybeData`]: maybe_data::MaybeData
     /// [`VariableElements`]: variable_elements::VariableElements
@@ -262,13 +261,12 @@ pub unsafe trait IoType {
 
     /// Like [`Self::try_from_ptr()`], but returns an exclusive reference.
     ///
-    /// Also returns `None` if `capacity` is too small for writing a value, like for [`MaybeData`]
-    /// with a capacity smaller than its data.
-    ///
     /// # Safety
-    /// `ptr` is aligned for `Self::PointerType` and valid for reads and writes of `capacity` bytes,
-    /// the first `size` of which are initialized if `size` doesn't exceed `capacity`. The memory is
-    /// not accessed otherwise during the call and while the returned value exists.
+    /// `ptr`, `size` and `capacity` are valid as required by [`Self::try_from_ptr()`], except that
+    /// the capacity of [`MaybeData`] is at least the size of the data, since data can be written
+    /// into it even if it is empty. `ptr` is valid for reads and writes of `capacity` bytes, the
+    /// first `size` of which are initialized. The memory is not accessed otherwise during the call
+    /// and while the returned value exists.
     ///
     /// [`MaybeData`]: maybe_data::MaybeData
     #[track_caller]

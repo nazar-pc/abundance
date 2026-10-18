@@ -12,7 +12,6 @@ use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
 use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
-use ab_io_type::bool::Bool;
 use ab_io_type::trivial_type::TrivialType;
 use ab_system_contract_code::CodeExt;
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
@@ -23,13 +22,13 @@ use schnorrkel::Keypair;
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Flipper {
-    pub value: Bool,
+    pub value: bool,
 }
 
 #[contract]
 impl Flipper {
     #[init]
-    pub fn new(#[input] &init_value: &Bool) -> Self {
+    pub fn new(#[input] &init_value: &bool) -> Self {
         Self { value: init_value }
     }
 
@@ -81,7 +80,7 @@ fn flip() {
             .unwrap();
 
         // Initialize state
-        env.flipper_new(MethodContext::Keep, flipper_address, &Bool::new(true))
+        env.flipper_new(MethodContext::Keep, flipper_address, &true)
             .unwrap();
 
         flipper_address
@@ -94,7 +93,7 @@ fn flip() {
         contract: wallet_address,
     };
     let payload = {
-        let mut builder = TransactionPayloadBuilder::default();
+        let mut builder = TransactionPayloadBuilder::new(1024);
         builder
             .with_method_call(
                 &flipper_address,
@@ -114,12 +113,19 @@ fn flip() {
     let nonce = 0;
 
     {
-        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        );
         executor
             .transaction_verify(
                 Transaction {
                     header: &header,
-                    payload: &payload,
+                    payload: payload.as_u128_slice(),
                     read_slots,
                     write_slots,
                     seal: seal.as_bytes(),
@@ -131,14 +137,21 @@ fn flip() {
 
     // Bytes after the seal are rejected
     {
-        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        );
         let mut seal_with_extra_byte = seal.as_bytes().to_vec();
         seal_with_extra_byte.push(0);
         assert_eq!(
             executor.transaction_verify(
                 Transaction {
                     header: &header,
-                    payload: &payload,
+                    payload: payload.as_u128_slice(),
                     read_slots,
                     write_slots,
                     seal: &seal_with_extra_byte,
@@ -150,13 +163,20 @@ fn flip() {
     }
 
     for nonce in (nonce..).take(2) {
-        let seal = hash_and_sign(&keypair, &header, read_slots, write_slots, &payload, nonce);
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        );
 
         executor
             .transaction_execute(
                 Transaction {
                     header: &header,
-                    payload: &payload,
+                    payload: payload.as_u128_slice(),
                     read_slots,
                     write_slots,
                     seal: seal.as_bytes(),

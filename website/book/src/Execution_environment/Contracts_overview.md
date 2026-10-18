@@ -236,6 +236,13 @@ additional helper data structures, functions and metadata about the contract. Th
 invariants about the contract with helpful compile-time error messages if something goes wrong. For example, when
 different methods use different types for `#[slot]` argument or when type not allowed for FFI is used in an argument.
 
+Inputs and the current contents of outputs come from the caller and can't be trusted, so the generated code parses them
+before calling the method and returns `ContractError::BadInput` to the caller if they are not valid values of their
+types. A method only ever sees valid values, and for most types, which accept every bit pattern, there is nothing to
+check. Sizes, capacities and alignment of inputs and outputs must match the method's metadata, which the executor
+guarantees. The state and slots of the contract are only written by the contract itself or on its behalf and are not
+checked.
+
 # Method call context
 
 When calling into another contract, a method context needs to be specified. The correct mental model for context is

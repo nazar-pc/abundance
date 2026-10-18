@@ -35,6 +35,17 @@ pub mod __private;
 /// types must not be nested deeper than [`MAX_METADATA_DEPTH`], which is checked during
 /// compilation.
 ///
+/// Contents of `#[input]` arguments and initial contents of `#[output]` arguments come from
+/// the caller, so they are not trusted: before the method is called, generated code parses
+/// them (see [`IoType::try_from_ptr()`] and [`IoType::try_from_mut_ptr()`]) and returns
+/// [`ContractError::BadInput`] if they are not valid values of their types. The method only
+/// gets valid values, and for types that accept every bit pattern (see [`AnyBitPattern`])
+/// there is nothing to check. Sizes, capacities and alignment of these arguments must match
+/// the method's metadata, which the executor guarantees: the RISC-V VM checks them, while the
+/// native executor trusts callers and only catches mismatches with debug assertions. The state
+/// and `#[tmp]` and `#[slot]` arguments are storage of the contract, which is only written by
+/// the contract itself or on its behalf, so they are not parsed.
+///
 /// # For struct implementation
 ///
 /// ## #\[init]
@@ -381,6 +392,9 @@ pub mod __private;
 /// }
 /// ```
 ///
+/// The contents are parsed before the method is called, [`ContractError::BadInput`] is
+/// returned if they are not a valid `InputValue`.
+///
 /// ### `#[output] output: &mut OutputValue`
 ///
 /// `#[output] output: &mut OutputValue` is a read-write output of the contract call, where
@@ -398,17 +412,22 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// The caller provides `output_size` bytes of current contents of the output (typically none
-/// if it is only used to return a value, bytes beyond the size are not initialized), the
-/// contract can both read and modify them, and the modified value will be propagated back to
-/// the caller to observe.
+/// The caller provides `output_size` bytes of current contents of the output (bytes beyond the
+/// size are not initialized), the contract can both read and modify them, and the modified
+/// value will be propagated back to the caller to observe. The current contents are parsed
+/// like those of `#[input]` before the method is called. The size of a [`TrivialType`] output
+/// is always the size of the type, while `MaybeData<T>` and `VariableElements<T>` (like
+/// `VariableBytes<N>`) can be empty when they are only used to return a value. Unlike an
+/// input, an empty `MaybeData<T>` output must still have capacity for `T`, since the contract
+/// can write a value into it.
 /// `output_ptr` pointer *must not be changed* as the host will not follow it to the new
 /// address, the output size is fully constrained by capacity specified in `output_capacity`.
 /// The only exception is the last `#[output]` of `#[init]` method without a return value,
 /// which is the contract's initial state. In this case, its pointer can be changed to point to
 /// a different memory location, which is not limited by `output_capacity` allocation from the
-/// host. With a return value, the return value is the initial state, and all `#[output]`
-/// arguments are regular outputs.
+/// host, while the capacity the host provides must still be at least the size of the state,
+/// like that of other `MaybeData<T>` outputs. With a return value, the return value is the
+/// initial state, and all `#[output]` arguments are regular outputs.
 ///
 /// `#[output]` may be used as an alternative to `-> ReturnValue` and
 /// `-> Result<ReturnValue, ContractError>` in case the data structure is large and allocation
@@ -637,7 +656,11 @@ pub mod __private;
 /// auto-generate UI, etc.
 ///
 /// [`Contract`]: ab_contracts_common::Contract
+/// [`ContractError::BadInput`]: ab_contracts_common::ContractError::BadInput
 /// [`TrivialType`]: ab_io_type::trivial_type::TrivialType
+/// [`AnyBitPattern`]: ab_io_type::trivial_type::AnyBitPattern
+/// [`IoType::try_from_ptr()`]: ab_io_type::IoType::try_from_ptr()
+/// [`IoType::try_from_mut_ptr()`]: ab_io_type::IoType::try_from_mut_ptr()
 /// [`IoType`]: ab_io_type::IoType
 /// [`ExternalArgs`]: ab_contracts_common::method::ExternalArgs
 /// [`Env`]: ab_contracts_common::env::Env

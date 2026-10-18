@@ -20,7 +20,9 @@ pub mod payload;
 pub mod seal;
 pub mod utils;
 
-use crate::payload::{TransactionMethodContext, TransactionPayloadDecoder};
+use crate::payload::{
+    TransactionMethodContext, TransactionPayloadCallError, TransactionPayloadDecoder,
+};
 use crate::seal::hash_and_verify;
 use ab_contracts_common::env::{Env, MethodContext};
 use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
@@ -195,14 +197,16 @@ impl SimpleWalletBase {
             },
         );
 
-        while let Some(prepared_method) = payload_decoder
-            .decode_next_method()
-            .map_err(|_error| ContractError::BadInput)?
-        {
-            env.call_prepared(prepared_method)?;
+        loop {
+            payload_decoder = match payload_decoder.call_next_method(env) {
+                Ok(Some(payload_decoder)) => payload_decoder,
+                Ok(None) => return Ok(()),
+                Err(TransactionPayloadCallError::Decoder(_error)) => {
+                    return Err(ContractError::BadInput);
+                }
+                Err(TransactionPayloadCallError::Method(error)) => return Err(error),
+            };
         }
-
-        Ok(())
     }
 
     /// Returns state with increased nonce

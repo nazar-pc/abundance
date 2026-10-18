@@ -4,7 +4,6 @@ use ab_contracts_common::ContractError;
 use ab_contracts_common::env::Env;
 use ab_contracts_macros::contract;
 use ab_core_primitives::address::Address;
-use ab_io_type::bool::Bool;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::variable_bytes::VariableBytes;
 use core::mem::MaybeUninit;
@@ -65,7 +64,7 @@ impl State {
         ),
         #[input] state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
     ) -> Result<(), ContractError> {
-        if !Self::is_empty(contract_state).get() {
+        if !Self::is_empty(contract_state) {
             return Err(ContractError::Conflict);
         }
 
@@ -104,21 +103,21 @@ impl State {
         #[slot] (address, state): (&Address, &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>),
         #[input] old_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
         #[input] new_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
-    ) -> Result<Bool, ContractError> {
+    ) -> Result<bool, ContractError> {
         // TODO: Check shard?
         if env.caller() != address {
             return Err(ContractError::Forbidden);
         }
 
         if state.get_initialized() != old_state.get_initialized() {
-            return Ok(Bool::new(false));
+            return Ok(false);
         }
 
         if !state.copy_from(new_state) {
             return Err(ContractError::BadInput);
         }
 
-        Ok(Bool::new(true))
+        Ok(true)
     }
 
     /// Read state
@@ -136,7 +135,7 @@ impl State {
 
     /// Check if the state is empty
     #[view]
-    pub fn is_empty(#[slot] contract_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>) -> Bool {
-        Bool::new(contract_state.size() == 0)
+    pub fn is_empty(#[slot] contract_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>) -> bool {
+        contract_state.size() == 0
     }
 }

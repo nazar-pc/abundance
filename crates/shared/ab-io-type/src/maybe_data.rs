@@ -133,23 +133,27 @@ where
         capacity: u32,
     ) -> Option<impl Deref<Target = Self> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        debug_assert!(
+            *size == 0 || (*size == Data::SIZE && *size <= capacity),
+            "Invalid size {size} for capacity {capacity}"
+        );
         // Read-only instance can have 0 capacity if empty
-        if !((*size == 0 || (*size == Data::SIZE && *size <= capacity))
-            && (capacity == 0 || capacity >= Data::SIZE))
-        {
-            return None;
-        }
+        debug_assert!(
+            capacity == 0 || capacity >= Data::SIZE,
+            "Invalid capacity {capacity} for size {}",
+            Data::SIZE
+        );
         if *size == Data::SIZE {
-            // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for
-            // reads of `size` initialized bytes, which are not written to during the call
-            // (function contract)
-            let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+            // SAFETY: `ptr` is valid for reads of `size` bytes, which is the size of `Data`,
+            // initialized and not written to during the call (function contract)
+            let bytes =
+                unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<Data>()) };
             Data::try_from_bytes_unaligned(bytes)?;
         }
 
-        // SAFETY: `size` and `capacity` are valid as checked above, with size `0` nothing is read,
-        // otherwise the memory holds a valid value of `Data` as checked above, `ptr` is aligned and
-        // the memory is not written to while the returned value exists (function contract)
+        // SAFETY: `size` and `capacity` are valid, `ptr` is aligned and the memory is not written
+        // to while the returned value exists (function contract), with size `0` nothing is read,
+        // otherwise the memory holds a valid value of `Data` as checked above
         Some(unsafe { Self::from_ptr(ptr, size, capacity) })
     }
 
@@ -161,22 +165,30 @@ where
         capacity: u32,
     ) -> Option<impl DerefMut<Target = Self> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
+        debug_assert!(
+            *size == 0 || *size == Data::SIZE,
+            "Invalid size {size} for data size {}",
+            Data::SIZE
+        );
         // Data can be written even if the size is `0`, so the capacity must fit it
-        if !(Data::SIZE <= capacity && (*size == 0 || *size == Data::SIZE)) {
-            return None;
-        }
+        debug_assert!(
+            capacity >= Data::SIZE,
+            "Invalid capacity {capacity} for size {}",
+            Data::SIZE
+        );
         if *size == Data::SIZE {
-            // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for
-            // reads of `size` initialized bytes, which are not accessed otherwise during the call
-            // (function contract), the slice is not used after parsing
-            let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+            // SAFETY: `ptr` is valid for reads of `size` bytes, which is the size of `Data`,
+            // initialized and not accessed otherwise during the call (function contract), the
+            // slice is not used after parsing
+            let bytes =
+                unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<Data>()) };
             Data::try_from_bytes_unaligned(bytes)?;
         }
 
-        // SAFETY: `size` and `capacity` are valid as checked above, with size `0` nothing is read,
-        // otherwise the memory holds a valid value of `Data` as checked above, `ptr` is aligned,
-        // valid for writes of `capacity` bytes and the memory is not accessed otherwise while the
-        // returned value exists (function contract)
+        // SAFETY: `size` and `capacity` are valid, `ptr` is aligned, valid for writes of `capacity`
+        // bytes and the memory is not accessed otherwise while the returned value exists (function
+        // contract), with size `0` nothing is read, otherwise the memory holds a valid value of
+        // `Data` as checked above
         Some(unsafe { Self::from_mut_ptr(ptr, size, capacity) })
     }
 

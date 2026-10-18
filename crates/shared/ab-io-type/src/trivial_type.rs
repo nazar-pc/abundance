@@ -35,10 +35,11 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 /// [`Self::try_from_bytes_unaligned()`] checks that they are a valid value of the type, which is
 /// a length check for types that accept every bit pattern (see [`AnyBitPattern`]).
 ///
-/// A valid value is one whose every field is a valid value of its type, like the index of a
-/// variant for the discriminant of an enum, and that satisfies the invariants `unsafe` code relies
-/// on. Parsing may reject more, like a length of `FixedCapacityElements` above its capacity, but
-/// doesn't check encoding rules, like the bytes of its length prefix after the length.
+/// A valid value is one whose every field is a valid value of its type, like `0` or `1` for a
+/// `bool` and the index of a variant for the discriminant of an enum, and that satisfies the
+/// invariants `unsafe` code relies on. Parsing may reject more, like a length of
+/// `FixedCapacityElements` above its capacity, but doesn't check encoding rules, like the bytes of
+/// its length prefix after the length.
 ///
 /// # Safety
 /// * There is no padding, every byte is initialized and there is no interior mutability
@@ -302,7 +303,7 @@ impl<T> AnyBitPattern for T where T: TrivialType + AnyBitPatternMarker {}
 
 /// Parsing step of a type whose every bit pattern is a valid value
 #[inline(always)]
-pub(crate) fn try_from_bytes_any_bit_pattern<T>(bytes: &[u8]) -> Option<(&Unaligned<T>, &[u8])>
+fn try_from_bytes_any_bit_pattern<T>(bytes: &[u8]) -> Option<(&Unaligned<T>, &[u8])>
 where
     T: TrivialType + AnyBitPatternMarker,
 {
@@ -315,7 +316,7 @@ where
 
 /// Returns the bytes after `count` valid values of `T` at the beginning of `bytes`
 #[inline(always)]
-pub(crate) fn try_skip_valid<T>(mut bytes: &[u8], count: usize) -> Option<&[u8]>
+pub(crate) fn try_skip_valid<T>(bytes: &[u8], count: usize) -> Option<&[u8]>
 where
     T: TrivialType,
 {
@@ -328,11 +329,13 @@ where
         }
         return Some(bytes);
     }
-    for _ in 0..count {
-        let (_value, remainder) = T::try_from_bytes_unaligned(bytes)?;
-        bytes = remainder;
+    // With all elements split off first, every step gets exactly the bytes of one element, so for
+    // types whose step only checks the length the loop is optimized away
+    let (elements, remainder) = bytes.split_at_checked(count.checked_mul(size_of::<T>())?)?;
+    for element in elements.as_chunks::<{ SIZE_OF::<T> }>().0 {
+        T::try_from_bytes_unaligned(element)?;
     }
-    Some(bytes)
+    Some(remainder)
 }
 
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
@@ -346,6 +349,20 @@ unsafe impl TrivialType for () {
 }
 // SAFETY: Zero-sized, its only value has no bytes, the parsing step only checks the length
 unsafe impl AnyBitPatternMarker for () {}
+// SAFETY: One byte, the parsing step accepts only `0` and `1`, the valid values of `bool`
+unsafe impl TrivialType for bool {
+    const METADATA: &[u8] = &[IoTypeMetadataKind::Bool as u8];
+
+    #[inline(always)]
+    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+        let (&[0 | 1], remainder) = bytes.split_first_chunk::<1>()? else {
+            return None;
+        };
+        // SAFETY: `Unaligned<bool>` is one byte with alignment 1, the first byte is `0` or `1`
+        let value = unsafe { bytes.as_ptr().cast::<Unaligned<Self>>().as_ref_unchecked() };
+        Some((value, remainder))
+    }
+}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u8 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U8 as u8];
@@ -566,17 +583,19 @@ where
         capacity: u32,
     ) -> Option<impl Deref<Target = Self> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        if !(*size == T::SIZE && *size <= capacity) {
-            return None;
-        }
-        // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for reads of
-        // `size` initialized bytes, which are not written to during the call (function contract)
-        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+        debug_assert_eq!(*size, T::SIZE, "Invalid size");
+        debug_assert!(
+            *size <= capacity,
+            "Size {size} must not exceed capacity {capacity}"
+        );
+        // SAFETY: `ptr` is valid for reads of `size` bytes, which is the size of `T`, initialized
+        // and not written to during the call (function contract)
+        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<T>()) };
         T::try_from_bytes_unaligned(bytes)?;
 
-        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, the memory holds a valid
-        // value of `T` as checked above, `ptr` is aligned and the memory is not written to while
-        // the returned value exists (function contract)
+        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, `ptr` is aligned and the
+        // memory is not written to while the returned value exists (function contract), and it
+        // holds a valid value of `T` as checked above
         Some(unsafe { Self::from_ptr(ptr, size, capacity) })
     }
 
@@ -588,18 +607,20 @@ where
         capacity: u32,
     ) -> Option<impl DerefMut<Target = Self> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
-        if !(*size == T::SIZE && *size <= capacity) {
-            return None;
-        }
-        // SAFETY: `size` doesn't exceed `capacity` as checked above, so `ptr` is valid for reads of
-        // `size` initialized bytes, which are not accessed otherwise during the call (function
-        // contract), the slice is not used after parsing
-        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), *size as usize) };
+        debug_assert_eq!(*size, T::SIZE, "Invalid size");
+        debug_assert!(
+            *size <= capacity,
+            "Size {size} must not exceed capacity {capacity}"
+        );
+        // SAFETY: `ptr` is valid for reads of `size` bytes, which is the size of `T`, initialized
+        // and not accessed otherwise during the call (function contract), the slice is not used
+        // after parsing
+        let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<T>()) };
         T::try_from_bytes_unaligned(bytes)?;
 
-        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, the memory holds a valid
-        // value of `T` as checked above, `ptr` is aligned and the memory is not accessed otherwise
-        // while the returned value exists (function contract)
+        // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, `ptr` is aligned and the
+        // memory is not accessed otherwise while the returned value exists (function contract),
+        // and it holds a valid value of `T` as checked above
         Some(unsafe { Self::from_mut_ptr(ptr, size, capacity) })
     }
 

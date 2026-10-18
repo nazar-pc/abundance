@@ -4,7 +4,6 @@
 //! undefined behavior, which Miri detects, so these tests are also run under Miri.
 
 use ab_io_type::IoType;
-use ab_io_type::bool::Bool;
 use ab_io_type::fixed_capacity_elements::FixedCapacityElements;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
@@ -61,11 +60,18 @@ struct WithCtx {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, TrivialType)]
+#[repr(C)]
+struct WithBool {
+    value: u8,
+    flag: bool,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, TrivialType)]
 #[repr(u8)]
 enum Msg {
     A([u8; 3]),
     B(u8, Unaligned<u16>),
-    C { flag: Bool, ctx: Ctx, rest: u8 },
+    C { flag: bool, ctx: Ctx, rest: u8 },
 }
 
 /// Number of times the parsing step of [`Counted`] was called
@@ -270,7 +276,7 @@ fn data_enum() {
         parse::<Msg>(&[2, 1, 2, 9]),
         Some((
             Msg::C {
-                flag: Bool::new(true),
+                flag: true,
                 ctx: Ctx::C,
                 rest: 9
             },
@@ -352,9 +358,11 @@ fn validate() {
     let mut value = u32::MAX;
     let mut ptr = NonNull::from_mut(&mut value).cast::<NonMax>();
     let mut size = 4;
-    // SAFETY: Aligned, 4 initialized bytes that are not accessed otherwise
+    // SAFETY: Aligned, the size and capacity of `NonMax`, 4 initialized bytes that are not
+    // accessed otherwise
     assert!(unsafe { MaybeData::<NonMax>::try_from_ptr(&ptr, &size, 4) }.is_none());
-    // SAFETY: Aligned, 4 initialized bytes that are not accessed otherwise
+    // SAFETY: Aligned, the size and capacity of `NonMax`, 4 initialized bytes that are not
+    // accessed otherwise
     assert!(unsafe { MaybeData::<NonMax>::try_from_mut_ptr(&mut ptr, &mut size, 4) }.is_none());
 
     // Enums are checked after the discriminant and fields of the variant
@@ -362,6 +370,51 @@ fn validate() {
     assert_eq!(parse::<Bounded>(&[0, 9]), Some((Bounded::A(9), &[][..])));
     assert_eq!(parse::<Bounded>(&[1, 10]), Some((Bounded::B(10), &[][..])));
     assert_eq!(parse::<Bounded>(&[2, 0]), None);
+}
+
+#[test]
+fn booleans() {
+    assert_eq!(parse::<bool>(&[0]), Some((false, &[][..])));
+    assert_eq!(parse::<bool>(&[1, 2]), Some((true, &[2][..])));
+    assert_eq!(parse::<bool>(&[]), None);
+    // Every other byte is rejected
+    for byte in 2..=u8::MAX {
+        assert_eq!(parse::<bool>(&[byte]), None);
+    }
+
+    // Every element and field is checked
+    assert_eq!(
+        parse::<[bool; 3]>(&[1, 0, 1]),
+        Some(([true, false, true], &[][..]))
+    );
+    assert_eq!(parse::<[bool; 3]>(&[1, 0, 2]), None);
+    assert_eq!(
+        parse::<Unaligned<bool>>(&[1]),
+        Some((Unaligned::new(true), &[][..]))
+    );
+    assert_eq!(parse::<Unaligned<bool>>(&[2]), None);
+    assert_eq!(
+        parse::<WithBool>(&[7, 1]),
+        Some((
+            WithBool {
+                value: 7,
+                flag: true
+            },
+            &[][..]
+        ))
+    );
+    assert_eq!(parse::<WithBool>(&[7, 2]), None);
+    assert_eq!(parse::<Msg>(&[2, 2, 2, 9]), None);
+    assert_eq!(
+        parse::<Msg>(&[0, 2, 2, 9]),
+        Some((Msg::A([2, 2, 9]), &[][..]))
+    );
+
+    // A value written through an exclusive reference is stored as `0` or `1`
+    let mut bytes = [0];
+    let (value, _remainder) = bool::try_from_bytes_mut(&mut bytes).unwrap();
+    *value = true;
+    assert_eq!(bytes, [1]);
 }
 
 #[test]
@@ -509,55 +562,46 @@ fn plain_try_from_ptr() {
     let mut ptr = NonNull::from_mut(&mut value);
     let mut size = 8;
     for capacity in [8, 16] {
-        // SAFETY: Aligned, 8 initialized bytes that are not accessed otherwise
+        // SAFETY: Aligned, the size of `u64`, which doesn't exceed the capacity, 8 initialized
+        // bytes that are not accessed otherwise
         let parsed = unsafe { u64::try_from_ptr(&ptr, &size, capacity) };
         assert_eq!(parsed.as_deref(), Some(&5));
     }
     {
-        // SAFETY: Aligned, 8 initialized bytes that are not accessed otherwise
+        // SAFETY: Aligned, the size and capacity of `u64`, 8 initialized bytes that are not
+        // accessed otherwise
         let mut parsed = unsafe { u64::try_from_mut_ptr(&mut ptr, &mut size, 8) }.unwrap();
         *parsed = 6;
     }
     assert_eq!(value, 6);
 
-    let mut values = [5u64, 6];
-    let mut ptr = NonNull::from_mut(&mut values).cast::<u64>();
-    for size in [0, 7, 9, 16] {
-        // SAFETY: Aligned, 16 initialized bytes that are not accessed otherwise
-        assert!(unsafe { u64::try_from_ptr(&ptr, &size, 16) }.is_none());
-    }
-    // Capacity is smaller than the size
-    // SAFETY: Aligned, size exceeds capacity
-    assert!(unsafe { u64::try_from_ptr(&ptr, &8, 7) }.is_none());
-    let mut size = 8;
-    // SAFETY: Aligned, valid for reads and writes of 7 bytes that are not accessed otherwise, size
-    // exceeds capacity
-    assert!(unsafe { u64::try_from_mut_ptr(&mut ptr, &mut size, 7) }.is_none());
-
-    // Size `0` over uninitialized memory is rejected without reading it
-    let mut uninit = MaybeUninit::<u64>::uninit();
-    let mut ptr = NonNull::from_mut(&mut uninit).cast::<u64>();
-    let mut size = 0;
-    // SAFETY: Aligned, valid for reads and writes of 8 bytes, none of which are initialized
-    assert!(unsafe { u64::try_from_mut_ptr(&mut ptr, &mut size, 8) }.is_none());
-    // SAFETY: Aligned, size `0`
-    assert!(unsafe { u64::try_from_ptr(&ptr, &size, 8) }.is_none());
-
     // Invalid contents are rejected
     let mut byte = 3u8;
     let mut ptr = NonNull::from_mut(&mut byte).cast::<Ctx>();
     let mut size = 1;
-    // SAFETY: Alignment 1, one initialized byte that is not accessed otherwise
+    // SAFETY: Alignment 1, the size and capacity of `Ctx`, one initialized byte that is not
+    // accessed otherwise
     assert!(unsafe { Ctx::try_from_ptr(&ptr, &size, 1) }.is_none());
-    // SAFETY: Alignment 1, one initialized byte that is not accessed otherwise
+    // SAFETY: Alignment 1, the size and capacity of `Ctx`, one initialized byte that is not
+    // accessed otherwise
     assert!(unsafe { Ctx::try_from_mut_ptr(&mut ptr, &mut size, 1) }.is_none());
     byte = 2;
     let ptr = NonNull::from_mut(&mut byte).cast::<Ctx>();
     {
-        // SAFETY: Alignment 1, one initialized byte that is not accessed otherwise
+        // SAFETY: Alignment 1, the size and capacity of `Ctx`, one initialized byte that is not
+        // accessed otherwise
         let parsed = unsafe { Ctx::try_from_ptr(&ptr, &1, 1) };
         assert_eq!(parsed.as_deref(), Some(&Ctx::C));
     }
+    // A valid discriminant of `Ctx` is not a valid `bool`
+    let mut ptr = NonNull::from_mut(&mut byte).cast::<bool>();
+    let mut size = 1;
+    // SAFETY: Alignment 1, the size and capacity of `bool`, one initialized byte that is not
+    // accessed otherwise
+    assert!(unsafe { bool::try_from_ptr(&ptr, &size, 1) }.is_none());
+    // SAFETY: Alignment 1, the size and capacity of `bool`, one initialized byte that is not
+    // accessed otherwise
+    assert!(unsafe { bool::try_from_mut_ptr(&mut ptr, &mut size, 1) }.is_none());
 }
 
 #[test]
@@ -567,7 +611,8 @@ fn maybe_data_try_from_ptr() {
     let mut ptr = NonNull::from_mut(&mut uninit).cast::<Ctx>();
     let mut size = 0;
     {
-        // SAFETY: Alignment 1, valid for reads and writes of one byte, size `0`
+        // SAFETY: Alignment 1, size `0` and the capacity of `Ctx`, valid for reads and writes of
+        // one byte that is not accessed otherwise
         let mut maybe_data =
             unsafe { MaybeData::<Ctx>::try_from_mut_ptr(&mut ptr, &mut size, 1) }.unwrap();
         assert_eq!(maybe_data.get(), None);
@@ -575,43 +620,22 @@ fn maybe_data_try_from_ptr() {
     }
     assert_eq!(size, 1);
     {
-        // SAFETY: Alignment 1, one byte initialized by `replace()` above
+        // SAFETY: Alignment 1, the size and capacity of `Ctx`, one byte initialized by `replace()`
+        // above that is not accessed otherwise
         let maybe_data = unsafe { MaybeData::<Ctx>::try_from_ptr(&ptr, &size, 1) }.unwrap();
         assert_eq!(maybe_data.get(), Some(&Ctx::B));
     }
-
-    // Exclusive access requires capacity for the data even if it is missing
-    let mut size = 0;
-    // SAFETY: Alignment 1, capacity `0`
-    assert!(unsafe { MaybeData::<Ctx>::try_from_mut_ptr(&mut ptr, &mut size, 0) }.is_none());
 
     // Invalid contents are rejected
     let mut byte = 7u8;
     let mut ptr = NonNull::from_mut(&mut byte).cast::<Ctx>();
     let mut size = 1;
-    // SAFETY: Alignment 1, one initialized byte that is not accessed otherwise
+    // SAFETY: Alignment 1, the size and capacity of `Ctx`, one initialized byte that is not
+    // accessed otherwise
     assert!(unsafe { MaybeData::<Ctx>::try_from_ptr(&ptr, &size, 1) }.is_none());
-    // SAFETY: Alignment 1, one initialized byte that is not accessed otherwise
+    // SAFETY: Alignment 1, the size and capacity of `Ctx`, one initialized byte that is not
+    // accessed otherwise
     assert!(unsafe { MaybeData::<Ctx>::try_from_mut_ptr(&mut ptr, &mut size, 1) }.is_none());
-
-    // Sizes other than `0` and the size of data are rejected
-    let mut value = 0u64;
-    let mut ptr = NonNull::from_mut(&mut value);
-    let mut size = 3;
-    // SAFETY: Aligned, 8 initialized bytes that are not accessed otherwise
-    assert!(unsafe { MaybeData::<u64>::try_from_ptr(&ptr, &size, 8) }.is_none());
-    // SAFETY: Aligned, 8 initialized bytes that are not accessed otherwise
-    assert!(unsafe { MaybeData::<u64>::try_from_mut_ptr(&mut ptr, &mut size, 8) }.is_none());
-    // SAFETY: Aligned, size exceeds capacity
-    assert!(unsafe { MaybeData::<u64>::try_from_ptr(&ptr, &8, 4) }.is_none());
-    // Sizes above the size of data are rejected even with enough capacity
-    let mut values = [0u64; 2];
-    let mut ptr = NonNull::from_mut(&mut values).cast::<u64>();
-    let mut size = 16;
-    // SAFETY: Aligned, 16 initialized bytes that are not accessed otherwise
-    assert!(unsafe { MaybeData::<u64>::try_from_ptr(&ptr, &size, 16) }.is_none());
-    // SAFETY: Aligned, 16 initialized bytes that are not accessed otherwise
-    assert!(unsafe { MaybeData::<u64>::try_from_mut_ptr(&mut ptr, &mut size, 16) }.is_none());
 }
 
 #[test]
@@ -624,21 +648,14 @@ fn maybe_data_shared_from_ref_none_arguments() {
     let capacity = view.capacity();
     assert_eq!(ptr, NonNull::dangling());
     assert_eq!((size, capacity), (0, 8));
-    // SAFETY: Aligned, size `0`
+    // SAFETY: Aligned, size `0` and the capacity of `u64`, nothing is read
     let parsed = unsafe { MaybeData::<u64>::try_from_ptr(&ptr, &size, capacity) }.unwrap();
     assert_eq!(parsed.get(), None);
 
-    // Size `0` with capacity `0` is accepted, capacity between `0` and the size of data is not
-    // SAFETY: Aligned, size `0`
+    // Size `0` with capacity `0` is empty too
+    // SAFETY: Aligned, size and capacity `0`, nothing is read
     let parsed = unsafe { MaybeData::<u64>::try_from_ptr(&ptr, &0, 0) }.unwrap();
     assert_eq!(parsed.get(), None);
-    for capacity in 1..8 {
-        // SAFETY: Aligned, size `0`
-        assert!(unsafe { MaybeData::<u64>::try_from_ptr(&ptr, &0, capacity) }.is_none());
-    }
-    // The size of data with capacity `0` is rejected without reading
-    // SAFETY: Aligned, size exceeds capacity
-    assert!(unsafe { MaybeData::<u64>::try_from_ptr(&ptr, &8, 0) }.is_none());
 }
 
 #[test]
@@ -647,7 +664,8 @@ fn variable_elements_try_from_ptr() {
     let mut ptr = NonNull::from_mut(&mut buffer).cast::<Ctx>();
     let mut size = 4;
     {
-        // SAFETY: Alignment 1, 4 initialized bytes that are not accessed otherwise
+        // SAFETY: Alignment 1, size and capacity 4, 4 initialized bytes that are not accessed
+        // otherwise
         let elements =
             unsafe { VariableElements::<Ctx>::try_from_mut_ptr(&mut ptr, &mut size, 4) }.unwrap();
         assert_eq!(
@@ -656,51 +674,43 @@ fn variable_elements_try_from_ptr() {
         );
     }
     {
-        // SAFETY: Alignment 1, 4 initialized bytes that are not accessed otherwise
+        // SAFETY: Alignment 1, size 4 within capacity 8, 4 initialized bytes that are not accessed
+        // otherwise
         let elements = unsafe { VariableElements::<Ctx>::try_from_ptr(&ptr, &size, 8) }.unwrap();
         assert_eq!(
             elements.get_initialized(),
             &[Ctx::A, Ctx::B, Ctx::C, Ctx::B]
         );
     }
-    // SAFETY: Alignment 1, size exceeds capacity
-    assert!(unsafe { VariableElements::<Ctx>::try_from_ptr(&ptr, &size, 3) }.is_none());
-    // SAFETY: Alignment 1, size exceeds capacity
-    assert!(unsafe { VariableElements::<Ctx>::try_from_mut_ptr(&mut ptr, &mut size, 3) }.is_none());
 
     // An invalid element in the middle or at the end is rejected
     for invalid in [[0, 3, 2, 1], [0, 1, 2, 7]] {
         buffer = invalid;
         let mut ptr = NonNull::from_mut(&mut buffer).cast::<Ctx>();
-        // SAFETY: Alignment 1, 4 initialized bytes that are not accessed otherwise
+        // SAFETY: Alignment 1, size and capacity 4, 4 initialized bytes that are not accessed
+        // otherwise
         assert!(unsafe { VariableElements::<Ctx>::try_from_ptr(&ptr, &size, 4) }.is_none());
-        // SAFETY: Alignment 1, 4 initialized bytes that are not accessed otherwise
+        // SAFETY: Alignment 1, size and capacity 4, 4 initialized bytes that are not accessed
+        // otherwise
         let parsed = unsafe { VariableElements::<Ctx>::try_from_mut_ptr(&mut ptr, &mut size, 4) };
         assert!(parsed.is_none());
     }
-
-    // The size must be a multiple of the element size
-    let mut words = [0u32; 2];
-    let mut ptr = NonNull::from_mut(&mut words).cast::<u32>();
-    let mut size = 6;
-    // SAFETY: Aligned, 8 initialized bytes that are not accessed otherwise
-    assert!(unsafe { VariableElements::<u32>::try_from_ptr(&ptr, &size, 8) }.is_none());
-    // SAFETY: Aligned, 8 initialized bytes that are not accessed otherwise
-    assert!(unsafe { VariableElements::<u32>::try_from_mut_ptr(&mut ptr, &mut size, 8) }.is_none());
 
     // Size `0` over uninitialized memory is empty
     let mut uninit = [MaybeUninit::<u32>::uninit(); 2];
     let mut ptr = NonNull::from_mut(&mut uninit).cast::<u32>();
     let mut size = 0;
     {
-        // SAFETY: Aligned, valid for reads and writes of 8 bytes, size `0`
+        // SAFETY: Aligned, size `0` within capacity 8, valid for reads and writes of 8 bytes that
+        // are not accessed otherwise
         let mut elements =
             unsafe { VariableElements::<u32>::try_from_mut_ptr(&mut ptr, &mut size, 8) }.unwrap();
         assert!(elements.get_initialized().is_empty());
         assert!(elements.append(&[7]));
     }
     assert_eq!(size, 4);
-    // SAFETY: Aligned, 4 bytes initialized by `append()` above
+    // SAFETY: Aligned, size 4 within capacity 8, 4 bytes initialized by `append()` above that are
+    // not accessed otherwise
     let elements = unsafe { VariableElements::<u32>::try_from_ptr(&ptr, &size, 8) }.unwrap();
     assert_eq!(elements.get_initialized(), &[7]);
 }

@@ -174,7 +174,8 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         {
             let internal_args = Blake3HashChunkInternalArgs::new(internal_args_addr, data_to_hash);
-            // SAFETY: Byte representation of `#[repr(C)]` without internal padding
+            // SAFETY: Byte representation of a `TrivialType`, which has no padding, hence fully
+            // initialized
             let internal_args_bytes = unsafe {
                 slice::from_raw_parts(
                     ptr::from_ref(&internal_args).cast::<u8>(),
@@ -284,7 +285,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         {
             let internal_args =
                 Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, message);
-            // SAFETY: Byte representation of `#[repr(C)]` without internal padding
+            // SAFETY: Byte representation of a `TrivialType`, which has no padding, hence fully
+            // initialized
             let internal_args_bytes = unsafe {
                 slice::from_raw_parts(
                     ptr::from_ref(&internal_args).cast::<u8>(),

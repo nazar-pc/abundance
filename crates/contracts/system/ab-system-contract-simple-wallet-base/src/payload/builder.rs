@@ -3,14 +3,14 @@
 #[cfg(test)]
 mod tests;
 
-extern crate alloc;
-
 use crate::payload::{
-    FfiDataSizeCapacityRo, TransactionInput, TransactionMethodContext, TransactionSlot,
+    FfiDataSizeCapacityRo, TransactionInput, TransactionMethodContext, TransactionOutput,
+    TransactionSlot,
 };
+use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::metadata::decode::{
-    ArgumentKind, MetadataDecodingError, MethodMetadataDecoder, MethodMetadataItem,
+    ArgumentKind, MetadataDecodingError, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
     MethodsContainerKind,
 };
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
@@ -18,12 +18,11 @@ use ab_core_primitives::address::Address;
 use ab_io_type::MAX_ALIGNMENT;
 use ab_io_type::metadata::IoTypeDetails;
 use ab_io_type::trivial_type::TrivialType;
-use alloc::vec::Vec;
 use core::ffi::c_void;
 use core::mem::MaybeUninit;
 use core::num::NonZeroU8;
 use core::ptr::NonNull;
-use core::{ptr, slice};
+use core::slice;
 
 const {
     // Make sure bit flags for all arguments will fit into a single u8 below
@@ -60,30 +59,39 @@ pub enum TransactionPayloadBuilderError<'a> {
     /// Invalid output index
     #[error("Invalid output index: {0}")]
     InvalidOutputIndex(u8),
+    /// The payload doesn't fit into the maximum size given to [`TransactionPayloadBuilder::new()`]
+    #[error("The payload is too large")]
+    PayloadTooLarge,
 }
 
 /// Builder for payload to be used with [`TxHandler`] (primarily for [`SimpleWallet`]).
 ///
-/// Decoding can be done with [`TransactionPayloadDecoder`]
+/// Methods in the payload are decoded and called with [`TransactionPayloadDecoder`]
 ///
 /// [`TxHandler`]: ab_contracts_standards::tx_handler::TxHandler
 /// [`SimpleWallet`]: crate::SimpleWalletBase
 /// [`TransactionPayloadDecoder`]: crate::payload::TransactionPayloadDecoder
 #[derive(Debug, Clone)]
 pub struct TransactionPayloadBuilder {
-    payload: Vec<u8>,
-}
-
-impl Default for TransactionPayloadBuilder {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            payload: Vec::with_capacity(1024),
-        }
-    }
+    payload: OwnedAlignedBuffer,
 }
 
 impl TransactionPayloadBuilder {
+    /// Create a new instance for a payload of up to `max_size` bytes.
+    ///
+    /// Memory for the whole payload is allocated here and never reallocated, a method call that
+    /// doesn't fit returns [`TransactionPayloadBuilderError::PayloadTooLarge`]. The payload is
+    /// padded to a multiple of [`MAX_ALIGNMENT`], so `max_size` is rounded down to a multiple of
+    /// it.
+    #[inline]
+    pub fn new(max_size: u32) -> Self {
+        Self {
+            payload: OwnedAlignedBuffer::with_capacity(
+                max_size / u32::from(MAX_ALIGNMENT) * u32::from(MAX_ALIGNMENT),
+            ),
+        }
+    }
+
     /// Add method call to the payload.
     ///
     /// The wallet will call this method in addition order.
@@ -91,6 +99,26 @@ impl TransactionPayloadBuilder {
     /// `slot_output_index` and `input_output_index` are used for referencing earlier outputs as
     /// slots or inputs of this method, its values are optional, see [`TransactionInput`] for more
     /// details.
+    ///
+    /// Outputs are given to the method empty, with size `0`, so methods called from transactions
+    /// must accept empty outputs, like [`MaybeData`] and [`VariableElements`]. A method with an
+    /// `#[output]` of a [`TrivialType`] can't be called directly from a transaction, since its
+    /// value has to be initialized first, for example by a separate method. Initializing values
+    /// is domain-specific, so the payload format doesn't do it. Executors that check arguments
+    /// against the method's metadata reject such calls, while the native executor trusts
+    /// transactions, so with it such a call violates the requirements of the called method.
+    ///
+    /// The return value is given the size of its type, since executors write the whole value, so
+    /// later methods can refer to it as an input or a slot. The state returned by an `#[init]`
+    /// method is the exception: executors store it as the state of the contract instead of writing
+    /// it to the caller, so it is encoded as an output with capacity `0`, like the state in the
+    /// last `#[output]` of `#[init]` without a return value, and later methods referring to it get
+    /// it empty.
+    ///
+    /// On error, part of the method call might have already been added to the payload.
+    ///
+    /// [`MaybeData`]: ab_io_type::maybe_data::MaybeData
+    /// [`VariableElements`]: ab_io_type::variable_elements::VariableElements
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn with_method_call<Args>(
         &mut self,
@@ -165,16 +193,18 @@ impl TransactionPayloadBuilder {
             ));
         }
 
-        self.extend_payload_with_alignment(contract.as_bytes(), align_of_val(contract));
+        self.extend_payload_with_alignment(contract.as_bytes(), align_of_val(contract))?;
         self.extend_payload_with_alignment(
             method_fingerprint.as_bytes(),
             align_of_val(method_fingerprint),
-        );
-        self.push_payload_byte(method_context as u8);
+        )?;
+        self.push_payload_byte(method_context as u8)?;
 
         let mut num_slot_arguments = 0u8;
         let mut num_input_arguments = 0u8;
         let mut num_output_arguments = 0u8;
+        // Offset of the return value among outputs if executors write it to the caller
+        let mut return_value_offset = None;
 
         let mut input_output_type_details =
             [MaybeUninit::<IoTypeDetails>::uninit(); MAX_TOTAL_METHOD_ARGS as usize];
@@ -200,6 +230,14 @@ impl TransactionPayloadBuilder {
                     num_input_arguments += 1;
                 }
                 ArgumentKind::Output | ArgumentKind::Return => {
+                    // Executors store the state returned by `#[init]` instead of writing it to the
+                    // caller, so it is encoded as an output, like the state in the last `#[output]`
+                    // of `#[init]` without a return value
+                    if matches!(item.argument_kind, ArgumentKind::Return)
+                        && !matches!(method_kind, MethodKind::Init)
+                    {
+                        return_value_offset = Some(usize::from(num_output_arguments));
+                    }
                     input_output_type_details
                         [usize::from(num_input_arguments + num_output_arguments)]
                     .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
@@ -221,7 +259,7 @@ impl TransactionPayloadBuilder {
         };
 
         // Store number of slots and `TransactionSlot` for each slot
-        self.push_payload_byte(num_slot_arguments);
+        self.push_payload_byte(num_slot_arguments)?;
         for slot_offset in 0..usize::from(num_slot_arguments) {
             let slot_type = if let Some(&Some(output_index)) = slot_output_index.get(slot_offset) {
                 TransactionSlot::new_output_index(output_index).ok_or(
@@ -230,11 +268,11 @@ impl TransactionPayloadBuilder {
             } else {
                 TransactionSlot::new_address()
             };
-            self.push_payload_byte(slot_type.into_u8());
+            self.push_payload_byte(slot_type.into_u8())?;
         }
 
         // Store number of inputs and `TransactionInput` for each input
-        self.push_payload_byte(num_input_arguments);
+        self.push_payload_byte(num_input_arguments)?;
         for (input_offset, type_details) in input_type_details.iter().enumerate() {
             let input_type = if let Some(&Some(output_index)) = input_output_index.get(input_offset)
             {
@@ -246,11 +284,11 @@ impl TransactionPayloadBuilder {
                     TransactionPayloadBuilderError::InvalidAlignment(type_details.alignment),
                 )?
             };
-            self.push_payload_byte(input_type.into_u8());
+            self.push_payload_byte(input_type.into_u8())?;
         }
 
         // Store number of outputs
-        self.push_payload_byte(num_output_arguments);
+        self.push_payload_byte(num_output_arguments)?;
 
         for slot_offset in 0..usize::from(num_slot_arguments) {
             // SAFETY: Method description requires the layout to correspond to metadata
@@ -262,7 +300,7 @@ impl TransactionPayloadBuilder {
                 .flatten()
                 .is_none()
             {
-                self.extend_payload_with_alignment(address.as_bytes(), align_of_val(address));
+                self.extend_payload_with_alignment(address.as_bytes(), align_of_val(address))?;
             }
         }
 
@@ -286,30 +324,35 @@ impl TransactionPayloadBuilder {
                 .flatten()
                 .is_none()
             {
-                self.extend_payload_with_alignment(&size.to_le_bytes(), align_of_val(&size));
-                self.extend_payload_with_alignment(data, type_details.alignment.get() as usize);
+                self.extend_payload_with_alignment(&size.to_le_bytes(), align_of_val(&size))?;
+                self.extend_payload_with_alignment(data, type_details.alignment.get() as usize)?;
             }
         }
 
-        for type_details in output_type_details {
+        for (output_offset, type_details) in output_type_details.iter().enumerate() {
+            let output_type = if return_value_offset == Some(output_offset) {
+                TransactionOutput::new_return_value(type_details.alignment)
+            } else {
+                TransactionOutput::new_output(type_details.alignment)
+            }
+            .ok_or(TransactionPayloadBuilderError::InvalidAlignment(
+                type_details.alignment,
+            ))?;
             self.extend_payload_with_alignment(
                 &type_details.recommended_capacity.to_le_bytes(),
                 align_of_val(&type_details.recommended_capacity),
-            );
-            self.extend_payload_with_alignment(
-                &[type_details.alignment.ilog2() as u8],
-                align_of::<u8>(),
-            );
+            )?;
+            self.push_payload_byte(output_type.into_u8())?;
         }
 
         Ok(())
     }
 
-    /// Returns 16-byte aligned bytes.
+    /// Returns 16-byte aligned bytes, padded to a multiple of `u128` size.
     ///
     /// The contents is a concatenated sequence of method calls with their arguments. All data
     /// structures are correctly aligned in the returned byte buffer with `0` used as padding when
-    /// necessary.
+    /// necessary. [`OwnedAlignedBuffer::as_u128_slice()`] returns the whole payload as `u128`s.
     ///
     /// Each method is serialized in the following way:
     /// * Contract to call: [`Address`]
@@ -321,63 +364,85 @@ impl TransactionPayloadBuilder {
     /// * Number of `#[input]` arguments: `u8`
     /// * For each `#[input]` argument:
     ///     * [`TransactionInput`] for each `#[input]` argument as `u8`
-    /// * Number of `#[output]` arguments: `u8`
+    /// * Number of `#[output]` arguments, including the return value: `u8`
     /// * For each [`TransactionSlot`], whose type is [`TransactionSlotType::Address`]:
     ///     * [`Address`]
     /// * For each [`TransactionInput`], whose type is [`TransactionInputType::Value`]:
     ///     * Input size as little-endian `u32` followed by the input itself
-    /// * For each `#[output]`:
-    ///     * recommended capacity as little-endian `u32` followed by alignment power as `u8`
-    ///       (`NonZeroU8::ilog2(alignment)`)
+    /// * For each `#[output]` and the return value:
+    ///     * recommended capacity as little-endian `u32` followed by [`TransactionOutput`] as `u8`
     ///
     /// [`TransactionSlotType::Address`]: crate::payload::TransactionSlotType::Address
     /// [`TransactionInputType::Value`]: crate::payload::TransactionInputType::Value
-    // TODO: Figure out how and make it possible to apply `no-panic` here
-    pub fn into_aligned_bytes(mut self) -> Vec<u128> {
-        // Fill bytes to make it multiple of `u128` before creating `u128`-based vector
-        self.ensure_alignment(usize::from(MAX_ALIGNMENT));
-
-        let output_len = self.payload.len() / size_of::<u128>();
-        let mut output = Vec::<u128>::with_capacity(output_len);
-
-        // SAFETY: Pointers are valid for reads/writes, aligned and not overlapping
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn into_aligned_bytes(mut self) -> OwnedAlignedBuffer {
+        // SAFETY: Constructor guarantees that capacity is a multiple of `MAX_ALIGNMENT` and is
+        // never exceeded
         unsafe {
-            ptr::copy_nonoverlapping(
-                self.payload.as_ptr(),
-                output.as_mut_ptr().cast::<u8>(),
-                self.payload.len(),
-            );
-            output.set_len(output_len);
+            self.ensure_alignment(usize::from(MAX_ALIGNMENT))
+                .unwrap_unchecked();
         }
 
-        debug_assert_eq!(align_of_val(output.as_slice()), usize::from(MAX_ALIGNMENT));
-
-        output
+        self.payload
     }
 
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    fn extend_payload_with_alignment(&mut self, bytes: &[u8], alignment: usize) {
-        self.ensure_alignment(alignment);
-
-        self.payload.extend_from_slice(bytes);
+    fn extend_payload_with_alignment(
+        &mut self,
+        bytes: &[u8],
+        alignment: usize,
+    ) -> Result<(), TransactionPayloadBuilderError<'static>> {
+        self.ensure_alignment(alignment)?;
+        self.extend_payload(bytes)
     }
 
-    // TODO: Figure out how sand make it possible to apply `no-panic` here
-    fn ensure_alignment(&mut self, alignment: usize) {
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    fn ensure_alignment(
+        &mut self,
+        alignment: usize,
+    ) -> Result<(), TransactionPayloadBuilderError<'static>> {
         debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
         // let unaligned_by = self.payload.len() % alignment;
-        let unaligned_by = self.payload.len() & (alignment - 1);
+        let unaligned_by = self.payload.len() as usize & (alignment - 1);
         if unaligned_by > 0 {
             // SAFETY: Subtracted value is always smaller than alignment
             let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
-            self.payload.resize(self.payload.len() + padding_bytes, 0);
+            // Byte by byte rather than as a slice of zeroes, which the compiler can't prove to be
+            // in bounds for alignments that come from metadata
+            for _ in 0..padding_bytes {
+                self.push_payload_byte(0)?;
+            }
         }
+
+        Ok(())
     }
 
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    fn push_payload_byte(&mut self, byte: u8) {
-        self.payload.push(byte);
+    fn push_payload_byte(
+        &mut self,
+        byte: u8,
+    ) -> Result<(), TransactionPayloadBuilderError<'static>> {
+        self.extend_payload(&[byte])
+    }
+
+    /// Append `bytes` to the payload if they fit into its capacity, it is never reallocated
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    fn extend_payload(
+        &mut self,
+        bytes: &[u8],
+    ) -> Result<(), TransactionPayloadBuilderError<'static>> {
+        // The same checks as in `OwnedAlignedBuffer::append()`, so the compiler can prove that it
+        // never reallocates
+        let fits = u32::try_from(bytes.len())
+            .ok()
+            .and_then(|len| self.payload.len().checked_add(len))
+            .is_some_and(|new_len| new_len <= self.payload.capacity());
+        if !(fits && self.payload.append(bytes)) {
+            return Err(TransactionPayloadBuilderError::PayloadTooLarge);
+        }
+
+        Ok(())
     }
 }

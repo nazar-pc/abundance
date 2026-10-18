@@ -211,9 +211,13 @@ impl NativeExecutorBuilder {
 ///
 /// It trusts contracts and data they forward (like transaction payloads): methods are called
 /// through pointers to arguments as provided by callers, without checking them against method
-/// metadata, which keeps execution as cheap as possible. Arguments that don't match metadata of
-/// the called method are undefined behavior rather than an error, which running tests under Miri
-/// can detect. Executors of untrusted contracts must check arguments against method metadata.
+/// metadata, which keeps execution as cheap as possible. Arguments whose sizes, capacities or
+/// alignment don't match metadata of the called method are undefined behavior rather than an
+/// error, which running tests under Miri can detect. For `#[input]` and `#[output]` arguments,
+/// debug assertions of the called method also catch such mismatches in debug builds. Contents of
+/// `#[input]` and `#[output]` arguments are parsed by the called method itself, which returns
+/// `ContractError::BadInput` for invalid ones. Executors of untrusted contracts must check sizes,
+/// capacities and alignment of arguments against method metadata, like the RISC-V VM does.
 #[derive(Debug)]
 pub struct NativeExecutor {
     shard_index: ShardIndex,

@@ -29,6 +29,7 @@ Breaking changes:
 * `IoType` requires `try_from_ptr()` and `try_from_mut_ptr()`
 * `VariableBytes::read_trivial_type()`, which created invalid enum values from bytes in safe code, is removed,
   `TrivialType::try_read_unaligned()` replaces it
+* `Bool` is removed, `bool` implements `TrivialType` and parsing accepts only `0` and `1` for it
 
 Improvements:
 
@@ -38,7 +39,8 @@ Improvements:
 * `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()`, `try_read_unaligned()` and
   `try_read_unaligned_exact()` parse bytes safely, checking enum discriminants and the length of
   `FixedCapacityElements`
-* `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking size, capacity and contents
+* `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking its contents, while size, capacity
+  and alignment must be valid for the type, like for `from_ptr()` and `from_mut_ptr()`
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
 * `IoTypeMut` gives exclusive access to an `IoType` value, it is implemented for every `IoType` and for values that
   `MaybeData::from_mut()`, `MaybeData::from_uninit()`, `VariableElements::from_buffer_mut()` and

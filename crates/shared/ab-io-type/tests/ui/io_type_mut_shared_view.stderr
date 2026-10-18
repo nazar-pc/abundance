@@ -9,10 +9,10 @@ error[E0277]: `impl Deref<Target = ab_io_type::maybe_data::MaybeData<u64>> + '_`
    = help: the following other types implement trait `TrivialType`:
              ()
              [T; SIZE]
-             ab_io_type::bool::Bool
              ab_io_type::fixed_capacity_elements::FixedCapacityElements<Element, CAPACITY>
              ab_io_type::fixed_capacity_string::FixedCapacityString<CAPACITY>
              ab_io_type::unaligned::Unaligned<Data>
+             bool
              i128
              i16
            and $N others

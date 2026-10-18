@@ -1,5 +1,9 @@
 # 0.1.2
 
+New features:
+
+* `OwnedAlignedBuffer::as_u128_slice()` returns the contents as whole `u128`s
+
 Improvements:
 
 * The reference counter of `SharedAlignedBuffer` is 64-bit, practically eliminating previously documented possibility of
