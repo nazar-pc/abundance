@@ -1,5 +1,6 @@
 use crate::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use alloc::vec;
+use alloc::vec::Vec;
 use core::ops::{Deref, DerefMut};
 
 const EXPECTED_ALIGNMENT: usize = align_of::<u128>();
@@ -227,4 +228,25 @@ fn realloc() {
     assert!(owned.append(&[1; 1000 - 3]));
     // Ensure it didn't reallocate
     assert_eq!(ptr_before_append, owned.as_ptr());
+}
+
+#[test]
+fn as_u128_slice() {
+    let bytes = (0..=u8::MAX).collect::<Vec<_>>();
+
+    for len in 0..=3 * size_of::<u128>() {
+        let owned = OwnedAlignedBuffer::from_bytes(&bytes[..len]);
+        let u128s = owned.as_u128_slice();
+        assert_eq!(u128s.as_ptr(), owned.as_ptr(), "Length {len}");
+        // Only whole `u128`s are included
+        assert_eq!(u128s.len(), len / size_of::<u128>(), "Length {len}");
+        assert_eq!(
+            u128s
+                .iter()
+                .flat_map(|value| value.to_ne_bytes())
+                .collect::<Vec<_>>(),
+            &bytes[..size_of_val(u128s)],
+            "Length {len}"
+        );
+    }
 }

@@ -205,6 +205,15 @@ impl InnerBuffer {
     }
 
     #[inline(always)]
+    const fn as_u128_slice(&self) -> &[u128] {
+        let len = self.len() as usize / size_of::<u128>();
+        // SAFETY: Not null, correctly aligned, and the first `len` elements are initialized, since
+        // they are within `self.len()` bytes, which are initialized (a protected invariant of the
+        // implementation)
+        unsafe { slice::from_raw_parts(self.as_ptr(), len) }
+    }
+
+    #[inline(always)]
     const fn as_ptr(&self) -> *const u128 {
         // SAFETY: Constructor allocates the first element for `strong_count`
         unsafe { self.buffer.as_ptr().cast::<u128>().cast_const().add(1) }
@@ -287,6 +296,15 @@ impl OwnedAlignedBuffer {
     #[inline(always)]
     pub const fn as_mut_slice(&mut self) -> &mut [u8] {
         self.inner.as_mut_slice()
+    }
+
+    /// Contents as `u128`s.
+    ///
+    /// Only whole `u128`s are included: when the length is not a multiple of `u128` size, the
+    /// bytes after the last whole `u128` are not.
+    #[inline(always)]
+    pub const fn as_u128_slice(&self) -> &[u128] {
+        self.inner.as_u128_slice()
     }
 
     #[inline(always)]
