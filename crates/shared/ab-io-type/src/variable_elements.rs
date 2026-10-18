@@ -244,11 +244,11 @@ where
 }
 
 // Sizes are converted to the number of elements by dividing by the element size, so elements must
-// not be zero-sized
+// not be zero-sized, which the `IoType` implementation checks
 impl<Element, const RECOMMENDED_ALLOCATION: u32> VariableElements<Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
-    [(); NON_ZERO_SIZED::<Element>]:,
+    Self: IoType,
 {
     /// Create a new shared instance from provided memory buffer.
     ///
@@ -260,7 +260,7 @@ where
     // shared reference for most practical purposes.
     #[inline(always)]
     pub const fn from_buffer<'a>(
-        buffer: &'a [<Self as IoType>::PointerType],
+        buffer: &'a [Element],
         size: &'a u32,
     ) -> Option<impl Deref<Target = Self> + 'a> {
         if size_of_val(buffer) != *size as usize {
@@ -285,7 +285,7 @@ where
     // exclusive reference for most practical purposes.
     #[inline(always)]
     pub fn from_buffer_mut<'a>(
-        buffer: &'a mut [<Self as IoType>::PointerType],
+        buffer: &'a mut [Element],
         size: &'a mut u32,
     ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
         if size_of_val(buffer) != *size as usize {
@@ -311,7 +311,7 @@ where
     // exclusive reference for most practical purposes.
     #[inline(always)]
     pub fn from_uninit<'a>(
-        uninit: &'a mut [MaybeUninit<<Self as IoType>::PointerType>],
+        uninit: &'a mut [MaybeUninit<Element>],
         size: &'a mut u32,
     ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
         if *size != 0 {

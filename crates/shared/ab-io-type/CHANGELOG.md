@@ -27,6 +27,9 @@ Breaking changes:
 * `TrivialType` requires `'static` and the parsing step `try_from_bytes_unaligned()`, which the derive implements
 * Provided methods of `TrivialType` can't be overridden
 * `IoType` requires `try_from_ptr()` and `try_from_mut_ptr()`
+* Methods of `MaybeData` and `VariableElements` require `MaybeData<Data>: IoType` and
+  `VariableElements<Element, RECOMMENDED_ALLOCATION>: IoType`, which don't hold for zero-sized types, generic code
+  calling them needs these bounds
 * `VariableBytes::read_trivial_type()`, which created invalid enum values from bytes in safe code, is removed,
   `TrivialType::try_read_unaligned()` replaces it
 * `Bool` is removed, `bool` implements `TrivialType` and parsing accepts only `0` and `1` for it
