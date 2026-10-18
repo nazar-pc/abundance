@@ -47,7 +47,8 @@ Improvements:
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
 * `IoTypeMut` gives exclusive access to an `IoType` value, it is implemented for every `IoType` and for values that
   `MaybeData::from_mut()`, `MaybeData::from_uninit()`, `VariableElements::from_buffer_mut()` and
-  `VariableElements::from_uninit()` return
+  `VariableElements::from_uninit()` return. It is an `unsafe` trait, so that generic code can rely on
+  `io_type_mut()` returning the same value owned by the implementation on every call
 
 Fixes:
 

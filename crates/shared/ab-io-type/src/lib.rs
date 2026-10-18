@@ -312,12 +312,19 @@ pub unsafe trait IoTypeOptional: IoType {}
 ///
 /// This allows generic code to accept both.
 ///
+/// # Safety
+/// Generic code relies on [`Self::io_type_mut()`] giving access to a single value owned by `Self`:
+/// every call returns a reference to the same value without changing it or anything else, and the
+/// value is not accessible other than through `Self`. Generic code may also move the value out of
+/// `Self` through that reference and forget `Self` right after, so the value must stay valid
+/// without `Self`.
+///
 /// [`MaybeData::from_mut()`]: maybe_data::MaybeData::from_mut
 /// [`VariableElements::from_uninit()`]: variable_elements::VariableElements::from_uninit
 #[diagnostic::on_unimplemented(
     message = "`{Self}` doesn't give exclusive access to an `IoType` value"
 )]
-pub trait IoTypeMut {
+pub unsafe trait IoTypeMut {
     /// The type of the value
     type Target: IoType;
 
@@ -325,7 +332,8 @@ pub trait IoTypeMut {
     fn io_type_mut(&mut self) -> &mut Self::Target;
 }
 
-impl<T> IoTypeMut for T
+// SAFETY: The value is `self` itself
+unsafe impl<T> IoTypeMut for T
 where
     T: IoType,
 {
@@ -337,7 +345,8 @@ where
     }
 }
 
-impl<T> IoTypeMut for DerefWrapper<T>
+// SAFETY: The value is the only field of the wrapper, which doesn't implement `Drop`
+unsafe impl<T> IoTypeMut for DerefWrapper<T>
 where
     T: IoType,
 {
