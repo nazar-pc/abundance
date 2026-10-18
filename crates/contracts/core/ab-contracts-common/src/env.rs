@@ -1,7 +1,9 @@
 use crate::ContractError;
 use crate::method::{ExternalArgs, MethodFingerprint};
+use crate::output::Lent;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::shard::ShardIndex;
+use ab_io_type::IoType;
 use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
 use core::marker::PhantomData;
@@ -201,32 +203,26 @@ pub struct Env<'a> {
     executor_context: &'a dyn ExecutorContext,
     /// Makes `Env` invariant over `'a`.
     ///
-    /// Code that gets `Env<'a>` may give calls memory that it borrowed for `'a`, and a call can
-    /// leave contents behind in that memory that are not a valid value. The borrow stops that code
-    /// from accessing the memory again before `'a` ends, and afterward the memory is only accessed
-    /// by parsing it first (see `Env::with_executor_context()`). If `Env<'a>` could be shortened
-    /// to `Env<'short>`, the code could give calls memory borrowed only for `'short` and then
-    /// access it directly once `'short` ends, while it may still hold an invalid value.
+    /// Code that gets `Env<'a>` can lend memory to calls with [`Env::lend_output()`], which keeps
+    /// it borrowed for `'a`, and a call can leave contents behind in that memory that are not a
+    /// valid value. The borrow stops that code from accessing the memory again before `'a` ends,
+    /// and afterward the memory is only accessed by parsing it first (see
+    /// `Env::with_executor_context()`). If `Env<'a>` could be shortened to `Env<'short>`, the code
+    /// could lend memory borrowed only for `'short` and then access it directly once `'short`
+    /// ends, while it may still hold an invalid value.
     invariant_lifetime: PhantomData<fn(&'a ()) -> &'a ()>,
 }
 
 // TODO: API to "attach" data structures to the environment to make sure pointers to it can be
 //  returned safely, will likely require `Pin` and return some reference from which pointer is to
 //  be created
-#[cfg_attr(
-    not(feature = "executor"),
-    expect(
-        clippy::elidable_lifetime_names,
-        reason = "False-positive, see https://github.com/rust-lang/rust-clippy/issues/17638"
-    )
-)]
 impl<'a> Env<'a> {
     /// Instantiate environment with executor context.
     ///
     /// # Safety
     /// Code that uses the returned `Env` may rely on its lifetime `'a`: memory it borrows for `'a`
-    /// stays inaccessible to others until `'a` ends, and contents it leaves behind in that memory
-    /// may not be a valid value. Hence:
+    /// (see [`Self::lend_output()`]) stays inaccessible to others until `'a` ends, and contents it
+    /// leaves behind in that memory may not be a valid value. Hence:
     /// * memory borrowed for `'a` by code that uses the `Env` must not be accessed after `'a` ends
     ///   other than by parsing it, unless its contents accept every bit pattern. For example, a
     ///   method that creates an `Env` to lend memory it received must give it a lifetime that lasts
@@ -278,6 +274,28 @@ impl<'a> Env<'a> {
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn caller<'b>(self: &'b &'b mut Self) -> Address {
         self.state.caller
+    }
+
+    /// Lend an `#[output]` the method received, or a field of one, to calls as an `#[output]`.
+    ///
+    /// The memory stays borrowed until the method returns, so after a call its contents are only
+    /// accessible through the returned [`Lent`], which parses them first. The state of the
+    /// contract (including the state that an `#[init]` method returns through its last
+    /// `#[output]`) and `#[slot]` and `#[tmp]` arguments are trusted without being parsed, so they
+    /// can't be lent this way: lend a copy made with [`Lent::new()`] instead. Local memory is lent
+    /// with [`Lent::new()`], `Lent::<MaybeData<_>>::from_uninit()` or
+    /// `Lent::<VariableElements<_>>::from_uninit()`.
+    #[inline(always)]
+    pub fn lend_output<'b, T>(&self, value: &'b mut T) -> Lent<'b, T>
+    where
+        T: IoType,
+        'b: 'a,
+    {
+        // SAFETY: `value` stays borrowed for at least `'a`. Memory that code using an `Env`
+        // borrows for its lifetime is only accessed afterward by parsing it, unless its contents
+        // accept every bit pattern, as `Self::with_executor_context()` requires (the host upholds
+        // the same for an `Env` it gives to a guest).
+        unsafe { Lent::from_mut_unchecked(value) }
     }
 
     /// Call a method at specified address and with specified arguments.

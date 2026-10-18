@@ -1,0 +1,19 @@
+error[E0506]: cannot assign to `*mode` because it is borrowed
+  --> tests/ui/lend_output_original_written_on_error.rs:26:9
+   |
+23 | fn write_on_error<'a>(env: &Env<'a>, mode: &'a mut Mode) {
+   |                   -- lifetime `'a` defined here
+24 |     let mut lent = env.lend_output(mode);
+   |                    ---------------------
+   |                    |               |
+   |                    |               `*mode` is borrowed here
+   |                    argument requires that `*mode` is borrowed for `'a`
+25 |     if call(&mut lent).is_err() {
+26 |         *mode = Mode::A;
+   |         ^^^^^^^^^^^^^^^ `*mode` is assigned to here but it was already borrowed
+   |
+note: requirement that the value outlives `'a` introduced here
+  --> src/env.rs
+   |
+   |         'b: 'a,
+   |             ^^

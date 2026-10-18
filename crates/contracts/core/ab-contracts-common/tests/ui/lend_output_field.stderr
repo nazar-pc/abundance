@@ -1,0 +1,19 @@
+error[E0503]: cannot use `output.mode` because it was mutably borrowed
+  --> tests/ui/lend_output_field.rs:32:18
+   |
+28 | fn output_field<'a>(env: &Env<'a>, output: &'a mut Pair) {
+   |                 -- lifetime `'a` defined here
+29 |     let mut lent = env.lend_output(&mut output.mode);
+   |                    ---------------------------------
+   |                    |               |
+   |                    |               `output.mode` is borrowed here
+   |                    argument requires that `output.mode` is borrowed for `'a`
+...
+32 |     let _value = output.mode;
+   |                  ^^^^^^^^^^^ use of borrowed `output.mode`
+   |
+note: requirement that the value outlives `'a` introduced here
+  --> src/env.rs
+   |
+   |         'b: 'a,
+   |             ^^
