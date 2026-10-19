@@ -5,22 +5,24 @@ use crate::payload::decoder::{
     DecodedInput, DecodedOutput, DecodedSlot, TransactionPayloadDecoder,
 };
 use crate::payload::{
-    TransactionInput, TransactionMethodContext, TransactionOutput, TransactionOutputKind,
+    DeclaredOutput, FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, TransactionInput,
+    TransactionMethodContext, TransactionOutput, TransactionOutputKind,
     TransactionPayloadCallError, TransactionPayloadCaller, TransactionPayloadDecoderError,
     TransactionSlot,
 };
-use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER_SIZE};
+use crate::{EXTERNAL_ARGS_BUFFER_SIZE, MAX_OUTPUTS, OUTPUT_BUFFER_SIZE};
+use ab_contracts_common::ContractError;
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
 use ab_contracts_common::method::MethodFingerprint;
-use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
+use core::ffi::c_void;
 use core::mem::MaybeUninit;
 use core::ptr;
 
-/// More entries than any test needs, of which tests use a part
-pub(crate) const MAX_OUTPUT_BUFFER_DETAILS: usize = 256;
+/// Size of the output buffer of `SimpleWalletBase` in bytes
+pub(crate) const OUTPUT_BUFFER_BYTES: u32 = (OUTPUT_BUFFER_SIZE * size_of::<u128>()) as u32;
 
 /// Calls prepared methods with a function instead of the host
 pub(crate) struct CallWith<Call>(Call);
@@ -156,14 +158,14 @@ pub(crate) enum OutputTag {
 }
 
 impl OutputTag {
-    /// `#[output]`
-    pub(crate) fn output() -> Self {
-        Self::Valid(TransactionOutput::new_output())
+    /// `#[output]` that writes the declared output with `output_index`
+    pub(crate) fn output(output_index: u8) -> Self {
+        Self::Valid(TransactionOutput::new_output(output_index).unwrap())
     }
 
-    /// Return value
-    pub(crate) fn return_value() -> Self {
-        Self::Valid(TransactionOutput::new_return_value())
+    /// Return value that is written into the declared output with `output_index`
+    pub(crate) fn return_value(output_index: u8) -> Self {
+        Self::Valid(TransactionOutput::new_return_value(output_index).unwrap())
     }
 
     /// `byte` as a valid tag if [`TransactionOutput::from_u8()`] accepts it, an invalid one
@@ -228,11 +230,28 @@ impl TestPayload {
     const FINGERPRINT: [u8; MethodFingerprint::SIZE as usize] =
         [7; MethodFingerprint::SIZE as usize];
 
-    pub(crate) fn new() -> Self {
+    /// Payload without any bytes, not even the number of declared outputs
+    pub(crate) fn empty() -> Self {
         Self {
             words: [0; 256],
             len: 0,
         }
+    }
+
+    /// Payload that declares outputs with `capacities`, to which methods are added
+    pub(crate) fn new(capacities: &[u32]) -> Self {
+        let mut payload = Self::empty();
+        payload.push(&[u8::try_from(capacities.len()).unwrap()], 1);
+        for capacity in capacities {
+            payload.push(&capacity.to_le_bytes(), align_of::<u32>());
+        }
+
+        payload
+    }
+
+    /// Number of bytes written
+    pub(crate) fn len(&self) -> usize {
+        self.len
     }
 
     /// Fingerprint of every method
@@ -260,7 +279,7 @@ impl TestPayload {
         context: ContextByte,
         slot_tags: &[SlotTag],
         input_tags: &[InputTag],
-        num_outputs: u8,
+        output_tags: &[OutputTag],
     ) -> &mut Self {
         self.push(Self::CONTRACT.as_bytes(), align_of::<Address>())
             .push(&Self::FINGERPRINT, align_of::<MethodFingerprint>())
@@ -273,8 +292,12 @@ impl TestPayload {
         for input_tag in input_tags {
             self.push(&[input_tag.into_u8()], 1);
         }
+        self.push(&[u8::try_from(output_tags.len()).unwrap()], 1);
+        for output_tag in output_tags {
+            self.push(&[output_tag.into_u8()], 1);
+        }
 
-        self.push(&[num_outputs], 1)
+        self
     }
 
     /// Write the header of a method with [`TransactionMethodContext::Wallet`]
@@ -282,13 +305,13 @@ impl TestPayload {
         &mut self,
         slot_tags: &[SlotTag],
         input_tags: &[InputTag],
-        num_outputs: u8,
+        output_tags: &[OutputTag],
     ) -> &mut Self {
         self.method_with_context(
             ContextByte::Valid(TransactionMethodContext::Wallet),
             slot_tags,
             input_tags,
-            num_outputs,
+            output_tags,
         )
     }
 
@@ -306,10 +329,9 @@ impl TestPayload {
         .push(bytes, alignment)
     }
 
-    /// Write the capacity and the tag of an output
-    pub(crate) fn output(&mut self, capacity: u32, tag: OutputTag) -> &mut Self {
-        self.push(&capacity.to_le_bytes(), align_of::<u32>())
-            .push(&[tag.into_u8()], 1)
+    /// Write the size of a return value
+    pub(crate) fn return_value_size(&mut self, size: u32) -> &mut Self {
+        self.push(&size.to_le_bytes(), align_of::<u32>())
     }
 
     /// The payload, with zeroes up to a multiple of `u128`
@@ -318,24 +340,8 @@ impl TestPayload {
     }
 }
 
-/// Payload whose methods have `num_outputs` `#[output]` arguments without capacity together, as
-/// many as possible in each method
-pub(crate) fn payload_with_outputs(num_outputs: usize) -> TestPayload {
-    let mut payload = TestPayload::new();
-    let mut remaining_outputs = num_outputs;
-    while remaining_outputs > 0 {
-        let num_method_outputs = remaining_outputs.min(usize::from(MAX_TOTAL_METHOD_ARGS));
-        payload.method(&[], &[], num_method_outputs as u8);
-        for _ in 0..num_method_outputs {
-            payload.output(0, OutputTag::output());
-        }
-        remaining_outputs -= num_method_outputs;
-    }
-
-    payload
-}
-
 /// What [`TransactionPayloadDecoder`] is expected to describe for one method
+#[derive(Copy, Clone)]
 pub(crate) struct ExpectedMethod<'a> {
     pub(crate) contract: &'a Address,
     pub(crate) fingerprint: &'a MethodFingerprint,
@@ -345,10 +351,28 @@ pub(crate) struct ExpectedMethod<'a> {
     pub(crate) outputs: &'a [DecodedOutput],
 }
 
-/// Check that [`TransactionPayloadDecoder`] describes exactly the methods in `expected`
-pub(crate) fn assert_decoded(payload: &[u128], expected: &[ExpectedMethod<'_>]) {
-    let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
-    let mut decoder = TransactionPayloadDecoder::new(payload, &mut output_buffer_details);
+/// Check that [`TransactionPayloadDecoder`] describes exactly outputs with `capacities` as the
+/// declared outputs and the methods in `expected`
+pub(crate) fn assert_decoded(
+    payload: &[u128],
+    capacities: &[u32],
+    expected: &[ExpectedMethod<'_>],
+) {
+    let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
+    let mut decoder = TransactionPayloadDecoder::new(payload, &mut declared_outputs).unwrap();
+
+    assert_eq!(decoder.declared_outputs().len(), capacities.len());
+    for (output_index, (declared_output, &capacity)) in decoder
+        .declared_outputs()
+        .iter()
+        .zip(capacities)
+        .enumerate()
+    {
+        assert_eq!(
+            declared_output.capacity, capacity,
+            "Output index {output_index}"
+        );
+    }
 
     for (method_index, expected) in expected.iter().enumerate() {
         let method = decoder.next_method().unwrap().unwrap();
@@ -382,15 +406,9 @@ pub(crate) fn assert_decoded(payload: &[u128], expected: &[ExpectedMethod<'_>]) 
 }
 
 /// Decode all methods of `payload` with [`TransactionPayloadDecoder`], returns their number
-pub(crate) fn decode_all(
-    payload: &[u128],
-    num_output_buffer_details: usize,
-) -> Result<usize, TransactionPayloadDecoderError> {
-    let mut output_buffer_details = [MaybeUninit::uninit(); MAX_OUTPUT_BUFFER_DETAILS];
-    let mut decoder = TransactionPayloadDecoder::new(
-        payload,
-        &mut output_buffer_details[..num_output_buffer_details],
-    );
+pub(crate) fn decode_all(payload: &[u128]) -> Result<usize, TransactionPayloadDecoderError> {
+    let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
+    let mut decoder = TransactionPayloadDecoder::new(payload, &mut declared_outputs)?;
 
     let mut num_methods = 0;
     while decoder.next_method()?.is_some() {
@@ -408,18 +426,17 @@ pub(crate) fn decode_all(
 pub(crate) fn call_all(
     payload: &[u128],
     output_buffer: &mut [MaybeUninit<u128>],
-    num_output_buffer_details: usize,
 ) -> Result<usize, TransactionPayloadDecoderError> {
     output_buffer.fill(MaybeUninit::new(0));
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
-    let mut output_buffer_details = [MaybeUninit::uninit(); MAX_OUTPUT_BUFFER_DETAILS];
+    let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
     let mut caller = TransactionPayloadCaller::new(
         payload,
         &mut external_args_buffer,
         output_buffer,
-        &mut output_buffer_details[..num_output_buffer_details],
+        &mut declared_outputs,
         |_method_context| MethodContext::Reset,
-    );
+    )?;
 
     let mut num_methods = 0;
     loop {
@@ -437,22 +454,92 @@ pub(crate) fn call_all(
 }
 
 /// Decode all methods of `payload` with [`TransactionPayloadDecoder`] and call them with
-/// [`TransactionPayloadCaller`], with `num_output_buffer_details` entries each. Both must give the
+/// [`TransactionPayloadCaller`] with the output buffer of `SimpleWalletBase`. Both must give the
 /// same result, which is returned.
-pub(crate) fn decode_and_call_with_details(
-    payload: &[u128],
-    num_output_buffer_details: usize,
-) -> Result<usize, TransactionPayloadDecoderError> {
+pub(crate) fn decode_and_call(payload: &[u128]) -> Result<usize, TransactionPayloadDecoderError> {
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
 
-    let decoded = decode_all(payload, num_output_buffer_details);
-    let called = call_all(payload, &mut output_buffer, num_output_buffer_details);
+    let decoded = decode_all(payload);
+    let called = call_all(payload, &mut output_buffer);
     assert_eq!(decoded, called);
 
     decoded
 }
 
-/// [`decode_and_call_with_details()`] with as many entries as `SimpleWalletBase` has
-pub(crate) fn decode_and_call(payload: &[u128]) -> Result<usize, TransactionPayloadDecoderError> {
-    decode_and_call_with_details(payload, OUTPUT_BUFFER_OFFSETS_SIZE)
+/// Create a caller for `payload` with the buffers of `SimpleWalletBase`
+pub(crate) fn new_caller<'a>(
+    payload: &'a [u128],
+    external_args_buffer: &'a mut [*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE],
+    output_buffer: &'a mut [MaybeUninit<u128>; OUTPUT_BUFFER_SIZE],
+    declared_outputs: &'a mut [MaybeUninit<DeclaredOutput>; MAX_OUTPUTS],
+) -> TransactionPayloadCaller<'a> {
+    TransactionPayloadCaller::new(
+        payload,
+        external_args_buffer,
+        output_buffer,
+        declared_outputs,
+        |method_context| match method_context {
+            TransactionMethodContext::Null => MethodContext::Reset,
+            TransactionMethodContext::Wallet => MethodContext::Keep,
+        },
+    )
+    .unwrap()
+}
+
+/// Call the next method of `caller` with `call`, which must succeed
+pub(crate) fn call_next<Call>(
+    caller: TransactionPayloadCaller<'_>,
+    call: Call,
+) -> TransactionPayloadCaller<'_>
+where
+    Call: Fn(PreparedMethod<'_>) -> Result<(), ContractError>,
+{
+    caller
+        .call_next_method_with(&CallWith::new(call))
+        .unwrap()
+        .unwrap()
+}
+
+/// Check that `caller` has no more methods
+pub(crate) fn assert_no_more_methods(caller: TransactionPayloadCaller<'_>) {
+    assert!(
+        caller
+            .call_next_method_with(&CallWith::new(|_method: PreparedMethod<'_>| {
+                unreachable!("There are no more methods")
+            }))
+            .unwrap()
+            .is_none()
+    );
+}
+
+/// The only argument of `method`, an `#[output]` or a return value
+///
+/// # Safety
+/// The method must have exactly one argument, which is an `#[output]` or a return value.
+pub(crate) unsafe fn only_output<'a>(method: &PreparedMethod<'a>) -> &'a mut FfiDataSizeCapacityRw {
+    // SAFETY: Guaranteed by the function contract
+    unsafe {
+        method
+            .external_args
+            .cast::<FfiDataSizeCapacityRw>()
+            .as_mut()
+    }
+}
+
+/// The only argument of `method`, an `#[input]`
+///
+/// # Safety
+/// The method must have exactly one argument, which is an `#[input]`.
+pub(crate) unsafe fn only_input(method: &PreparedMethod<'_>) -> FfiDataSizeCapacityRo {
+    // SAFETY: Guaranteed by the function contract
+    unsafe { method.external_args.cast::<FfiDataSizeCapacityRo>().read() }
+}
+
+/// The only argument of `method`, a `#[slot]`
+///
+/// # Safety
+/// The method must have exactly one argument, which is a `#[slot]`.
+pub(crate) unsafe fn only_slot(method: &PreparedMethod<'_>) -> *const Address {
+    // SAFETY: Guaranteed by the function contract
+    unsafe { method.external_args.cast::<*const Address>().read() }
 }

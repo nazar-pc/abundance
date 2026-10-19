@@ -1,14 +1,14 @@
-//! Prints the methods of a payload of `SimpleWalletBase` as `TransactionPayloadDecoder` describes
-//! them, without calling them.
+//! Prints the declared outputs and the methods of a payload of `SimpleWalletBase` as
+//! `TransactionPayloadDecoder` describes them, without calling them.
 //!
 //! The only argument is a file with the bytes of the payload, for example one that the
 //! `build-payload` example writes, which shows the commands to run both.
 //!
 //! The payload is only known when the example runs. So building it with the `no-panic` feature
-//! checks that `TransactionPayloadDecoder::next_method()` can't panic, whatever the payload is.
+//! checks that `TransactionPayloadDecoder::new()` and `TransactionPayloadDecoder::next_method()`
+//! can't panic, whatever the payload is.
 
-use ab_system_contract_simple_wallet_base::OUTPUT_BUFFER_OFFSETS_SIZE;
-use ab_system_contract_simple_wallet_base::payload::TransactionOutputKind;
+use ab_system_contract_simple_wallet_base::MAX_OUTPUTS;
 use ab_system_contract_simple_wallet_base::payload::decoder::{
     DecodedInput, DecodedOutput, DecodedSlot, OutputRef, TransactionPayloadDecoder,
 };
@@ -33,8 +33,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(u128::from_ne_bytes)
         .collect::<Vec<_>>();
 
-    let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
-    let mut decoder = TransactionPayloadDecoder::new(&payload, &mut output_buffer_details);
+    let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
+    let mut decoder = TransactionPayloadDecoder::new(&payload, &mut declared_outputs)?;
+    for (output_index, declared_output) in decoder.declared_outputs().iter().enumerate() {
+        println!(
+            "Declared output {output_index}: capacity {}",
+            declared_output.capacity
+        );
+    }
     let mut method_index = 0usize;
     while let Some(method) = decoder.next_method()? {
         println!(
@@ -78,7 +84,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Description of the value of an output of an earlier method
+/// Description of the value that an earlier method wrote into a declared output
 fn describe_output_ref(output: &OutputRef) -> String {
     match output.return_value_size() {
         Some(size) => format!(
@@ -91,15 +97,16 @@ fn describe_output_ref(output: &OutputRef) -> String {
 
 /// Description of an output of the method
 fn describe_output(output: &DecodedOutput) -> String {
-    let kind = match output.kind {
-        TransactionOutputKind::Output => "`#[output]`",
-        TransactionOutputKind::ReturnValue => "return value",
-    };
-
-    format!(
-        "{kind} with output index {}: capacity {} bytes",
-        output.output_index, output.capacity
-    )
+    match output.return_value_size() {
+        Some(size) => format!(
+            "return value of {size} bytes with output index {}, capacity {} bytes",
+            output.output_index, output.capacity
+        ),
+        None => format!(
+            "`#[output]` with output index {}, capacity {} bytes",
+            output.output_index, output.capacity
+        ),
+    }
 }
 
 /// Bytes in hexadecimal

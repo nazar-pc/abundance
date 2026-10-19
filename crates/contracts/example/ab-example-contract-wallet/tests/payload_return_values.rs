@@ -23,13 +23,15 @@ use ab_executor_native::NativeExecutor;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
 use ab_system_contract_code::CodeExt;
-use ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadBuilder;
+use ab_system_contract_simple_wallet_base::payload::builder::{
+    MethodCallReferences, TransactionPayloadBuilder,
+};
 use ab_system_contract_simple_wallet_base::payload::{
     TransactionMethodContext, TransactionPayloadCallError, TransactionPayloadCaller,
 };
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
 use ab_system_contract_simple_wallet_base::{
-    EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER_SIZE,
+    EXTERNAL_ARGS_BUFFER_SIZE, MAX_OUTPUTS, OUTPUT_BUFFER_SIZE,
 };
 use core::mem::MaybeUninit;
 use core::ptr;
@@ -147,14 +149,18 @@ fn return_value_as_slot() {
     };
     // The returned address is the slot the second method stores a value in
     let payload = {
-        let mut builder = TransactionPayloadBuilder::new(1024);
+        // Output index of the only declared output
+        let address = 0;
+        let mut builder = TransactionPayloadBuilder::new(1024, 1).unwrap();
         builder
             .with_method_call(
                 &return_values_address,
                 &ReturnValuesAddressArgs::new(&wallet_address, &mut MaybeUninit::uninit()),
                 TransactionMethodContext::Null,
-                &[],
-                &[],
+                MethodCallReferences {
+                    outputs: &[address],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
         builder
@@ -162,11 +168,13 @@ fn return_value_as_slot() {
                 &return_values_address,
                 &ReturnValuesStoreArgs::new(&Address::NULL, &7),
                 TransactionMethodContext::Null,
-                &[Some(0)],
-                &[],
+                MethodCallReferences {
+                    slots: &[Some(address)],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
-        builder.into_aligned_bytes()
+        builder.into_aligned_bytes().unwrap()
     };
     let read_slots = &[];
     let write_slots = &[TransactionSlot {
@@ -220,14 +228,19 @@ fn return_value_as_plain_input() {
     // address, so that if return values were given empty, the caller would reject the slot
     // before the method could be called with an empty plain input, violating its requirements
     let payload = {
-        let mut builder = TransactionPayloadBuilder::new(1024);
+        // Output indices of the declared outputs
+        let address = 0;
+        let incremented = 1;
+        let mut builder = TransactionPayloadBuilder::new(1024, 2).unwrap();
         builder
             .with_method_call(
                 &return_values_address,
                 &ReturnValuesAddressArgs::new(&wallet_address, &mut MaybeUninit::uninit()),
                 TransactionMethodContext::Null,
-                &[],
-                &[],
+                MethodCallReferences {
+                    outputs: &[address],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
         builder
@@ -235,8 +248,10 @@ fn return_value_as_plain_input() {
                 &return_values_address,
                 &ReturnValuesIncrementArgs::new(&42, &mut MaybeUninit::uninit()),
                 TransactionMethodContext::Null,
-                &[],
-                &[],
+                MethodCallReferences {
+                    outputs: &[incremented],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
         builder
@@ -244,11 +259,14 @@ fn return_value_as_plain_input() {
                 &return_values_address,
                 &ReturnValuesStoreArgs::new(&Address::NULL, &0),
                 TransactionMethodContext::Null,
-                &[Some(0)],
-                &[Some(1)],
+                MethodCallReferences {
+                    slots: &[Some(address)],
+                    inputs: &[Some(incremented)],
+                    outputs: &[],
+                },
             )
             .unwrap();
-        builder.into_aligned_bytes()
+        builder.into_aligned_bytes().unwrap()
     };
     let read_slots = &[];
     let write_slots = &[TransactionSlot {
@@ -299,17 +317,22 @@ fn return_value_as_input_of_method_with_return_value() {
         contract: wallet_address,
     };
     // The second method increments the return value of the first one, so its input points into
-    // the output buffer, and its own return value is allocated there after the input. Allocating
-    // it must not invalidate the pointer of the input, which Miri checks.
+    // the output buffer, and its own return value is written into another declared output there.
+    // Creating the pointer for it must not invalidate the pointer of the input, which Miri checks.
     let payload = {
-        let mut builder = TransactionPayloadBuilder::new(1024);
+        // Output indices of the declared outputs
+        let first = 0;
+        let second = 1;
+        let mut builder = TransactionPayloadBuilder::new(1024, 2).unwrap();
         builder
             .with_method_call(
                 &return_values_address,
                 &ReturnValuesIncrementArgs::new(&41, &mut MaybeUninit::uninit()),
                 TransactionMethodContext::Null,
-                &[],
-                &[],
+                MethodCallReferences {
+                    outputs: &[first],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
         builder
@@ -317,8 +340,11 @@ fn return_value_as_input_of_method_with_return_value() {
                 &return_values_address,
                 &ReturnValuesIncrementArgs::new(&0, &mut MaybeUninit::uninit()),
                 TransactionMethodContext::Null,
-                &[],
-                &[Some(0)],
+                MethodCallReferences {
+                    slots: &[],
+                    inputs: &[Some(first)],
+                    outputs: &[second],
+                },
             )
             .unwrap();
         builder
@@ -326,11 +352,13 @@ fn return_value_as_input_of_method_with_return_value() {
                 &return_values_address,
                 &ReturnValuesStoreArgs::new(&wallet_address, &0),
                 TransactionMethodContext::Null,
-                &[],
-                &[Some(1)],
+                MethodCallReferences {
+                    inputs: &[Some(second)],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
-        builder.into_aligned_bytes()
+        builder.into_aligned_bytes().unwrap()
     };
     let read_slots = &[];
     let write_slots = &[TransactionSlot {
@@ -381,17 +409,21 @@ fn init_state_as_input() {
         contract: wallet_address,
     };
     // The state returned by `#[init]` is stored as the state of the contract instead of being
-    // written to the caller, and the metadata leaves out its type, so the builder gives it no
-    // capacity and the second method referring to it gets it empty
+    // written to the caller, and the metadata leaves out its type, so the builder declares an
+    // output without capacity for it and the second method referring to it gets it empty
     let payload = {
-        let mut builder = TransactionPayloadBuilder::new(1024);
+        // Output index of the only declared output
+        let state = 0;
+        let mut builder = TransactionPayloadBuilder::new(1024, 1).unwrap();
         builder
             .with_method_call(
                 &return_values_address,
                 &ReturnValuesNewArgs::new(&5),
                 TransactionMethodContext::Null,
-                &[],
-                &[],
+                MethodCallReferences {
+                    outputs: &[state],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
         builder
@@ -399,11 +431,13 @@ fn init_state_as_input() {
                 &return_values_address,
                 &ReturnValuesExpectEmptyArgs::new(&MaybeData::from_ref(None)),
                 TransactionMethodContext::Null,
-                &[],
-                &[Some(0)],
+                MethodCallReferences {
+                    inputs: &[Some(state)],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
-        builder.into_aligned_bytes()
+        builder.into_aligned_bytes().unwrap()
     };
     let read_slots = &[];
     let write_slots = &[TransactionSlot {
@@ -453,14 +487,18 @@ fn failed_method_stops_transaction() {
     };
     // The second method stores the return value of the first one, which fails without writing it
     let payload = {
-        let mut builder = TransactionPayloadBuilder::new(1024);
+        // Output index of the only declared output
+        let failed = 0;
+        let mut builder = TransactionPayloadBuilder::new(1024, 1).unwrap();
         builder
             .with_method_call(
                 &return_values_address,
                 &ReturnValuesFailArgs::new(&mut MaybeUninit::uninit()),
                 TransactionMethodContext::Null,
-                &[],
-                &[],
+                MethodCallReferences {
+                    outputs: &[failed],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
         builder
@@ -468,24 +506,27 @@ fn failed_method_stops_transaction() {
                 &return_values_address,
                 &ReturnValuesStoreArgs::new(&wallet_address, &0),
                 TransactionMethodContext::Null,
-                &[],
-                &[Some(0)],
+                MethodCallReferences {
+                    inputs: &[Some(failed)],
+                    ..MethodCallReferences::default()
+                },
             )
             .unwrap();
-        builder.into_aligned_bytes()
+        builder.into_aligned_bytes().unwrap()
     };
 
     let result = executor.transaction_emulate(Address::NULL, slots, |env| {
         let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
         let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
-        let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
+        let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
         let caller = TransactionPayloadCaller::new(
             payload.as_u128_slice(),
             &mut external_args_buffer,
             &mut output_buffer,
-            &mut output_buffer_details,
+            &mut declared_outputs,
             |_method_context| MethodContext::Reset,
-        );
+        )
+        .unwrap();
 
         // The caller is only returned when the method succeeds, so there is nothing to call the
         // second method with

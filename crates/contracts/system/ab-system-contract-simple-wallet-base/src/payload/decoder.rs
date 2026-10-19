@@ -3,12 +3,10 @@
 #[cfg(test)]
 mod tests;
 
-use crate::payload::decoder_core::{
-    MethodHeader, MethodSink, PayloadDecoderCore, check_slot_output_size,
-};
+use crate::MAX_OUTPUTS;
+use crate::payload::decoder_core::{MethodHeader, MethodSink, OutputAllocator, PayloadDecoderCore};
 use crate::payload::{
-    OutputBufferDetails, TransactionMethodContext, TransactionOutputKind,
-    TransactionPayloadDecoderError,
+    DeclaredOutput, TransactionMethodContext, TransactionOutputKind, TransactionPayloadDecoderError,
 };
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::method::MethodFingerprint;
@@ -17,20 +15,21 @@ use ab_io_type::alignment::Alignment;
 use core::hint;
 use core::mem::MaybeUninit;
 
-/// Reference from a slot or an input to the value of an output of an earlier method
+/// Reference from a slot or an input to the value that an earlier method wrote last into a declared
+/// output
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[expect(
     clippy::partial_pub_fields,
     reason = "Offset and size are details of calling methods, see `Self::return_value_size()`"
 )]
 pub struct OutputRef {
-    /// Index of the output
+    /// Index of the declared output
     pub mut(crate) output_index: u8,
-    /// Whether the output is `#[output]` or a return value
+    /// Whether the value was written as `#[output]` or as a return value
     pub mut(crate) kind: TransactionOutputKind,
-    /// Offset of the output's memory, see [`OutputBufferDetails`]
+    /// Offset of the output's memory, see [`DeclaredOutput`]
     pub(crate) offset: u32,
-    /// Size of the value, see [`OutputBufferDetails`]
+    /// Size of the value, see [`DeclaredOutput`]
     pub(crate) size: u32,
 }
 
@@ -52,8 +51,8 @@ impl OutputRef {
 pub enum DecodedSlot<'payload> {
     /// Explicit address in the payload
     Address(&'payload Address),
-    /// Contents of an output of an earlier method. A return value is declared with the size of an
-    /// address.
+    /// Value that an earlier method wrote into a declared output. A return value is declared with
+    /// the size of an address.
     Output(OutputRef),
 }
 
@@ -65,29 +64,32 @@ pub enum DecodedInput<'payload> {
         bytes: &'payload [u8],
         alignment: Alignment,
     },
-    /// Contents of an output of an earlier method
+    /// Value that an earlier method wrote into a declared output
     Output(OutputRef),
 }
 
-/// `#[output]` or return value, which gets the next output index
+/// `#[output]` or return value, which writes a declared output
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[expect(
     clippy::partial_pub_fields,
     reason = "The size is only meaningful for a return value, see `Self::return_value_size()`"
 )]
 pub struct DecodedOutput {
-    /// Index of the output, which later methods refer to
+    /// Index of the declared output that this `#[output]` or return value writes, which later
+    /// methods refer to
     pub mut(crate) output_index: u8,
     /// Whether the output is `#[output]` or a return value
     pub mut(crate) kind: TransactionOutputKind,
-    /// Capacity of the output's memory, which is aligned to [`Alignment::MAX`]
+    /// Capacity of the declared output's memory, whose alignment is [`Alignment::MAX`]
     pub mut(crate) capacity: u32,
-    /// Size that the method gets: `0` for `#[output]`, the capacity for the return value
+    /// Size that the method gets: `0` for `#[output]`, the size that the payload declares for the
+    /// return value
     pub(crate) size: u32,
 }
 
 impl DecodedOutput {
-    /// Size of a return value, which is its capacity, since executors write the whole value.
+    /// Size of a return value as the payload declares it, the size of its type, since executors
+    /// write the whole value.
     ///
     /// `None` for `#[output]`, which the method gets empty.
     #[inline(always)]
@@ -134,14 +136,6 @@ impl<'payload> MethodSink<'payload> for DecodedArguments<'payload> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn slot(&mut self, slot: DecodedSlot<'payload>) -> Result<(), TransactionPayloadDecoderError> {
-        // The size of a return value is declared in the payload, while the size of an `#[output]`
-        // is only known after its method was called
-        if let DecodedSlot::Output(output) = &slot
-            && let Some(size) = output.return_value_size()
-        {
-            check_slot_output_size(output, size)?;
-        }
-
         if let Some(entry) = self.slots.get_mut(usize::from(self.num_slots)) {
             *entry = slot;
             self.num_slots += 1;
@@ -161,13 +155,21 @@ impl<'payload> MethodSink<'payload> for DecodedArguments<'payload> {
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn output(&mut self, output: DecodedOutput) -> Result<u32, TransactionPayloadDecoderError> {
+    fn output(&mut self, output: DecodedOutput, _offset: u32) {
         if let Some(entry) = self.outputs.get_mut(usize::from(self.num_outputs)) {
             *entry = output;
             self.num_outputs += 1;
         }
+    }
+}
 
-        // There is no output buffer, so all outputs have offset `0`
+/// Allocates declared outputs for [`TransactionPayloadDecoder`], which has no output buffer, so
+/// every output has offset `0`
+struct NoOutputBuffer;
+
+impl OutputAllocator for NoOutputBuffer {
+    #[inline(always)]
+    fn alloc(&mut self, _capacity: u32) -> Result<u32, TransactionPayloadDecoderError> {
         Ok(0)
     }
 }
@@ -247,7 +249,8 @@ impl<'payload> DecodedArguments<'payload> {
 /// Arguments of each kind are in payload order, which is the order in which the method declares
 /// them. So the `n`-th slot is the `n`-th `#[slot]` in the method's metadata, and the same holds
 /// for inputs and outputs. A method has at most one return value, which is its last output, as
-/// the decoder checks.
+/// the decoder checks. The state that `#[init]` returns is an `#[output]` (often with capacity
+/// `0`), not a return value, since executors store it instead of writing it.
 #[derive(Debug, Copy, Clone)]
 pub struct DecodedMethod<'decoder, 'payload> {
     header: MethodHeader<'payload>,
@@ -310,46 +313,61 @@ impl<'decoder, 'payload> DecodedMethod<'decoder, 'payload> {
 ///
 /// It runs the same decoding code as [`TransactionPayloadCaller`], so it applies every rule that
 /// depends only on the payload. A payload that it accepts can still be rejected by the caller in
-/// two cases, which depend on execution: the outputs don't fit into the output buffer of the
-/// caller, or an `#[output]` that a later method uses as a slot doesn't hold an address after its
-/// method was called. The caller checks these two cases when it reaches them. So when the caller
-/// rejects a payload for one of them, the decoder either accepts the payload or rejects it with an
-/// error from later in the payload.
+/// two cases, which depend on execution:
+/// * the declared outputs don't fit into the output buffer of the caller, which allocates each of
+///   them at a multiple of 16 bytes ([`Alignment::MAX`]) after the previous one: they fit if the
+///   capacities of [`Self::declared_outputs()`], each except the last rounded up to a multiple of
+///   16, add up to at most the size of the output buffer (32 KiB in
+///   [`SimpleWalletBase::execute()`], see [`OUTPUT_BUFFER_SIZE`]); the caller checks this when it
+///   is created, before it calls any method
+/// * an `#[output]` that a later method uses as a slot doesn't hold an address after its method was
+///   called; the caller checks this when it reaches that slot, so when the caller rejects a payload
+///   for it, the decoder either accepts the payload or rejects it with an error from later in the
+///   payload
+///
+/// A payload can declare outputs that no method writes. The decoder and the caller accept it, the
+/// memory of such an output is allocated but never used, while `TransactionPayloadBuilder` never
+/// creates such a payload.
 ///
 /// Descriptions contain no pointers into memory other than the payload, so any payload can be
 /// decoded safely.
 ///
 /// [`TransactionPayloadCaller`]: crate::payload::TransactionPayloadCaller
+/// [`SimpleWalletBase::execute()`]: crate::SimpleWalletBase::execute
+/// [`OUTPUT_BUFFER_SIZE`]: crate::OUTPUT_BUFFER_SIZE
 #[derive(Debug)]
-pub struct TransactionPayloadDecoder<'payload, 'details> {
-    core: PayloadDecoderCore<'payload, 'details>,
+pub struct TransactionPayloadDecoder<'payload, 'outputs> {
+    core: PayloadDecoderCore<'payload, 'outputs>,
     /// Arguments of the method that was decoded last
     arguments: DecodedArguments<'payload>,
     /// The core must not be used anymore after an error
     failed: bool,
 }
 
-impl<'payload, 'details> TransactionPayloadDecoder<'payload, 'details> {
-    /// Create a new instance.
+impl<'payload, 'outputs> TransactionPayloadDecoder<'payload, 'outputs> {
+    /// Create a new instance and read the outputs that the payload declares, at most
+    /// [`MAX_OUTPUTS`], into `declared_outputs`.
     ///
-    /// The size of `output_buffer_details` defines how many `#[output]` arguments and return values
-    /// could exist in all methods of the payload together, up to 128, since tags refer to output
-    /// indices up to 127. With [`OUTPUT_BUFFER_OFFSETS_SIZE`] entries, the decoder rejects payloads
-    /// with more outputs than [`SimpleWalletBase::execute()`] accepts.
-    ///
-    /// [`OUTPUT_BUFFER_OFFSETS_SIZE`]: crate::OUTPUT_BUFFER_OFFSETS_SIZE
-    /// [`SimpleWalletBase::execute()`]: crate::SimpleWalletBase::execute
+    /// Returns an error if the outputs that the payload declares can't be read. Every payload
+    /// starts with them, so an empty payload is too small.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn new(
         payload: &'payload [u128],
-        output_buffer_details: &'details mut [MaybeUninit<OutputBufferDetails>],
-    ) -> Self {
-        Self {
-            core: PayloadDecoderCore::new(payload, output_buffer_details),
+        declared_outputs: &'outputs mut [MaybeUninit<DeclaredOutput>; MAX_OUTPUTS],
+    ) -> Result<Self, TransactionPayloadDecoderError> {
+        Ok(Self {
+            core: PayloadDecoderCore::new(payload, declared_outputs, &mut NoOutputBuffer)?,
             arguments: DecodedArguments::new(),
             failed: false,
-        }
+        })
+    }
+
+    /// Outputs that the payload declares, by output index
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub fn declared_outputs(&self) -> &[DeclaredOutput] {
+        self.core.declared_outputs()
     }
 
     /// Decode and check the next method, `None` if there are no more methods in the payload.

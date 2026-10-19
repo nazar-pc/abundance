@@ -4,15 +4,20 @@
 //! argument of a method to a [`MethodSink`] as soon as it is decoded. This way the code that calls
 //! methods writes their `ExternalArgs` in the same pass. The core never creates pointers into
 //! memory other than the payload.
+//!
+//! The rules about references to declared outputs are separate functions, [`output_ref()`] and
+//! [`slot_output_ref()`], which `TransactionPayloadBuilder` applies to the method calls that it
+//! adds as well, together with [`writes_output()`] for the rules about writing them.
 
 #[cfg(test)]
 mod tests;
 
+use crate::MAX_OUTPUTS;
 use crate::payload::decoder::{DecodedInput, DecodedOutput, DecodedSlot, OutputRef};
 use crate::payload::{
-    MAX_OUTPUT_INDEX, OutputBufferDetails, TransactionInput, TransactionInputType,
-    TransactionMethodContext, TransactionOutput, TransactionOutputKind,
-    TransactionPayloadDecoderError, TransactionSlot, TransactionSlotType,
+    DeclaredOutput, OutputState, TransactionInput, TransactionInputType, TransactionMethodContext,
+    TransactionOutput, TransactionOutputKind, TransactionPayloadDecoderError, TransactionSlot,
+    TransactionSlotType,
 };
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::method::MethodFingerprint;
@@ -35,22 +40,30 @@ pub(crate) struct MethodHeader<'payload> {
 ///
 /// The core checks the number of arguments of a method before it gives any of them to the sink, so
 /// the sink gets at most [`MAX_TOTAL_METHOD_ARGS`] arguments per method. Slots and inputs only
-/// refer to outputs of earlier methods, because the outputs of a method get their indices after
-/// its slots and inputs are decoded.
+/// refer to declared outputs that earlier methods wrote and that the method doesn't write, and the
+/// outputs of a method are different declared outputs. A slot only refers to a return value that
+/// has the size of an address.
 pub(crate) trait MethodSink<'payload> {
     /// Receives a `#[slot]`.
     ///
-    /// The sink must check the size of an output used as a slot with [`check_slot_output_size()`]
-    /// as far as it knows the size: the size of a return value is declared in the payload, while
-    /// the size of an `#[output]` is only known after its method was called.
+    /// The core checks the size of a return value used as a slot, which the payload declares. The
+    /// size of an `#[output]` is only known after its method was called, so a sink that calls
+    /// methods must check the size of an `#[output]` used as a slot with
+    /// [`check_slot_output_size()`].
     fn slot(&mut self, slot: DecodedSlot<'payload>) -> Result<(), TransactionPayloadDecoderError>;
 
     /// Receives an `#[input]`
     fn input(&mut self, input: DecodedInput<'payload>);
 
-    /// Receives an `#[output]` or the return value. Returns the offset of its memory in the
-    /// sink's output buffer, which the core keeps with its output index for later references.
-    fn output(&mut self, output: DecodedOutput) -> Result<u32, TransactionPayloadDecoderError>;
+    /// Receives an `#[output]` or the return value, with `offset` of its declared output's memory
+    /// from [`OutputAllocator::alloc()`]
+    fn output(&mut self, output: DecodedOutput, offset: u32);
+}
+
+/// Allocates the memory of declared outputs, see [`PayloadDecoderCore::new()`]
+pub(crate) trait OutputAllocator {
+    /// Allocate memory of `capacity` bytes for the next declared output, returns its offset
+    fn alloc(&mut self, capacity: u32) -> Result<u32, TransactionPayloadDecoderError>;
 }
 
 /// Reads values from a payload one after another and skips padding before each of them
@@ -98,6 +111,28 @@ impl<'payload> PayloadReader<'payload> {
         let value_ref = unsafe { bytes.as_ptr().cast::<T>().as_ref().expect("Not null; qed") };
 
         Ok(value_ref)
+    }
+
+    /// Read `len` [`AnyBitPattern`] values in place
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    fn read_trivial_slice<T>(
+        &mut self,
+        len: u8,
+    ) -> Result<&'payload [T], TransactionPayloadDecoderError>
+    where
+        T: AnyBitPattern,
+    {
+        self.ensure_alignment(Alignment::of::<T>())?;
+        let bytes = self.read_unaligned_bytes(usize::from(len) * size_of::<T>())?;
+
+        // SAFETY: `bytes` are aligned for `T`, initialized and have the size of `len` values of
+        // `T` as ensured above, so they are valid values of `T`, which accepts every bit pattern
+        // (`AnyBitPattern`), and the shared reference to them doesn't allow writing to the payload,
+        // since `T` has no interior mutability (`TrivialType`)
+        let values = unsafe { slice::from_raw_parts(bytes.as_ptr().cast::<T>(), usize::from(len)) };
+
+        Ok(values)
     }
 
     /// Read `size` bytes in place, after padding to `alignment`
@@ -185,39 +220,68 @@ impl<'payload> PayloadReader<'payload> {
 
 /// Decoder of methods in a payload, see the module description
 #[derive(Debug)]
-pub(crate) struct PayloadDecoderCore<'payload, 'details> {
+pub(crate) struct PayloadDecoderCore<'payload, 'outputs> {
     reader: PayloadReader<'payload>,
-    output_buffer_details: &'details mut [MaybeUninit<OutputBufferDetails>],
-    /// Number of output indices created so far, which never exceeds the length of
-    /// `output_buffer_details`. Entries before it are initialized.
-    num_outputs: usize,
+    /// Exactly the outputs that the payload declares
+    declared_outputs: &'outputs mut [DeclaredOutput],
 }
 
-impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
-    /// Create a new instance.
+impl<'payload, 'outputs> PayloadDecoderCore<'payload, 'outputs> {
+    /// Create a new instance and read the outputs that the payload declares into
+    /// `declared_outputs`, where `allocator` allocates their memory one after another.
     ///
-    /// The size of `output_buffer_details` defines how many `#[output]` arguments and return values
-    /// could exist in all methods of the payload together. Only the first 128 entries are used,
-    /// since tags refer to output indices up to 127.
+    /// Every payload starts with the number of declared outputs, so an empty payload is too small.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub(crate) fn new(
+    pub(crate) fn new<Allocator>(
         payload: &'payload [u128],
-        mut output_buffer_details: &'details mut [MaybeUninit<OutputBufferDetails>],
-    ) -> Self {
-        // Tags refer to output indices up to 127, so later entries are left out. A shorter slice
-        // is left as it is.
-        let _unused_output_buffer_details =
-            output_buffer_details.split_off_mut(usize::from(MAX_OUTPUT_INDEX) + 1..);
+        declared_outputs: &'outputs mut [MaybeUninit<DeclaredOutput>; MAX_OUTPUTS],
+        allocator: &mut Allocator,
+    ) -> Result<Self, TransactionPayloadDecoderError>
+    where
+        Allocator: OutputAllocator,
+    {
+        let mut reader = PayloadReader::new(payload);
 
-        Self {
-            reader: PayloadReader::new(payload),
-            output_buffer_details,
-            num_outputs: 0,
+        let num_declared_outputs = reader.read_u8()?;
+        let Some(declared_outputs) = declared_outputs.get_mut(..usize::from(num_declared_outputs))
+        else {
+            return Err(TransactionPayloadDecoderError::TooManyDeclaredOutputs(
+                num_declared_outputs,
+            ));
+        };
+        // All capacities are read before any of them is allocated, so a payload that is too small
+        // is rejected the same way with and without an output buffer
+        let capacities = reader.read_trivial_slice::<u32>(num_declared_outputs)?;
+
+        for (declared_output, &capacity) in declared_outputs.iter_mut().zip(capacities) {
+            declared_output.write(DeclaredOutput {
+                offset: allocator.alloc(capacity)?,
+                capacity,
+                size: 0,
+                state: OutputState::NotWritten,
+            });
         }
+        // SAFETY: `capacities` has as many elements as `declared_outputs`, so every entry was
+        // written above
+        let declared_outputs = unsafe { declared_outputs.assume_init_mut() };
+
+        Ok(Self {
+            reader,
+            declared_outputs,
+        })
+    }
+
+    /// Outputs that the payload declares
+    #[inline(always)]
+    pub(crate) fn declared_outputs(&self) -> &[DeclaredOutput] {
+        self.declared_outputs
     }
 
     /// Decode the next method (if any) in the payload and give its arguments to `sink`.
+    ///
+    /// Slots and inputs are checked and given to `sink` before outputs, so for a method with an
+    /// invalid slot or input and an invalid output, the error is about the slot or input.
     ///
     /// Returns `None` if there are no more methods in the payload. After an error, the core must
     /// not be used anymore.
@@ -239,11 +303,11 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
         let context = self.reader.read_method_context()?;
         let slot_tags = self.reader.read_tags()?;
         let input_tags = self.reader.read_tags()?;
-        let num_outputs = self.reader.read_u8()?;
+        let output_tags = self.reader.read_tags()?;
 
         // Checked before any argument is given to the sink. This can be off by 1 due to `self` not
         // included in `ExternalArgs`, but it is good enough for this context.
-        let number_of_arguments = slot_tags.len() + input_tags.len() + usize::from(num_outputs);
+        let number_of_arguments = slot_tags.len() + input_tags.len() + output_tags.len();
         if number_of_arguments > usize::from(MAX_TOTAL_METHOD_ARGS) {
             return Err(TransactionPayloadDecoderError::TooManyArguments(
                 u8::try_from(number_of_arguments).unwrap_or(u8::MAX),
@@ -258,9 +322,9 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
                 TransactionSlotType::Address => {
                     DecodedSlot::Address(self.reader.read_trivial_type::<Address>()?)
                 }
-                TransactionSlotType::OutputIndex { output_index } => {
-                    DecodedSlot::Output(self.output_ref(output_index)?)
-                }
+                TransactionSlotType::OutputIndex { output_index } => DecodedSlot::Output(
+                    slot_output_ref(self.declared_outputs, output_index, output_tags)?,
+                ),
             };
             sink.slot(slot)?;
         }
@@ -276,15 +340,15 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
 
                     DecodedInput::Value { bytes, alignment }
                 }
-                TransactionInputType::OutputIndex { output_index } => {
-                    DecodedInput::Output(self.output_ref(output_index)?)
-                }
+                TransactionInputType::OutputIndex { output_index } => DecodedInput::Output(
+                    output_ref(self.declared_outputs, output_index, output_tags)?,
+                ),
             };
             sink.input(input);
         }
 
-        if num_outputs > 0 {
-            self.new_outputs(sink, usize::from(num_outputs))?;
+        if !output_tags.is_empty() {
+            self.write_outputs(sink, output_tags)?;
         }
 
         Ok(Some(MethodHeader {
@@ -304,124 +368,181 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub(crate) unsafe fn set_output_size(&mut self, output_index: u8, size: u32) {
-        let output_index = usize::from(output_index);
-
-        // SAFETY: The output exists, as guaranteed by the function contract, so its entry is
-        // before `num_outputs`, which never exceeds the length of `output_buffer_details`, and
-        // entries before it are initialized
-        let output_buffer_details = unsafe {
-            self.output_buffer_details
-                .get_unchecked_mut(output_index)
-                .assume_init_mut()
+        // SAFETY: The output exists, as guaranteed by the function contract, so it is one of the
+        // declared outputs
+        let declared_output = unsafe {
+            self.declared_outputs
+                .get_unchecked_mut(usize::from(output_index))
         };
-        output_buffer_details.size = size;
+        declared_output.size = size;
     }
 
-    /// Look up the output that a slot or an input of the current method refers to
+    /// Decode the outputs of the current method from `output_tags`, write them into their declared
+    /// outputs and give them to `sink`
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn output_ref(&self, output_index: u8) -> Result<OutputRef, TransactionPayloadDecoderError> {
-        if usize::from(output_index) >= self.num_outputs {
-            return Err(TransactionPayloadDecoderError::OutputIndexNotFound(
-                output_index,
-            ));
-        }
-
-        // SAFETY: Entries before `num_outputs` are initialized, and it never exceeds the length of
-        // `output_buffer_details`
-        let &OutputBufferDetails { offset, size, kind } = unsafe {
-            self.output_buffer_details
-                .get_unchecked(usize::from(output_index))
-                .assume_init_ref()
-        };
-
-        Ok(OutputRef {
-            output_index,
-            kind,
-            offset,
-            size,
-        })
-    }
-
-    /// Decode `num_outputs` outputs of the current method, give them to `sink` and create their
-    /// output indices
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn new_outputs<Sink>(
+    fn write_outputs<Sink>(
         &mut self,
         sink: &mut Sink,
-        num_outputs: usize,
+        mut output_tags: &'payload [u8],
     ) -> Result<(), TransactionPayloadDecoderError>
     where
         Sink: MethodSink<'payload>,
     {
-        let first_output_index = self.num_outputs;
-        // Checked once for all outputs of the method. Never underflows, since `self.num_outputs`
-        // never exceeds the length of `output_buffer_details`.
-        if num_outputs > self.output_buffer_details.len() - first_output_index {
-            return Err(TransactionPayloadDecoderError::OutputBufferOffsetsTooSmall);
-        }
-        let end_output_index = first_output_index + num_outputs;
-        // SAFETY: In bounds, as checked above
-        let output_buffer_details = unsafe {
-            self.output_buffer_details
-                .get_unchecked_mut(first_output_index..end_output_index)
-        };
+        while let Some((&output_tag, later_output_tags)) = output_tags.split_first() {
+            output_tags = later_output_tags;
 
-        for (output_index, output_buffer_details) in
-            (first_output_index..).zip(output_buffer_details)
-        {
-            let capacity = *self.reader.read_trivial_type::<u32>()?;
-            let output_tag = self.reader.read_u8()?;
             let output = TransactionOutput::from_u8(output_tag)
                 .ok_or(TransactionPayloadDecoderError::InvalidOutputTag(output_tag))?;
-
+            let output_index = output.output_index();
             let kind = output.kind();
+            // `TransactionPayloadBuilder` applies the same rules to the method calls that it adds.
+            // They stay here instead of in a function shared with it, since that made decoding
+            // outputs slower.
+            let Some(declared_output) = self.declared_outputs.get_mut(usize::from(output_index))
+            else {
+                return Err(TransactionPayloadDecoderError::OutputIndexNotFound(
+                    output_index,
+                ));
+            };
             // A method has at most one return value, which is its last output, as in
             // `ExternalArgs`
-            if kind == TransactionOutputKind::ReturnValue && output_index + 1 != end_output_index {
+            if kind == TransactionOutputKind::ReturnValue && !later_output_tags.is_empty() {
                 return Err(TransactionPayloadDecoderError::ReturnValueNotLast(
-                    // Doesn't truncate, `output_buffer_details` has at most 128 entries
-                    output_index as u8,
+                    output_index,
                 ));
             }
+            // The method would get two pointers to the same memory. Most methods have at most one
+            // output, then nothing is compared.
+            if !later_output_tags.is_empty() && writes_output(later_output_tags, output_index) {
+                return Err(TransactionPayloadDecoderError::OutputUsedTwice(
+                    output_index,
+                ));
+            }
+
             let size = match kind {
+                // Given to the method empty, whatever was written into the output before
                 TransactionOutputKind::Output => 0,
                 // Executors write the return value through its pointer, but not its size, which
-                // `ExternalArgs` don't have, so it is set to the capacity right away, which is the
-                // size of the return type
-                TransactionOutputKind::ReturnValue => capacity,
+                // `ExternalArgs` don't have, so the payload declares it as the size of the return
+                // type. It takes effect for later methods only: nothing reads it while the current
+                // method is called, since the method doesn't refer to its own outputs.
+                TransactionOutputKind::ReturnValue => {
+                    let size = *self.reader.read_trivial_type::<u32>()?;
+                    if size > declared_output.capacity {
+                        return Err(TransactionPayloadDecoderError::ReturnValueTooLarge {
+                            output_index,
+                            size,
+                        });
+                    }
+                    size
+                }
             };
-            let offset = sink.output(DecodedOutput {
-                // Doesn't truncate, `output_buffer_details` has at most 128 entries
-                output_index: output_index as u8,
-                kind,
-                capacity,
-                size,
-            })?;
+            declared_output.set_written(kind, size);
 
-            output_buffer_details.write(OutputBufferDetails { offset, size, kind });
+            sink.output(
+                DecodedOutput {
+                    output_index,
+                    kind,
+                    capacity: declared_output.capacity,
+                    size,
+                },
+                declared_output.offset,
+            );
         }
-        self.num_outputs += num_outputs;
 
         Ok(())
     }
 }
 
-/// Check the size of an output that a slot refers to, which must hold an address.
+/// Look up the declared output that a slot or an input of a method with `output_tags` refers to,
+/// which an earlier method must have written and which the method must not write.
 ///
-/// `size` is the size of the output as far as the caller of this function knows it, see
-/// [`MethodSink::slot()`].
+/// `declared_outputs` describes what earlier methods wrote. [`PayloadDecoderCore`] and
+/// `TransactionPayloadBuilder` check references with it, so that they agree.
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub(crate) fn output_ref(
+    declared_outputs: &[DeclaredOutput],
+    output_index: u8,
+    output_tags: &[u8],
+) -> Result<OutputRef, TransactionPayloadDecoderError> {
+    let Some(&DeclaredOutput {
+        offset,
+        capacity: _,
+        size,
+        state,
+    }) = declared_outputs.get(usize::from(output_index))
+    else {
+        return Err(TransactionPayloadDecoderError::OutputIndexNotFound(
+            output_index,
+        ));
+    };
+    let kind = match state {
+        OutputState::NotWritten => {
+            return Err(TransactionPayloadDecoderError::OutputIndexNotFound(
+                output_index,
+            ));
+        }
+        OutputState::Output => TransactionOutputKind::Output,
+        OutputState::ReturnValue => TransactionOutputKind::ReturnValue,
+    };
+    // The method would get a pointer to memory that it also writes through another pointer. Most
+    // methods have no outputs, then nothing is compared.
+    if !output_tags.is_empty() && writes_output(output_tags, output_index) {
+        return Err(TransactionPayloadDecoderError::OutputReferencedBySameMethod(output_index));
+    }
+
+    Ok(OutputRef {
+        output_index,
+        kind,
+        offset,
+        size,
+    })
+}
+
+/// Look up the declared output that a slot of a method with `output_tags` refers to, see
+/// [`output_ref()`], which must hold an address if it is a return value
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub(crate) fn slot_output_ref(
+    declared_outputs: &[DeclaredOutput],
+    output_index: u8,
+    output_tags: &[u8],
+) -> Result<OutputRef, TransactionPayloadDecoderError> {
+    let output = output_ref(declared_outputs, output_index, output_tags)?;
+    // The size of a return value is declared in the payload, while the size of an `#[output]` is
+    // only known after its method was called, see `MethodSink`
+    if output.kind == TransactionOutputKind::ReturnValue {
+        check_slot_output_size(&output)?;
+    }
+
+    Ok(output)
+}
+
+/// Whether one of `output_tags` writes the output with `output_index`, which is the index of a
+/// declared output.
+///
+/// The tags may be invalid, since decoders check a tag when they write its output: an invalid tag
+/// holds an index of [`MAX_OUTPUTS`] or more, which is never the index of a declared output.
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub(crate) fn writes_output(output_tags: &[u8], output_index: u8) -> bool {
+    output_tags
+        .iter()
+        .any(|&output_tag| TransactionOutput::tag_output_index(output_tag) == output_index)
+}
+
+/// Check the size of an output that a slot refers to, which must hold an address
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub(crate) fn check_slot_output_size(
     output: &OutputRef,
-    size: u32,
 ) -> Result<(), TransactionPayloadDecoderError> {
-    if size != Address::SIZE {
+    if output.size != Address::SIZE {
         return Err(TransactionPayloadDecoderError::InvalidSlotOutputIndexSize {
             output_index: output.output_index,
-            size,
+            size: output.size,
         });
     }
 

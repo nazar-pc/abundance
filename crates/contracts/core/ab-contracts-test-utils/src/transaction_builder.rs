@@ -5,7 +5,7 @@ use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::{
-    TransactionPayloadBuilder, TransactionPayloadBuilderError,
+    MethodCallReferences, TransactionPayloadBuilder, TransactionPayloadBuilderError,
 };
 use alloc::vec::Vec;
 
@@ -38,14 +38,23 @@ pub struct TransactionBuilder {
 }
 
 impl TransactionBuilder {
-    /// Create a transaction for `contract` with a payload of up to `max_payload_size` bytes.
+    /// Create a transaction for `contract` with a payload of up to `max_payload_size` bytes that
+    /// declares `num_outputs` outputs.
     ///
-    /// See [`TransactionPayloadBuilder::new()`] for details of `max_payload_size`.
-    pub fn new(contract: Address, max_payload_size: u32) -> Self {
-        Self {
+    /// See [`TransactionPayloadBuilder::new()`] for details of `max_payload_size` and
+    /// `num_outputs`.
+    pub fn new(
+        contract: Address,
+        max_payload_size: u32,
+        num_outputs: u8,
+    ) -> Result<Self, TransactionPayloadBuilderError<'static>> {
+        Ok(Self {
             contract,
-            transaction_payload_builder: TransactionPayloadBuilder::new(max_payload_size),
-        }
+            transaction_payload_builder: TransactionPayloadBuilder::new(
+                max_payload_size,
+                num_outputs,
+            )?,
+        })
     }
 
     /// Add method call to the transaction.
@@ -56,8 +65,7 @@ impl TransactionBuilder {
         contract: &Address,
         external_args: &Args,
         method_context: TransactionMethodContext,
-        slot_output_index: &[Option<u8>],
-        input_output_index: &[Option<u8>],
+        references: MethodCallReferences<'_>,
     ) -> Result<(), TransactionPayloadBuilderError<'static>>
     where
         Args: ExternalArgs,
@@ -66,17 +74,19 @@ impl TransactionBuilder {
             contract,
             external_args,
             method_context,
-            slot_output_index,
-            input_output_index,
+            references,
         )
     }
 
+    /// Build the transaction.
+    ///
+    /// See [`TransactionPayloadBuilder::into_aligned_bytes()`] for errors.
     pub fn build(
         self,
         read_slots: Vec<TransactionSlot>,
         write_slots: Vec<TransactionSlot>,
-    ) -> OwnedTransaction {
-        OwnedTransaction {
+    ) -> Result<OwnedTransaction, TransactionPayloadBuilderError<'static>> {
+        Ok(OwnedTransaction {
             header: TransactionHeader {
                 version: 0,
                 block_root: BlockRoot::default(),
@@ -85,8 +95,8 @@ impl TransactionBuilder {
             },
             read_slots,
             write_slots,
-            payload: self.transaction_payload_builder.into_aligned_bytes(),
+            payload: self.transaction_payload_builder.into_aligned_bytes()?,
             seal: Vec::new(),
-        }
+        })
     }
 }
