@@ -880,10 +880,8 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
-        // let unaligned_by = self.output_buffer_cursor % alignment;
-        let unaligned_by = self.output_buffer_cursor & (alignment - 1);
-        // SAFETY: Subtracted value is always smaller than alignment
-        let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
+        // let padding_bytes = (alignment - self.output_buffer_cursor % alignment) % alignment;
+        let padding_bytes = self.output_buffer_cursor.wrapping_neg() & (alignment - 1);
 
         let offset = self.output_buffer_cursor.checked_add(padding_bytes)?;
         let new_output_buffer_cursor = offset.checked_add(size)?;
