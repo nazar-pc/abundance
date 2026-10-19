@@ -1,6 +1,7 @@
 pub use ab_contracts_common::env::{Env, MethodContext};
 pub use ab_contracts_common::metadata::{ContractMetadataKind, MAX_METADATA_DEPTH};
 pub use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
+pub use ab_contracts_common::output::OutputArg;
 pub use ab_contracts_common::{
     Contract, ContractError, ContractTrait, ContractTraitDefinition, ExitCode, MAX_CODE_SIZE,
     MAX_TOTAL_METHOD_ARGS, NativeExecutorContactMethod,

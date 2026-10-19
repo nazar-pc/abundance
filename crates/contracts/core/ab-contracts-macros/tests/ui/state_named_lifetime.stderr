@@ -1,0 +1,5 @@
+error: The state must not have a named lifetime, since it is trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+  --> tests/ui/state_named_lifetime.rs:16:28
+   |
+16 |     pub fn lend_state<'a>(&'a mut self, #[env] env: &mut ab_contracts_common::env::Env<'a>) {
+   |                            ^^

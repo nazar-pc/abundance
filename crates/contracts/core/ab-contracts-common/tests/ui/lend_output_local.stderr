@@ -1,0 +1,21 @@
+error[E0597]: `local` does not live long enough
+  --> tests/ui/lend_output_local.rs:24:36
+   |
+22 | fn lend_local(env: &Env<'_>) {
+   |               --- has type `&Env<'1>`
+23 |     let mut local = Mode::A;
+   |         --------- binding `local` declared here
+24 |     let mut lent = env.lend_output(&mut local);
+   |                    ----------------^^^^^^^^^^-
+   |                    |               |
+   |                    |               borrowed value does not live long enough
+   |                    argument requires that `local` is borrowed for `'1`
+25 |     let _ = call(&mut lent);
+26 | }
+   | - `local` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'1` introduced here
+  --> src/env.rs
+   |
+   |         'b: 'a,
+   |             ^^

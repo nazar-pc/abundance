@@ -211,11 +211,12 @@ where
 {
 }
 
-// Absence of data is represented by zero size, so `Data` itself must not be zero-sized
+// Absence of data is represented by zero size, so `Data` itself must not be zero-sized, which the
+// `IoType` implementation checks
 impl<Data> MaybeData<Data>
 where
     Data: TrivialType,
-    [(); NON_ZERO_SIZED::<Data>]:,
+    Self: IoType,
 {
     /// Create a new shared instance from provided data reference.
     //
@@ -382,7 +383,7 @@ where
 impl<Data> MaybeData<Data>
 where
     Data: TrivialType + Default,
-    [(); NON_ZERO_SIZED::<Data>]:,
+    Self: IoType,
 {
     /// Get exclusive access to initialized `Data`, initializing with default value if necessary
     #[inline(always)]

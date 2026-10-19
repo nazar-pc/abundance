@@ -695,16 +695,18 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         //   into outputs of earlier methods up to their sizes, which executors keep within
         //   capacities with that many bytes initialized, as `ExecutorContext` requires, while the
         //   size of a return value of an earlier method is its capacity, the size of the return
-        //   type, which has no padding (`TrivialType`): every method decoded earlier had a valid
-        //   value of its return type written, as the struct's `# Safety` requires, and slots and
-        //   inputs are decoded before outputs of this method are allocated, so they can't refer to
-        //   its own return value
+        //   type, which has no padding (`TrivialType`): every method decoded earlier had its return
+        //   value initialized, as the struct's `# Safety` requires, and slots and inputs are
+        //   decoded before outputs of this method are allocated, so they can't refer to its own
+        //   return value
         // * outputs are allocated in `output_buffer` with their capacity by moving its cursor past
         //   each of them, so they don't overlap each other or outputs of earlier methods, while the
         //   payload and `external_args_buffer` are borrowed separately from `output_buffer`
         // * the payload, `external_args_buffer` and `output_buffer` stay borrowed by the decoder,
         //   so nothing else accesses them, and the payload and outputs of earlier methods are only
         //   read
+        // * contents of outputs and return values are only given to later methods as slot
+        //   addresses, which accept every bit pattern, and as inputs, which methods parse
         // * the payload is trusted to declare the arguments of the method with `method_fingerprint`
         //   and the size and alignment of the return type as the capacity and alignment of its
         //   return value, and to declare as the return value only one that executors write (not the
@@ -967,7 +969,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         // as the struct's `# Safety` requires, so the size of an output is `0` or the size written
         // for it, which is within its capacity with that many bytes initialized, and the size of a
         // return value is its capacity, the size of the return type, which has no padding
-        // (`TrivialType`), and a valid value of that type was written
+        // (`TrivialType`), and which was initialized
         let bytes = unsafe {
             let bytes_ptr = self
                 .output_buffer

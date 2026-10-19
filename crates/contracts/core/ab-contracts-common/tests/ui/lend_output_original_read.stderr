@@ -1,0 +1,19 @@
+error[E0503]: cannot use `*mode` because it was mutably borrowed
+  --> tests/ui/lend_output_original_read.rs:26:18
+   |
+23 | fn read_after_lend<'a>(env: &Env<'a>, mode: &'a mut Mode) {
+   |                    -- lifetime `'a` defined here
+24 |     let mut lent = env.lend_output(mode);
+   |                    ---------------------
+   |                    |               |
+   |                    |               `*mode` is borrowed here
+   |                    argument requires that `*mode` is borrowed for `'a`
+25 |     let _ = call(&mut lent);
+26 |     let _value = *mode;
+   |                  ^^^^^ use of borrowed `*mode`
+   |
+note: requirement that the value outlives `'a` introduced here
+  --> src/env.rs
+   |
+   |         'b: 'a,
+   |             ^^

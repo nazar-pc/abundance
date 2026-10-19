@@ -1,0 +1,16 @@
+error: lifetime may not live long enough
+  --> tests/ui/forward_elided_lifetimes.rs:19:20
+   |
+18 |     pub fn forward(#[env] env: &mut Env<'_>, #[output] out: &mut u64) -> Result<(), ContractError> {
+   |                           --- has type `&mut Env<'2>`       - let's call the lifetime of this reference `'1`
+19 |         let _out = env.lend_output(out);
+   |                    ^^^^^^^^^^^^^^^^^^^^ argument requires that `'1` must outlive `'2`
+   |
+   = note: requirement occurs because of the type `Env<'_>`, which makes the generic argument `'_` invariant
+   = note: the struct `Env<'a>` is invariant over the parameter `'a`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+help: consider introducing a named lifetime parameter and update trait if needed
+   |
+18 -     pub fn forward(#[env] env: &mut Env<'_>, #[output] out: &mut u64) -> Result<(), ContractError> {
+18 +     pub fn forward<'a>(#[env] env: &mut Env<'a>, #[output] out: &'a mut u64) -> Result<(), ContractError> {
+   |
