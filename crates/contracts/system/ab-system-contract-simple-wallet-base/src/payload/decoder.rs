@@ -280,24 +280,28 @@ impl<'decoder, 'payload> DecodedMethod<'decoder, 'payload> {
 
     /// `#[slot]` arguments
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn slots(&self) -> &'decoder [DecodedSlot<'payload>] {
         self.arguments.slots()
     }
 
     /// `#[input]` arguments
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn inputs(&self) -> &'decoder [DecodedInput<'payload>] {
         self.arguments.inputs()
     }
 
     /// `#[output]` arguments and the return value
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn outputs(&self) -> &'decoder [DecodedOutput] {
         self.arguments.outputs()
     }
 
     /// The return value, which is the last output if there is one
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn return_value(&self) -> Option<&'decoder DecodedOutput> {
         self.outputs()
             .last()

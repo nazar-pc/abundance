@@ -34,6 +34,7 @@ const {
 /// `external_args` must have enough capacity for the read value, and the current offset must
 /// have the correct alignment for the type being read.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn read_external_args<T>(external_args: &mut NonNull<c_void>) -> T {
     // SAFETY: guaranteed by this function signature
     unsafe {
@@ -81,6 +82,7 @@ impl TransactionPayloadBuilder {
     /// doesn't fit returns [`TransactionPayloadBuilderError::PayloadTooLarge`]. The payload is
     /// padded to a multiple of [`Alignment::MAX`], so `max_size` is rounded down to a multiple of
     /// it.
+    // TODO: Not annotated with `no_panic`, since allocating the payload can panic
     #[inline]
     pub fn new(max_size: u32) -> Self {
         Self {

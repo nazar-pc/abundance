@@ -44,6 +44,7 @@ pub(crate) unsafe trait CallPrepared {
 // `ExecutorContext` requires, and with the `guest` feature the host is trusted to do the same
 unsafe impl CallPrepared for Env<'_> {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn call_prepared(&self, method: PreparedMethod<'_>) -> Result<(), ContractError> {
         Env::call_prepared(self, method)
     }
@@ -134,6 +135,7 @@ type PendingOutputSizes = [MaybeUninit<PendingOutputSize>; MAX_TOTAL_METHOD_ARGS
 /// `external_args` must have enough capacity for the written value, and the current offset must
 /// have the correct alignment for the type being written.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn write_external_args<T>(external_args: &mut NonNull<c_void>, value: T) {
     // SAFETY: guaranteed by this function signature
     unsafe {
@@ -385,6 +387,8 @@ impl<'a> TransactionPayloadCaller<'a> {
     }
 
     /// The same as [`Self::call_next_method()`], but with `env` that can stand in for [`Env`]
+    // Not annotated with `no_panic`, since tests call it with stand-ins for `Env` that panic. Its
+    // instance for `Env` is checked through `Self::call_next_method()`.
     #[inline(always)]
     pub(crate) fn call_next_method_with<Environment>(
         mut self,

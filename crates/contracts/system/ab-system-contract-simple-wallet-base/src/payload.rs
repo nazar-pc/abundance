@@ -65,6 +65,7 @@ const impl TryFrom<u8> for TransactionMethodContext {
     type Error = ();
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         Ok(match value {
             0 => Self::Null,
