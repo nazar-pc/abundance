@@ -11,13 +11,17 @@ use crate::payload::{
 };
 use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER_SIZE};
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
-use ab_contracts_common::method::ExternalArgs;
+use ab_contracts_common::metadata::ContractMetadataKind;
+use ab_contracts_common::metadata::decode::{ArgumentKind, MetadataDecodingError};
+use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_macros::contract;
 use ab_core_primitives::address::Address;
 use ab_io_type::maybe_data::MaybeData;
+use ab_io_type::metadata::IoTypeMetadataKind;
 use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
 use core::ptr;
+use core::ptr::NonNull;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -439,4 +443,82 @@ fn payload_max_size() {
         assert_eq!(builder.payload.capacity(), capacity, "Max size {max_size}");
         assert_eq!(builder.payload.as_ptr(), ptr, "Max size {max_size}");
     }
+}
+
+/// Add a call of a stateless method with `method_metadata` and the external args of a single `u8`
+/// `#[input]` to a new builder
+fn build_with_u8_input(
+    method_metadata: &[u8],
+) -> (
+    TransactionPayloadBuilder,
+    Result<(), TransactionPayloadBuilderError<'_>>,
+) {
+    let input_value = 42u8;
+    // Outputs are not read from external args, so only the input is there
+    let external_args = FfiDataSizeCapacityRo {
+        data_ptr: NonNull::from_ref(&input_value),
+        size: u8::SIZE,
+        capacity: u8::SIZE,
+    };
+    let mut builder = TransactionPayloadBuilder::new(1024);
+    // SAFETY: External args have the only input of the method
+    let result = unsafe {
+        builder.with_method_call_untyped(
+            &Address::SYSTEM_SIMPLE_WALLET_BASE,
+            NonNull::from_ref(&external_args).cast(),
+            method_metadata,
+            &DemoContractSetArgs::FINGERPRINT,
+            TransactionMethodContext::Null,
+            &[],
+            &[],
+        )
+    };
+
+    (builder, result)
+}
+
+#[test]
+fn payload_encode_arguments_order() {
+    // Metadata of a stateless method with an `#[input]` of `u8` and an `#[output]` of `u32`
+    let method = [ContractMetadataKind::UpdateStateless as u8, 1, b'f', 2];
+    let input_argument = [
+        ContractMetadataKind::Input as u8,
+        1,
+        b'i',
+        IoTypeMetadataKind::U8 as u8,
+    ];
+    let output_argument = [
+        ContractMetadataKind::Output as u8,
+        1,
+        b'o',
+        IoTypeMetadataKind::U32 as u8,
+    ];
+
+    // The order of `#[contract]`
+    let ordered_metadata = [method, input_argument, output_argument].concat();
+    let (builder, result) = build_with_u8_input(&ordered_metadata);
+    result.unwrap();
+    // The tag of the input follows the method header and the numbers of slots and inputs, and has
+    // the alignment of `u8`
+    let input_tag_offset = Address::SIZE as usize + MethodFingerprint::SIZE as usize + 3;
+    assert_eq!(builder.payload[input_tag_offset], 0b1000_0000);
+    assert_eq!(
+        last_output(&builder),
+        (
+            u32::SIZE,
+            TransactionOutputType::Output { alignment_power: 2 }
+        )
+    );
+
+    // The metadata decoder rejects an output before an input
+    let output_first_metadata = [method, output_argument, input_argument].concat();
+    let (_builder, result) = build_with_u8_input(&output_first_metadata);
+    assert!(matches!(
+        result,
+        Err(TransactionPayloadBuilderError::MetadataDecodingError(
+            MetadataDecodingError::ArgumentOutOfOrder {
+                argument_kind: ArgumentKind::Input
+            }
+        ))
+    ));
 }

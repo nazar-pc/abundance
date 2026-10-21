@@ -22,7 +22,7 @@ use core::ffi::c_void;
 use core::mem::MaybeUninit;
 use core::num::NonZeroU8;
 use core::ptr::NonNull;
-use core::slice;
+use core::{hint, slice};
 
 const {
     // Make sure bit flags for all arguments will fit into a single u8 below
@@ -225,19 +225,36 @@ impl TransactionPayloadBuilder {
                     num_slot_arguments += 1;
                 }
                 ArgumentKind::Input => {
+                    // SAFETY: The counters only count arguments decoded before this one, so they
+                    // and their sum are below `num_arguments`, the number of items that the
+                    // metadata decoder returns (see `MethodMetadataItem::num_arguments`). The check
+                    // of the number of arguments above limits `num_arguments` to
+                    // `MAX_TOTAL_METHOD_ARGS`.
+                    unsafe {
+                        hint::assert_unchecked(num_input_arguments < MAX_TOTAL_METHOD_ARGS);
+                    }
                     input_output_type_details[usize::from(num_input_arguments)]
                         .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
                     num_input_arguments += 1;
                 }
                 ArgumentKind::Output | ArgumentKind::Return => {
-                    // Executors store the state returned by `#[init]` instead of writing it to the
-                    // caller, so it is encoded as an output, like the state in the last `#[output]`
-                    // of `#[init]` without a return value
+                    // The return value is the last argument (see
+                    // `ArgumentsMetadataDecoder::decode_next()`), so it is also the last output. In
+                    // `#[init]` it is the state, which executors store instead of writing it to the
+                    // caller, so it is encoded as an output then, like the state in the last
+                    // `#[output]` of `#[init]` without a return value.
                     if matches!(item.argument_kind, ArgumentKind::Return)
                         && !matches!(method_kind, MethodKind::Init)
                     {
                         return_value_offset = Some(usize::from(num_output_arguments));
                     }
+                    // SAFETY: Same as for inputs above
+                    unsafe {
+                        hint::assert_unchecked(
+                            num_input_arguments + num_output_arguments < MAX_TOTAL_METHOD_ARGS,
+                        );
+                    }
+                    // After all inputs, which come before outputs
                     input_output_type_details
                         [usize::from(num_input_arguments + num_output_arguments)]
                     .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
@@ -245,7 +262,12 @@ impl TransactionPayloadBuilder {
                 }
             }
         }
-        // SAFETY: Just initialized elements above
+        // SAFETY: As for the writes above, the counters and their sum are at most `num_arguments`,
+        // so they stay within the `MAX_TOTAL_METHOD_ARGS` elements of the array. The metadata
+        // decoder returns all inputs before outputs (see
+        // `ArgumentsMetadataDecoder::decode_next()`), so the first `num_input_arguments` elements
+        // were initialized above with inputs and the next `num_output_arguments` ones with
+        // outputs.
         let (input_type_details, output_type_details) = unsafe {
             let (input_type_details, output_type_details) =
                 input_output_type_details.split_at_unchecked(usize::from(num_input_arguments));
@@ -291,7 +313,8 @@ impl TransactionPayloadBuilder {
         self.push_payload_byte(num_output_arguments)?;
 
         for slot_offset in 0..usize::from(num_slot_arguments) {
-            // SAFETY: Method description requires the layout to correspond to metadata
+            // SAFETY: Method description requires the layout to correspond to metadata, where all
+            // slots come before inputs and outputs (see `ArgumentsMetadataDecoder::decode_next()`)
             let address = unsafe { read_external_args::<NonNull<Address>>(external_args).as_ref() };
 
             if slot_output_index
@@ -305,7 +328,8 @@ impl TransactionPayloadBuilder {
         }
 
         for (input_offset, type_details) in input_type_details.iter().enumerate() {
-            // SAFETY: Method description requires the layout to correspond to metadata
+            // SAFETY: Method description requires the layout to correspond to metadata, where the
+            // inputs come right after the slots (see `ArgumentsMetadataDecoder::decode_next()`)
             let (size, data) = unsafe {
                 let FfiDataSizeCapacityRo {
                     data_ptr,
