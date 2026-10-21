@@ -9,7 +9,6 @@ use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
-use core::num::NonZeroU8;
 use core::ptr;
 
 /// Offset of the number of `#[slot]` arguments of the first method in the payload
@@ -190,35 +189,31 @@ fn payload_decode_outputs_aligned_without_padding() {
 
 #[test]
 fn transaction_output_encoding() {
-    for alignment_power in 0..=Alignment::MAX.power {
-        let alignment = NonZeroU8::new(1 << alignment_power).unwrap();
+    for power in 0..=Alignment::MAX.power {
+        let alignment = Alignment::from_power(power).unwrap();
 
-        let output = TransactionOutput::new_output(alignment).unwrap();
+        let output = TransactionOutput::new_output(alignment);
         assert_eq!(
             output.output_type(),
-            TransactionOutputType::Output { alignment_power }
+            TransactionOutputType::Output { alignment }
         );
-        assert_eq!(output.into_u8(), 0b1000_0000 | alignment_power);
+        assert_eq!(output.into_u8(), 0b1000_0000 | power);
 
-        let return_value = TransactionOutput::new_return_value(alignment).unwrap();
+        let return_value = TransactionOutput::new_return_value(alignment);
         assert_eq!(
             return_value.output_type(),
-            TransactionOutputType::ReturnValue { alignment_power }
+            TransactionOutputType::ReturnValue { alignment }
         );
-        assert_eq!(return_value.into_u8(), alignment_power);
+        assert_eq!(return_value.into_u8(), power);
     }
 
-    // Alignments that are not a power of two or larger than `Alignment::MAX`
-    for alignment in [3, 6, 12, 32, 64, 128, u8::MAX] {
-        let alignment = NonZeroU8::new(alignment).unwrap();
-
-        assert!(TransactionOutput::new_output(alignment).is_none());
-        assert!(TransactionOutput::new_return_value(alignment).is_none());
-    }
-
-    // Every byte round-trips, including those with invalid alignment powers that
-    // `decode_next_method()` rejects
+    // Only bytes that `into_u8()` returns are accepted, and they round-trip
     for byte in 0..=u8::MAX {
-        assert_eq!(TransactionOutput::from_u8(byte).into_u8(), byte);
+        let accepted = byte & 0b0111_1111 <= Alignment::MAX.power;
+        assert_eq!(
+            TransactionOutput::from_u8(byte).map(TransactionOutput::into_u8),
+            accepted.then_some(byte),
+            "Byte {byte:#010b}"
+        );
     }
 }

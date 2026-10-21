@@ -17,6 +17,7 @@ use ab_contracts_common::metadata::decode::{ArgumentKind, MetadataDecodingError}
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_macros::contract;
 use ab_core_primitives::address::Address;
+use ab_io_type::alignment::Alignment;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::metadata::IoTypeMetadataKind;
 use ab_io_type::trivial_type::TrivialType;
@@ -67,7 +68,7 @@ fn last_output(builder: &TransactionPayloadBuilder) -> (u32, TransactionOutputTy
 
     (
         u32::from_le_bytes(capacity),
-        TransactionOutput::from_u8(output).output_type(),
+        TransactionOutput::from_u8(output).unwrap().output_type(),
     )
 }
 
@@ -252,7 +253,9 @@ fn payload_encode_output_types() {
             last_output(&builder),
             (
                 u8::SIZE,
-                TransactionOutputType::Output { alignment_power: 0 }
+                TransactionOutputType::Output {
+                    alignment: Alignment::of::<u8>()
+                }
             )
         );
     }
@@ -274,7 +277,9 @@ fn payload_encode_output_types() {
             last_output(&builder),
             (
                 u8::SIZE,
-                TransactionOutputType::ReturnValue { alignment_power: 0 }
+                TransactionOutputType::ReturnValue {
+                    alignment: Alignment::of::<u8>()
+                }
             )
         );
     }
@@ -295,7 +300,12 @@ fn payload_encode_output_types() {
 
         assert_eq!(
             last_output(&builder),
-            (0, TransactionOutputType::Output { alignment_power: 0 })
+            (
+                0,
+                TransactionOutputType::Output {
+                    alignment: Alignment::of::<u8>()
+                }
+            )
         );
     }
 }
@@ -513,7 +523,9 @@ fn payload_encode_arguments_order() {
         last_output(&builder),
         (
             u32::SIZE,
-            TransactionOutputType::Output { alignment_power: 2 }
+            TransactionOutputType::Output {
+                alignment: Alignment::of::<u32>()
+            }
         )
     );
 

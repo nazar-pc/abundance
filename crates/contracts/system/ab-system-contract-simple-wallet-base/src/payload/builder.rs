@@ -20,7 +20,6 @@ use ab_io_type::metadata::IoTypeDetails;
 use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
 use core::mem::MaybeUninit;
-use core::num::NonZeroU8;
 use core::ptr::NonNull;
 use core::{hint, slice};
 
@@ -53,9 +52,6 @@ pub enum TransactionPayloadBuilderError<'a> {
     /// Too many arguments
     #[error("Too many arguments")]
     TooManyArguments(u8),
-    /// Invalid alignment
-    #[error("Invalid alignment: {0}")]
-    InvalidAlignment(NonZeroU8),
     /// Invalid output index
     #[error("Invalid output index: {0}")]
     InvalidOutputIndex(u8),
@@ -119,7 +115,7 @@ impl TransactionPayloadBuilder {
     ///
     /// [`MaybeData`]: ab_io_type::maybe_data::MaybeData
     /// [`VariableElements`]: ab_io_type::variable_elements::VariableElements
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn with_method_call<Args>(
         &mut self,
         contract: &Address,
@@ -159,7 +155,7 @@ impl TransactionPayloadBuilder {
         clippy::too_many_arguments,
         reason = "Only exceeds the limit due to being untyped, while above typed version is not"
     )]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub unsafe fn with_method_call_untyped<'a>(
         &mut self,
         contract: &Address,
@@ -195,10 +191,10 @@ impl TransactionPayloadBuilder {
             ));
         }
 
-        self.extend_payload_with_alignment(contract.as_bytes(), align_of_val(contract))?;
+        self.extend_payload_with_alignment(contract.as_bytes(), Alignment::of::<Address>())?;
         self.extend_payload_with_alignment(
             method_fingerprint.as_bytes(),
-            align_of_val(method_fingerprint),
+            Alignment::of::<MethodFingerprint>(),
         )?;
         self.push_payload_byte(method_context as u8)?;
 
@@ -300,14 +296,12 @@ impl TransactionPayloadBuilder {
         for (input_offset, type_details) in input_type_details.iter().enumerate() {
             let input_type = if let Some(&Some(output_index)) = input_output_index.get(input_offset)
             {
+                // Only the output index is written, so the alignment of the input isn't used
                 TransactionInput::new_output_index(output_index).ok_or(
                     TransactionPayloadBuilderError::InvalidOutputIndex(output_index),
                 )?
             } else {
-                let alignment = NonZeroU8::new(type_details.alignment.get())
-                    .expect("Alignment is not zero; qed");
-                TransactionInput::new_value(alignment)
-                    .ok_or(TransactionPayloadBuilderError::InvalidAlignment(alignment))?
+                TransactionInput::new_value(type_details.alignment)
             };
             self.push_payload_byte(input_type.into_u8())?;
         }
@@ -330,7 +324,7 @@ impl TransactionPayloadBuilder {
                 // SAFETY: Method description requires the layout to correspond to metadata, and
                 // the slot doesn't refer to an earlier output, so it points to an address
                 let address = unsafe { address.as_ref() };
-                self.extend_payload_with_alignment(address.as_bytes(), align_of_val(address))?;
+                self.extend_payload_with_alignment(address.as_bytes(), Alignment::of::<Address>())?;
             }
         }
 
@@ -354,23 +348,20 @@ impl TransactionPayloadBuilder {
                 // the input doesn't refer to an earlier output, so it points to `size` bytes
                 let data =
                     unsafe { slice::from_raw_parts(data_ptr.as_ptr().cast_const(), size as usize) };
-                self.extend_payload_with_alignment(&size.to_le_bytes(), align_of_val(&size))?;
-                self.extend_payload_with_alignment(data, type_details.alignment.get() as usize)?;
+                self.extend_payload_with_alignment(&size.to_le_bytes(), Alignment::of::<u32>())?;
+                self.extend_payload_with_alignment(data, type_details.alignment)?;
             }
         }
 
         for (output_offset, type_details) in output_type_details.iter().enumerate() {
-            let alignment =
-                NonZeroU8::new(type_details.alignment.get()).expect("Alignment is not zero; qed");
             let output_type = if return_value_offset == Some(output_offset) {
-                TransactionOutput::new_return_value(alignment)
+                TransactionOutput::new_return_value(type_details.alignment)
             } else {
-                TransactionOutput::new_output(alignment)
-            }
-            .ok_or(TransactionPayloadBuilderError::InvalidAlignment(alignment))?;
+                TransactionOutput::new_output(type_details.alignment)
+            };
             self.extend_payload_with_alignment(
                 &type_details.recommended_capacity.to_le_bytes(),
-                align_of_val(&type_details.recommended_capacity),
+                Alignment::of::<u32>(),
             )?;
             self.push_payload_byte(output_type.into_u8())?;
         }
@@ -404,43 +395,39 @@ impl TransactionPayloadBuilder {
     ///
     /// [`TransactionSlotType::Address`]: crate::payload::TransactionSlotType::Address
     /// [`TransactionInputType::Value`]: crate::payload::TransactionInputType::Value
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn into_aligned_bytes(mut self) -> OwnedAlignedBuffer {
         // SAFETY: Constructor guarantees that capacity is a multiple of `Alignment::MAX` and is
         // never exceeded
         unsafe {
-            self.ensure_alignment(usize::from(Alignment::MAX.get()))
-                .unwrap_unchecked();
+            self.ensure_alignment(Alignment::MAX).unwrap_unchecked();
         }
 
         self.payload
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn extend_payload_with_alignment(
         &mut self,
         bytes: &[u8],
-        alignment: usize,
+        alignment: Alignment,
     ) -> Result<(), TransactionPayloadBuilderError<'static>> {
         self.ensure_alignment(alignment)?;
         self.extend_payload(bytes)
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn ensure_alignment(
         &mut self,
-        alignment: usize,
+        alignment: Alignment,
     ) -> Result<(), TransactionPayloadBuilderError<'static>> {
-        debug_assert!(alignment <= usize::from(Alignment::MAX.get()));
+        let alignment = usize::from(alignment.get());
 
-        // Optimized version of the following that expects `alignment` to be a power of 2:
-        // let unaligned_by = self.payload.len() % alignment;
-        let unaligned_by = self.payload.len() as usize & (alignment - 1);
+        let unaligned_by = self.payload.len() as usize % alignment;
         if unaligned_by > 0 {
-            // SAFETY: Subtracted value is always smaller than alignment
-            let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
+            let padding_bytes = alignment - unaligned_by;
             // Byte by byte rather than as a slice of zeroes, which the compiler can't prove to be
-            // in bounds for alignments that come from metadata
+            // in bounds
             for _ in 0..padding_bytes {
                 self.push_payload_byte(0)?;
             }
@@ -449,7 +436,7 @@ impl TransactionPayloadBuilder {
         Ok(())
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn push_payload_byte(
         &mut self,
         byte: u8,
@@ -458,7 +445,7 @@ impl TransactionPayloadBuilder {
     }
 
     /// Append `bytes` to the payload if they fit into its capacity, it is never reallocated
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn extend_payload(
         &mut self,
         bytes: &[u8],

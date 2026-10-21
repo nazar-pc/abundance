@@ -23,7 +23,6 @@ use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
 use core::ffi::c_void;
 use core::mem::{MaybeUninit, offset_of};
-use core::num::{NonZeroU8, NonZeroUsize};
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::{ptr, slice};
@@ -68,7 +67,7 @@ const impl TryFrom<u8> for TransactionMethodContext {
 
 #[derive(Debug, Copy, Eq, PartialEq, Clone)]
 pub enum TransactionInputType {
-    Value { alignment_power: u8 },
+    Value { alignment: Alignment },
     OutputIndex { output_index: u8 },
 }
 
@@ -148,17 +147,10 @@ impl TransactionSlot {
 pub struct TransactionInput(TransactionInputType);
 
 impl TransactionInput {
-    /// Regular input value with specified alignment.
-    ///
-    /// Valid alignment values are: 1, 2, 4, 8, 16.
+    /// Regular input value with `alignment`
     #[inline(always)]
-    pub const fn new_value(alignment: NonZeroU8) -> Option<Self> {
-        match alignment.get() {
-            1 | 2 | 4 | 8 | 16 => Some(Self(TransactionInputType::Value {
-                alignment_power: alignment.ilog2() as u8,
-            })),
-            _ => None,
-        }
+    pub const fn new_value(alignment: Alignment) -> Self {
+        Self(TransactionInputType::Value { alignment })
     }
 
     /// Output index value.
@@ -173,25 +165,33 @@ impl TransactionInput {
         Some(Self(TransactionInputType::OutputIndex { output_index }))
     }
 
-    /// Create an instance from `u8`
+    /// Create an instance from `u8`.
+    ///
+    /// Returns `None` for a value with an alignment larger than [`Alignment::MAX`], which
+    /// [`Alignment`] can't hold.
     #[inline(always)]
-    pub const fn from_u8(n: u8) -> Self {
-        // The first bit is set to 1 for value and 0 for output index
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn from_u8(n: u8) -> Option<Self> {
+        // The first bit is set to 1 for value and 0 for output index, the remaining bits of a
+        // value hold the power of two of its alignment
         if n & 0b1000_0000 == 0 {
-            Self(TransactionInputType::OutputIndex { output_index: n })
-        } else {
-            Self(TransactionInputType::Value {
-                alignment_power: n & 0b0111_1111,
-            })
+            return Some(Self(TransactionInputType::OutputIndex { output_index: n }));
         }
+
+        let Some(alignment) = Alignment::from_power(n & 0b0111_1111) else {
+            return None;
+        };
+
+        Some(Self(TransactionInputType::Value { alignment }))
     }
 
     /// Convert instance into `u8`
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn into_u8(self) -> u8 {
         // The first bit is set to 1 for value and 0 for output index
         match self.0 {
-            TransactionInputType::Value { alignment_power } => 0b1000_0000 | alignment_power,
+            TransactionInputType::Value { alignment } => 0b1000_0000 | alignment.power,
             TransactionInputType::OutputIndex { output_index } => output_index,
         }
     }
@@ -205,8 +205,8 @@ impl TransactionInput {
 
 #[derive(Debug, Copy, Eq, PartialEq, Clone)]
 pub enum TransactionOutputType {
-    Output { alignment_power: u8 },
-    ReturnValue { alignment_power: u8 },
+    Output { alignment: Alignment },
+    ReturnValue { alignment: Alignment },
 }
 
 /// The type of transaction output could be either `#[output]` or return value.
@@ -220,58 +220,49 @@ pub enum TransactionOutputType {
 pub struct TransactionOutput(TransactionOutputType);
 
 impl TransactionOutput {
-    /// `#[output]` with specified alignment.
-    ///
-    /// Valid alignment values are: 1, 2, 4, 8, 16.
+    /// `#[output]` with `alignment`
     #[inline(always)]
-    pub const fn new_output(alignment: NonZeroU8) -> Option<Self> {
-        match alignment.get() {
-            1 | 2 | 4 | 8 | 16 => Some(Self(TransactionOutputType::Output {
-                alignment_power: alignment.ilog2() as u8,
-            })),
-            _ => None,
-        }
+    pub const fn new_output(alignment: Alignment) -> Self {
+        Self(TransactionOutputType::Output { alignment })
     }
 
-    /// Return value with specified alignment.
-    ///
-    /// Valid alignment values are: 1, 2, 4, 8, 16.
+    /// Return value with `alignment`
     #[inline(always)]
-    pub const fn new_return_value(alignment: NonZeroU8) -> Option<Self> {
-        match alignment.get() {
-            1 | 2 | 4 | 8 | 16 => Some(Self(TransactionOutputType::ReturnValue {
-                alignment_power: alignment.ilog2() as u8,
-            })),
-            _ => None,
-        }
+    pub const fn new_return_value(alignment: Alignment) -> Self {
+        Self(TransactionOutputType::ReturnValue { alignment })
     }
 
     /// Create an instance from `u8`.
     ///
-    /// The alignment power is not checked here, [`TransactionPayloadDecoder::call_next_method()`]
-    /// rejects alignment powers larger than that of [`Alignment::MAX`].
+    /// Returns `None` for an alignment larger than [`Alignment::MAX`], which [`Alignment`] can't
+    /// hold.
     #[inline(always)]
-    pub const fn from_u8(n: u8) -> Self {
-        let alignment_power = n & 0b0111_1111;
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn from_u8(n: u8) -> Option<Self> {
+        let Some(alignment) = Alignment::from_power(n & 0b0111_1111) else {
+            return None;
+        };
+
         // The first bit is set to 1 for output and 0 for return value
         if n & 0b1000_0000 == 0 {
-            Self(TransactionOutputType::ReturnValue { alignment_power })
+            Some(Self(TransactionOutputType::ReturnValue { alignment }))
         } else {
-            Self(TransactionOutputType::Output { alignment_power })
+            Some(Self(TransactionOutputType::Output { alignment }))
         }
     }
 
     /// Convert instance into `u8`
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn into_u8(self) -> u8 {
         // The first bit is set to 1 for output and 0 for return value
         match self.0 {
-            TransactionOutputType::Output { alignment_power } => 0b1000_0000 | alignment_power,
-            TransactionOutputType::ReturnValue { alignment_power } => alignment_power,
+            TransactionOutputType::Output { alignment } => 0b1000_0000 | alignment.power,
+            TransactionOutputType::ReturnValue { alignment } => alignment.power,
         }
     }
 
-    /// Returns whether this is `#[output]` or return value, with its alignment power
+    /// Returns whether this is `#[output]` or return value, with its alignment
     #[inline(always)]
     pub const fn output_type(self) -> TransactionOutputType {
         self.0
@@ -388,7 +379,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     /// The size of `output_buffer_details` defines how many `#[output]` arguments and return values
     /// could exist in all methods of the payload together.
     #[inline]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn new(
         payload: &'a [u128],
         external_args_buffer: &'a mut [*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE],
@@ -426,7 +417,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     /// are no more methods in the payload. The decoder is consumed when decoding or the method
     /// fails, since later methods might refer to return values that the failed method didn't
     /// write.
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn call_next_method(
         mut self,
         env: &Env<'_>,
@@ -454,7 +445,7 @@ impl<'a> TransactionPayloadDecoder<'a> {
     /// [`Env::call_prepared()`] does (with the `guest` feature, the host is trusted to write them
     /// the same way), before the next method is decoded, and decoding must stop at the first error.
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     unsafe fn decode_next_method(
         &mut self,
     ) -> Result<Option<PreparedMethod<'_>>, TransactionPayloadDecoderError> {
@@ -487,7 +478,7 @@ impl<'decoder> Deref for TransactionPayloadDecoderInternal<'_, 'decoder> {
     type Target = TransactionPayloadDecoder<'decoder>;
 
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn deref(&self) -> &Self::Target {
         self.0
     }
@@ -495,7 +486,7 @@ impl<'decoder> Deref for TransactionPayloadDecoderInternal<'_, 'decoder> {
 
 impl DerefMut for TransactionPayloadDecoderInternal<'_, '_> {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
@@ -503,7 +494,7 @@ impl DerefMut for TransactionPayloadDecoderInternal<'_, '_> {
 
 impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn decode_next_method(
         mut self,
     ) -> Result<Option<PreparedMethod<'tmp>>, TransactionPayloadDecoderError> {
@@ -611,11 +602,13 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
             }
 
             for &transaction_input in transaction_inputs {
-                let (bytes, size) = match TransactionInput::from_u8(transaction_input).input_type()
-                {
-                    TransactionInputType::Value { alignment_power } => {
-                        let alignment = Self::alignment_from_power(alignment_power)?;
-
+                let input = TransactionInput::from_u8(transaction_input).ok_or(
+                    TransactionPayloadDecoderError::AlignmentPowerTooLarge(
+                        transaction_input & 0b0111_1111,
+                    ),
+                )?;
+                let (bytes, size) = match input.input_type() {
+                    TransactionInputType::Value { alignment } => {
                         let size = *self.get_trivial_type::<u32>()?;
                         let bytes = self.get_bytes(size, alignment)?;
 
@@ -642,20 +635,23 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
 
             for _ in 0..num_output_arguments {
                 let recommended_capacity = *self.get_trivial_type::<u32>()?;
-                let (alignment_power, size) = match TransactionOutput::from_u8(self.read_u8()?)
-                    .output_type()
-                {
-                    TransactionOutputType::Output { alignment_power } => (alignment_power, 0),
-                    TransactionOutputType::ReturnValue { alignment_power } => {
+                let output_tag = self.read_u8()?;
+                let output = TransactionOutput::from_u8(output_tag).ok_or(
+                    TransactionPayloadDecoderError::AlignmentPowerTooLarge(
+                        output_tag & 0b0111_1111,
+                    ),
+                )?;
+                let (alignment, size) = match output.output_type() {
+                    TransactionOutputType::Output { alignment } => (alignment, 0),
+                    TransactionOutputType::ReturnValue { alignment } => {
                         // Executors write the return value through its pointer, but not its size,
                         // which `ExternalArgs` don't have, so it is set to the capacity right away,
                         // which is the size of the return type. A failed method might not have
                         // written its return value, but no later method sees its size then, since
                         // decoding stops at the first failed method.
-                        (alignment_power, recommended_capacity)
+                        (alignment, recommended_capacity)
                     }
                 };
-                let alignment = Self::alignment_from_power(alignment_power)?;
 
                 // SAFETY: `external_args_cursor` is created from `external_args` and is within the
                 // same allocation
@@ -732,30 +728,14 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         Ok(Some(prepared_method))
     }
 
-    /// Get alignment from its power of two stored in the payload, which must not exceed
-    /// [`Alignment::MAX`]
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    fn alignment_from_power(
-        alignment_power: u8,
-    ) -> Result<NonZeroUsize, TransactionPayloadDecoderError> {
-        if alignment_power > Alignment::MAX.power {
-            return Err(TransactionPayloadDecoderError::AlignmentPowerTooLarge(
-                alignment_power,
-            ));
-        }
-
-        Ok(NonZeroUsize::new(1 << alignment_power).expect("Power of two is not zero; qed"))
-    }
-
     /// Get a reference to an [`AnyBitPattern`] value inside the payload
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn get_trivial_type<T>(&mut self) -> Result<&'decoder T, TransactionPayloadDecoderError>
     where
         T: AnyBitPattern,
     {
-        self.ensure_alignment(NonZeroUsize::new(align_of::<T>()).expect("Not zero; qed"))?;
+        self.ensure_alignment(Alignment::of::<T>())?;
 
         let bytes;
         (bytes, self.payload) = self
@@ -774,11 +754,11 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
 
     /// Get a reference to opaque bytes inside the payload
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn get_bytes(
         &mut self,
         size: u32,
-        alignment: NonZeroUsize,
+        alignment: Alignment,
     ) -> Result<&'decoder [u8], TransactionPayloadDecoderError> {
         self.ensure_alignment(alignment)?;
 
@@ -793,7 +773,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
 
     /// Read [`TransactionMethodContext`] from its byte, which might not be a valid discriminant
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn read_method_context(
         &mut self,
     ) -> Result<TransactionMethodContext, TransactionPayloadDecoderError> {
@@ -804,7 +784,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
     }
 
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn read_u8(&mut self) -> Result<u8, TransactionPayloadDecoderError> {
         let value;
         (value, self.payload) = self
@@ -816,13 +796,12 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
     }
 
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn ensure_alignment(
         &mut self,
-        alignment: NonZeroUsize,
+        alignment: Alignment,
     ) -> Result<(), TransactionPayloadDecoderError> {
-        let alignment = alignment.get();
-        debug_assert!(alignment <= usize::from(Alignment::MAX.get()));
+        let alignment = usize::from(alignment.get());
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
         // let unaligned_by = self.payload.as_ptr().addr() % alignment;
@@ -840,11 +819,11 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
 
     /// Returns a tuple of `(size_ptr, output_ptr)` of a newly allocated output buffer
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn allocate_output_buffer(
         &mut self,
         capacity: u32,
-        output_alignment: NonZeroUsize,
+        output_alignment: Alignment,
         external_args_size_offset: u32,
     ) -> Result<NonNull<u8>, TransactionPayloadDecoderError> {
         if self.output_buffer_details.len() == self.output_buffer_offsets_cursor.current {
@@ -873,14 +852,13 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
 
     /// Returns `None` if output buffer is not large enough
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn allocate_output_buffer_ptr<T>(
         &mut self,
-        alignment: NonZeroUsize,
+        alignment: Alignment,
         size: usize,
     ) -> Option<(usize, NonNull<T>)> {
-        let alignment = alignment.get();
-        debug_assert!(alignment <= usize::from(Alignment::MAX.get()));
+        let alignment = usize::from(alignment.get());
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
         // let padding_bytes = (alignment - self.output_buffer_cursor % alignment) % alignment;
@@ -907,7 +885,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
     /// Update all [`OutputBufferDetails::size_or_external_args_offset`] to store sizes rather than
     /// offsets into `external_args_buffer` and advances [`OutputBufferOffsetsCursor::before_last`]
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn update_output_buffer_details(&mut self) {
         #[expect(
             clippy::rest_pattern_accessible_field,
@@ -942,7 +920,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
     }
 
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn get_from_output_buffer(
         &self,
         output_index: u8,

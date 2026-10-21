@@ -14,6 +14,7 @@
 
 #![feature(const_convert, const_trait_impl, maybe_uninit_as_bytes, slice_ptr_get)]
 #![cfg_attr(feature = "payload-builder", feature(const_block_items))]
+#![cfg_attr(feature = "no-panic", feature(const_closures))]
 #![no_std]
 
 pub mod payload;
@@ -103,7 +104,7 @@ pub struct SimpleWalletBase;
 impl SimpleWalletBase {
     /// Returns initial state with a provided public key
     #[view]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn initialize(#[input] &public_key: &[u8; 32]) -> Result<WalletState, ContractError> {
         // TODO: Storing some lower-level representation of the public key might reduce the cost of
         //  verification in `Self::authorize()` method
@@ -120,7 +121,7 @@ impl SimpleWalletBase {
     ///
     /// `seal` must hold exactly the bytes of a [`Seal`].
     #[view]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn authorize(
         #[input] state: &WalletState,
         #[input] header: &TransactionHeader,
@@ -163,7 +164,7 @@ impl SimpleWalletBase {
     ///
     /// The caller must set themselves as a context or else error will be returned.
     #[update]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn execute(
         #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
@@ -211,7 +212,7 @@ impl SimpleWalletBase {
 
     /// Returns state with increased nonce
     #[view]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn increase_nonce(#[input] state: &WalletState) -> Result<WalletState, ContractError> {
         let nonce = state.nonce.checked_add(1).ok_or(ContractError::Forbidden)?;
 
@@ -223,7 +224,7 @@ impl SimpleWalletBase {
 
     /// Returns a new state with a changed public key
     #[view]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn change_public_key(
         #[input] state: &WalletState,
         #[input] &public_key: &[u8; 32],

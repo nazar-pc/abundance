@@ -905,7 +905,7 @@ dependencies = [
  "ab-io-type",
  "ab-system-contract-state",
  "blake3",
- "no-panic",
+ "no-panic-const",
  "schnorrkel",
  "thiserror 2.0.21",
 ]
