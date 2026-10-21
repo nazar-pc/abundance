@@ -12,6 +12,7 @@ use ab_core_primitives::balance::Balance;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::transaction::{Gas, TransactionHeader, TransactionSlot};
+use ab_io_type::alignment::Alignment;
 use ab_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
 use ab_io_type::trivial_type::TrivialType;
 
@@ -42,7 +43,7 @@ where
         usize::try_from(type_details.recommended_capacity).unwrap(),
         size_of::<T>()
     );
-    assert_eq!(usize::from(type_details.alignment.get()), align_of::<T>());
+    assert_eq!(type_details.alignment, Alignment::of::<T>());
 }
 
 #[test]

@@ -19,7 +19,7 @@ use ab_contracts_common::env::{Env, MethodContext, PreparedMethod};
 use ab_contracts_common::method::MethodFingerprint;
 use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_core_primitives::address::Address;
-use ab_io_type::MAX_ALIGNMENT;
+use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
 use core::ffi::c_void;
 use core::mem::{MaybeUninit, offset_of};
@@ -249,7 +249,7 @@ impl TransactionOutput {
     /// Create an instance from `u8`.
     ///
     /// The alignment power is not checked here, [`TransactionPayloadDecoder::call_next_method()`]
-    /// rejects alignment powers larger than that of [`MAX_ALIGNMENT`].
+    /// rejects alignment powers larger than that of [`Alignment::MAX`].
     #[inline(always)]
     pub const fn from_u8(n: u8) -> Self {
         let alignment_power = n & 0b0111_1111;
@@ -396,8 +396,11 @@ impl<'a> TransactionPayloadDecoder<'a> {
         output_buffer_details: &'a mut [MaybeUninit<OutputBufferDetails>],
         map_context: fn(TransactionMethodContext) -> MethodContext,
     ) -> Self {
-        debug_assert_eq!(align_of_val(payload), usize::from(MAX_ALIGNMENT));
-        debug_assert_eq!(align_of_val(output_buffer), usize::from(MAX_ALIGNMENT));
+        debug_assert_eq!(align_of_val(payload), usize::from(Alignment::MAX.get()));
+        debug_assert_eq!(
+            align_of_val(output_buffer),
+            usize::from(Alignment::MAX.get())
+        );
 
         // SAFETY: Memory is valid and bound by an argument's lifetime
         let payload =
@@ -504,7 +507,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
     fn decode_next_method(
         mut self,
     ) -> Result<Option<PreparedMethod<'tmp>>, TransactionPayloadDecoderError> {
-        if self.payload.len() <= usize::from(MAX_ALIGNMENT) {
+        if self.payload.len() <= usize::from(Alignment::MAX.get()) {
             return Ok(None);
         }
 
@@ -730,13 +733,13 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
     }
 
     /// Get alignment from its power of two stored in the payload, which must not exceed
-    /// [`MAX_ALIGNMENT`]
+    /// [`Alignment::MAX`]
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn alignment_from_power(
         alignment_power: u8,
     ) -> Result<NonZeroUsize, TransactionPayloadDecoderError> {
-        if u32::from(alignment_power) > MAX_ALIGNMENT.ilog2() {
+        if alignment_power > Alignment::MAX.power {
             return Err(TransactionPayloadDecoderError::AlignmentPowerTooLarge(
                 alignment_power,
             ));
@@ -819,7 +822,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         alignment: NonZeroUsize,
     ) -> Result<(), TransactionPayloadDecoderError> {
         let alignment = alignment.get();
-        debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
+        debug_assert!(alignment <= usize::from(Alignment::MAX.get()));
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
         // let unaligned_by = self.payload.as_ptr().addr() % alignment;
@@ -877,7 +880,7 @@ impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
         size: usize,
     ) -> Option<(usize, NonNull<T>)> {
         let alignment = alignment.get();
-        debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
+        debug_assert!(alignment <= usize::from(Alignment::MAX.get()));
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
         // let padding_bytes = (alignment - self.output_buffer_cursor % alignment) % alignment;

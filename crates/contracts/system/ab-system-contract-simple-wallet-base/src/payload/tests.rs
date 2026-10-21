@@ -6,7 +6,7 @@ use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::method::MethodFingerprint;
 use ab_core_primitives::address::Address;
-use ab_io_type::MAX_ALIGNMENT;
+use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
 use core::num::NonZeroU8;
@@ -16,8 +16,6 @@ use core::ptr;
 const NUM_SLOT_ARGUMENTS_OFFSET: usize = Address::SIZE as usize
     + MethodFingerprint::SIZE as usize
     + size_of::<TransactionMethodContext>();
-/// Power of two of [`MAX_ALIGNMENT`] as stored in the payload
-const MAX_ALIGNMENT_POWER: u8 = MAX_ALIGNMENT.trailing_zeros() as u8;
 
 fn decode_first_method(payload: &[u8; 64]) -> Result<(), TransactionPayloadDecoderError> {
     let payload = core::array::from_fn::<_, 4, _>(|index| {
@@ -83,10 +81,10 @@ fn payload_decode_invalid_method_context() {
 #[test]
 fn payload_decode_input_max_alignment() {
     let mut payload = [0u8; 64];
-    // No slots, a single empty input value (the first bit) with an alignment of `MAX_ALIGNMENT`
+    // No slots, a single empty input value (the first bit) with an alignment of `Alignment::MAX`
     // (power of two in the remaining bits)
     payload[NUM_SLOT_ARGUMENTS_OFFSET + 1] = 1;
-    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 0b1000_0000 | MAX_ALIGNMENT_POWER;
+    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 0b1000_0000 | Alignment::MAX.power;
 
     decode_first_method(&payload).unwrap();
 }
@@ -94,15 +92,15 @@ fn payload_decode_input_max_alignment() {
 #[test]
 fn payload_decode_input_alignment_too_large() {
     let mut payload = [0u8; 64];
-    // No slots, a single input value (the first bit) with an alignment of twice `MAX_ALIGNMENT`
+    // No slots, a single input value (the first bit) with an alignment of twice `Alignment::MAX`
     // (power of two in the remaining bits)
     payload[NUM_SLOT_ARGUMENTS_OFFSET + 1] = 1;
-    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 0b1000_0000 | (MAX_ALIGNMENT_POWER + 1);
+    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 0b1000_0000 | (Alignment::MAX.power + 1);
 
     assert!(matches!(
         decode_first_method(&payload),
         Err(TransactionPayloadDecoderError::AlignmentPowerTooLarge(alignment_power))
-            if alignment_power == MAX_ALIGNMENT_POWER + 1
+            if alignment_power == Alignment::MAX.power + 1
     ));
 }
 
@@ -112,10 +110,10 @@ fn payload_decode_output_max_alignment() {
     for output_type in [0b1000_0000, 0] {
         let mut payload = [0u8; 64];
         // No slots and inputs, a single one with capacity `0`, followed by an alignment of
-        // `MAX_ALIGNMENT` (power of two in the remaining bits)
+        // `Alignment::MAX` (power of two in the remaining bits)
         payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 1;
         let capacity_offset = (NUM_SLOT_ARGUMENTS_OFFSET + 3).next_multiple_of(align_of::<u32>());
-        payload[capacity_offset + size_of::<u32>()] = output_type | MAX_ALIGNMENT_POWER;
+        payload[capacity_offset + size_of::<u32>()] = output_type | Alignment::MAX.power;
 
         decode_first_method(&payload).unwrap();
     }
@@ -126,7 +124,7 @@ fn payload_decode_output_alignment_too_large() {
     // An output (the first bit) and a return value
     for output_type in [0b1000_0000, 0] {
         // All bits that a valid alignment power doesn't use are invalid
-        for invalid_alignment_power in MAX_ALIGNMENT_POWER + 1..=0b0111_1111 {
+        for invalid_alignment_power in Alignment::MAX.power + 1..=0b0111_1111 {
             let mut payload = [0u8; 64];
             // No slots and inputs, a single one with capacity `0`, followed by an invalid
             // alignment power
@@ -148,13 +146,13 @@ fn payload_decode_output_alignment_too_large() {
 fn payload_decode_outputs_aligned_without_padding() {
     let mut payload = [0u8; 80];
     // No slots and inputs, two outputs (the first bit) with capacity 16 and an alignment of
-    // `MAX_ALIGNMENT` (power of two in the remaining bits)
+    // `Alignment::MAX` (power of two in the remaining bits)
     payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 2;
     let mut capacity_offset = NUM_SLOT_ARGUMENTS_OFFSET + 3;
     for _ in 0..2 {
         capacity_offset = capacity_offset.next_multiple_of(align_of::<u32>());
         payload[capacity_offset..][..size_of::<u32>()].copy_from_slice(&16u32.to_le_bytes());
-        payload[capacity_offset + size_of::<u32>()] = 0b1000_0000 | MAX_ALIGNMENT_POWER;
+        payload[capacity_offset + size_of::<u32>()] = 0b1000_0000 | Alignment::MAX.power;
         capacity_offset += size_of::<u32>() + 1;
     }
     let payload = core::array::from_fn::<_, 5, _>(|index| {
@@ -192,7 +190,7 @@ fn payload_decode_outputs_aligned_without_padding() {
 
 #[test]
 fn transaction_output_encoding() {
-    for alignment_power in 0..=MAX_ALIGNMENT_POWER {
+    for alignment_power in 0..=Alignment::MAX.power {
         let alignment = NonZeroU8::new(1 << alignment_power).unwrap();
 
         let output = TransactionOutput::new_output(alignment).unwrap();
@@ -210,7 +208,7 @@ fn transaction_output_encoding() {
         assert_eq!(return_value.into_u8(), alignment_power);
     }
 
-    // Alignments that are not a power of two or larger than `MAX_ALIGNMENT`
+    // Alignments that are not a power of two or larger than `Alignment::MAX`
     for alignment in [3, 6, 12, 32, 64, 128, u8::MAX] {
         let alignment = NonZeroU8::new(alignment).unwrap();
 

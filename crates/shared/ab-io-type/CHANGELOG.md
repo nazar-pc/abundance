@@ -13,6 +13,9 @@ Breaking changes:
   types and layouts with padding
 * `IoTypeMetadataKind::type_details()` and `IoTypeMetadataKind::compact()` take the max nesting depth as a const generic
   parameter and return `None` for deeper metadata, their stack usage doesn't depend on metadata
+* `IoTypeDetails::alignment` is `Alignment` instead of `NonZeroU8`. `Alignment` is a new type that holds the alignment
+  of a type or value as a power of two up to `Alignment::MAX`, so decoded alignments don't need to be checked.
+  `MAX_ALIGNMENT` is removed, `Alignment::MAX` replaces it
 * `IoTypeMetadataKind::compact()` replaces names with zero-length names, so it produces valid metadata with the same
   capacity and alignment, previously it didn't for structs with more than 10 named fields and enums with fields. It also
   replaces structs with a single field with the type of the field and structs without fields with `()`, so a newtype has

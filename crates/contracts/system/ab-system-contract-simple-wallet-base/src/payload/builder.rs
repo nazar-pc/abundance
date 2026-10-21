@@ -15,7 +15,7 @@ use ab_contracts_common::metadata::decode::{
 };
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_core_primitives::address::Address;
-use ab_io_type::MAX_ALIGNMENT;
+use ab_io_type::alignment::Alignment;
 use ab_io_type::metadata::IoTypeDetails;
 use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
@@ -81,13 +81,13 @@ impl TransactionPayloadBuilder {
     ///
     /// Memory for the whole payload is allocated here and never reallocated, a method call that
     /// doesn't fit returns [`TransactionPayloadBuilderError::PayloadTooLarge`]. The payload is
-    /// padded to a multiple of [`MAX_ALIGNMENT`], so `max_size` is rounded down to a multiple of
+    /// padded to a multiple of [`Alignment::MAX`], so `max_size` is rounded down to a multiple of
     /// it.
     #[inline]
     pub fn new(max_size: u32) -> Self {
         Self {
             payload: OwnedAlignedBuffer::with_capacity(
-                max_size / u32::from(MAX_ALIGNMENT) * u32::from(MAX_ALIGNMENT),
+                max_size / u32::from(Alignment::MAX.get()) * u32::from(Alignment::MAX.get()),
             ),
         }
     }
@@ -304,9 +304,10 @@ impl TransactionPayloadBuilder {
                     TransactionPayloadBuilderError::InvalidOutputIndex(output_index),
                 )?
             } else {
-                TransactionInput::new_value(type_details.alignment).ok_or(
-                    TransactionPayloadBuilderError::InvalidAlignment(type_details.alignment),
-                )?
+                let alignment = NonZeroU8::new(type_details.alignment.get())
+                    .expect("Alignment is not zero; qed");
+                TransactionInput::new_value(alignment)
+                    .ok_or(TransactionPayloadBuilderError::InvalidAlignment(alignment))?
             };
             self.push_payload_byte(input_type.into_u8())?;
         }
@@ -359,14 +360,14 @@ impl TransactionPayloadBuilder {
         }
 
         for (output_offset, type_details) in output_type_details.iter().enumerate() {
+            let alignment =
+                NonZeroU8::new(type_details.alignment.get()).expect("Alignment is not zero; qed");
             let output_type = if return_value_offset == Some(output_offset) {
-                TransactionOutput::new_return_value(type_details.alignment)
+                TransactionOutput::new_return_value(alignment)
             } else {
-                TransactionOutput::new_output(type_details.alignment)
+                TransactionOutput::new_output(alignment)
             }
-            .ok_or(TransactionPayloadBuilderError::InvalidAlignment(
-                type_details.alignment,
-            ))?;
+            .ok_or(TransactionPayloadBuilderError::InvalidAlignment(alignment))?;
             self.extend_payload_with_alignment(
                 &type_details.recommended_capacity.to_le_bytes(),
                 align_of_val(&type_details.recommended_capacity),
@@ -405,10 +406,10 @@ impl TransactionPayloadBuilder {
     /// [`TransactionInputType::Value`]: crate::payload::TransactionInputType::Value
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn into_aligned_bytes(mut self) -> OwnedAlignedBuffer {
-        // SAFETY: Constructor guarantees that capacity is a multiple of `MAX_ALIGNMENT` and is
+        // SAFETY: Constructor guarantees that capacity is a multiple of `Alignment::MAX` and is
         // never exceeded
         unsafe {
-            self.ensure_alignment(usize::from(MAX_ALIGNMENT))
+            self.ensure_alignment(usize::from(Alignment::MAX.get()))
                 .unwrap_unchecked();
         }
 
@@ -430,7 +431,7 @@ impl TransactionPayloadBuilder {
         &mut self,
         alignment: usize,
     ) -> Result<(), TransactionPayloadBuilderError<'static>> {
-        debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
+        debug_assert!(alignment <= usize::from(Alignment::MAX.get()));
 
         // Optimized version of the following that expects `alignment` to be a power of 2:
         // let unaligned_by = self.payload.len() % alignment;

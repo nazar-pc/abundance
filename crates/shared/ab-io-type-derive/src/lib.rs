@@ -134,9 +134,11 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         ::core::mem::size_of::<#type_name>()
                             == type_details.recommended_capacity as ::core::primitive::usize
                     );
+                    // Alignments are compared by their powers, `==` of `Alignment` in constants
+                    // needs the `const_trait_impl` and `const_cmp` features
                     ::core::assert!(
-                        ::core::mem::align_of::<#type_name>()
-                            == type_details.alignment.get() as ::core::primitive::usize
+                        ::ab_io_type::alignment::Alignment::of::<#type_name>().power
+                            == type_details.alignment.power
                     );
                 };
 
@@ -301,9 +303,11 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                         ::core::mem::size_of::<#type_name>()
                             == type_details.recommended_capacity as ::core::primitive::usize
                     );
+                    // Alignments are compared by their powers, `==` of `Alignment` in constants
+                    // needs the `const_trait_impl` and `const_cmp` features
                     ::core::assert!(
-                        ::core::mem::align_of::<#type_name>()
-                            == type_details.alignment.get() as ::core::primitive::usize
+                        ::ab_io_type::alignment::Alignment::of::<#type_name>().power
+                            == type_details.alignment.power
                     );
                 };
 
