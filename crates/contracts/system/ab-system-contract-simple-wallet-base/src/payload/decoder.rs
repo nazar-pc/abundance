@@ -28,8 +28,6 @@ pub struct OutputRef {
     pub mut(crate) output_index: u8,
     /// Whether the output is `#[output]` or a return value
     pub mut(crate) kind: TransactionOutputKind,
-    /// Alignment of the output's memory, as the payload declares it
-    pub mut(crate) alignment: Alignment,
     /// Offset of the output's memory, see [`OutputBufferDetails`]
     pub(crate) offset: u32,
     /// Size of the value, see [`OutputBufferDetails`]
@@ -54,8 +52,8 @@ impl OutputRef {
 pub enum DecodedSlot<'payload> {
     /// Explicit address in the payload
     Address(&'payload Address),
-    /// Contents of an output of an earlier method, whose memory is declared with at least the
-    /// alignment of an address. A return value is declared with the size of an address.
+    /// Contents of an output of an earlier method. A return value is declared with the size of an
+    /// address.
     Output(OutputRef),
 }
 
@@ -82,9 +80,7 @@ pub struct DecodedOutput {
     pub mut(crate) output_index: u8,
     /// Whether the output is `#[output]` or a return value
     pub mut(crate) kind: TransactionOutputKind,
-    /// Alignment of the output's memory
-    pub mut(crate) alignment: Alignment,
-    /// Capacity of the output's memory
+    /// Capacity of the output's memory, which is aligned to [`Alignment::MAX`]
     pub mut(crate) capacity: u32,
     /// Size that the method gets: `0` for `#[output]`, the capacity for the return value
     pub(crate) size: u32,
@@ -114,7 +110,6 @@ const UNUSED_INPUT: DecodedInput<'static> = DecodedInput::Value {
 const UNUSED_OUTPUT: DecodedOutput = DecodedOutput {
     output_index: 0,
     kind: TransactionOutputKind::Output,
-    alignment: Alignment::of::<u8>(),
     capacity: 0,
     size: 0,
 };

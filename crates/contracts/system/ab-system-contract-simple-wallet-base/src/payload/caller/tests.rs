@@ -2,7 +2,8 @@
 
 use crate::payload::test_utils::{CallWith, OutputTag, SlotTag, TestPayload, call_all, decode_all};
 use crate::payload::{
-    FfiDataSizeCapacityRw, TransactionPayloadCaller, TransactionPayloadDecoderError,
+    FfiDataSizeCapacityRw, TransactionPayloadCallError, TransactionPayloadCaller,
+    TransactionPayloadDecoderError,
 };
 use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER_SIZE};
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
@@ -16,10 +17,9 @@ use core::ptr;
 fn payload_call_slot_output_size() {
     // An `#[output]` used as a slot, whose size is only known after its method was called
     let mut payload = TestPayload::new();
-    payload.method(&[], &[], 1).output(
-        Address::SIZE,
-        OutputTag::output(Alignment::of::<Address>().get()),
-    );
+    payload
+        .method(&[], &[], 1)
+        .output(Address::SIZE, OutputTag::output());
     payload.method(&[SlotTag::output_index(0)], &[], 0);
     let payload = payload.as_u128_slice();
 
@@ -103,7 +103,7 @@ fn payload_call_output_buffer_too_small() {
         let mut payload = TestPayload::new();
         payload
             .method(&[], &[], 1)
-            .output(capacity, OutputTag::output(1));
+            .output(capacity, OutputTag::output());
         let payload = payload.as_u128_slice();
 
         assert_eq!(
@@ -121,68 +121,83 @@ fn payload_call_output_buffer_too_small() {
 }
 
 #[test]
-fn payload_call_outputs_aligned_without_padding() {
+fn payload_call_outputs_at_max_alignment() {
     let mut payload = TestPayload::new();
-    // Two outputs with capacity 16 and an alignment of `Alignment::MAX`
+    // Three outputs with capacities 1, 4 and 16
     payload
-        .method(&[], &[], 2)
-        .output(16, OutputTag::output(Alignment::MAX.get()))
-        .output(16, OutputTag::output(Alignment::MAX.get()));
+        .method(&[], &[], 3)
+        .output(1, OutputTag::output())
+        .output(4, OutputTag::output())
+        .output(16, OutputTag::output());
     let payload = payload.as_u128_slice();
 
-    let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
-    // Exactly the capacity of both outputs
-    let mut output_buffer = [MaybeUninit::uninit(); 2];
-    let output_buffer_addr = output_buffer.as_ptr().addr();
-    let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
+    // Each output starts at the next multiple of `Alignment::MAX` after the previous one, and the
+    // third one isn't padded, so they need exactly 48 bytes: they fit into three `u128`s, but not
+    // into two
+    for (output_buffer_size, fits) in [(3, true), (2, false)] {
+        let mut output_buffer = [MaybeUninit::uninit(); 3];
+        let output_buffer = &mut output_buffer[..output_buffer_size];
+        let output_buffer_addr = output_buffer.as_ptr().addr();
+        let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
+        let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
-    let caller = TransactionPayloadCaller::new(
-        payload,
-        &mut external_args_buffer,
-        &mut output_buffer,
-        &mut output_buffer_details,
-        |_method_context| MethodContext::Reset,
-    );
+        let caller = TransactionPayloadCaller::new(
+            payload,
+            &mut external_args_buffer,
+            output_buffer,
+            &mut output_buffer_details,
+            |_method_context| MethodContext::Reset,
+        );
 
-    // The method is only decoded, its outputs keep size `0`
-    caller
-        .call_next_method_with(&CallWith::new(|method: PreparedMethod<'_>| {
-            // SAFETY: The method has two outputs
-            let [first_output, second_output] = unsafe {
-                method
-                    .external_args
-                    .cast::<[FfiDataSizeCapacityRw; 2]>()
-                    .read()
-            };
+        // The method is only decoded, its outputs keep size `0`
+        let result = caller
+            .call_next_method_with(&CallWith::new(|method: PreparedMethod<'_>| {
+                // SAFETY: The method has three outputs
+                let outputs = unsafe {
+                    method
+                        .external_args
+                        .cast::<[FfiDataSizeCapacityRw; 3]>()
+                        .read()
+                };
 
-            // Outputs whose offset is already aligned are not padded
-            assert_eq!(first_output.data_ptr.addr(), output_buffer_addr);
-            assert_eq!(second_output.data_ptr.addr(), output_buffer_addr + 16);
+                let offsets = outputs.map(|output| output.data_ptr.addr() - output_buffer_addr);
+                assert_eq!(offsets, [0, 16, 32]);
 
-            Ok(())
-        }))
-        .unwrap()
-        .unwrap();
+                Ok(())
+            }))
+            .map(|maybe_caller| maybe_caller.is_some());
+        if fits {
+            assert!(result.unwrap(), "{output_buffer_size} `u128`s");
+        } else {
+            assert!(
+                matches!(
+                    result,
+                    Err(TransactionPayloadCallError::Decoder(
+                        TransactionPayloadDecoderError::OutputBufferTooSmall
+                    ))
+                ),
+                "{output_buffer_size} `u128`s"
+            );
+        }
+    }
 }
 
 #[test]
-fn payload_call_outputs_padded_to_alignment() {
+fn payload_call_slot_from_output_aligned() {
+    // A return value follows an `#[output]` with capacity `1`, so its memory would be misaligned
+    // for an address if it was allocated right after it
     let mut payload = TestPayload::new();
-    // Three outputs with alignments 1, 4 and `Alignment::MAX` and capacities equal to their
-    // alignments
     payload
-        .method(&[], &[], 3)
-        .output(1, OutputTag::output(1))
-        .output(4, OutputTag::output(4))
-        .output(16, OutputTag::output(Alignment::MAX.get()));
+        .method(&[], &[], 2)
+        .output(1, OutputTag::output())
+        .output(Address::SIZE, OutputTag::return_value());
+    payload.method(&[SlotTag::output_index(1)], &[], 0);
     let payload = payload.as_u128_slice();
 
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
-    // Exactly the capacity of the outputs with the padding before the second and the third one
-    let mut output_buffer = [MaybeUninit::uninit(); 2];
-    let output_buffer_addr = output_buffer.as_ptr().addr();
+    // Zeroed, so the return value that the first method doesn't write is initialized
+    let mut output_buffer = [MaybeUninit::new(0); OUTPUT_BUFFER_SIZE];
     let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
-
     let caller = TransactionPayloadCaller::new(
         payload,
         &mut external_args_buffer,
@@ -190,21 +205,15 @@ fn payload_call_outputs_padded_to_alignment() {
         &mut output_buffer_details,
         |_method_context| MethodContext::Reset,
     );
-
-    // The method is only decoded, its outputs keep size `0`
+    let caller = caller
+        .call_next_method_with(&CallWith::new(|_method: PreparedMethod<'_>| Ok(())))
+        .unwrap()
+        .unwrap();
     caller
         .call_next_method_with(&CallWith::new(|method: PreparedMethod<'_>| {
-            // SAFETY: The method has three outputs
-            let outputs = unsafe {
-                method
-                    .external_args
-                    .cast::<[FfiDataSizeCapacityRw; 3]>()
-                    .read()
-            };
-
-            // Each output starts at the next offset aligned as declared after the previous one
-            let offsets = outputs.map(|output| output.data_ptr.addr() - output_buffer_addr);
-            assert_eq!(offsets, [0, 4, 16]);
+            // SAFETY: The method has a single `#[slot]` argument
+            let slot = unsafe { method.external_args.cast::<*const Address>().read() };
+            assert_eq!(slot.addr() % usize::from(Alignment::MAX.get()), 0);
 
             Ok(())
         }))

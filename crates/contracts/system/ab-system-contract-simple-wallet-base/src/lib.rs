@@ -64,7 +64,10 @@ pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = MAX_TOTAL_METHOD_ARGS as usize
 /// doesn't exceed this limit.
 ///
 /// This defines how big the total size of `#[output]` arguments and return values could be in all
-/// methods of the payload together.
+/// methods of the payload together. Each of them starts at a multiple of 16 bytes
+/// ([`Alignment::MAX`]).
+///
+/// [`Alignment::MAX`]: ab_io_type::alignment::Alignment::MAX
 ///
 /// Overflow will result in an error.
 pub const OUTPUT_BUFFER_SIZE: usize = 32 * 1024 / size_of::<u128>();

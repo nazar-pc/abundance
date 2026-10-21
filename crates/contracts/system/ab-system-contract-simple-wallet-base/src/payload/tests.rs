@@ -13,9 +13,9 @@ use alloc::string::ToString;
 const SLOT_ADDRESS: u8 = 0b1000_0000;
 /// Tag of an input value, with the power of two of its alignment in the lower bits
 const INPUT_VALUE: u8 = 0b1000_0000;
-/// Tag of an `#[output]`, with the power of two of its alignment in the lower bits
+/// Tag of an `#[output]`
 const OUTPUT: u8 = 0b1000_0000;
-/// Tag of a return value, with the power of two of its alignment in the lower bits
+/// Tag of a return value
 const RETURN_VALUE: u8 = 0b0000_0000;
 
 #[test]
@@ -30,8 +30,8 @@ fn payload_decode_tag_errors_in_binary() {
         "Invalid input tag: 0b10000101"
     );
     assert_eq!(
-        TransactionPayloadDecoderError::InvalidOutputTag(0b0000_0101).to_string(),
-        "Invalid output tag: 0b00000101"
+        TransactionPayloadDecoderError::InvalidOutputTag(0b1000_0100).to_string(),
+        "Invalid output tag: 0b10000100"
     );
 }
 
@@ -102,27 +102,21 @@ fn transaction_input_encoding() {
 
 #[test]
 fn transaction_output_encoding() {
-    for power in 0..=Alignment::MAX.power {
-        let alignment = Alignment::from_power(power).unwrap();
+    let output = TransactionOutput::new_output();
+    assert_eq!(output.output_type(), TransactionOutputType::Output);
+    assert_eq!(output.into_u8(), OUTPUT);
 
-        let output = TransactionOutput::new_output(alignment);
-        assert_eq!(
-            output.output_type(),
-            TransactionOutputType::Output { alignment }
-        );
-        assert_eq!(output.into_u8(), OUTPUT | power);
+    let return_value = TransactionOutput::new_return_value();
+    assert_eq!(
+        return_value.output_type(),
+        TransactionOutputType::ReturnValue
+    );
+    assert_eq!(return_value.into_u8(), RETURN_VALUE);
 
-        let return_value = TransactionOutput::new_return_value(alignment);
-        assert_eq!(
-            return_value.output_type(),
-            TransactionOutputType::ReturnValue { alignment }
-        );
-        assert_eq!(return_value.into_u8(), RETURN_VALUE | power);
-    }
-
-    // Only bytes that `into_u8()` returns are accepted, and they round-trip
+    // Only bytes that `into_u8()` returns are accepted, and they round-trip, so the payload holds
+    // no alignment of outputs
     for byte in 0..=u8::MAX {
-        let accepted = byte & !OUTPUT <= Alignment::MAX.power;
+        let accepted = byte == OUTPUT || byte == RETURN_VALUE;
         assert_eq!(
             TransactionOutput::from_u8(byte).map(TransactionOutput::into_u8),
             accepted.then_some(byte),

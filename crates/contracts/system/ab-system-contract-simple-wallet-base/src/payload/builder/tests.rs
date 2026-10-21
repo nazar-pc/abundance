@@ -19,7 +19,6 @@ use ab_contracts_common::metadata::decode::{ArgumentKind, MetadataDecodingError}
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_contracts_macros::contract;
 use ab_core_primitives::address::Address;
-use ab_io_type::alignment::Alignment;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::metadata::IoTypeMetadataKind;
 use ab_io_type::trivial_type::TrivialType;
@@ -206,7 +205,6 @@ fn payload_encode_decode_output_index() {
                 outputs: &[DecodedOutput {
                     output_index: 0,
                     kind: TransactionOutputKind::Output,
-                    alignment: alignment(1),
                     capacity: u8::SIZE,
                     size: 0,
                 }],
@@ -219,7 +217,6 @@ fn payload_encode_decode_output_index() {
                 inputs: &[DecodedInput::Output(OutputRef {
                     output_index: 0,
                     kind: TransactionOutputKind::Output,
-                    alignment: alignment(1),
                     offset: 0,
                     size: 0,
                 })],
@@ -328,12 +325,7 @@ fn payload_encode_output_types() {
 
         assert_eq!(
             last_output(&builder),
-            (
-                u8::SIZE,
-                TransactionOutputType::Output {
-                    alignment: Alignment::of::<u8>()
-                }
-            )
+            (u8::SIZE, TransactionOutputType::Output)
         );
         assert_decoded(
             builder.into_aligned_bytes().as_u128_slice(),
@@ -346,7 +338,6 @@ fn payload_encode_output_types() {
                 outputs: &[DecodedOutput {
                     output_index: 0,
                     kind: TransactionOutputKind::Output,
-                    alignment: alignment(1),
                     capacity: u8::SIZE,
                     size: 0,
                 }],
@@ -369,12 +360,7 @@ fn payload_encode_output_types() {
 
         assert_eq!(
             last_output(&builder),
-            (
-                u8::SIZE,
-                TransactionOutputType::ReturnValue {
-                    alignment: Alignment::of::<u8>()
-                }
-            )
+            (u8::SIZE, TransactionOutputType::ReturnValue)
         );
         assert_decoded(
             builder.into_aligned_bytes().as_u128_slice(),
@@ -387,7 +373,6 @@ fn payload_encode_output_types() {
                 outputs: &[DecodedOutput {
                     output_index: 0,
                     kind: TransactionOutputKind::ReturnValue,
-                    alignment: alignment(1),
                     capacity: u8::SIZE,
                     size: u8::SIZE,
                 }],
@@ -409,15 +394,7 @@ fn payload_encode_output_types() {
             )
             .unwrap();
 
-        assert_eq!(
-            last_output(&builder),
-            (
-                0,
-                TransactionOutputType::Output {
-                    alignment: Alignment::of::<u8>()
-                }
-            )
-        );
+        assert_eq!(last_output(&builder), (0, TransactionOutputType::Output));
         assert_decoded(
             builder.into_aligned_bytes().as_u128_slice(),
             &[ExpectedMethod {
@@ -432,7 +409,6 @@ fn payload_encode_output_types() {
                 outputs: &[DecodedOutput {
                     output_index: 0,
                     kind: TransactionOutputKind::Output,
-                    alignment: alignment(1),
                     capacity: 0,
                     size: 0,
                 }],
@@ -482,7 +458,6 @@ fn payload_encode_decode_return_value() {
                 outputs: &[DecodedOutput {
                     output_index: 0,
                     kind: TransactionOutputKind::ReturnValue,
-                    alignment: alignment(1),
                     capacity: u8::SIZE,
                     size: u8::SIZE,
                 }],
@@ -495,7 +470,6 @@ fn payload_encode_decode_return_value() {
                 inputs: &[DecodedInput::Output(OutputRef {
                     output_index: 0,
                     kind: TransactionOutputKind::ReturnValue,
-                    alignment: alignment(1),
                     offset: 0,
                     size: u8::SIZE,
                 })],
@@ -710,12 +684,7 @@ fn payload_encode_arguments_order() {
     assert_eq!(builder.payload[input_tag_offset], 0b1000_0000);
     assert_eq!(
         last_output(&builder),
-        (
-            u32::SIZE,
-            TransactionOutputType::Output {
-                alignment: Alignment::of::<u32>()
-            }
-        )
+        (u32::SIZE, TransactionOutputType::Output)
     );
 
     // The metadata decoder rejects an output before an input

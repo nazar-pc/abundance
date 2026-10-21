@@ -16,14 +16,6 @@ use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 
-/// Alignment of an address
-const ADDRESS_ALIGNMENT: u8 = Alignment::of::<Address>().get();
-
-/// Every alignment that tags can hold
-fn alignments() -> impl Iterator<Item = u8> {
-    (0..=Alignment::MAX.power).map(|power| 1 << power)
-}
-
 #[test]
 fn payload_decode_payload_too_small() {
     // The fingerprint is cut off
@@ -175,37 +167,20 @@ fn payload_decode_output_tags() {
             .method(&[], &[], 1)
             .output(0, OutputTag::from_byte(byte));
 
-        // `#[output]` (`0b1xxx_xxxx`) or return value (`0b0xxx_xxxx`) with an alignment up to
-        // `Alignment::MAX`
-        let expected = if byte & 0b0111_1111 <= Alignment::MAX.power {
-            Ok(1)
-        } else {
-            Err(TransactionPayloadDecoderError::InvalidOutputTag(byte))
+        // Only `#[output]` (`0b1000_0000`) and return value (`0b0000_0000`), the payload holds no
+        // alignment of outputs
+        let kind = match byte {
+            0b1000_0000 => TransactionOutputKind::Output,
+            0b0000_0000 => TransactionOutputKind::ReturnValue,
+            _ => {
+                assert_eq!(
+                    decode_and_call(payload.as_u128_slice()),
+                    Err(TransactionPayloadDecoderError::InvalidOutputTag(byte)),
+                    "Output tag {byte:#010b}"
+                );
+                continue;
+            }
         };
-        assert_eq!(
-            decode_and_call(payload.as_u128_slice()),
-            expected,
-            "Output tag {byte:#010b}"
-        );
-    }
-}
-
-#[test]
-fn payload_decode_output_max_alignment() {
-    for (output_tag, kind) in [
-        (
-            OutputTag::output(Alignment::MAX.get()),
-            TransactionOutputKind::Output,
-        ),
-        (
-            OutputTag::return_value(Alignment::MAX.get()),
-            TransactionOutputKind::ReturnValue,
-        ),
-    ] {
-        let mut payload = TestPayload::new();
-        // A single one with capacity `0` and an alignment of `Alignment::MAX`
-        payload.method(&[], &[], 1).output(0, output_tag);
-
         assert_decoded(
             payload.as_u128_slice(),
             &[ExpectedMethod {
@@ -217,24 +192,27 @@ fn payload_decode_output_max_alignment() {
                 outputs: &[DecodedOutput {
                     output_index: 0,
                     kind,
-                    alignment: alignment(Alignment::MAX.get()),
                     capacity: 0,
                     size: 0,
                 }],
             }],
         );
-        assert_eq!(decode_and_call(payload.as_u128_slice()), Ok(1));
+        assert_eq!(
+            decode_and_call(payload.as_u128_slice()),
+            Ok(1),
+            "Output tag {byte:#010b}"
+        );
     }
 }
 
 #[test]
 fn payload_decode_return_value_not_last() {
     // A return value followed by an `#[output]` or by another return value
-    for second_output_tag in [OutputTag::output(4), OutputTag::return_value(4)] {
+    for second_output_tag in [OutputTag::output(), OutputTag::return_value()] {
         let mut payload = TestPayload::new();
         payload
             .method(&[], &[], 2)
-            .output(4, OutputTag::return_value(4))
+            .output(4, OutputTag::return_value())
             .output(4, second_output_tag);
 
         assert_eq!(
@@ -246,12 +224,12 @@ fn payload_decode_return_value_not_last() {
 
     // The same in a later method, whose outputs get later output indices
     let mut payload = TestPayload::new();
-    payload.method(&[], &[], 1).output(4, OutputTag::output(1));
+    payload.method(&[], &[], 1).output(4, OutputTag::output());
     payload
         .method(&[], &[], 3)
-        .output(4, OutputTag::output(1))
-        .output(4, OutputTag::return_value(1))
-        .output(4, OutputTag::output(1));
+        .output(4, OutputTag::output())
+        .output(4, OutputTag::return_value())
+        .output(4, OutputTag::output());
     assert_eq!(
         decode_and_call(payload.as_u128_slice()),
         Err(TransactionPayloadDecoderError::ReturnValueNotLast(2))
@@ -261,9 +239,9 @@ fn payload_decode_return_value_not_last() {
     let mut payload = TestPayload::new();
     payload
         .method(&[], &[], 3)
-        .output(4, OutputTag::output(1))
-        .output(4, OutputTag::output(1))
-        .output(4, OutputTag::return_value(1));
+        .output(4, OutputTag::output())
+        .output(4, OutputTag::output())
+        .output(4, OutputTag::return_value());
     assert_eq!(decode_and_call(payload.as_u128_slice()), Ok(1));
 }
 
@@ -273,7 +251,7 @@ fn payload_decode_output_index_not_found() {
     let mut payload = TestPayload::new();
     payload
         .method(&[], &[], 1)
-        .output(Address::SIZE, OutputTag::return_value(ADDRESS_ALIGNMENT));
+        .output(Address::SIZE, OutputTag::return_value());
     payload.method(&[SlotTag::output_index(1)], &[], 0);
     assert_eq!(
         decode_and_call(payload.as_u128_slice()),
@@ -282,7 +260,7 @@ fn payload_decode_output_index_not_found() {
 
     // An input that does the same
     let mut payload = TestPayload::new();
-    payload.method(&[], &[], 1).output(1, OutputTag::output(1));
+    payload.method(&[], &[], 1).output(1, OutputTag::output());
     payload.method(&[], &[InputTag::output_index(1)], 0);
     assert_eq!(
         decode_and_call(payload.as_u128_slice()),
@@ -291,47 +269,16 @@ fn payload_decode_output_index_not_found() {
 }
 
 #[test]
-fn payload_decode_slot_output_alignment() {
-    // Outputs whose memory is declared with less than the alignment of an address are rejected
-    // as slots, even when their memory happens to be aligned, like that of the first output
-    for output_alignment in alignments().filter(|&alignment| alignment < ADDRESS_ALIGNMENT) {
-        for output_tag in [
-            OutputTag::output(output_alignment),
-            OutputTag::return_value(output_alignment),
-        ] {
-            let mut payload = TestPayload::new();
-            payload
-                .method(&[], &[], 1)
-                .output(Address::SIZE, output_tag);
-            payload.method(&[SlotTag::output_index(0)], &[], 0);
+fn payload_decode_slot_from_return_value() {
+    // The memory of every output is aligned to `Alignment::MAX`, so a return value with the size
+    // of an address is accepted as a slot
+    let mut payload = TestPayload::new();
+    payload
+        .method(&[], &[], 1)
+        .output(Address::SIZE, OutputTag::return_value());
+    payload.method(&[SlotTag::output_index(0)], &[], 0);
 
-            assert_eq!(
-                decode_and_call(payload.as_u128_slice()),
-                Err(
-                    TransactionPayloadDecoderError::InvalidSlotOutputIndexAlign {
-                        output_index: 0,
-                        alignment: u32::from(output_alignment),
-                    }
-                ),
-                "Output tag {output_tag:?}"
-            );
-        }
-    }
-
-    // Return values with at least the alignment of an address are accepted
-    for output_alignment in alignments().filter(|&alignment| alignment >= ADDRESS_ALIGNMENT) {
-        let mut payload = TestPayload::new();
-        payload
-            .method(&[], &[], 1)
-            .output(Address::SIZE, OutputTag::return_value(output_alignment));
-        payload.method(&[SlotTag::output_index(0)], &[], 0);
-
-        assert_eq!(
-            decode_and_call(payload.as_u128_slice()),
-            Ok(2),
-            "Alignment {output_alignment}"
-        );
-    }
+    assert_eq!(decode_and_call(payload.as_u128_slice()), Ok(2));
 }
 
 #[test]
@@ -341,7 +288,7 @@ fn payload_decode_slot_return_value_size() {
         let mut payload = TestPayload::new();
         payload
             .method(&[], &[], 1)
-            .output(size, OutputTag::return_value(ADDRESS_ALIGNMENT));
+            .output(size, OutputTag::return_value());
         payload.method(&[SlotTag::output_index(0)], &[], 0);
 
         assert_eq!(

@@ -224,31 +224,33 @@ impl TransactionInput {
 
 #[derive(Debug, Copy, Eq, PartialEq, Clone)]
 pub enum TransactionOutputType {
-    Output { alignment: Alignment },
-    ReturnValue { alignment: Alignment },
+    Output,
+    ReturnValue,
 }
 
 /// The type of transaction output could be either `#[output]` or return value.
 ///
-/// Both are allocated with the capacity and alignment specified in the payload and pushed into a
-/// virtual "stack" that later methods can refer to, see [`TransactionInput`]. `#[output]` is given
-/// to the method empty and has the size the method wrote into it. The return value doesn't have a
-/// size in `ExternalArgs`, executors only write the value, so its size is set to its capacity
-/// right away, which is the size of its type.
+/// Both are allocated with the capacity specified in the payload and pushed into a virtual "stack"
+/// that later methods can refer to, see [`TransactionInput`]. The memory of every output is aligned
+/// to [`Alignment::MAX`], the largest alignment of any type that methods accept, so it is aligned
+/// for every output type, and the payload doesn't declare alignments of outputs. `#[output]` is
+/// given to the method empty and has the size the method wrote into it. The return value doesn't
+/// have a size in `ExternalArgs`, executors only write the value, so its size is set to its
+/// capacity right away, which is the size of its type.
 #[derive(Debug, Copy, Clone)]
 pub struct TransactionOutput(TransactionOutputType);
 
 impl TransactionOutput {
-    /// `#[output]` with `alignment`
+    /// `#[output]`
     #[inline(always)]
-    pub const fn new_output(alignment: Alignment) -> Self {
-        Self(TransactionOutputType::Output { alignment })
+    pub const fn new_output() -> Self {
+        Self(TransactionOutputType::Output)
     }
 
-    /// Return value with `alignment`
+    /// Return value
     #[inline(always)]
-    pub const fn new_return_value(alignment: Alignment) -> Self {
-        Self(TransactionOutputType::ReturnValue { alignment })
+    pub const fn new_return_value() -> Self {
+        Self(TransactionOutputType::ReturnValue)
     }
 
     /// Create an instance from `u8`.
@@ -258,15 +260,11 @@ impl TransactionOutput {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_u8(n: u8) -> Option<Self> {
-        let Some(alignment) = Alignment::from_power(n & 0b0111_1111) else {
-            return None;
-        };
-
-        // The highest bit (`0b1000_0000`) is set to 1 for output and 0 for return value
-        if n & 0b1000_0000 == 0 {
-            Some(Self(TransactionOutputType::ReturnValue { alignment }))
-        } else {
-            Some(Self(TransactionOutputType::Output { alignment }))
+        // `0b1000_0000` is `#[output]` and `0b0000_0000` is the return value
+        match n {
+            0b1000_0000 => Some(Self(TransactionOutputType::Output)),
+            0b0000_0000 => Some(Self(TransactionOutputType::ReturnValue)),
+            _ => None,
         }
     }
 
@@ -274,14 +272,15 @@ impl TransactionOutput {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn into_u8(self) -> u8 {
-        // The highest bit (`0b1000_0000`) is set to 1 for output and 0 for return value
+        // The highest bit (`0b1000_0000`) is set to 1 for output and 0 for return value, the
+        // remaining bits are always 0
         match self.0 {
-            TransactionOutputType::Output { alignment } => 0b1000_0000 | alignment.power,
-            TransactionOutputType::ReturnValue { alignment } => alignment.power,
+            TransactionOutputType::Output => 0b1000_0000,
+            TransactionOutputType::ReturnValue => 0b0000_0000,
         }
     }
 
-    /// Returns whether this is `#[output]` or return value, with its alignment
+    /// Returns whether this is `#[output]` or return value
     #[inline(always)]
     pub const fn output_type(self) -> TransactionOutputType {
         self.0
@@ -291,19 +290,8 @@ impl TransactionOutput {
     #[inline(always)]
     pub(crate) const fn kind(self) -> TransactionOutputKind {
         match self.0 {
-            TransactionOutputType::Output { alignment: _ } => TransactionOutputKind::Output,
-            TransactionOutputType::ReturnValue { alignment: _ } => {
-                TransactionOutputKind::ReturnValue
-            }
-        }
-    }
-
-    /// Alignment of the memory of the output
-    #[inline(always)]
-    pub(crate) const fn alignment(self) -> Alignment {
-        match self.0 {
-            TransactionOutputType::Output { alignment }
-            | TransactionOutputType::ReturnValue { alignment } => alignment,
+            TransactionOutputType::Output => TransactionOutputKind::Output,
+            TransactionOutputType::ReturnValue => TransactionOutputKind::ReturnValue,
         }
     }
 }
@@ -349,9 +337,6 @@ pub enum TransactionPayloadDecoderError {
     /// different size for a return value, or a method wrote a different size into its `#[output]`
     #[error("Invalid output index {output_index} size for slot: {size}")]
     InvalidSlotOutputIndexSize { output_index: u8, size: u32 },
-    /// An output used as a slot is declared with an alignment smaller than that of an address
-    #[error("Invalid output index {output_index} alignment for slot: {alignment}")]
-    InvalidSlotOutputIndexAlign { output_index: u8, alignment: u32 },
     /// Invalid method context
     #[error("Invalid method context: {0}")]
     InvalidMethodContext(u8),
@@ -392,7 +377,5 @@ pub struct OutputBufferDetails {
     /// `#[output]` has size `0` until its method returned `Ok(())`, and the size it wrote after
     /// that
     size: u32,
-    /// Alignment of the output's memory, as the payload declares it
-    alignment: Alignment,
     kind: TransactionOutputKind,
 }

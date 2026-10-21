@@ -97,10 +97,8 @@ fn describe_output(output: &DecodedOutput) -> String {
     };
 
     format!(
-        "{kind} with output index {}: capacity {} bytes aligned to {}",
-        output.output_index,
-        output.capacity,
-        output.alignment.get()
+        "{kind} with output index {}: capacity {} bytes",
+        output.output_index, output.capacity
     )
 }
 

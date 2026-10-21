@@ -22,9 +22,9 @@ use core::ptr::NonNull;
 const {
     // Offsets into `external_args_buffer` fit into `PendingOutputSize`
     assert!(size_of::<[*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE]>() <= usize::from(u8::MAX));
-    // Outputs are allocated at offsets that are aligned as the payload declares, up to
-    // `Alignment::MAX`, so their memory is aligned as declared when the output buffer is aligned to
-    // `Alignment::MAX`
+    // Outputs are allocated at offsets that are multiples of `Alignment::MAX`, so their memory is
+    // aligned to `Alignment::MAX` when the output buffer is, which makes it aligned for every
+    // output type
     assert!(align_of::<u128>() >= usize::from(Alignment::MAX.get()));
 }
 
@@ -78,21 +78,19 @@ impl<'a> OutputBuffer<'a> {
         }
     }
 
-    /// Allocate memory of `capacity` bytes with `alignment` after all memory allocated before.
+    /// Allocate memory of `capacity` bytes after all memory allocated before, at the next multiple
+    /// of [`Alignment::MAX`].
+    ///
+    /// [`Alignment::MAX`] is the largest alignment of any type that methods accept, so the memory
+    /// is aligned for every output type.
     ///
     /// Returns its offset, or `None` if the buffer is not large enough.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn alloc(&mut self, capacity: u32, alignment: Alignment) -> Option<u32> {
-        let alignment = usize::from(alignment.get());
-
-        // Padding up to the next multiple of `alignment` is `-used` modulo `alignment`, because
-        // `alignment` divides `2^usize::BITS`. `Alignment` tells the compiler that it is a power of
-        // two, so `%` becomes a bit mask. The same padding written as
-        // `(alignment - self.used % alignment) % alignment` takes more instructions.
-        let padding_bytes = self.used.wrapping_neg() % alignment;
-
-        let offset = self.used.checked_add(padding_bytes)?;
+    fn alloc(&mut self, capacity: u32) -> Option<u32> {
+        let offset = self
+            .used
+            .checked_next_multiple_of(usize::from(Alignment::MAX.get()))?;
         let used = offset.checked_add(capacity as usize)?;
 
         if used > self.size {
@@ -175,9 +173,9 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
 
                 // SAFETY: The core only gives back offsets that writers of the same caller
                 // returned from `Self::output()`, which come from `OutputBuffer::alloc()`. They
-                // are aligned as the payload declares for the output, which is at least the
-                // alignment of an address for outputs used as slots (see `MethodSink::slot()`),
-                // and the output buffer is aligned to `Alignment::MAX`.
+                // are multiples of `Alignment::MAX`, the output buffer is aligned to
+                // `Alignment::MAX` too, and an address, like every `TrivialType`, has at most that
+                // alignment.
                 let address =
                     unsafe { self.output_buffer.pointer(output.offset) }.cast::<Address>();
                 debug_assert!(address.is_aligned());
@@ -237,7 +235,7 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
     fn output(&mut self, output: DecodedOutput) -> Result<u32, TransactionPayloadDecoderError> {
         let offset = self
             .output_buffer
-            .alloc(output.capacity, output.alignment)
+            .alloc(output.capacity)
             .ok_or(TransactionPayloadDecoderError::OutputBufferTooSmall)?;
 
         // The size of a return value is known already. There is always room for the size, since
@@ -350,7 +348,8 @@ impl<'a> TransactionPayloadCaller<'a> {
     /// pointer, while `#[input]` and `#[output]` use one pointer and size + capacity each.
     ///
     /// The size of `output_buffer` defines how big the total size of `#[output]` and return values
-    /// could be in all methods of the payload together.
+    /// could be in all methods of the payload together. Each of them starts at a multiple of
+    /// [`Alignment::MAX`].
     ///
     /// The size of `output_buffer_details` defines how many `#[output]` arguments and return values
     /// could exist in all methods of the payload together, up to 128, since tags refer to output
@@ -430,6 +429,9 @@ impl<'a> TransactionPayloadCaller<'a> {
         // * outputs are allocated in the output buffer with their capacity after all memory
         //   allocated before, so they don't overlap each other or outputs of earlier methods, while
         //   the payload and `external_args_buffer` are borrowed separately from the output buffer
+        // * outputs are allocated at multiples of `Alignment::MAX` in the output buffer, which is
+        //   aligned to `Alignment::MAX` too, and no type that methods accept has a larger
+        //   alignment, so the memory of every output is aligned for its type
         // * pointers into the output buffer are all derived from one pointer to the whole buffer,
         //   so creating one doesn't invalidate those created before
         // * the payload, `external_args_buffer` and the output buffer stay borrowed by the caller,
@@ -438,11 +440,11 @@ impl<'a> TransactionPayloadCaller<'a> {
         // * contents of outputs and return values are only given to later methods as slot
         //   addresses, which accept every bit pattern, and as inputs, which methods parse
         // * the payload is trusted to declare the arguments of the method with its fingerprint and
-        //   the size and alignment of the return type as the capacity and alignment of its return
-        //   value, and to declare as the return value only one that executors write (not the state
-        //   returned by `#[init]`, which they store instead), which can't be checked without the
-        //   method's metadata, the same way `NativeExecutor` trusts transaction payloads (see
-        //   `SimpleWalletBase::execute()` for what makes them trusted)
+        //   the size of the return type as the capacity of its return value, and to declare as the
+        //   return value only one that executors write (not the state returned by `#[init]`, which
+        //   they store instead), which can't be checked without the method's metadata, the same way
+        //   `NativeExecutor` trusts transaction payloads (see `SimpleWalletBase::execute()` for
+        //   what makes them trusted)
         let prepared_method = unsafe {
             PreparedMethod::new_untyped(
                 *method_header.contract,

@@ -12,7 +12,6 @@ use crate::payload::{
     TransactionMethodContext, TransactionOutputKind, TransactionPayloadDecoderError,
 };
 use ab_core_primitives::address::Address;
-use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
 
@@ -21,7 +20,6 @@ fn payload_decode_description() {
     let address = Address::SYSTEM_STATE;
     let value_u8 = [5];
     let value_u128 = 7u128.to_le_bytes();
-    let address_alignment = Alignment::of::<Address>().get();
 
     let mut payload = TestPayload::new();
     // A slot address, inputs with alignments 1 and 16, an `#[output]` and a return value
@@ -34,8 +32,8 @@ fn payload_decode_description() {
         .address(&address)
         .input_value(&value_u8, 1)
         .input_value(&value_u128, 16)
-        .output(4, OutputTag::output(4))
-        .output(Address::SIZE, OutputTag::return_value(address_alignment));
+        .output(4, OutputTag::output())
+        .output(Address::SIZE, OutputTag::return_value());
     // A slot from the return value and an input from the `#[output]` of the first method
     payload.method_with_context(
         ContextByte::Valid(TransactionMethodContext::Null),
@@ -47,14 +45,12 @@ fn payload_decode_description() {
     let output = OutputRef {
         output_index: 0,
         kind: TransactionOutputKind::Output,
-        alignment: alignment(4),
         offset: 0,
         size: 0,
     };
     let return_value = OutputRef {
         output_index: 1,
         kind: TransactionOutputKind::ReturnValue,
-        alignment: alignment(address_alignment),
         offset: 0,
         size: Address::SIZE,
     };
@@ -80,14 +76,12 @@ fn payload_decode_description() {
                     DecodedOutput {
                         output_index: 0,
                         kind: TransactionOutputKind::Output,
-                        alignment: alignment(4),
                         capacity: 4,
                         size: 0,
                     },
                     DecodedOutput {
                         output_index: 1,
                         kind: TransactionOutputKind::ReturnValue,
-                        alignment: alignment(address_alignment),
                         capacity: Address::SIZE,
                         size: Address::SIZE,
                     },

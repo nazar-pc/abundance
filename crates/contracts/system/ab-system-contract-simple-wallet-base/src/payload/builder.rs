@@ -359,9 +359,9 @@ impl TransactionPayloadBuilder {
 
         for (output_offset, type_details) in output_type_details.iter().enumerate() {
             let output_type = if return_value_offset == Some(output_offset) {
-                TransactionOutput::new_return_value(type_details.alignment)
+                TransactionOutput::new_return_value()
             } else {
-                TransactionOutput::new_output(type_details.alignment)
+                TransactionOutput::new_output()
             };
             self.extend_payload_with_alignment(
                 &type_details.recommended_capacity.to_le_bytes(),

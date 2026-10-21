@@ -156,14 +156,14 @@ pub(crate) enum OutputTag {
 }
 
 impl OutputTag {
-    /// `#[output]` with an alignment of `bytes`
-    pub(crate) fn output(bytes: u8) -> Self {
-        Self::Valid(TransactionOutput::new_output(alignment(bytes)))
+    /// `#[output]`
+    pub(crate) fn output() -> Self {
+        Self::Valid(TransactionOutput::new_output())
     }
 
-    /// Return value with an alignment of `bytes`
-    pub(crate) fn return_value(bytes: u8) -> Self {
-        Self::Valid(TransactionOutput::new_return_value(alignment(bytes)))
+    /// Return value
+    pub(crate) fn return_value() -> Self {
+        Self::Valid(TransactionOutput::new_return_value())
     }
 
     /// `byte` as a valid tag if [`TransactionOutput::from_u8()`] accepts it, an invalid one
@@ -327,7 +327,7 @@ pub(crate) fn payload_with_outputs(num_outputs: usize) -> TestPayload {
         let num_method_outputs = remaining_outputs.min(usize::from(MAX_TOTAL_METHOD_ARGS));
         payload.method(&[], &[], num_method_outputs as u8);
         for _ in 0..num_method_outputs {
-            payload.output(0, OutputTag::output(1));
+            payload.output(0, OutputTag::output());
         }
         remaining_outputs -= num_method_outputs;
     }

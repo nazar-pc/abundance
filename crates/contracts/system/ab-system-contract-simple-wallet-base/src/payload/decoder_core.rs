@@ -40,10 +40,9 @@ pub(crate) struct MethodHeader<'payload> {
 pub(crate) trait MethodSink<'payload> {
     /// Receives a `#[slot]`.
     ///
-    /// The memory of an output used as a slot is declared with at least the alignment of an
-    /// address. The sink must check its size with [`check_slot_output_size()`] as far as it knows
-    /// the size: the size of a return value is declared in the payload, while the size of an
-    /// `#[output]` is only known after its method was called.
+    /// The sink must check the size of an output used as a slot with [`check_slot_output_size()`]
+    /// as far as it knows the size: the size of a return value is declared in the payload, while
+    /// the size of an `#[output]` is only known after its method was called.
     fn slot(&mut self, slot: DecodedSlot<'payload>) -> Result<(), TransactionPayloadDecoderError>;
 
     /// Receives an `#[input]`
@@ -260,7 +259,7 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
                     DecodedSlot::Address(self.reader.read_trivial_type::<Address>()?)
                 }
                 TransactionSlotType::OutputIndex { output_index } => {
-                    DecodedSlot::Output(self.slot_output_ref(output_index)?)
+                    DecodedSlot::Output(self.output_ref(output_index)?)
                 }
             };
             sink.slot(slot)?;
@@ -330,12 +329,7 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
 
         // SAFETY: Entries before `num_outputs` are initialized, and it never exceeds the length of
         // `output_buffer_details`
-        let &OutputBufferDetails {
-            offset,
-            size,
-            alignment,
-            kind,
-        } = unsafe {
+        let &OutputBufferDetails { offset, size, kind } = unsafe {
             self.output_buffer_details
                 .get_unchecked(usize::from(output_index))
                 .assume_init_ref()
@@ -344,32 +338,9 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
         Ok(OutputRef {
             output_index,
             kind,
-            alignment,
             offset,
             size,
         })
-    }
-
-    /// Look up the output that a slot of the current method refers to, whose memory must be
-    /// aligned for an address
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn slot_output_ref(
-        &self,
-        output_index: u8,
-    ) -> Result<OutputRef, TransactionPayloadDecoderError> {
-        let output = self.output_ref(output_index)?;
-
-        if output.alignment < Alignment::of::<Address>() {
-            return Err(
-                TransactionPayloadDecoderError::InvalidSlotOutputIndexAlign {
-                    output_index,
-                    alignment: u32::from(output.alignment.get()),
-                },
-            );
-        }
-
-        Ok(output)
     }
 
     /// Decode `num_outputs` outputs of the current method, give them to `sink` and create their
@@ -414,7 +385,6 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
                     output_index as u8,
                 ));
             }
-            let alignment = output.alignment();
             let size = match kind {
                 TransactionOutputKind::Output => 0,
                 // Executors write the return value through its pointer, but not its size, which
@@ -426,17 +396,11 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
                 // Doesn't truncate, `output_buffer_details` has at most 128 entries
                 output_index: output_index as u8,
                 kind,
-                alignment,
                 capacity,
                 size,
             })?;
 
-            output_buffer_details.write(OutputBufferDetails {
-                offset,
-                size,
-                alignment,
-                kind,
-            });
+            output_buffer_details.write(OutputBufferDetails { offset, size, kind });
         }
         self.num_outputs += num_outputs;
 
