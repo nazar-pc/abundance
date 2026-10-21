@@ -74,6 +74,11 @@ pub enum ContractMetadataKind {
     ///     be the state: [`Self::Return`] (`Self`) or, without a return value, the last
     ///     [`Self::Output`] (`MaybeData<Self>`), it is present otherwise
     ///
+    /// Arguments are in the order that `#[contract]` generates them in: `#[env]`
+    /// ([`Self::EnvRo`] or [`Self::EnvRw`]), `#[tmp]` ([`Self::TmpRo`] or [`Self::TmpRw`]),
+    /// `#[slot]`s ([`Self::SlotRo`] and [`Self::SlotRw`]), `#[input]`s, `#[output]`s and the
+    /// return value. Each of `#[env]`, `#[tmp]` and the return value appears at most once.
+    ///
     /// [`IoTypeMetadataKind`]: ab_io_type::metadata::IoTypeMetadataKind
     ///
     /// NOTE: [`Self::Return`] is encoded as a separate argument and counts towards the number of

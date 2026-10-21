@@ -42,6 +42,10 @@ pub enum MetadataDecodingError<'metadata> {
         argument_kind: ArgumentKind,
         method_kind: MethodKind,
     },
+    /// An argument out of the order that `#[contract]` generates, see
+    /// [`ContractMetadataKind::Init`]
+    #[error("Argument of kind {argument_kind:?} is out of order")]
+    ArgumentOutOfOrder { argument_kind: ArgumentKind },
     /// Invalid argument I/O type
     #[error("Invalid argument I/O type of kind {argument_kind:?} for {argument_name:?}")]
     InvalidArgumentIoType {
@@ -496,6 +500,7 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
             metadata,
             method_kind,
             remaining: num_arguments,
+            next_position: ArgumentPosition::Env,
         };
         let item = MethodMetadataItem {
             method_name,
@@ -529,6 +534,20 @@ pub enum ArgumentKind {
     Return,
 }
 
+/// Position of an argument in the order that `#[contract]` generates, see
+/// [`ContractMetadataKind::Init`]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+enum ArgumentPosition {
+    Env,
+    Tmp,
+    Slots,
+    Inputs,
+    Outputs,
+    Return,
+    /// After the return value, where no argument can be
+    End,
+}
+
 #[derive(Debug)]
 pub struct ArgumentMetadataItem<'metadata> {
     /// Argument name as bytes.
@@ -548,6 +567,8 @@ pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
     metadata: &'a mut &'metadata [u8],
     method_kind: MethodKind,
     remaining: u8,
+    /// The earliest position that the next argument can have
+    next_position: ArgumentPosition,
 }
 
 impl Drop for ArgumentsMetadataDecoder<'_, '_> {
@@ -585,6 +606,11 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
         self.metadata.len()
     }
 
+    /// Decode the next argument.
+    ///
+    /// Arguments are returned in the order that `#[contract]` generates them in, which
+    /// [`ContractMetadataKind::Init`] describes. An argument out of that order is rejected with
+    /// [`MetadataDecodingError::ArgumentOutOfOrder`].
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next<'a>(
@@ -638,7 +664,6 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             }
         };
 
-        // TODO: Validate correctness of arguments order
         let argument_allowed = match self.method_kind {
             MethodKind::Init
             | MethodKind::UpdateStateless
@@ -673,6 +698,28 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                 method_kind: self.method_kind,
             });
         }
+
+        // The position of the argument and the earliest position of the next one. `#[env]`,
+        // `#[tmp]` and the return value appear at most once, so the next argument must come after
+        // them.
+        let (position, next_position) = match argument_kind {
+            ArgumentKind::EnvRo | ArgumentKind::EnvRw => {
+                (ArgumentPosition::Env, ArgumentPosition::Tmp)
+            }
+            ArgumentKind::TmpRo | ArgumentKind::TmpRw => {
+                (ArgumentPosition::Tmp, ArgumentPosition::Slots)
+            }
+            ArgumentKind::SlotRo | ArgumentKind::SlotRw => {
+                (ArgumentPosition::Slots, ArgumentPosition::Slots)
+            }
+            ArgumentKind::Input => (ArgumentPosition::Inputs, ArgumentPosition::Inputs),
+            ArgumentKind::Output => (ArgumentPosition::Outputs, ArgumentPosition::Outputs),
+            ArgumentKind::Return => (ArgumentPosition::Return, ArgumentPosition::End),
+        };
+        if position < self.next_position {
+            return Err(MetadataDecodingError::ArgumentOutOfOrder { argument_kind });
+        }
+        self.next_position = next_position;
 
         let (argument_name, type_details) = match argument_kind {
             ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env".as_bytes(), None),
