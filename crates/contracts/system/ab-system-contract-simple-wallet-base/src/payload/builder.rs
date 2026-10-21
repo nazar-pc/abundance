@@ -151,8 +151,10 @@ impl TransactionPayloadBuilder {
     ///
     /// # Safety
     /// `external_args` must correspond to `method_metadata` and `method_fingerprint`. Outputs are
-    /// never read from `external_args` and inputs that have corresponding `input_output_index`
-    /// are not read either.
+    /// never read from `external_args`. The pointers of slots and inputs that refer to earlier
+    /// outputs in `slot_output_index` and `input_output_index` are never dereferenced, so they may
+    /// dangle, but they must not be null, since external arguments hold every pointer as
+    /// [`NonNull`].
     #[expect(
         clippy::too_many_arguments,
         reason = "Only exceeds the limit due to being untyped, while above typed version is not"
@@ -314,8 +316,9 @@ impl TransactionPayloadBuilder {
 
         for slot_offset in 0..usize::from(num_slot_arguments) {
             // SAFETY: Method description requires the layout to correspond to metadata, where all
-            // slots come before inputs and outputs (see `ArgumentsMetadataDecoder::decode_next()`)
-            let address = unsafe { read_external_args::<NonNull<Address>>(external_args).as_ref() };
+            // slots come before inputs and outputs (see `ArgumentsMetadataDecoder::decode_next()`),
+            // and the pointer to be non-null even when it dangles
+            let address = unsafe { read_external_args::<NonNull<Address>>(external_args) };
 
             if slot_output_index
                 .get(slot_offset)
@@ -323,24 +326,22 @@ impl TransactionPayloadBuilder {
                 .flatten()
                 .is_none()
             {
+                // SAFETY: Method description requires the layout to correspond to metadata, and
+                // the slot doesn't refer to an earlier output, so it points to an address
+                let address = unsafe { address.as_ref() };
                 self.extend_payload_with_alignment(address.as_bytes(), align_of_val(address))?;
             }
         }
 
         for (input_offset, type_details) in input_type_details.iter().enumerate() {
             // SAFETY: Method description requires the layout to correspond to metadata, where the
-            // inputs come right after the slots (see `ArgumentsMetadataDecoder::decode_next()`)
-            let (size, data) = unsafe {
-                let FfiDataSizeCapacityRo {
-                    data_ptr,
-                    size,
-                    capacity: _,
-                } = read_external_args(external_args);
-
-                let data = slice::from_raw_parts(data_ptr.as_ptr().cast_const(), size as usize);
-
-                (size, data)
-            };
+            // inputs come right after the slots (see `ArgumentsMetadataDecoder::decode_next()`),
+            // and the pointer to be non-null even when it dangles
+            let FfiDataSizeCapacityRo {
+                data_ptr,
+                size,
+                capacity: _,
+            } = unsafe { read_external_args(external_args) };
 
             if input_output_index
                 .get(input_offset)
@@ -348,6 +349,10 @@ impl TransactionPayloadBuilder {
                 .flatten()
                 .is_none()
             {
+                // SAFETY: Method description requires the layout to correspond to metadata, and
+                // the input doesn't refer to an earlier output, so it points to `size` bytes
+                let data =
+                    unsafe { slice::from_raw_parts(data_ptr.as_ptr().cast_const(), size as usize) };
                 self.extend_payload_with_alignment(&size.to_le_bytes(), align_of_val(&size))?;
                 self.extend_payload_with_alignment(data, type_details.alignment.get() as usize)?;
             }

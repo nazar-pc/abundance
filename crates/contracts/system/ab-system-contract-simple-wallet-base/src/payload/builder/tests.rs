@@ -3,6 +3,7 @@
 use crate::payload::builder::tests::ffi::get::DemoContractGetArgs;
 use crate::payload::builder::tests::ffi::new::DemoContractNewArgs;
 use crate::payload::builder::tests::ffi::set::DemoContractSetArgs;
+use crate::payload::builder::tests::ffi::stored::DemoContractStoredArgs;
 use crate::payload::builder::tests::ffi::value::DemoContractValueArgs;
 use crate::payload::builder::{TransactionPayloadBuilder, TransactionPayloadBuilderError};
 use crate::payload::{
@@ -19,6 +20,7 @@ use ab_core_primitives::address::Address;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::metadata::IoTypeMetadataKind;
 use ab_io_type::trivial_type::TrivialType;
+use core::ffi::c_void;
 use core::mem::MaybeUninit;
 use core::ptr;
 use core::ptr::NonNull;
@@ -49,6 +51,11 @@ impl DemoContract {
     #[view]
     pub fn value(&self) -> u8 {
         self.value
+    }
+
+    #[view]
+    pub fn stored(#[slot] value: &MaybeData<u8>) -> u8 {
+        value.get().copied().unwrap_or_default()
     }
 }
 
@@ -521,4 +528,84 @@ fn payload_encode_arguments_order() {
             }
         ))
     ));
+}
+
+/// Add calls of `get()`, then of `set()` with its input and of `stored()` with its slot from the
+/// output of `get()` to a new builder. `input_ptr` and `slot_ptr` are the pointers of that input
+/// and slot in external args.
+fn build_with_references(
+    input_ptr: NonNull<u8>,
+    slot_ptr: NonNull<Address>,
+) -> TransactionPayloadBuilder {
+    let contract = Address::SYSTEM_SIMPLE_WALLET_BASE;
+    let mut unused_output = 0;
+    let mut unused_output_size = 0;
+    let mut builder = TransactionPayloadBuilder::new(1024);
+    builder
+        .with_method_call(
+            &contract,
+            &DemoContractGetArgs::new(
+                &mut MaybeData::from_mut(&mut unused_output, &mut unused_output_size).unwrap(),
+            ),
+            TransactionMethodContext::Null,
+            &[],
+            &[],
+        )
+        .unwrap();
+
+    // `ExternalArgs` of `set()` have the pointer, size and capacity of its input
+    let set_args = FfiDataSizeCapacityRo {
+        data_ptr: input_ptr,
+        size: u8::SIZE,
+        capacity: u8::SIZE,
+    };
+    // SAFETY: External args have the layout of `set()`, and its input refers to an earlier output
+    unsafe {
+        builder.with_method_call_untyped(
+            &contract,
+            NonNull::from_ref(&set_args).cast(),
+            DemoContractSetArgs::METADATA,
+            &DemoContractSetArgs::FINGERPRINT,
+            TransactionMethodContext::Wallet,
+            &[],
+            &[Some(0)],
+        )
+    }
+    .unwrap();
+
+    // `ExternalArgs` of `stored()` have the pointers of its slot and of its return value, which
+    // is an output and never read
+    let stored_args = [slot_ptr.cast::<c_void>(), NonNull::dangling()];
+    // SAFETY: External args have the layout of `stored()`, and its slot refers to an earlier
+    // output
+    unsafe {
+        builder.with_method_call_untyped(
+            &contract,
+            NonNull::from_ref(&stored_args).cast(),
+            DemoContractStoredArgs::METADATA,
+            &DemoContractStoredArgs::FINGERPRINT,
+            TransactionMethodContext::Null,
+            &[Some(0)],
+            &[],
+        )
+    }
+    .unwrap();
+
+    builder
+}
+
+#[test]
+fn payload_untyped_references_not_dereferenced() {
+    // Pointers of a slot and an input that refer to an earlier output may dangle, and Miri reports
+    // a reference to such a pointer as undefined behavior
+    let builder = build_with_references(NonNull::dangling(), NonNull::dangling());
+
+    // Nothing is read through these pointers, so valid ones give the same payload
+    let input_value = 42;
+    let slot_address = Address::NULL;
+    let expected_builder = build_with_references(
+        NonNull::from_ref(&input_value),
+        NonNull::from_ref(&slot_address),
+    );
+    assert_eq!(*builder.payload, *expected_builder.payload);
 }
