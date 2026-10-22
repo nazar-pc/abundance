@@ -1,14 +1,12 @@
 //! What only the caller checks, because it depends on calling methods, and how it allocates outputs
 
+use crate::payload::caller::{TransactionPayloadCallError, TransactionPayloadCaller};
 use crate::payload::test_utils::{
     CallWith, InputTag, OUTPUT_BUFFER_BYTES, OutputTag, SlotTag, TestPayload,
     assert_no_more_methods, call_all, call_next, decode_all, new_caller, only_input, only_output,
     only_slot,
 };
-use crate::payload::{
-    FfiDataSizeCapacityRw, TransactionPayloadCallError, TransactionPayloadCaller,
-    TransactionPayloadDecoderError,
-};
+use crate::payload::{FfiDataSizeCapacityRw, TransactionPayloadDecoderError};
 use crate::{EXTERNAL_ARGS_BUFFER_SIZE, MAX_OUTPUTS, OUTPUT_BUFFER_SIZE};
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
 use ab_core_primitives::address::Address;
@@ -181,7 +179,7 @@ fn payload_call_outputs_at_max_alignment() {
             &mut declared_outputs,
             |_method_context| MethodContext::Reset,
         );
-        assert_eq!(result.is_ok(), fits, "{output_buffer_size} `u128`s");
+        assert_eq!(result.is_ok(), fits, "{output_buffer_size} chunks");
     }
 }
 
@@ -203,7 +201,7 @@ fn payload_call_slot_from_output_aligned() {
 
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
     // Zeroed, so the return value that the first method doesn't write is initialized
-    let mut output_buffer = [MaybeUninit::new(0); OUTPUT_BUFFER_SIZE];
+    let mut output_buffer = [MaybeUninit::zeroed(); OUTPUT_BUFFER_SIZE];
     let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
     let caller = new_caller(
         payload,

@@ -9,11 +9,13 @@ use crate::payload::test_utils::{
 use crate::payload::{
     TransactionMethodContext, TransactionOutputKind, TransactionPayloadDecoderError,
 };
+use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
+use core::slice;
 
 #[test]
 fn payload_decode_empty() {
@@ -206,6 +208,33 @@ fn payload_decode_input_max_alignment() {
         }],
     );
     assert_eq!(decode_and_call(payload.as_u128_slice()), Ok(1));
+}
+
+#[test]
+fn payload_decode_misaligned() {
+    // Padding before the input value depends on where the payload starts
+    let mut payload = TestPayload::new(&[]);
+    payload
+        .method(&[], &[InputTag::value(Alignment::MAX.get())], &[])
+        .input_value(&[1], usize::from(Alignment::MAX.get()));
+    let payload = payload.as_u128_slice();
+    assert_eq!(decode_and_call(payload), Ok(1));
+
+    // A misaligned `u128` slice only exists where `u128` is aligned to 8 bytes
+    if align_of::<u128>() < usize::from(Alignment::MAX.get()) {
+        let mut buffer = OwnedAlignedBuffer::from_bytes(&[0; 8]);
+        for word in payload {
+            assert!(buffer.append(&word.to_ne_bytes()));
+        }
+        // SAFETY: The buffer holds the initialized bytes of the payload 8 bytes after its 16-byte
+        // aligned start, so they are aligned for `u128` here
+        let misaligned =
+            unsafe { slice::from_raw_parts(buffer.as_ptr().byte_add(8), payload.len()) };
+        assert_eq!(
+            decode_and_call(misaligned),
+            Err(TransactionPayloadDecoderError::PayloadMisaligned)
+        );
+    }
 }
 
 #[test]

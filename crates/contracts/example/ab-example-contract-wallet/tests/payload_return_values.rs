@@ -23,11 +23,12 @@ use ab_executor_native::NativeExecutor;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
 use ab_system_contract_code::CodeExt;
+use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::{
     MethodCallReferences, TransactionPayloadBuilder,
 };
-use ab_system_contract_simple_wallet_base::payload::{
-    TransactionMethodContext, TransactionPayloadCallError, TransactionPayloadCaller,
+use ab_system_contract_simple_wallet_base::payload::caller::{
+    TransactionPayloadCallError, TransactionPayloadCaller,
 };
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
 use ab_system_contract_simple_wallet_base::{

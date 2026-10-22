@@ -8,6 +8,7 @@
 //! checks that `TransactionPayloadDecoder::new()` and `TransactionPayloadDecoder::next_method()`
 //! can't panic, whatever the payload is.
 
+use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_system_contract_simple_wallet_base::MAX_OUTPUTS;
 use ab_system_contract_simple_wallet_base::payload::decoder::{
     DecodedInput, DecodedOutput, DecodedSlot, OutputRef, TransactionPayloadDecoder,
@@ -23,18 +24,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok_or("Usage: describe-payload <file with the payload>")?;
     let bytes = fs::read(path)?;
 
-    let (chunks, remainder) = bytes.as_chunks::<{ size_of::<u128>() }>();
-    if !remainder.is_empty() {
+    if !bytes.len().is_multiple_of(size_of::<u128>()) {
         return Err("The size of the payload must be a multiple of 16 bytes".into());
     }
-    let payload = chunks
-        .iter()
-        .copied()
-        .map(u128::from_ne_bytes)
-        .collect::<Vec<_>>();
+    // The decoder requires a payload aligned to 16 bytes
+    let payload = OwnedAlignedBuffer::from_bytes(&bytes);
 
     let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
-    let mut decoder = TransactionPayloadDecoder::new(&payload, &mut declared_outputs)?;
+    let mut decoder =
+        TransactionPayloadDecoder::new(payload.as_u128_slice(), &mut declared_outputs)?;
     for (output_index, declared_output) in decoder.declared_outputs().iter().enumerate() {
         println!(
             "Declared output {output_index}: capacity {}",

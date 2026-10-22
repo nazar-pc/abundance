@@ -332,7 +332,7 @@ impl<'decoder, 'payload> DecodedMethod<'decoder, 'payload> {
 /// Descriptions contain no pointers into memory other than the payload, so any payload can be
 /// decoded safely.
 ///
-/// [`TransactionPayloadCaller`]: crate::payload::TransactionPayloadCaller
+/// [`TransactionPayloadCaller`]: crate::payload::caller::TransactionPayloadCaller
 /// [`SimpleWalletBase::execute()`]: crate::SimpleWalletBase::execute
 /// [`OUTPUT_BUFFER_SIZE`]: crate::OUTPUT_BUFFER_SIZE
 #[derive(Debug)]
@@ -348,8 +348,9 @@ impl<'payload, 'outputs> TransactionPayloadDecoder<'payload, 'outputs> {
     /// Create a new instance and read the outputs that the payload declares, at most
     /// [`MAX_OUTPUTS`], into `declared_outputs`.
     ///
-    /// Returns an error if the outputs that the payload declares can't be read. Every payload
-    /// starts with them, so an empty payload is too small.
+    /// Returns an error if the payload is not aligned to [`Alignment::MAX`], or if the outputs that
+    /// the payload declares can't be read. Every payload starts with them, so an empty payload is
+    /// too small.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn new(

@@ -15,11 +15,12 @@
 //! Builder interface requires heap allocations and can be enabled with `payload-builder` feature,
 //! while the rest works in `no_std` environment without a global allocator.
 //!
+//! [`TransactionPayloadCaller`]: caller::TransactionPayloadCaller
 //! [`TransactionPayloadDecoder`]: decoder::TransactionPayloadDecoder
 
 #[cfg(feature = "payload-builder")]
 pub mod builder;
-mod caller;
+pub mod caller;
 pub mod decoder;
 mod decoder_core;
 #[cfg(test)]
@@ -28,10 +29,8 @@ mod test_utils;
 mod tests;
 
 use crate::MAX_OUTPUTS;
-use ab_contracts_common::ContractError;
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
-pub use caller::TransactionPayloadCaller;
 use core::ptr::NonNull;
 
 #[derive(Copy, Clone)]
@@ -353,11 +352,15 @@ pub enum TransactionOutputKind {
 /// [`TransactionPayloadCaller`], whose constructors already read the declared outputs
 ///
 /// [`TransactionPayloadDecoder`]: decoder::TransactionPayloadDecoder
+/// [`TransactionPayloadCaller`]: caller::TransactionPayloadCaller
 #[derive(Debug, Copy, Clone, Eq, PartialEq, thiserror::Error)]
 pub enum TransactionPayloadDecoderError {
     /// Payload too small
     #[error("Payload too small")]
     PayloadTooSmall,
+    /// The payload is not aligned to [`Alignment::MAX`]
+    #[error("Payload misaligned")]
+    PayloadMisaligned,
     /// Too many arguments
     #[error("Too many arguments")]
     TooManyArguments(u8),
@@ -398,6 +401,8 @@ pub enum TransactionPayloadDecoderError {
     #[error("Invalid method context: {0}")]
     InvalidMethodContext(u8),
     /// The declared outputs don't fit into the output buffer of [`TransactionPayloadCaller`]
+    ///
+    /// [`TransactionPayloadCaller`]: caller::TransactionPayloadCaller
     #[error("Output buffer too small")]
     OutputBufferTooSmall,
     /// The payload declares more than [`MAX_OUTPUTS`] outputs
@@ -408,21 +413,11 @@ pub enum TransactionPayloadDecoderError {
     FailedEarlier,
 }
 
-/// Errors for [`TransactionPayloadCaller::call_next_method()`]
-#[derive(Debug, thiserror::Error)]
-pub enum TransactionPayloadCallError {
-    /// Decoder error
-    #[error("Decoder error: {0}")]
-    Decoder(TransactionPayloadDecoderError),
-    /// Method call error
-    #[error("Method call error: {0}")]
-    Method(ContractError),
-}
-
 /// Output that a payload declares, with what is known about the value that was written into it
 /// last, see [`TransactionPayloadDecoder::new()`] and [`TransactionPayloadCaller::new()`]
 ///
 /// [`TransactionPayloadDecoder::new()`]: decoder::TransactionPayloadDecoder::new
+/// [`TransactionPayloadCaller::new()`]: caller::TransactionPayloadCaller::new
 #[derive(Debug, Copy, Clone)]
 #[expect(
     clippy::partial_pub_fields,
@@ -431,6 +426,8 @@ pub enum TransactionPayloadCallError {
 pub struct DeclaredOutput {
     /// Offset of the output's memory in the output buffer of [`TransactionPayloadCaller`], `0`
     /// without an output buffer
+    ///
+    /// [`TransactionPayloadCaller`]: caller::TransactionPayloadCaller
     offset: u32,
     /// Capacity of the output's memory in bytes, as the payload declares it
     pub mut(crate) capacity: u32,
