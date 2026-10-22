@@ -414,16 +414,28 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn get_pc(&self) -> Address<I> {
+        // Signed, because a branch refused for the return trap below the decoded stream leaves the
+        // position there, and that is the program counter execution stops with
         let decoded_instruction_byte_offset = self
             .next_instruction
             .addr()
-            .wrapping_sub(self.instructions.as_ptr().addr());
+            .wrapping_sub(self.instructions.as_ptr().addr())
+            .cast_signed();
+        // The position is a whole number of decoded instructions from the start of the stream, so
+        // the division is exact, which makes it an arithmetic shift where possible
+        let guest_byte_offset =
+            if BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.is_power_of_two() {
+                decoded_instruction_byte_offset
+                    >> BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.trailing_zeros()
+            } else {
+                decoded_instruction_byte_offset
+                    / BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.cast_signed()
+            };
 
         Address::<I>::truncate_from_u64(
-            self.base_addr().as_u64()
-                + (decoded_instruction_byte_offset
-                    / BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE)
-                    as u64,
+            self.base_addr()
+                .as_u64()
+                .wrapping_add_signed(guest_byte_offset as i64),
         )
     }
 

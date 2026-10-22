@@ -7,12 +7,15 @@
 //! still handled: the return trap, branches past the end of the stream, branches off its start and
 //! unaligned targets.
 
-use crate::basic::BasicMemory;
 use crate::basic::eager_instruction_fetcher::{
     BasicEagerInstructionFetcher, BasicEagerInstructions,
 };
+use crate::basic::{BasicMemory, BasicRegisters, IllegalEcallSystemInstructionHandler};
 use crate::rv64::test_utils::TestHart;
-use crate::{ExecutionError, FetchInstructionResult, InstructionFetcher, ProgramCounter};
+use crate::{
+    ExecutionError, FetchInstructionResult, InstructionFetcher, OpaqueThreadedExecutionResult,
+    ProgramCounter, ThreadedExecutableInstruction,
+};
 use ab_riscv_macros::instruction;
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
@@ -256,6 +259,40 @@ fn branch_to_a_trap_below_the_stream_stops_execution() {
         Ok(ControlFlow::Break(())),
         "Expected Break"
     );
+}
+
+#[test]
+fn jump_to_a_trap_below_the_stream_stops_at_the_trap() {
+    // Threaded dispatch can't run on an x86-64 CPU without AVX
+    if !OpaqueThreadedExecutionResult::<I>::platform_supported() {
+        return;
+    }
+
+    // `jal zero, -0x1000`, from the first instruction down to address 0
+    assert_eq!(BASE_ADDR, 0x1000);
+    let code = 0x800f_f06f_u32.to_le_bytes();
+    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
+    // instruction stream and the base address is aligned
+    let instructions =
+        unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) };
+    let fetcher = instructions
+        .fetcher(BASE_ADDR)
+        .expect("This is the address of the first instruction; qed");
+
+    // Execution stops with the program counter of the fetcher after `failed_branch()`
+    let result = I::execute_threaded(
+        fetcher,
+        &mut BasicRegisters::<Reg<u64>>::default(),
+        IllegalEcallSystemInstructionHandler,
+        &mut Memory::default(),
+    );
+    assert_matches!(
+        result.outcome,
+        Ok(()),
+        "Unexpected outcome {:?}",
+        result.outcome
+    );
+    assert_eq!(result.program_counter, 0);
 }
 
 #[test]
