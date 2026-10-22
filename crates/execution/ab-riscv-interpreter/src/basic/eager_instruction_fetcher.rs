@@ -232,7 +232,7 @@ where
         Some(BasicEagerInstructionFetcher {
             // SAFETY: `instruction_offset` was just checked to be within bounds of the decoded
             // stream
-            next_instruction: unsafe { self.instructions().add(instruction_offset) },
+            next_instruction: unsafe { self.instructions().add(instruction_offset) }.as_ptr(),
             instructions: self.instructions(),
             _instructions: PhantomData,
         })
@@ -377,7 +377,10 @@ where
     /// A pointer rather than an offset helps LLVM with SROA and aliasing analysis, so it can
     /// retain this in a native register instead of recomputing it from an offset on every
     /// fetch.
-    next_instruction: NonNull<I>,
+    ///
+    /// Not a [`NonNull`], because the target a branch was refused for is stored here as well, and
+    /// a backwards branch can make that zero when the decoded stream is at a low address.
+    next_instruction: *const I,
     /// The first decoded instruction, borrowed from [`BasicEagerInstructions`].
     ///
     /// This points at the instructions rather than at the state header in front of them because
@@ -413,7 +416,6 @@ where
     fn get_pc(&self) -> Address<I> {
         let decoded_instruction_byte_offset = self
             .next_instruction
-            .as_ptr()
             .addr()
             .wrapping_sub(self.instructions.as_ptr().addr());
 
@@ -447,14 +449,10 @@ where
         // This may land outside the decoded stream (including before its start), which is fine:
         // `wrapping_byte_offset()` only computes an address, it never dereferences the pointer, and
         // the bounds check below rejects such a target before it is ever used
-        let new_next_instruction = self
-            .next_instruction
-            .as_ptr()
-            .wrapping_byte_offset(byte_delta);
+        let new_next_instruction = self.next_instruction.wrapping_byte_offset(byte_delta);
         // Stored either way: on the way out it is the target `failed_branch()` reports on, and
         // until then nothing else is allowed to look at it
-        // SAFETY: A wrapped pointer is never null, and nothing here dereferences it
-        self.next_instruction = unsafe { NonNull::new_unchecked(new_next_instruction) };
+        self.next_instruction = new_next_instruction;
 
         let decoded_instruction_byte_offset = new_next_instruction
             .addr()
@@ -482,7 +480,6 @@ where
         // exactly one of the targets that gets here
         let decoded_instruction_byte_offset = self
             .next_instruction
-            .as_ptr()
             .addr()
             .wrapping_sub(self.instructions.as_ptr().addr())
             .cast_signed();
@@ -538,7 +535,7 @@ where
         }
 
         // SAFETY: `instruction_offset` was just checked to be within bounds of the decoded stream
-        self.next_instruction = unsafe { self.instructions.add(instruction_offset) };
+        self.next_instruction = unsafe { self.instructions.add(instruction_offset) }.as_ptr();
 
         Ok(ControlFlow::Continue(()))
     }
@@ -568,7 +565,7 @@ where
         // stream, and the fallback instruction after it is guaranteed to never continue to the
         // next instruction. Hence, the position always points at a decoded instruction or the
         // fallback instruction, which are borrowed for as long as `self` is.
-        unsafe { self.next_instruction.as_ref() }
+        unsafe { &*self.next_instruction }
     }
 
     #[inline(always)]
@@ -579,14 +576,7 @@ where
         // Wrapping because nothing here dereferences the pointer: the contract of this method is
         // what makes the resulting position a decoded instruction, and the bounds check that
         // matters lives in `set_pc()`
-        // SAFETY: A wrapped pointer is never null, and nothing here dereferences it
-        self.next_instruction = unsafe {
-            NonNull::new_unchecked(
-                self.next_instruction
-                    .as_ptr()
-                    .wrapping_byte_add(byte_advance),
-            )
-        };
+        self.next_instruction = self.next_instruction.wrapping_byte_add(byte_advance);
     }
 
     #[inline(always)]
