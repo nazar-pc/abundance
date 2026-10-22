@@ -2,8 +2,8 @@
 
 use ab_io_type::alignment::Alignment;
 
-struct Align32;
+struct NotTrivialType;
 
 fn main() {
-    let _ = Alignment::of::<Align32>();
+    let _ = Alignment::of::<NotTrivialType>();
 }

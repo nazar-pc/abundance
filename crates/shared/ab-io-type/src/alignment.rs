@@ -16,7 +16,9 @@ pub struct Alignment {
 }
 
 impl Alignment {
-    /// The largest alignment supported
+    /// The largest alignment supported, 16 bytes.
+    ///
+    /// No [`TrivialType`] has a larger alignment.
     pub const MAX: Self = {
         let Ok(power) = u8::try_from(16u8.ilog2()) else {
             unreachable!();
@@ -36,7 +38,8 @@ impl Alignment {
 
     /// Alignment of `T`.
     ///
-    /// A call doesn't compile for a `T` aligned to more than [`Alignment::MAX`].
+    /// [`TrivialType`] requires an alignment of at most [`Alignment::MAX`], and a call doesn't
+    /// compile for an implementation that breaks this requirement.
     #[inline(always)]
     pub const fn of<T>() -> Self
     where
@@ -53,8 +56,8 @@ impl Alignment {
     /// The alignment in bytes
     #[inline(always)]
     pub const fn get(self) -> u8 {
-        // SAFETY: The field is only set in this module (`mut(self)`), where `MAX` holds the power
-        // of `Alignment::MAX` and `from_power()` only accepts powers up to it. This tells the
+        // SAFETY: The field is only set in this module (`mut(self)`), by the definition of `MAX`
+        // and by `from_power()`, which rejects powers larger than that of `MAX`. This tells the
         // compiler that the alignment is at most `Alignment::MAX`, also when it was read from
         // memory.
         unsafe {

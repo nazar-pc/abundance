@@ -1,14 +1,14 @@
-error[E0277]: the trait bound `Align32: TrivialType` is not satisfied
+error[E0277]: the trait bound `NotTrivialType: TrivialType` is not satisfied
  --> tests/ui/alignment_trivial_type.rs:8:29
   |
-8 |     let _ = Alignment::of::<Align32>();
-  |                             ^^^^^^^ unsatisfied trait bound
+8 |     let _ = Alignment::of::<NotTrivialType>();
+  |                             ^^^^^^^^^^^^^^ unsatisfied trait bound
   |
-help: the trait `TrivialType` is not implemented for `Align32`
+help: the trait `TrivialType` is not implemented for `NotTrivialType`
  --> tests/ui/alignment_trivial_type.rs:5:1
   |
-5 | struct Align32;
-  | ^^^^^^^^^^^^^^
+5 | struct NotTrivialType;
+  | ^^^^^^^^^^^^^^^^^^^^^
   = help: the following other types implement trait `TrivialType`:
             ()
             [T; SIZE]

@@ -28,6 +28,7 @@ Breaking changes:
   doesn't record. It also checks all `#[repr(..)]` attributes instead of only the first one and rejects enums with
   `#[repr(C, u8)]`
 * `TrivialType` requires `'static` and the parsing step `try_from_bytes_unaligned()`, which the derive implements
+* `TrivialType` requires an alignment of at most `Alignment::MAX` (16 bytes), which derived implementations always have
 * Provided methods of `TrivialType` can't be overridden
 * `IoType` requires `try_from_ptr()` and `try_from_mut_ptr()`
 * Methods of `MaybeData` and `VariableElements` require `MaybeData<Data>: IoType` and
