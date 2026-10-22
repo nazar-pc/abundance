@@ -221,19 +221,23 @@ fn string_layout() {
 
 #[test]
 fn size_limits() {
-    // The largest sizes, including the length
-    assert_eq!(
-        FixedCapacityBytes::<{ u32::MAX as usize - 4 }>::SIZE,
-        u32::MAX
-    );
-    assert_eq!(
-        FixedCapacityString::<{ u32::MAX as usize - 4 }>::SIZE,
-        u32::MAX
-    );
-    assert_eq!(
-        FixedCapacityElements::<u128, { (1 << 28) - 2 }>::SIZE,
-        u32::MAX - 15
-    );
+    // The largest sizes, including the length. Types this large don't exist where `usize` is
+    // 32-bit.
+    #[cfg(target_pointer_width = "64")]
+    {
+        assert_eq!(
+            FixedCapacityBytes::<{ u32::MAX as usize - 4 }>::SIZE,
+            u32::MAX
+        );
+        assert_eq!(
+            FixedCapacityString::<{ u32::MAX as usize - 4 }>::SIZE,
+            u32::MAX
+        );
+        assert_eq!(
+            FixedCapacityElements::<u128, { (1 << 28) - 2 }>::SIZE,
+            u32::MAX - 15
+        );
+    }
     // Zero-sized elements only need space for the length
     assert_eq!(FixedCapacityElements::<(), { u32::MAX as usize }>::SIZE, 4);
 }

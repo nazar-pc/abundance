@@ -484,11 +484,16 @@ fn fixed_capacity_elements() {
         .u32(70_000)
         .kind(IoTypeMetadataKind::U8);
     check_trivial_type::<FixedCapacityBytes<70_000>>(name, &expected, &expected);
-    // The largest size
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
-        .u32(u32::MAX - 4)
-        .kind(IoTypeMetadataKind::U8);
-    check_trivial_type::<FixedCapacityBytes<{ u32::MAX as usize - 4 }>>(name, &expected, &expected);
+    // The largest size. Types this large don't exist where `usize` is 32-bit.
+    #[cfg(target_pointer_width = "64")]
+    {
+        let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+            .u32(u32::MAX - 4)
+            .kind(IoTypeMetadataKind::U8);
+        check_trivial_type::<FixedCapacityBytes<{ u32::MAX as usize - 4 }>>(
+            name, &expected, &expected,
+        );
+    }
 
     // The length is extended to the alignment of elements, which is the alignment of the container
     let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
@@ -511,13 +516,17 @@ fn fixed_capacity_elements() {
         .u32(3)
         .kind(IoTypeMetadataKind::U128);
     check_trivial_type::<FixedCapacityElements<u128, 3>>(name, &expected, &expected);
-    // The largest capacity, the size is `u32::MAX - 15`
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
-        .u32((1 << 28) - 2)
-        .kind(IoTypeMetadataKind::U128);
-    check_trivial_type::<FixedCapacityElements<u128, { (1 << 28) - 2 }>>(
-        name, &expected, &expected,
-    );
+    // The largest capacity, the size is `u32::MAX - 15`. Types this large don't exist where
+    // `usize` is 32-bit.
+    #[cfg(target_pointer_width = "64")]
+    {
+        let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+            .u32((1 << 28) - 2)
+            .kind(IoTypeMetadataKind::U128);
+        check_trivial_type::<FixedCapacityElements<u128, { (1 << 28) - 2 }>>(
+            name, &expected, &expected,
+        );
+    }
     let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
         .u32(3)
         .kind(IoTypeMetadataKind::Array)
@@ -598,11 +607,14 @@ fn fixed_capacity_string() {
     check_trivial_type::<FixedCapacityString<10>>(name, &expected, &expected);
     let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(70_000);
     check_trivial_type::<FixedCapacityString<70_000>>(name, &expected, &expected);
-    // The largest size
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(u32::MAX - 4);
-    check_trivial_type::<FixedCapacityString<{ u32::MAX as usize - 4 }>>(
-        name, &expected, &expected,
-    );
+    // The largest size. Types this large don't exist where `usize` is 32-bit.
+    #[cfg(target_pointer_width = "64")]
+    {
+        let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(u32::MAX - 4);
+        check_trivial_type::<FixedCapacityString<{ u32::MAX as usize - 4 }>>(
+            name, &expected, &expected,
+        );
+    }
 }
 
 #[test]
