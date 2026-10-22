@@ -2,7 +2,9 @@ use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use std::iter;
 use syn::spanned::Spanned;
-use syn::{Data, DataEnum, DataStruct, DeriveInput, Error, ExprPath, Fields, parse_macro_input};
+use syn::{
+    Data, DataEnum, DataStruct, DeriveInput, Error, ExprPath, Fields, Type, parse_macro_input,
+};
 
 /// Derive macro for `TrivialType` trait of `ab-io-type` crate.
 ///
@@ -67,6 +69,7 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 let _: &[::core::primitive::u8] = fields;
             };
             let parsing_step = generate_parsing_step(checks, validate.as_ref());
+            let alignment = generate_alignment(&field_types);
 
             // A `validate` function rejects some values whose fields are all valid, so such a type
             // doesn't accept every bit pattern even if its fields do. Bounds are higher-ranked, so
@@ -147,6 +150,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 where
                     #( #field_types: ::ab_io_type::trivial_type::TrivialType, )*
                 {
+                    #alignment
+
                     const METADATA: &[::core::primitive::u8] = #struct_metadata;
 
                     #parsing_step
@@ -265,6 +270,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             };
             let parsing_step = generate_parsing_step(checks, validate.as_ref());
 
+            let alignment = generate_alignment(&field_types);
+
             let enum_metadata = match generate_enum_metadata(type_name, data_enum) {
                 Ok(struct_metadata) => struct_metadata,
                 Err(error) => {
@@ -316,6 +323,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 where
                     #( #field_types: ::ab_io_type::trivial_type::TrivialType, )*
                 {
+                    #alignment
+
                     const METADATA: &[::core::primitive::u8] = #enum_metadata;
 
                     #parsing_step
@@ -333,6 +342,26 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     };
 
     output.into()
+}
+
+/// Generate `TrivialType::ALIGNMENT`: the largest alignment of `field_types`, 1 byte without fields
+fn generate_alignment(field_types: &[&Type]) -> TokenStream {
+    quote! {
+        const ALIGNMENT: ::ab_io_type::alignment::Alignment = {
+            let mut field_alignments: &[::ab_io_type::alignment::Alignment] = &[
+                #( <#field_types as ::ab_io_type::trivial_type::TrivialType>::ALIGNMENT, )*
+            ];
+            let mut alignment =
+                <::core::primitive::u8 as ::ab_io_type::trivial_type::TrivialType>::ALIGNMENT;
+            while let [field_alignment, rest @ ..] = field_alignments {
+                if field_alignment.get() > alignment.get() {
+                    alignment = *field_alignment;
+                }
+                field_alignments = rest;
+            }
+            alignment
+        };
+    }
 }
 
 /// Parse `#[trivial_type(..)]` attributes, returns the path of the `validate` function if there is

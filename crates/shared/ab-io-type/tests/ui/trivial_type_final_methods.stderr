@@ -1,7 +1,7 @@
 error: cannot override `try_from_bytes` because it already has a `final` definition in the trait
-  --> tests/ui/trivial_type_final_methods.rs:20:5
+  --> tests/ui/trivial_type_final_methods.rs:22:5
    |
-20 |     fn try_from_bytes(_bytes: &[u8]) -> Option<(&Self, &[u8])> {
+22 |     fn try_from_bytes(_bytes: &[u8]) -> Option<(&Self, &[u8])> {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: `try_from_bytes` is marked final here

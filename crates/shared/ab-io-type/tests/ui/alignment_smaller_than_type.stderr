@@ -1,0 +1,31 @@
+error[E0080]: evaluation panicked: Alignment of the type is larger than `TrivialType::ALIGNMENT`
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_io_type::alignment::Alignment::of::<Value>::{constant#0}` failed here
+  |
+ ::: src/alignment.rs
+  |
+  | /             assert!(
+  | |                 align_of::<T>() <= usize::from(T::ALIGNMENT.get()),
+  | |                 "Alignment of the type is larger than `TrivialType::ALIGNMENT`"
+  | |             );
+  | |_____________- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/alignment.rs
+  |
+  | /         const {
+  | |             assert!(
+  | |                 align_of::<T>() <= usize::from(T::ALIGNMENT.get()),
+  | |                 "Alignment of the type is larger than `TrivialType::ALIGNMENT`"
+  | |             );
+  | |             T::ALIGNMENT
+  | |         }
+  | |_________^
+
+note: the above error was encountered while instantiating `fn ab_io_type::alignment::Alignment::of::<Value>`
+  --> tests/ui/alignment_smaller_than_type.rs:25:13
+   |
+25 |     let _ = Alignment::of::<Value>();
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^

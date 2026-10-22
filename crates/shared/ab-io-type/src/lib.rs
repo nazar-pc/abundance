@@ -104,24 +104,24 @@ const {
         "At least 32-bit platform required"
     );
 
-    // Max alignment is expected to match that of `u128`
-    assert!(
-        align_of::<u128>() == usize::from(Alignment::MAX.get()),
-        "Max alignment mismatch"
-    );
-
     // Only support targets with expected alignment and refuse to compile on other targets
     assert!(align_of::<()>() == 1, "Unsupported alignment of `()`");
     assert!(align_of::<u8>() == 1, "Unsupported alignment of `u8`");
     assert!(align_of::<u16>() == 2, "Unsupported alignment of `u16`");
     assert!(align_of::<u32>() == 4, "Unsupported alignment of `u32`");
     assert!(align_of::<u64>() == 8, "Unsupported alignment of `u64`");
-    assert!(align_of::<u128>() == 16, "Unsupported alignment of `u128`");
     assert!(align_of::<i8>() == 1, "Unsupported alignment of `i8`");
     assert!(align_of::<i16>() == 2, "Unsupported alignment of `i16`");
     assert!(align_of::<i32>() == 4, "Unsupported alignment of `i32`");
     assert!(align_of::<i64>() == 8, "Unsupported alignment of `i64`");
-    assert!(align_of::<i128>() == 16, "Unsupported alignment of `i128`");
+    assert!(
+        align_of::<u128>() <= usize::from(Alignment::MAX.get()),
+        "Unsupported alignment of `u128`"
+    );
+    assert!(
+        align_of::<i128>() <= usize::from(Alignment::MAX.get()),
+        "Unsupported alignment of `i128`"
+    );
 }
 
 struct DerefWrapper<T>(T);

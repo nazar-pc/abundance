@@ -29,6 +29,9 @@ Breaking changes:
   `#[repr(C, u8)]`
 * `TrivialType` requires `'static` and the parsing step `try_from_bytes_unaligned()`, which the derive implements
 * `TrivialType` requires an alignment of at most `Alignment::MAX` (16 bytes), which derived implementations always have
+* `TrivialType` requires the constant `ALIGNMENT`, the alignment of the type in metadata, which the derive implements.
+  It is 16 bytes (`Alignment::MAX`) for `u128` and `i128`. `Alignment::of()` and the length prefix of
+  `FixedCapacityElements` use it
 * Provided methods of `TrivialType` can't be overridden
 * `IoType` requires `try_from_ptr()` and `try_from_mut_ptr()`
 * Methods of `MaybeData` and `VariableElements` require `MaybeData<Data>: IoType` and
@@ -41,6 +44,8 @@ Breaking changes:
 Improvements:
 
 * `TrivialType` can now be derived for enums with tuple variants
+* 32-bit RISC-V and Arm targets are supported
+* `Alignment::is_slice_aligned()` checks where a slice starts
 * `AnyBitPattern` is implemented for `TrivialType`s whose every bit pattern is a valid value, which implement the
   unsafe `AnyBitPatternMarker`, the derive implements it for structs whose fields all implement it
 * `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()`, `try_read_unaligned()` and

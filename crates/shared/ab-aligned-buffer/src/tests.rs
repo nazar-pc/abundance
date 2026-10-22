@@ -1,9 +1,10 @@
 use crate::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use alloc::vec;
 use alloc::vec::Vec;
+use core::iter;
 use core::ops::{Deref, DerefMut};
 
-const EXPECTED_ALIGNMENT: usize = align_of::<u128>();
+const EXPECTED_ALIGNMENT: usize = 16;
 
 #[test]
 #[expect(
@@ -249,4 +250,106 @@ fn as_u128_slice() {
             "Length {len}"
         );
     }
+}
+
+#[test]
+fn resize_through_unaligned_capacities() {
+    let bytes = (1..=u8::MAX).collect::<Vec<_>>();
+    let mut owned = OwnedAlignedBuffer::with_capacity(1);
+    assert!(owned.append(&bytes[..1]));
+
+    // Every capacity that is not a multiple of the alignment, and those that are
+    for capacity in 1..=40 {
+        owned.ensure_capacity(capacity);
+        assert!(owned.capacity() >= capacity, "Capacity {capacity}");
+        assert!(
+            owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+            "Capacity {capacity}"
+        );
+        assert_eq!(owned.as_slice(), &bytes[..1], "Capacity {capacity}");
+    }
+
+    // Shorter and longer contents, the last one grows the buffer again
+    for len in [3, 17, 33, 3, 17, 100] {
+        owned.copy_from_slice(&bytes[..len]);
+        assert!(
+            owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+            "Length {len}"
+        );
+        assert_eq!(owned.as_slice(), &bytes[..len], "Length {len}");
+    }
+
+    let shared = owned.into_shared();
+    let shared2 = shared.clone();
+    drop(shared);
+    assert!(shared2.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT));
+    assert_eq!(shared2.as_slice(), &bytes[..100]);
+}
+
+#[test]
+fn strong_count_survives_clones() {
+    let empty = SharedAlignedBuffer::default();
+    let shared = SharedAlignedBuffer::from_bytes(b"abc");
+    let ptr_before = shared.as_ptr();
+
+    let clones = iter::repeat_with(|| (empty.clone(), shared.clone()))
+        .take(1000)
+        .collect::<Vec<_>>();
+    for (empty_clone, shared_clone) in &clones {
+        assert!(empty_clone.is_empty());
+        assert_eq!(shared_clone.as_ptr(), ptr_before);
+    }
+    drop(clones);
+
+    // The static empty buffer is still alive
+    drop(empty);
+    assert!(SharedAlignedBuffer::empty_ref().is_empty());
+    assert!(SharedAlignedBuffer::default().into_owned().is_empty());
+
+    // The last instance reuses its allocation
+    let owned = shared.into_owned();
+    assert_eq!(owned.as_ptr(), ptr_before);
+    assert_eq!(owned.as_slice(), b"abc");
+}
+
+// A `u32` capacity can only exceed `isize::MAX` bytes where `usize` is 32-bit
+#[cfg(target_pointer_width = "32")]
+#[test]
+#[should_panic(expected = "has failed: too large")]
+fn capacity_overflow_panics() {
+    OwnedAlignedBuffer::with_capacity(1).ensure_capacity(u32::MAX);
+}
+
+// A `u32` capacity can only exceed `isize::MAX` bytes where `usize` is 32-bit
+#[cfg(target_pointer_width = "32")]
+#[test]
+#[should_panic(expected = "has failed: too large")]
+fn capacity_above_isize_max_panics() {
+    OwnedAlignedBuffer::with_capacity(1).ensure_capacity(1 << 31);
+}
+
+// Only a counter narrower than 64 bits can get close to wrapping around
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn too_many_clones_panic() {
+    extern crate std;
+
+    use core::sync::atomic::Ordering;
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    let shared = SharedAlignedBuffer::from_bytes(b"abc");
+    let strong_count = shared.inner.strong_count_ref();
+    // As if `isize::MAX - 1` clones were leaked
+    strong_count.store(isize::MAX.cast_unsigned(), Ordering::Relaxed);
+
+    let clone = shared.clone();
+    assert!(catch_unwind(AssertUnwindSafe(|| shared.clone())).is_err());
+    assert_eq!(
+        strong_count.load(Ordering::Relaxed),
+        isize::MAX.cast_unsigned() + 1
+    );
+
+    // Only the two instances that are alive remain, so dropping them frees the buffer
+    strong_count.store(2, Ordering::Relaxed);
+    drop(clone);
 }

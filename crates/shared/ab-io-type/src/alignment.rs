@@ -36,20 +36,22 @@ impl Alignment {
         Some(Self { power })
     }
 
-    /// Alignment of `T`.
+    /// Alignment of `T` in metadata, see [`TrivialType::ALIGNMENT`].
     ///
     /// [`TrivialType`] requires an alignment of at most [`Alignment::MAX`], and a call doesn't
-    /// compile for an implementation that breaks this requirement.
+    /// compile for an implementation that breaks this requirement. It also doesn't compile when
+    /// `T::ALIGNMENT` is smaller than `align_of::<T>()`.
     #[inline(always)]
     pub const fn of<T>() -> Self
     where
         T: TrivialType,
     {
         const {
-            let Ok(power) = u8::try_from(align_of::<T>().ilog2()) else {
-                unreachable!();
-            };
-            Self::from_power(power).expect("Alignment of the type is larger than `Alignment::MAX`")
+            assert!(
+                align_of::<T>() <= usize::from(T::ALIGNMENT.get()),
+                "Alignment of the type is larger than `TrivialType::ALIGNMENT`"
+            );
+            T::ALIGNMENT
         }
     }
 
@@ -65,5 +67,15 @@ impl Alignment {
         }
 
         1 << self.power
+    }
+
+    /// Whether `slice` starts at an address aligned to `self`
+    #[inline(always)]
+    pub fn is_slice_aligned<T>(self, slice: &[T]) -> bool
+    where
+        T: TrivialType,
+    {
+        let alignment = usize::from(self.get());
+        slice.as_ptr().addr().is_multiple_of(alignment)
     }
 }

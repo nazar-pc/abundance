@@ -7,6 +7,7 @@ use crate::transaction::{
     SerializedTransactionLengths, Transaction, TransactionHeader, TransactionSlot,
 };
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::slice;
 
@@ -152,16 +153,16 @@ impl OwnedTransaction {
 
         const {
             // Writing after `OwnedTransactionLengths`, `TransactionHeader` and (optionally)
-            // `TransactionSlot` must be aligned to `u128`
+            // `TransactionSlot` must be aligned to `Alignment::MAX`
             assert!(
                 (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
-                    .is_multiple_of(align_of::<u128>())
+                    .is_multiple_of(usize::from(Alignment::MAX.get()))
             );
             assert!(
                 (size_of::<TransactionHeader>()
                     + size_of::<SerializedTransactionLengths>()
                     + size_of::<TransactionSlot>())
-                .is_multiple_of(align_of::<u128>())
+                .is_multiple_of(usize::from(Alignment::MAX.get()))
             );
         }
         if transaction_lengths.payload > 0 {
@@ -179,16 +180,16 @@ impl OwnedTransaction {
 
         const {
             // Writing after `OwnedTransactionLengths`, `TransactionHeader` and (optionally)
-            // `TransactionSlot` must be aligned to `u128`
+            // `TransactionSlot` must be aligned to `Alignment::MAX`
             assert!(
                 (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
-                    .is_multiple_of(align_of::<u128>())
+                    .is_multiple_of(usize::from(Alignment::MAX.get()))
             );
             assert!(
                 (size_of::<TransactionHeader>()
                     + size_of::<SerializedTransactionLengths>()
                     + size_of::<TransactionSlot>())
-                .is_multiple_of(align_of::<u128>())
+                .is_multiple_of(usize::from(Alignment::MAX.get()))
             );
         }
         if transaction_lengths.seal > 0 && !buffer.append(seal) {

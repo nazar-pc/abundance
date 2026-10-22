@@ -196,11 +196,13 @@ where
 {
     assert_eq!(<T as TrivialType>::METADATA, expected.0.as_slice());
     assert_eq!(<T as ab_io_type::IoType>::METADATA, expected.0.as_slice());
+    let alignment = usize::from(T::ALIGNMENT.get());
+    assert!(align_of::<T>() <= alignment);
     check_decoding(
         T::METADATA,
         name,
         size_of::<T>(),
-        align_of::<T>(),
+        alignment,
         expected_compact,
     );
 }
@@ -484,11 +486,16 @@ fn fixed_capacity_elements() {
         .u32(70_000)
         .kind(IoTypeMetadataKind::U8);
     check_trivial_type::<FixedCapacityBytes<70_000>>(name, &expected, &expected);
-    // The largest size
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
-        .u32(u32::MAX - 4)
-        .kind(IoTypeMetadataKind::U8);
-    check_trivial_type::<FixedCapacityBytes<{ u32::MAX as usize - 4 }>>(name, &expected, &expected);
+    // The largest size. Types this large don't exist where `usize` is 32-bit.
+    #[cfg(target_pointer_width = "64")]
+    {
+        let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+            .u32(u32::MAX - 4)
+            .kind(IoTypeMetadataKind::U8);
+        check_trivial_type::<FixedCapacityBytes<{ u32::MAX as usize - 4 }>>(
+            name, &expected, &expected,
+        );
+    }
 
     // The length is extended to the alignment of elements, which is the alignment of the container
     let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
@@ -511,13 +518,17 @@ fn fixed_capacity_elements() {
         .u32(3)
         .kind(IoTypeMetadataKind::U128);
     check_trivial_type::<FixedCapacityElements<u128, 3>>(name, &expected, &expected);
-    // The largest capacity, the size is `u32::MAX - 15`
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
-        .u32((1 << 28) - 2)
-        .kind(IoTypeMetadataKind::U128);
-    check_trivial_type::<FixedCapacityElements<u128, { (1 << 28) - 2 }>>(
-        name, &expected, &expected,
-    );
+    // The largest capacity, the size is `u32::MAX - 15`. Types this large don't exist where
+    // `usize` is 32-bit.
+    #[cfg(target_pointer_width = "64")]
+    {
+        let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
+            .u32((1 << 28) - 2)
+            .kind(IoTypeMetadataKind::U128);
+        check_trivial_type::<FixedCapacityElements<u128, { (1 << 28) - 2 }>>(
+            name, &expected, &expected,
+        );
+    }
     let expected = Expected::new(IoTypeMetadataKind::FixedCapacityElements)
         .u32(3)
         .kind(IoTypeMetadataKind::Array)
@@ -598,11 +609,14 @@ fn fixed_capacity_string() {
     check_trivial_type::<FixedCapacityString<10>>(name, &expected, &expected);
     let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(70_000);
     check_trivial_type::<FixedCapacityString<70_000>>(name, &expected, &expected);
-    // The largest size
-    let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(u32::MAX - 4);
-    check_trivial_type::<FixedCapacityString<{ u32::MAX as usize - 4 }>>(
-        name, &expected, &expected,
-    );
+    // The largest size. Types this large don't exist where `usize` is 32-bit.
+    #[cfg(target_pointer_width = "64")]
+    {
+        let expected = Expected::new(IoTypeMetadataKind::FixedCapacityString).u32(u32::MAX - 4);
+        check_trivial_type::<FixedCapacityString<{ u32::MAX as usize - 4 }>>(
+            name, &expected, &expected,
+        );
+    }
 }
 
 #[test]
@@ -2361,6 +2375,12 @@ fn layouts_with_padding_are_rejected() {
     check_layout(&struct_with_fields(&[empty_u16_array, short]).0, 2, 2);
     check_rejected(&struct_with_fields(&[byte, empty_u16_array]).0);
     check_layout(&struct_with_fields(&[byte, &unaligned_of(short)]).0, 3, 1);
+    // `u128` is aligned to 16 bytes
+    let long = &Expected::new(IoTypeMetadataKind::U64);
+    let wide = &Expected::new(IoTypeMetadataKind::U128);
+    check_layout(&struct_with_fields(&[wide, long, long]).0, 32, 16);
+    check_rejected(&struct_with_fields(&[long, wide]).0);
+    check_rejected(&struct_with_fields(&[wide, long]).0);
 
     // Fields of enum variants are placed after the 1-byte discriminant like in `#[repr(u8)]`
     // enums, with the same rules

@@ -80,9 +80,9 @@ impl ShortHrp {
     }
 }
 
-/// Logically the same as `u128`, but aligned to `8` bytes instead of `16`.
+/// Logically the same as `u128`, but aligned to `8` bytes.
 ///
-/// Byte layout is the same as `u128`, just the alignment is different.
+/// Byte layout is the same as `u128`, just the alignment can be different.
 ///
 /// The first 20 bits correspond to the shard index (the least significant bits first), and the
 /// remaining 108 bits (the most significant bits first) are an address allocated within that shard.

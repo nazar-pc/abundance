@@ -19,6 +19,7 @@ use crate::shard::RealShardKind;
 use crate::solutions::SolutionRange;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
+use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use core::iter::Step;
@@ -336,7 +337,7 @@ pub struct BeaconChainBlock<'a> {
 impl<'a> BeaconChainBlock<'a> {
     /// Try to create a new instance from provided bytes for provided shard index.
     ///
-    /// `bytes` should be 8-bytes aligned.
+    /// `bytes` should be 16-bytes aligned.
     ///
     /// Checks internal consistency of header, body, and block, but no consensus verification is
     /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
@@ -346,7 +347,7 @@ impl<'a> BeaconChainBlock<'a> {
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         let (header, remainder) = BeaconChainHeader::try_from_bytes(bytes)?;
-        let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
+        let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = BeaconChainBody::try_from_bytes(remainder)?;
 
         let block = Self { header, body };
@@ -390,7 +391,7 @@ impl<'a> BeaconChainBlock<'a> {
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         let (header, remainder) = BeaconChainHeader::try_from_bytes_unchecked(bytes)?;
-        let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
+        let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = BeaconChainBody::try_from_bytes_unchecked(remainder)?;
 
         Some((Self { header, body }, remainder))
@@ -446,7 +447,7 @@ pub struct IntermediateShardBlock<'a> {
 impl<'a> IntermediateShardBlock<'a> {
     /// Try to create a new instance from provided bytes for provided shard index.
     ///
-    /// `bytes` should be 8-bytes aligned.
+    /// `bytes` should be 16-bytes aligned.
     ///
     /// Checks internal consistency of header, body, and block, but no consensus verification is
     /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
@@ -456,7 +457,7 @@ impl<'a> IntermediateShardBlock<'a> {
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         let (header, remainder) = IntermediateShardHeader::try_from_bytes(bytes)?;
-        let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
+        let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = IntermediateShardBody::try_from_bytes(remainder)?;
 
         let block = Self { header, body };
@@ -500,7 +501,7 @@ impl<'a> IntermediateShardBlock<'a> {
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         let (header, remainder) = IntermediateShardHeader::try_from_bytes_unchecked(bytes)?;
-        let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
+        let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = IntermediateShardBody::try_from_bytes_unchecked(remainder)?;
 
         Some((Self { header, body }, remainder))
@@ -556,7 +557,7 @@ pub struct LeafShardBlock<'a> {
 impl<'a> LeafShardBlock<'a> {
     /// Try to create a new instance from provided bytes for provided shard index.
     ///
-    /// `bytes` should be 8-bytes aligned.
+    /// `bytes` should be 16-bytes aligned.
     ///
     /// Checks internal consistency of header, body, and block, but no consensus verification is
     /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
@@ -566,7 +567,7 @@ impl<'a> LeafShardBlock<'a> {
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
-        let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
+        let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = LeafShardBody::try_from_bytes(remainder)?;
 
         let block = Self { header, body };
@@ -596,7 +597,7 @@ impl<'a> LeafShardBlock<'a> {
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         let (header, remainder) = LeafShardHeader::try_from_bytes_unchecked(bytes)?;
-        let remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
+        let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = LeafShardBody::try_from_bytes_unchecked(remainder)?;
 
         Some((Self { header, body }, remainder))
@@ -786,15 +787,18 @@ impl BlockWeight {
     }
 }
 
-/// Aligns bytes to `T` and ensures that all padding bytes (if any) are zero
-fn align_to_and_ensure_zero_padding<T>(bytes: &[u8]) -> Option<&[u8]> {
-    // SAFETY: We do not read `T`, so the contents don't really matter
-    let padding = unsafe { bytes.align_to::<T>() }.0;
+/// Aligns bytes to `alignment` and ensures that all padding bytes (if any) are zero
+fn align_to_and_ensure_zero_padding(bytes: &[u8], alignment: Alignment) -> Option<&[u8]> {
+    let padding_len = bytes
+        .as_ptr()
+        .align_offset(usize::from(alignment.get()))
+        .min(bytes.len());
+    let (padding, remainder) = bytes.split_at(padding_len);
 
     // Padding must be zero
     if padding.iter().any(|&byte| byte != 0) {
         return None;
     }
 
-    Some(&bytes[padding.len()..])
+    Some(remainder)
 }

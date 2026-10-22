@@ -5,10 +5,10 @@ use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
 use ab_io_type::variable_elements::VariableElements;
 use ab_io_type::{IoType, IoTypeMut};
-use core::fmt;
 use core::marker::PhantomData;
-use core::mem::{self, MaybeUninit};
-use core::ptr::{self, NonNull};
+use core::mem::MaybeUninit;
+use core::ptr::NonNull;
+use core::{fmt, mem, ptr};
 
 /// Memory that can be given to a method call as an `#[output]` of type `Target`.
 ///
