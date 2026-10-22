@@ -2,7 +2,7 @@ use crate::address::Address;
 use crate::block::BlockRoot;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use crate::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
-use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 
 fn header() -> TransactionHeader {
     TransactionHeader {
@@ -102,4 +102,21 @@ fn owned_transaction_from_buffer() {
         Err(OwnedTransactionError::UnexpectedNumberOfBytes { actual, expected })
             if actual == size + 16 && expected == size
     ));
+}
+
+#[test]
+fn transaction_bytes_must_be_aligned_to_max_alignment() {
+    let owned_transaction =
+        OwnedTransaction::from_parts(&header(), &slots(1, 100), &[], &[1, 2], &[3; 5]).unwrap();
+    let bytes = owned_transaction.buffer().as_slice();
+
+    let (transaction, remainder) = Transaction::try_from_bytes(bytes).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(transaction.payload, [1, 2]);
+    assert_eq!(transaction.seal, [3; 5]);
+
+    // 8 bytes after a 16-byte boundary
+    let mut misaligned = OwnedAlignedBuffer::from_bytes(&[0; 8]);
+    assert!(misaligned.append(bytes));
+    assert!(Transaction::try_from_bytes(&misaligned.as_slice()[8..]).is_none());
 }

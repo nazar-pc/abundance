@@ -16,6 +16,7 @@ use crate::shard::RealShardKind;
 use crate::transaction::Transaction;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
 use core::iter::TrustedLen;
@@ -983,7 +984,7 @@ fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
 #[inline(always)]
 #[must_use]
 fn align_to_16_bytes_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
-    let alignment = align_of::<u128>();
+    let alignment = usize::from(Alignment::MAX.get());
     let unaligned_by = buffer.len() as usize % alignment;
     if unaligned_by > 0 {
         // SAFETY: Subtracted value is always smaller than alignment

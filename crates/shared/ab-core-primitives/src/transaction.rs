@@ -8,6 +8,7 @@ use crate::block::BlockRoot;
 use crate::hashes::Blake3Hash;
 #[cfg(feature = "alloc")]
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
+use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use blake3::Hasher;
 use core::slice;
@@ -138,7 +139,7 @@ impl<'a> Transaction<'a> {
             reason = "False-positive, see https://github.com/rust-lang/rust-clippy/issues/17636"
         )]
         let bytes_ptr = bytes.as_ptr().cast::<u128>();
-        if !bytes_ptr.is_aligned()
+        if !Alignment::MAX.is_slice_aligned(bytes)
             || bytes.len()
                 < size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>()
         {

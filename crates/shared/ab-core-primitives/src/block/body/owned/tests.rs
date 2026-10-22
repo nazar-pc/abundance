@@ -3,16 +3,26 @@ use crate::block::BlockRoot;
 use crate::block::body::owned::OwnedLeafShardBody;
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader, TransactionSlot};
+use core::ptr;
 use std::iter;
 
-#[test]
-fn owned_leaf_shard_body_multiple_transactions() {
-    let header = TransactionHeader {
+fn transaction_header() -> TransactionHeader {
+    TransactionHeader {
         version: TransactionHeader::TRANSACTION_VERSION,
         block_root: BlockRoot::default(),
         gas_limit: Gas::default(),
         contract: Address::SYSTEM_CODE,
-    };
+    }
+}
+
+/// A transaction that ends 3 bytes after a 16-byte boundary, so padding follows it
+fn transaction() -> OwnedTransaction {
+    OwnedTransaction::from_parts(&transaction_header(), &[], &[], &[1], &[2, 3, 4]).unwrap()
+}
+
+#[test]
+fn owned_leaf_shard_body_multiple_transactions() {
+    let header = transaction_header();
     let slot = TransactionSlot {
         owner: Address::from(100),
         contract: Address::SYSTEM_CODE,
@@ -43,5 +53,26 @@ fn owned_leaf_shard_body_multiple_transactions() {
         );
         assert_eq!(body_transaction.payload, transaction.transaction().payload);
         assert_eq!(body_transaction.seal, transaction.transaction().seal);
+    }
+}
+
+#[test]
+fn owned_leaf_shard_body_aligns_transactions_to_max_alignment() {
+    // The fields before the first transaction take 5 bytes, so both transactions need padding
+    // before them
+    let transaction = transaction();
+    let mut builder = OwnedLeafShardBody::init(iter::empty()).unwrap();
+    builder.add_transaction(&transaction).unwrap();
+    builder.add_transaction(&transaction).unwrap();
+    let body = builder.finish();
+
+    let buffer_start = body.buffer().as_ptr().addr();
+    let body_transactions = body.body().transactions();
+    assert_eq!(body_transactions.len(), 2);
+    for body_transaction in body_transactions.iter() {
+        let offset = ptr::from_ref(body_transaction.header).addr() - buffer_start;
+        assert!(offset.is_multiple_of(16), "Offset {offset}");
+        assert_eq!(body_transaction.payload, [1]);
+        assert_eq!(body_transaction.seal, [2, 3, 4]);
     }
 }

@@ -16,6 +16,7 @@ use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::{RealShardKind, ShardIndex};
 use crate::transaction::Transaction;
 use ab_blake3::{BLOCK_LEN, OUT_LEN, single_block_hash};
+use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
@@ -231,7 +232,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
         let mut counts = bytes.split_off(..num_blocks * (size_of::<u8>() * 2))?;
 
-        let mut remainder = align_to_and_ensure_zero_padding::<u64>(bytes)?;
+        let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
         for _ in 0..num_blocks {
             let num_own_segment_roots = usize::from(counts[0]);
@@ -262,7 +263,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                     .split_off(..usize::from(num_own_segment_roots) * SegmentRoot::SIZE)?;
             }
 
-            remainder = align_to_and_ensure_zero_padding::<u64>(remainder)?;
+            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
         }
 
         let info = Self {
@@ -307,7 +308,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
         let mut counts = bytes.split_off(..num_blocks * (size_of::<u8>() * 2))?;
 
-        let mut remainder = align_to_and_ensure_zero_padding::<u64>(bytes)?;
+        let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
         for _ in 0..num_blocks {
             let num_own_segment_roots = usize::from(counts[0]);
@@ -338,7 +339,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                     .split_off(..usize::from(num_own_segment_roots) * SegmentRoot::SIZE)?;
             }
 
-            remainder = align_to_and_ensure_zero_padding::<u64>(remainder)?;
+            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
         }
 
         Some((
@@ -521,7 +522,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             (header, remainder) = IntermediateShardHeader::try_from_bytes(remainder)
                 .expect("Already checked in constructor; qed");
 
-            remainder = align_to_and_ensure_zero_padding::<u64>(remainder)
+            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
                 .expect("Already checked in constructor; qed");
 
             let segments_proof =
@@ -594,7 +595,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 )
             };
 
-            remainder = align_to_and_ensure_zero_padding::<u64>(remainder)
+            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
                 .expect("Already checked in constructor; qed");
 
             IntermediateShardBlockInfo {
@@ -980,7 +981,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
         let mut counts = bytes.split_off(..num_blocks * size_of::<u8>())?;
 
-        let mut remainder = align_to_and_ensure_zero_padding::<u64>(bytes)?;
+        let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
         for _ in 0..num_blocks {
             let num_own_segment_roots = usize::from(counts[0]);
@@ -988,7 +989,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
             (_, remainder) = LeafShardHeader::try_from_bytes(remainder)?;
 
-            remainder = align_to_and_ensure_zero_padding::<u64>(remainder)?;
+            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
 
             if num_own_segment_roots > 0 {
                 let _first_local_segment_index =
@@ -1034,7 +1035,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
         let mut counts = bytes.split_off(..num_blocks * size_of::<u8>())?;
 
-        let mut remainder = align_to_and_ensure_zero_padding::<u64>(bytes)?;
+        let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
         for _ in 0..num_blocks {
             let num_own_segment_roots = usize::from(counts[0]);
@@ -1042,7 +1043,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
             (_, remainder) = LeafShardHeader::try_from_bytes(remainder)?;
 
-            remainder = align_to_and_ensure_zero_padding::<u64>(remainder)?;
+            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
 
             if num_own_segment_roots > 0 {
                 let _first_local_segment_index =
@@ -1165,7 +1166,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
             (header, remainder) = LeafShardHeader::try_from_bytes(remainder)
                 .expect("Already checked in constructor; qed");
 
-            remainder = align_to_and_ensure_zero_padding::<u64>(remainder)
+            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
                 .expect("Already checked in constructor; qed");
 
             let segments = if num_own_segment_roots > 0 {
@@ -1505,12 +1506,12 @@ impl<'a> Transactions<'a> {
             num_transactions[3],
         ]) as usize;
 
-        let mut remainder = align_to_and_ensure_zero_padding::<u128>(bytes)?;
+        let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::MAX)?;
         let bytes_start = remainder;
 
         for _ in 0..num_transactions {
             (_, remainder) = Transaction::try_from_bytes(remainder)?;
-            remainder = align_to_and_ensure_zero_padding::<u128>(remainder)?;
+            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         }
 
         Some((
@@ -1532,7 +1533,7 @@ impl<'a> Transactions<'a> {
             let transaction = unsafe { Transaction::from_bytes_unchecked(remainder) };
 
             remainder = &remainder[transaction.encoded_size()..];
-            remainder = align_to_and_ensure_zero_padding::<u128>(remainder)
+            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)
                 .expect("Already checked in constructor; qed");
 
             transaction
