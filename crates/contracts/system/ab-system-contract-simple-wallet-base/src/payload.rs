@@ -7,6 +7,11 @@
 //! screen of a hardware wallet before it is signed. Both use the same decoding code, so they apply
 //! the same rules.
 //!
+//! Methods can pass values to later methods of the same payload through outputs. A payload declares
+//! all its outputs upfront, each with a capacity, and every `#[output]` and return value of a
+//! method writes one of them. Later methods can refer to what was written last into a declared
+//! output as a slot or an input, see [`TransactionOutput`].
+//!
 //! Builder interface requires heap allocations and can be enabled with `payload-builder` feature,
 //! while the rest works in `no_std` environment without a global allocator.
 //!
@@ -22,14 +27,12 @@ mod test_utils;
 #[cfg(test)]
 mod tests;
 
+use crate::MAX_OUTPUTS;
 use ab_contracts_common::ContractError;
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 pub use caller::TransactionPayloadCaller;
 use core::ptr::NonNull;
-
-/// The largest output index that slot and input tags can hold
-const MAX_OUTPUT_INDEX: u8 = 0b0111_1111;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -89,12 +92,12 @@ pub enum TransactionSlotType {
 
 /// The type of transaction slot could be either explicit slot address or output index.
 ///
-/// Specifically, if the previous method has `#[output]` or return value, those values are collected
-/// and pushed into a virtual "stack". Then, if [`Self::slot_type()`] returns
-/// [`TransactionSlotType::OutputIndex`], then the corresponding input will use the value at
-/// `output_index` of this stack instead of what was specified in `external_args`. This allows
-/// composing calls to multiple methods into more sophisticated workflows without writing special
-/// contracts for this.
+/// A payload declares its outputs upfront, and every `#[output]` and return value of a method
+/// writes one of them, see [`TransactionOutput`]. If [`Self::slot_type()`] returns
+/// [`TransactionSlotType::OutputIndex`], then the slot is the value that an earlier method wrote
+/// last into the declared output with `output_index`, instead of what was specified in
+/// `external_args`. This allows composing calls to multiple methods into more sophisticated
+/// workflows without writing special contracts for this.
 #[derive(Debug, Copy, Clone)]
 pub struct TransactionSlot(TransactionSlotType);
 
@@ -107,11 +110,11 @@ impl TransactionSlot {
 
     /// Output index value.
     ///
-    /// Valid index values are 0..=127.
+    /// Valid index values are below [`MAX_OUTPUTS`].
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn new_output_index(output_index: u8) -> Option<Self> {
-        if output_index > MAX_OUTPUT_INDEX {
+        if usize::from(output_index) >= MAX_OUTPUTS {
             return None;
         }
 
@@ -125,9 +128,10 @@ impl TransactionSlot {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_u8(n: u8) -> Option<Self> {
-        // `0b1000_0000` is an explicit slot address, while `0b0xxx_xxxx` is an output index
+        // `0b1000_0000` is an explicit slot address, while `0b0xxx_xxxx` is an output index, which
+        // must be below `MAX_OUTPUTS`
         if n & 0b1000_0000 == 0 {
-            Some(Self(TransactionSlotType::OutputIndex { output_index: n }))
+            Self::new_output_index(n)
         } else if n == 0b1000_0000 {
             Some(Self(TransactionSlotType::Address))
         } else {
@@ -155,12 +159,12 @@ impl TransactionSlot {
 
 /// The type of transaction input could be either explicit value or output index.
 ///
-/// Specifically, if the previous method has `#[output]` or return value, those values are collected
-/// and pushed into a virtual "stack". Then, if [`Self::input_type()`] returns
-/// [`TransactionInputType::OutputIndex`], then the corresponding input will use the value at
-/// `output_index` of this stack instead of what was specified in `external_args`. This allows
-/// composing calls to multiple methods into more sophisticated workflows without writing special
-/// contracts for this.
+/// A payload declares its outputs upfront, and every `#[output]` and return value of a method
+/// writes one of them, see [`TransactionOutput`]. If [`Self::input_type()`] returns
+/// [`TransactionInputType::OutputIndex`], then the input is the value that an earlier method wrote
+/// last into the declared output with `output_index`, instead of what was specified in
+/// `external_args`. This allows composing calls to multiple methods into more sophisticated
+/// workflows without writing special contracts for this.
 #[derive(Debug, Copy, Clone)]
 pub struct TransactionInput(TransactionInputType);
 
@@ -173,11 +177,11 @@ impl TransactionInput {
 
     /// Output index value.
     ///
-    /// Valid index values are 0..=127.
+    /// Valid index values are below [`MAX_OUTPUTS`].
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn new_output_index(output_index: u8) -> Option<Self> {
-        if output_index > MAX_OUTPUT_INDEX {
+        if usize::from(output_index) >= MAX_OUTPUTS {
             return None;
         }
 
@@ -194,7 +198,7 @@ impl TransactionInput {
         // The highest bit (`0b1000_0000`) is set to 1 for value and 0 for output index, the
         // remaining bits of a value hold the power of two of its alignment
         if n & 0b1000_0000 == 0 {
-            return Some(Self(TransactionInputType::OutputIndex { output_index: n }));
+            return Self::new_output_index(n);
         }
 
         let Some(alignment) = Alignment::from_power(n & 0b0111_1111) else {
@@ -224,31 +228,53 @@ impl TransactionInput {
 
 #[derive(Debug, Copy, Eq, PartialEq, Clone)]
 pub enum TransactionOutputType {
-    Output { alignment: Alignment },
-    ReturnValue { alignment: Alignment },
+    Output { output_index: u8 },
+    ReturnValue { output_index: u8 },
 }
 
-/// The type of transaction output could be either `#[output]` or return value.
+/// The type of transaction output could be either `#[output]` or return value, with the index of
+/// the declared output that it writes.
 ///
-/// Both are allocated with the capacity and alignment specified in the payload and pushed into a
-/// virtual "stack" that later methods can refer to, see [`TransactionInput`]. `#[output]` is given
-/// to the method empty and has the size the method wrote into it. The return value doesn't have a
-/// size in `ExternalArgs`, executors only write the value, so its size is set to its capacity
-/// right away, which is the size of its type.
+/// A payload declares its outputs upfront, each with a capacity, and every `#[output]` and return
+/// value of a method writes one of them, which later methods can refer to, see
+/// [`TransactionInput`]. Several methods can write the same declared output one after another, and
+/// each of them replaces the value. A method writes a declared output at most once, and its slots
+/// and inputs don't refer to a declared output that it writes. The memory of every declared output
+/// is aligned to [`Alignment::MAX`], the largest alignment of any type that methods accept, so it
+/// is aligned for every output type.
+///
+/// `#[output]` is given to the method empty, whatever the memory held before, and has the size the
+/// method wrote into it. The return value doesn't have a size in `ExternalArgs`, executors only
+/// write the value, so the payload declares its size, which is the size of its type and must not
+/// exceed the capacity of the declared output.
 #[derive(Debug, Copy, Clone)]
 pub struct TransactionOutput(TransactionOutputType);
 
 impl TransactionOutput {
-    /// `#[output]` with `alignment`
+    /// `#[output]` that writes the declared output with `output_index`.
+    ///
+    /// Valid index values are below [`MAX_OUTPUTS`].
     #[inline(always)]
-    pub const fn new_output(alignment: Alignment) -> Self {
-        Self(TransactionOutputType::Output { alignment })
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn new_output(output_index: u8) -> Option<Self> {
+        if usize::from(output_index) >= MAX_OUTPUTS {
+            return None;
+        }
+
+        Some(Self(TransactionOutputType::Output { output_index }))
     }
 
-    /// Return value with `alignment`
+    /// Return value that is written into the declared output with `output_index`.
+    ///
+    /// Valid index values are below [`MAX_OUTPUTS`].
     #[inline(always)]
-    pub const fn new_return_value(alignment: Alignment) -> Self {
-        Self(TransactionOutputType::ReturnValue { alignment })
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn new_return_value(output_index: u8) -> Option<Self> {
+        if usize::from(output_index) >= MAX_OUTPUTS {
+            return None;
+        }
+
+        Some(Self(TransactionOutputType::ReturnValue { output_index }))
     }
 
     /// Create an instance from `u8`.
@@ -258,16 +284,22 @@ impl TransactionOutput {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_u8(n: u8) -> Option<Self> {
-        let Some(alignment) = Alignment::from_power(n & 0b0111_1111) else {
-            return None;
-        };
-
+        let output_index = Self::tag_output_index(n);
         // The highest bit (`0b1000_0000`) is set to 1 for output and 0 for return value
         if n & 0b1000_0000 == 0 {
-            Some(Self(TransactionOutputType::ReturnValue { alignment }))
+            Self::new_return_value(output_index)
         } else {
-            Some(Self(TransactionOutputType::Output { alignment }))
+            Self::new_output(output_index)
         }
+    }
+
+    /// Index of the declared output that the output tag `n` holds, which is [`MAX_OUTPUTS`] or
+    /// more for a tag that [`Self::from_u8()`] rejects
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub(crate) const fn tag_output_index(n: u8) -> u8 {
+        // The highest bit (`0b1000_0000`) holds the kind, the remaining bits hold the index
+        n & 0b0111_1111
     }
 
     /// Convert instance into `u8`
@@ -276,12 +308,12 @@ impl TransactionOutput {
     pub const fn into_u8(self) -> u8 {
         // The highest bit (`0b1000_0000`) is set to 1 for output and 0 for return value
         match self.0 {
-            TransactionOutputType::Output { alignment } => 0b1000_0000 | alignment.power,
-            TransactionOutputType::ReturnValue { alignment } => alignment.power,
+            TransactionOutputType::Output { output_index } => 0b1000_0000 | output_index,
+            TransactionOutputType::ReturnValue { output_index } => output_index,
         }
     }
 
-    /// Returns whether this is `#[output]` or return value, with its alignment
+    /// Returns whether this is `#[output]` or return value, with the index of its declared output
     #[inline(always)]
     pub const fn output_type(self) -> TransactionOutputType {
         self.0
@@ -291,19 +323,19 @@ impl TransactionOutput {
     #[inline(always)]
     pub(crate) const fn kind(self) -> TransactionOutputKind {
         match self.0 {
-            TransactionOutputType::Output { alignment: _ } => TransactionOutputKind::Output,
-            TransactionOutputType::ReturnValue { alignment: _ } => {
+            TransactionOutputType::Output { output_index: _ } => TransactionOutputKind::Output,
+            TransactionOutputType::ReturnValue { output_index: _ } => {
                 TransactionOutputKind::ReturnValue
             }
         }
     }
 
-    /// Alignment of the memory of the output
+    /// Index of the declared output
     #[inline(always)]
-    pub(crate) const fn alignment(self) -> Alignment {
+    pub(crate) const fn output_index(self) -> u8 {
         match self.0 {
-            TransactionOutputType::Output { alignment }
-            | TransactionOutputType::ReturnValue { alignment } => alignment,
+            TransactionOutputType::Output { output_index }
+            | TransactionOutputType::ReturnValue { output_index } => output_index,
         }
     }
 }
@@ -317,10 +349,10 @@ pub enum TransactionOutputKind {
     ReturnValue,
 }
 
-/// Errors of decoding a payload, see [`TransactionPayloadDecoder::next_method()`] and
-/// [`TransactionPayloadCaller::call_next_method()`]
+/// Errors of decoding a payload with [`TransactionPayloadDecoder`] or
+/// [`TransactionPayloadCaller`], whose constructors already read the declared outputs
 ///
-/// [`TransactionPayloadDecoder::next_method()`]: decoder::TransactionPayloadDecoder::next_method
+/// [`TransactionPayloadDecoder`]: decoder::TransactionPayloadDecoder
 #[derive(Debug, Copy, Clone, Eq, PartialEq, thiserror::Error)]
 pub enum TransactionPayloadDecoderError {
     /// Payload too small
@@ -338,29 +370,39 @@ pub enum TransactionPayloadDecoderError {
     /// An output tag that [`TransactionOutput::from_u8()`] rejects
     #[error("Invalid output tag: {0:#010b}")]
     InvalidOutputTag(u8),
-    /// Output index not found
+    /// A method writes an output that the payload doesn't declare, or a slot or an input refers to
+    /// an output that the payload doesn't declare or that no earlier method wrote
     #[error("Output index not found: {0}")]
     OutputIndexNotFound(u8),
+    /// A method writes the output with this index more than once, as `#[output]` or return value
+    #[error("Output index {0} is written more than once by the same method")]
+    OutputUsedTwice(u8),
+    /// A slot or an input refers to the output with this index, which the same method writes as
+    /// `#[output]` or return value
+    #[error("Output index {0} is referred to by the method that writes it")]
+    OutputReferencedBySameMethod(u8),
     /// The return value with this output index is followed by another output of its method,
     /// while a method has at most one return value, which is its last output
     #[error("Return value with output index {0} is not the last output of its method")]
     ReturnValueNotLast(u8),
+    /// The size that the payload declares for a return value exceeds the capacity of its output.
+    ///
+    /// The capacity is not included, so that errors fit into 8 bytes, which keeps decoding fast.
+    #[error("Return value with output index {output_index} has size {size}, more than capacity")]
+    ReturnValueTooLarge { output_index: u8, size: u32 },
     /// An output used as a slot doesn't have the size of an address: the payload declares a
     /// different size for a return value, or a method wrote a different size into its `#[output]`
     #[error("Invalid output index {output_index} size for slot: {size}")]
     InvalidSlotOutputIndexSize { output_index: u8, size: u32 },
-    /// An output used as a slot is declared with an alignment smaller than that of an address
-    #[error("Invalid output index {output_index} alignment for slot: {alignment}")]
-    InvalidSlotOutputIndexAlign { output_index: u8, alignment: u32 },
     /// Invalid method context
     #[error("Invalid method context: {0}")]
     InvalidMethodContext(u8),
-    /// Output buffer too small
+    /// The declared outputs don't fit into the output buffer of [`TransactionPayloadCaller`]
     #[error("Output buffer too small")]
     OutputBufferTooSmall,
-    /// Output buffer offsets too small
-    #[error("Output buffer offsets too small")]
-    OutputBufferOffsetsTooSmall,
+    /// The payload declares more than [`MAX_OUTPUTS`] outputs
+    #[error("Too many declared outputs: {0}")]
+    TooManyDeclaredOutputs(u8),
     /// Decoding failed before, so the decoder can't continue
     #[error("Decoding failed before")]
     FailedEarlier,
@@ -377,22 +419,50 @@ pub enum TransactionPayloadCallError {
     Method(ContractError),
 }
 
-/// Details of an output index that are kept between methods, see
-/// [`TransactionPayloadDecoder::new()`] and [`TransactionPayloadCaller::new()`]
+/// Output that a payload declares, with what is known about the value that was written into it
+/// last, see [`TransactionPayloadDecoder::new()`] and [`TransactionPayloadCaller::new()`]
 ///
 /// [`TransactionPayloadDecoder::new()`]: decoder::TransactionPayloadDecoder::new
 #[derive(Debug, Copy, Clone)]
-pub struct OutputBufferDetails {
-    /// Offset of the output's memory in the output buffer of [`TransactionPayloadCaller`], `0` in
-    /// [`TransactionPayloadDecoder`], which has no output buffer
-    ///
-    /// [`TransactionPayloadDecoder`]: decoder::TransactionPayloadDecoder
+#[expect(
+    clippy::partial_pub_fields,
+    reason = "Offset, size and state are details of decoding and calling methods"
+)]
+pub struct DeclaredOutput {
+    /// Offset of the output's memory in the output buffer of [`TransactionPayloadCaller`], `0`
+    /// without an output buffer
     offset: u32,
-    /// Size of the value: the capacity of a return value, which executors write whole, while
-    /// `#[output]` has size `0` until its method returned `Ok(())`, and the size it wrote after
-    /// that
+    /// Capacity of the output's memory in bytes, as the payload declares it
+    pub mut(crate) capacity: u32,
+    /// Size of the value that was written last: the size that the payload declares for a return
+    /// value, which executors write whole, while `#[output]` has size `0` until its method
+    /// returned `Ok(())`, and the size it wrote after that
     size: u32,
-    /// Alignment of the output's memory, as the payload declares it
-    alignment: Alignment,
-    kind: TransactionOutputKind,
+    /// What was written into the output last
+    state: OutputState,
+}
+
+impl DeclaredOutput {
+    /// Record that a method writes the output as `kind`, after which it has `size`: `0` for
+    /// `#[output]`, which is given to the method empty, and the declared size for a return value
+    #[inline(always)]
+    fn set_written(&mut self, kind: TransactionOutputKind, size: u32) {
+        self.size = size;
+        self.state = match kind {
+            TransactionOutputKind::Output => OutputState::Output,
+            TransactionOutputKind::ReturnValue => OutputState::ReturnValue,
+        };
+    }
+}
+
+/// What was written into a declared output last
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
+enum OutputState {
+    /// No method wrote it yet. It is `0`, which a reference checks with a single instruction.
+    NotWritten = 0,
+    /// An `#[output]` of an earlier method wrote it
+    Output = 1,
+    /// A return value of an earlier method was written into it
+    ReturnValue = 2,
 }

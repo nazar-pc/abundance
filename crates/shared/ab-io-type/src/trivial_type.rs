@@ -43,12 +43,15 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 ///
 /// # Safety
 /// * There is no padding, every byte is initialized and there is no interior mutability
+/// * The alignment is at most [`Alignment::MAX`]
 /// * [`Self::SIZE`] is not overridden
 /// * [`Self::try_from_bytes_unaligned()`] returns `Some((value, remainder))` only if `bytes` start
 ///   with `size_of::<Self>()` bytes that are a valid value of `Self`, `value` points to the
 ///   beginning of `bytes` and `remainder` is the rest of `bytes` after those bytes
 ///
-/// Prefer `#[derive(TrivialType)]`, which upholds this contract.
+/// Implementations are expected to be composites of existing `TrivialType`s without custom
+/// alignment, whose alignment is then at most [`Alignment::MAX`] as well. Prefer
+/// `#[derive(TrivialType)]`, which upholds this contract.
 ///
 /// # Deriving
 /// `#[derive(TrivialType)]` supports structs and enums and checks the following requirements at
@@ -87,6 +90,8 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 /// and of containers through [`IoType::try_from_ptr()`] and [`IoType::try_from_mut_ptr()`]. The
 /// unsafe methods that skip parsing, [`IoType::from_ptr()`], [`IoType::from_mut_ptr()`] and derives
 /// of other crates, like SCALE's `Decode` and serde's `Deserialize`, don't call it.
+///
+/// [`Alignment::MAX`]: crate::alignment::Alignment::MAX
 pub unsafe trait TrivialType
 where
     Self: Copy + 'static,

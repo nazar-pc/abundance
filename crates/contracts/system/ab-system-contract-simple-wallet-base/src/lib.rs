@@ -58,26 +58,30 @@ pub const SIGNING_CONTEXT: &[u8] = b"system-simple-wallet";
 pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = MAX_TOTAL_METHOD_ARGS as usize
     * (size_of::<*mut c_void>() + size_of::<u32>() * 2)
     / size_of::<*mut c_void>();
-/// Size of the buffer in `u128` elements that is used as a stack for storing outputs.
+/// Size of the buffer in `u128` elements that holds the memory of the outputs that a payload
+/// declares.
 ///
 /// This constant is helpful for transaction generation to check whether a created transaction
 /// doesn't exceed this limit.
 ///
-/// This defines how big the total size of `#[output]` arguments and return values could be in all
-/// methods of the payload together.
+/// This defines how big the outputs that a payload declares could be together. Each of them starts
+/// at the next multiple of 16 bytes ([`Alignment::MAX`]) after the previous one.
 ///
-/// Overflow will result in an error.
+/// Overflow will result in an error before any method is called.
+///
+/// [`Alignment::MAX`]: ab_io_type::alignment::Alignment::MAX
 pub const OUTPUT_BUFFER_SIZE: usize = 32 * 1024 / size_of::<u128>();
-/// Size of the buffer in entries that is used to store buffer offsets.
+/// The largest number of outputs that a payload can declare.
 ///
 /// This constant is helpful for transaction generation to check whether a created transaction
 /// doesn't exceed this limit.
 ///
-/// This defines how many `#[output]` arguments and return values could exist in all methods of the
-/// payload together.
+/// Every `#[output]` argument and return value of the payload's methods writes one of the declared
+/// outputs, and several methods can write the same one. Slots, inputs and outputs refer to a
+/// declared output by its index, which is below this limit.
 ///
-/// Overflow will result in an error.
-pub const OUTPUT_BUFFER_OFFSETS_SIZE: usize = 16;
+/// Overflow will result in an error before any method is called.
+pub const MAX_OUTPUTS: usize = 16;
 
 /// Transaction seal.
 ///
@@ -191,18 +195,21 @@ impl SimpleWalletBase {
 
         let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
         let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
-        let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
+        let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
 
-        let mut payload_caller = TransactionPayloadCaller::new(
+        // The outputs that the payload declares must fit, before any method is called
+        let Ok(mut payload_caller) = TransactionPayloadCaller::new(
             payload.get_initialized(),
             &mut external_args_buffer,
             &mut output_buffer,
-            &mut output_buffer_details,
+            &mut declared_outputs,
             |method_context| match method_context {
                 TransactionMethodContext::Null => MethodContext::Reset,
                 TransactionMethodContext::Wallet => MethodContext::Keep,
             },
-        );
+        ) else {
+            return Err(ContractError::BadInput);
+        };
 
         loop {
             payload_caller = match payload_caller.call_next_method(env) {

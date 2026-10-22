@@ -3,13 +3,15 @@
 #[cfg(test)]
 mod tests;
 
-use crate::EXTERNAL_ARGS_BUFFER_SIZE;
 use crate::payload::decoder::{DecodedInput, DecodedOutput, DecodedSlot};
-use crate::payload::decoder_core::{MethodSink, PayloadDecoderCore, check_slot_output_size};
+use crate::payload::decoder_core::{
+    MethodSink, OutputAllocator, PayloadDecoderCore, check_slot_output_size,
+};
 use crate::payload::{
-    FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, OutputBufferDetails, TransactionMethodContext,
+    DeclaredOutput, FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, TransactionMethodContext,
     TransactionOutputKind, TransactionPayloadCallError, TransactionPayloadDecoderError,
 };
+use crate::{EXTERNAL_ARGS_BUFFER_SIZE, MAX_OUTPUTS};
 use ab_contracts_common::env::{Env, MethodContext, PreparedMethod};
 use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_core_primitives::address::Address;
@@ -22,9 +24,9 @@ use core::ptr::NonNull;
 const {
     // Offsets into `external_args_buffer` fit into `PendingOutputSize`
     assert!(size_of::<[*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE]>() <= usize::from(u8::MAX));
-    // Outputs are allocated at offsets that are aligned as the payload declares, up to
-    // `Alignment::MAX`, so their memory is aligned as declared when the output buffer is aligned to
-    // `Alignment::MAX`
+    // Outputs are allocated at offsets that are multiples of `Alignment::MAX`, so their memory is
+    // aligned to `Alignment::MAX` when the output buffer is, which makes it aligned for every
+    // output type
     assert!(align_of::<u128>() >= usize::from(Alignment::MAX.get()));
 }
 
@@ -50,70 +52,40 @@ unsafe impl CallPrepared for Env<'_> {
     }
 }
 
-/// Memory for outputs of all methods, allocated one after another
+/// Allocates the memory of declared outputs one after another in an output buffer
 #[derive(Debug)]
-struct OutputBuffer<'a> {
-    /// Pointer to the whole buffer. Every pointer to an output is derived from it, so using one of
-    /// them doesn't invalidate the others.
-    base: NonNull<u8>,
-    /// Size of the buffer in bytes, at most `u32::MAX`, so that offsets fit into
-    /// [`OutputBufferDetails`]
+struct OutputBufferAllocator {
+    /// Size of the output buffer in bytes, at most `u32::MAX`, so that offsets fit into
+    /// [`DeclaredOutput`]
     size: usize,
     /// Number of bytes before the end of the last output
     used: usize,
-    lifetime: PhantomData<&'a mut [MaybeUninit<u128>]>,
 }
 
-impl<'a> OutputBuffer<'a> {
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn new(buffer: &'a mut [MaybeUninit<u128>]) -> Self {
-        debug_assert_eq!(align_of_val(buffer), usize::from(Alignment::MAX.get()));
-
-        Self {
-            size: size_of_val(buffer).min(u32::MAX as usize),
-            base: NonNull::from_mut(buffer).cast::<u8>(),
-            used: 0,
-            lifetime: PhantomData,
-        }
-    }
-
-    /// Allocate memory of `capacity` bytes with `alignment` after all memory allocated before.
+impl OutputAllocator for OutputBufferAllocator {
+    /// Allocate memory of `capacity` bytes after all memory allocated before, at the next multiple
+    /// of [`Alignment::MAX`].
     ///
-    /// Returns its offset, or `None` if the buffer is not large enough.
+    /// [`Alignment::MAX`] is the largest alignment of any type that methods accept, so the memory
+    /// is aligned for every output type.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn alloc(&mut self, capacity: u32, alignment: Alignment) -> Option<u32> {
-        let alignment = usize::from(alignment.get());
-
-        // Padding up to the next multiple of `alignment` is `-used` modulo `alignment`, because
-        // `alignment` divides `2^usize::BITS`. `Alignment` tells the compiler that it is a power of
-        // two, so `%` becomes a bit mask. The same padding written as
-        // `(alignment - self.used % alignment) % alignment` takes more instructions.
-        let padding_bytes = self.used.wrapping_neg() % alignment;
-
-        let offset = self.used.checked_add(padding_bytes)?;
-        let used = offset.checked_add(capacity as usize)?;
+    fn alloc(&mut self, capacity: u32) -> Result<u32, TransactionPayloadDecoderError> {
+        let offset = self
+            .used
+            .checked_next_multiple_of(usize::from(Alignment::MAX.get()))
+            .ok_or(TransactionPayloadDecoderError::OutputBufferTooSmall)?;
+        let used = offset
+            .checked_add(capacity as usize)
+            .ok_or(TransactionPayloadDecoderError::OutputBufferTooSmall)?;
 
         if used > self.size {
-            return None;
+            return Err(TransactionPayloadDecoderError::OutputBufferTooSmall);
         }
         self.used = used;
 
         // Doesn't truncate, `offset` is at most `self.size`, which is at most `u32::MAX`
-        Some(offset as u32)
-    }
-
-    /// Pointer to the memory at `offset`.
-    ///
-    /// # Safety
-    /// `offset` must not exceed the size of the buffer, which is true for offsets returned by
-    /// [`Self::alloc()`].
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    unsafe fn pointer(&self, offset: u32) -> NonNull<u8> {
-        // SAFETY: Guaranteed by the function contract
-        unsafe { self.base.byte_add(offset as usize) }
+        Ok(offset as u32)
     }
 }
 
@@ -146,12 +118,13 @@ unsafe fn write_external_args<T>(external_args: &mut NonNull<c_void>, value: T) 
 
 /// Writes `ExternalArgs` of a method into `external_args_buffer` as its arguments are decoded
 #[derive(Debug)]
-struct ExternalArgsWriter<'output_buffer, 'a, 'pending> {
+struct ExternalArgsWriter<'pending> {
     /// Start of `external_args_buffer`
     external_args: NonNull<c_void>,
     /// Where the next argument is written to
     external_args_cursor: NonNull<c_void>,
-    output_buffer: &'output_buffer mut OutputBuffer<'a>,
+    /// Start of the output buffer, see [`TransactionPayloadCaller`]
+    output_buffer: NonNull<u8>,
     /// Entries before `num_pending_output_sizes` are initialized.
     ///
     /// The array is borrowed, not owned. It is indexed at runtime, so as a field it would make the
@@ -163,23 +136,23 @@ struct ExternalArgsWriter<'output_buffer, 'a, 'pending> {
     num_pending_output_sizes: usize,
 }
 
-impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
+impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn slot(&mut self, slot: DecodedSlot<'payload>) -> Result<(), TransactionPayloadDecoderError> {
         let address = match slot {
             DecodedSlot::Address(address) => NonNull::from_ref(address),
             DecodedSlot::Output(output) => {
-                // Methods of all outputs were called already, so their sizes are known
-                check_slot_output_size(&output, output.size)?;
+                // Methods that wrote outputs were called already, so the size of an `#[output]` is
+                // known. A return value, whose size the core checked already, is checked again, so
+                // that this is a single comparison.
+                check_slot_output_size(&output)?;
 
-                // SAFETY: The core only gives back offsets that writers of the same caller
-                // returned from `Self::output()`, which come from `OutputBuffer::alloc()`. They
-                // are aligned as the payload declares for the output, which is at least the
-                // alignment of an address for outputs used as slots (see `MethodSink::slot()`),
-                // and the output buffer is aligned to `Alignment::MAX`.
-                let address =
-                    unsafe { self.output_buffer.pointer(output.offset) }.cast::<Address>();
+                // SAFETY: Declared outputs are allocated within the output buffer in
+                // `TransactionPayloadCaller::new()` at multiples of `Alignment::MAX`, the output
+                // buffer is aligned to `Alignment::MAX` too, and an address, like every
+                // `TrivialType`, has at most that alignment
+                let address = unsafe { self.output_pointer(output.offset) }.cast::<Address>();
                 debug_assert!(address.is_aligned());
 
                 address
@@ -211,9 +184,9 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
                 bytes.len() as u32,
             ),
             DecodedInput::Output(output) => (
-                // SAFETY: The core only gives back offsets that writers of the same caller
-                // returned from `Self::output()`, which come from `OutputBuffer::alloc()`
-                unsafe { self.output_buffer.pointer(output.offset) },
+                // SAFETY: Declared outputs are allocated within the output buffer in
+                // `TransactionPayloadCaller::new()`
+                unsafe { self.output_pointer(output.offset) },
                 output.size,
             ),
         };
@@ -234,12 +207,7 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn output(&mut self, output: DecodedOutput) -> Result<u32, TransactionPayloadDecoderError> {
-        let offset = self
-            .output_buffer
-            .alloc(output.capacity, output.alignment)
-            .ok_or(TransactionPayloadDecoderError::OutputBufferTooSmall)?;
-
+    fn output(&mut self, output: DecodedOutput, offset: u32) {
         // The size of a return value is known already. There is always room for the size, since
         // the core gives at most `MAX_TOTAL_METHOD_ARGS` arguments per method to the sink.
         if matches!(output.kind, TransactionOutputKind::Output)
@@ -262,8 +230,9 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
             self.num_pending_output_sizes += 1;
         }
 
-        // SAFETY: Offset was just returned by `OutputBuffer::alloc()`
-        let data_ptr = unsafe { self.output_buffer.pointer(offset) }.as_ptr();
+        // SAFETY: Declared outputs are allocated within the output buffer in
+        // `TransactionPayloadCaller::new()`, which is where `offset` comes from
+        let data_ptr = unsafe { self.output_pointer(offset) }.as_ptr();
         // SAFETY: The core gives at most `MAX_TOTAL_METHOD_ARGS` arguments per method to the sink,
         // which `external_args_buffer` is sized for, and the buffer is correctly aligned
         unsafe {
@@ -276,17 +245,15 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
                 },
             );
         }
-
-        Ok(offset)
     }
 }
 
-impl<'output_buffer, 'a, 'pending> ExternalArgsWriter<'output_buffer, 'a, 'pending> {
+impl<'pending> ExternalArgsWriter<'pending> {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn new(
         external_args_buffer: &mut [*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE],
-        output_buffer: &'output_buffer mut OutputBuffer<'a>,
+        output_buffer: NonNull<u8>,
         pending_output_sizes: &'pending mut PendingOutputSizes,
     ) -> Self {
         let external_args = NonNull::from_mut(external_args_buffer).cast::<c_void>();
@@ -298,6 +265,18 @@ impl<'output_buffer, 'a, 'pending> ExternalArgsWriter<'output_buffer, 'a, 'pendi
             pending_output_sizes,
             num_pending_output_sizes: 0,
         }
+    }
+
+    /// Pointer to the memory at `offset` in the output buffer.
+    ///
+    /// # Safety
+    /// `offset` must not exceed the size of the output buffer, which is true for offsets of
+    /// declared outputs.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    unsafe fn output_pointer(&self, offset: u32) -> NonNull<u8> {
+        // SAFETY: Guaranteed by the function contract
+        unsafe { self.output_buffer.byte_add(offset as usize) }
     }
 
     /// Sizes of `#[output]` arguments of the method
@@ -317,13 +296,18 @@ impl<'output_buffer, 'a, 'pending> ExternalArgsWriter<'output_buffer, 'a, 'pendi
 /// Caller of methods in a transaction payload created using `TransactionPayloadBuilder`.
 ///
 /// The payload must be trusted (see [`SimpleWalletBase::execute()`]): what it declares about the
-/// arguments of each method, such as the capacity of the return value, which must be the size of
-/// the return type, can't be checked without the method's metadata.
+/// arguments of each method can't be checked without the method's metadata. The size of a return
+/// value must be the size of the return type, and the capacity of a declared output must be enough
+/// for the type of every `#[output]` that writes it.
 /// [`TransactionPayloadDecoder`] applies the same rules without calling methods, so a payload can
 /// be checked and shown to the user before it is signed.
 ///
-/// Outputs are given to methods empty, with size `0`, so methods called from transactions must
-/// accept empty outputs, see `TransactionPayloadBuilder::with_method_call()`.
+/// All outputs that the payload declares are allocated in the output buffer when the caller is
+/// created, so a payload whose outputs don't fit is rejected before any method is called.
+///
+/// Outputs are given to methods empty, with size `0`, whatever was written into their memory
+/// before, so methods called from transactions must accept empty outputs, see
+/// `TransactionPayloadBuilder::with_method_call()`.
 ///
 /// Return values are given their size when a method is decoded, before it is called, since
 /// executors only write the value (see [`TransactionOutput`]). Each method is called right after
@@ -337,39 +321,55 @@ impl<'output_buffer, 'a, 'pending> ExternalArgsWriter<'output_buffer, 'a, 'pendi
 pub struct TransactionPayloadCaller<'a> {
     core: PayloadDecoderCore<'a, 'a>,
     external_args_buffer: &'a mut [*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE],
-    output_buffer: OutputBuffer<'a>,
+    /// Start of the output buffer. Every pointer to an output is derived from it, so using one of
+    /// them doesn't invalidate the others.
+    output_buffer: NonNull<u8>,
+    output_buffer_lifetime: PhantomData<&'a mut [MaybeUninit<u128>]>,
     map_context: fn(TransactionMethodContext) -> MethodContext,
 }
 
 impl<'a> TransactionPayloadCaller<'a> {
-    /// Create a new instance.
+    /// Create a new instance, read the outputs that the payload declares, at most
+    /// [`MAX_OUTPUTS`], into `declared_outputs` and allocate them in `output_buffer`.
     ///
     /// The size of `external_args_buffer` defines the max number of bytes allocated for
     /// `ExternalArgs`, which impacts the number of arguments that can be represented by
     /// `ExternalArgs`. The size is specified in pointers with `#[slot]` argument using one
     /// pointer, while `#[input]` and `#[output]` use one pointer and size + capacity each.
     ///
-    /// The size of `output_buffer` defines how big the total size of `#[output]` and return values
-    /// could be in all methods of the payload together.
+    /// The size of `output_buffer` defines how large the outputs that the payload declares can be
+    /// together. Each of them starts at the next multiple of [`Alignment::MAX`] after the previous
+    /// one.
     ///
-    /// The size of `output_buffer_details` defines how many `#[output]` arguments and return values
-    /// could exist in all methods of the payload together, up to 128, since tags refer to output
-    /// indices up to 127.
+    /// Returns an error if the outputs that the payload declares can't be read or don't fit, so
+    /// that no method of such a payload is called. Every payload starts with the outputs that it
+    /// declares, so an empty payload is too small.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn new(
         payload: &'a [u128],
         external_args_buffer: &'a mut [*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE],
         output_buffer: &'a mut [MaybeUninit<u128>],
-        output_buffer_details: &'a mut [MaybeUninit<OutputBufferDetails>],
+        declared_outputs: &'a mut [MaybeUninit<DeclaredOutput>; MAX_OUTPUTS],
         map_context: fn(TransactionMethodContext) -> MethodContext,
-    ) -> Self {
-        Self {
-            core: PayloadDecoderCore::new(payload, output_buffer_details),
+    ) -> Result<Self, TransactionPayloadDecoderError> {
+        debug_assert_eq!(
+            align_of_val(output_buffer),
+            usize::from(Alignment::MAX.get())
+        );
+
+        let mut allocator = OutputBufferAllocator {
+            size: size_of_val(output_buffer).min(u32::MAX as usize),
+            used: 0,
+        };
+
+        Ok(Self {
+            core: PayloadDecoderCore::new(payload, declared_outputs, &mut allocator)?,
             external_args_buffer,
-            output_buffer: OutputBuffer::new(output_buffer),
+            output_buffer: NonNull::from_mut(output_buffer).cast::<u8>(),
+            output_buffer_lifetime: PhantomData,
             map_context,
-        }
+        })
     }
 
     /// Decode the next method (if any) in the payload and call it.
@@ -402,7 +402,7 @@ impl<'a> TransactionPayloadCaller<'a> {
             [MaybeUninit::uninit(); MAX_TOTAL_METHOD_ARGS as usize];
         let mut writer = ExternalArgsWriter::new(
             &mut *self.external_args_buffer,
-            &mut self.output_buffer,
+            self.output_buffer,
             &mut pending_output_sizes,
         );
         let maybe_method_header = self.core.decode_next_method(&mut writer);
@@ -420,16 +420,35 @@ impl<'a> TransactionPayloadCaller<'a> {
         //   a return value is written like the last output, with size and capacity after its
         //   pointer that `ExternalArgs` doesn't have
         // * slot addresses are aligned, and slot addresses and inputs point into the payload or
-        //   into outputs of earlier methods up to their sizes, which executors keep within
-        //   capacities with that many bytes initialized, as `ExecutorContext` requires, while the
-        //   size of a return value of an earlier method is its capacity, the size of the return
-        //   type, which has no padding (`TrivialType`): every earlier method returned `Ok(())`,
-        //   since the caller is consumed otherwise, so it wrote its outputs and return value as
-        //   `CallPrepared` requires, sizes of outputs are only stored after that, and slots and
-        //   inputs only refer to outputs of earlier methods (see `MethodSink`)
-        // * outputs are allocated in the output buffer with their capacity after all memory
-        //   allocated before, so they don't overlap each other or outputs of earlier methods, while
-        //   the payload and `external_args_buffer` are borrowed separately from the output buffer
+        //   into declared outputs, up to the size of what an earlier method wrote into them last:
+        //   the size that a method wrote into an `#[output]`, which executors keep within the
+        //   capacity with that many bytes initialized, as `ExecutorContext` requires, or the size
+        //   that the payload declares for a return value, which is the size of the return type, has
+        //   no padding (`TrivialType`) and doesn't exceed the capacity (the core checks it): every
+        //   earlier method returned `Ok(())`, since the caller is consumed otherwise, so it wrote
+        //   its outputs and return value as `CallPrepared` requires, sizes of `#[output]`s are only
+        //   stored after that, and slots and inputs only refer to declared outputs that earlier
+        //   methods wrote (see `MethodSink`)
+        // * a slot only refers to a declared output whose size is that of an address, which the
+        //   writer checks for every slot that refers to a declared output
+        // * an `#[output]` is given size `0` whatever its memory held before, and a return value
+        //   replaces the size of what its memory held before, so later methods only read bytes that
+        //   the last write initialized
+        // * declared outputs are allocated one after another with their capacities in
+        //   `Self::new()`, so they don't overlap each other (one with capacity `0` has no memory
+        //   that could overlap), while the payload and `external_args_buffer` are borrowed
+        //   separately from the output buffer
+        // * the outputs of a method are different declared outputs, and its slots and inputs don't
+        //   refer to declared outputs that it writes (see `MethodSink`), so the memory that a
+        //   method writes doesn't overlap with any other argument, while slots and inputs may share
+        //   a declared output, which they only read
+        // * the payload is trusted to declare the size of the return type as the size of the return
+        //   value, and the core checked that it doesn't exceed the capacity of its declared output,
+        //   so executors write the return value within that declared output, while otherwise they
+        //   could write into other declared outputs, including ones that the same method reads
+        // * declared outputs are allocated at multiples of `Alignment::MAX` in the output buffer,
+        //   which is aligned to `Alignment::MAX` too, and no type that methods accept has a larger
+        //   alignment, so the memory of every output is aligned for its type
         // * pointers into the output buffer are all derived from one pointer to the whole buffer,
         //   so creating one doesn't invalidate those created before
         // * the payload, `external_args_buffer` and the output buffer stay borrowed by the caller,
@@ -437,11 +456,10 @@ impl<'a> TransactionPayloadCaller<'a> {
         //   read
         // * contents of outputs and return values are only given to later methods as slot
         //   addresses, which accept every bit pattern, and as inputs, which methods parse
-        // * the payload is trusted to declare the arguments of the method with its fingerprint and
-        //   the size and alignment of the return type as the capacity and alignment of its return
-        //   value, and to declare as the return value only one that executors write (not the state
-        //   returned by `#[init]`, which they store instead), which can't be checked without the
-        //   method's metadata, the same way `NativeExecutor` trusts transaction payloads (see
+        // * the payload is trusted to declare the arguments of the method with its fingerprint, and
+        //   to declare as the return value only one that executors write (not the state returned by
+        //   `#[init]`, which they store instead), which can't be checked without the method's
+        //   metadata, the same way `NativeExecutor` trusts transaction payloads (see
         //   `SimpleWalletBase::execute()` for what makes them trusted)
         let prepared_method = unsafe {
             PreparedMethod::new_untyped(

@@ -12,7 +12,9 @@ use ab_executor_native::NativeExecutor;
 use ab_io_type::trivial_type::TrivialType;
 use ab_system_contract_code::CodeExt;
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
-use ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadBuilder;
+use ab_system_contract_simple_wallet_base::payload::builder::{
+    MethodCallReferences, TransactionPayloadBuilder,
+};
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
 use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use schnorrkel::Keypair;
@@ -91,17 +93,16 @@ fn criterion_benchmark(c: &mut Criterion) {
         contract: wallet_address,
     };
     let payload = {
-        let mut builder = TransactionPayloadBuilder::new(1024);
+        let mut builder = TransactionPayloadBuilder::new(1024, 0).unwrap();
         builder
             .with_method_call(
                 &flipper_address,
                 &FlipperFlipArgs::new(),
                 TransactionMethodContext::Null,
-                &[],
-                &[],
+                MethodCallReferences::default(),
             )
             .unwrap();
-        builder.into_aligned_bytes()
+        builder.into_aligned_bytes().unwrap()
     };
     let read_slots = &[];
     let write_slots = &[TransactionSlot {
