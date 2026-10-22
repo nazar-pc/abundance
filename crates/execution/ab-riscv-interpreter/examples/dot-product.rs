@@ -38,8 +38,19 @@
     signed_bigint_helpers,
     try_blocks
 )]
+// The eager instruction fetcher is only available on 64-bit hosts
+#![cfg_attr(
+    not(target_pointer_width = "64"),
+    expect(
+        dead_code,
+        unused_imports,
+        reason = "Only `main()` is used on 32-bit hosts"
+    )
+)]
 
-use ab_riscv_interpreter::basic::{BasicEagerInstructions, BasicMemory, BasicRegisters};
+#[cfg(target_pointer_width = "64")]
+use ab_riscv_interpreter::basic::BasicEagerInstructions;
+use ab_riscv_interpreter::basic::{BasicMemory, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
@@ -355,6 +366,12 @@ where
     }
 }
 
+#[cfg(not(target_pointer_width = "64"))]
+fn main() {
+    println!("Eager instruction fetcher is only available on 64-bit hosts");
+}
+
+#[cfg(target_pointer_width = "64")]
 fn main() -> anyhow::Result<()> {
     if !OpaqueThreadedExecutionResult::<DotProductInstruction>::platform_supported() {
         println!("Threaded dispatch is not supported on this platform");

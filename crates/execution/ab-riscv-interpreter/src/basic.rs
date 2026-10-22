@@ -1,11 +1,18 @@
 //! Basic implementations of various interpreter traits
 
-#[cfg(feature = "alloc")]
+// Only available on 64-bit hosts. The position of the fetcher in the decoded stream is a host
+// pointer, which a relative branch moves by its `i32` offset times the decoded stream bytes per
+// guest byte. On a 32-bit host that product doesn't always fit into `isize`, so the pointer wraps
+// around, and a far branch can land on a wrong instruction. Clamping the move avoids that, but a
+// refused target is kept in the position for the cold continuation, since threaded dispatch passes
+// nothing but the two pointers of the fetcher to it, so a clamped target is reported with a wrong
+// address. Supporting 32-bit hosts needs room for the real target somewhere else.
+#[cfg(all(feature = "alloc", target_pointer_width = "64"))]
 mod eager_instruction_fetcher;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", target_pointer_width = "64"))]
 pub use crate::basic::eager_instruction_fetcher::{
     BasicEagerInstructionFetcher, BasicEagerInstructions,
 };

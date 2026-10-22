@@ -28,8 +28,9 @@
 //!   syscalls
 //! * `vector-sum` runs a vectorized guest and shows the vector CSRs and register file an execution
 //!   environment has to provide for it
-//! * `dot-product` (needs the `alloc` feature) is the same thing built for speed: an environment
-//!   that keeps those CSRs decoded, eagerly decoded instructions and threaded dispatch
+//! * `dot-product` (needs the `alloc` feature and a 64-bit host) is the same thing built for speed:
+//!   an environment that keeps those CSRs decoded, eagerly decoded instructions and threaded
+//!   dispatch
 //!
 //! For example, `cargo run --release --example dot-product --features alloc`.
 //!
@@ -161,7 +162,10 @@
 )]
 #![cfg_attr(test, feature(try_blocks))]
 // Needed by the instruction set composed in tests of the eager instruction fetcher
-#![cfg_attr(all(test, feature = "alloc"), feature(const_try_residual))]
+#![cfg_attr(
+    all(test, feature = "alloc", target_pointer_width = "64"),
+    feature(const_try_residual)
+)]
 #![cfg_attr(
     not(any(
         all(target_arch = "riscv32", target_feature = "zbkx"),

@@ -23,8 +23,9 @@ Breaking changes:
 
 New features:
 
-* `BasicEagerInstructions` and `BasicEagerInstructionFetcher` (behind the `alloc` feature): a high-performance generic
-  instruction fetcher that decodes the whole program upfront into a single heap allocation
+* `BasicEagerInstructions` and `BasicEagerInstructionFetcher` (behind the `alloc` feature, only available on 64-bit host
+  targets): a high-performance generic instruction fetcher that decodes the whole program upfront into a single heap
+  allocation
 * Several examples with various levels of complexity
 * `VectorRegisterFile` has safe element accessors through register groups validated against the vector configuration
   (`VRegGroup`), whose bounds checks the compiler eliminates
@@ -43,11 +44,6 @@ Improvements:
 
 Fixes:
 
-* `BasicEagerInstructionFetcher` could read past the end of the decoded instruction stream: falling through the last
-  instruction (a conditional branch not taken, or a jump into the second half of the last 32-bit instruction) and a
-  32-bit instruction cut off by the end of the code (decoded with zero-padding) were not covered by the requirement for
-  the code to end with a jump. The fallback instruction is stored after the decoded stream instead, which replaces that
-  requirement
 * Undefined behavior reachable from safe code: an inconsistent `vl`/`vtype` pair or an overridden `vlmax_for_vtype()`
   in an environment, a `VirtualMemory::read_slice()` implementation returning more bytes than requested in `vlm.v`, and
   widening instructions with `ELEN` above 64
