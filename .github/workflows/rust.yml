@@ -86,6 +86,16 @@ jobs:
           - os: ubuntu-26.04
             type: individually
             target: riscv64a23-unknown-linux-gnu
+          # 32-bit target, see `skip_crates` below for the crates that it doesn't check
+          - os: ubuntu-26.04
+            type: together
+            target: riscv32gc-unknown-linux-gnu
+          - os: ubuntu-26.04
+            type: features
+            target: riscv32gc-unknown-linux-gnu
+          - os: ubuntu-26.04
+            type: individually
+            target: riscv32gc-unknown-linux-gnu
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
@@ -93,6 +103,14 @@ jobs:
       command: >-
         cargo -Zgitoxide -Zgit clippy
         ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+      # Regex of names of crates that are not checked or tested on 32-bit targets. Node and farmer
+      # crates expect a 64-bit platform. `ab-networking` enables the `parking_lot` feature of
+      # `tokio`, and `parking_lot_core` 0.9 doesn't compile for RV32 Linux. With feature
+      # unification, that would break the build of all crates together. RISC-V benchmarks and the
+      # Coremark runner need the eager instruction fetcher, which is only available on 64-bit
+      # hosts. A crate that depends on one of these crates needs its own entry.
+      skip_crates: &skip-crates >-
+        ${{ contains(matrix.target, 'riscv32') && '^(ab-client-.*|ab-farmer.*|ab-networking|ab-node.*|ab-proof-of-space-gpu|ab-riscv-benchmarks|ab-riscv-coremark-runner)$' || '' }}
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
 
@@ -126,22 +144,34 @@ jobs:
               job-summary: 'false'
               pr-comment: 'false'
 
+          # Clang compiles C code for all RISC-V targets. They are linked with Wild like all Linux
+          # targets, see `Use Wild linker on Linux`.
           - name: RISC-V support
             run: |
               echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
-              echo "RUSTFLAGS=${RUSTFLAGS} -C linker=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
-              # TODO: Temporary workaround for https://github.com/rust-lang/cc-rs/issues/1654
-              echo "CC_riscv64_unknown_none_abundance=riscv64-linux-gnu-gcc" >> $GITHUB_ENV
+              # Unlike GCC, Clang accepts the target `cc` crate passes for the custom guest target
+              echo "TARGET_CC=clang" >> $GITHUB_ENV
               echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-              sudo apt-get update
-              sudo apt-get install --no-install-recommends --yes g++-riscv64-linux-gnu
-            if: contains(matrix.target, 'riscv64')
+              if [[ "${{ matrix.target }}" == *riscv32* ]]; then
+                # Ubuntu has no RV32 glibc, but neither Clippy nor Miri runs C code from build
+                # scripts (like `alloca` used by `criterion`), so compiling it without target
+                # headers is enough
+                echo "TARGET_CFLAGS=-ffreestanding" >> $GITHUB_ENV
+              else
+                # Clang finds glibc headers for C code (like `mimalloc`) and CRT objects with
+                # `libgcc_s` for linking binaries (which `no-panic` relies on) in these packages
+                sudo apt-get update
+                # The version of `libgcc` matches the default GCC of Ubuntu 26.04
+                sudo apt-get install --no-install-recommends --yes \
+                  libc6-dev-riscv64-cross libgcc-15-dev-riscv64-cross
+              fi
+            if: contains(matrix.target, 'riscv')
 
           - name: Install wild-linker
             uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # 2.87.29
             with:
               tool: wild-linker
-            if: runner.os == 'Linux' && matrix.target == ''
+            if: runner.os == 'Linux'
 
           # Use Wild linker for shorter build times
           - name: Use Wild linker on Linux
@@ -152,8 +182,16 @@ jobs:
               if [[ "$(uname -m)" == "aarch64" ]]; then
                 LINKER_FLAGS="${LINKER_FLAGS} -A linker_messages"
               fi
+              # Rustc doesn't pass the target to Clang when it is used as a linker driver. This is
+              # here rather than in `RISC-V support`, because steps of this group run in parallel,
+              # and only one of them can set `RUSTFLAGS`.
+              if [[ "${{ matrix.target }}" == *riscv32* ]]; then
+                LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv32-linux-gnu"
+              elif [[ "${{ matrix.target }}" == *riscv64* ]]; then
+                LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv64-linux-gnu"
+              fi
               echo "RUSTFLAGS=${RUSTFLAGS} ${LINKER_FLAGS}" >> $GITHUB_ENV
-            if: runner.os == 'Linux' && matrix.target == ''
+            if: runner.os == 'Linux'
 
           # Use LLD linker for shorter build times
           - name: Use LLD linker on Windows
@@ -163,15 +201,23 @@ jobs:
             if: runner.os == 'Windows'
 
       - name: cargo clippy
+        shell: bash
         run: |
-          ${{ env.command }} --locked --all-targets
+          excluded=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r --arg skip "$skip_crates" '.packages[] | select(
+                $skip != "" and (.name | test($skip))
+              ) | "--exclude \(.name)"' \
+            | tr -d '\r')
+          ${{ env.command }} --locked --all-targets ${excluded:+--workspace $excluded}
         if: matrix.type == 'together'
 
       - name: cargo clippy (each crate individually)
         shell: bash
         run: |
           cargo metadata --no-deps --format-version 1 \
-            | jq -r '.packages[].name' \
+            | jq -r --arg skip "$skip_crates" '.packages[] | select(
+                $skip == "" or (.name | test($skip) | not)
+              ) | .name' \
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`${crate}\`" >> "${{ runner.temp }}/queue"
@@ -186,9 +232,10 @@ jobs:
 
           for feature in alloc parallel scale-codec serde; do
             printf '%s' "$metadata" \
-              | jq -r --arg feature "$feature" '.packages[] | select(
+              | jq -r --arg feature "$feature" --arg skip "$skip_crates" '.packages[] | select(
                   (.features | has($feature)) and
-                  (.manifest_path | gsub("\\\\"; "/") | test("/crates/(execution|farmer|node|shared)/"))
+                  (.manifest_path | gsub("\\\\"; "/") | test("/crates/(execution|farmer|node|shared)/")) and
+                  ($skip == "" or (.name | test($skip) | not))
                 ) | .name' \
               | tr -d '\r' \
               | while IFS= read -r crate; do
@@ -308,6 +355,16 @@ jobs:
             type: guest-feature
             target: riscv64a23-unknown-linux-gnu
 
+          # 32-bit target, see `skip_crates` below for the crates that it doesn't test
+          - os: ubuntu-26.04
+            miri: true
+            type: features
+            target: riscv32gc-unknown-linux-gnu
+          - os: ubuntu-26.04
+            miri: true
+            type: guest-feature
+            target: riscv32gc-unknown-linux-gnu
+
           # TODO: Tests will need custom allocator to work under this target
           # - os: ubuntu-26.04
           #   miri: true
@@ -318,7 +375,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
-    env:
+    env: &test-env
       # NOTE: Running tests under Miri with nextest is SLOWER than without it:
       #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
       command: >-
@@ -327,6 +384,8 @@ jobs:
       # `cargo nextest` doesn't support doc tests, so they are run with regular `cargo test` separately (not under Miri)
       doc_test_command: >-
         ${{ matrix.miri == false && format('test --doc{0}', matrix.target != '' && format(' -Zjson-target-spec --target {0}', matrix.target) || '') || '' }}
+      # The same crates as in `cargo-clippy` job
+      skip_crates: *skip-crates
 
     steps: &test-steps
       - name: Install cargo-nextest
@@ -575,7 +634,12 @@ jobs:
           MIRI_QUEUE_PATH: ${{ runner.temp }}/queue
           MIRI_TEST_PARTITIONING: ${{ github.workspace }}/.github/miri-test-partitioning.txt
         run: |
-          cargo -Zgitoxide -Zgit ${{ env.command }} --locked
+          excluded=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r --arg skip "$skip_crates" '.packages[] | select(
+                $skip != "" and (.name | test($skip))
+              ) | "--exclude \(.name)"' \
+            | tr -d '\r')
+          cargo -Zgitoxide -Zgit ${{ env.command }} --locked ${excluded:+--workspace $excluded}
         if: matrix.miri == true && matrix.type == 'together'
 
       - name: cargo test (various features)
@@ -585,9 +649,10 @@ jobs:
 
           for feature in alloc parallel scale-codec serde; do
             printf '%s' "$metadata" \
-              | jq -r --arg feature "$feature" '.packages[] | select(
+              | jq -r --arg feature "$feature" --arg skip "$skip_crates" '.packages[] | select(
                   (.features | has($feature)) and
-                  (.manifest_path | gsub("\\\\"; "/") | test("/crates/(execution|farmer|node|shared)/"))
+                  (.manifest_path | gsub("\\\\"; "/") | test("/crates/(execution|farmer|node|shared)/")) and
+                  ($skip == "" or (.name | test($skip) | not))
                 ) | .name' \
               | tr -d '\r' \
               | while IFS= read -r crate; do
@@ -710,18 +775,14 @@ jobs:
             miri: true
             type: together
             target: riscv64a23-unknown-linux-gnu
+          - os: ubuntu-26.04
+            miri: true
+            type: together
+            target: riscv32gc-unknown-linux-gnu
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
-    env:
-      # NOTE: Running tests under Miri with nextest is SLOWER than without it:
-      #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
-      command: >-
-        ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
-        ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
-      # `cargo nextest` doesn't support doc tests, so they are run with regular `cargo test` separately (not under Miri)
-      doc_test_command: >-
-        ${{ matrix.miri == false && format('test --doc{0}', matrix.target != '' && format(' -Zjson-target-spec --target {0}', matrix.target) || '') || '' }}
+    env: *test-env
 
     steps: *test-steps
 
