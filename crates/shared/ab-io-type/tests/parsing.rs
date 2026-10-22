@@ -4,6 +4,7 @@
 //! undefined behavior, which Miri detects, so these tests are also run under Miri.
 
 use ab_io_type::IoType;
+use ab_io_type::alignment::Alignment;
 use ab_io_type::fixed_capacity_elements::FixedCapacityElements;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
@@ -84,6 +85,7 @@ struct Counted;
 // SAFETY: Zero-sized, so there is no padding, no uninitialized byte and no interior mutability, and
 // the parsing step returns a reference to the beginning of `bytes` and all of `bytes` after it
 unsafe impl TrivialType for Counted {
+    const ALIGNMENT: Alignment = <() as TrivialType>::ALIGNMENT;
     const METADATA: &[u8] = <() as TrivialType>::METADATA;
 
     fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {

@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::alignment::Alignment;
 use crate::fixed_capacity_elements::{FixedCapacityElements, SUPPORTED_CAPACITY};
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::TrivialType;
@@ -54,6 +55,7 @@ unsafe impl<const CAPACITY: usize> TrivialType for FixedCapacityString<CAPACITY>
 where
     [(); SUPPORTED_CAPACITY::<u8, CAPACITY>]:,
 {
+    const ALIGNMENT: Alignment = FixedCapacityElements::<u8, CAPACITY>::ALIGNMENT;
     // Casting `CAPACITY` to `u32` is lossless, which is checked by the `SUPPORTED_CAPACITY` bound
     const METADATA: &[u8] = {
         #[inline(always)]

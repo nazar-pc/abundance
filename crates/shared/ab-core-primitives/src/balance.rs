@@ -6,9 +6,9 @@ use core::mem::MaybeUninit;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use core::{fmt, ptr};
 
-/// Logically the same as `u128`, but aligned to `8` bytes instead of `16`.
+/// Logically the same as `u128`, but aligned to `8` bytes.
 ///
-/// Byte layout is the same as `u128`, just the alignment is different.
+/// Byte layout is the same as `u128`, just the alignment can be different.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash, TrivialType)]
 #[repr(C)]
 pub struct Balance(u64, u64);

@@ -1,4 +1,5 @@
 use crate::IoType;
+use crate::alignment::Alignment;
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::unaligned::Unaligned;
 pub use ab_io_type_derive::TrivialType;
@@ -45,6 +46,8 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 /// * There is no padding, every byte is initialized and there is no interior mutability
 /// * The alignment is at most [`Alignment::MAX`]
 /// * [`Self::SIZE`] is not overridden
+/// * [`Self::ALIGNMENT`] is the alignment that [`Self::METADATA`] decodes to, and it is at least
+///   `align_of::<Self>()`
 /// * [`Self::try_from_bytes_unaligned()`] returns `Some((value, remainder))` only if `bytes` start
 ///   with `size_of::<Self>()` bytes that are a valid value of `Self`, `value` points to the
 ///   beginning of `bytes` and `remainder` is the rest of `bytes` after those bytes
@@ -61,9 +64,10 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 /// * enums are `#[repr(u8)]` without other options
 /// * no `#[repr(align(N))]` or `#[repr(packed)]` in any `#[repr(..)]` attribute, [`Unaligned`] can
 ///   be used to reduce the alignment of a field to one byte instead
-/// * no implicit padding, explicit `padding: [u8; N]` fields can be added where necessary. Each
-///   variant of an enum is laid out like a `#[repr(C)]` struct with the discriminant as the first
-///   field, so fields of all variants must have the same total size
+/// * no implicit padding, explicit `padding: [u8; N]` fields can be added where necessary. Padding
+///   is determined by [`TrivialType::ALIGNMENT`] of the field types. Each variant of an enum is
+///   laid out like a `#[repr(C)]` struct with the discriminant as the first field, so fields of all
+///   variants must have the same total size
 /// * explicit discriminants of enum variants are equal to the index of the variant, metadata
 ///   identifies variants by their index and doesn't record discriminants
 /// * at most 255 fields in a struct or enum variant and at most 255 variants in an enum, names of
@@ -90,8 +94,6 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 /// and of containers through [`IoType::try_from_ptr()`] and [`IoType::try_from_mut_ptr()`]. The
 /// unsafe methods that skip parsing, [`IoType::from_ptr()`], [`IoType::from_mut_ptr()`] and derives
 /// of other crates, like SCALE's `Decode` and serde's `Deserialize`, don't call it.
-///
-/// [`Alignment::MAX`]: crate::alignment::Alignment::MAX
 pub unsafe trait TrivialType
 where
     Self: Copy + 'static,
@@ -105,6 +107,12 @@ where
         );
         size_of::<Self>() as u32
     };
+    /// Alignment of the type in metadata.
+    ///
+    /// Integers and `bool` are aligned to their size, `()` and [`Unaligned`] to 1 byte, other types
+    /// to the largest alignment of their contents. It is never smaller than `align_of::<Self>()`,
+    /// so memory aligned to it is aligned for `Self`.
+    const ALIGNMENT: Alignment;
     /// Data structure metadata in binary form, describing shape and types of the contents, see
     /// [`IoTypeMetadataKind`] for encoding details.
     const METADATA: &[u8];
@@ -345,6 +353,8 @@ where
 
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for () {
+    const ALIGNMENT: Alignment = Alignment::from_power(0)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::Unit as u8];
 
     #[inline(always)]
@@ -356,6 +366,8 @@ unsafe impl TrivialType for () {
 unsafe impl AnyBitPatternMarker for () {}
 // SAFETY: One byte, the parsing step accepts only `0` and `1`, the valid values of `bool`
 unsafe impl TrivialType for bool {
+    const ALIGNMENT: Alignment = Alignment::from_power(0)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::Bool as u8];
 
     #[inline(always)]
@@ -370,6 +382,8 @@ unsafe impl TrivialType for bool {
 }
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u8 {
+    const ALIGNMENT: Alignment = Alignment::from_power(0)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::U8 as u8];
 
     #[inline(always)]
@@ -381,6 +395,8 @@ unsafe impl TrivialType for u8 {
 unsafe impl AnyBitPatternMarker for u8 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u16 {
+    const ALIGNMENT: Alignment = Alignment::from_power(1)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::U16 as u8];
 
     #[inline(always)]
@@ -392,6 +408,8 @@ unsafe impl TrivialType for u16 {
 unsafe impl AnyBitPatternMarker for u16 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u32 {
+    const ALIGNMENT: Alignment = Alignment::from_power(2)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::U32 as u8];
 
     #[inline(always)]
@@ -403,6 +421,8 @@ unsafe impl TrivialType for u32 {
 unsafe impl AnyBitPatternMarker for u32 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u64 {
+    const ALIGNMENT: Alignment = Alignment::from_power(3)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::U64 as u8];
 
     #[inline(always)]
@@ -414,6 +434,9 @@ unsafe impl TrivialType for u64 {
 unsafe impl AnyBitPatternMarker for u64 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for u128 {
+    // `Alignment::MAX` because native alignment for `u128` is 8 bytes (instead of 16) on 32-bit
+    // platforms
+    const ALIGNMENT: Alignment = Alignment::MAX;
     const METADATA: &[u8] = &[IoTypeMetadataKind::U128 as u8];
 
     #[inline(always)]
@@ -425,6 +448,8 @@ unsafe impl TrivialType for u128 {
 unsafe impl AnyBitPatternMarker for u128 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i8 {
+    const ALIGNMENT: Alignment = Alignment::from_power(0)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::I8 as u8];
 
     #[inline(always)]
@@ -436,6 +461,8 @@ unsafe impl TrivialType for i8 {
 unsafe impl AnyBitPatternMarker for i8 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i16 {
+    const ALIGNMENT: Alignment = Alignment::from_power(1)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::I16 as u8];
 
     #[inline(always)]
@@ -447,6 +474,8 @@ unsafe impl TrivialType for i16 {
 unsafe impl AnyBitPatternMarker for i16 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i32 {
+    const ALIGNMENT: Alignment = Alignment::from_power(2)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::I32 as u8];
 
     #[inline(always)]
@@ -458,6 +487,8 @@ unsafe impl TrivialType for i32 {
 unsafe impl AnyBitPatternMarker for i32 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i64 {
+    const ALIGNMENT: Alignment = Alignment::from_power(3)
+        .expect("Alignment of a primitive type is larger than `Alignment::MAX`");
     const METADATA: &[u8] = &[IoTypeMetadataKind::I64 as u8];
 
     #[inline(always)]
@@ -469,6 +500,9 @@ unsafe impl TrivialType for i64 {
 unsafe impl AnyBitPatternMarker for i64 {}
 // SAFETY: Any bit pattern is valid, so it is safe to implement `TrivialType` for this type
 unsafe impl TrivialType for i128 {
+    // `Alignment::MAX` because native alignment for `i128` is 8 bytes (instead of 16) on 32-bit
+    // platforms
+    const ALIGNMENT: Alignment = Alignment::MAX;
     const METADATA: &[u8] = &[IoTypeMetadataKind::I128 as u8];
 
     #[inline(always)]
@@ -496,6 +530,7 @@ where
     T: TrivialType,
     [(); SUPPORTED_ARRAY::<T, SIZE>]:,
 {
+    const ALIGNMENT: Alignment = T::ALIGNMENT;
     // Casting `SIZE` to `u32` is lossless, which is checked by the `SUPPORTED_ARRAY` bound
     const METADATA: &[u8] = {
         // The reference extends the lifetime of metadata scratch to that of the constant

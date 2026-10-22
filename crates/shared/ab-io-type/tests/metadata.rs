@@ -196,11 +196,13 @@ where
 {
     assert_eq!(<T as TrivialType>::METADATA, expected.0.as_slice());
     assert_eq!(<T as ab_io_type::IoType>::METADATA, expected.0.as_slice());
+    let alignment = usize::from(T::ALIGNMENT.get());
+    assert!(align_of::<T>() <= alignment);
     check_decoding(
         T::METADATA,
         name,
         size_of::<T>(),
-        align_of::<T>(),
+        alignment,
         expected_compact,
     );
 }
@@ -2373,6 +2375,12 @@ fn layouts_with_padding_are_rejected() {
     check_layout(&struct_with_fields(&[empty_u16_array, short]).0, 2, 2);
     check_rejected(&struct_with_fields(&[byte, empty_u16_array]).0);
     check_layout(&struct_with_fields(&[byte, &unaligned_of(short)]).0, 3, 1);
+    // `u128` is aligned to 16 bytes
+    let long = &Expected::new(IoTypeMetadataKind::U64);
+    let wide = &Expected::new(IoTypeMetadataKind::U128);
+    check_layout(&struct_with_fields(&[wide, long, long]).0, 32, 16);
+    check_rejected(&struct_with_fields(&[long, wide]).0);
+    check_rejected(&struct_with_fields(&[wide, long]).0);
 
     // Fields of enum variants are placed after the 1-byte discriminant like in `#[repr(u8)]`
     // enums, with the same rules

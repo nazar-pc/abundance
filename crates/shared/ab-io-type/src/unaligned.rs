@@ -1,3 +1,4 @@
+use crate::alignment::Alignment;
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::{AnyBitPatternMarker, TrivialType};
 use core::fmt;
@@ -47,6 +48,7 @@ unsafe impl<Data> TrivialType for Unaligned<Data>
 where
     Data: TrivialType,
 {
+    const ALIGNMENT: Alignment = u8::ALIGNMENT;
     const METADATA: &[u8] = {
         const fn metadata(inner_metadata: &[u8]) -> ([u8; MAX_METADATA_CAPACITY], usize) {
             concat_metadata_sources(&[&[IoTypeMetadataKind::Unaligned as u8], inner_metadata])

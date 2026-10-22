@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::alignment::Alignment;
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::{TrivialType, try_skip_valid};
 use crate::unaligned::Unaligned;
@@ -8,14 +9,16 @@ use core::fmt;
 
 /// Size of the prefix of [`FixedCapacityElements`] that stores the number of elements.
 ///
-/// The number of elements is stored as `u32`, the prefix is extended to the alignment of elements
-/// if it is larger, such that elements are aligned without padding before them.
-const LEN_SIZE<Element>: usize = align_of::<Element>().max(size_of::<u32>());
+/// The number of elements is stored as `u32`, the prefix is extended to
+/// [`TrivialType::ALIGNMENT`] of elements if it is larger, such that elements are aligned without
+/// padding before them.
+const LEN_SIZE<Element: TrivialType>: usize =
+    usize::from(Alignment::of::<Element>().get()).max(size_of::<u32>());
 /// Ensures the capacity (encoded in metadata) and the size of [`FixedCapacityElements`] and
 /// [`FixedCapacityString`] fit into `u32`
 ///
 /// [`FixedCapacityString`]: crate::fixed_capacity_string::FixedCapacityString
-pub(crate) const SUPPORTED_CAPACITY<Element, const CAPACITY: usize>: usize = {
+pub(crate) const SUPPORTED_CAPACITY<Element: TrivialType, const CAPACITY: usize>: usize = {
     assert!(
         u32::MAX as usize >= CAPACITY,
         "Capacity must not exceed `u32::MAX`"
@@ -41,9 +44,9 @@ pub(crate) const SUPPORTED_CAPACITY<Element, const CAPACITY: usize>: usize = {
 /// [`TrivialType`] themselves, which isn't the case with [`VariableElements`].
 ///
 /// The length (the number of stored elements) is a little-endian `u32` in the first 4 bytes,
-/// followed by zero bytes up to the alignment of elements if it is larger than 4 bytes, and
-/// `CAPACITY` elements after that. As a result, the container has the same alignment as elements
-/// and no padding, regardless of the alignment of elements.
+/// followed by zero bytes up to [`TrivialType::ALIGNMENT`] of elements if it is larger than 4
+/// bytes, and `CAPACITY` elements after that. As a result, the container has the same alignment as
+/// elements and no padding, regardless of the alignment of elements.
 ///
 /// `CAPACITY` must not exceed `u32::MAX`, and the size of the container must be smaller than
 /// 2^32.
@@ -105,16 +108,18 @@ where
     }
 }
 
-// SAFETY: The length prefix consists of bytes and elements are `TrivialType`. There is no padding:
-// the size of the length prefix is a multiple of the alignment of elements, so elements follow it
-// immediately, and the size of elements is a multiple of their alignment, which is the alignment of
-// the container, so there is no padding after elements either. The parsing step checks the length
-// and every element.
+// SAFETY: The length prefix consists of bytes and elements are `TrivialType`. There is no padding
+// before elements: the size of the length prefix is a multiple of `Element::ALIGNMENT`, and so of
+// the alignment of elements, which is a smaller or equal power of two (`Alignment::of()` checks
+// it). There is no padding after elements either: their size is a multiple of their alignment,
+// which is the alignment of the container. `ALIGNMENT` is that of elements, like in metadata. The
+// parsing step checks the length and every element.
 unsafe impl<Element, const CAPACITY: usize> TrivialType for FixedCapacityElements<Element, CAPACITY>
 where
     Element: TrivialType,
     [(); SUPPORTED_CAPACITY::<Element, CAPACITY>]:,
 {
+    const ALIGNMENT: Alignment = Element::ALIGNMENT;
     // Casting `CAPACITY` to `u32` is lossless, which is checked by the `SUPPORTED_CAPACITY` bound
     const METADATA: &[u8] = {
         #[inline(always)]
