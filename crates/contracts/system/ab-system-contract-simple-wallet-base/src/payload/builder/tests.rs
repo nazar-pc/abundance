@@ -6,10 +6,11 @@ use crate::payload::builder::tests::ffi::set::DemoContractSetArgs;
 use crate::payload::builder::tests::ffi::stored::DemoContractStoredArgs;
 use crate::payload::builder::tests::ffi::value::DemoContractValueArgs;
 use crate::payload::builder::{TransactionPayloadBuilder, TransactionPayloadBuilderError};
-use crate::payload::test_utils::CallWith;
+use crate::payload::decoder::{DecodedInput, DecodedOutput, OutputRef};
+use crate::payload::test_utils::{CallWith, ExpectedMethod, alignment, assert_decoded};
 use crate::payload::{
     FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, TransactionMethodContext, TransactionOutput,
-    TransactionOutputType, TransactionPayloadCaller,
+    TransactionOutputKind, TransactionOutputType, TransactionPayloadCaller,
 };
 use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER_SIZE};
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
@@ -94,6 +95,21 @@ fn payload_encode_decode() {
         (builder.into_aligned_bytes(), method_size)
     };
 
+    assert_decoded(
+        payload.as_u128_slice(),
+        &[ExpectedMethod {
+            contract: &expected_contract,
+            fingerprint: &DemoContractSetArgs::FINGERPRINT,
+            context: TransactionMethodContext::Wallet,
+            slots: &[],
+            inputs: &[DecodedInput::Value {
+                bytes: &[new_value],
+                alignment: alignment(1),
+            }],
+            outputs: &[],
+        }],
+    );
+
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
     let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
@@ -177,6 +193,40 @@ fn payload_encode_decode_output_index() {
             .unwrap();
         builder.into_aligned_bytes()
     };
+
+    assert_decoded(
+        payload.as_u128_slice(),
+        &[
+            ExpectedMethod {
+                contract: &expected_contract,
+                fingerprint: &DemoContractGetArgs::FINGERPRINT,
+                context: TransactionMethodContext::Null,
+                slots: &[],
+                inputs: &[],
+                outputs: &[DecodedOutput {
+                    output_index: 0,
+                    kind: TransactionOutputKind::Output,
+                    alignment: alignment(1),
+                    capacity: u8::SIZE,
+                    size: 0,
+                }],
+            },
+            ExpectedMethod {
+                contract: &expected_contract,
+                fingerprint: &DemoContractSetArgs::FINGERPRINT,
+                context: TransactionMethodContext::Wallet,
+                slots: &[],
+                inputs: &[DecodedInput::Output(OutputRef {
+                    output_index: 0,
+                    kind: TransactionOutputKind::Output,
+                    alignment: alignment(1),
+                    offset: 0,
+                    size: 0,
+                })],
+                outputs: &[],
+            },
+        ],
+    );
 
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
@@ -285,6 +335,23 @@ fn payload_encode_output_types() {
                 }
             )
         );
+        assert_decoded(
+            builder.into_aligned_bytes().as_u128_slice(),
+            &[ExpectedMethod {
+                contract: &contract,
+                fingerprint: &DemoContractGetArgs::FINGERPRINT,
+                context: TransactionMethodContext::Null,
+                slots: &[],
+                inputs: &[],
+                outputs: &[DecodedOutput {
+                    output_index: 0,
+                    kind: TransactionOutputKind::Output,
+                    alignment: alignment(1),
+                    capacity: u8::SIZE,
+                    size: 0,
+                }],
+            }],
+        );
     }
 
     // Return value with the size of the return type as its capacity
@@ -308,6 +375,23 @@ fn payload_encode_output_types() {
                     alignment: Alignment::of::<u8>()
                 }
             )
+        );
+        assert_decoded(
+            builder.into_aligned_bytes().as_u128_slice(),
+            &[ExpectedMethod {
+                contract: &contract,
+                fingerprint: &DemoContractValueArgs::FINGERPRINT,
+                context: TransactionMethodContext::Null,
+                slots: &[],
+                inputs: &[],
+                outputs: &[DecodedOutput {
+                    output_index: 0,
+                    kind: TransactionOutputKind::ReturnValue,
+                    alignment: alignment(1),
+                    capacity: u8::SIZE,
+                    size: u8::SIZE,
+                }],
+            }],
         );
     }
 
@@ -333,6 +417,26 @@ fn payload_encode_output_types() {
                     alignment: Alignment::of::<u8>()
                 }
             )
+        );
+        assert_decoded(
+            builder.into_aligned_bytes().as_u128_slice(),
+            &[ExpectedMethod {
+                contract: &contract,
+                fingerprint: &DemoContractNewArgs::FINGERPRINT,
+                context: TransactionMethodContext::Null,
+                slots: &[],
+                inputs: &[DecodedInput::Value {
+                    bytes: &[1],
+                    alignment: alignment(1),
+                }],
+                outputs: &[DecodedOutput {
+                    output_index: 0,
+                    kind: TransactionOutputKind::Output,
+                    alignment: alignment(1),
+                    capacity: 0,
+                    size: 0,
+                }],
+            }],
         );
     }
 }
@@ -365,6 +469,40 @@ fn payload_encode_decode_return_value() {
             .unwrap();
         builder.into_aligned_bytes()
     };
+
+    assert_decoded(
+        payload.as_u128_slice(),
+        &[
+            ExpectedMethod {
+                contract: &expected_contract,
+                fingerprint: &DemoContractValueArgs::FINGERPRINT,
+                context: TransactionMethodContext::Null,
+                slots: &[],
+                inputs: &[],
+                outputs: &[DecodedOutput {
+                    output_index: 0,
+                    kind: TransactionOutputKind::ReturnValue,
+                    alignment: alignment(1),
+                    capacity: u8::SIZE,
+                    size: u8::SIZE,
+                }],
+            },
+            ExpectedMethod {
+                contract: &expected_contract,
+                fingerprint: &DemoContractSetArgs::FINGERPRINT,
+                context: TransactionMethodContext::Wallet,
+                slots: &[],
+                inputs: &[DecodedInput::Output(OutputRef {
+                    output_index: 0,
+                    kind: TransactionOutputKind::ReturnValue,
+                    alignment: alignment(1),
+                    offset: 0,
+                    size: u8::SIZE,
+                })],
+                outputs: &[],
+            },
+        ],
+    );
 
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
@@ -472,10 +610,21 @@ fn payload_max_size() {
     for max_size in [payload_size, payload_size + u128::SIZE - 1] {
         let mut builder = TransactionPayloadBuilder::new(max_size);
         with_set_method_call(&mut builder).unwrap();
-        assert_eq!(
-            builder.into_aligned_bytes().len(),
-            payload_size,
-            "Max size {max_size}"
+        let payload = builder.into_aligned_bytes();
+        assert_eq!(payload.len(), payload_size, "Max size {max_size}");
+        assert_decoded(
+            payload.as_u128_slice(),
+            &[ExpectedMethod {
+                contract: &Address::SYSTEM_SIMPLE_WALLET_BASE,
+                fingerprint: &DemoContractSetArgs::FINGERPRINT,
+                context: TransactionMethodContext::Wallet,
+                slots: &[],
+                inputs: &[DecodedInput::Value {
+                    bytes: &[42],
+                    alignment: alignment(1),
+                }],
+                outputs: &[],
+            }],
         );
     }
 

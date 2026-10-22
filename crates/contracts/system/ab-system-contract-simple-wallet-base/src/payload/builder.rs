@@ -62,11 +62,13 @@ pub enum TransactionPayloadBuilderError<'a> {
 
 /// Builder for payload to be used with [`TxHandler`] (primarily for [`SimpleWallet`]).
 ///
-/// Methods in the payload are decoded and called with [`TransactionPayloadCaller`]
+/// Methods in the payload are decoded and called with [`TransactionPayloadCaller`], and can be
+/// described without calling them with [`TransactionPayloadDecoder`].
 ///
 /// [`TxHandler`]: ab_contracts_standards::tx_handler::TxHandler
 /// [`SimpleWallet`]: crate::SimpleWalletBase
 /// [`TransactionPayloadCaller`]: crate::payload::TransactionPayloadCaller
+/// [`TransactionPayloadDecoder`]: crate::payload::decoder::TransactionPayloadDecoder
 #[derive(Debug, Clone)]
 pub struct TransactionPayloadBuilder {
     payload: OwnedAlignedBuffer,
@@ -390,7 +392,7 @@ impl TransactionPayloadBuilder {
     ///     * [`Address`]
     /// * For each [`TransactionInput`], whose type is [`TransactionInputType::Value`]:
     ///     * Input size as little-endian `u32` followed by the input itself
-    /// * For each `#[output]` and the return value:
+    /// * For each `#[output]`, followed by the return value if there is one:
     ///     * recommended capacity as little-endian `u32` followed by [`TransactionOutput`] as `u8`
     ///
     /// [`TransactionSlotType::Address`]: crate::payload::TransactionSlotType::Address

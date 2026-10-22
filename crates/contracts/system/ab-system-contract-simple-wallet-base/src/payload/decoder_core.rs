@@ -8,16 +8,17 @@
 #[cfg(test)]
 mod tests;
 
+use crate::payload::decoder::{DecodedInput, DecodedOutput, DecodedSlot, OutputRef};
 use crate::payload::{
-    OutputBufferDetails, TransactionInput, TransactionInputType, TransactionMethodContext,
-    TransactionOutput, TransactionOutputKind, TransactionOutputType,
+    MAX_OUTPUT_INDEX, OutputBufferDetails, TransactionInput, TransactionInputType,
+    TransactionMethodContext, TransactionOutput, TransactionOutputKind,
     TransactionPayloadDecoderError, TransactionSlot, TransactionSlotType,
 };
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::method::MethodFingerprint;
 use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
-use ab_io_type::trivial_type::AnyBitPattern;
+use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
 use core::mem::MaybeUninit;
 use core::slice;
 
@@ -29,46 +30,6 @@ pub(crate) struct MethodHeader<'payload> {
     pub(crate) context: TransactionMethodContext,
 }
 
-/// Reference from a slot or an input to an output of an earlier method
-#[derive(Debug, Copy, Clone)]
-pub(crate) struct OutputRef {
-    pub(crate) output_index: u8,
-    /// What the sink returned from [`MethodSink::output()`] for the output
-    pub(crate) offset: u32,
-    /// Size of the value, see [`OutputBufferDetails`]
-    pub(crate) size: u32,
-}
-
-/// `#[slot]` argument
-#[derive(Debug, Copy, Clone)]
-pub(crate) enum DecodedSlot<'payload> {
-    /// Explicit address in the payload
-    Address(&'payload Address),
-    /// Contents of an output of an earlier method
-    Output(OutputRef),
-}
-
-/// `#[input]` argument
-#[derive(Debug, Copy, Clone)]
-pub(crate) enum DecodedInput<'payload> {
-    /// Explicit value in the payload, aligned as the payload declares
-    Value { bytes: &'payload [u8] },
-    /// Contents of an output of an earlier method
-    Output(OutputRef),
-}
-
-/// `#[output]` or return value, which gets the next output index
-#[derive(Debug, Copy, Clone)]
-pub(crate) struct DecodedOutput {
-    /// Index of the output in `output_buffer_details`
-    pub(crate) output_index: usize,
-    pub(crate) kind: TransactionOutputKind,
-    pub(crate) alignment: Alignment,
-    pub(crate) capacity: u32,
-    /// Size that the method gets: `0` for `#[output]`, the capacity for the return value
-    pub(crate) size: u32,
-}
-
 /// Receives the arguments of each method from [`PayloadDecoderCore::decode_next_method()`] in
 /// payload order: slots, then inputs, then outputs.
 ///
@@ -77,7 +38,12 @@ pub(crate) struct DecodedOutput {
 /// refer to outputs of earlier methods, because the outputs of a method get their indices after
 /// its slots and inputs are decoded.
 pub(crate) trait MethodSink<'payload> {
-    /// Receives a `#[slot]`
+    /// Receives a `#[slot]`.
+    ///
+    /// The memory of an output used as a slot is declared with at least the alignment of an
+    /// address. The sink must check its size with [`check_slot_output_size()`] as far as it knows
+    /// the size: the size of a return value is declared in the payload, while the size of an
+    /// `#[output]` is only known after its method was called.
     fn slot(&mut self, slot: DecodedSlot<'payload>) -> Result<(), TransactionPayloadDecoderError>;
 
     /// Receives an `#[input]`
@@ -232,13 +198,19 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
     /// Create a new instance.
     ///
     /// The size of `output_buffer_details` defines how many `#[output]` arguments and return values
-    /// could exist in all methods of the payload together.
+    /// could exist in all methods of the payload together. Only the first 128 entries are used,
+    /// since tags refer to output indices up to 127.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub(crate) fn new(
         payload: &'payload [u128],
-        output_buffer_details: &'details mut [MaybeUninit<OutputBufferDetails>],
+        mut output_buffer_details: &'details mut [MaybeUninit<OutputBufferDetails>],
     ) -> Self {
+        // Tags refer to output indices up to 127, so later entries are left out. A shorter slice
+        // is left as it is.
+        let _unused_output_buffer_details =
+            output_buffer_details.split_off_mut(usize::from(MAX_OUTPUT_INDEX) + 1..);
+
         Self {
             reader: PayloadReader::new(payload),
             output_buffer_details,
@@ -280,12 +252,15 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
         }
 
         for &slot_tag in slot_tags {
-            let slot = match TransactionSlot::from_u8(slot_tag).slot_type() {
+            let slot_type = TransactionSlot::from_u8(slot_tag)
+                .ok_or(TransactionPayloadDecoderError::InvalidSlotTag(slot_tag))?
+                .slot_type();
+            let slot = match slot_type {
                 TransactionSlotType::Address => {
                     DecodedSlot::Address(self.reader.read_trivial_type::<Address>()?)
                 }
                 TransactionSlotType::OutputIndex { output_index } => {
-                    DecodedSlot::Output(self.output_ref(output_index)?)
+                    DecodedSlot::Output(self.slot_output_ref(output_index)?)
                 }
             };
             sink.slot(slot)?;
@@ -293,16 +268,14 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
 
         for &input_tag in input_tags {
             let input_type = TransactionInput::from_u8(input_tag)
-                .ok_or(TransactionPayloadDecoderError::AlignmentPowerTooLarge(
-                    input_tag & 0b0111_1111,
-                ))?
+                .ok_or(TransactionPayloadDecoderError::InvalidInputTag(input_tag))?
                 .input_type();
             let input = match input_type {
                 TransactionInputType::Value { alignment } => {
                     let size = *self.reader.read_trivial_type::<u32>()?;
                     let bytes = self.reader.read_bytes(size, alignment)?;
 
-                    DecodedInput::Value { bytes }
+                    DecodedInput::Value { bytes, alignment }
                 }
                 TransactionInputType::OutputIndex { output_index } => {
                     DecodedInput::Output(self.output_ref(output_index)?)
@@ -311,24 +284,8 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
             sink.input(input);
         }
 
-        for _ in 0..num_outputs {
-            let capacity = *self.reader.read_trivial_type::<u32>()?;
-            let output_tag = self.reader.read_u8()?;
-            let output_type = TransactionOutput::from_u8(output_tag)
-                .ok_or(TransactionPayloadDecoderError::AlignmentPowerTooLarge(
-                    output_tag & 0b0111_1111,
-                ))?
-                .output_type();
-            let (kind, alignment) = match output_type {
-                TransactionOutputType::Output { alignment } => {
-                    (TransactionOutputKind::Output, alignment)
-                }
-                TransactionOutputType::ReturnValue { alignment } => {
-                    (TransactionOutputKind::ReturnValue, alignment)
-                }
-            };
-
-            self.new_output(sink, kind, alignment, capacity)?;
+        if num_outputs > 0 {
+            self.new_outputs(sink, usize::from(num_outputs))?;
         }
 
         Ok(Some(MethodHeader {
@@ -373,55 +330,136 @@ impl<'payload, 'details> PayloadDecoderCore<'payload, 'details> {
 
         // SAFETY: Entries before `num_outputs` are initialized, and it never exceeds the length of
         // `output_buffer_details`
-        let OutputBufferDetails { offset, size } = unsafe {
+        let &OutputBufferDetails {
+            offset,
+            size,
+            alignment,
+            kind,
+        } = unsafe {
             self.output_buffer_details
                 .get_unchecked(usize::from(output_index))
-                .assume_init()
+                .assume_init_ref()
         };
 
         Ok(OutputRef {
             output_index,
+            kind,
+            alignment,
             offset,
             size,
         })
     }
 
-    /// Give a new output of the current method to `sink` and create its output index
+    /// Look up the output that a slot of the current method refers to, whose memory must be
+    /// aligned for an address
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn new_output<Sink>(
+    fn slot_output_ref(
+        &self,
+        output_index: u8,
+    ) -> Result<OutputRef, TransactionPayloadDecoderError> {
+        let output = self.output_ref(output_index)?;
+
+        if output.alignment < Alignment::of::<Address>() {
+            return Err(
+                TransactionPayloadDecoderError::InvalidSlotOutputIndexAlign {
+                    output_index,
+                    alignment: u32::from(output.alignment.get()),
+                },
+            );
+        }
+
+        Ok(output)
+    }
+
+    /// Decode `num_outputs` outputs of the current method, give them to `sink` and create their
+    /// output indices
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    fn new_outputs<Sink>(
         &mut self,
         sink: &mut Sink,
-        kind: TransactionOutputKind,
-        alignment: Alignment,
-        capacity: u32,
+        num_outputs: usize,
     ) -> Result<(), TransactionPayloadDecoderError>
     where
         Sink: MethodSink<'payload>,
     {
-        let output_index = self.num_outputs;
-        let Some(output_buffer_details) = self.output_buffer_details.get_mut(output_index) else {
+        let first_output_index = self.num_outputs;
+        // Checked once for all outputs of the method. Never underflows, since `self.num_outputs`
+        // never exceeds the length of `output_buffer_details`.
+        if num_outputs > self.output_buffer_details.len() - first_output_index {
             return Err(TransactionPayloadDecoderError::OutputBufferOffsetsTooSmall);
+        }
+        let end_output_index = first_output_index + num_outputs;
+        // SAFETY: In bounds, as checked above
+        let output_buffer_details = unsafe {
+            self.output_buffer_details
+                .get_unchecked_mut(first_output_index..end_output_index)
         };
 
-        let size = match kind {
-            TransactionOutputKind::Output => 0,
-            // Executors write the return value through its pointer, but not its size, which
-            // `ExternalArgs` don't have, so it is set to the capacity right away, which is the size
-            // of the return type
-            TransactionOutputKind::ReturnValue => capacity,
-        };
-        let offset = sink.output(DecodedOutput {
-            output_index,
-            kind,
-            alignment,
-            capacity,
-            size,
-        })?;
+        for (output_index, output_buffer_details) in
+            (first_output_index..).zip(output_buffer_details)
+        {
+            let capacity = *self.reader.read_trivial_type::<u32>()?;
+            let output_tag = self.reader.read_u8()?;
+            let output = TransactionOutput::from_u8(output_tag)
+                .ok_or(TransactionPayloadDecoderError::InvalidOutputTag(output_tag))?;
 
-        output_buffer_details.write(OutputBufferDetails { offset, size });
-        self.num_outputs += 1;
+            let kind = output.kind();
+            // A method has at most one return value, which is its last output, as in
+            // `ExternalArgs`
+            if kind == TransactionOutputKind::ReturnValue && output_index + 1 != end_output_index {
+                return Err(TransactionPayloadDecoderError::ReturnValueNotLast(
+                    // Doesn't truncate, `output_buffer_details` has at most 128 entries
+                    output_index as u8,
+                ));
+            }
+            let alignment = output.alignment();
+            let size = match kind {
+                TransactionOutputKind::Output => 0,
+                // Executors write the return value through its pointer, but not its size, which
+                // `ExternalArgs` don't have, so it is set to the capacity right away, which is the
+                // size of the return type
+                TransactionOutputKind::ReturnValue => capacity,
+            };
+            let offset = sink.output(DecodedOutput {
+                // Doesn't truncate, `output_buffer_details` has at most 128 entries
+                output_index: output_index as u8,
+                kind,
+                alignment,
+                capacity,
+                size,
+            })?;
+
+            output_buffer_details.write(OutputBufferDetails {
+                offset,
+                size,
+                alignment,
+                kind,
+            });
+        }
+        self.num_outputs += num_outputs;
 
         Ok(())
     }
+}
+
+/// Check the size of an output that a slot refers to, which must hold an address.
+///
+/// `size` is the size of the output as far as the caller of this function knows it, see
+/// [`MethodSink::slot()`].
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+pub(crate) fn check_slot_output_size(
+    output: &OutputRef,
+    size: u32,
+) -> Result<(), TransactionPayloadDecoderError> {
+    if size != Address::SIZE {
+        return Err(TransactionPayloadDecoderError::InvalidSlotOutputIndexSize {
+            output_index: output.output_index,
+            size,
+        });
+    }
+
+    Ok(())
 }

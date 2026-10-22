@@ -26,6 +26,10 @@ no-panic-const = { workspace = true, optional = true }
 schnorrkel = { workspace = true }
 thiserror = { workspace = true }
 
+[[example]]
+name = "build-payload"
+required-features = ["payload-builder"]
+
 [features]
 guest = [
     "ab-contracts-common/guest",

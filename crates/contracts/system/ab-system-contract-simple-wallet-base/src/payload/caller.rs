@@ -4,9 +4,8 @@
 mod tests;
 
 use crate::EXTERNAL_ARGS_BUFFER_SIZE;
-use crate::payload::decoder_core::{
-    DecodedInput, DecodedOutput, DecodedSlot, MethodSink, PayloadDecoderCore,
-};
+use crate::payload::decoder::{DecodedInput, DecodedOutput, DecodedSlot};
+use crate::payload::decoder_core::{MethodSink, PayloadDecoderCore, check_slot_output_size};
 use crate::payload::{
     FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, OutputBufferDetails, TransactionMethodContext,
     TransactionOutputKind, TransactionPayloadCallError, TransactionPayloadDecoderError,
@@ -15,7 +14,6 @@ use ab_contracts_common::env::{Env, MethodContext, PreparedMethod};
 use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
 use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
-use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::mem::{MaybeUninit, offset_of};
@@ -24,6 +22,10 @@ use core::ptr::NonNull;
 const {
     // Offsets into `external_args_buffer` fit into `PendingOutputSize`
     assert!(size_of::<[*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE]>() <= usize::from(u8::MAX));
+    // Outputs are allocated at offsets that are aligned as the payload declares, up to
+    // `Alignment::MAX`, so their memory is aligned as declared when the output buffer is aligned to
+    // `Alignment::MAX`
+    assert!(align_of::<u128>() >= usize::from(Alignment::MAX.get()));
 }
 
 /// Calls prepared methods for [`TransactionPayloadCaller`]: [`Env`], or something that stands in
@@ -166,25 +168,17 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
         let address = match slot {
             DecodedSlot::Address(address) => NonNull::from_ref(address),
             DecodedSlot::Output(output) => {
-                if output.size != Address::SIZE {
-                    return Err(TransactionPayloadDecoderError::InvalidSlotOutputIndexSize {
-                        output_index: output.output_index,
-                        size: output.size,
-                    });
-                }
+                // Methods of all outputs were called already, so their sizes are known
+                check_slot_output_size(&output, output.size)?;
 
                 // SAFETY: The core only gives back offsets that writers of the same caller
-                // returned from `Self::output()`, which come from `OutputBuffer::alloc()`
+                // returned from `Self::output()`, which come from `OutputBuffer::alloc()`. They
+                // are aligned as the payload declares for the output, which is at least the
+                // alignment of an address for outputs used as slots (see `MethodSink::slot()`),
+                // and the output buffer is aligned to `Alignment::MAX`.
                 let address =
                     unsafe { self.output_buffer.pointer(output.offset) }.cast::<Address>();
-                if !address.is_aligned() {
-                    return Err(
-                        TransactionPayloadDecoderError::InvalidSlotOutputIndexAlign {
-                            output_index: output.output_index,
-                            alignment: 1 << address.addr().trailing_zeros(),
-                        },
-                    );
-                }
+                debug_assert!(address.is_aligned());
 
                 address
             }
@@ -206,7 +200,10 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn input(&mut self, input: DecodedInput<'payload>) {
         let (data_ptr, size) = match input {
-            DecodedInput::Value { bytes } => (
+            DecodedInput::Value {
+                bytes,
+                alignment: _,
+            } => (
                 NonNull::from_ref(bytes).as_non_null_ptr(),
                 // Doesn't truncate, the size was read from the payload as `u32`
                 bytes.len() as u32,
@@ -241,12 +238,9 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
             .alloc(output.capacity, output.alignment)
             .ok_or(TransactionPayloadDecoderError::OutputBufferTooSmall)?;
 
-        // The size of a return value is known already. Slot and input tags hold output indices
-        // up to 127, so outputs with indices that don't fit into `u8` can't be referred to, and
-        // their sizes are never read. There is always room for the size, since the core gives at
-        // most `MAX_TOTAL_METHOD_ARGS` arguments per method to the sink.
+        // The size of a return value is known already. There is always room for the size, since
+        // the core gives at most `MAX_TOTAL_METHOD_ARGS` arguments per method to the sink.
         if matches!(output.kind, TransactionOutputKind::Output)
-            && let Ok(output_index) = u8::try_from(output.output_index)
             && let Some(pending_output_size) = self
                 .pending_output_sizes
                 .get_mut(self.num_pending_output_sizes)
@@ -259,7 +253,7 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_, '_, '_> {
                     .byte_offset_from_unsigned(self.external_args)
             };
             pending_output_size.write(PendingOutputSize {
-                output_index,
+                output_index: output.output_index,
                 // Doesn't truncate, `external_args_buffer` has at most `u8::MAX` bytes
                 external_args_offset: external_args_offset as u8,
             });
@@ -323,6 +317,8 @@ impl<'output_buffer, 'a, 'pending> ExternalArgsWriter<'output_buffer, 'a, 'pendi
 /// The payload must be trusted (see [`SimpleWalletBase::execute()`]): what it declares about the
 /// arguments of each method, such as the capacity of the return value, which must be the size of
 /// the return type, can't be checked without the method's metadata.
+/// [`TransactionPayloadDecoder`] applies the same rules without calling methods, so a payload can
+/// be checked and shown to the user before it is signed.
 ///
 /// Outputs are given to methods empty, with size `0`, so methods called from transactions must
 /// accept empty outputs, see `TransactionPayloadBuilder::with_method_call()`.
@@ -333,6 +329,7 @@ impl<'output_buffer, 'a, 'pending> ExternalArgsWriter<'output_buffer, 'a, 'pendi
 /// to return values of methods that succeeded and wrote them.
 ///
 /// [`SimpleWalletBase::execute()`]: crate::SimpleWalletBase::execute
+/// [`TransactionPayloadDecoder`]: crate::payload::decoder::TransactionPayloadDecoder
 /// [`TransactionOutput`]: crate::payload::TransactionOutput
 #[derive(Debug)]
 pub struct TransactionPayloadCaller<'a> {
@@ -354,7 +351,8 @@ impl<'a> TransactionPayloadCaller<'a> {
     /// could be in all methods of the payload together.
     ///
     /// The size of `output_buffer_details` defines how many `#[output]` arguments and return values
-    /// could exist in all methods of the payload together.
+    /// could exist in all methods of the payload together, up to 128, since tags refer to output
+    /// indices up to 127.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn new(

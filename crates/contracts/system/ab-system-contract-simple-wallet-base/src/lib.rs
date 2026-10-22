@@ -17,6 +17,7 @@
     const_convert,
     const_trait_impl,
     maybe_uninit_as_bytes,
+    mut_restriction,
     slice_ptr_get
 )]
 #![cfg_attr(feature = "no-panic", feature(const_closures))]

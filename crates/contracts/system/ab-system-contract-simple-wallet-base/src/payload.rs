@@ -2,16 +2,20 @@
 //! payload bytes.
 //!
 //! It can be reused to implement a different wallet implementation. [`TransactionPayloadCaller`]
-//! decodes methods only to call them, so displaying the contents of the transaction without
-//! executing it (for example, on the screen of the hardware wallet) needs a separate parser, which
-//! can use the types that describe individual bytes of the payload, like [`TransactionInput`].
+//! calls the methods of a payload one by one. [`TransactionPayloadDecoder`] in [`decoder`] checks a
+//! payload and describes its methods without calling them, for example to show a transaction on the
+//! screen of a hardware wallet before it is signed. Both use the same decoding code, so they apply
+//! the same rules.
 //!
 //! Builder interface requires heap allocations and can be enabled with `payload-builder` feature,
 //! while the rest works in `no_std` environment without a global allocator.
+//!
+//! [`TransactionPayloadDecoder`]: decoder::TransactionPayloadDecoder
 
 #[cfg(feature = "payload-builder")]
 pub mod builder;
 mod caller;
+pub mod decoder;
 mod decoder_core;
 #[cfg(test)]
 mod test_utils;
@@ -23,6 +27,9 @@ use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 pub use caller::TransactionPayloadCaller;
 use core::ptr::NonNull;
+
+/// The largest output index that slot and input tags can hold
+const MAX_OUTPUT_INDEX: u8 = 0b0111_1111;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -101,29 +108,37 @@ impl TransactionSlot {
     ///
     /// Valid index values are 0..=127.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn new_output_index(output_index: u8) -> Option<Self> {
-        if output_index > 0b0111_1111 {
+        if output_index > MAX_OUTPUT_INDEX {
             return None;
         }
 
         Some(Self(TransactionSlotType::OutputIndex { output_index }))
     }
 
-    /// Create an instance from `u8`
+    /// Create an instance from `u8`.
+    ///
+    /// Returns `None` for bytes that [`Self::into_u8()`] never returns, so each slot has one
+    /// encoding.
     #[inline(always)]
-    pub const fn from_u8(n: u8) -> Self {
-        // The first bit is set to 1 for explicit slot address and 0 for output index
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    pub const fn from_u8(n: u8) -> Option<Self> {
+        // `0b1000_0000` is an explicit slot address, while `0b0xxx_xxxx` is an output index
         if n & 0b1000_0000 == 0 {
-            Self(TransactionSlotType::OutputIndex { output_index: n })
+            Some(Self(TransactionSlotType::OutputIndex { output_index: n }))
+        } else if n == 0b1000_0000 {
+            Some(Self(TransactionSlotType::Address))
         } else {
-            Self(TransactionSlotType::Address)
+            None
         }
     }
 
     /// Convert instance into `u8`
     #[inline(always)]
     pub const fn into_u8(self) -> u8 {
-        // The first bit is set to 1 for explicit slot address and 0 for output index
+        // The highest bit (`0b1000_0000`) is set to 1 for explicit slot address and 0 for output
+        // index
         match self.0 {
             TransactionSlotType::Address => 0b1000_0000,
             TransactionSlotType::OutputIndex { output_index } => output_index,
@@ -159,8 +174,9 @@ impl TransactionInput {
     ///
     /// Valid index values are 0..=127.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn new_output_index(output_index: u8) -> Option<Self> {
-        if output_index > 0b0111_1111 {
+        if output_index > MAX_OUTPUT_INDEX {
             return None;
         }
 
@@ -169,13 +185,13 @@ impl TransactionInput {
 
     /// Create an instance from `u8`.
     ///
-    /// Returns `None` for a value with an alignment larger than [`Alignment::MAX`], which
-    /// [`Alignment`] can't hold.
+    /// Returns `None` for bytes that [`Self::into_u8()`] never returns, so each input has one
+    /// encoding.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_u8(n: u8) -> Option<Self> {
-        // The first bit is set to 1 for value and 0 for output index, the remaining bits of a
-        // value hold the power of two of its alignment
+        // The highest bit (`0b1000_0000`) is set to 1 for value and 0 for output index, the
+        // remaining bits of a value hold the power of two of its alignment
         if n & 0b1000_0000 == 0 {
             return Some(Self(TransactionInputType::OutputIndex { output_index: n }));
         }
@@ -191,7 +207,7 @@ impl TransactionInput {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn into_u8(self) -> u8 {
-        // The first bit is set to 1 for value and 0 for output index
+        // The highest bit (`0b1000_0000`) is set to 1 for value and 0 for output index
         match self.0 {
             TransactionInputType::Value { alignment } => 0b1000_0000 | alignment.power,
             TransactionInputType::OutputIndex { output_index } => output_index,
@@ -236,8 +252,8 @@ impl TransactionOutput {
 
     /// Create an instance from `u8`.
     ///
-    /// Returns `None` for an alignment larger than [`Alignment::MAX`], which [`Alignment`] can't
-    /// hold.
+    /// Returns `None` for bytes that [`Self::into_u8()`] never returns, so each output has one
+    /// encoding.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn from_u8(n: u8) -> Option<Self> {
@@ -245,7 +261,7 @@ impl TransactionOutput {
             return None;
         };
 
-        // The first bit is set to 1 for output and 0 for return value
+        // The highest bit (`0b1000_0000`) is set to 1 for output and 0 for return value
         if n & 0b1000_0000 == 0 {
             Some(Self(TransactionOutputType::ReturnValue { alignment }))
         } else {
@@ -257,7 +273,7 @@ impl TransactionOutput {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub const fn into_u8(self) -> u8 {
-        // The first bit is set to 1 for output and 0 for return value
+        // The highest bit (`0b1000_0000`) is set to 1 for output and 0 for return value
         match self.0 {
             TransactionOutputType::Output { alignment } => 0b1000_0000 | alignment.power,
             TransactionOutputType::ReturnValue { alignment } => alignment.power,
@@ -269,19 +285,42 @@ impl TransactionOutput {
     pub const fn output_type(self) -> TransactionOutputType {
         self.0
     }
+
+    /// Whether this is `#[output]` or return value
+    #[inline(always)]
+    pub(crate) const fn kind(self) -> TransactionOutputKind {
+        match self.0 {
+            TransactionOutputType::Output { alignment: _ } => TransactionOutputKind::Output,
+            TransactionOutputType::ReturnValue { alignment: _ } => {
+                TransactionOutputKind::ReturnValue
+            }
+        }
+    }
+
+    /// Alignment of the memory of the output
+    #[inline(always)]
+    pub(crate) const fn alignment(self) -> Alignment {
+        match self.0 {
+            TransactionOutputType::Output { alignment }
+            | TransactionOutputType::ReturnValue { alignment } => alignment,
+        }
+    }
 }
 
 /// Whether an output is `#[output]` or the return value
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub(crate) enum TransactionOutputKind {
+pub enum TransactionOutputKind {
     /// `#[output]`, which is given to the method empty
     Output,
     /// Return value, which executors write whole
     ReturnValue,
 }
 
-/// Errors of decoding a payload, see [`TransactionPayloadCaller::call_next_method()`]
-#[derive(Debug, thiserror::Error)]
+/// Errors of decoding a payload, see [`TransactionPayloadDecoder::next_method()`] and
+/// [`TransactionPayloadCaller::call_next_method()`]
+///
+/// [`TransactionPayloadDecoder::next_method()`]: decoder::TransactionPayloadDecoder::next_method
+#[derive(Debug, Copy, Clone, Eq, PartialEq, thiserror::Error)]
 pub enum TransactionPayloadDecoderError {
     /// Payload too small
     #[error("Payload too small")]
@@ -289,21 +328,29 @@ pub enum TransactionPayloadDecoderError {
     /// Too many arguments
     #[error("Too many arguments")]
     TooManyArguments(u8),
-    /// `ExternalArgs` buffer too small
-    #[error("`ExternalArgs` buffer too small")]
-    ExternalArgsBufferTooSmall,
+    /// A slot tag that [`TransactionSlot::from_u8()`] rejects
+    #[error("Invalid slot tag: {0:#010b}")]
+    InvalidSlotTag(u8),
+    /// An input tag that [`TransactionInput::from_u8()`] rejects
+    #[error("Invalid input tag: {0:#010b}")]
+    InvalidInputTag(u8),
+    /// An output tag that [`TransactionOutput::from_u8()`] rejects
+    #[error("Invalid output tag: {0:#010b}")]
+    InvalidOutputTag(u8),
     /// Output index not found
     #[error("Output index not found: {0}")]
     OutputIndexNotFound(u8),
-    /// Invalid output index size for slot
+    /// The return value with this output index is followed by another output of its method,
+    /// while a method has at most one return value, which is its last output
+    #[error("Return value with output index {0} is not the last output of its method")]
+    ReturnValueNotLast(u8),
+    /// An output used as a slot doesn't have the size of an address: the payload declares a
+    /// different size for a return value, or a method wrote a different size into its `#[output]`
     #[error("Invalid output index {output_index} size for slot: {size}")]
     InvalidSlotOutputIndexSize { output_index: u8, size: u32 },
-    /// Invalid output index alignment for slot
+    /// An output used as a slot is declared with an alignment smaller than that of an address
     #[error("Invalid output index {output_index} alignment for slot: {alignment}")]
     InvalidSlotOutputIndexAlign { output_index: u8, alignment: u32 },
-    /// Alignment power is too large
-    #[error("Alignment power is too large: {0}")]
-    AlignmentPowerTooLarge(u8),
     /// Invalid method context
     #[error("Invalid method context: {0}")]
     InvalidMethodContext(u8),
@@ -313,6 +360,9 @@ pub enum TransactionPayloadDecoderError {
     /// Output buffer offsets too small
     #[error("Output buffer offsets too small")]
     OutputBufferOffsetsTooSmall,
+    /// Decoding failed before, so the decoder can't continue
+    #[error("Decoding failed before")]
+    FailedEarlier,
 }
 
 /// Errors for [`TransactionPayloadCaller::call_next_method()`]
@@ -327,13 +377,21 @@ pub enum TransactionPayloadCallError {
 }
 
 /// Details of an output index that are kept between methods, see
-/// [`TransactionPayloadCaller::new()`]
+/// [`TransactionPayloadDecoder::new()`] and [`TransactionPayloadCaller::new()`]
+///
+/// [`TransactionPayloadDecoder::new()`]: decoder::TransactionPayloadDecoder::new
 #[derive(Debug, Copy, Clone)]
 pub struct OutputBufferDetails {
-    /// Offset of the output's memory in the output buffer of [`TransactionPayloadCaller`]
+    /// Offset of the output's memory in the output buffer of [`TransactionPayloadCaller`], `0` in
+    /// [`TransactionPayloadDecoder`], which has no output buffer
+    ///
+    /// [`TransactionPayloadDecoder`]: decoder::TransactionPayloadDecoder
     offset: u32,
     /// Size of the value: the capacity of a return value, which executors write whole, while
     /// `#[output]` has size `0` until its method returned `Ok(())`, and the size it wrote after
     /// that
     size: u32,
+    /// Alignment of the output's memory, as the payload declares it
+    alignment: Alignment,
+    kind: TransactionOutputKind,
 }

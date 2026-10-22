@@ -1,143 +1,394 @@
-//! Rules that the core applies, checked through the caller
+//! Rules that the core applies, checked through both the decoder and the caller, which must agree
 
-use crate::payload::test_utils::{CallWith, NUM_SLOT_ARGUMENTS_OFFSET};
+use crate::OUTPUT_BUFFER_OFFSETS_SIZE;
+use crate::payload::decoder::{DecodedInput, DecodedOutput};
+use crate::payload::test_utils::{
+    ContextByte, ExpectedMethod, InputTag, MAX_OUTPUT_BUFFER_DETAILS, OutputTag, SlotTag,
+    TestPayload, alignment, assert_decoded, decode_and_call, decode_and_call_with_details,
+    payload_with_outputs,
+};
 use crate::payload::{
-    TransactionMethodContext, TransactionPayloadCallError, TransactionPayloadCaller,
+    MAX_OUTPUT_INDEX, TransactionMethodContext, TransactionOutputKind,
     TransactionPayloadDecoderError,
 };
-use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER_SIZE};
-use ab_contracts_common::env::{MethodContext, PreparedMethod};
+use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
+use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
-use core::mem::MaybeUninit;
-use core::ptr;
+use ab_io_type::trivial_type::TrivialType;
 
-fn decode_first_method(payload: &[u8; 64]) -> Result<(), TransactionPayloadDecoderError> {
-    let payload = core::array::from_fn::<_, 4, _>(|index| {
-        u128::from_ne_bytes(payload.as_chunks::<{ size_of::<u128>() }>().0[index])
-    });
+/// Alignment of an address
+const ADDRESS_ALIGNMENT: u8 = Alignment::of::<Address>().get();
 
-    let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
-    let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
-    let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
+/// Every alignment that tags can hold
+fn alignments() -> impl Iterator<Item = u8> {
+    (0..=Alignment::MAX.power).map(|power| 1 << power)
+}
 
-    let caller = TransactionPayloadCaller::new(
-        &payload,
-        &mut external_args_buffer,
-        &mut output_buffer,
-        &mut output_buffer_details,
-        |method_context| match method_context {
-            TransactionMethodContext::Null => MethodContext::Reset,
-            TransactionMethodContext::Wallet => MethodContext::Keep,
-        },
+#[test]
+fn payload_decode_payload_too_small() {
+    // The fingerprint is cut off
+    let mut payload = TestPayload::new();
+    payload
+        .push(TestPayload::CONTRACT.as_bytes(), align_of::<Address>())
+        .push(&[0; 17], 1);
+    assert_eq!(
+        decode_and_call(payload.as_u128_slice()),
+        Err(TransactionPayloadDecoderError::PayloadTooSmall)
     );
 
-    // The method is only decoded, its outputs keep size `0`
-    match caller.call_next_method_with(&CallWith::new(|_method: PreparedMethod<'_>| Ok(()))) {
-        Ok(_maybe_caller) => Ok(()),
-        Err(TransactionPayloadCallError::Decoder(error)) => Err(error),
-        Err(TransactionPayloadCallError::Method(error)) => {
-            unreachable!("The method is not called: {error}")
-        }
-    }
+    // The input value is larger than the rest of the payload
+    let mut payload = TestPayload::new();
+    payload
+        .method(&[], &[InputTag::value(1)], 0)
+        .push(&64u32.to_le_bytes(), align_of::<u32>());
+    assert_eq!(
+        decode_and_call(payload.as_u128_slice()),
+        Err(TransactionPayloadDecoderError::PayloadTooSmall)
+    );
 }
 
 #[test]
 fn payload_decode_too_many_slot_arguments() {
-    let mut payload = [0u8; 64];
+    let mut payload = TestPayload::new();
     // More slots than `MAX_TOTAL_METHOD_ARGS`, followed by zero inputs and outputs
-    payload[NUM_SLOT_ARGUMENTS_OFFSET] = 9;
+    payload.method(&[SlotTag::address(); 9], &[], 0);
 
-    assert!(matches!(
-        decode_first_method(&payload),
+    assert_eq!(
+        decode_and_call(payload.as_u128_slice()),
         Err(TransactionPayloadDecoderError::TooManyArguments(9))
-    ));
+    );
 }
 
 #[test]
 fn payload_decode_too_many_slot_and_input_arguments() {
-    let mut payload = [0u8; 64];
-    // Slots and inputs are each within `MAX_TOTAL_METHOD_ARGS`, but not together
-    payload[NUM_SLOT_ARGUMENTS_OFFSET] = 5;
-    payload[NUM_SLOT_ARGUMENTS_OFFSET + 1 + 5] = 5;
+    // Slots, inputs and outputs are each within `MAX_TOTAL_METHOD_ARGS`, but not together
+    for (num_slots, num_inputs, num_outputs) in [(5, 5, 0), (5, 0, 5), (0, 5, 5), (3, 3, 3)] {
+        let mut payload = TestPayload::new();
+        payload.method(
+            &[SlotTag::address(); MAX_TOTAL_METHOD_ARGS as usize][..usize::from(num_slots)],
+            &[InputTag::value(1); MAX_TOTAL_METHOD_ARGS as usize][..usize::from(num_inputs)],
+            num_outputs,
+        );
 
-    assert!(matches!(
-        decode_first_method(&payload),
-        Err(TransactionPayloadDecoderError::TooManyArguments(10))
-    ));
+        assert_eq!(
+            decode_and_call(payload.as_u128_slice()),
+            Err(TransactionPayloadDecoderError::TooManyArguments(
+                num_slots + num_inputs + num_outputs
+            )),
+            "{num_slots} slots, {num_inputs} inputs, {num_outputs} outputs"
+        );
+    }
 }
 
 #[test]
 fn payload_decode_invalid_method_context() {
-    let mut payload = [0u8; 64];
+    let mut payload = TestPayload::new();
     // Neither `TransactionMethodContext::Null` nor `TransactionMethodContext::Wallet`
-    payload[NUM_SLOT_ARGUMENTS_OFFSET - size_of::<TransactionMethodContext>()] = 2;
+    payload.method_with_context(ContextByte::Invalid(2), &[], &[], 0);
 
-    assert!(matches!(
-        decode_first_method(&payload),
+    assert_eq!(
+        decode_and_call(payload.as_u128_slice()),
         Err(TransactionPayloadDecoderError::InvalidMethodContext(2))
-    ));
+    );
+}
+
+#[test]
+fn payload_decode_slot_tags() {
+    for byte in 0..=u8::MAX {
+        let mut payload = TestPayload::new();
+        payload
+            .method(&[SlotTag::from_byte(byte)], &[], 0)
+            .address(&Address::NULL);
+
+        let expected = if byte <= MAX_OUTPUT_INDEX {
+            // Output index, but there are no outputs
+            Err(TransactionPayloadDecoderError::OutputIndexNotFound(byte))
+        } else if byte == 0b1000_0000 {
+            // Explicit slot address
+            Ok(1)
+        } else {
+            Err(TransactionPayloadDecoderError::InvalidSlotTag(byte))
+        };
+        assert_eq!(
+            decode_and_call(payload.as_u128_slice()),
+            expected,
+            "Slot tag {byte:#010b}"
+        );
+    }
+}
+
+#[test]
+fn payload_decode_input_tags() {
+    for byte in 0..=u8::MAX {
+        let mut payload = TestPayload::new();
+        payload
+            .method(&[], &[InputTag::from_byte(byte)], 0)
+            .input_value(&[], usize::from(Alignment::MAX.get()));
+
+        let expected = if byte <= MAX_OUTPUT_INDEX {
+            // Output index, but there are no outputs
+            Err(TransactionPayloadDecoderError::OutputIndexNotFound(byte))
+        } else if byte & 0b0111_1111 <= Alignment::MAX.power {
+            // Value with an alignment up to `Alignment::MAX`
+            Ok(1)
+        } else {
+            Err(TransactionPayloadDecoderError::InvalidInputTag(byte))
+        };
+        assert_eq!(
+            decode_and_call(payload.as_u128_slice()),
+            expected,
+            "Input tag {byte:#010b}"
+        );
+    }
 }
 
 #[test]
 fn payload_decode_input_max_alignment() {
-    let mut payload = [0u8; 64];
-    // No slots, a single empty input value (the first bit) with an alignment of `Alignment::MAX`
-    // (power of two in the remaining bits)
-    payload[NUM_SLOT_ARGUMENTS_OFFSET + 1] = 1;
-    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 0b1000_0000 | Alignment::MAX.power;
+    let mut payload = TestPayload::new();
+    // A single empty input value with an alignment of `Alignment::MAX`
+    payload
+        .method(&[], &[InputTag::value(Alignment::MAX.get())], 0)
+        .input_value(&[], usize::from(Alignment::MAX.get()));
 
-    decode_first_method(&payload).unwrap();
+    assert_decoded(
+        payload.as_u128_slice(),
+        &[ExpectedMethod {
+            contract: &TestPayload::CONTRACT,
+            fingerprint: TestPayload::fingerprint(),
+            context: TransactionMethodContext::Wallet,
+            slots: &[],
+            inputs: &[DecodedInput::Value {
+                bytes: &[],
+                alignment: alignment(Alignment::MAX.get()),
+            }],
+            outputs: &[],
+        }],
+    );
+    assert_eq!(decode_and_call(payload.as_u128_slice()), Ok(1));
 }
 
 #[test]
-fn payload_decode_input_alignment_too_large() {
-    let mut payload = [0u8; 64];
-    // No slots, a single input value (the first bit) with an alignment of twice `Alignment::MAX`
-    // (power of two in the remaining bits)
-    payload[NUM_SLOT_ARGUMENTS_OFFSET + 1] = 1;
-    payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 0b1000_0000 | (Alignment::MAX.power + 1);
+fn payload_decode_output_tags() {
+    for byte in 0..=u8::MAX {
+        let mut payload = TestPayload::new();
+        payload
+            .method(&[], &[], 1)
+            .output(0, OutputTag::from_byte(byte));
 
-    assert!(matches!(
-        decode_first_method(&payload),
-        Err(TransactionPayloadDecoderError::AlignmentPowerTooLarge(alignment_power))
-            if alignment_power == Alignment::MAX.power + 1
-    ));
+        // `#[output]` (`0b1xxx_xxxx`) or return value (`0b0xxx_xxxx`) with an alignment up to
+        // `Alignment::MAX`
+        let expected = if byte & 0b0111_1111 <= Alignment::MAX.power {
+            Ok(1)
+        } else {
+            Err(TransactionPayloadDecoderError::InvalidOutputTag(byte))
+        };
+        assert_eq!(
+            decode_and_call(payload.as_u128_slice()),
+            expected,
+            "Output tag {byte:#010b}"
+        );
+    }
 }
 
 #[test]
 fn payload_decode_output_max_alignment() {
-    // An output (the first bit) and a return value
-    for output_type in [0b1000_0000, 0] {
-        let mut payload = [0u8; 64];
-        // No slots and inputs, a single one with capacity `0`, followed by an alignment of
-        // `Alignment::MAX` (power of two in the remaining bits)
-        payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 1;
-        let capacity_offset = (NUM_SLOT_ARGUMENTS_OFFSET + 3).next_multiple_of(align_of::<u32>());
-        payload[capacity_offset + size_of::<u32>()] = output_type | Alignment::MAX.power;
+    for (output_tag, kind) in [
+        (
+            OutputTag::output(Alignment::MAX.get()),
+            TransactionOutputKind::Output,
+        ),
+        (
+            OutputTag::return_value(Alignment::MAX.get()),
+            TransactionOutputKind::ReturnValue,
+        ),
+    ] {
+        let mut payload = TestPayload::new();
+        // A single one with capacity `0` and an alignment of `Alignment::MAX`
+        payload.method(&[], &[], 1).output(0, output_tag);
 
-        decode_first_method(&payload).unwrap();
+        assert_decoded(
+            payload.as_u128_slice(),
+            &[ExpectedMethod {
+                contract: &TestPayload::CONTRACT,
+                fingerprint: TestPayload::fingerprint(),
+                context: TransactionMethodContext::Wallet,
+                slots: &[],
+                inputs: &[],
+                outputs: &[DecodedOutput {
+                    output_index: 0,
+                    kind,
+                    alignment: alignment(Alignment::MAX.get()),
+                    capacity: 0,
+                    size: 0,
+                }],
+            }],
+        );
+        assert_eq!(decode_and_call(payload.as_u128_slice()), Ok(1));
     }
 }
 
 #[test]
-fn payload_decode_output_alignment_too_large() {
-    // An output (the first bit) and a return value
-    for output_type in [0b1000_0000, 0] {
-        // All bits that a valid alignment power doesn't use are invalid
-        for invalid_alignment_power in Alignment::MAX.power + 1..=0b0111_1111 {
-            let mut payload = [0u8; 64];
-            // No slots and inputs, a single one with capacity `0`, followed by an invalid
-            // alignment power
-            payload[NUM_SLOT_ARGUMENTS_OFFSET + 2] = 1;
-            let capacity_offset =
-                (NUM_SLOT_ARGUMENTS_OFFSET + 3).next_multiple_of(align_of::<u32>());
-            payload[capacity_offset + size_of::<u32>()] = output_type | invalid_alignment_power;
+fn payload_decode_return_value_not_last() {
+    // A return value followed by an `#[output]` or by another return value
+    for second_output_tag in [OutputTag::output(4), OutputTag::return_value(4)] {
+        let mut payload = TestPayload::new();
+        payload
+            .method(&[], &[], 2)
+            .output(4, OutputTag::return_value(4))
+            .output(4, second_output_tag);
 
-            assert!(matches!(
-                decode_first_method(&payload),
-                Err(TransactionPayloadDecoderError::AlignmentPowerTooLarge(alignment_power))
-                    if alignment_power == invalid_alignment_power
-            ));
+        assert_eq!(
+            decode_and_call(payload.as_u128_slice()),
+            Err(TransactionPayloadDecoderError::ReturnValueNotLast(0)),
+            "Second output tag {second_output_tag:?}"
+        );
+    }
+
+    // The same in a later method, whose outputs get later output indices
+    let mut payload = TestPayload::new();
+    payload.method(&[], &[], 1).output(4, OutputTag::output(1));
+    payload
+        .method(&[], &[], 3)
+        .output(4, OutputTag::output(1))
+        .output(4, OutputTag::return_value(1))
+        .output(4, OutputTag::output(1));
+    assert_eq!(
+        decode_and_call(payload.as_u128_slice()),
+        Err(TransactionPayloadDecoderError::ReturnValueNotLast(2))
+    );
+
+    // A return value after `#[output]` arguments is accepted
+    let mut payload = TestPayload::new();
+    payload
+        .method(&[], &[], 3)
+        .output(4, OutputTag::output(1))
+        .output(4, OutputTag::output(1))
+        .output(4, OutputTag::return_value(1));
+    assert_eq!(decode_and_call(payload.as_u128_slice()), Ok(1));
+}
+
+#[test]
+fn payload_decode_output_index_not_found() {
+    // A slot that refers to the output index after the only output
+    let mut payload = TestPayload::new();
+    payload
+        .method(&[], &[], 1)
+        .output(Address::SIZE, OutputTag::return_value(ADDRESS_ALIGNMENT));
+    payload.method(&[SlotTag::output_index(1)], &[], 0);
+    assert_eq!(
+        decode_and_call(payload.as_u128_slice()),
+        Err(TransactionPayloadDecoderError::OutputIndexNotFound(1))
+    );
+
+    // An input that does the same
+    let mut payload = TestPayload::new();
+    payload.method(&[], &[], 1).output(1, OutputTag::output(1));
+    payload.method(&[], &[InputTag::output_index(1)], 0);
+    assert_eq!(
+        decode_and_call(payload.as_u128_slice()),
+        Err(TransactionPayloadDecoderError::OutputIndexNotFound(1))
+    );
+}
+
+#[test]
+fn payload_decode_slot_output_alignment() {
+    // Outputs whose memory is declared with less than the alignment of an address are rejected
+    // as slots, even when their memory happens to be aligned, like that of the first output
+    for output_alignment in alignments().filter(|&alignment| alignment < ADDRESS_ALIGNMENT) {
+        for output_tag in [
+            OutputTag::output(output_alignment),
+            OutputTag::return_value(output_alignment),
+        ] {
+            let mut payload = TestPayload::new();
+            payload
+                .method(&[], &[], 1)
+                .output(Address::SIZE, output_tag);
+            payload.method(&[SlotTag::output_index(0)], &[], 0);
+
+            assert_eq!(
+                decode_and_call(payload.as_u128_slice()),
+                Err(
+                    TransactionPayloadDecoderError::InvalidSlotOutputIndexAlign {
+                        output_index: 0,
+                        alignment: u32::from(output_alignment),
+                    }
+                ),
+                "Output tag {output_tag:?}"
+            );
         }
     }
+
+    // Return values with at least the alignment of an address are accepted
+    for output_alignment in alignments().filter(|&alignment| alignment >= ADDRESS_ALIGNMENT) {
+        let mut payload = TestPayload::new();
+        payload
+            .method(&[], &[], 1)
+            .output(Address::SIZE, OutputTag::return_value(output_alignment));
+        payload.method(&[SlotTag::output_index(0)], &[], 0);
+
+        assert_eq!(
+            decode_and_call(payload.as_u128_slice()),
+            Ok(2),
+            "Alignment {output_alignment}"
+        );
+    }
+}
+
+#[test]
+fn payload_decode_slot_return_value_size() {
+    // A return value used as a slot must be declared with the size of an address
+    for size in [0, 8, Address::SIZE - 1, Address::SIZE + 1, 32] {
+        let mut payload = TestPayload::new();
+        payload
+            .method(&[], &[], 1)
+            .output(size, OutputTag::return_value(ADDRESS_ALIGNMENT));
+        payload.method(&[SlotTag::output_index(0)], &[], 0);
+
+        assert_eq!(
+            decode_and_call(payload.as_u128_slice()),
+            Err(TransactionPayloadDecoderError::InvalidSlotOutputIndexSize {
+                output_index: 0,
+                size,
+            }),
+            "Size {size}"
+        );
+    }
+}
+
+#[test]
+fn payload_decode_too_many_outputs() {
+    for num_output_buffer_details in [2, OUTPUT_BUFFER_OFFSETS_SIZE] {
+        let payload = payload_with_outputs(num_output_buffer_details);
+        assert_eq!(
+            decode_and_call_with_details(payload.as_u128_slice(), num_output_buffer_details),
+            Ok(num_output_buffer_details.div_ceil(usize::from(MAX_TOTAL_METHOD_ARGS))),
+            "{num_output_buffer_details} entries"
+        );
+
+        let payload = payload_with_outputs(num_output_buffer_details + 1);
+        assert_eq!(
+            decode_and_call_with_details(payload.as_u128_slice(), num_output_buffer_details),
+            Err(TransactionPayloadDecoderError::OutputBufferOffsetsTooSmall),
+            "{num_output_buffer_details} entries"
+        );
+    }
+}
+
+#[test]
+fn payload_decode_max_output_index() {
+    // Tags refer to output indices up to 127, so outputs after that are rejected even when there
+    // are more entries in `output_buffer_details`
+    let num_outputs = usize::from(MAX_OUTPUT_INDEX) + 1;
+
+    let payload = payload_with_outputs(num_outputs);
+    assert_eq!(
+        decode_and_call_with_details(payload.as_u128_slice(), MAX_OUTPUT_BUFFER_DETAILS),
+        Ok(num_outputs / usize::from(MAX_TOTAL_METHOD_ARGS))
+    );
+
+    let payload = payload_with_outputs(num_outputs + 1);
+    assert_eq!(
+        decode_and_call_with_details(payload.as_u128_slice(), MAX_OUTPUT_BUFFER_DETAILS),
+        Err(TransactionPayloadDecoderError::OutputBufferOffsetsTooSmall)
+    );
 }
