@@ -525,8 +525,12 @@ where
                 address: PackedAddress::new(address),
             });
         };
-        let instruction_offset =
-            offset as usize / BasicEagerInstructions::<I>::GUEST_BYTES_PER_SLOT;
+        // An offset that doesn't fit into `usize` is past the end of the decoded stream too
+        let Ok(offset) = usize::try_from(offset) else {
+            cold_path();
+            return Err(VirtualMemoryError::OutOfBoundsRead { address }.into());
+        };
+        let instruction_offset = offset / BasicEagerInstructions::<I>::GUEST_BYTES_PER_SLOT;
 
         if instruction_offset >= self.instructions_len() {
             cold_path();

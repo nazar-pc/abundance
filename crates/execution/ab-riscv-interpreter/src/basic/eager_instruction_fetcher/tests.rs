@@ -333,6 +333,23 @@ fn branch_into_the_middle_of_an_instruction_is_rejected() {
 }
 
 #[test]
+fn jump_far_past_the_end_of_the_stream_is_out_of_bounds() {
+    let instructions = new_instructions(0);
+    let mut fetcher = new_fetcher(&instructions);
+    let memory = Memory::default();
+
+    // Exactly 4 GiB past the first instruction, which is the first instruction again for a 32-bit
+    // offset
+    let address = BASE_ADDR + (1 << 32);
+    let error = fetcher.set_pc(&memory, address).unwrap_err();
+    assert_matches!(
+        error,
+        ExecutionError::OutOfBoundsRead { address: error_address } if error_address.get() == address,
+        "Unexpected error {error:?}"
+    );
+}
+
+#[test]
 fn branch_that_wraps_around_the_address_space_is_out_of_bounds() {
     let instructions = new_instructions(0);
     let mut fetcher = new_fetcher(&instructions);
