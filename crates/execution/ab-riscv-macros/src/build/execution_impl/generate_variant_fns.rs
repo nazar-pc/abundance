@@ -3,7 +3,7 @@ use heck::ToSnakeCase;
 use quote::{ToTokens, format_ident};
 use std::mem;
 use std::rc::Rc;
-use syn::visit_mut::{self, VisitMut};
+use syn::visit_mut::{VisitMut, visit_expr_mut, visit_type_mut};
 use syn::{
     Arm, Attribute, Expr, ExprPath, Fields, FnArg, GenericArgument, Generics, Ident, ItemFn,
     Member, Pat, PatIdent, PatType, Path, PathArguments, QSelf, Signature, Token, Type, TypePath,
@@ -79,7 +79,7 @@ impl VisitMut for SelfRewriter<'_> {
                 });
             }
         }
-        visit_mut::visit_type_mut(self, i);
+        visit_type_mut(self, i);
     }
 
     fn visit_expr_mut(&mut self, i: &mut Expr) {
@@ -96,7 +96,7 @@ impl VisitMut for SelfRewriter<'_> {
                 path,
             });
         }
-        visit_mut::visit_expr_mut(self, i);
+        visit_expr_mut(self, i);
     }
 }
 
