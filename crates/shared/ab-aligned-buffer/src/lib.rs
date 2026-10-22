@@ -1,5 +1,7 @@
-//! Efficient abstraction for memory buffers aligned to 16 bytes (`u128`) with both owned and shared
+//! Efficient abstraction for memory buffers aligned to 16 bytes with both owned and shared
 //! variants.
+//!
+//! Buffers are aligned to 16 bytes on every target.
 //!
 //! [`OwnedAlignedBuffer`] represents a memory location aligned to 16 bytes that can be modified.
 //!
@@ -23,39 +25,44 @@ use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::slice;
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 use stable_deref_trait::{CloneStableDeref, StableDeref};
 use yoke::CloneableCart;
 
+/// Unit of allocation: 16 bytes aligned to 16 bytes
+#[repr(C, align(16))]
+struct Chunk([u8; 16]);
+
 const _: () = {
-    assert!(
-        align_of::<u128>() == size_of::<u128>(),
-        "Size and alignment are both 16 bytes"
-    );
-    assert!(size_of::<u128>() >= size_of::<AtomicU64>());
-    assert!(align_of::<u128>() >= align_of::<AtomicU64>());
+    assert!(size_of::<Chunk>() == 16);
+    assert!(align_of::<Chunk>() == 16);
+    // Buffers are accessed as `u128`s
+    assert!(align_of::<Chunk>() >= align_of::<u128>());
+    // The first chunk of every allocation holds the reference counter
+    assert!(size_of::<Chunk>() >= size_of::<AtomicUsize>());
+    assert!(align_of::<Chunk>() >= align_of::<AtomicUsize>());
 };
 
 #[repr(C, align(16))]
 struct ConstInnerBuffer {
-    strong_count: AtomicU64,
+    strong_count: AtomicUsize,
 }
 
 const _: () = {
-    assert!(align_of::<ConstInnerBuffer>() == align_of::<u128>());
-    assert!(size_of::<ConstInnerBuffer>() == size_of::<u128>());
+    assert!(align_of::<ConstInnerBuffer>() == align_of::<Chunk>());
+    assert!(size_of::<ConstInnerBuffer>() == size_of::<Chunk>());
 };
 
 static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
     inner: InnerBuffer {
         buffer: NonNull::from_ref({
             static BUFFER: MaybeUninit<ConstInnerBuffer> = MaybeUninit::new(ConstInnerBuffer {
-                strong_count: AtomicU64::new(1),
+                strong_count: AtomicUsize::new(1),
             });
 
             &BUFFER
         })
-        .cast::<MaybeUninit<u128>>(),
+        .cast::<MaybeUninit<Chunk>>(),
         capacity: 0,
         len: 0,
     },
@@ -63,8 +70,8 @@ static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
 
 #[derive(Debug)]
 struct InnerBuffer {
-    // The first bytes are allocated for `strong_count`
-    buffer: NonNull<MaybeUninit<u128>>,
+    // The first chunk is allocated for `strong_count`
+    buffer: NonNull<MaybeUninit<Chunk>>,
     capacity: u32,
     len: u32,
 }
@@ -84,7 +91,13 @@ impl Default for InnerBuffer {
 impl Clone for InnerBuffer {
     #[inline(always)]
     fn clone(&self) -> Self {
-        self.strong_count_ref().fetch_add(1, Ordering::AcqRel);
+        let old_count = self.strong_count_ref().fetch_add(1, Ordering::AcqRel);
+        // Leaked clones could wrap a counter narrower than 64 bits around, and a drop would then
+        // free the buffer while other clones still use it
+        if usize::BITS < u64::BITS && old_count > isize::MAX.cast_unsigned() {
+            self.strong_count_ref().fetch_sub(1, Ordering::AcqRel);
+            panic!("Too many clones of a shared aligned buffer");
+        }
 
         Self {
             buffer: self.buffer,
@@ -102,7 +115,7 @@ impl Drop for InnerBuffer {
             let _: Box<_> = unsafe {
                 Box::from_non_null(NonNull::slice_from_raw_parts(
                     self.buffer,
-                    1 + (self.capacity as usize).div_ceil(size_of::<u128>()),
+                    1 + (self.capacity as usize).div_ceil(size_of::<Chunk>()),
                 ))
             };
         }
@@ -110,22 +123,22 @@ impl Drop for InnerBuffer {
 }
 
 impl InnerBuffer {
-    /// Allocates a new buffer + one `u128` worth of memory at the beginning for
-    /// `strong_count` in case it is later converted to [`SharedAlignedBuffer`].
+    /// Allocates a new buffer + one chunk of memory at the beginning for `strong_count` in case it
+    /// is later converted to [`SharedAlignedBuffer`].
     ///
     /// `strong_count` field is automatically initialized as `1`.
     #[inline(always)]
     fn allocate(capacity: u32) -> Self {
-        let buffer = Box::into_non_null(Box::<[u128]>::new_uninit_slice(
-            1 + (capacity as usize).div_ceil(size_of::<u128>()),
+        let buffer = Box::into_non_null(Box::<[Chunk]>::new_uninit_slice(
+            1 + (capacity as usize).div_ceil(size_of::<Chunk>()),
         ));
-        // SAFETY: The first bytes are allocated for `strong_count`, which is a correctly aligned
+        // SAFETY: The first chunk is allocated for `strong_count`, which is a correctly aligned
         // copy type
         unsafe {
-            buffer.cast::<AtomicU64>().write(AtomicU64::new(1));
+            buffer.cast::<AtomicUsize>().write(AtomicUsize::new(1));
         }
         Self {
-            buffer: buffer.cast::<MaybeUninit<u128>>(),
+            buffer: buffer.cast::<MaybeUninit<Chunk>>(),
             capacity,
             len: 0,
         }
@@ -137,21 +150,39 @@ impl InnerBuffer {
         let layout = Layout::for_value(unsafe {
             slice::from_raw_parts(
                 self.buffer.as_ptr(),
-                1 + (self.capacity as usize).div_ceil(size_of::<u128>()),
+                1 + (self.capacity as usize).div_ceil(size_of::<Chunk>()),
             )
         });
 
-        // `size_of::<u128>()` is added because the first bytes are allocated for `strong_count`
-        let new_size = size_of::<u128>() + (capacity as usize).next_multiple_of(layout.align());
+        // Whole chunks, like in `allocate()` and `drop()`, plus the first one for `strong_count`
+        let new_size = if usize::BITS < u64::BITS {
+            // With a narrower `usize`, a `u32` capacity can overflow the size or exceed
+            // `isize::MAX`, the largest size of an allocation
+            let Some(new_size) = (capacity as usize)
+                .checked_next_multiple_of(size_of::<Chunk>())
+                .and_then(|size| size.checked_add(size_of::<Chunk>()))
+                .filter(|&size| Layout::from_size_align(size, align_of::<Chunk>()).is_ok())
+            else {
+                panic!(
+                    "Realloc from {} to {capacity} has failed: too large",
+                    self.capacity()
+                );
+            };
+            new_size
+        } else {
+            size_of::<Chunk>() + (capacity as usize).next_multiple_of(size_of::<Chunk>())
+        };
 
         #[expect(
             clippy::cast_ptr_alignment,
             reason = "Cast from correct alignment to bytes and back due to API requirements"
         )]
         // SAFETY: Allocated with global allocator, correct layout, non-zero size that is a
-        // multiple of alignment
+        // multiple of alignment and at most `isize::MAX` (checked above where a `u32` capacity can
+        // exceed it)
         let new_ptr = unsafe {
-            realloc(self.buffer.as_ptr().cast::<u8>(), layout, new_size).cast::<MaybeUninit<u128>>()
+            realloc(self.buffer.as_ptr().cast::<u8>(), layout, new_size)
+                .cast::<MaybeUninit<Chunk>>()
         };
         let Some(new_ptr) = NonNull::new(new_ptr) else {
             panic!("Realloc from {} to {new_size} has failed", self.capacity());
@@ -184,10 +215,15 @@ impl InnerBuffer {
     }
 
     #[inline(always)]
-    const fn strong_count_ref(&self) -> &AtomicU64 {
-        // SAFETY: The first bytes are allocated for `strong_count`, which is a correctly aligned
+    const fn strong_count_ref(&self) -> &AtomicUsize {
+        // SAFETY: The first chunk is allocated for `strong_count`, which is a correctly aligned
         // copy type initialized in the constructor
-        unsafe { self.buffer.as_ptr().cast::<AtomicU64>().as_ref_unchecked() }
+        unsafe {
+            self.buffer
+                .as_ptr()
+                .cast::<AtomicUsize>()
+                .as_ref_unchecked()
+        }
     }
 
     #[inline(always)]
@@ -207,22 +243,22 @@ impl InnerBuffer {
     #[inline(always)]
     const fn as_u128_slice(&self) -> &[u128] {
         let len = self.len() as usize / size_of::<u128>();
-        // SAFETY: Not null, correctly aligned, and the first `len` elements are initialized, since
-        // they are within `self.len()` bytes, which are initialized (a protected invariant of the
-        // implementation)
+        // SAFETY: Not null, correctly aligned (chunks are aligned to at least `u128`), and the
+        // first `len` elements are initialized, since they are within `self.len()` bytes, which
+        // are initialized (a protected invariant of the implementation)
         unsafe { slice::from_raw_parts(self.as_ptr(), len) }
     }
 
     #[inline(always)]
     const fn as_ptr(&self) -> *const u128 {
-        // SAFETY: Constructor allocates the first element for `strong_count`
-        unsafe { self.buffer.as_ptr().cast::<u128>().cast_const().add(1) }
+        // SAFETY: Constructor allocates the first chunk for `strong_count`
+        unsafe { self.buffer.as_ptr().cast_const().add(1).cast::<u128>() }
     }
 
     #[inline(always)]
     const fn as_mut_ptr(&mut self) -> *mut u128 {
-        // SAFETY: Constructor allocates the first element for `strong_count`
-        unsafe { self.buffer.as_ptr().cast::<u128>().add(1) }
+        // SAFETY: Constructor allocates the first chunk for `strong_count`
+        unsafe { self.buffer.as_ptr().add(1).cast::<u128>() }
     }
 }
 
@@ -270,6 +306,9 @@ impl OwnedAlignedBuffer {
     /// Create a new instance with at least specified capacity.
     ///
     /// NOTE: Actual capacity might be larger due to alignment requirements.
+    ///
+    /// # Panics
+    /// If the allocation would be larger than `isize::MAX` bytes
     #[inline(always)]
     pub fn with_capacity(capacity: u32) -> Self {
         Self {
@@ -280,7 +319,8 @@ impl OwnedAlignedBuffer {
     /// Create a new instance from provided bytes.
     ///
     /// # Panics
-    /// If `bytes.len()` doesn't fit into `u32`
+    /// If `bytes.len()` doesn't fit into `u32`, or if the allocation would be larger than
+    /// `isize::MAX` bytes
     #[inline(always)]
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let mut instance = Self::with_capacity(0);
@@ -325,6 +365,9 @@ impl OwnedAlignedBuffer {
     /// Ensure capacity of the buffer is at least `capacity`.
     ///
     /// Will re-allocate if necessary.
+    ///
+    /// # Panics
+    /// If the allocation would be larger than `isize::MAX` bytes
     #[inline(always)]
     pub fn ensure_capacity(&mut self, capacity: u32) {
         if capacity > self.capacity() {
@@ -335,7 +378,8 @@ impl OwnedAlignedBuffer {
     /// Will re-allocate if capacity is not enough to store provided bytes.
     ///
     /// # Panics
-    /// If `bytes.len()` doesn't fit into `u32`
+    /// If `bytes.len()` doesn't fit into `u32`, or if the allocation would be larger than
+    /// `isize::MAX` bytes
     #[inline(always)]
     pub fn copy_from_slice(&mut self, bytes: &[u8]) {
         let Ok(len) = u32::try_from(bytes.len()) else {
@@ -361,6 +405,9 @@ impl OwnedAlignedBuffer {
     /// Will re-allocate if capacity is not enough to store provided bytes.
     ///
     /// Returns `false` if `self.len() + bytes.len()` doesn't fit into `u32`.
+    ///
+    /// # Panics
+    /// If the allocation would be larger than `isize::MAX` bytes
     #[inline(always)]
     #[must_use]
     pub fn append(&mut self, bytes: &[u8]) -> bool {
@@ -456,7 +503,8 @@ impl SharedAlignedBuffer {
     /// Create a new instance from provided bytes.
     ///
     /// # Panics
-    /// If `bytes.len()` doesn't fit into `u32`
+    /// If `bytes.len()` doesn't fit into `u32`, or if the allocation would be larger than
+    /// `isize::MAX` bytes
     #[inline(always)]
     pub fn from_bytes(bytes: &[u8]) -> Self {
         OwnedAlignedBuffer::from_bytes(bytes).into_shared()
