@@ -62,11 +62,11 @@ pub enum TransactionPayloadBuilderError<'a> {
 
 /// Builder for payload to be used with [`TxHandler`] (primarily for [`SimpleWallet`]).
 ///
-/// Methods in the payload are decoded and called with [`TransactionPayloadDecoder`]
+/// Methods in the payload are decoded and called with [`TransactionPayloadCaller`]
 ///
 /// [`TxHandler`]: ab_contracts_standards::tx_handler::TxHandler
 /// [`SimpleWallet`]: crate::SimpleWalletBase
-/// [`TransactionPayloadDecoder`]: crate::payload::TransactionPayloadDecoder
+/// [`TransactionPayloadCaller`]: crate::payload::TransactionPayloadCaller
 #[derive(Debug, Clone)]
 pub struct TransactionPayloadBuilder {
     payload: OwnedAlignedBuffer,

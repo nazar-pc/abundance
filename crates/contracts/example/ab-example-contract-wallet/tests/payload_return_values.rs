@@ -25,7 +25,7 @@ use ab_io_type::trivial_type::TrivialType;
 use ab_system_contract_code::CodeExt;
 use ab_system_contract_simple_wallet_base::payload::builder::TransactionPayloadBuilder;
 use ab_system_contract_simple_wallet_base::payload::{
-    TransactionMethodContext, TransactionPayloadCallError, TransactionPayloadDecoder,
+    TransactionMethodContext, TransactionPayloadCallError, TransactionPayloadCaller,
 };
 use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
 use ab_system_contract_simple_wallet_base::{
@@ -217,7 +217,7 @@ fn return_value_as_plain_input() {
         contract: wallet_address,
     };
     // The incremented value is the plain input of the third method, whose slot is the returned
-    // address, so that if return values were given empty, the decoder would reject the slot
+    // address, so that if return values were given empty, the caller would reject the slot
     // before the method could be called with an empty plain input, violating its requirements
     let payload = {
         let mut builder = TransactionPayloadBuilder::new(1024);
@@ -245,6 +245,88 @@ fn return_value_as_plain_input() {
                 &ReturnValuesStoreArgs::new(&Address::NULL, &0),
                 TransactionMethodContext::Null,
                 &[Some(0)],
+                &[Some(1)],
+            )
+            .unwrap();
+        builder.into_aligned_bytes()
+    };
+    let read_slots = &[];
+    let write_slots = &[TransactionSlot {
+        owner: wallet_address,
+        contract: return_values_address,
+    }];
+    let seal = hash_and_sign(
+        &keypair,
+        &header,
+        read_slots,
+        write_slots,
+        payload.as_u128_slice(),
+        0,
+    );
+
+    assert_eq!(
+        executor.transaction_execute(
+            Transaction {
+                header: &header,
+                payload: payload.as_u128_slice(),
+                read_slots,
+                write_slots,
+                seal: seal.as_bytes(),
+            },
+            slots,
+        ),
+        Ok(())
+    );
+    assert_eq!(
+        executor.with_env_ro(slots, |env| {
+            env.return_values_stored(return_values_address, &wallet_address)
+        }),
+        Ok(43)
+    );
+}
+
+#[test]
+fn return_value_as_input_of_method_with_return_value() {
+    let executor = new_executor();
+    let slots = &mut executor.new_storage_slots().unwrap();
+    let keypair = Keypair::generate();
+    let (wallet_address, return_values_address) =
+        executor.transaction_emulate(Address::NULL, slots, |env| deploy(env, &keypair));
+    let header = TransactionHeader {
+        version: 0,
+        block_root: BlockRoot::default(),
+        gas_limit: Gas::default(),
+        contract: wallet_address,
+    };
+    // The second method increments the return value of the first one, so its input points into
+    // the output buffer, and its own return value is allocated there after the input. Allocating
+    // it must not invalidate the pointer of the input, which Miri checks.
+    let payload = {
+        let mut builder = TransactionPayloadBuilder::new(1024);
+        builder
+            .with_method_call(
+                &return_values_address,
+                &ReturnValuesIncrementArgs::new(&41, &mut MaybeUninit::uninit()),
+                TransactionMethodContext::Null,
+                &[],
+                &[],
+            )
+            .unwrap();
+        builder
+            .with_method_call(
+                &return_values_address,
+                &ReturnValuesIncrementArgs::new(&0, &mut MaybeUninit::uninit()),
+                TransactionMethodContext::Null,
+                &[],
+                &[Some(0)],
+            )
+            .unwrap();
+        builder
+            .with_method_call(
+                &return_values_address,
+                &ReturnValuesStoreArgs::new(&wallet_address, &0),
+                TransactionMethodContext::Null,
+                &[],
                 &[Some(1)],
             )
             .unwrap();
@@ -397,7 +479,7 @@ fn failed_method_stops_transaction() {
         let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
         let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
         let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
-        let decoder = TransactionPayloadDecoder::new(
+        let caller = TransactionPayloadCaller::new(
             payload.as_u128_slice(),
             &mut external_args_buffer,
             &mut output_buffer,
@@ -405,16 +487,16 @@ fn failed_method_stops_transaction() {
             |_method_context| MethodContext::Reset,
         );
 
-        // The decoder is only returned when the method succeeds, so there is nothing to call the
+        // The caller is only returned when the method succeeds, so there is nothing to call the
         // second method with
-        decoder.call_next_method(env).map(|_decoder| ())
+        caller.call_next_method(env).map(|_caller| ())
     });
 
     let Err(TransactionPayloadCallError::Method(error)) = result else {
         panic!("The first method must fail: {result:?}");
     };
     assert_eq!(error, ContractError::Forbidden);
-    // The decoder didn't call the second method either, which would have stored a value in the
+    // The caller didn't call the second method either, which would have stored a value in the
     // slot
     assert_eq!(
         executor.with_env_ro(slots, |env| {

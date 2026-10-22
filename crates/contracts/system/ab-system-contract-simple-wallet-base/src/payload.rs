@@ -1,31 +1,28 @@
 //! This module contains generic utilities for serializing and deserializing method calls to/from
 //! payload bytes.
 //!
-//! It can be reused to implement a different wallet implementation. The decoder decodes methods
-//! only to call them, so displaying the contents of the transaction without executing it (for
-//! example, on the screen of the hardware wallet) needs a separate parser, which can use the types
-//! that describe individual bytes of the payload, like [`TransactionInput`].
+//! It can be reused to implement a different wallet implementation. [`TransactionPayloadCaller`]
+//! decodes methods only to call them, so displaying the contents of the transaction without
+//! executing it (for example, on the screen of the hardware wallet) needs a separate parser, which
+//! can use the types that describe individual bytes of the payload, like [`TransactionInput`].
 //!
 //! Builder interface requires heap allocations and can be enabled with `payload-builder` feature,
 //! while the rest works in `no_std` environment without a global allocator.
 
 #[cfg(feature = "payload-builder")]
 pub mod builder;
+mod caller;
+mod decoder_core;
+#[cfg(test)]
+mod test_utils;
 #[cfg(test)]
 mod tests;
 
-use crate::EXTERNAL_ARGS_BUFFER_SIZE;
-use ab_contracts_common::env::{Env, MethodContext, PreparedMethod};
-use ab_contracts_common::method::MethodFingerprint;
-use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
-use ab_core_primitives::address::Address;
+use ab_contracts_common::ContractError;
 use ab_io_type::alignment::Alignment;
-use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
-use core::ffi::c_void;
-use core::mem::{MaybeUninit, offset_of};
-use core::ops::{Deref, DerefMut};
+use ab_io_type::trivial_type::TrivialType;
+pub use caller::TransactionPayloadCaller;
 use core::ptr::NonNull;
-use core::{ptr, slice};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -47,8 +44,13 @@ struct FfiDataSizeCapacityRw {
 #[repr(u8)]
 pub enum TransactionMethodContext {
     /// Call contract under [`Address::NULL`] context (corresponds to [`MethodContext::Reset`])
+    ///
+    /// [`Address::NULL`]: ab_core_primitives::address::Address::NULL
+    /// [`MethodContext::Reset`]: ab_contracts_common::env::MethodContext::Reset
     Null,
-    /// Call contract under context of the wallet (corresponds to [`MethodContext::Replace`])
+    /// Call contract under context of the wallet (corresponds to [`MethodContext::Keep`])
+    ///
+    /// [`MethodContext::Keep`]: ab_contracts_common::env::MethodContext::Keep
     Wallet,
 }
 
@@ -269,7 +271,16 @@ impl TransactionOutput {
     }
 }
 
-/// Errors for [`TransactionPayloadDecoder`]
+/// Whether an output is `#[output]` or the return value
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub(crate) enum TransactionOutputKind {
+    /// `#[output]`, which is given to the method empty
+    Output,
+    /// Return value, which executors write whole
+    ReturnValue,
+}
+
+/// Errors of decoding a payload, see [`TransactionPayloadCaller::call_next_method()`]
 #[derive(Debug, thiserror::Error)]
 pub enum TransactionPayloadDecoderError {
     /// Payload too small
@@ -304,7 +315,7 @@ pub enum TransactionPayloadDecoderError {
     OutputBufferOffsetsTooSmall,
 }
 
-/// Errors for [`TransactionPayloadDecoder::call_next_method()`]
+/// Errors for [`TransactionPayloadCaller::call_next_method()`]
 #[derive(Debug, thiserror::Error)]
 pub enum TransactionPayloadCallError {
     /// Decoder error
@@ -315,650 +326,14 @@ pub enum TransactionPayloadCallError {
     Method(ContractError),
 }
 
+/// Details of an output index that are kept between methods, see
+/// [`TransactionPayloadCaller::new()`]
 #[derive(Debug, Copy, Clone)]
 pub struct OutputBufferDetails {
-    /// Offset of output bytes inside `output_buffer`
-    output_offset: u32,
-    /// Size of the output buffer `output_offset` points to.
-    ///
-    /// NOTE: It temporarily stores the offset (in bytes) into `external_args_buffer` while
-    /// decoding a method. Before decoding the next method, the previous `external_args_buffer`
-    /// is read and an updated size is read from it to correct the value: the size executors wrote
-    /// for `#[output]`, or the size the decoder wrote for the return value.
-    size_or_external_args_offset: u32,
-}
-
-#[derive(Debug, Copy, Clone)]
-struct OutputBufferOffsetsCursor {
-    /// Cursor pointing to the first free entry before the last method decoding, which allows
-    /// updating output sizes using [`OutputBufferDetails::size_or_external_args_offset`] field
-    before_last: usize,
-    /// Current cursor pointing to the next free entry in `output_buffer_details`
-    current: usize,
-}
-
-/// Decoder for transaction payload created using `TransactionPayloadBuilder`.
-///
-/// The payload must be trusted (see [`SimpleWalletBase::execute()`]): what it declares about the
-/// arguments of each method, such as the capacity of the return value, which must be the size of
-/// the return type, can't be checked without the method's metadata.
-///
-/// Outputs are given to methods empty, with size `0`, so methods called from transactions must
-/// accept empty outputs, see `TransactionPayloadBuilder::with_method_call()`.
-///
-/// Return values are given their size when a method is decoded, before it is called, since
-/// executors only write the value (see [`TransactionOutput`]). Each method is called right after
-/// it is decoded and decoding stops at the first method that fails, so later methods can only
-/// refer to return values of methods that succeeded and wrote them.
-///
-/// [`SimpleWalletBase::execute()`]: crate::SimpleWalletBase::execute
-#[derive(Debug)]
-pub struct TransactionPayloadDecoder<'a> {
-    payload: &'a [u8],
-    external_args_buffer: &'a mut [*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE],
-    // TODO: Cast `output_buffer` into `&'a mut [MaybeUninit<u8>]` and remove
-    //  `output_buffer_cursor`
-    output_buffer: &'a mut [MaybeUninit<u128>],
-    output_buffer_cursor: usize,
-    output_buffer_details: &'a mut [MaybeUninit<OutputBufferDetails>],
-    output_buffer_offsets_cursor: OutputBufferOffsetsCursor,
-    map_context: fn(TransactionMethodContext) -> MethodContext,
-}
-
-impl<'a> TransactionPayloadDecoder<'a> {
-    /// Create a new instance.
-    ///
-    /// The size of `external_args_buffer` defines the max number of bytes allocated for
-    /// `ExternalArgs`, which impacts the number of arguments that can be represented by
-    /// `ExternalArgs`. The size is specified in pointers with `#[slot]` argument using one
-    /// pointer, while `#[input]` and `#[output]` use one pointer and size + capacity each.
-    ///
-    /// The size of `output_buffer` defines how big the total size of `#[output]` and return values
-    /// could be in all methods of the payload together.
-    ///
-    /// The size of `output_buffer_details` defines how many `#[output]` arguments and return values
-    /// could exist in all methods of the payload together.
-    #[inline]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub fn new(
-        payload: &'a [u128],
-        external_args_buffer: &'a mut [*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE],
-        output_buffer: &'a mut [MaybeUninit<u128>],
-        output_buffer_details: &'a mut [MaybeUninit<OutputBufferDetails>],
-        map_context: fn(TransactionMethodContext) -> MethodContext,
-    ) -> Self {
-        debug_assert_eq!(align_of_val(payload), usize::from(Alignment::MAX.get()));
-        debug_assert_eq!(
-            align_of_val(output_buffer),
-            usize::from(Alignment::MAX.get())
-        );
-
-        // SAFETY: Memory is valid and bound by an argument's lifetime
-        let payload =
-            unsafe { slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload)) };
-
-        Self {
-            payload,
-            external_args_buffer,
-            output_buffer,
-            output_buffer_cursor: 0,
-            output_buffer_details,
-            output_buffer_offsets_cursor: OutputBufferOffsetsCursor {
-                before_last: 0,
-                current: 0,
-            },
-            map_context,
-        }
-    }
-
-    /// Decode the next method (if any) in the payload and call it.
-    ///
-    /// Returns the decoder for the remaining methods if the method succeeded, or `None` if there
-    /// are no more methods in the payload. The decoder is consumed when decoding or the method
-    /// fails, since later methods might refer to return values that the failed method didn't
-    /// write.
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    pub fn call_next_method(
-        mut self,
-        env: &Env<'_>,
-    ) -> Result<Option<Self>, TransactionPayloadCallError> {
-        // SAFETY: The decoder is only returned to the caller after the decoded method returned
-        // `Ok(())`, so every method decoded earlier did, and decoding stops at the first error
-        let maybe_prepared_method = unsafe { self.decode_next_method() };
-        let Some(prepared_method) =
-            maybe_prepared_method.map_err(TransactionPayloadCallError::Decoder)?
-        else {
-            return Ok(None);
-        };
-
-        env.call_prepared(prepared_method)
-            .map_err(TransactionPayloadCallError::Method)?;
-
-        Ok(Some(self))
-    }
-
-    /// Decode the next method (if any) in the payload.
-    ///
-    /// # Safety
-    /// Every method decoded earlier must have had its outputs and return value written the way
-    /// `ExecutorContext` requires for a call that returns `Ok(())`, as a successful
-    /// [`Env::call_prepared()`] does (with the `guest` feature, the host is trusted to write them
-    /// the same way), before the next method is decoded, and decoding must stop at the first error.
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    unsafe fn decode_next_method(
-        &mut self,
-    ) -> Result<Option<PreparedMethod<'_>>, TransactionPayloadDecoderError> {
-        TransactionPayloadDecoderInternal(self).decode_next_method()
-    }
-}
-
-/// Write to an external arguments pointer and move it forward.
-///
-/// # Safety
-/// `external_args` must have enough capacity for the written value, and the current offset must
-/// have the correct alignment for the type being written.
-#[inline(always)]
-unsafe fn write_external_args<T>(external_args: &mut NonNull<c_void>, value: T) {
-    // SAFETY: guaranteed by this function signature
-    unsafe {
-        external_args.cast::<T>().write(value);
-        *external_args = external_args.byte_add(size_of::<T>());
-    }
-}
-
-/// # Safety
-/// Every method decoded earlier must have had its outputs and return value written as
-/// [`TransactionPayloadDecoder::decode_next_method()`] requires before the next method is decoded.
-struct TransactionPayloadDecoderInternal<'tmp, 'decoder>(
-    &'tmp mut TransactionPayloadDecoder<'decoder>,
-);
-
-impl<'decoder> Deref for TransactionPayloadDecoderInternal<'_, 'decoder> {
-    type Target = TransactionPayloadDecoder<'decoder>;
-
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl DerefMut for TransactionPayloadDecoderInternal<'_, '_> {
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0
-    }
-}
-
-impl<'tmp, 'decoder> TransactionPayloadDecoderInternal<'tmp, 'decoder> {
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn decode_next_method(
-        mut self,
-    ) -> Result<Option<PreparedMethod<'tmp>>, TransactionPayloadDecoderError> {
-        if self.payload.len() <= usize::from(Alignment::MAX.get()) {
-            return Ok(None);
-        }
-
-        self.update_output_buffer_details();
-
-        let contract = self.get_trivial_type::<Address>()?;
-        let method_fingerprint = self.get_trivial_type::<MethodFingerprint>()?;
-        let method_context = (self.map_context)(self.read_method_context()?);
-
-        let mut transaction_slots_inputs =
-            [MaybeUninit::<u8>::uninit(); MAX_TOTAL_METHOD_ARGS as usize];
-
-        let num_slot_arguments = self.read_u8()?;
-        for transaction_slot in transaction_slots_inputs
-            .iter_mut()
-            .take(usize::from(num_slot_arguments))
-        {
-            transaction_slot.write(self.read_u8()?);
-        }
-
-        let num_input_arguments = self.read_u8()?;
-        for transaction_input in transaction_slots_inputs
-            .iter_mut()
-            .skip(usize::from(num_slot_arguments))
-            .take(usize::from(num_input_arguments))
-        {
-            transaction_input.write(self.read_u8()?);
-        }
-
-        let num_output_arguments = self.read_u8()?;
-
-        // This can be off by 1 due to `self` not included in `ExternalArgs`, but it is good enough
-        // for this context
-        let number_of_arguments = u16::from(num_slot_arguments)
-            + u16::from(num_input_arguments)
-            + u16::from(num_output_arguments);
-        if number_of_arguments > u16::from(MAX_TOTAL_METHOD_ARGS) {
-            return Err(TransactionPayloadDecoderError::TooManyArguments(
-                u8::try_from(number_of_arguments).unwrap_or(u8::MAX),
-            ));
-        }
-
-        let (transaction_slots, transaction_inputs) = transaction_slots_inputs
-            .split_at_checked(usize::from(num_slot_arguments))
-            .expect("Total number of arguments was checked to fit above; qed");
-        let transaction_inputs = transaction_inputs
-            .get(..usize::from(num_input_arguments))
-            .expect("Total number of arguments was checked to fit above; qed");
-        // SAFETY: Just initialized elements above
-        let (transaction_slots, transaction_inputs) = unsafe {
-            (
-                transaction_slots.assume_init_ref(),
-                transaction_inputs.assume_init_ref(),
-            )
-        };
-
-        let external_args = NonNull::new(self.external_args_buffer.as_mut_ptr())
-            .expect("Not null; qed")
-            .cast::<c_void>();
-        {
-            let external_args_cursor = &mut external_args.clone();
-
-            for &transaction_slot in transaction_slots {
-                let address = match TransactionSlot::from_u8(transaction_slot).slot_type() {
-                    TransactionSlotType::Address => self.get_trivial_type::<Address>()?,
-                    TransactionSlotType::OutputIndex { output_index } => {
-                        let (bytes, size) = self.get_from_output_buffer(output_index)?;
-
-                        if size != Address::SIZE {
-                            return Err(
-                                TransactionPayloadDecoderError::InvalidSlotOutputIndexSize {
-                                    output_index,
-                                    size,
-                                },
-                            );
-                        }
-
-                        // SAFETY: `bytes` are initialized (see `get_from_output_buffer()`), have
-                        // the size of `Address` (checked above), and every bit pattern is a valid
-                        // `Address`
-                        let maybe_address = unsafe { Address::from_bytes(bytes) };
-
-                        let Some(address) = maybe_address else {
-                            let error =
-                                TransactionPayloadDecoderError::InvalidSlotOutputIndexAlign {
-                                    output_index,
-                                    alignment: align_of_val(bytes) as u32,
-                                };
-                            return Err(error);
-                        };
-
-                        address
-                    }
-                };
-
-                // SAFETY: Size of `self.external_args_buffer` is statically sized for worst-case,
-                // address is correctly aligned
-                unsafe {
-                    write_external_args(external_args_cursor, ptr::from_ref(address));
-                }
-            }
-
-            for &transaction_input in transaction_inputs {
-                let input = TransactionInput::from_u8(transaction_input).ok_or(
-                    TransactionPayloadDecoderError::AlignmentPowerTooLarge(
-                        transaction_input & 0b0111_1111,
-                    ),
-                )?;
-                let (bytes, size) = match input.input_type() {
-                    TransactionInputType::Value { alignment } => {
-                        let size = *self.get_trivial_type::<u32>()?;
-                        let bytes = self.get_bytes(size, alignment)?;
-
-                        (bytes, size)
-                    }
-                    TransactionInputType::OutputIndex { output_index } => {
-                        self.get_from_output_buffer(output_index)?
-                    }
-                };
-
-                // SAFETY: Size of `self.external_args_buffer` is statically sized for worst-case,
-                // buffer is correctly aligned
-                unsafe {
-                    write_external_args(
-                        external_args_cursor,
-                        FfiDataSizeCapacityRo {
-                            data_ptr: NonNull::from_ref(bytes).as_non_null_ptr(),
-                            size,
-                            capacity: size,
-                        },
-                    );
-                }
-            }
-
-            for _ in 0..num_output_arguments {
-                let recommended_capacity = *self.get_trivial_type::<u32>()?;
-                let output_tag = self.read_u8()?;
-                let output = TransactionOutput::from_u8(output_tag).ok_or(
-                    TransactionPayloadDecoderError::AlignmentPowerTooLarge(
-                        output_tag & 0b0111_1111,
-                    ),
-                )?;
-                let (alignment, size) = match output.output_type() {
-                    TransactionOutputType::Output { alignment } => (alignment, 0),
-                    TransactionOutputType::ReturnValue { alignment } => {
-                        // Executors write the return value through its pointer, but not its size,
-                        // which `ExternalArgs` don't have, so it is set to the capacity right away,
-                        // which is the size of the return type. A failed method might not have
-                        // written its return value, but no later method sees its size then, since
-                        // decoding stops at the first failed method.
-                        (alignment, recommended_capacity)
-                    }
-                };
-
-                // SAFETY: `external_args_cursor` is created from `external_args` and is within the
-                // same allocation
-                let external_args_size_offset = unsafe {
-                    external_args_cursor
-                        .byte_add(offset_of!(FfiDataSizeCapacityRw, size))
-                        .byte_offset_from_unsigned(external_args)
-                };
-
-                let data = self.allocate_output_buffer(
-                    recommended_capacity,
-                    alignment,
-                    external_args_size_offset as u32,
-                )?;
-
-                // SAFETY: Size of `self.external_args_buffer` is statically sized for worst-case,
-                // buffer is correctly aligned
-                unsafe {
-                    write_external_args(
-                        external_args_cursor,
-                        FfiDataSizeCapacityRw {
-                            data_ptr: data.as_ptr(),
-                            size,
-                            capacity: recommended_capacity,
-                        },
-                    );
-                }
-            }
-        }
-
-        let decoder = self.0;
-        // SAFETY: Bounds and alignment are checked above, and for as long as the returned value
-        // borrows the decoder:
-        // * `external_args_buffer` starts with arguments written above in the order and layout of
-        //   `ExternalArgs` for the slots, inputs and outputs the payload declares: a pointer for
-        //   each slot, then pointer, size and capacity for each input and output, where a return
-        //   value is written like the last output, with size and capacity after its pointer that
-        //   `ExternalArgs` doesn't have
-        // * slot addresses are aligned, and slot addresses and inputs point into the payload or
-        //   into outputs of earlier methods up to their sizes, which executors keep within
-        //   capacities with that many bytes initialized, as `ExecutorContext` requires, while the
-        //   size of a return value of an earlier method is its capacity, the size of the return
-        //   type, which has no padding (`TrivialType`): every method decoded earlier had its return
-        //   value initialized, as the struct's `# Safety` requires, and slots and inputs are
-        //   decoded before outputs of this method are allocated, so they can't refer to its own
-        //   return value
-        // * outputs are allocated in `output_buffer` with their capacity by moving its cursor past
-        //   each of them, so they don't overlap each other or outputs of earlier methods, while the
-        //   payload and `external_args_buffer` are borrowed separately from `output_buffer`
-        // * the payload, `external_args_buffer` and `output_buffer` stay borrowed by the decoder,
-        //   so nothing else accesses them, and the payload and outputs of earlier methods are only
-        //   read
-        // * contents of outputs and return values are only given to later methods as slot
-        //   addresses, which accept every bit pattern, and as inputs, which methods parse
-        // * the payload is trusted to declare the arguments of the method with `method_fingerprint`
-        //   and the size and alignment of the return type as the capacity and alignment of its
-        //   return value, and to declare as the return value only one that executors write (not the
-        //   state returned by `#[init]`, which they store instead), which can't be checked without
-        //   the method's metadata, the same way `NativeExecutor` trusts transaction payloads (see
-        //   `SimpleWalletBase::execute()` for what makes them trusted)
-        // TODO: Under Stacked Borrows, allocating an output invalidates all pointers into
-        //  `output_buffer` created before it, including slot addresses and inputs of the same
-        //  method that refer to earlier outputs, since `allocate_output_buffer_ptr()` reborrows the
-        //  whole `output_buffer`
-        let prepared_method = unsafe {
-            PreparedMethod::new_untyped(
-                *contract,
-                *method_fingerprint,
-                &mut *decoder.external_args_buffer,
-                method_context,
-            )
-        };
-
-        Ok(Some(prepared_method))
-    }
-
-    /// Get a reference to an [`AnyBitPattern`] value inside the payload
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn get_trivial_type<T>(&mut self) -> Result<&'decoder T, TransactionPayloadDecoderError>
-    where
-        T: AnyBitPattern,
-    {
-        self.ensure_alignment(Alignment::of::<T>())?;
-
-        let bytes;
-        (bytes, self.payload) = self
-            .payload
-            .split_at_checked(size_of::<T>())
-            .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
-
-        // SAFETY: `bytes` are aligned for `T`, initialized and have the size of `T` as ensured
-        // above, so they are a valid value of `T`, which accepts every bit pattern
-        // (`AnyBitPattern`), and the shared reference to them doesn't allow writing to the payload,
-        // since `T` has no interior mutability (`TrivialType`)
-        let value_ref = unsafe { bytes.as_ptr().cast::<T>().as_ref().expect("Not null; qed") };
-
-        Ok(value_ref)
-    }
-
-    /// Get a reference to opaque bytes inside the payload
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn get_bytes(
-        &mut self,
-        size: u32,
-        alignment: Alignment,
-    ) -> Result<&'decoder [u8], TransactionPayloadDecoderError> {
-        self.ensure_alignment(alignment)?;
-
-        let bytes;
-        (bytes, self.payload) = self
-            .payload
-            .split_at_checked(size as usize)
-            .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
-
-        Ok(bytes)
-    }
-
-    /// Read [`TransactionMethodContext`] from its byte, which might not be a valid discriminant
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn read_method_context(
-        &mut self,
-    ) -> Result<TransactionMethodContext, TransactionPayloadDecoderError> {
-        let value = self.read_u8()?;
-
-        TransactionMethodContext::try_from(value)
-            .map_err(|()| TransactionPayloadDecoderError::InvalidMethodContext(value))
-    }
-
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn read_u8(&mut self) -> Result<u8, TransactionPayloadDecoderError> {
-        let value;
-        (value, self.payload) = self
-            .payload
-            .split_first()
-            .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
-
-        Ok(*value)
-    }
-
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn ensure_alignment(
-        &mut self,
-        alignment: Alignment,
-    ) -> Result<(), TransactionPayloadDecoderError> {
-        let alignment = usize::from(alignment.get());
-
-        // Optimized version of the following that expects `alignment` to be a power of 2:
-        // let unaligned_by = self.payload.as_ptr().addr() % alignment;
-        let unaligned_by = self.payload.as_ptr().addr() & (alignment - 1);
-        if unaligned_by > 0 {
-            // SAFETY: Subtracted value is always smaller than alignment
-            let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
-            self.payload = self
-                .payload
-                .split_off(padding_bytes..)
-                .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
-        }
-        Ok(())
-    }
-
-    /// Returns a tuple of `(size_ptr, output_ptr)` of a newly allocated output buffer
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn allocate_output_buffer(
-        &mut self,
-        capacity: u32,
-        output_alignment: Alignment,
-        external_args_size_offset: u32,
-    ) -> Result<NonNull<u8>, TransactionPayloadDecoderError> {
-        if self.output_buffer_details.len() == self.output_buffer_offsets_cursor.current {
-            return Err(TransactionPayloadDecoderError::OutputBufferOffsetsTooSmall);
-        }
-
-        let (output_offset, output_ptr) = self
-            .allocate_output_buffer_ptr(output_alignment, capacity as usize)
-            .ok_or(TransactionPayloadDecoderError::OutputBufferTooSmall)?;
-
-        // SAFETY: Checked above that `output_buffer_details` is not full
-        let output_buffer_details = unsafe {
-            // Borrow checker doesn't understand that these variables are disjoint
-            let output_buffer_offsets_cursor = self.output_buffer_offsets_cursor.current;
-            self.output_buffer_details
-                .get_unchecked_mut(output_buffer_offsets_cursor)
-        };
-        output_buffer_details.write(OutputBufferDetails {
-            output_offset: output_offset as u32,
-            size_or_external_args_offset: external_args_size_offset,
-        });
-        self.output_buffer_offsets_cursor.current += 1;
-
-        Ok(output_ptr)
-    }
-
-    /// Returns `None` if output buffer is not large enough
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn allocate_output_buffer_ptr<T>(
-        &mut self,
-        alignment: Alignment,
-        size: usize,
-    ) -> Option<(usize, NonNull<T>)> {
-        let alignment = usize::from(alignment.get());
-
-        // Optimized version of the following that expects `alignment` to be a power of 2:
-        // let padding_bytes = (alignment - self.output_buffer_cursor % alignment) % alignment;
-        let padding_bytes = self.output_buffer_cursor.wrapping_neg() & (alignment - 1);
-
-        let offset = self.output_buffer_cursor.checked_add(padding_bytes)?;
-        let new_output_buffer_cursor = offset.checked_add(size)?;
-
-        if new_output_buffer_cursor > size_of_val(self.output_buffer) {
-            return None;
-        }
-
-        // SAFETY: Bounds and alignment checks are done above
-        let buffer_ptr = unsafe {
-            NonNull::from_mut(&mut *self.output_buffer)
-                .cast::<T>()
-                .byte_add(offset)
-        };
-        self.output_buffer_cursor = new_output_buffer_cursor;
-
-        Some((offset, buffer_ptr))
-    }
-
-    /// Update all [`OutputBufferDetails::size_or_external_args_offset`] to store sizes rather than
-    /// offsets into `external_args_buffer` and advances [`OutputBufferOffsetsCursor::before_last`]
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn update_output_buffer_details(&mut self) {
-        #[expect(
-            clippy::rest_pattern_accessible_field,
-            reason = "Do not need other fields"
-        )]
-        let TransactionPayloadDecoder {
-            external_args_buffer,
-            output_buffer_details,
-            output_buffer_offsets_cursor,
-            ..
-        } = &mut **self;
-
-        // SAFETY: Elements in the selected range were initialized
-        for output_buffer_details in unsafe {
-            output_buffer_details
-                .get_unchecked_mut(
-                    output_buffer_offsets_cursor.before_last..output_buffer_offsets_cursor.current,
-                )
-                .assume_init_mut()
-        } {
-            // SAFETY: Protected invariant in `decode_next_method`
-            output_buffer_details.size_or_external_args_offset = unsafe {
-                external_args_buffer
-                    .as_ptr()
-                    .cast::<u32>()
-                    .byte_add(output_buffer_details.size_or_external_args_offset as usize)
-                    .read()
-            };
-        }
-
-        output_buffer_offsets_cursor.before_last = output_buffer_offsets_cursor.current;
-    }
-
-    #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn get_from_output_buffer(
-        &self,
-        output_index: u8,
-    ) -> Result<(&[u8], u32), TransactionPayloadDecoderError> {
-        let OutputBufferDetails {
-            output_offset,
-            size_or_external_args_offset: size,
-        } = if usize::from(output_index) < self.output_buffer_offsets_cursor.current {
-            // SAFETY: Checked that index is initialized
-            unsafe {
-                self.output_buffer_details
-                    .get_unchecked(usize::from(output_index))
-                    .assume_init()
-            }
-        } else {
-            return Err(TransactionPayloadDecoderError::OutputIndexNotFound(
-                output_index,
-            ));
-        };
-
-        // SAFETY: Offset was created as the result of writing value at the correct
-        // offset into `output_buffer_details` earlier, and `size` bytes at it are initialized:
-        // slots and inputs of a method are decoded before its outputs are allocated, so they refer
-        // to outputs of methods decoded earlier, which had their outputs and return value written
-        // as the struct's `# Safety` requires, so the size of an output is `0` or the size written
-        // for it, which is within its capacity with that many bytes initialized, and the size of a
-        // return value is its capacity, the size of the return type, which has no padding
-        // (`TrivialType`), and which was initialized
-        let bytes = unsafe {
-            let bytes_ptr = self
-                .output_buffer
-                .as_ptr()
-                .cast::<u8>()
-                .add(output_offset as usize);
-
-            slice::from_raw_parts(bytes_ptr, size as usize)
-        };
-
-        Ok((bytes, size))
-    }
+    /// Offset of the output's memory in the output buffer of [`TransactionPayloadCaller`]
+    offset: u32,
+    /// Size of the value: the capacity of a return value, which executors write whole, while
+    /// `#[output]` has size `0` until its method returned `Ok(())`, and the size it wrote after
+    /// that
+    size: u32,
 }

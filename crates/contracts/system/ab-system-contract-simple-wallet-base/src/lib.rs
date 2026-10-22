@@ -12,8 +12,13 @@
 //!   followed by [`SimpleWalletBase::increase_nonce`]
 //! * [`SimpleWalletBase::change_public_key`] is used to change a public key to a different one
 
-#![feature(const_convert, const_trait_impl, maybe_uninit_as_bytes, slice_ptr_get)]
-#![cfg_attr(feature = "payload-builder", feature(const_block_items))]
+#![feature(
+    const_block_items,
+    const_convert,
+    const_trait_impl,
+    maybe_uninit_as_bytes,
+    slice_ptr_get
+)]
 #![cfg_attr(feature = "no-panic", feature(const_closures))]
 #![no_std]
 
@@ -22,7 +27,7 @@ pub mod seal;
 pub mod utils;
 
 use crate::payload::{
-    TransactionMethodContext, TransactionPayloadCallError, TransactionPayloadDecoder,
+    TransactionMethodContext, TransactionPayloadCallError, TransactionPayloadCaller,
 };
 use crate::seal::hash_and_verify;
 use ab_contracts_common::env::{Env, MethodContext};
@@ -187,7 +192,7 @@ impl SimpleWalletBase {
         let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
         let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
-        let mut payload_decoder = TransactionPayloadDecoder::new(
+        let mut payload_caller = TransactionPayloadCaller::new(
             payload.get_initialized(),
             &mut external_args_buffer,
             &mut output_buffer,
@@ -199,8 +204,8 @@ impl SimpleWalletBase {
         );
 
         loop {
-            payload_decoder = match payload_decoder.call_next_method(env) {
-                Ok(Some(payload_decoder)) => payload_decoder,
+            payload_caller = match payload_caller.call_next_method(env) {
+                Ok(Some(payload_caller)) => payload_caller,
                 Ok(None) => return Ok(()),
                 Err(TransactionPayloadCallError::Decoder(_error)) => {
                     return Err(ContractError::BadInput);

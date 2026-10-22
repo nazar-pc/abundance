@@ -6,9 +6,10 @@ use crate::payload::builder::tests::ffi::set::DemoContractSetArgs;
 use crate::payload::builder::tests::ffi::stored::DemoContractStoredArgs;
 use crate::payload::builder::tests::ffi::value::DemoContractValueArgs;
 use crate::payload::builder::{TransactionPayloadBuilder, TransactionPayloadBuilderError};
+use crate::payload::test_utils::CallWith;
 use crate::payload::{
     FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, TransactionMethodContext, TransactionOutput,
-    TransactionOutputType, TransactionPayloadDecoder,
+    TransactionOutputType, TransactionPayloadCaller,
 };
 use crate::{EXTERNAL_ARGS_BUFFER_SIZE, OUTPUT_BUFFER_OFFSETS_SIZE, OUTPUT_BUFFER_SIZE};
 use ab_contracts_common::env::{MethodContext, PreparedMethod};
@@ -78,7 +79,7 @@ fn payload_encode_decode() {
     let expected_contract = Address::SYSTEM_SIMPLE_WALLET_BASE;
     let new_value = 42;
 
-    let payload = {
+    let (payload, method_size) = {
         let mut builder = TransactionPayloadBuilder::new(1024);
         builder
             .with_method_call(
@@ -89,14 +90,15 @@ fn payload_encode_decode() {
                 &[],
             )
             .unwrap();
-        builder.into_aligned_bytes()
+        let method_size = builder.payload.len();
+        (builder.into_aligned_bytes(), method_size)
     };
 
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
     let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
-    let mut decoder = TransactionPayloadDecoder::new(
+    let caller = TransactionPayloadCaller::new(
         payload.as_u128_slice(),
         &mut external_args_buffer,
         &mut output_buffer,
@@ -107,28 +109,40 @@ fn payload_encode_decode() {
         },
     );
 
-    // SAFETY: No methods were decoded before
-    let PreparedMethod {
-        contract,
-        fingerprint,
-        external_args,
-        method_context,
-        ..
-    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
+    let caller = caller
+        .call_next_method_with(&CallWith::new(|method: PreparedMethod<'_>| {
+            let PreparedMethod {
+                contract,
+                fingerprint,
+                external_args,
+                method_context,
+                ..
+            } = method;
 
-    assert_eq!(contract, expected_contract);
-    assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
-    assert_eq!(
-        // SAFETY: method argument is a single `u8`
-        unsafe { external_args.cast::<*const u8>().read().read() },
-        new_value
-    );
-    assert_eq!(method_context, MethodContext::Keep);
+            assert_eq!(contract, expected_contract);
+            assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
+            assert_eq!(
+                // SAFETY: method argument is a single `u8`
+                unsafe { external_args.cast::<*const u8>().read().read() },
+                new_value
+            );
+            assert_eq!(method_context, MethodContext::Keep);
+
+            Ok(())
+        }))
+        .unwrap()
+        .unwrap();
 
     // There is some padding, but it is correctly determined that there is no payload anymore
-    assert!(!decoder.payload.is_empty());
-    // SAFETY: The method decoded before has no outputs or return value
-    assert!(unsafe { decoder.decode_next_method() }.unwrap().is_none());
+    assert!(payload.len() > method_size);
+    assert!(
+        caller
+            .call_next_method_with(&CallWith::new(|_method: PreparedMethod<'_>| {
+                unreachable!("There are no more methods")
+            }))
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]
@@ -168,7 +182,7 @@ fn payload_encode_decode_output_index() {
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
     let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
-    let mut decoder = TransactionPayloadDecoder::new(
+    let caller = TransactionPayloadCaller::new(
         payload.as_u128_slice(),
         &mut external_args_buffer,
         &mut output_buffer,
@@ -179,55 +193,68 @@ fn payload_encode_decode_output_index() {
         },
     );
 
-    // SAFETY: No methods were decoded before
-    let PreparedMethod {
-        contract,
-        fingerprint,
-        external_args,
-        method_context,
-        ..
-    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
+    let caller = caller
+        .call_next_method_with(&CallWith::new(|method: PreparedMethod<'_>| {
+            let PreparedMethod {
+                contract,
+                fingerprint,
+                external_args,
+                method_context,
+                ..
+            } = method;
 
-    assert_eq!(contract, expected_contract);
-    assert_eq!(fingerprint, DemoContractGetArgs::FINGERPRINT);
-    assert_eq!(method_context, MethodContext::Reset);
-    // Simulate the host writing the output of the method
-    {
-        // SAFETY: The method has a single `#[output]` argument
-        let output = unsafe { external_args.cast::<FfiDataSizeCapacityRw>().as_mut() };
-        assert_eq!(output.size, 0);
-        assert_eq!(output.capacity, u8::SIZE);
-        // SAFETY: Output buffer has the requested capacity
-        unsafe {
-            output.data_ptr.write(output_value);
-        }
-        output.size = u8::SIZE;
-    }
+            assert_eq!(contract, expected_contract);
+            assert_eq!(fingerprint, DemoContractGetArgs::FINGERPRINT);
+            assert_eq!(method_context, MethodContext::Reset);
+            // Simulate the host writing the output of the method
+            // SAFETY: The method has a single `#[output]` argument
+            let output = unsafe { external_args.cast::<FfiDataSizeCapacityRw>().as_mut() };
+            assert_eq!(output.size, 0);
+            assert_eq!(output.capacity, u8::SIZE);
+            // SAFETY: Output buffer has the requested capacity
+            unsafe {
+                output.data_ptr.write(output_value);
+            }
+            output.size = u8::SIZE;
 
-    // SAFETY: The output of the method decoded before was written above like by a successful
-    // call
-    let PreparedMethod {
-        contract,
-        fingerprint,
-        external_args,
-        method_context,
-        ..
-    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
+            Ok(())
+        }))
+        .unwrap()
+        .unwrap();
 
-    assert_eq!(contract, expected_contract);
-    assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
-    assert_eq!(method_context, MethodContext::Keep);
-    {
-        // SAFETY: The method has a single `#[input]` argument
-        let input = unsafe { external_args.cast::<FfiDataSizeCapacityRo>().read() };
-        assert_eq!(input.size, u8::SIZE);
-        assert_eq!(input.capacity, u8::SIZE);
-        // SAFETY: Input points to the output of the previous method
-        assert_eq!(unsafe { input.data_ptr.read() }, output_value);
-    }
+    let caller = caller
+        .call_next_method_with(&CallWith::new(|method: PreparedMethod<'_>| {
+            let PreparedMethod {
+                contract,
+                fingerprint,
+                external_args,
+                method_context,
+                ..
+            } = method;
 
-    // SAFETY: The method decoded before has no outputs or return value
-    assert!(unsafe { decoder.decode_next_method() }.unwrap().is_none());
+            assert_eq!(contract, expected_contract);
+            assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
+            assert_eq!(method_context, MethodContext::Keep);
+            // SAFETY: The method has a single `#[input]` argument
+            let input = unsafe { external_args.cast::<FfiDataSizeCapacityRo>().read() };
+            assert_eq!(input.size, u8::SIZE);
+            assert_eq!(input.capacity, u8::SIZE);
+            // SAFETY: Input points to the output of the previous method
+            assert_eq!(unsafe { input.data_ptr.read() }, output_value);
+
+            Ok(())
+        }))
+        .unwrap()
+        .unwrap();
+
+    assert!(
+        caller
+            .call_next_method_with(&CallWith::new(|_method: PreparedMethod<'_>| {
+                unreachable!("There are no more methods")
+            }))
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]
@@ -343,7 +370,7 @@ fn payload_encode_decode_return_value() {
     let mut output_buffer = [MaybeUninit::uninit(); OUTPUT_BUFFER_SIZE];
     let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
 
-    let mut decoder = TransactionPayloadDecoder::new(
+    let caller = TransactionPayloadCaller::new(
         payload.as_u128_slice(),
         &mut external_args_buffer,
         &mut output_buffer,
@@ -354,56 +381,69 @@ fn payload_encode_decode_return_value() {
         },
     );
 
-    // SAFETY: No methods were decoded before
-    let PreparedMethod {
-        contract,
-        fingerprint,
-        external_args,
-        method_context,
-        ..
-    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
+    let caller = caller
+        .call_next_method_with(&CallWith::new(|method: PreparedMethod<'_>| {
+            let PreparedMethod {
+                contract,
+                fingerprint,
+                external_args,
+                method_context,
+                ..
+            } = method;
 
-    assert_eq!(contract, expected_contract);
-    assert_eq!(fingerprint, DemoContractValueArgs::FINGERPRINT);
-    assert_eq!(method_context, MethodContext::Reset);
-    // Simulate the host writing the return value of the method, which has no size in
-    // `ExternalArgs`
-    {
-        // SAFETY: The method has a single return value, whose pointer the decoder follows with
-        // its size and capacity
-        let ok_result = unsafe { external_args.cast::<FfiDataSizeCapacityRw>().read() };
-        assert_eq!(ok_result.size, u8::SIZE);
-        assert_eq!(ok_result.capacity, u8::SIZE);
-        // SAFETY: Output buffer has the requested capacity
-        unsafe {
-            ok_result.data_ptr.write(return_value);
-        }
-    }
+            assert_eq!(contract, expected_contract);
+            assert_eq!(fingerprint, DemoContractValueArgs::FINGERPRINT);
+            assert_eq!(method_context, MethodContext::Reset);
+            // Simulate the host writing the return value of the method, which has no size in
+            // `ExternalArgs`
+            // SAFETY: The method has a single return value, whose pointer the caller follows with
+            // its size and capacity
+            let ok_result = unsafe { external_args.cast::<FfiDataSizeCapacityRw>().read() };
+            assert_eq!(ok_result.size, u8::SIZE);
+            assert_eq!(ok_result.capacity, u8::SIZE);
+            // SAFETY: Output buffer has the requested capacity
+            unsafe {
+                ok_result.data_ptr.write(return_value);
+            }
 
-    // SAFETY: The return value of the method decoded before was written above like by a
-    // successful call
-    let PreparedMethod {
-        contract,
-        fingerprint,
-        external_args,
-        method_context,
-        ..
-    } = unsafe { decoder.decode_next_method() }.unwrap().unwrap();
+            Ok(())
+        }))
+        .unwrap()
+        .unwrap();
 
-    assert_eq!(contract, expected_contract);
-    assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
-    assert_eq!(method_context, MethodContext::Keep);
-    {
-        // SAFETY: The method has a single `#[input]` argument
-        let input = unsafe { external_args.cast::<FfiDataSizeCapacityRo>().read() };
-        assert_eq!(input.size, u8::SIZE);
-        assert_eq!(input.capacity, u8::SIZE);
-        // SAFETY: Input points to the return value of the previous method
-        assert_eq!(unsafe { input.data_ptr.read() }, return_value);
-    }
+    let caller = caller
+        .call_next_method_with(&CallWith::new(|method: PreparedMethod<'_>| {
+            let PreparedMethod {
+                contract,
+                fingerprint,
+                external_args,
+                method_context,
+                ..
+            } = method;
 
-    // SAFETY: The method decoded before has no outputs or return value
-    assert!(unsafe { decoder.decode_next_method() }.unwrap().is_none());
+            assert_eq!(contract, expected_contract);
+            assert_eq!(fingerprint, DemoContractSetArgs::FINGERPRINT);
+            assert_eq!(method_context, MethodContext::Keep);
+            // SAFETY: The method has a single `#[input]` argument
+            let input = unsafe { external_args.cast::<FfiDataSizeCapacityRo>().read() };
+            assert_eq!(input.size, u8::SIZE);
+            assert_eq!(input.capacity, u8::SIZE);
+            // SAFETY: Input points to the return value of the previous method
+            assert_eq!(unsafe { input.data_ptr.read() }, return_value);
+
+            Ok(())
+        }))
+        .unwrap()
+        .unwrap();
+
+    assert!(
+        caller
+            .call_next_method_with(&CallWith::new(|_method: PreparedMethod<'_>| {
+                unreachable!("There are no more methods")
+            }))
+            .unwrap()
+            .is_none()
+    );
 }
 
 /// Add a call of `DemoContract::set()` to `builder`
