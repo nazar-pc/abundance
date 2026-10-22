@@ -68,4 +68,14 @@ impl Alignment {
 
         1 << self.power
     }
+
+    /// Whether `slice` starts at an address aligned to `self`
+    #[inline(always)]
+    pub fn is_slice_aligned<T>(self, slice: &[T]) -> bool
+    where
+        T: TrivialType,
+    {
+        let alignment = usize::from(self.get());
+        slice.as_ptr().addr().is_multiple_of(alignment)
+    }
 }

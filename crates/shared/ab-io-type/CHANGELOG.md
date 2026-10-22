@@ -45,6 +45,7 @@ Improvements:
 
 * `TrivialType` can now be derived for enums with tuple variants
 * 32-bit RISC-V and Arm targets are supported
+* `Alignment::is_slice_aligned()` checks where a slice starts
 * `AnyBitPattern` is implemented for `TrivialType`s whose every bit pattern is a valid value, which implement the
   unsafe `AnyBitPatternMarker`, the derive implements it for structs whose fields all implement it
 * `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()`, `try_read_unaligned()` and

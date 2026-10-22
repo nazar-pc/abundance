@@ -1,4 +1,4 @@
-//! Construction and ordering of alignments
+//! Construction and ordering of alignments and alignment of slices
 
 use ab_io_type::alignment::Alignment;
 use ab_io_type::fixed_capacity_elements::FixedCapacityElements;
@@ -6,6 +6,11 @@ use ab_io_type::fixed_capacity_string::FixedCapacityString;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 use core::any::type_name;
+use core::slice;
+
+/// Aligns its contents to 16 bytes
+#[repr(C, align(16))]
+struct Aligned<T>(T);
 
 /// Check that [`Alignment::of()`] gives `expected` bytes, which is at least the alignment of `T`
 fn check_alignment_of<T>(expected: u8)
@@ -87,5 +92,31 @@ fn alignment_order() {
                 "Powers {power} and {other_power}"
             );
         }
+    }
+}
+
+#[test]
+fn is_slice_aligned() {
+    let bytes = Aligned([0u8; 32]);
+    let u64_alignment = Alignment::of::<u64>();
+
+    assert!(Alignment::MAX.is_slice_aligned(&bytes.0));
+    assert!(Alignment::MAX.is_slice_aligned(&bytes.0[16..]));
+    assert!(!Alignment::MAX.is_slice_aligned(&bytes.0[8..]));
+    assert!(!Alignment::MAX.is_slice_aligned(&bytes.0[1..]));
+    assert!(u64_alignment.is_slice_aligned(&bytes.0[8..]));
+    assert!(!u64_alignment.is_slice_aligned(&bytes.0[4..]));
+    // Every slice is aligned to 1 byte
+    assert!(Alignment::of::<u8>().is_slice_aligned(&bytes.0[1..]));
+
+    let words = Aligned([0u128; 3]);
+    assert!(Alignment::MAX.is_slice_aligned(&words.0));
+    // A misaligned slice of `u128`s only exists where `u128` is aligned to 8 bytes
+    if align_of::<u128>() < usize::from(Alignment::MAX.get()) {
+        // SAFETY: `words` has 48 initialized bytes, so the 32 bytes at offset 8 are in bounds and
+        // initialized. They are aligned for `u128`, which is aligned to 8 bytes here.
+        let misaligned = unsafe { slice::from_raw_parts(words.0.as_ptr().byte_add(8), 2) };
+        assert!(!Alignment::MAX.is_slice_aligned(misaligned));
+        assert!(u64_alignment.is_slice_aligned(misaligned));
     }
 }
