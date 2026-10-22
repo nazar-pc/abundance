@@ -1,0 +1,115 @@
+//! Prints the methods of a payload of `SimpleWalletBase` as `TransactionPayloadDecoder` describes
+//! them, without calling them.
+//!
+//! The only argument is a file with the bytes of the payload, for example one that the
+//! `build-payload` example writes, which shows the commands to run both.
+//!
+//! The payload is only known when the example runs. So building it with the `no-panic` feature
+//! checks that `TransactionPayloadDecoder::next_method()` can't panic, whatever the payload is.
+
+use ab_system_contract_simple_wallet_base::OUTPUT_BUFFER_OFFSETS_SIZE;
+use ab_system_contract_simple_wallet_base::payload::TransactionOutputKind;
+use ab_system_contract_simple_wallet_base::payload::decoder::{
+    DecodedInput, DecodedOutput, DecodedSlot, OutputRef, TransactionPayloadDecoder,
+};
+use std::error::Error;
+use std::fmt::Write;
+use std::mem::MaybeUninit;
+use std::{env, fs};
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let path = env::args_os()
+        .nth(1)
+        .ok_or("Usage: describe-payload <file with the payload>")?;
+    let bytes = fs::read(path)?;
+
+    let (chunks, remainder) = bytes.as_chunks::<{ size_of::<u128>() }>();
+    if !remainder.is_empty() {
+        return Err("The size of the payload must be a multiple of 16 bytes".into());
+    }
+    let payload = chunks
+        .iter()
+        .copied()
+        .map(u128::from_ne_bytes)
+        .collect::<Vec<_>>();
+
+    let mut output_buffer_details = [MaybeUninit::uninit(); OUTPUT_BUFFER_OFFSETS_SIZE];
+    let mut decoder = TransactionPayloadDecoder::new(&payload, &mut output_buffer_details);
+    let mut method_index = 0usize;
+    while let Some(method) = decoder.next_method()? {
+        println!(
+            "Method {method_index}: contract {:?}, fingerprint {}, context {:?}",
+            method.contract(),
+            method.fingerprint(),
+            method.context()
+        );
+        for (slot_index, slot) in method.slots().iter().enumerate() {
+            match slot {
+                DecodedSlot::Address(address) => {
+                    println!("    slot {slot_index}: {address:?}");
+                }
+                DecodedSlot::Output(output) => {
+                    println!("    slot {slot_index}: {}", describe_output_ref(output));
+                }
+            }
+        }
+        for (input_index, input) in method.inputs().iter().enumerate() {
+            match input {
+                DecodedInput::Value { bytes, alignment } => {
+                    println!(
+                        "    input {input_index}: {} bytes aligned to {}: {}",
+                        bytes.len(),
+                        alignment.get(),
+                        hex(bytes)
+                    );
+                }
+                DecodedInput::Output(output) => {
+                    println!("    input {input_index}: {}", describe_output_ref(output));
+                }
+            }
+        }
+        for output in method.outputs() {
+            println!("    {}", describe_output(output));
+        }
+
+        method_index += 1;
+    }
+
+    Ok(())
+}
+
+/// Description of the value of an output of an earlier method
+fn describe_output_ref(output: &OutputRef) -> String {
+    match output.return_value_size() {
+        Some(size) => format!(
+            "return value of {size} bytes with output index {}",
+            output.output_index
+        ),
+        None => format!("`#[output]` with output index {}", output.output_index),
+    }
+}
+
+/// Description of an output of the method
+fn describe_output(output: &DecodedOutput) -> String {
+    let kind = match output.kind {
+        TransactionOutputKind::Output => "`#[output]`",
+        TransactionOutputKind::ReturnValue => "return value",
+    };
+
+    format!(
+        "{kind} with output index {}: capacity {} bytes aligned to {}",
+        output.output_index,
+        output.capacity,
+        output.alignment.get()
+    )
+}
+
+/// Bytes in hexadecimal
+fn hex(bytes: &[u8]) -> String {
+    let mut hex = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(hex, "{byte:02x}").expect("Writing into a `String` doesn't fail; qed");
+    }
+
+    hex
+}

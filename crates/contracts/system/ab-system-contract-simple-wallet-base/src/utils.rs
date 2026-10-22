@@ -12,7 +12,7 @@ use core::mem::MaybeUninit;
 
 /// Utility function to initialize the state of the wallet in a typical setup
 #[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn initialize_state(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(), ContractError> {
     // TODO: Remove extra `{}` once https://github.com/dtolnay/no-panic/issues/74 is resolved
     {
@@ -31,7 +31,7 @@ pub fn initialize_state(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(), 
 
 /// Utility function to authorize transaction with the wallet in a typical setup
 #[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn authorize(
     env: &Env<'_>,
     header: &TransactionHeader,
@@ -56,7 +56,7 @@ pub fn authorize(
 /// Utility function to execute transaction with the wallet in a typical setup and increase nonce
 /// afterward
 #[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn execute(
     env: &mut Env<'_>,
     header: &TransactionHeader,
@@ -105,7 +105,7 @@ pub fn execute(
 
 /// Utility function to change public key of the wallet in a typical setup
 #[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 pub fn change_public_key(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(), ContractError> {
     // TODO: Remove extra `{}` once https://github.com/dtolnay/no-panic/issues/74 is resolved
     {
@@ -137,7 +137,7 @@ pub fn change_public_key(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(),
 }
 
 #[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn load_current_state(env: &Env<'_>) -> Result<WalletState, ContractError> {
     let current_state = {
         let mut current_state = MaybeUninit::<WalletState>::uninit();

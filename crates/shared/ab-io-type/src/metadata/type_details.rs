@@ -1,7 +1,7 @@
+use crate::alignment::Alignment;
 use crate::metadata::stack::Stack;
 use crate::metadata::{IoTypeDetails, IoTypeMetadataKind};
 use crate::trivial_type::TrivialType;
-use core::num::NonZeroU8;
 
 /// Fields of a struct or of an enum variant
 #[derive(Debug, Copy, Clone)]
@@ -14,13 +14,13 @@ struct Fields {
     /// is also the offset of the next field
     capacity: u32,
     /// Alignment of decoded fields, for enums including fields of previous variants
-    alignment: NonZeroU8,
+    alignment: Alignment,
 }
 
 impl Fields {
     /// Read the number of fields, the first field is placed at `offset`
     #[inline(always)]
-    const fn new(metadata: &mut &[u8], offset: u32, alignment: NonZeroU8) -> Option<Self> {
+    const fn new(metadata: &mut &[u8], offset: u32, alignment: Alignment) -> Option<Self> {
         Some(Self {
             remaining: *metadata.split_off_first()?,
             named: None,
@@ -136,34 +136,34 @@ pub(super) const fn decode_type_details<const MAX_DEPTH: usize>(
         let mut type_details = match kind {
             IoTypeMetadataKind::Unit => Some(IoTypeDetails {
                 recommended_capacity: 0,
-                alignment: NonZeroU8::new(1).expect("Not zero; qed"),
+                alignment: Alignment::of::<()>(),
             }),
             IoTypeMetadataKind::Bool | IoTypeMetadataKind::U8 | IoTypeMetadataKind::I8 => {
                 Some(IoTypeDetails {
                     recommended_capacity: 1,
-                    alignment: NonZeroU8::new(1).expect("Not zero; qed"),
+                    alignment: Alignment::of::<u8>(),
                 })
             }
             IoTypeMetadataKind::U16 | IoTypeMetadataKind::I16 => Some(IoTypeDetails {
                 recommended_capacity: 2,
-                alignment: NonZeroU8::new(2).expect("Not zero; qed"),
+                alignment: Alignment::of::<u16>(),
             }),
             IoTypeMetadataKind::U32 | IoTypeMetadataKind::I32 => Some(IoTypeDetails {
                 recommended_capacity: 4,
-                alignment: NonZeroU8::new(4).expect("Not zero; qed"),
+                alignment: Alignment::of::<u32>(),
             }),
             IoTypeMetadataKind::U64 | IoTypeMetadataKind::I64 => Some(IoTypeDetails {
                 recommended_capacity: 8,
-                alignment: NonZeroU8::new(8).expect("Not zero; qed"),
+                alignment: Alignment::of::<u64>(),
             }),
             IoTypeMetadataKind::U128 | IoTypeMetadataKind::I128 => Some(IoTypeDetails {
                 recommended_capacity: 16,
-                alignment: NonZeroU8::new(16).expect("Not zero; qed"),
+                alignment: Alignment::of::<u128>(),
             }),
             IoTypeMetadataKind::Struct => {
                 // Skip struct name
                 skip_name(&mut metadata)?;
-                let fields = Fields::new(&mut metadata, 0, NonZeroU8::MIN)?;
+                let fields = Fields::new(&mut metadata, 0, Alignment::of::<()>())?;
 
                 stack.push(Frame::Struct(fields))?;
                 None
@@ -178,7 +178,7 @@ pub(super) const fn decode_type_details<const MAX_DEPTH: usize>(
                 // Skip name of the first variant
                 skip_name(&mut metadata)?;
                 // Fields of a variant follow its 1-byte discriminant
-                let fields = Fields::new(&mut metadata, 1, NonZeroU8::MIN)?;
+                let fields = Fields::new(&mut metadata, 1, Alignment::of::<u8>())?;
 
                 stack.push(Frame::Enum {
                     fields,

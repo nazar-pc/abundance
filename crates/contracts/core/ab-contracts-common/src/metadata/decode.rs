@@ -366,6 +366,9 @@ pub struct MethodMetadataItem<'metadata> {
     /// Expected to be UTF-8, but must be parsed before printed as text, which is somewhat costly.
     pub method_name: &'metadata [u8],
     pub method_kind: MethodKind,
+    /// Number of arguments in the metadata of the method, which is the number of items that
+    /// [`ArgumentsMetadataDecoder::decode_next()`] returns. `self` is not one of them, since it is
+    /// part of the method kind (see [`MethodKind::has_self()`]).
     pub num_arguments: u8,
 }
 
@@ -556,7 +559,7 @@ pub struct ArgumentMetadataItem<'metadata> {
     pub argument_name: &'metadata [u8],
     pub argument_kind: ArgumentKind,
     /// Exceptions:
-    /// * `None` for `#[env]`
+    /// * `None` for `#[env]`, `#[tmp]` and `#[slot]`
     /// * `None` for the last `#[output]` or return type otherwise in `#[init]` (see
     ///   [`ContractMetadataKind::Init`] for details)
     pub type_details: Option<IoTypeDetails>,
@@ -606,7 +609,8 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
         self.metadata.len()
     }
 
-    /// Decode the next argument.
+    /// Decode the next argument, returning `None` after [`MethodMetadataItem::num_arguments`]
+    /// items, errors included.
     ///
     /// Arguments are returned in the order that `#[contract]` generates them in, which
     /// [`ContractMetadataKind::Init`] describes. An argument out of that order is rejected with

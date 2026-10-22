@@ -15,14 +15,13 @@ use ab_contracts_common::metadata::decode::{
 };
 use ab_contracts_common::method::{ExternalArgs, MethodFingerprint};
 use ab_core_primitives::address::Address;
-use ab_io_type::MAX_ALIGNMENT;
+use ab_io_type::alignment::Alignment;
 use ab_io_type::metadata::IoTypeDetails;
 use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
 use core::mem::MaybeUninit;
-use core::num::NonZeroU8;
 use core::ptr::NonNull;
-use core::slice;
+use core::{hint, slice};
 
 const {
     // Make sure bit flags for all arguments will fit into a single u8 below
@@ -35,6 +34,7 @@ const {
 /// `external_args` must have enough capacity for the read value, and the current offset must
 /// have the correct alignment for the type being read.
 #[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn read_external_args<T>(external_args: &mut NonNull<c_void>) -> T {
     // SAFETY: guaranteed by this function signature
     unsafe {
@@ -53,9 +53,6 @@ pub enum TransactionPayloadBuilderError<'a> {
     /// Too many arguments
     #[error("Too many arguments")]
     TooManyArguments(u8),
-    /// Invalid alignment
-    #[error("Invalid alignment: {0}")]
-    InvalidAlignment(NonZeroU8),
     /// Invalid output index
     #[error("Invalid output index: {0}")]
     InvalidOutputIndex(u8),
@@ -66,11 +63,13 @@ pub enum TransactionPayloadBuilderError<'a> {
 
 /// Builder for payload to be used with [`TxHandler`] (primarily for [`SimpleWallet`]).
 ///
-/// Methods in the payload are decoded and called with [`TransactionPayloadDecoder`]
+/// Methods in the payload are decoded and called with [`TransactionPayloadCaller`], and can be
+/// described without calling them with [`TransactionPayloadDecoder`].
 ///
 /// [`TxHandler`]: ab_contracts_standards::tx_handler::TxHandler
 /// [`SimpleWallet`]: crate::SimpleWalletBase
-/// [`TransactionPayloadDecoder`]: crate::payload::TransactionPayloadDecoder
+/// [`TransactionPayloadCaller`]: crate::payload::TransactionPayloadCaller
+/// [`TransactionPayloadDecoder`]: crate::payload::decoder::TransactionPayloadDecoder
 #[derive(Debug, Clone)]
 pub struct TransactionPayloadBuilder {
     payload: OwnedAlignedBuffer,
@@ -81,13 +80,14 @@ impl TransactionPayloadBuilder {
     ///
     /// Memory for the whole payload is allocated here and never reallocated, a method call that
     /// doesn't fit returns [`TransactionPayloadBuilderError::PayloadTooLarge`]. The payload is
-    /// padded to a multiple of [`MAX_ALIGNMENT`], so `max_size` is rounded down to a multiple of
+    /// padded to a multiple of [`Alignment::MAX`], so `max_size` is rounded down to a multiple of
     /// it.
+    // TODO: Not annotated with `no_panic`, since allocating the payload can panic
     #[inline]
     pub fn new(max_size: u32) -> Self {
         Self {
             payload: OwnedAlignedBuffer::with_capacity(
-                max_size / u32::from(MAX_ALIGNMENT) * u32::from(MAX_ALIGNMENT),
+                max_size / u32::from(Alignment::MAX.get()) * u32::from(Alignment::MAX.get()),
             ),
         }
     }
@@ -119,7 +119,7 @@ impl TransactionPayloadBuilder {
     ///
     /// [`MaybeData`]: ab_io_type::maybe_data::MaybeData
     /// [`VariableElements`]: ab_io_type::variable_elements::VariableElements
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn with_method_call<Args>(
         &mut self,
         contract: &Address,
@@ -151,13 +151,15 @@ impl TransactionPayloadBuilder {
     ///
     /// # Safety
     /// `external_args` must correspond to `method_metadata` and `method_fingerprint`. Outputs are
-    /// never read from `external_args` and inputs that have corresponding `input_output_index`
-    /// are not read either.
+    /// never read from `external_args`. The pointers of slots and inputs that refer to earlier
+    /// outputs in `slot_output_index` and `input_output_index` are never dereferenced, so they may
+    /// dangle, but they must not be null, since external arguments hold every pointer as
+    /// [`NonNull`].
     #[expect(
         clippy::too_many_arguments,
         reason = "Only exceeds the limit due to being untyped, while above typed version is not"
     )]
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub unsafe fn with_method_call_untyped<'a>(
         &mut self,
         contract: &Address,
@@ -193,10 +195,10 @@ impl TransactionPayloadBuilder {
             ));
         }
 
-        self.extend_payload_with_alignment(contract.as_bytes(), align_of_val(contract))?;
+        self.extend_payload_with_alignment(contract.as_bytes(), Alignment::of::<Address>())?;
         self.extend_payload_with_alignment(
             method_fingerprint.as_bytes(),
-            align_of_val(method_fingerprint),
+            Alignment::of::<MethodFingerprint>(),
         )?;
         self.push_payload_byte(method_context as u8)?;
 
@@ -225,19 +227,36 @@ impl TransactionPayloadBuilder {
                     num_slot_arguments += 1;
                 }
                 ArgumentKind::Input => {
+                    // SAFETY: The counters only count arguments decoded before this one, so they
+                    // and their sum are below `num_arguments`, the number of items that the
+                    // metadata decoder returns (see `MethodMetadataItem::num_arguments`). The check
+                    // of the number of arguments above limits `num_arguments` to
+                    // `MAX_TOTAL_METHOD_ARGS`.
+                    unsafe {
+                        hint::assert_unchecked(num_input_arguments < MAX_TOTAL_METHOD_ARGS);
+                    }
                     input_output_type_details[usize::from(num_input_arguments)]
                         .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
                     num_input_arguments += 1;
                 }
                 ArgumentKind::Output | ArgumentKind::Return => {
-                    // Executors store the state returned by `#[init]` instead of writing it to the
-                    // caller, so it is encoded as an output, like the state in the last `#[output]`
-                    // of `#[init]` without a return value
+                    // The return value is the last argument (see
+                    // `ArgumentsMetadataDecoder::decode_next()`), so it is also the last output. In
+                    // `#[init]` it is the state, which executors store instead of writing it to the
+                    // caller, so it is encoded as an output then, like the state in the last
+                    // `#[output]` of `#[init]` without a return value.
                     if matches!(item.argument_kind, ArgumentKind::Return)
                         && !matches!(method_kind, MethodKind::Init)
                     {
                         return_value_offset = Some(usize::from(num_output_arguments));
                     }
+                    // SAFETY: Same as for inputs above
+                    unsafe {
+                        hint::assert_unchecked(
+                            num_input_arguments + num_output_arguments < MAX_TOTAL_METHOD_ARGS,
+                        );
+                    }
+                    // After all inputs, which come before outputs
                     input_output_type_details
                         [usize::from(num_input_arguments + num_output_arguments)]
                     .write(item.type_details.unwrap_or(IoTypeDetails::bytes(0)));
@@ -245,7 +264,12 @@ impl TransactionPayloadBuilder {
                 }
             }
         }
-        // SAFETY: Just initialized elements above
+        // SAFETY: As for the writes above, the counters and their sum are at most `num_arguments`,
+        // so they stay within the `MAX_TOTAL_METHOD_ARGS` elements of the array. The metadata
+        // decoder returns all inputs before outputs (see
+        // `ArgumentsMetadataDecoder::decode_next()`), so the first `num_input_arguments` elements
+        // were initialized above with inputs and the next `num_output_arguments` ones with
+        // outputs.
         let (input_type_details, output_type_details) = unsafe {
             let (input_type_details, output_type_details) =
                 input_output_type_details.split_at_unchecked(usize::from(num_input_arguments));
@@ -276,13 +300,12 @@ impl TransactionPayloadBuilder {
         for (input_offset, type_details) in input_type_details.iter().enumerate() {
             let input_type = if let Some(&Some(output_index)) = input_output_index.get(input_offset)
             {
+                // Only the output index is written, so the alignment of the input isn't used
                 TransactionInput::new_output_index(output_index).ok_or(
                     TransactionPayloadBuilderError::InvalidOutputIndex(output_index),
                 )?
             } else {
-                TransactionInput::new_value(type_details.alignment).ok_or(
-                    TransactionPayloadBuilderError::InvalidAlignment(type_details.alignment),
-                )?
+                TransactionInput::new_value(type_details.alignment)
             };
             self.push_payload_byte(input_type.into_u8())?;
         }
@@ -291,8 +314,10 @@ impl TransactionPayloadBuilder {
         self.push_payload_byte(num_output_arguments)?;
 
         for slot_offset in 0..usize::from(num_slot_arguments) {
-            // SAFETY: Method description requires the layout to correspond to metadata
-            let address = unsafe { read_external_args::<NonNull<Address>>(external_args).as_ref() };
+            // SAFETY: Method description requires the layout to correspond to metadata, where all
+            // slots come before inputs and outputs (see `ArgumentsMetadataDecoder::decode_next()`),
+            // and the pointer to be non-null even when it dangles
+            let address = unsafe { read_external_args::<NonNull<Address>>(external_args) };
 
             if slot_output_index
                 .get(slot_offset)
@@ -300,23 +325,22 @@ impl TransactionPayloadBuilder {
                 .flatten()
                 .is_none()
             {
-                self.extend_payload_with_alignment(address.as_bytes(), align_of_val(address))?;
+                // SAFETY: Method description requires the layout to correspond to metadata, and
+                // the slot doesn't refer to an earlier output, so it points to an address
+                let address = unsafe { address.as_ref() };
+                self.extend_payload_with_alignment(address.as_bytes(), Alignment::of::<Address>())?;
             }
         }
 
         for (input_offset, type_details) in input_type_details.iter().enumerate() {
-            // SAFETY: Method description requires the layout to correspond to metadata
-            let (size, data) = unsafe {
-                let FfiDataSizeCapacityRo {
-                    data_ptr,
-                    size,
-                    capacity: _,
-                } = read_external_args(external_args);
-
-                let data = slice::from_raw_parts(data_ptr.as_ptr().cast_const(), size as usize);
-
-                (size, data)
-            };
+            // SAFETY: Method description requires the layout to correspond to metadata, where the
+            // inputs come right after the slots (see `ArgumentsMetadataDecoder::decode_next()`),
+            // and the pointer to be non-null even when it dangles
+            let FfiDataSizeCapacityRo {
+                data_ptr,
+                size,
+                capacity: _,
+            } = unsafe { read_external_args(external_args) };
 
             if input_output_index
                 .get(input_offset)
@@ -324,8 +348,12 @@ impl TransactionPayloadBuilder {
                 .flatten()
                 .is_none()
             {
-                self.extend_payload_with_alignment(&size.to_le_bytes(), align_of_val(&size))?;
-                self.extend_payload_with_alignment(data, type_details.alignment.get() as usize)?;
+                // SAFETY: Method description requires the layout to correspond to metadata, and
+                // the input doesn't refer to an earlier output, so it points to `size` bytes
+                let data =
+                    unsafe { slice::from_raw_parts(data_ptr.as_ptr().cast_const(), size as usize) };
+                self.extend_payload_with_alignment(&size.to_le_bytes(), Alignment::of::<u32>())?;
+                self.extend_payload_with_alignment(data, type_details.alignment)?;
             }
         }
 
@@ -334,13 +362,10 @@ impl TransactionPayloadBuilder {
                 TransactionOutput::new_return_value(type_details.alignment)
             } else {
                 TransactionOutput::new_output(type_details.alignment)
-            }
-            .ok_or(TransactionPayloadBuilderError::InvalidAlignment(
-                type_details.alignment,
-            ))?;
+            };
             self.extend_payload_with_alignment(
                 &type_details.recommended_capacity.to_le_bytes(),
-                align_of_val(&type_details.recommended_capacity),
+                Alignment::of::<u32>(),
             )?;
             self.push_payload_byte(output_type.into_u8())?;
         }
@@ -369,48 +394,44 @@ impl TransactionPayloadBuilder {
     ///     * [`Address`]
     /// * For each [`TransactionInput`], whose type is [`TransactionInputType::Value`]:
     ///     * Input size as little-endian `u32` followed by the input itself
-    /// * For each `#[output]` and the return value:
+    /// * For each `#[output]`, followed by the return value if there is one:
     ///     * recommended capacity as little-endian `u32` followed by [`TransactionOutput`] as `u8`
     ///
     /// [`TransactionSlotType::Address`]: crate::payload::TransactionSlotType::Address
     /// [`TransactionInputType::Value`]: crate::payload::TransactionInputType::Value
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn into_aligned_bytes(mut self) -> OwnedAlignedBuffer {
-        // SAFETY: Constructor guarantees that capacity is a multiple of `MAX_ALIGNMENT` and is
+        // SAFETY: Constructor guarantees that capacity is a multiple of `Alignment::MAX` and is
         // never exceeded
         unsafe {
-            self.ensure_alignment(usize::from(MAX_ALIGNMENT))
-                .unwrap_unchecked();
+            self.ensure_alignment(Alignment::MAX).unwrap_unchecked();
         }
 
         self.payload
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn extend_payload_with_alignment(
         &mut self,
         bytes: &[u8],
-        alignment: usize,
+        alignment: Alignment,
     ) -> Result<(), TransactionPayloadBuilderError<'static>> {
         self.ensure_alignment(alignment)?;
         self.extend_payload(bytes)
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn ensure_alignment(
         &mut self,
-        alignment: usize,
+        alignment: Alignment,
     ) -> Result<(), TransactionPayloadBuilderError<'static>> {
-        debug_assert!(alignment <= usize::from(MAX_ALIGNMENT));
+        let alignment = usize::from(alignment.get());
 
-        // Optimized version of the following that expects `alignment` to be a power of 2:
-        // let unaligned_by = self.payload.len() % alignment;
-        let unaligned_by = self.payload.len() as usize & (alignment - 1);
+        let unaligned_by = self.payload.len() as usize % alignment;
         if unaligned_by > 0 {
-            // SAFETY: Subtracted value is always smaller than alignment
-            let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
+            let padding_bytes = alignment - unaligned_by;
             // Byte by byte rather than as a slice of zeroes, which the compiler can't prove to be
-            // in bounds for alignments that come from metadata
+            // in bounds
             for _ in 0..padding_bytes {
                 self.push_payload_byte(0)?;
             }
@@ -419,7 +440,7 @@ impl TransactionPayloadBuilder {
         Ok(())
     }
 
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn push_payload_byte(
         &mut self,
         byte: u8,
@@ -428,7 +449,7 @@ impl TransactionPayloadBuilder {
     }
 
     /// Append `bytes` to the payload if they fit into its capacity, it is never reallocated
-    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn extend_payload(
         &mut self,
         bytes: &[u8],

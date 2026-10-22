@@ -22,9 +22,13 @@ ab-core-primitives = { workspace = true }
 ab-io-type = { workspace = true }
 ab-system-contract-state = { workspace = true }
 blake3 = { workspace = true }
-no-panic = { workspace = true, optional = true }
+no-panic-const = { workspace = true, optional = true }
 schnorrkel = { workspace = true }
 thiserror = { workspace = true }
+
+[[example]]
+name = "build-payload"
+required-features = ["payload-builder"]
 
 [features]
 guest = [
@@ -38,7 +42,7 @@ payload-builder = [
 ]
 # Check that code can't panic under any conditions
 no-panic = [
-    "dep:no-panic",
+    "dep:no-panic-const",
     # Helps with testing on CPUs without AVX512 support
     "blake3/no_avx512",
 ]

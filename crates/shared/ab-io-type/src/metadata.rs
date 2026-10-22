@@ -5,10 +5,10 @@ mod tests;
 mod type_details;
 mod type_name;
 
+use crate::alignment::Alignment;
 use crate::metadata::compact::compact_metadata;
 use crate::metadata::type_details::decode_type_details;
 use crate::metadata::type_name::type_name;
-use core::num::NonZeroU8;
 
 /// Max capacity for metadata bytes used in fixed size buffers
 pub const MAX_METADATA_CAPACITY: usize = 8192;
@@ -43,7 +43,7 @@ pub struct IoTypeDetails {
     /// host must allocate the recommended capacity for guest anyway.
     pub recommended_capacity: u32,
     /// Alignment of the type
-    pub alignment: NonZeroU8,
+    pub alignment: Alignment,
 }
 
 impl IoTypeDetails {
@@ -52,7 +52,7 @@ impl IoTypeDetails {
     pub const fn bytes(recommended_capacity: u32) -> Self {
         Self {
             recommended_capacity,
-            alignment: NonZeroU8::new(1).expect("Not zero; qed"),
+            alignment: Alignment::of::<u8>(),
         }
     }
 }

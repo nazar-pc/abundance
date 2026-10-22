@@ -65,15 +65,18 @@
     const_split_off_first_last,
     const_trait_impl,
     const_try,
+    derive_const,
     final_associated_functions,
     generic_const_args,
     generic_const_items,
     macroless_generic_const_args,
     min_generic_const_args,
+    mut_restriction,
     ptr_as_uninit
 )]
 #![no_std]
 
+pub mod alignment;
 pub mod fixed_capacity_bytes;
 pub mod fixed_capacity_elements;
 pub mod fixed_capacity_string;
@@ -84,13 +87,10 @@ pub mod unaligned;
 pub mod variable_bytes;
 pub mod variable_elements;
 
+use crate::alignment::Alignment;
 use crate::trivial_type::TrivialType;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-
-/// The maximum alignment supported by [`IoType`] types (16 bytes, corresponds to alignment of
-/// `u128`)
-pub const MAX_ALIGNMENT: u8 = 16;
 
 // Only little-endian platforms are supported. On big-endian platforms the byte order differs,
 // so `TrivialType` values cannot be transferred simply by sending their raw struct bytes
@@ -106,7 +106,7 @@ const {
 
     // Max alignment is expected to match that of `u128`
     assert!(
-        align_of::<u128>() == MAX_ALIGNMENT as usize,
+        align_of::<u128>() == usize::from(Alignment::MAX.get()),
         "Max alignment mismatch"
     );
 
