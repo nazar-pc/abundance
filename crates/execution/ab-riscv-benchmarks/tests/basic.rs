@@ -110,7 +110,7 @@ where
             state.memory
         }
         RunType::Eager => {
-            // SAFETY: Contract code is trusted
+            // SAFETY: `unimp` never continues to the next instruction
             let instructions = unsafe {
                 BasicEagerInstructions::decode(
                     contract_file.get_code(),
@@ -134,7 +134,7 @@ where
             state.memory
         }
         RunType::EagerThreaded => {
-            // SAFETY: Contract code is trusted
+            // SAFETY: `unimp` never continues to the next instruction
             let instructions = unsafe {
                 BasicEagerInstructions::decode(
                     contract_file.get_code(),

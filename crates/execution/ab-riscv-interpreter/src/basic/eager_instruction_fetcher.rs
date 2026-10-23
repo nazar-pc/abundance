@@ -259,6 +259,8 @@ where
 
     /// Decode `instructions` and create a new instance holding the result.
     ///
+    /// Execution runs the frozen set of instructions decoded here, before execution starts.
+    ///
     /// `base_addr` is the guest address of the first instruction and `return_trap_address` is the
     /// address at which the interpreter will stop execution (gracefully).
     ///
@@ -299,16 +301,11 @@ where
     /// # Safety
     /// Execution of the resulting instruction stream skips the checks that
     /// [`BasicInstructionFetcher`](super::BasicInstructionFetcher) does, which is where the
-    /// performance comes from. Both of the following must hold:
-    /// * `fallback` must never continue to the next instruction when executed (`unimp`, which
-    ///   always fails, is the canonical choice). Instruction fetching does not bounds-check the
-    ///   position, only [`ProgramCounter::set_pc()`] and [`ProgramCounter::try_set_pc_relative()`]
-    ///   do, and falling through the end of the decoded stream lands on `fallback`, which must not
-    ///   fall through any further.
-    /// * The memory the program executes with must contain these very instructions at `base_addr`,
-    ///   and the program must not modify them (there is no `Zifencei` support here). The decoded
-    ///   stream is a snapshot taken here, and it is what execution walks, so writes into the code
-    ///   region are not reflected in what is executed.
+    /// performance comes from. `fallback` must never continue to the next instruction when executed
+    /// (`unimp`, which always fails, is the canonical choice). Instruction fetching does not
+    /// bounds-check the position, only [`ProgramCounter::set_pc()`] and
+    /// [`ProgramCounter::try_set_pc_relative()`] do, and falling through the end of the decoded
+    /// stream lands on `fallback`, which must not fall through any further.
     pub unsafe fn decode(
         instructions: &[u8],
         fallback: I,

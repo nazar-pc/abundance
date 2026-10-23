@@ -123,8 +123,7 @@ where
 
 /// Decode [`code()`], which [`new_fetcher()`] then walks
 fn new_instructions(return_trap_address: u64) -> BasicEagerInstructions<I> {
-    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
-    // instruction stream and the base address is aligned
+    // SAFETY: `unimp` never continues to the next instruction
     unsafe { BasicEagerInstructions::decode(&code(), FALLBACK, return_trap_address, BASE_ADDR) }
         .expect("Callers only pass a return trap outside of the code and not too far from it; qed")
 }
@@ -282,8 +281,7 @@ fn jump_to_a_trap_below_the_stream_stops_at_the_trap() {
     // `jal zero, -0x1000`, from the first instruction down to address 0
     assert_eq!(BASE_ADDR, 0x1000);
     let code = 0x800f_f06f_u32.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
-    // instruction stream and the base address is aligned
+    // SAFETY: `unimp` never continues to the next instruction
     let instructions =
         unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) }
             .expect("Short code at an aligned address, return trap close below it; qed");
@@ -312,8 +310,7 @@ fn jump_to_a_trap_below_the_stream_stops_at_the_trap() {
 /// The last one is from the loop started again where it stopped.
 fn ret_to_trap(return_trap_address: u64) -> [u64; 3] {
     let code = RET.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
-    // instruction stream and the base address is aligned
+    // SAFETY: `unimp` never continues to the next instruction
     let instructions = unsafe {
         BasicEagerInstructions::<I>::decode(&code, FALLBACK, return_trap_address, BASE_ADDR)
     }
@@ -665,8 +662,7 @@ fn branch_that_wraps_around_the_address_space_is_out_of_bounds() {
 fn falling_through_the_end_reaches_the_fallback() {
     // Doesn't end with a jump
     let code = NOP.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
-    // instruction stream and the base address is aligned
+    // SAFETY: `unimp` never continues to the next instruction
     let instructions =
         unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) }
             .expect("Short code at an aligned address, return trap close below it; qed");
@@ -687,8 +683,7 @@ fn falling_through_the_end_reaches_the_fallback() {
 fn jump_into_the_second_half_of_the_last_instruction_falls_through_to_the_fallback() {
     // `jal zero, 2` jumps into its own second half, which decodes as `c.addi4spn s0, sp, 8`
     let code = 0x0020_006f_u32.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
-    // instruction stream and the base address is aligned
+    // SAFETY: `unimp` never continues to the next instruction
     let instructions = unsafe {
         BasicEagerInstructions::<CompressedInstruction>::decode(
             &code,
@@ -717,8 +712,7 @@ fn instruction_longer_than_guest_code_left_is_not_decoded() {
     // zeroes that are not in the guest code
     let code = [0x0001_u16.to_le_bytes(), 0x006f_u16.to_le_bytes()].concat();
     assert!(<CompressedInstruction>::try_decode(0x006f).is_some());
-    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
-    // instruction stream and the base address is aligned
+    // SAFETY: `unimp` never continues to the next instruction
     let instructions = unsafe {
         BasicEagerInstructions::<CompressedInstruction>::decode(
             &code,
@@ -887,8 +881,7 @@ fn execution_after_a_jump_to_a_trap_above_the_stream_stops_right_away() {
 fn execution_that_starts_again_past_the_fallback_fails_right_away() {
     // Doesn't end with a jump, so execution falls through to the fallback instruction
     let code = NOP.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
-    // instruction stream and the base address is aligned
+    // SAFETY: `unimp` never continues to the next instruction
     let instructions =
         unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) }
             .expect("Short code at an aligned address, return trap close below it; qed");
@@ -976,8 +969,7 @@ fn ecall_with(handler: JumpingEcallHandler) -> Vec<(Result<(), ExecutionError<u6
         .iter()
         .flat_map(|instruction| instruction.to_le_bytes())
         .collect::<Vec<_>>();
-    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
-    // instruction stream and the base address is aligned
+    // SAFETY: `unimp` never continues to the next instruction
     let instructions =
         unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) }
             .expect("Short code at an aligned address, return trap close below it; qed");

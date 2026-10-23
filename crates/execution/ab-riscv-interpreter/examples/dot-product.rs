@@ -413,10 +413,7 @@ fn main() -> anyhow::Result<()> {
     let text = elf
         .section_by_name(".text")
         .context("Guest ELF has no `.text` section")?;
-    // SAFETY: `unimp` never continues to the next instruction, the guest does not write into its
-    // own code, the trap address is outside of it, `.text` is loaded at its own address,
-    // which is a multiple of the instruction alignment, and guest memory is far from the end of the
-    // address space
+    // SAFETY: `unimp` never continues to the next instruction
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             text.data()
