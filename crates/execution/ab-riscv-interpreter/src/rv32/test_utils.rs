@@ -310,9 +310,9 @@ where
         &mut self,
         _regs: &mut Regs,
         _memory: &mut TestMemory,
-        program_counter: &mut TestInstructionFetcher<I>,
-    ) -> Result<ControlFlow<()>, ExecutionError<u32>> {
-        Err(ExecutionError::EcallUnsupported {
+        program_counter: &TestInstructionFetcher<I>,
+    ) -> ExecutionResult<Reg<u32>> {
+        ExecutionResult::Err(ExecutionError::EcallUnsupported {
             address: crate::PackedAddress::new(
                 program_counter.old_pc(
                     Rv32Instruction::<BasicHart<Reg<u32>>>::Ecall {
@@ -394,7 +394,7 @@ where
             &mut state.regs,
             &mut state.env,
             &mut state.memory,
-            &mut state.instruction_fetcher,
+            &state.instruction_fetcher,
         ) {
             ExecutionResult::Continue { rd, value } => {
                 state.regs.write(rd, value);

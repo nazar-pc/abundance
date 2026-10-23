@@ -58,7 +58,6 @@ use anyhow::Context;
 use object::{Object, ObjectSection};
 use std::fmt;
 use std::hint::cold_path;
-use std::ops::ControlFlow;
 
 /// The guest program, see `examples/guests` in the repository
 const GUEST_ELF: &[u8] = include_bytes!("prebuilt/dot-product.elf");
@@ -178,7 +177,7 @@ where
         regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
@@ -358,9 +357,9 @@ where
         &mut self,
         _regs: &mut Regs,
         _memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
-        Err(ExecutionError::EcallUnsupported {
+        program_counter: &PC,
+    ) -> ExecutionResult<Reg<u64>> {
+        ExecutionResult::Err(ExecutionError::EcallUnsupported {
             address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
         })
     }

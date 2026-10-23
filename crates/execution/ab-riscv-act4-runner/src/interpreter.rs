@@ -2,7 +2,6 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
-use core::ops::ControlFlow;
 use std::collections::BTreeMap;
 
 /// Bit index of `mstatus.MIE`
@@ -387,9 +386,9 @@ where
     fn handle_ecall(
         &mut self,
         _regs: &mut Regs,
-        memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
+        _memory: &mut Memory,
+        program_counter: &PC,
+    ) -> ExecutionResult<Reg> {
         // `ecall` always traps in M-mode (there is no less-privileged mode to delegate to, and
         // TRAP_ON_ECALL_FROM_M is true for this core) - dispatch through the trap handler like any
         // other synchronous exception, rather than treating it as an illegal instruction. Per spec,
@@ -404,16 +403,16 @@ where
             .ok_or(ExecutionError::IllegalInstruction {
                 address: PackedAddress::new(epc),
             })?;
-        program_counter.set_pc(memory, trap_pc)
+        ExecutionResult::Jump { target: trap_pc }
     }
 
     fn handle_ebreak(
         &mut self,
         _regs: &mut Regs,
-        memory: &mut Memory,
-        program_counter: &mut PC,
+        _memory: &mut Memory,
+        program_counter: &PC,
         instruction_size: u8,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
+    ) -> ExecutionResult<Reg> {
         // `ebreak`/`c.ebreak` always trap in M-mode (TRAP_ON_EBREAK is true for this core) -
         // dispatch through the trap handler like `ecall` above, rather than the default no-op.
         // Per REPORT_VA_IN_MTVAL_ON_BREAKPOINT (false for this core), `mtval` is zero.
@@ -423,7 +422,7 @@ where
             .ok_or(ExecutionError::IllegalInstruction {
                 address: PackedAddress::new(epc),
             })?;
-        program_counter.set_pc(memory, trap_pc)
+        ExecutionResult::Jump { target: trap_pc }
     }
 }
 

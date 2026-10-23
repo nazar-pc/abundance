@@ -948,8 +948,8 @@ where
         &mut self,
         regs: &mut Regs,
         memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>>;
+        program_counter: &PC,
+    ) -> ExecutionResult<Reg>;
 
     /// Handle an `ebreak` (or compressed `c.ebreak`) instruction
     #[inline(always)]
@@ -957,16 +957,16 @@ where
         &mut self,
         regs: &mut Regs,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
         instruction_size: u8,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
+    ) -> ExecutionResult<Reg> {
         // These are for cleaner trait API without leading `_` on arguments
         let _: &Regs = regs;
         let _: &mut Memory = memory;
-        let _: &mut PC = program_counter;
+        let _: &PC = program_counter;
         let _: u8 = instruction_size;
         // NOP by default
-        Ok(ControlFlow::Continue(()))
+        ExecutionResult::ContinueNoWrite
     }
 }
 
@@ -991,8 +991,8 @@ where
         &mut self,
         regs: &mut Regs,
         memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
+        program_counter: &PC,
+    ) -> ExecutionResult<Reg> {
         T::handle_ecall(self, regs, memory, program_counter)
     }
 
@@ -1001,9 +1001,9 @@ where
         &mut self,
         regs: &mut Regs,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
         instruction_size: u8,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
+    ) -> ExecutionResult<Reg> {
         T::handle_ebreak(self, regs, memory, program_counter, instruction_size)
     }
 }
@@ -1137,13 +1137,16 @@ where
     /// be written into the register file. In most cases this is the only register that needs to
     /// be written. If no value needs to be written, `ExecutionResult::ContinueNoWrite` should be
     /// returned, which skips the register file write entirely.
+    ///
+    /// `program_counter` is read-only. Instructions say where execution goes next with
+    /// [`ExecutionResult::Branch`] or [`ExecutionResult::Jump`].
     fn execute(
         self,
         rs1rs2_values: Rs1Rs2OperandValues<<<Self::Hart as HartConfig>::Reg as Register>::Type>,
         regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<<Self::Hart as HartConfig>::Reg>;
 }
 

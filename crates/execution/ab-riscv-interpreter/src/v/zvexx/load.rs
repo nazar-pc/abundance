@@ -53,7 +53,7 @@ where
         _regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         match self {
             // Whole-register load: loads `nreg` consecutive registers starting at `vd` directly

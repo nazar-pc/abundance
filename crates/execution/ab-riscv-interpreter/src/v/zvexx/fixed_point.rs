@@ -53,7 +53,7 @@ where
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         match self {
             // vsaddu.vv / vsaddu.vx / vsaddu.vi - saturating unsigned add

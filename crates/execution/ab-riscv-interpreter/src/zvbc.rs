@@ -66,7 +66,7 @@ where
         _regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         match self {
             // vclmul: vd[i] = lower SEW bits of clmul(vs2[i], vs1[i])

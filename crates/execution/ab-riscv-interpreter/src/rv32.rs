@@ -23,7 +23,6 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg, Hart> ExecutableInstructionOperands for Rv32Instruction<Hart>
@@ -63,7 +62,7 @@ where
         regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         match self {
             Self::Add { rd, rs1: _, rs2: _ } => {
@@ -348,15 +347,9 @@ where
                 ExecutionResult::ContinueNoWrite
             }
 
-            Self::Ecall => match env.handle_ecall(regs, memory, program_counter)? {
-                ControlFlow::Continue(()) => ExecutionResult::ContinueNoWrite,
-                ControlFlow::Break(()) => ExecutionResult::Break,
-            },
+            Self::Ecall => env.handle_ecall(regs, memory, program_counter),
             Self::Ebreak => {
-                match env.handle_ebreak(regs, memory, program_counter, size_of::<u32>() as u8)? {
-                    ControlFlow::Continue(()) => ExecutionResult::ContinueNoWrite,
-                    ControlFlow::Break(()) => ExecutionResult::Break,
-                }
+                env.handle_ebreak(regs, memory, program_counter, size_of::<u32>() as u8)
             }
 
             Self::Unimp => {

@@ -3,6 +3,9 @@
 Breaking changes:
 
 * Minor changes in `InstructionFetcher` API for improved performance of threaded execution
+* `ExecutableInstruction::execute()`, `SystemInstructionHandler::handle_ecall()` and `handle_ebreak()` take the program
+  counter by shared reference, and the handlers return `ExecutionResult`: instructions and handlers no longer move the
+  program counter, they return where execution continues (`ExecutionResult::Jump` to a trap vector, for example)
 * `vtype` and `vl` are stored and accessed together as `VectorConfig`, which keeps `vl <= VLMAX` by construction:
   `VectorRegistersExt::vector_config()` and `set_vector_config()` replace the separate `vl`/`vtype` accessors and
   setters, and `VectorRegisters::compute_vl()` and `vlmax_for_vtype()` are removed (`VLMAX` is `Vtype::vlmax()` now)

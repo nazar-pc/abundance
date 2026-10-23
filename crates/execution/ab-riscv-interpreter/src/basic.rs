@@ -283,7 +283,7 @@ impl<Regs, Env, Memory, IF> BasicInterpreterState<Regs, Env, Memory, IF> {
                         &mut self.regs,
                         &mut self.env,
                         &mut self.memory,
-                        &mut instruction_fetcher,
+                        &instruction_fetcher,
                     );
 
                     let control_flow =
@@ -739,9 +739,9 @@ where
         &mut self,
         _regs: &mut Regs,
         _memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<Reg::Type>> {
-        Err(ExecutionError::IllegalInstruction {
+        program_counter: &PC,
+    ) -> ExecutionResult<Reg> {
+        ExecutionResult::Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
         })
     }

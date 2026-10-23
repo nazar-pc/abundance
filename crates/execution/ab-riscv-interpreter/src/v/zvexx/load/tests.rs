@@ -126,13 +126,13 @@ where
         rs1_value: state.regs.read(rs1),
         rs2_value: state.regs.read(rs2),
     };
-    let mut instruction_fetcher = BasicInstructionFetcher::new(TRAP_ADDRESS, TEST_BASE_ADDR);
+    let instruction_fetcher = BasicInstructionFetcher::new(TRAP_ADDRESS, TEST_BASE_ADDR);
     instruction.execute(
         rs1rs2_values,
         &mut state.regs,
         &mut state.env,
         memory,
-        &mut instruction_fetcher,
+        &instruction_fetcher,
     )
 }
 
@@ -203,7 +203,7 @@ fn exec_one(
         &mut state.regs,
         &mut state.env,
         &mut state.memory,
-        &mut state.instruction_fetcher,
+        &state.instruction_fetcher,
     ) {
         Err(error)
     } else {
@@ -291,7 +291,7 @@ fn exec_one_zve32(
         &mut state.regs,
         &mut env,
         &mut state.memory,
-        &mut state.instruction_fetcher,
+        &state.instruction_fetcher,
     );
     state.env = env.into_env();
 
@@ -723,7 +723,7 @@ fn vlm_only_uses_requested_bytes_of_longer_slice() {
     let mut state = setup(Vl::new(10).unwrap(), Vsew::E8, Vlmul::M1);
     let mut memory = GreedyReadSliceMemory(BasicMemory::default());
     memory.write_slice(TEST_BASE_ADDR, &[0xff; 4096]).unwrap();
-    let mut instruction_fetcher =
+    let instruction_fetcher =
         BasicInstructionFetcher::<ZveXxLoadInstruction<TestHart>>::new(0, TEST_BASE_ADDR);
 
     let result = ZveXxLoadInstruction::<TestHart>::Vlm {
@@ -739,7 +739,7 @@ fn vlm_only_uses_requested_bytes_of_longer_slice() {
         &mut state.regs,
         &mut state.env,
         &mut memory,
-        &mut instruction_fetcher,
+        &instruction_fetcher,
     );
 
     assert_matches!(result, ExecutionResult::ContinueNoWrite);

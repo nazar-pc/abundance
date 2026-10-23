@@ -284,7 +284,7 @@ pub(super) fn generate_threaded_fns(
                     regs,
                     &mut env,
                     memory,
-                    &mut instruction_fetcher,
+                    &instruction_fetcher,
                 );
 
                 let control_flow = match execution_result {

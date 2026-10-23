@@ -66,7 +66,7 @@ where
         _regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         match self {
             // vandn: vd[i] = ~vs1[i] & vs2[i]  (or ~rs1 & vs2[i])
