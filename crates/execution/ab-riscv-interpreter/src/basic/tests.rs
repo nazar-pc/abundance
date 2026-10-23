@@ -324,3 +324,72 @@ fn execution_that_starts_at_the_trap_stops_right_away() {
         assert_eq!(stopped_at, 0);
     }
 }
+
+/// Run `ret` at `MEMORY_BASE_ADDRESS` with `ra` holding `return_trap_address` through
+/// [`BasicInstructionFetcher`], with threaded dispatch and with the loop of
+/// [`BasicInterpreterState`], and return the program counter each one stops with. The last one is
+/// from the loop started again where it stopped.
+fn ret_to_trap(return_trap_address: u64) -> [u64; 3] {
+    let mut memory = Memory::default();
+    memory
+        .get_mut_bytes(MEMORY_BASE_ADDRESS, size_of::<u32>())
+        .expect("Within memory; qed")
+        .copy_from_slice(&RET.to_le_bytes());
+    let fetcher = BasicInstructionFetcher::<I>::new(return_trap_address, MEMORY_BASE_ADDRESS);
+    let mut regs = BasicRegisters::<Reg<u64>>::default();
+    regs.write(Reg::Ra, return_trap_address);
+
+    let result = I::execute_threaded(
+        fetcher,
+        &mut regs.clone(),
+        IllegalEcallSystemInstructionHandler,
+        &mut memory.clone(),
+    );
+    assert_matches!(
+        result.outcome,
+        Ok(()),
+        "Unexpected outcome {:?}",
+        result.outcome
+    );
+
+    let mut state = BasicInterpreterState {
+        regs,
+        env: IllegalEcallSystemInstructionHandler,
+        memory,
+        instruction_fetcher: fetcher,
+    };
+    let outcome = state.execute::<I>();
+    assert_matches!(outcome, Ok(()), "Unexpected outcome {outcome:?}");
+    let stopped_at = ProgramCounter::<u64, Memory>::get_pc(&state.instruction_fetcher);
+
+    // Starting again at the trap stops right away
+    let outcome = state.execute::<I>();
+    assert_matches!(outcome, Ok(()), "Unexpected outcome {outcome:?}");
+
+    [
+        result.program_counter,
+        stopped_at,
+        ProgramCounter::<u64, Memory>::get_pc(&state.instruction_fetcher),
+    ]
+}
+
+#[test]
+fn absolute_jump_to_a_trap_below_the_code_stops_at_the_trap() {
+    // Threaded dispatch can't run on an x86-64 CPU without AVX
+    if !OpaqueThreadedExecutionResult::<I>::platform_supported() {
+        return;
+    }
+
+    assert_eq!(ret_to_trap(0), [0; 3]);
+}
+
+#[test]
+fn absolute_jump_to_a_trap_above_the_code_stops_at_the_trap() {
+    // Threaded dispatch can't run on an x86-64 CPU without AVX
+    if !OpaqueThreadedExecutionResult::<I>::platform_supported() {
+        return;
+    }
+
+    let return_trap_address = MEMORY_BASE_ADDRESS + 0x100;
+    assert_eq!(ret_to_trap(return_trap_address), [return_trap_address; 3]);
+}

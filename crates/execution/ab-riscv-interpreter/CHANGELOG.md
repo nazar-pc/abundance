@@ -53,6 +53,8 @@ Improvements:
 
 Fixes:
 
+* `BasicInstructionFetcher::get_pc()`, and so `ThreadedExecutionResult::program_counter`, was the address after a jump
+  to the return trap instead of the trap itself, and calling `execute()` again continued after that jump
 * Undefined behavior reachable from safe code: an inconsistent `vl`/`vtype` pair or an overridden `vlmax_for_vtype()`
   in an environment, a `VirtualMemory::read_slice()` implementation returning more bytes than requested in `vlm.v`, and
   widening instructions with `ELEN` above 64

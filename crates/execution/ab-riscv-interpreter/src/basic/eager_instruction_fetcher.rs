@@ -521,6 +521,21 @@ where
     ) -> Result<ControlFlow<()>, ExecutionError<Address<I>>> {
         if pc == self.return_trap_address() {
             cold_path();
+            // Move the position to where the trap would be in the decoded stream. `get_pc()` reads
+            // the program counter from the position, so it then reports the trap address. The
+            // position ends up outside the decoded stream, the same as after a refused branch.
+            // Wrapping arithmetic is fine here, because this only computes an address. The one
+            // catch is a trap so far away that it wraps around the address space, which then comes
+            // out as a different address. Execution that starts again may then resume there
+            // instead of stopping.
+            let guest_byte_offset = pc
+                .as_u64()
+                .wrapping_sub(self.base_addr().as_u64())
+                .cast_signed() as isize;
+            let byte_delta = guest_byte_offset.wrapping_mul(
+                BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.cast_signed(),
+            );
+            self.next_instruction = self.instructions.as_ptr().wrapping_byte_offset(byte_delta);
             return Ok(ControlFlow::Break(()));
         }
 

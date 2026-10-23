@@ -16,7 +16,7 @@ use crate::basic::{
 use crate::rv64::test_utils::TestHart;
 use crate::{
     ExecutionError, ExecutionResult, FetchInstructionResult, InstructionFetcher,
-    OpaqueThreadedExecutionResult, ProgramCounter, SystemInstructionHandler,
+    OpaqueThreadedExecutionResult, ProgramCounter, RegisterFile, SystemInstructionHandler,
     ThreadedExecutableInstruction,
 };
 use ab_riscv_macros::instruction;
@@ -302,6 +302,77 @@ fn jump_to_a_trap_below_the_stream_stops_at_the_trap() {
         result.outcome
     );
     assert_eq!(result.program_counter, 0);
+}
+
+/// Run `ret` at `BASE_ADDR` with `ra` holding `return_trap_address`, with threaded dispatch and
+/// with the loop of [`BasicInterpreterState`], and return the program counter each one stops with.
+/// The last one is from the loop started again where it stopped.
+fn ret_to_trap(return_trap_address: u64) -> [u64; 3] {
+    let code = RET.to_le_bytes();
+    // SAFETY: `unimp` never continues to the next instruction, the return trap is outside of the
+    // instruction stream and the base address is aligned
+    let instructions = unsafe {
+        BasicEagerInstructions::<I>::decode(&code, FALLBACK, return_trap_address, BASE_ADDR)
+    };
+    let fetcher = instructions
+        .fetcher(BASE_ADDR)
+        .expect("This is the address of the first instruction; qed");
+    let mut regs = BasicRegisters::<Reg<u64>>::default();
+    regs.write(Reg::Ra, return_trap_address);
+
+    let result = I::execute_threaded(
+        fetcher,
+        &mut regs.clone(),
+        IllegalEcallSystemInstructionHandler,
+        &mut Memory::default(),
+    );
+    assert_matches!(
+        result.outcome,
+        Ok(()),
+        "Unexpected outcome {:?}",
+        result.outcome
+    );
+
+    let mut state = BasicInterpreterState {
+        regs,
+        env: IllegalEcallSystemInstructionHandler,
+        memory: Memory::default(),
+        instruction_fetcher: fetcher,
+    };
+    let outcome = state.execute::<I>();
+    assert_matches!(outcome, Ok(()), "Unexpected outcome {outcome:?}");
+    let stopped_at = ProgramCounter::<u64, Memory>::get_pc(&state.instruction_fetcher);
+
+    // The position is outside of the decoded stream now, and starting again stops right away
+    let outcome = state.execute::<I>();
+    assert_matches!(outcome, Ok(()), "Unexpected outcome {outcome:?}");
+
+    [
+        result.program_counter,
+        stopped_at,
+        ProgramCounter::<u64, Memory>::get_pc(&state.instruction_fetcher),
+    ]
+}
+
+#[test]
+fn absolute_jump_to_a_trap_below_the_stream_stops_at_the_trap() {
+    // Threaded dispatch can't run on an x86-64 CPU without AVX
+    if !OpaqueThreadedExecutionResult::<I>::platform_supported() {
+        return;
+    }
+
+    assert_eq!(ret_to_trap(0), [0; 3]);
+}
+
+#[test]
+fn absolute_jump_to_a_trap_above_the_stream_stops_at_the_trap() {
+    // Threaded dispatch can't run on an x86-64 CPU without AVX
+    if !OpaqueThreadedExecutionResult::<I>::platform_supported() {
+        return;
+    }
+
+    let return_trap_address = BASE_ADDR + 0x100;
+    assert_eq!(ret_to_trap(return_trap_address), [return_trap_address; 3]);
 }
 
 #[test]
@@ -607,6 +678,24 @@ fn execution_after_a_branch_to_the_trap_stops_right_away() {
     for (outcome, pc) in execute_again(fetcher) {
         assert_matches!(outcome, Ok(()), "Unexpected outcome {outcome:?}");
         assert_eq!(pc, 0);
+    }
+}
+
+#[test]
+fn execution_after_a_jump_to_a_trap_above_the_stream_stops_right_away() {
+    let return_trap_address = END_ADDR + 4;
+    let instructions = new_instructions(return_trap_address);
+    let mut fetcher = new_fetcher(&instructions);
+
+    assert_matches!(
+        fetcher.set_pc(&Memory::default(), return_trap_address),
+        Ok(ControlFlow::Break(())),
+        "Expected Break"
+    );
+    // Nothing is fetched from where the jump left the position, outside of the decoded stream
+    for (outcome, pc) in execute_again(fetcher) {
+        assert_matches!(outcome, Ok(()), "Unexpected outcome {outcome:?}");
+        assert_eq!(pc, return_trap_address);
     }
 }
 

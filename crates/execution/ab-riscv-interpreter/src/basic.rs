@@ -651,6 +651,8 @@ where
     ) -> Result<ControlFlow<()>, ExecutionError<Address<I>>> {
         if pc == self.return_trap_address {
             cold_path();
+            // Execution stops at the trap, so that is the program counter `get_pc()` reports
+            self.pc = pc;
             return Ok(ControlFlow::Break(()));
         }
 
