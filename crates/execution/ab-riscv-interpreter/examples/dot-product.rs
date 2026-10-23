@@ -428,7 +428,8 @@ fn main() -> anyhow::Result<()> {
             TRAP_ADDRESS,
             text.address(),
         )
-    };
+    }
+    .context("Failed to decode `.text` section of the guest ELF")?;
 
     // Arguments and the return address, exactly as a RISC-V caller would set them up
     let mut regs = BasicRegisters::<Reg<u64>, true>::default();

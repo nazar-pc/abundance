@@ -14,7 +14,7 @@ mod tests;
 
 #[cfg(all(feature = "alloc", target_pointer_width = "64"))]
 pub use crate::basic::eager_instruction_fetcher::{
-    BasicEagerInstructionFetcher, BasicEagerInstructions,
+    BasicEagerDecodeError, BasicEagerInstructionFetcher, BasicEagerInstructions,
 };
 use crate::zawrs::WrsHandler;
 use crate::zifencei::FenceIHandler;

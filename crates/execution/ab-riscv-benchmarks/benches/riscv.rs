@@ -89,7 +89,8 @@ fn criterion_benchmark(c: &mut Criterion) {
                         MEMORY_BASE_ADDRESS
                             + u64::from(contract_file.header().read_only_section_memory_size),
                     )
-                };
+                }
+                .unwrap();
                 black_box(instructions);
             });
         });
@@ -138,7 +139,8 @@ fn criterion_benchmark(c: &mut Criterion) {
             TRAP_ADDRESS,
             MEMORY_BASE_ADDRESS + u64::from(contract_file.header().read_only_section_memory_size),
         )
-    };
+    }
+    .unwrap();
 
     let mut eager_state = BasicInterpreterState {
         regs: ContractRegisters::<false>::default(),

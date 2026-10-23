@@ -98,7 +98,8 @@ fn main() -> anyhow::Result<()> {
             TRAP_ADDRESS,
             text_addr,
         )
-    };
+    }
+    .context("Failed to decode `.text` section of the guest ELF")?;
     let instruction_fetcher = instructions
         .fetcher(entry_point)
         .context("Entry point is not one of the decoded instructions")?;

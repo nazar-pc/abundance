@@ -119,7 +119,8 @@ where
                     MEMORY_BASE_ADDRESS
                         + u64::from(contract_file.header().read_only_section_memory_size),
                 )
-            };
+            }
+            .unwrap();
             let instruction_fetcher = instructions.fetcher(pc).unwrap();
 
             let mut state = BasicInterpreterState {
@@ -142,7 +143,8 @@ where
                     MEMORY_BASE_ADDRESS
                         + u64::from(contract_file.header().read_only_section_memory_size),
                 )
-            };
+            }
+            .unwrap();
             let instruction_fetcher = instructions.fetcher(pc).unwrap();
 
             ContractInstruction::execute_threaded(
