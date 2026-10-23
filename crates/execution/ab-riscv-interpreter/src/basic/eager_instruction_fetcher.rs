@@ -365,6 +365,11 @@ where
 /// Eager instruction fetcher walks instructions that [`BasicEagerInstructions`] decoded upfront.
 ///
 /// This is a plain `Copy` cursor without a destructor, see [`BasicEagerInstructions`] for why.
+///
+/// The fallback instruction after the decoded stream has no address of its own, so
+/// [`ProgramCounter::set_pc()`] refuses the address right after the decoded stream as out of
+/// bounds. Execution that starts again at that address therefore fails with
+/// [`ExecutionError::OutOfBoundsRead`] instead of running the fallback instruction.
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct BasicEagerInstructionFetcher<'a, I>
@@ -564,19 +569,21 @@ where
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn peek_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I, ()> {
+    unsafe fn peek_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I, ()> {
         FetchInstructionResult::Instruction(())
     }
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn peeked_instruction<'a>(&'a self, (): &'a ()) -> &'a I {
-        // SAFETY: Branches and jumps are bounds-checked by `Self::set_pc()` and
-        // `Self::try_set_pc_relative()`. Otherwise, the position is advanced past an executed
-        // instruction, which `BasicEagerInstructions::decode()` guarantees to fit into the decoded
-        // stream, and the fallback instruction after it is guaranteed to never continue to the
-        // next instruction. Hence, the position always points at a decoded instruction or the
-        // fallback instruction, which are borrowed for as long as `self` is.
+    unsafe fn peeked_instruction<'a>(&'a self, (): &'a ()) -> &'a I {
+        // SAFETY: The caller peeked with fetching allowed, and the position has not moved since.
+        // Wherever fetching is allowed, the position is at a decoded instruction or at the
+        // fallback instruction after them. `BasicEagerInstructions::fetcher()`, `Self::set_pc()`
+        // and `Self::try_set_pc_relative()` only accept positions within the decoded stream.
+        // Moving past an instruction that continues stays within it or lands on the fallback
+        // instruction, which `BasicEagerInstructions::decode()` guarantees, and the fallback
+        // instruction never continues. The decoded instructions are borrowed for as long as
+        // `self` is.
         unsafe { &*self.next_instruction }
     }
 
@@ -593,9 +600,9 @@ where
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn fetch_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I> {
-        // SAFETY: The position always points at a decoded instruction, see
-        // `Self::peeked_instruction()`
+    unsafe fn fetch_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I> {
+        // SAFETY: The caller makes sure fetching is allowed, so the position is at a decoded
+        // instruction, see `Self::peeked_instruction()`
         let instruction = unsafe { self.next_instruction.read() };
 
         // SAFETY: The instruction was just read successfully, and this is the only place that

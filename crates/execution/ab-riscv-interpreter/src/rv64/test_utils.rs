@@ -204,12 +204,12 @@ where
     type Peeked = I;
 
     #[inline(always)]
-    fn peeked_instruction<'a>(&'a self, peeked: &'a I) -> &'a I {
+    unsafe fn peeked_instruction<'a>(&'a self, peeked: &'a I) -> &'a I {
         peeked
     }
 
     #[inline]
-    fn peek_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
+    unsafe fn peek_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
         if self.pc == self.return_trap_address {
             return FetchInstructionResult::Break;
         }
@@ -235,8 +235,9 @@ where
     }
 
     #[inline]
-    fn fetch_instruction(&mut self, memory: &TestMemory) -> FetchInstructionResult<I> {
-        let result = self.peek_instruction(memory);
+    unsafe fn fetch_instruction(&mut self, memory: &TestMemory) -> FetchInstructionResult<I> {
+        // SAFETY: Same requirements as for this method, which the caller upholds
+        let result = unsafe { self.peek_instruction(memory) };
 
         if let FetchInstructionResult::Instruction(instruction) = result {
             // SAFETY: The instruction was just peeked successfully, and this is the only place that
@@ -565,7 +566,10 @@ where
         >,
 {
     loop {
-        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
+        // SAFETY: `TestInstructionFetcher` checks the program counter on every fetch, so fetching
+        // is allowed at any program counter
+        let fetched = unsafe { state.instruction_fetcher.fetch_instruction(&state.memory) };
+        let instruction = match fetched {
             FetchInstructionResult::Instruction(instruction) => instruction,
             FetchInstructionResult::Continue => {
                 continue;

@@ -239,6 +239,14 @@ impl<Regs, Env, Memory, IF> BasicInterpreterState<Regs, Env, Memory, IF> {
     /// The implementation is designed to be efficient with little left to optimize further. Though
     /// it is still possible to improve performance by applying additional constraints on the
     /// program.
+    ///
+    /// When execution fails, the program counter stays where the failure left it:
+    /// * after a branch whose target was refused, at that target, so calling this again fails the
+    ///   same way
+    /// * after an instruction that failed, or a jump whose target [`ProgramCounter::set_pc()`]
+    ///   refused, right after that instruction, so calling this again continues with the next one
+    /// * after a failed fetch, wherever the instruction fetcher left it, which for
+    ///   [`BasicInstructionFetcher`] is the address it couldn't fetch from
     // TODO: It might be impractical to support `no-panic` here directly in a general case, but it
     //  should be possible to do so for small extensions to verify the workflow
     //
@@ -255,8 +263,26 @@ impl<Regs, Env, Memory, IF> BasicInterpreterState<Regs, Env, Memory, IF> {
             &mut self.instruction_fetcher,
             #[inline(always)]
             |mut instruction_fetcher| {
+                // The last execution may have stopped where there is nothing to fetch
+                let pc = instruction_fetcher.get_pc();
+                match instruction_fetcher.set_pc(&self.memory, pc) {
+                    Ok(ControlFlow::Continue(())) => {}
+                    Ok(ControlFlow::Break(())) => {
+                        cold_path();
+                        return (Ok(()), instruction_fetcher);
+                    }
+                    Err(error) => {
+                        cold_path();
+                        return (Err(error), instruction_fetcher);
+                    }
+                }
+
                 loop {
-                    let instruction = match instruction_fetcher.fetch_instruction(&self.memory) {
+                    // SAFETY: `set_pc()` above returned `Continue`, and the loop only comes back
+                    // here after fetching returned `Continue`, after an instruction continued, or
+                    // after its branch or jump was accepted
+                    let fetched = unsafe { instruction_fetcher.fetch_instruction(&self.memory) };
+                    let instruction = match fetched {
                         FetchInstructionResult::Instruction(instruction) => instruction,
                         FetchInstructionResult::Continue => {
                             cold_path();
@@ -570,6 +596,9 @@ where
 ///
 /// Note that it loads instructions from anywhere in memory. This works, but it is likely that you
 /// want to restrict this to a specific executable region of memory.
+///
+/// Every fetch is a bounds-checked memory read, so fetching is allowed at any program counter,
+/// whatever moved it there.
 #[derive(Debug, Copy, Clone)]
 pub struct BasicInstructionFetcher<I>
 where
@@ -647,13 +676,13 @@ where
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn peeked_instruction<'a>(&'a self, peeked: &'a I) -> &'a I {
+    unsafe fn peeked_instruction<'a>(&'a self, peeked: &'a I) -> &'a I {
         peeked
     }
 
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
+    unsafe fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
         let instruction = match memory.read(self.pc.as_u64()).or_else(const |error| {
             cold_path();
             // Attempt to read a 16-bit compressed instruction
@@ -688,8 +717,9 @@ where
 
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic(const))]
-    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
-        let result = InstructionFetcher::<I, Memory>::peek_instruction(self, memory);
+    unsafe fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I> {
+        // SAFETY: Same requirements as for this method, which the caller upholds
+        let result = unsafe { InstructionFetcher::<I, Memory>::peek_instruction(self, memory) };
 
         if let FetchInstructionResult::Instruction(instruction) = result {
             // SAFETY: The instruction was just peeked successfully, and this is the only place

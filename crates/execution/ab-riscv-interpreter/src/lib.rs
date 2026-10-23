@@ -779,6 +779,28 @@ where
 /// can fail is a candidate for that, which forces a stack frame, callee-saved register spills, and
 /// a reload into the hot path of every load, store, branch and jump. A fetcher that only borrows
 /// what it walks (`Copy`, or at least `!needs_drop`) keeps them all frameless and fast.
+///
+/// # Fetching
+/// The methods that read an instruction are `unsafe`. Implementations may assume that the program
+/// counter is at an instruction, so they don't have to check it on every fetch. Fetching is
+/// allowed when the fetcher was just created, or when the last call that moved the program counter
+/// was one of these:
+/// * [`ProgramCounter::set_pc()`], [`ProgramCounter::set_pc_relative()`] or
+///   [`ProgramCounter::failed_branch()`] returning `Ok(ControlFlow::Continue(()))`
+/// * [`ProgramCounter::try_set_pc_relative()`] returning `true`
+/// * [`Self::advance()`] or [`Self::fetch_instruction()`] moving past an instruction whose
+///   execution continued with the next one
+/// * [`Self::peek_instruction()`] or [`Self::fetch_instruction()`] returning
+///   [`FetchInstructionResult::Continue`]
+///
+/// Implementations must be sound in all of these cases. Methods that take `&self` must not move
+/// the program counter.
+///
+/// Anything else may leave the program counter where there is nothing to fetch, for example a
+/// branch that [`ProgramCounter::set_pc_relative()`] refused. `set_pc(get_pc())` is the cheap way
+/// back: at an instruction it does nothing, and otherwise it returns what stopped execution there.
+///
+/// [`BasicInterpreterState::execute()`]: basic::BasicInterpreterState::execute
 pub const trait InstructionFetcher<I, Memory>
 where
     Self: ProgramCounter<Address<I>, Memory>,
@@ -803,7 +825,13 @@ where
     /// *next* instruction depend on decoding the current one. In threaded dispatch caller already
     /// knows which variant it is holding and advances by a constant instead, allowing the next load
     /// to be issued immediately.
-    fn peek_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I, Self::Peeked>;
+    ///
+    /// # Safety
+    /// Fetching must be allowed, see [`InstructionFetcher`].
+    unsafe fn peek_instruction(
+        &mut self,
+        memory: &Memory,
+    ) -> FetchInstructionResult<I, Self::Peeked>;
 
     /// The instruction that [`Self::peek_instruction()`] returned `peeked` for.
     ///
@@ -814,7 +842,11 @@ where
     /// destructuring through a reference into a decoded stream loads each field on its own, while
     /// a copy is loaded whole and its fields are then extracted from a register with a shift and a
     /// mask each.
-    fn peeked_instruction<'a>(&'a self, peeked: &'a Self::Peeked) -> &'a I;
+    ///
+    /// # Safety
+    /// `peeked` must come from [`Self::peek_instruction()`] on this fetcher, and the program
+    /// counter must not have moved since.
+    unsafe fn peeked_instruction<'a>(&'a self, peeked: &'a Self::Peeked) -> &'a I;
 
     /// Move the program counter past an instruction of `instruction_size` bytes that
     /// [`Self::peek_instruction()`] has just returned.
@@ -834,7 +866,10 @@ where
     /// and [`Self::advance()`]. It exists for callers that do not know what they are about to
     /// fetch, which is every caller that dispatches through a `match` rather than through
     /// per-variant handlers.
-    fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I>;
+    ///
+    /// # Safety
+    /// Fetching must be allowed, see [`InstructionFetcher`].
+    unsafe fn fetch_instruction(&mut self, memory: &Memory) -> FetchInstructionResult<I>;
 }
 
 /// CSR error
@@ -1464,6 +1499,16 @@ where
     /// thus vanishes, allowing more registers for other arguments. A configuration that does have a
     /// state passes a `&mut` to it (which is an owned value too and for which there are blanket
     /// implementations for convenience).
+    ///
+    /// When execution fails, the program counter stays where the failure left it:
+    /// * after a branch whose target was refused, at that target, so calling this again fails the
+    ///   same way
+    /// * after an instruction that failed, or a jump whose target [`ProgramCounter::set_pc()`]
+    ///   refused, right after that instruction, so calling this again continues with the next one
+    /// * after a failed fetch, wherever the instruction fetcher left it, which for
+    ///   [`BasicInstructionFetcher`] is the address it couldn't fetch from
+    ///
+    /// [`BasicInstructionFetcher`]: basic::BasicInstructionFetcher
     fn execute_threaded(
         instruction_fetcher: PC,
         regs: &mut Regs,

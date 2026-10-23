@@ -515,7 +515,9 @@ where
                 );
             eprintln!("pc={:#x}", pc.as_u64());
         }
-        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
+        // SAFETY: `BasicInstructionFetcher` allows fetching at any program counter
+        let fetched = unsafe { state.instruction_fetcher.fetch_instruction(&state.memory) };
+        let instruction = match fetched {
             FetchInstructionResult::Instruction(instruction) => instruction,
             FetchInstructionResult::Break => {
                 break;

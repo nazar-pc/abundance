@@ -161,10 +161,10 @@ pub(super) fn generate_threaded_fns(
                 }
             }
 
-            let (instruction, handler) = match #dispatch_fn_name::<#generic_params>(
-                &mut instruction_fetcher,
-                memory,
-            ) {
+            // SAFETY: `failed_branch()` above returned `Continue`
+            let (instruction, handler) = match unsafe {
+                #dispatch_fn_name::<#generic_params>(&mut instruction_fetcher, memory)
+            } {
                 #dispatch_result_name::Next {
                     instruction,
                     handler,
@@ -244,7 +244,11 @@ pub(super) fn generate_threaded_fns(
                 // Everything the handler needs from the instruction is read through this
                 // reference: when it points into a decoded stream, each operand is a single load
                 // at a constant offset rather than a shift and a mask on a register
-                let instruction = instruction_fetcher.peeked_instruction(&peeked_instruction);
+                //
+                // SAFETY: Dispatch has just peeked this instruction, and the program counter has not
+                // moved since
+                let instruction =
+                    unsafe { instruction_fetcher.peeked_instruction(&peeked_instruction) };
 
                 let Rs1Rs2Operands { rs1, rs2 } = instruction.get_rs1_rs2_operands();
                 let rs1_value = regs.read(rs1);
@@ -356,10 +360,10 @@ pub(super) fn generate_threaded_fns(
                     }
                 }
 
-                let (instruction, handler) = match #dispatch_fn_name::<#generic_params>(
-                    &mut instruction_fetcher,
-                    memory,
-                ) {
+                // SAFETY: The instruction continued, or its branch or jump was accepted
+                let (instruction, handler) = match unsafe {
+                    #dispatch_fn_name::<#generic_params>(&mut instruction_fetcher, memory)
+                } {
                     #dispatch_result_name::Next {
                         instruction,
                         handler,
@@ -411,8 +415,13 @@ pub(super) fn generate_threaded_fns(
             improper_ctypes_definitions,
             reason = "Handlers only ever call each other, within this crate"
         )]
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "Comments will be stripped, this will suppress some of the lints that are \
+            caused by it"
+        )]
         #[inline(always)]
-        fn #dispatch_fn_name<#generic_params>(
+        unsafe fn #dispatch_fn_name<#generic_params>(
             instruction_fetcher: &mut PC,
             memory: &Memory,
         ) -> #dispatch_result_name<
@@ -429,7 +438,9 @@ pub(super) fn generate_threaded_fns(
             #where_clause
         {
             let instruction = loop {
-                match instruction_fetcher.peek_instruction(memory) {
+                // SAFETY: The caller makes sure fetching is allowed, and `Continue` from peeking
+                // keeps it allowed
+                match unsafe { instruction_fetcher.peek_instruction(memory) } {
                     FetchInstructionResult::Instruction(instruction) => {
                         break instruction;
                     }
@@ -454,7 +465,9 @@ pub(super) fn generate_threaded_fns(
             // narrow the selection to a byte, and past 127 variants the byte values it then
             // sorts by are negative, so every dispatch pays an extra instruction to offset the
             // index into the jump table. A copy carries no such range and is selected on as is.
-            let instruction_copy = *instruction_fetcher.peeked_instruction(&instruction);
+            //
+            // SAFETY: Just peeked, and the program counter has not moved since
+            let instruction_copy = unsafe { *instruction_fetcher.peeked_instruction(&instruction) };
             #[expect(
                 clippy::rest_pattern_accessible_field,
                 reason = "Dispatch selects a handler by variant and never looks at any field"
@@ -489,10 +502,24 @@ pub(super) fn generate_threaded_fns(
         ) -> ThreadedExecutionResult<#self_ty>
             #where_clause
         {
-            let (instruction, handler) = match #dispatch_fn_name::<#generic_params>(
-                &mut instruction_fetcher,
-                memory,
-            ) {
+            // The last execution may have stopped where there is nothing to fetch
+            let pc = instruction_fetcher.get_pc();
+            match instruction_fetcher.set_pc(memory, pc) {
+                Ok(::core::ops::ControlFlow::Continue(())) => {}
+                Ok(::core::ops::ControlFlow::Break(())) => {
+                    ::core::hint::cold_path();
+                    return ThreadedExecutionResult::stopped(instruction_fetcher.get_pc());
+                }
+                Err(error) => {
+                    ::core::hint::cold_path();
+                    return ThreadedExecutionResult::failed(instruction_fetcher.get_pc(), error);
+                }
+            }
+
+            // SAFETY: `set_pc()` above returned `Continue`
+            let (instruction, handler) = match unsafe {
+                #dispatch_fn_name::<#generic_params>(&mut instruction_fetcher, memory)
+            } {
                 #dispatch_result_name::Next {
                     instruction,
                     handler,

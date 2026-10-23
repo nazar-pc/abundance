@@ -6,6 +6,12 @@ Breaking changes:
 * `ExecutableInstruction::execute()`, `SystemInstructionHandler::handle_ecall()` and `handle_ebreak()` take the program
   counter by shared reference, and the handlers return `ExecutionResult`: instructions and handlers no longer move the
   program counter, they return where execution continues (`ExecutionResult::Jump` to a trap vector, for example)
+* `InstructionFetcher::peek_instruction()`, `peeked_instruction()` and `fetch_instruction()` are `unsafe`, see
+  `InstructionFetcher` for when fetching is allowed
+* `BasicInterpreterState::execute()` and `ThreadedExecutableInstruction::execute_threaded()` start with
+  `set_pc(get_pc())`: calling them again after they returned picks up where they stopped, and with
+  `BasicInstructionFetcher` a misaligned start or one at the return trap fails or stops right away instead of being
+  fetched from
 * `vtype` and `vl` are stored and accessed together as `VectorConfig`, which keeps `vl <= VLMAX` by construction:
   `VectorRegistersExt::vector_config()` and `set_vector_config()` replace the separate `vl`/`vtype` accessors and
   setters, and `VectorRegisters::compute_vl()` and `vlmax_for_vtype()` are removed (`VLMAX` is `Vtype::vlmax()` now)
