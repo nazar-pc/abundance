@@ -261,7 +261,9 @@ pub(super) fn generate_threaded_fns(
                 )]
                 let #enum_name::#variant_ident { #pat_fields } = *instruction else {
                     // SAFETY: A handler is only ever reached through the dispatch arm for its own
-                    // variant
+                    // variant. Dispatch matched on what `peeked_instruction()` returned for the
+                    // same peek, and `InstructionFetcher` promises that it returns the same
+                    // instruction here.
                     unsafe {
                         ::core::hint::unreachable_unchecked();
                     }

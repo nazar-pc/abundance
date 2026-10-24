@@ -669,7 +669,11 @@ where
     }
 }
 
-const impl<I, Memory> InstructionFetcher<I, Memory> for BasicInstructionFetcher<I>
+// SAFETY: Fetching is a checked memory read with no `unsafe` code, so it is sound at any program
+// counter. The program counter is a plain field that only methods taking `&mut self` write.
+// `peeked_instruction()` returns `peeked` itself, which is the instruction `peek_instruction()`
+// returned.
+const unsafe impl<I, Memory> InstructionFetcher<I, Memory> for BasicInstructionFetcher<I>
 where
     I: [const] Instruction,
     Memory: [const] VirtualMemory,

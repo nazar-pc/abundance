@@ -783,8 +783,8 @@ where
 /// # Fetching
 /// The methods that read an instruction are `unsafe`. Implementations may assume that the program
 /// counter is at an instruction, so they don't have to check it on every fetch. Fetching is
-/// allowed when the fetcher was just created, or when the last call that moved the program counter
-/// was one of these:
+/// allowed when the fetcher was just created by its constructor, or when the last call that moved
+/// the program counter was one of these:
 /// * [`ProgramCounter::set_pc()`], [`ProgramCounter::set_pc_relative()`] or
 ///   [`ProgramCounter::failed_branch()`] returning `Ok(ControlFlow::Continue(()))`
 /// * [`ProgramCounter::try_set_pc_relative()`] returning `true`
@@ -793,15 +793,28 @@ where
 /// * [`Self::peek_instruction()`] or [`Self::fetch_instruction()`] returning
 ///   [`FetchInstructionResult::Continue`]
 ///
-/// Implementations must be sound in all of these cases. Methods that take `&self` must not move
-/// the program counter.
+/// A copy or a clone of a fetcher doesn't count as just created. It starts in the state the
+/// original was in, and the rules above apply to it from there.
 ///
 /// Anything else may leave the program counter where there is nothing to fetch, for example a
 /// branch that [`ProgramCounter::set_pc_relative()`] refused. `set_pc(get_pc())` is the cheap way
 /// back: at an instruction it does nothing, and otherwise it returns what stopped execution there.
 ///
+/// # Safety
+/// Execution relies on the following for soundness, and every implementation promises it:
+/// * Fetching is sound whenever it is allowed, see above.
+/// * Nothing done through a shared reference to the fetcher moves the program counter. That
+///   includes [`ProgramCounter::get_pc()`] and [`Self::peeked_instruction()`]. Instructions get the
+///   fetcher by shared reference while they execute, and the next instruction is fetched after that
+///   without checking the program counter again.
+/// * [`Self::peeked_instruction()`] returns the instruction that [`Self::peek_instruction()`] read
+///   when it returned `peeked`. It keeps returning that same instruction until the program counter
+///   moves, even after the fetcher or `peeked` is moved to another place in memory. Threaded
+///   dispatch picks the handler by the variant of this instruction. The handler then reads the
+///   instruction again and takes that variant for granted.
+///
 /// [`BasicInterpreterState::execute()`]: basic::BasicInterpreterState::execute
-pub const trait InstructionFetcher<I, Memory>
+pub const unsafe trait InstructionFetcher<I, Memory>
 where
     Self: ProgramCounter<Address<I>, Memory>,
     I: Instruction,

@@ -197,7 +197,11 @@ where
     }
 }
 
-impl<I> InstructionFetcher<I, TestMemory> for TestInstructionFetcher<I>
+// SAFETY: Fetching is a checked lookup with no `unsafe` code, so it is sound at any program
+// counter. The program counter is a plain field that only methods taking `&mut self` write.
+// `peeked_instruction()` returns `peeked` itself, which is the instruction `peek_instruction()`
+// returned.
+unsafe impl<I> InstructionFetcher<I, TestMemory> for TestInstructionFetcher<I>
 where
     I: Instruction<Hart = TestHart>,
 {

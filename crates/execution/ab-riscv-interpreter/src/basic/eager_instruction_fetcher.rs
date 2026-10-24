@@ -635,7 +635,11 @@ where
     }
 }
 
-impl<I, Memory> InstructionFetcher<I, Memory> for BasicEagerInstructionFetcher<'_, I>
+// SAFETY: Fetching reads at the position without checks, which is sound wherever fetching is
+// allowed, see `Self::peeked_instruction()`. The position is a plain pointer that only methods
+// taking `&mut self` write. `peeked_instruction()` reads the decoded instruction at the position,
+// and decoded instructions don't change while the fetcher borrows them.
+unsafe impl<I, Memory> InstructionFetcher<I, Memory> for BasicEagerInstructionFetcher<'_, I>
 where
     I: Instruction,
     Memory: VirtualMemory,

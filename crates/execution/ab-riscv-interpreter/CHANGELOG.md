@@ -8,6 +8,8 @@ Breaking changes:
   program counter, they return where execution continues (`ExecutionResult::Jump` to a trap vector, for example)
 * `InstructionFetcher::peek_instruction()`, `peeked_instruction()` and `fetch_instruction()` are `unsafe`, see
   `InstructionFetcher` for when fetching is allowed
+* `InstructionFetcher` is an `unsafe` trait, because execution relies on its implementations for soundness, see its
+  documentation for what an implementation promises
 * `BasicInterpreterState::execute()` and `ThreadedExecutableInstruction::execute_threaded()` start with
   `set_pc(get_pc())`: calling them again after they returned picks up where they stopped, and with
   `BasicInstructionFetcher` a misaligned start or one at the return trap fails or stops right away instead of being
