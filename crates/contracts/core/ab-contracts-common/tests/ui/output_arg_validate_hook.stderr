@@ -2,7 +2,7 @@ error[E0277]: `Small` can't be given to a call as an `#[output]` of type `Small`
   --> tests/ui/output_arg_validate_hook.rs:27:10
    |
 27 |     give(&mut Small { value: 1 });
-   |     ---- ^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut Small` (or a view of one) whose contents accept every bit pattern, or `&mut Lent<Small>`
+   |     ---- ^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut Small` whose contents accept every bit pattern, or `&mut Lent<Small>`
    |     |
    |     required by a bound introduced by this call
    |

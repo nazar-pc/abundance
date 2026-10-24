@@ -2,7 +2,7 @@ error[E0277]: `Mode` can't be given to a call as an `#[output]` of type `Mode`
   --> tests/ui/output_arg_not_any_bit_pattern.rs:22:10
    |
 22 |     give(&mut mode);
-   |     ---- ^^^^^^^^^ expected `&mut Mode` (or a view of one) whose contents accept every bit pattern, or `&mut Lent<Mode>`
+   |     ---- ^^^^^^^^^ expected `&mut Mode` whose contents accept every bit pattern, or `&mut Lent<Mode>`
    |     |
    |     required by a bound introduced by this call
    |

@@ -64,9 +64,6 @@ Improvements:
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
 * `IoType::set_size()` requires a size that is valid for the type, while the contents don't need to be a valid value
   when it is called, as long as they are parsed before they are accessed
-* `IoTypeMut` gives exclusive access to an `IoType` value, it is implemented for every `IoType`. It is an `unsafe`
-  trait, so that generic code can rely on `io_type_mut()` returning the same value owned by the implementation on every
-  call
 
 Fixes:
 

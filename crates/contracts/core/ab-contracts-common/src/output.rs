@@ -1,10 +1,10 @@
 //! Memory given to method calls as `#[output]`
 
 use crate::ContractError;
+use ab_io_type::IoType;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
 use ab_io_type::variable_elements::VariableElements;
-use ab_io_type::{IoType, IoTypeMut};
 use core::fmt;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
@@ -33,8 +33,8 @@ use core::ptr::NonNull;
 /// first, unless every bit pattern is a valid value of `Target::PointerType`.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` can't be given to a call as an `#[output]` of type `{Target}`",
-    label = "expected `&mut {Target}` (or a view of one) whose contents accept every bit pattern, \
-    or `&mut Lent<{Target}>`",
+    label = "expected `&mut {Target}` whose contents accept every bit pattern, or \
+    `&mut Lent<{Target}>`",
     note = "a failed call can leave invalid contents behind, use `Lent::new()` for a local value, \
     `Lent::<MaybeData<'_, _>>::from_uninit()` or \
     `Lent::<VariableElements<'_, _>>::from_uninit()` for a local container, or \
@@ -60,21 +60,19 @@ where
 #[diagnostic::do_not_recommend]
 // SAFETY: Pointer, size and capacity are those of a valid value, the pointer can be used for reads
 // of the size and writes of the capacity while the value isn't accessed otherwise
-// (`IoType::as_mut_ptr()`). The value is returned unchanged by every call of `io_type_mut()` and is
-// only accessible through `self` (`IoTypeMut` contract), so it isn't accessed while `self` is
-// exclusively borrowed. Initialized contents are a valid value, since every bit pattern is.
-unsafe impl<Arg> OutputArg<Arg::Target> for Arg
+// (`IoType::as_mut_ptr()`), which it isn't while `self` is exclusively borrowed. Initialized
+// contents are a valid value, since every bit pattern is.
+unsafe impl<T> OutputArg<T> for T
 where
-    Arg: IoTypeMut,
-    <Arg::Target as IoType>::PointerType: AnyBitPattern,
+    T: IoType,
+    T::PointerType: AnyBitPattern,
 {
     #[inline(always)]
-    fn as_raw_output(&mut self) -> (NonNull<<Arg::Target as IoType>::PointerType>, u32, u32) {
-        let value = self.io_type_mut();
+    fn as_raw_output(&mut self) -> (NonNull<T::PointerType>, u32, u32) {
         (
-            IoType::as_mut_ptr(value),
-            IoType::size(value),
-            IoType::capacity(value),
+            IoType::as_mut_ptr(self),
+            IoType::size(self),
+            IoType::capacity(self),
         )
     }
 
@@ -82,7 +80,7 @@ where
     unsafe fn set_output_size(&mut self, size: u32) {
         // SAFETY: The size is valid and doesn't exceed the capacity, with that many bytes
         // initialized (function contract), which are a valid value, since every bit pattern is
-        unsafe { IoType::set_size(self.io_type_mut(), size) }
+        unsafe { IoType::set_size(self, size) }
     }
 }
 

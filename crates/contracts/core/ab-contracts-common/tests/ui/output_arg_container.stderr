@@ -2,7 +2,7 @@ error[E0277]: `ab_io_type::maybe_data::MaybeData<'_, Mode>` can't be given to a 
   --> tests/ui/output_arg_container.rs:31:21
    |
 31 |     give_maybe_data(output);
-   |     --------------- ^^^^^^ expected `&mut ab_io_type::maybe_data::MaybeData<'_, Mode>` (or a view of one) whose contents accept every bit pattern, or `&mut Lent<ab_io_type::maybe_data::MaybeData<'_, Mode>>`
+   |     --------------- ^^^^^^ expected `&mut ab_io_type::maybe_data::MaybeData<'_, Mode>` whose contents accept every bit pattern, or `&mut Lent<ab_io_type::maybe_data::MaybeData<'_, Mode>>`
    |     |
    |     required by a bound introduced by this call
    |
@@ -28,7 +28,7 @@ error[E0277]: `ab_io_type::variable_elements::VariableElements<'_, Mode>` can't 
   --> tests/ui/output_arg_container.rs:37:19
    |
 37 |     give_elements(&mut VariableElements::<Mode>::from_uninit(&mut uninit, &mut size).unwrap());
-   |     ------------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut ab_io_type::variable_elements::VariableElements<'_, Mode>` (or a view of one) whose contents accept every bit pattern, or `&mut Lent<ab_io_type::variable_elements::VariableElements<'_, Mode>>`
+   |     ------------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut ab_io_type::variable_elements::VariableElements<'_, Mode>` whose contents accept every bit pattern, or `&mut Lent<ab_io_type::variable_elements::VariableElements<'_, Mode>>`
    |     |
    |     required by a bound introduced by this call
    |
