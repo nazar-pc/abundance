@@ -4,7 +4,7 @@ use ab_contracts_macros::contract;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::shard::ShardIndex;
 use ab_executor_native::NativeExecutor;
-use ab_executor_slots::Slots;
+use ab_executor_slots::{Slot, SlotKey, Slots};
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::variable_bytes::VariableBytes;
@@ -50,6 +50,26 @@ impl Rollback {
     #[update]
     pub fn write(#[slot] slot: &mut MaybeData<Value>, #[input] &value: &u64) {
         slot.replace(Value { value });
+    }
+
+    /// Writes two slots, the call fails before the method runs if both have the same owner
+    #[update]
+    pub fn write_two(
+        #[slot] slot: &mut MaybeData<Value>,
+        #[slot] other_slot: &mut MaybeData<Value>,
+        #[input] &value: &u64,
+    ) {
+        slot.replace(Value { value });
+        other_slot.replace(Value { value });
+    }
+
+    /// Clears the state.
+    ///
+    /// The call fails before the method runs since the contract never has state, see
+    /// [`Self::new_without_state()`].
+    #[update]
+    pub fn clear(&mut self) {
+        self.value = 0;
     }
 
     /// Writes a slot, then fails
@@ -136,6 +156,30 @@ impl Rollback {
             return Err(ContractError::BadOutput);
         }
         slot.replace(Value { value: value + 3 });
+        Ok(())
+    }
+
+    /// Writes `value` to a slot, calls [`Self::write_two()`] with the same nested slot twice, whose
+    /// error is ignored, and writes `value + 1` to the slot in the end
+    #[update]
+    pub fn survive_failed_argument_preparation(
+        #[env] env: &mut Env<'_>,
+        #[slot] slot: &mut MaybeData<Value>,
+        #[input] &value: &u64,
+        #[input] nested_owner: &Address,
+    ) -> Result<(), ContractError> {
+        slot.replace(Value { value });
+        let result = env.rollback_write_two(
+            MethodContext::Keep,
+            env.own_address(),
+            nested_owner,
+            nested_owner,
+            &value,
+        );
+        if result != Err(ContractError::Forbidden) {
+            return Err(ContractError::BadOutput);
+        }
+        slot.replace(Value { value: value + 1 });
         Ok(())
     }
 
@@ -279,4 +323,105 @@ fn failed_call_rolls_back_address_allocation() {
 
     // The address allocated during the failed call is allocated again
     assert_eq!(deployed, expected_deployed);
+}
+
+#[test]
+fn failed_argument_preparation_keeps_slots_unmodified() {
+    let (executor, slots, contract) = setup();
+    // Slots as they are loaded from storage, none of them are modified
+    let mut slots = Slots::new(
+        slots
+            .into_slots()
+            .map(|(key, buffer)| Slot::ReadWrite { key, buffer }),
+    );
+
+    let result = executor.transaction_emulate(Address::NULL, &mut slots, |env| {
+        env.rollback_write_two(MethodContext::Keep, contract, &OWNERS[0], &OWNERS[0], &10)
+    });
+
+    assert_eq!(result, Err(ContractError::Forbidden));
+    assert_eq!(slots.iter_modified().count(), 0);
+}
+
+#[test]
+fn failed_nested_argument_preparation_keeps_only_caller_changes() {
+    let (executor, slots, contract) = setup();
+    // Slots as they are loaded from storage, none of them are modified
+    let mut slots = Slots::new(
+        slots
+            .into_slots()
+            .map(|(key, buffer)| Slot::ReadWrite { key, buffer }),
+    );
+
+    let result = executor.transaction_emulate(Address::NULL, &mut slots, |env| {
+        env.rollback_survive_failed_argument_preparation(
+            MethodContext::Keep,
+            contract,
+            &OWNERS[0],
+            &10,
+            &OWNERS[1],
+        )
+    });
+
+    assert_eq!(result, Ok(()));
+    // Only the slot of the caller is modified
+    assert_eq!(slots.iter_modified().count(), 1);
+    assert_eq!(read_all(&executor, &slots, contract), [11, 2, 3, 4]);
+}
+
+#[test]
+fn failed_argument_preparation_creates_no_slots() {
+    let (executor, mut slots, contract) = setup();
+    let num_slots = slots.iter().len();
+
+    let result = executor.transaction_emulate(Address::NULL, &mut slots, |env| {
+        env.rollback_clear(MethodContext::Keep, contract)
+    });
+
+    assert_eq!(result, Err(ContractError::Forbidden));
+    // No empty state was stored for the contract
+    assert_eq!(slots.iter().len(), num_slots);
+}
+
+#[test]
+fn emulated_transaction_keeps_changes() {
+    let (executor, mut slots, contract) = setup();
+
+    executor.transaction_emulate(Address::NULL, &mut slots, |env| {
+        env.rollback_write(MethodContext::Keep, contract, &OWNERS[0], &10)
+            .unwrap();
+        // A failed call doesn't affect changes of other calls
+        assert_eq!(
+            env.rollback_write_and_fail(MethodContext::Keep, contract, &OWNERS[1], &20),
+            Err(ContractError::Forbidden)
+        );
+    });
+
+    assert_eq!(read_all(&executor, &slots, contract), [10, 2, 3, 4]);
+}
+
+#[test]
+fn storage_slots_contain_system_contracts() {
+    let shard_index = ShardIndex::new(1).unwrap();
+    let executor = NativeExecutor::builder(shard_index).build().unwrap();
+    let slots = executor.new_storage_slots().unwrap();
+
+    for owner in [
+        Address::SYSTEM_CODE,
+        Address::SYSTEM_STATE,
+        Address::system_address_allocator(shard_index),
+        Address::SYSTEM_BLOCK,
+        Address::SYSTEM_NATIVE_TOKEN,
+        Address::SYSTEM_SIMPLE_WALLET_BASE,
+    ] {
+        let code_slot_key = SlotKey {
+            owner,
+            contract: Address::SYSTEM_CODE,
+        };
+        assert!(
+            slots
+                .iter()
+                .any(|(slot_key, buffer)| *slot_key == code_slot_key && !buffer.is_empty())
+        );
+    }
 }

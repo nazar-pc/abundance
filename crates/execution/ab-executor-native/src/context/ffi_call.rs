@@ -429,7 +429,10 @@ where
     // keep pointing to the beginning
     let external_args_cursor = &mut external_args.clone();
 
-    // `view_only == true` when only `#[view]` method is allowed
+    // `view_only == true` when only `#[view]` method is allowed.
+    //
+    // Changes to slots are reset when they are dropped on any of the early returns below. They are
+    // only committed once the call and post-processing of its results succeeded.
     let (view_only, mut slots) = match method_kind {
         MethodKind::Init
         | MethodKind::UpdateStateless
@@ -803,17 +806,12 @@ where
     drop(maybe_env);
     let mut slots = nested_context.into_slots();
 
-    let result = result.and_then(|()| {
-        // SAFETY: The call succeeded, `new_address_ptr` and `post_processing` were created above
-        // for it, and `internal_args` and `external_args` they point into are still valid
-        unsafe { post_process_ffi_call(&mut slots, new_address_ptr, &post_processing) }
-    });
+    result?;
+    // SAFETY: The call succeeded, `new_address_ptr` and `post_processing` were created above for
+    // it, and `internal_args` and `external_args` they point into are still valid
+    unsafe { post_process_ffi_call(&mut slots, new_address_ptr, &post_processing) }?;
 
-    if result.is_err() {
-        // Roll back changes of the call, including those of nested calls, whether the method
-        // returned an error or the host rejected its results
-        slots.reset();
-    }
+    slots.commit();
 
-    result
+    Ok(())
 }

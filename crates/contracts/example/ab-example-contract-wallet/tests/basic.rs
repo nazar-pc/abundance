@@ -38,6 +38,11 @@ impl Flipper {
     pub fn flip(&mut self) {
         self.value = !self.value;
     }
+
+    #[view]
+    pub fn value(&self) -> bool {
+        self.value
+    }
 }
 
 #[test]
@@ -163,6 +168,9 @@ fn flip() {
         );
     }
 
+    // Each transaction flips the value
+    let mut expected_value = true;
+
     for nonce in (nonce..).take(2) {
         let seal = hash_and_sign(
             &keypair,
@@ -185,5 +193,42 @@ fn flip() {
                 slots,
             )
             .unwrap();
+
+        expected_value = !expected_value;
+        assert_eq!(
+            executor.with_env_ro(slots, |env| env.flipper_value(flipper_address)),
+            Ok(expected_value)
+        );
+    }
+
+    {
+        let nonce = 2;
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        );
+
+        executor
+            .transaction_verify_execute(
+                Transaction {
+                    header: &header,
+                    payload: payload.as_u128_slice(),
+                    read_slots,
+                    write_slots,
+                    seal: seal.as_bytes(),
+                },
+                slots,
+            )
+            .unwrap();
+
+        expected_value = !expected_value;
+        assert_eq!(
+            executor.with_env_ro(slots, |env| env.flipper_value(flipper_address)),
+            Ok(expected_value)
+        );
     }
 }

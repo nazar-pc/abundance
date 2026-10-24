@@ -47,6 +47,90 @@ fn values(slots: &Slots) -> [u8; 3] {
 }
 
 #[test]
+fn drop_resets_changes() {
+    let mut slots = new_slots();
+    let new_slot_key = SlotKey {
+        owner: OWNERS[0],
+        contract: NEW_CONTRACT,
+    };
+
+    {
+        let mut nested = slots.new_nested_rw();
+        write(&mut nested, OWNERS[0], 10);
+        assert!(nested.add_new_contract(NEW_CONTRACT));
+        let (_slot_index, buffer) = nested.use_rw(new_slot_key, 1).unwrap();
+        buffer.copy_from_slice(&[10]);
+    }
+
+    assert_eq!(values(&slots), [1, 2, 3]);
+    assert_eq!(slots.iter().len(), OWNERS.len());
+    assert_eq!(slots.iter_modified().count(), 0);
+    // The new contract doesn't exist anymore
+    assert!(slots.add_new_contract(NEW_CONTRACT));
+}
+
+#[test]
+fn commit_integrates_changes() {
+    let mut slots = new_slots();
+    let new_slot_key = SlotKey {
+        owner: OWNERS[0],
+        contract: NEW_CONTRACT,
+    };
+    let tmp_slot_key = SlotKey {
+        owner: OWNERS[0],
+        contract: Address::NULL,
+    };
+
+    {
+        let mut nested = slots.new_nested_rw();
+        write(&mut nested, OWNERS[0], 10);
+        assert!(nested.add_new_contract(NEW_CONTRACT));
+        let (_slot_index, buffer) = nested.use_rw(new_slot_key, 1).unwrap();
+        buffer.copy_from_slice(&[10]);
+        let (_slot_index, buffer) = nested.use_rw(tmp_slot_key, 1).unwrap();
+        buffer.copy_from_slice(&[10]);
+        nested.commit();
+    }
+
+    assert_eq!(values(&slots), [10, 2, 3]);
+    // The new slot is kept, while the `#[tmp]` one is removed
+    assert_eq!(slots.iter().len(), OWNERS.len() + 1);
+    assert!(
+        slots
+            .iter_modified()
+            .any(|(slot_key, _buffer)| *slot_key == new_slot_key)
+    );
+    // The new contract still exists
+    assert!(!slots.add_new_contract(NEW_CONTRACT));
+}
+
+#[test]
+fn commit_integrates_changes_of_nested_instances() {
+    let mut slots = new_slots();
+
+    {
+        let mut parent = slots.new_nested_rw();
+
+        {
+            let mut nested = parent.new_nested_rw().unwrap();
+            write(&mut nested, OWNERS[0], 10);
+
+            {
+                let mut nested_nested = nested.new_nested_rw().unwrap();
+                write(&mut nested_nested, OWNERS[1], 20);
+                nested_nested.commit();
+            }
+
+            nested.commit();
+        }
+
+        parent.commit();
+    }
+
+    assert_eq!(values(&slots), [10, 20, 3]);
+}
+
+#[test]
 fn reset_keeps_accesses_of_parent() {
     let mut slots = new_slots();
 
@@ -58,7 +142,6 @@ fn reset_keeps_accesses_of_parent() {
         {
             let mut nested = parent.new_nested_rw().unwrap();
             write(&mut nested, OWNERS[1], 20);
-            nested.reset();
         }
 
         // The parent still has the slot open for writing after the nested instance was reset
@@ -67,6 +150,7 @@ fn reset_keeps_accesses_of_parent() {
             .access_used_rw(slot_index)
             .unwrap()
             .copy_from_slice(&[11]);
+        parent.commit();
     }
 
     assert_eq!(values(&slots), [11, 2, 3]);
@@ -86,13 +170,13 @@ fn reset_rolls_back_changes_of_nested_instances() {
             {
                 let mut nested_nested = nested.new_nested_rw().unwrap();
                 write(&mut nested_nested, OWNERS[1], 20);
+                nested_nested.commit();
             }
 
             // Written again after the nested instance integrated its changes
             write(&mut nested, OWNERS[1], 21);
+            nested.commit();
         }
-
-        parent.reset();
     }
 
     assert_eq!(values(&slots), [1, 2, 3]);
@@ -109,6 +193,7 @@ fn reset_restores_state_from_before_instance() {
         {
             let mut nested = parent.new_nested_rw().unwrap();
             write(&mut nested, OWNERS[0], 10);
+            nested.commit();
         }
 
         {
@@ -118,12 +203,14 @@ fn reset_restores_state_from_before_instance() {
                 let mut nested_nested = nested.new_nested_rw().unwrap();
                 write(&mut nested_nested, OWNERS[0], 20);
                 write(&mut nested_nested, OWNERS[1], 20);
+                nested_nested.commit();
             }
 
             // Written again after the nested instance integrated its changes
             write(&mut nested, OWNERS[1], 21);
-            nested.reset();
         }
+
+        parent.commit();
     }
 
     assert_eq!(values(&slots), [10, 2, 3]);
@@ -154,14 +241,14 @@ fn reset_removes_new_slots_and_contracts() {
                 let mut nested_nested = nested.new_nested_rw().unwrap();
                 let (_slot_index, buffer) = nested_nested.use_rw(new_slot_key, 1).unwrap();
                 buffer.copy_from_slice(&[10]);
+                nested_nested.commit();
             }
-
-            nested.reset();
-
-            // Neither the slot nor the contract exist anymore
-            assert!(nested.use_ro(new_slot_key).is_none());
-            assert!(nested.add_new_contract(NEW_CONTRACT));
         }
+
+        // Neither the slot nor the contract exist anymore
+        assert!(parent.use_ro(new_slot_key).is_none());
+        assert!(parent.add_new_contract(NEW_CONTRACT));
+        parent.commit();
     }
 
     assert_eq!(slots.iter().len(), OWNERS.len());
@@ -184,15 +271,18 @@ fn reset_rolls_back_repeated_changes_of_nested_instances() {
                 {
                     let mut nested_nested_nested = nested_nested.new_nested_rw().unwrap();
                     write(&mut nested_nested_nested, OWNERS[1], value);
+                    nested_nested_nested.commit();
                 }
+
+                nested_nested.commit();
             }
 
             write(&mut nested, OWNERS[0], 30);
-            nested.reset();
         }
 
         // Changes of the parent itself are kept
         write(&mut parent, OWNERS[2], 40);
+        parent.commit();
     }
 
     assert_eq!(values(&slots), [1, 2, 40]);
@@ -212,20 +302,23 @@ fn nested_instances_keep_oldest_state_of_slot_once() {
                 let mut nested_nested = nested.new_nested_rw().unwrap();
                 write(&mut nested_nested, OWNERS[0], value);
                 assert!(nested_nested.use_ro(slot_key_for(OWNERS[1])).is_some());
+                nested_nested.commit();
             }
             {
                 let mut nested_nested = nested.new_nested_rw().unwrap();
                 let mut nested_nested_nested = nested_nested.new_nested_rw().unwrap();
                 write(&mut nested_nested_nested, OWNERS[0], 20);
+                nested_nested_nested.commit();
+                nested_nested.commit();
             }
             write(&mut nested, OWNERS[0], 21);
 
             // The modification by nested instances and the active access of this instance
             assert_eq!(nested.inner_ro().slot_access.len(), 2);
+            nested.commit();
         }
 
         assert_eq!(parent.inner_ro().slot_access.len(), 1);
-        parent.reset();
     }
 
     assert_eq!(values(&slots), [1, 2, 3]);
@@ -241,6 +334,7 @@ fn only_latest_access_of_slot_is_active() {
         {
             let mut nested = parent.new_nested_rw().unwrap();
             write(&mut nested, OWNERS[0], 10);
+            nested.commit();
         }
 
         // Accesses of nested instances that integrated their changes don't prevent new accesses
@@ -259,6 +353,7 @@ fn only_latest_access_of_slot_is_active() {
             .access_used_rw(slot_index)
             .unwrap()
             .copy_from_slice(&[11]);
+        parent.commit();
     }
 
     assert_eq!(values(&slots), [11, 2, 3]);
