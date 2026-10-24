@@ -68,32 +68,32 @@ jobs:
         target:
           - ""
         include:
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: together
             target: riscv64gc-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: features
             target: riscv64gc-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: individually
             target: riscv64gc-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: together
             target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: features
             target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: individually
             target: riscv64a23-unknown-linux-gnu
           # 32-bit target, see `skip_crates` below for the crates that it doesn't check
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: together
             target: riscv32gc-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: features
             target: riscv32gc-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: individually
             target: riscv32gc-unknown-linux-gnu
       fail-fast: false
@@ -346,27 +346,27 @@ jobs:
             type: guest-feature
             target: ""
 
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             miri: true
             type: features
             target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             miri: true
             type: guest-feature
             target: riscv64a23-unknown-linux-gnu
 
           # 32-bit target, see `skip_crates` below for the crates that it doesn't test
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             miri: true
             type: features
             target: riscv32gc-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             miri: true
             type: guest-feature
             target: riscv32gc-unknown-linux-gnu
 
           # TODO: Tests will need custom allocator to work under this target
-          # - os: ubuntu-26.04
+          # - os: ubuntu-26.04-arm
           #   miri: true
           #   type: guest-feature
           #   target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
@@ -771,11 +771,11 @@ jobs:
           # - features
           # - guest-feature
         include:
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             miri: true
             type: together
             target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             miri: true
             type: together
             target: riscv32gc-unknown-linux-gnu
@@ -803,15 +803,15 @@ jobs:
         target:
           - ""
         include:
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: default
             target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04
+          - os: ubuntu-26.04-arm
             type: features
             target: riscv64a23-unknown-linux-gnu
 
           # TODO: Tests will need custom allocator to work under this target
-          # - os: ubuntu-26.04
+          # - os: ubuntu-26.04-arm
           #   type: guest-feature
           #   target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
       fail-fast: false
@@ -923,7 +923,7 @@ jobs:
             run: *parallel_worker
 
   contracts:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-26.04-arm
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
 
