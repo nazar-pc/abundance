@@ -472,7 +472,7 @@ impl<'a> ContractFile<'a> {
                     let address = contract_file_method_metadata.offset - read_only_section_offset
                         + read_only_padding_size;
 
-                    if !address.is_multiple_of(size_of::<u16>() as u32) {
+                    if !address.is_multiple_of(u32::from(<ContractInstruction>::ALIGNMENT)) {
                         return Err(ContractFileParseError::MethodUnaligned {
                             file_offset: contract_file_method_metadata.offset,
                             memory_address: address,
@@ -566,7 +566,7 @@ impl<'a> ContractFile<'a> {
             let address =
                 header.host_call_fn_offset - read_only_section_offset + read_only_padding_size;
 
-            if !address.is_multiple_of(size_of::<u16>() as u32) {
+            if !address.is_multiple_of(u32::from(<ContractInstruction>::ALIGNMENT)) {
                 return Err(ContractFileParseError::HostCallFnUnaligned {
                     file_offset: header.host_call_fn_offset,
                     memory_address: address,
