@@ -79,8 +79,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         // internally (+ memory allocation)
         group.bench_function("decode-instructions", |b| {
             b.iter(|| {
-                // SAFETY: `unimp` never continues to the next instruction and contract code is
-                // never modified
+                // SAFETY: `unimp` never continues to the next instruction, and
+                // `ContractInstruction::size()` depends only on the variant
                 let instructions = unsafe {
                     BasicEagerInstructions::decode(
                         code,
@@ -89,7 +89,8 @@ fn criterion_benchmark(c: &mut Criterion) {
                         MEMORY_BASE_ADDRESS
                             + u64::from(contract_file.header().read_only_section_memory_size),
                     )
-                };
+                }
+                .unwrap();
                 black_box(instructions);
             });
         });
@@ -130,7 +131,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         ),
     };
 
-    // SAFETY: `unimp` never continues to the next instruction and contract code is never modified
+    // SAFETY: `unimp` never continues to the next instruction, and `ContractInstruction::size()`
+    // depends only on the variant
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             contract_file.get_code(),
@@ -138,7 +140,8 @@ fn criterion_benchmark(c: &mut Criterion) {
             TRAP_ADDRESS,
             MEMORY_BASE_ADDRESS + u64::from(contract_file.header().read_only_section_memory_size),
         )
-    };
+    }
+    .unwrap();
 
     let mut eager_state = BasicInterpreterState {
         regs: ContractRegisters::<false>::default(),

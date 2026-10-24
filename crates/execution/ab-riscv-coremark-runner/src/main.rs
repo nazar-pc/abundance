@@ -86,8 +86,8 @@ fn main() -> anyhow::Result<()> {
     regs.write(Reg::A0, 1);
     regs.write(Reg::A1, argv_addr);
 
-    // SAFETY: ELF was produced by a trusted compiler, `.text` section is loaded at `text_addr`,
-    // `unimp` never continues to the next instruction, and the trap address is outside of it
+    // SAFETY: `unimp` never continues to the next instruction, and `CoremarkInstruction::size()`
+    // depends only on the variant
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             text_data,
@@ -98,7 +98,8 @@ fn main() -> anyhow::Result<()> {
             TRAP_ADDRESS,
             text_addr,
         )
-    };
+    }
+    .context("Failed to decode `.text` section of the guest ELF")?;
     let instruction_fetcher = instructions
         .fetcher(entry_point)
         .context("Entry point is not one of the decoded instructions")?;

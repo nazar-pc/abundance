@@ -4,7 +4,6 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use core::fmt;
-use core::ops::ControlFlow;
 use std::time::Instant;
 
 /// State for the counter CSR (time-only)
@@ -58,9 +57,9 @@ where
         &mut self,
         _regs: &mut Regs,
         _memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
-        Err(ExecutionError::IllegalInstruction {
+        program_counter: &PC,
+    ) -> ExecutionResult<Reg<u64>> {
+        ExecutionResult::Err(ExecutionError::IllegalInstruction {
             address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
         })
     }
@@ -184,7 +183,7 @@ where
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
-        _program_counter: &mut PC,
+        _program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }

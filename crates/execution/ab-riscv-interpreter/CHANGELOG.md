@@ -3,6 +3,17 @@
 Breaking changes:
 
 * Minor changes in `InstructionFetcher` API for improved performance of threaded execution
+* `ExecutableInstruction::execute()`, `SystemInstructionHandler::handle_ecall()` and `handle_ebreak()` take the program
+  counter by shared reference, and the handlers return `ExecutionResult`: instructions and handlers no longer move the
+  program counter, they return where execution continues (`ExecutionResult::Jump` to a trap vector, for example)
+* `InstructionFetcher::peek_instruction()`, `peeked_instruction()` and `fetch_instruction()` are `unsafe`, see
+  `InstructionFetcher` for when fetching is allowed
+* `InstructionFetcher` is an `unsafe` trait, because execution relies on its implementations for soundness, see its
+  documentation for what an implementation promises
+* `BasicInterpreterState::execute()` and `ThreadedExecutableInstruction::execute_threaded()` start with
+  `set_pc(get_pc())`: calling them again after they returned picks up where they stopped, and with
+  `BasicInstructionFetcher` a misaligned start or one at the return trap fails or stops right away instead of being
+  fetched from
 * `vtype` and `vl` are stored and accessed together as `VectorConfig`, which keeps `vl <= VLMAX` by construction:
   `VectorRegistersExt::vector_config()` and `set_vector_config()` replace the separate `vl`/`vtype` accessors and
   setters, and `VectorRegisters::compute_vl()` and `vlmax_for_vtype()` are removed (`VLMAX` is `Vtype::vlmax()` now)
@@ -23,8 +34,9 @@ Breaking changes:
 
 New features:
 
-* `BasicEagerInstructions` and `BasicEagerInstructionFetcher` (behind the `alloc` feature): a high-performance generic
-  instruction fetcher that decodes the whole program upfront into a single heap allocation
+* `BasicEagerInstructions` and `BasicEagerInstructionFetcher` (behind the `alloc` feature, only available on 64-bit host
+  targets): a high-performance generic instruction fetcher that decodes the whole program upfront into a single heap
+  allocation
 * Several examples with various levels of complexity
 * `VectorRegisterFile` has safe element accessors through register groups validated against the vector configuration
   (`VRegGroup`), whose bounds checks the compiler eliminates
@@ -43,11 +55,8 @@ Improvements:
 
 Fixes:
 
-* `BasicEagerInstructionFetcher` could read past the end of the decoded instruction stream: falling through the last
-  instruction (a conditional branch not taken, or a jump into the second half of the last 32-bit instruction) and a
-  32-bit instruction cut off by the end of the code (decoded with zero-padding) were not covered by the requirement for
-  the code to end with a jump. The fallback instruction is stored after the decoded stream instead, which replaces that
-  requirement
+* `BasicInstructionFetcher::get_pc()`, and so `ThreadedExecutionResult::program_counter`, was the address after a jump
+  to the return trap instead of the trap itself, and calling `execute()` again continued after that jump
 * Undefined behavior reachable from safe code: an inconsistent `vl`/`vtype` pair or an overridden `vlmax_for_vtype()`
   in an environment, a `VirtualMemory::read_slice()` implementation returning more bytes than requested in `vlm.v`, and
   widening instructions with `ELEN` above 64

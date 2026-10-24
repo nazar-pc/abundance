@@ -14,7 +14,6 @@ use crate::{
 };
 use ab_riscv_macros::instruction_execution;
 use ab_riscv_primitives::prelude::*;
-use core::ops::ControlFlow;
 
 #[instruction_execution]
 const impl<Reg, Hart> ExecutableInstructionOperands for Rv32ZcbInstruction<Hart>
@@ -50,7 +49,7 @@ where
         regs: &mut Regs,
         _env: &mut Env,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
@@ -94,7 +93,7 @@ where
         regs: &mut Regs,
         _env: &mut Env,
         memory: &mut Memory,
-        _program_counter: &mut PC,
+        _program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         match self {
             Self::CLbu { rd, rs1: _, uimm } => {

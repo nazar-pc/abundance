@@ -121,7 +121,7 @@ fn test_cjal_negative_offset() {
         &mut state.regs,
         &mut state.env,
         &mut state.memory,
-        &mut state.instruction_fetcher,
+        &state.instruction_fetcher,
     );
     assert_matches!(next, ExecutionResult::Branch { offset: -4 });
     state

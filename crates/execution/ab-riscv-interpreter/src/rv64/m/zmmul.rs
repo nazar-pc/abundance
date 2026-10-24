@@ -43,7 +43,7 @@ where
         _regs: &mut Regs,
         _env: &mut Env,
         _memory: &mut Memory,
-        _program_counter: &mut PC,
+        _program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         match self {
             Self::Mul { rd, rs1: _, rs2: _ } => {

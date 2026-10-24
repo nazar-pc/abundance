@@ -42,7 +42,7 @@ fn exec(
         &mut state.regs,
         &mut state.env,
         &mut state.memory,
-        &mut state.instruction_fetcher,
+        &state.instruction_fetcher,
     ) {
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);

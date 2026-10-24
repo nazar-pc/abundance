@@ -38,8 +38,19 @@
     signed_bigint_helpers,
     try_blocks
 )]
+// The eager instruction fetcher is only available on 64-bit hosts
+#![cfg_attr(
+    not(target_pointer_width = "64"),
+    expect(
+        dead_code,
+        unused_imports,
+        reason = "Only `main()` is used on 32-bit hosts"
+    )
+)]
 
-use ab_riscv_interpreter::basic::{BasicEagerInstructions, BasicMemory, BasicRegisters};
+#[cfg(target_pointer_width = "64")]
+use ab_riscv_interpreter::basic::BasicEagerInstructions;
+use ab_riscv_interpreter::basic::{BasicMemory, BasicRegisters};
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
@@ -47,7 +58,6 @@ use anyhow::Context;
 use object::{Object, ObjectSection};
 use std::fmt;
 use std::hint::cold_path;
-use std::ops::ControlFlow;
 
 /// The guest program, see `examples/guests` in the repository
 const GUEST_ELF: &[u8] = include_bytes!("prebuilt/dot-product.elf");
@@ -167,7 +177,7 @@ where
         regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
@@ -347,14 +357,20 @@ where
         &mut self,
         _regs: &mut Regs,
         _memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
-        Err(ExecutionError::EcallUnsupported {
+        program_counter: &PC,
+    ) -> ExecutionResult<Reg<u64>> {
+        ExecutionResult::Err(ExecutionError::EcallUnsupported {
             address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
         })
     }
 }
 
+#[cfg(not(target_pointer_width = "64"))]
+fn main() {
+    println!("Eager instruction fetcher is only available on 64-bit hosts");
+}
+
+#[cfg(target_pointer_width = "64")]
 fn main() -> anyhow::Result<()> {
     if !OpaqueThreadedExecutionResult::<DotProductInstruction>::platform_supported() {
         println!("Threaded dispatch is not supported on this platform");
@@ -397,10 +413,8 @@ fn main() -> anyhow::Result<()> {
     let text = elf
         .section_by_name(".text")
         .context("Guest ELF has no `.text` section")?;
-    // SAFETY: `unimp` never continues to the next instruction, the guest does not write into its
-    // own code, the trap address is outside of it, `.text` is loaded at its own address,
-    // which is a multiple of the instruction alignment, and guest memory is far from the end of the
-    // address space
+    // SAFETY: `unimp` never continues to the next instruction, and `DotProductInstruction::size()`
+    // depends only on the variant
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             text.data()
@@ -412,7 +426,8 @@ fn main() -> anyhow::Result<()> {
             TRAP_ADDRESS,
             text.address(),
         )
-    };
+    }
+    .context("Failed to decode `.text` section of the guest ELF")?;
 
     // Arguments and the return address, exactly as a RISC-V caller would set them up
     let mut regs = BasicRegisters::<Reg<u64>, true>::default();

@@ -50,7 +50,7 @@ where
         _regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
-        _program_counter: &mut PC,
+        _program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }

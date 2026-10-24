@@ -54,7 +54,7 @@ where
         _regs: &mut Regs,
         env: &mut Env,
         _memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         match self {
             Self::Vredsum { vd, vs2, vs1, vm } => {

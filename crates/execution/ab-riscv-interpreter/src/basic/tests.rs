@@ -1,7 +1,17 @@
-use crate::RegisterFile;
-use crate::basic::{BasicRegister, BasicRegisters, RegisterOffset};
+extern crate alloc;
+
+use crate::basic::{
+    BasicInstructionFetcher, BasicInterpreterState, BasicMemory, BasicRegister, BasicRegisters,
+    IllegalEcallSystemInstructionHandler, RegisterOffset,
+};
+use crate::rv64::test_utils::TestHart;
+use crate::{
+    ExecutionError, OpaqueThreadedExecutionResult, ProgramCounter, RegisterFile,
+    ThreadedExecutableInstruction,
+};
 use ab_riscv_primitives::prelude::*;
-use core::fmt;
+use alloc::vec::Vec;
+use core::{assert_matches, fmt};
 
 /// Register type with two registers at both ends of the offset range, with `x0` at the last offset
 #[derive(Debug, Clone, Copy)]
@@ -243,4 +253,143 @@ fn test_eregisters_all_registers() {
 
     // Zero should still be zero
     assert_eq!(regs.read(EReg::<u64>::Zero), 0);
+}
+
+const MEMORY_BASE_ADDRESS: u64 = 0x1000;
+type Memory = BasicMemory<MEMORY_BASE_ADDRESS, 4096>;
+type I = Rv64Instruction<TestHart>;
+
+/// `jalr x0, 0(x1)`, the canonical `ret`
+const RET: u32 = 0x0000_8067;
+
+/// Start execution at `fetcher` with two `ret` instructions at `MEMORY_BASE_ADDRESS`, with the loop
+/// of [`BasicInterpreterState`] and, where the platform supports it, with threaded dispatch, and
+/// return what each one stopped with and its program counter
+fn execute_from(
+    fetcher: BasicInstructionFetcher<I>,
+) -> Vec<(Result<(), ExecutionError<u64>>, u64)> {
+    let mut memory = Memory::default();
+    memory
+        .get_mut_bytes(MEMORY_BASE_ADDRESS, 2 * size_of::<u32>())
+        .expect("Within memory; qed")
+        .copy_from_slice(&[RET.to_le_bytes(), RET.to_le_bytes()].concat());
+    let mut results = Vec::with_capacity(2);
+
+    let mut state = BasicInterpreterState {
+        regs: BasicRegisters::<Reg<u64>>::default(),
+        env: IllegalEcallSystemInstructionHandler,
+        memory,
+        instruction_fetcher: fetcher,
+    };
+    let outcome = state.execute::<I>();
+    results.push((
+        outcome,
+        ProgramCounter::<u64, Memory>::get_pc(&state.instruction_fetcher),
+    ));
+
+    // Threaded dispatch can't run on an x86-64 CPU without AVX
+    if OpaqueThreadedExecutionResult::<I>::platform_supported() {
+        let result = I::execute_threaded(
+            fetcher,
+            &mut BasicRegisters::<Reg<u64>>::default(),
+            IllegalEcallSystemInstructionHandler,
+            &mut memory,
+        );
+        results.push((result.outcome, result.program_counter));
+    }
+
+    results
+}
+
+#[test]
+fn execution_that_starts_unaligned_fails_right_away() {
+    let pc = MEMORY_BASE_ADDRESS + 2;
+
+    // Nothing is fetched from the middle of the first `ret`
+    for (outcome, stopped_at) in execute_from(BasicInstructionFetcher::new(0, pc)) {
+        assert_matches!(
+            outcome,
+            Err(ExecutionError::UnalignedInstruction { address }) if address.get() == pc,
+            "Unexpected outcome {outcome:?}"
+        );
+        assert_eq!(stopped_at, pc);
+    }
+}
+
+#[test]
+fn execution_that_starts_at_the_trap_stops_right_away() {
+    // Nothing is fetched from the trap, which is outside of memory
+    for (outcome, stopped_at) in execute_from(BasicInstructionFetcher::new(0, 0)) {
+        assert_matches!(outcome, Ok(()), "Unexpected outcome {outcome:?}");
+        assert_eq!(stopped_at, 0);
+    }
+}
+
+/// Run `ret` at `MEMORY_BASE_ADDRESS` with `ra` holding `return_trap_address` through
+/// [`BasicInstructionFetcher`], with threaded dispatch and with the loop of
+/// [`BasicInterpreterState`], and return the program counter each one stops with. The last one is
+/// from the loop started again where it stopped.
+fn ret_to_trap(return_trap_address: u64) -> [u64; 3] {
+    let mut memory = Memory::default();
+    memory
+        .get_mut_bytes(MEMORY_BASE_ADDRESS, size_of::<u32>())
+        .expect("Within memory; qed")
+        .copy_from_slice(&RET.to_le_bytes());
+    let fetcher = BasicInstructionFetcher::<I>::new(return_trap_address, MEMORY_BASE_ADDRESS);
+    let mut regs = BasicRegisters::<Reg<u64>>::default();
+    regs.write(Reg::Ra, return_trap_address);
+
+    let result = I::execute_threaded(
+        fetcher,
+        &mut regs.clone(),
+        IllegalEcallSystemInstructionHandler,
+        &mut memory.clone(),
+    );
+    assert_matches!(
+        result.outcome,
+        Ok(()),
+        "Unexpected outcome {:?}",
+        result.outcome
+    );
+
+    let mut state = BasicInterpreterState {
+        regs,
+        env: IllegalEcallSystemInstructionHandler,
+        memory,
+        instruction_fetcher: fetcher,
+    };
+    let outcome = state.execute::<I>();
+    assert_matches!(outcome, Ok(()), "Unexpected outcome {outcome:?}");
+    let stopped_at = ProgramCounter::<u64, Memory>::get_pc(&state.instruction_fetcher);
+
+    // Starting again at the trap stops right away
+    let outcome = state.execute::<I>();
+    assert_matches!(outcome, Ok(()), "Unexpected outcome {outcome:?}");
+
+    [
+        result.program_counter,
+        stopped_at,
+        ProgramCounter::<u64, Memory>::get_pc(&state.instruction_fetcher),
+    ]
+}
+
+#[test]
+fn absolute_jump_to_a_trap_below_the_code_stops_at_the_trap() {
+    // Threaded dispatch can't run on an x86-64 CPU without AVX
+    if !OpaqueThreadedExecutionResult::<I>::platform_supported() {
+        return;
+    }
+
+    assert_eq!(ret_to_trap(0), [0; 3]);
+}
+
+#[test]
+fn absolute_jump_to_a_trap_above_the_code_stops_at_the_trap() {
+    // Threaded dispatch can't run on an x86-64 CPU without AVX
+    if !OpaqueThreadedExecutionResult::<I>::platform_supported() {
+        return;
+    }
+
+    let return_trap_address = MEMORY_BASE_ADDRESS + 0x100;
+    assert_eq!(ret_to_trap(return_trap_address), [return_trap_address; 3]);
 }

@@ -71,7 +71,7 @@ fn exec_one(
         &mut state.regs,
         &mut state.env,
         &mut state.memory,
-        &mut state.instruction_fetcher,
+        &state.instruction_fetcher,
     ) {
         Err(error)
     } else {
@@ -96,7 +96,7 @@ fn exec_one_zve32(
         &mut state.regs,
         &mut env,
         &mut state.memory,
-        &mut state.instruction_fetcher,
+        &state.instruction_fetcher,
     );
     state.env = env.into_env();
 

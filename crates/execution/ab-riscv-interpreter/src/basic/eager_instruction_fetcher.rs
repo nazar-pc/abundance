@@ -44,6 +44,25 @@ where
     return_trap_address: Address<I>,
 }
 
+/// Error for [`BasicEagerInstructions::decode()`]
+#[derive(Debug, thiserror::Error)]
+pub enum BasicEagerDecodeError {
+    /// Base address is not a multiple of the instruction alignment, see
+    /// [`BasicEagerInstructions::decode()`]
+    #[error("Base address is not a multiple of the instruction alignment")]
+    UnalignedBaseAddress,
+    /// Address right after the code doesn't fit into the address space, see
+    /// [`BasicEagerInstructions::decode()`]
+    #[error("Address right after the code doesn't fit into the address space")]
+    CodeOverflowsAddressSpace,
+    /// Return trap is inside the code, see [`BasicEagerInstructions::decode()`]
+    #[error("Return trap is inside the code")]
+    ReturnTrapInsideCode,
+    /// Return trap is too far from the base address, see [`BasicEagerInstructions::decode()`]
+    #[error("Return trap is too far from the base address")]
+    ReturnTrapTooFar,
+}
+
 /// Instructions decoded upfront, which [`BasicEagerInstructionFetcher`] walks.
 ///
 /// Decoding a program once instead of on every fetch is what makes this faster than
@@ -232,13 +251,15 @@ where
         Some(BasicEagerInstructionFetcher {
             // SAFETY: `instruction_offset` was just checked to be within bounds of the decoded
             // stream
-            next_instruction: unsafe { self.instructions().add(instruction_offset) },
+            next_instruction: unsafe { self.instructions().add(instruction_offset) }.as_ptr(),
             instructions: self.instructions(),
             _instructions: PhantomData,
         })
     }
 
     /// Decode `instructions` and create a new instance holding the result.
+    ///
+    /// Execution runs the frozen set of instructions decoded here, before execution starts.
     ///
     /// `base_addr` is the guest address of the first instruction and `return_trap_address` is the
     /// address at which the interpreter will stop execution (gracefully).
@@ -248,36 +269,88 @@ where
     /// which is only ever reached by jumping into the middle of one. Such a slot may or may not
     /// decode into a valid instruction on its own, and `fallback` is what is stored when it
     /// doesn't.
+    ///
+    /// Execution moves past an instruction by its [`Instruction::size()`], so an instruction whose
+    /// size is zero, isn't a multiple of [`Instruction::ALIGNMENT`] or is larger than the guest
+    /// code left is stored as `fallback` too.
+    ///
     /// `fallback` is also stored right after the last slot, where execution ends up when it falls
     /// through the end of the decoded stream.
+    ///
+    /// Returns an error in these cases:
+    /// * [`BasicEagerDecodeError::UnalignedBaseAddress`] when `base_addr` is not a multiple of
+    ///   [`Instruction::ALIGNMENT`]. It is the address of the first decoded instruction, and every
+    ///   position within the decoded stream is resolved relative to it.
+    /// * [`BasicEagerDecodeError::CodeOverflowsAddressSpace`] when `base_addr + instructions.len()`
+    ///   is larger than the largest guest address, which is `u32::MAX` for a 32-bit guest. This
+    ///   keeps the address of every decoded instruction representable, and the address right after
+    ///   the code too.
+    /// * [`BasicEagerDecodeError::ReturnTrapInsideCode`] when `return_trap_address` is within
+    ///   `base_addr..base_addr + instructions.len()`. Relative jumps and branches, and falling
+    ///   through, reach a decoded instruction without comparing its address against the return
+    ///   trap. Only an absolute jump would stop at a trap there. The address right after the code
+    ///   is accepted. Every jump or branch to it stops at the trap, and falling through the end of
+    ///   the code runs `fallback`, wherever the trap is.
+    /// * [`BasicEagerDecodeError::ReturnTrapTooFar`] when `return_trap_address` is too far from
+    ///   `base_addr`, as explained below.
+    ///
+    /// Execution that stops at the return trap leaves the fetcher where the trap would be in the
+    /// decoded stream, and [`ProgramCounter::get_pc()`] turns that position back into the trap
+    /// address. The position is the trap's distance from `base_addr` in guest bytes, multiplied by
+    /// the number of decoded stream bytes per guest byte. That product must fit into `isize`. The
+    /// distance is the trap address minus `base_addr`, computed in 64 bits and read as a signed
+    /// number. For a 64-bit guest, that is the shorter way around its address space, so a trap near
+    /// the top of it is close to code near the bottom. For a 32-bit guest, whose addresses are
+    /// zero-extended first, it is the plain difference.
     ///
     /// # Safety
     /// Execution of the resulting instruction stream skips the checks that
     /// [`BasicInstructionFetcher`](super::BasicInstructionFetcher) does, which is where the
-    /// performance comes from. All of the following must hold:
+    /// performance comes from. Both of the following must hold:
     /// * `fallback` must never continue to the next instruction when executed (`unimp`, which
     ///   always fails, is the canonical choice). Instruction fetching does not bounds-check the
     ///   position, only [`ProgramCounter::set_pc()`] and [`ProgramCounter::try_set_pc_relative()`]
     ///   do, and falling through the end of the decoded stream lands on `fallback`, which must not
     ///   fall through any further.
-    /// * `return_trap_address` must not fall inside the instructions. Instruction fetching does not
-    ///   compare against the return trap, so an address inside them would stop execution when
-    ///   jumped to, but not when reached by falling through.
-    /// * `base_addr` must be a multiple of [`Instruction::ALIGNMENT`], since it is the address of
-    ///   the first decoded instruction, and every position within the decoded stream is resolved
-    ///   relative to it.
-    /// * `base_addr + instructions.len()` must not overflow the address space, which is what makes
-    ///   the address of every decoded instruction representable.
-    /// * The memory the program executes with must contain these very instructions at `base_addr`,
-    ///   and the program must not modify them (there is no `Zifencei` support here). The decoded
-    ///   stream is a snapshot taken here, and it is what execution walks, so writes into the code
-    ///   region are not reflected in what is executed.
+    /// * [`Instruction::size()`] must return the same value every time for the same instruction.
+    ///   Decoding checks the size of each instruction once, and execution moves past the
+    ///   instruction by whatever size it returns later, without checking it again.
     pub unsafe fn decode(
         instructions: &[u8],
         fallback: I,
         return_trap_address: Address<I>,
         base_addr: Address<I>,
-    ) -> Self {
+    ) -> Result<Self, BasicEagerDecodeError> {
+        if !base_addr.as_u64().is_multiple_of(u64::from(I::ALIGNMENT)) {
+            return Err(BasicEagerDecodeError::UnalignedBaseAddress);
+        }
+
+        // The largest guest address, which is `u32::MAX` for a 32-bit guest
+        let max_address = Address::<I>::truncate_from_u64(u64::MAX).as_u64();
+        // Lossless on the 64-bit hosts this is compiled for
+        let code_size = instructions.len() as u64;
+        // `base_addr` is a guest address too, so the subtraction doesn't underflow
+        if code_size > max_address - base_addr.as_u64() {
+            return Err(BasicEagerDecodeError::CodeOverflowsAddressSpace);
+        }
+
+        // A trap below the code wraps around to an offset larger than any code size that passed
+        // the check above
+        let return_trap_offset = return_trap_address
+            .as_u64()
+            .wrapping_sub(base_addr.as_u64());
+        if return_trap_offset < code_size {
+            return Err(BasicEagerDecodeError::ReturnTrapInsideCode);
+        }
+
+        // Where the return trap would be in the decoded stream must fit into `isize`, see above
+        if (return_trap_offset.cast_signed() as isize)
+            .checked_mul(Self::STREAM_BYTES_PER_GUEST_BYTE.cast_signed())
+            .is_none()
+        {
+            return Err(BasicEagerDecodeError::ReturnTrapTooFar);
+        }
+
         // Exactly as many slots as there are whole alignment steps of guest code, trailing bytes
         // that do not make up one have nothing to decode into
         let instructions_len = instructions.len() / Self::GUEST_BYTES_PER_SLOT;
@@ -322,7 +395,7 @@ where
             decoded_instructions.add(instructions_len).write(fallback);
         }
 
-        instance
+        Ok(instance)
     }
 
     /// Decode the instruction that the decoded stream's slot starting `offset` bytes into
@@ -355,9 +428,17 @@ where
         };
 
         I::try_decode(instruction)
-            // An instruction that doesn't fit into the guest code left would make execution skip
-            // the fallback instruction after the decoded stream when falling through it
-            .filter(|instruction| usize::from(instruction.size()) <= guest_code_left.len())
+            .filter(|instruction| {
+                let size = usize::from(instruction.size());
+                // Execution moves past an instruction by its size, so the size must be a whole
+                // number of slots, and more than zero. Otherwise execution would continue between
+                // two slots, or run the same instruction forever. An instruction that doesn't fit
+                // into the guest code left would make execution skip the fallback instruction
+                // after the decoded stream when falling through it.
+                size != 0
+                    && size.is_multiple_of(Self::GUEST_BYTES_PER_SLOT)
+                    && size <= guest_code_left.len()
+            })
             .unwrap_or(fallback)
     }
 }
@@ -365,6 +446,12 @@ where
 /// Eager instruction fetcher walks instructions that [`BasicEagerInstructions`] decoded upfront.
 ///
 /// This is a plain `Copy` cursor without a destructor, see [`BasicEagerInstructions`] for why.
+///
+/// The fallback instruction after the decoded stream has no address of its own, so
+/// [`ProgramCounter::set_pc()`] refuses the address right after the decoded stream as out of
+/// bounds, unless the return trap is there. Execution that starts again at that address therefore
+/// fails with [`ExecutionError::OutOfBoundsRead`] or stops at the trap, instead of running the
+/// fallback instruction.
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct BasicEagerInstructionFetcher<'a, I>
@@ -377,7 +464,10 @@ where
     /// A pointer rather than an offset helps LLVM with SROA and aliasing analysis, so it can
     /// retain this in a native register instead of recomputing it from an offset on every
     /// fetch.
-    next_instruction: NonNull<I>,
+    ///
+    /// Not a [`NonNull`], because the target a branch was refused for is stored here as well, and
+    /// a backwards branch can make that zero when the decoded stream is at a low address.
+    next_instruction: *const I,
     /// The first decoded instruction, borrowed from [`BasicEagerInstructions`].
     ///
     /// This points at the instructions rather than at the state header in front of them because
@@ -411,17 +501,28 @@ where
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn get_pc(&self) -> Address<I> {
+        // Signed, because a branch refused for the return trap below the decoded stream leaves the
+        // position there, and that is the program counter execution stops with
         let decoded_instruction_byte_offset = self
             .next_instruction
-            .as_ptr()
             .addr()
-            .wrapping_sub(self.instructions.as_ptr().addr());
+            .wrapping_sub(self.instructions.as_ptr().addr())
+            .cast_signed();
+        // The position is a whole number of decoded instructions from the start of the stream, so
+        // the division is exact, which makes it an arithmetic shift where possible
+        let guest_byte_offset =
+            if BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.is_power_of_two() {
+                decoded_instruction_byte_offset
+                    >> BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.trailing_zeros()
+            } else {
+                decoded_instruction_byte_offset
+                    / BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.cast_signed()
+            };
 
         Address::<I>::truncate_from_u64(
-            self.base_addr().as_u64()
-                + (decoded_instruction_byte_offset
-                    / BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE)
-                    as u64,
+            self.base_addr()
+                .as_u64()
+                .wrapping_add_signed(guest_byte_offset as i64),
         )
     }
 
@@ -430,9 +531,9 @@ where
     ///
     /// One comparison and one test are all this needs to recognize every target it cannot resolve:
     /// one past the end of the decoded stream, a backwards branch that ran off its start, and an
-    /// unaligned one. The return trap sits outside the decoded stream, so a branch to it fails the
-    /// bounds check here too and is answered by [`Self::failed_branch()`] like any other target
-    /// this refuses.
+    /// unaligned one. [`BasicEagerInstructions::decode()`] refuses a return trap inside the code,
+    /// so a branch to the trap fails the bounds check here too and is answered by
+    /// [`Self::failed_branch()`] like any other target this refuses.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     unsafe fn try_set_pc_relative(&mut self, instruction_size: u8, offset: i32) -> bool {
@@ -447,14 +548,10 @@ where
         // This may land outside the decoded stream (including before its start), which is fine:
         // `wrapping_byte_offset()` only computes an address, it never dereferences the pointer, and
         // the bounds check below rejects such a target before it is ever used
-        let new_next_instruction = self
-            .next_instruction
-            .as_ptr()
-            .wrapping_byte_offset(byte_delta);
+        let new_next_instruction = self.next_instruction.wrapping_byte_offset(byte_delta);
         // Stored either way: on the way out it is the target `failed_branch()` reports on, and
         // until then nothing else is allowed to look at it
-        // SAFETY: A wrapped pointer is never null, and nothing here dereferences it
-        self.next_instruction = unsafe { NonNull::new_unchecked(new_next_instruction) };
+        self.next_instruction = new_next_instruction;
 
         let decoded_instruction_byte_offset = new_next_instruction
             .addr()
@@ -482,7 +579,6 @@ where
         // exactly one of the targets that gets here
         let decoded_instruction_byte_offset = self
             .next_instruction
-            .as_ptr()
             .addr()
             .wrapping_sub(self.instructions.as_ptr().addr())
             .cast_signed();
@@ -507,6 +603,18 @@ where
     ) -> Result<ControlFlow<()>, ExecutionError<Address<I>>> {
         if pc == self.return_trap_address() {
             cold_path();
+            // Move the position to where the trap would be in the decoded stream. `get_pc()` reads
+            // the program counter from the position, so it then reports the trap address. The
+            // position ends up outside the decoded stream, the same as after a refused branch.
+            let guest_byte_offset = pc
+                .as_u64()
+                .wrapping_sub(self.base_addr().as_u64())
+                .cast_signed() as isize;
+            // Doesn't overflow, `BasicEagerInstructions::decode()` checked this for the return trap
+            let byte_delta = guest_byte_offset
+                * BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE.cast_signed();
+            // Only computes an address, which may be outside the allocation, nothing reads from it
+            self.next_instruction = self.instructions.as_ptr().wrapping_byte_offset(byte_delta);
             return Ok(ControlFlow::Break(()));
         }
 
@@ -525,8 +633,12 @@ where
                 address: PackedAddress::new(address),
             });
         };
-        let instruction_offset =
-            offset as usize / BasicEagerInstructions::<I>::GUEST_BYTES_PER_SLOT;
+        // An offset that doesn't fit into `usize` is past the end of the decoded stream too
+        let Ok(offset) = usize::try_from(offset) else {
+            cold_path();
+            return Err(VirtualMemoryError::OutOfBoundsRead { address }.into());
+        };
+        let instruction_offset = offset / BasicEagerInstructions::<I>::GUEST_BYTES_PER_SLOT;
 
         if instruction_offset >= self.instructions_len() {
             cold_path();
@@ -534,13 +646,17 @@ where
         }
 
         // SAFETY: `instruction_offset` was just checked to be within bounds of the decoded stream
-        self.next_instruction = unsafe { self.instructions.add(instruction_offset) };
+        self.next_instruction = unsafe { self.instructions.add(instruction_offset) }.as_ptr();
 
         Ok(ControlFlow::Continue(()))
     }
 }
 
-impl<I, Memory> InstructionFetcher<I, Memory> for BasicEagerInstructionFetcher<'_, I>
+// SAFETY: Fetching reads at the position without checks, which is sound wherever fetching is
+// allowed, see `Self::peeked_instruction()`. The position is a plain pointer that only methods
+// taking `&mut self` write. `peeked_instruction()` reads the decoded instruction at the position,
+// and decoded instructions don't change while the fetcher borrows them.
+unsafe impl<I, Memory> InstructionFetcher<I, Memory> for BasicEagerInstructionFetcher<'_, I>
 where
     I: Instruction,
     Memory: VirtualMemory,
@@ -551,20 +667,23 @@ where
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn peek_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I, ()> {
+    unsafe fn peek_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I, ()> {
         FetchInstructionResult::Instruction(())
     }
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn peeked_instruction<'a>(&'a self, (): &'a ()) -> &'a I {
-        // SAFETY: Branches and jumps are bounds-checked by `Self::set_pc()` and
-        // `Self::try_set_pc_relative()`. Otherwise, the position is advanced past an executed
-        // instruction, which `BasicEagerInstructions::decode()` guarantees to fit into the decoded
-        // stream, and the fallback instruction after it is guaranteed to never continue to the
-        // next instruction. Hence, the position always points at a decoded instruction or the
-        // fallback instruction, which are borrowed for as long as `self` is.
-        unsafe { self.next_instruction.as_ref() }
+    unsafe fn peeked_instruction<'a>(&'a self, (): &'a ()) -> &'a I {
+        // SAFETY: The caller peeked with fetching allowed, and the position has not moved since.
+        // Wherever fetching is allowed, the position is at a decoded instruction or at the
+        // fallback instruction after them. `BasicEagerInstructions::fetcher()`, `Self::set_pc()`
+        // and `Self::try_set_pc_relative()` only accept positions within the decoded stream.
+        // Moving past an instruction that continues lands on a decoded instruction or on the
+        // fallback instruction after them. `BasicEagerInstructions::decode()` only keeps
+        // instructions whose size is a whole number of slots and fits into the guest code left,
+        // and its caller promises that the size doesn't change later. The fallback instruction
+        // never continues. The decoded instructions are borrowed for as long as `self` is.
+        unsafe { &*self.next_instruction }
     }
 
     #[inline(always)]
@@ -572,24 +691,17 @@ where
     unsafe fn advance(&mut self, instruction_size: u8) {
         let byte_advance = usize::from(instruction_size)
             * BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE;
-        // Wrapping because nothing here dereferences the pointer: the contract of this method is
-        // what makes the resulting position a decoded instruction, and the bounds check that
-        // matters lives in `set_pc()`
-        // SAFETY: A wrapped pointer is never null, and nothing here dereferences it
-        self.next_instruction = unsafe {
-            NonNull::new_unchecked(
-                self.next_instruction
-                    .as_ptr()
-                    .wrapping_byte_add(byte_advance),
-            )
-        };
+        // Wrapping because nothing here dereferences the pointer: the contracts of this method and
+        // of `BasicEagerInstructions::decode()` are what make the resulting position a decoded
+        // instruction, and the bounds check that matters lives in `set_pc()`
+        self.next_instruction = self.next_instruction.wrapping_byte_add(byte_advance);
     }
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn fetch_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I> {
-        // SAFETY: The position always points at a decoded instruction, see
-        // `Self::peeked_instruction()`
+    unsafe fn fetch_instruction(&mut self, _memory: &Memory) -> FetchInstructionResult<I> {
+        // SAFETY: The caller makes sure fetching is allowed, so the position is at a decoded
+        // instruction, see `Self::peeked_instruction()`
         let instruction = unsafe { self.next_instruction.read() };
 
         // SAFETY: The instruction was just read successfully, and this is the only place that

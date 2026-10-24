@@ -46,7 +46,7 @@ fn exec(
         &mut state.regs,
         &mut state.env,
         &mut state.memory,
-        &mut state.instruction_fetcher,
+        &state.instruction_fetcher,
     ) {
         ExecutionResult::Continue { rd, value } => {
             state.regs.write(rd, value);
@@ -1796,7 +1796,7 @@ fn instruction_uses_a_single_vector_config() {
         &mut state.regs,
         &mut env,
         &mut state.memory,
-        &mut state.instruction_fetcher,
+        &state.instruction_fetcher,
     );
 
     assert_matches!(result, ExecutionResult::ContinueNoWrite);

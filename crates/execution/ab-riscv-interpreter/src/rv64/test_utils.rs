@@ -197,19 +197,23 @@ where
     }
 }
 
-impl<I> InstructionFetcher<I, TestMemory> for TestInstructionFetcher<I>
+// SAFETY: Fetching is a checked lookup with no `unsafe` code, so it is sound at any program
+// counter. The program counter is a plain field that only methods taking `&mut self` write.
+// `peeked_instruction()` returns `peeked` itself, which is the instruction `peek_instruction()`
+// returned.
+unsafe impl<I> InstructionFetcher<I, TestMemory> for TestInstructionFetcher<I>
 where
     I: Instruction<Hart = TestHart>,
 {
     type Peeked = I;
 
     #[inline(always)]
-    fn peeked_instruction<'a>(&'a self, peeked: &'a I) -> &'a I {
+    unsafe fn peeked_instruction<'a>(&'a self, peeked: &'a I) -> &'a I {
         peeked
     }
 
     #[inline]
-    fn peek_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
+    unsafe fn peek_instruction(&mut self, _memory: &TestMemory) -> FetchInstructionResult<I> {
         if self.pc == self.return_trap_address {
             return FetchInstructionResult::Break;
         }
@@ -235,8 +239,9 @@ where
     }
 
     #[inline]
-    fn fetch_instruction(&mut self, memory: &TestMemory) -> FetchInstructionResult<I> {
-        let result = self.peek_instruction(memory);
+    unsafe fn fetch_instruction(&mut self, memory: &TestMemory) -> FetchInstructionResult<I> {
+        // SAFETY: Same requirements as for this method, which the caller upholds
+        let result = unsafe { self.peek_instruction(memory) };
 
         if let FetchInstructionResult::Instruction(instruction) = result {
             // SAFETY: The instruction was just peeked successfully, and this is the only place that
@@ -429,9 +434,9 @@ where
         &mut self,
         _regs: &mut Regs,
         _memory: &mut TestMemory,
-        program_counter: &mut TestInstructionFetcher<I>,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
-        Err(ExecutionError::EcallUnsupported {
+        program_counter: &TestInstructionFetcher<I>,
+    ) -> ExecutionResult<Reg<u64>> {
+        ExecutionResult::Err(ExecutionError::EcallUnsupported {
             address: crate::PackedAddress::new(
                 program_counter.old_pc(
                     Rv64Instruction::<TestHart>::Ecall {
@@ -565,7 +570,10 @@ where
         >,
 {
     loop {
-        let instruction = match state.instruction_fetcher.fetch_instruction(&state.memory) {
+        // SAFETY: `TestInstructionFetcher` checks the program counter on every fetch, so fetching
+        // is allowed at any program counter
+        let fetched = unsafe { state.instruction_fetcher.fetch_instruction(&state.memory) };
+        let instruction = match fetched {
             FetchInstructionResult::Instruction(instruction) => instruction,
             FetchInstructionResult::Continue => {
                 continue;
@@ -589,7 +597,7 @@ where
             &mut state.regs,
             &mut state.env,
             &mut state.memory,
-            &mut state.instruction_fetcher,
+            &state.instruction_fetcher,
         ) {
             ExecutionResult::Continue { rd, value } => {
                 state.regs.write(rd, value);

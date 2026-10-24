@@ -37,7 +37,6 @@ use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
 use object::{Object, ObjectSection};
 use std::fmt;
-use std::ops::ControlFlow;
 
 /// The guest program, see `examples/guests` in the repository
 const GUEST_ELF: &[u8] = include_bytes!("prebuilt/checksum.elf");
@@ -144,7 +143,7 @@ where
         regs: &mut Regs,
         env: &mut Env,
         memory: &mut Memory,
-        program_counter: &mut PC,
+        program_counter: &PC,
     ) -> ExecutionResult<Reg> {
         ExecutionResult::ContinueNoWrite
     }
@@ -183,17 +182,17 @@ where
         &mut self,
         regs: &mut Regs,
         _memory: &mut Memory,
-        program_counter: &mut PC,
-    ) -> Result<ControlFlow<()>, ExecutionError<u64>> {
+        program_counter: &PC,
+    ) -> ExecutionResult<Reg<u64>> {
         // Nothing about `ecall` says where its operands are. This is the convention the guest was
         // written against, see `examples/guests/src/bin/checksum.rs`.
         match regs.read(Reg::A7) {
             HOST_CALL_REPORT => {
                 println!("Guest reported: {:#018x}", regs.read(Reg::A0));
 
-                Ok(ControlFlow::Continue(()))
+                ExecutionResult::ContinueNoWrite
             }
-            _ => Err(ExecutionError::EcallUnsupported {
+            _ => ExecutionResult::Err(ExecutionError::EcallUnsupported {
                 address: PackedAddress::new(program_counter.old_pc(size_of::<u32>() as u8)),
             }),
         }
