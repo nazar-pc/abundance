@@ -111,26 +111,22 @@ enum PostProcessing {
     },
 }
 
-/// Special container that allows aliasing of `Env` stored inside it and tracks the nested context
-/// holding slots.
-///
-/// The nested context is tracked here even when it is given to `Env`, so that the host never reads
-/// anything back from `Env` that the guest had exclusive access to (and could have replaced).
+/// Special container that allows aliasing of `Env` stored inside it.
 ///
 /// Variants with pointers are only created by `Self::insert_ro()`, `Self::insert_rw()` and
-/// `Self::initialize()`, which `Drop` and `Self::into_slots()` rely on.
-enum MaybeEnv<Env, Context> {
-    None(Context),
-    ReadOnly(*mut UnsafeCell<Env>, Context),
-    ReadWrite(*mut UnsafeCell<Env>, Context),
+/// `Self::initialize()`, which `Drop` relies on.
+enum MaybeEnv<Env> {
+    None,
+    ReadOnly(*mut UnsafeCell<Env>),
+    ReadWrite(*mut UnsafeCell<Env>),
 }
 
-impl<Env, Context> Drop for MaybeEnv<Env, Context> {
+impl<Env> Drop for MaybeEnv<Env> {
     #[inline(always)]
     fn drop(&mut self) {
         match self {
-            MaybeEnv::None(_) => {}
-            &mut (MaybeEnv::ReadOnly(env, _) | MaybeEnv::ReadWrite(env, _)) => {
+            MaybeEnv::None => {}
+            &mut (MaybeEnv::ReadOnly(env) | MaybeEnv::ReadWrite(env)) => {
                 // SAFETY: Created with `Box::into_raw()` in `insert_ro()`/`insert_rw()` and only
                 // freed here. The guest gets a pointer to it only for the duration of the FFI call,
                 // during which `self` (owned by `make_ffi_call()`) can't be dropped.
@@ -140,7 +136,7 @@ impl<Env, Context> Drop for MaybeEnv<Env, Context> {
     }
 }
 
-impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
+impl<'env> MaybeEnv<MaybeUninit<Env<'env>>> {
     /// Insert a new value and get a pointer to it, value must be initialized later with
     /// [`Self::initialize()`]
     #[inline(always)]
@@ -152,7 +148,7 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
             let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get().cast_const()
         };
-        *self = Self::ReadOnly(env, ());
+        *self = Self::ReadOnly(env);
         env_ptr
     }
 
@@ -167,41 +163,26 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
             let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get()
         };
-        *self = Self::ReadWrite(env, ());
+        *self = Self::ReadWrite(env);
         env_ptr
     }
 
     /// # Safety
     /// Nothing must have a live reference to `self` or its internals
     #[inline(always)]
-    unsafe fn initialize<'slots, CreateNestedContext>(
+    unsafe fn initialize(
         self,
-        slots: NestedSlots<'slots>,
         env_state: EnvState,
-        create_nested_context: CreateNestedContext,
-    ) -> MaybeEnv<Env<'env>, NonNull<NativeExecutorContext<'slots>>>
-    where
-        CreateNestedContext:
-            FnOnce(NestedSlots<'slots>, bool) -> &'env mut NativeExecutorContext<'slots>,
-        'slots: 'env,
-    {
-        // Only `#[view]` methods can be called through `&Env`, and without `Env` the nested context
-        // isn't used for calls at all and only holds onto slots
-        let allow_env_mutation = matches!(self, Self::ReadWrite(..));
-        let context = NonNull::from_mut(create_nested_context(slots, allow_env_mutation));
-
+        executor_context: &'env NativeExecutorContext<'_>,
+    ) -> MaybeEnv<Env<'env>> {
         match self {
-            Self::None(()) => MaybeEnv::None(context),
-            Self::ReadOnly(env_ro, ()) => {
-                // SAFETY: Created from an exclusive reference above. The shared reference given to
-                // `Env` is derived from this pointer, the pointer itself is only used again in
-                // `Self::into_slots()`, after the guest returned.
-                let executor_context = unsafe { context.as_ref() };
+            Self::None => MaybeEnv::None,
+            Self::ReadOnly(env_ro) => {
                 // SAFETY: Created outside of contract code and given by reference only to the FFI
                 // function that `#[contract]` generates for the method, which borrows no memory for
                 // the lifetime of `Env` and gives the method `Env` with a lifetime that only covers
-                // the call (see its `# Safety`), and only dropped in `Self::into_slots()` after the
-                // method returned
+                // the call (see its `# Safety`), and only dropped with the returned container after
+                // the method returned
                 let env = unsafe { Env::with_executor_context(env_state, executor_context) };
                 {
                     // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_ro()`, which is
@@ -216,18 +197,14 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
 
-                MaybeEnv::ReadOnly(env_ro, context)
+                MaybeEnv::ReadOnly(env_ro)
             }
-            Self::ReadWrite(env_rw, ()) => {
-                // SAFETY: Created from an exclusive reference above. The shared reference given to
-                // `Env` is derived from this pointer, the pointer itself is only used again in
-                // `Self::into_slots()`, after the guest returned.
-                let executor_context = unsafe { context.as_ref() };
+            Self::ReadWrite(env_rw) => {
                 // SAFETY: Created outside of contract code and given by reference only to the FFI
                 // function that `#[contract]` generates for the method, which borrows no memory for
                 // the lifetime of `Env` and gives the method `Env` with a lifetime that only covers
-                // the call (see its `# Safety`), and only dropped in `Self::into_slots()` after the
-                // method returned
+                // the call (see its `# Safety`), and only dropped with the returned container after
+                // the method returned
                 let env = unsafe { Env::with_executor_context(env_state, executor_context) };
                 {
                     // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_rw()`, which is
@@ -242,29 +219,9 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
 
-                MaybeEnv::ReadWrite(env_rw, context)
+                MaybeEnv::ReadWrite(env_rw)
             }
         }
-    }
-}
-
-impl<'env, 'slots> MaybeEnv<Env<'env>, NonNull<NativeExecutorContext<'slots>>> {
-    /// Free `Env` (if present) and get slots of the nested context
-    #[inline(always)]
-    fn into_slots(self) -> &'env mut NestedSlots<'slots> {
-        let mut context = match self {
-            MaybeEnv::None(context)
-            | MaybeEnv::ReadOnly(_, context)
-            | MaybeEnv::ReadWrite(_, context) => context,
-        };
-        // The host doesn't use `Env` anymore
-        drop(self);
-        // SAFETY: Created in `Self::initialize()` from an exclusive reference to the nested context
-        // that is borrowed for `'env`. The only reference derived from it was given to the guest
-        // through `Env`, and the guest can only use it during the FFI call, while `self` (owned by
-        // `make_ffi_call()`) can't be consumed. Consuming `self` also ensures the host doesn't
-        // access `Env` or create another reference to the nested context afterward.
-        unsafe { context.as_mut() }.slots.get_mut()
     }
 }
 
@@ -496,7 +453,7 @@ where
         }
     };
 
-    let mut maybe_env = MaybeEnv::None(());
+    let mut maybe_env = MaybeEnv::None;
 
     // Handle `&self` and `&mut self`
     match method_kind {
@@ -818,13 +775,12 @@ where
         }
     }
 
-    let mut nested_context = None;
+    // Only `#[view]` methods can be called through `&Env`, and without `Env` the nested context
+    // isn't used for calls at all and only holds onto slots. Slots are taken back from this nested
+    // context after the call rather than from `Env`, which the guest could have replaced.
+    let nested_context = create_nested_context(slots, matches!(maybe_env, MaybeEnv::ReadWrite(_)));
     // SAFETY: `internal_args` only holds a raw pointer to `Env` and no references exist
-    let maybe_env = unsafe {
-        maybe_env.initialize(slots, env_state, |slots, allow_env_mutation| {
-            nested_context.insert(create_nested_context(slots, allow_env_mutation))
-        })
-    };
+    let maybe_env = unsafe { maybe_env.initialize(env_state, &nested_context) };
 
     let internal_args = internal_args.cast::<c_void>();
     // SAFETY: `internal_args` was built according to `method_metadata`, which `#[contract]`
@@ -833,7 +789,7 @@ where
     // Pointers in it stay valid for the whole call:
     // * state and slot buffers belong to `slots` and are registered as accessed there, so nested
     //   calls can't modify or reallocate them
-    // * `Env` is allocated in `maybe_env` and only freed when it is consumed after the call, the
+    // * `Env` is allocated in `maybe_env` and only freed when it is dropped after the call, the
     //   nested context lives in `nested_context`, which outlives the call
     // * the rest comes from `external_args`, valid during the call as per function contract
     // Contents of outputs are not accessed after the call without being parsed, unless every bit
@@ -843,12 +799,14 @@ where
     // or holds a valid value of the state.
     let result = Result::<(), ContractError>::from(unsafe { ffi_fn(internal_args) });
 
-    let slots = maybe_env.into_slots();
+    // The host doesn't use `Env` anymore
+    drop(maybe_env);
+    let mut slots = nested_context.into_slots();
 
     let result = result.and_then(|()| {
         // SAFETY: The call succeeded, `new_address_ptr` and `post_processing` were created above
         // for it, and `internal_args` and `external_args` they point into are still valid
-        unsafe { post_process_ffi_call(slots, new_address_ptr, &post_processing) }
+        unsafe { post_process_ffi_call(&mut slots, new_address_ptr, &post_processing) }
     });
 
     if result.is_err() {

@@ -158,4 +158,9 @@ impl<'a> NativeExecutorContext<'a> {
             allow_env_mutation,
         }
     }
+
+    #[inline(always)]
+    fn into_slots(self) -> NestedSlots<'a> {
+        self.slots.into_inner()
+    }
 }
