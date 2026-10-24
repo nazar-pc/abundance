@@ -30,6 +30,20 @@ fn new_slots() -> Slots {
     )
 }
 
+/// Same as [`new_slots()`], but the slot of the first owner is read-only
+fn new_slots_with_read_only() -> Slots {
+    Slots::new(OWNERS.iter().zip(1..).map(|(&owner, value)| {
+        let key = slot_key_for(owner);
+        let buffer = SharedAlignedBuffer::from_bytes(&[value]);
+
+        if owner == OWNERS[0] {
+            Slot::ReadOnly { key, buffer }
+        } else {
+            Slot::ReadWrite { key, buffer }
+        }
+    }))
+}
+
 fn write(slots: &mut NestedSlots<'_>, owner: Address, value: u8) {
     let (_slot_index, buffer) = slots.use_rw(slot_key_for(owner), 1).unwrap();
     buffer.copy_from_slice(&[value]);
@@ -357,4 +371,69 @@ fn only_latest_access_of_slot_is_active() {
     }
 
     assert_eq!(values(&slots), [11, 2, 3]);
+}
+
+#[test]
+fn read_only_slot_stays_read_only_after_read() {
+    let mut slots = new_slots_with_read_only();
+    let read_only_slot_key = slot_key_for(OWNERS[0]);
+
+    {
+        let mut nested = slots.new_nested_rw();
+        assert!(nested.use_ro(read_only_slot_key).is_some());
+    }
+    {
+        let mut nested = slots.new_nested_rw();
+        assert!(nested.use_ro(read_only_slot_key).is_some());
+        nested.commit();
+    }
+
+    let mut nested = slots.new_nested_rw();
+    assert!(nested.use_rw(read_only_slot_key, 1).is_none());
+}
+
+#[test]
+fn read_only_slot_stays_read_only_after_refused_write() {
+    let mut slots = new_slots_with_read_only();
+    let read_only_slot_key = slot_key_for(OWNERS[0]);
+
+    {
+        let mut nested = slots.new_nested_rw();
+        assert!(nested.use_rw(read_only_slot_key, 1).is_none());
+    }
+    {
+        let mut nested = slots.new_nested_rw();
+        assert!(nested.use_rw(read_only_slot_key, 1).is_none());
+        nested.commit();
+    }
+
+    let mut nested = slots.new_nested_rw();
+    assert!(nested.use_rw(read_only_slot_key, 1).is_none());
+    // It can still be read
+    assert!(nested.use_ro(read_only_slot_key).is_some());
+}
+
+#[test]
+fn read_only_slots_are_iterated_as_unmodified() {
+    let mut slots = new_slots_with_read_only();
+
+    {
+        let mut nested = slots.new_nested_rw();
+        write(&mut nested, OWNERS[1], 20);
+        nested.commit();
+    }
+
+    assert_eq!(values(&slots), [1, 20, 3]);
+    assert!(
+        slots
+            .iter_modified()
+            .map(|(slot_key, _buffer)| *slot_key)
+            .eq([slot_key_for(OWNERS[1])])
+    );
+    assert!(
+        slots
+            .into_slots()
+            .any(|(slot_key, buffer)| slot_key == slot_key_for(OWNERS[0])
+                && buffer.as_slice() == [1])
+    );
 }
