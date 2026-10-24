@@ -225,131 +225,6 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>> {
     }
 }
 
-/// Process results of a successful FFI call: register a newly allocated contract address and
-/// integrate changes of slots and outputs.
-///
-/// # Safety
-/// Must only be called by [`make_ffi_call()`] after the FFI call returned successfully, with
-/// `new_address_ptr` and `post_processing` it created for that call, while `internal_args` and
-/// `external_args` they point into are still valid as required by [`make_ffi_call()`].
-#[inline(always)]
-unsafe fn post_process_ffi_call(
-    slots: &mut NestedSlots<'_>,
-    new_address_ptr: Option<*mut Address>,
-    post_processing: &[PostProcessing],
-) -> Result<(), ContractError> {
-    // Catch new address allocation and add it to new contracts in slots for code and other things
-    // to become usable for it
-    if let Some(new_address_ptr) = new_address_ptr {
-        // Assert that the API has the expected shape
-        let _: fn(&mut AddressAllocator, &mut Env<'_>) -> Result<Address, ContractError> =
-            AddressAllocator::allocate_address;
-        // SAFETY: `new_address_ptr` is the return value pointer of
-        // `AddressAllocator::allocate_address()` (checked above), which the guest initialized since
-        // the call succeeded
-        let new_address = unsafe { new_address_ptr.read() };
-        if !slots.add_new_contract(new_address) {
-            warn!("Failed to add new contract returned by address allocator");
-            return Err(ContractError::InternalError);
-        }
-    }
-
-    for &entry in post_processing {
-        match entry {
-            PostProcessing::Slot {
-                internal_args_ptr,
-                slot_index,
-                must_be_not_empty,
-            } => {
-                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
-                // this slot by `make_ffi_call()`, which is still alive as per function contract,
-                // and the guest no longer accesses it
-                let FfiDataSizeCapacityRw {
-                    data_ptr,
-                    size,
-                    capacity: _,
-                } = unsafe { internal_args_ptr.cast().read() };
-
-                if must_be_not_empty && size == 0 {
-                    error!(
-                        %size,
-                        "Contract returned empty size where it is not allowed, likely state of \
-                        `#[init]` method"
-                    );
-                    return Err(ContractError::BadOutput);
-                }
-
-                let slot_bytes = slots
-                    .access_used_rw(slot_index)
-                    .expect("Used before the call and stays in use until `Slots` is dropped; qed");
-
-                // Guest created a different allocation for slot, copy bytes
-                if !ptr::eq(data_ptr, slot_bytes.as_ptr()) {
-                    if data_ptr.is_null() {
-                        error!("Contract returned `null` pointer for slot data");
-                        return Err(ContractError::BadOutput);
-                    }
-                    // SAFETY: The guest replaced the slot contents with a different allocation,
-                    // whose first `size` bytes are initialized as required by `IoType` (the native
-                    // executor trusts contracts to uphold it, see `NativeExecutor`)
-                    let data =
-                        unsafe { slice::from_raw_parts(data_ptr.cast::<u8>(), size as usize) };
-                    slot_bytes.copy_from_slice(data);
-                    continue;
-                }
-
-                if size > slot_bytes.capacity() {
-                    error!(
-                        %size,
-                        capacity = %slot_bytes.capacity(),
-                        "Contract returned invalid size for slot data in source allocation"
-                    );
-                    return Err(ContractError::BadOutput);
-                }
-                // Otherwise, set the size to what guest claims
-                //
-                // SAFETY: Checked to be within capacity above, and the guest initialized the first
-                // `size` bytes as required by `IoType` (the native executor trusts contracts to
-                // uphold it, see `NativeExecutor`)
-                unsafe {
-                    slot_bytes.set_len(size);
-                }
-            }
-            PostProcessing::Output {
-                internal_args_ptr,
-                external_args_ptr,
-            } => {
-                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
-                // this output by `make_ffi_call()`, which is still alive as per function contract,
-                // and the guest no longer accesses it
-                let source_size =
-                    unsafe { internal_args_ptr.cast::<FfiDataSizeCapacityRw>().read() }.size;
-                // SAFETY: Points to this output's pointer, size and capacity in `ExternalArgs`,
-                // which are valid for writes during the call as per function contract and not
-                // accessed by anything else, since the guest returned
-                let FfiDataSizeCapacityRw {
-                    data_ptr: _,
-                    size,
-                    capacity,
-                } = unsafe { external_args_ptr.cast::<FfiDataSizeCapacityRw>().as_mut() };
-
-                if source_size > *capacity {
-                    error!(
-                        size = %source_size,
-                        %capacity,
-                        "Contract returned invalid size for output in source allocation"
-                    );
-                    return Err(ContractError::BadOutput);
-                }
-
-                *size = source_size;
-            }
-        }
-    }
-
-    Ok(())
-}
-
 /// Call method of a contract through its FFI function.
 ///
 /// # Safety
@@ -807,9 +682,113 @@ where
     let mut slots = nested_context.into_slots();
 
     result?;
-    // SAFETY: The call succeeded, `new_address_ptr` and `post_processing` were created above for
-    // it, and `internal_args` and `external_args` they point into are still valid
-    unsafe { post_process_ffi_call(&mut slots, new_address_ptr, &post_processing) }?;
+
+    // Catch new address allocation and add it to new contracts in slots for code and other things
+    // to become usable for it
+    if let Some(new_address_ptr) = new_address_ptr {
+        // Assert that the API has the expected shape
+        let _: fn(&mut AddressAllocator, &mut Env<'_>) -> Result<Address, ContractError> =
+            AddressAllocator::allocate_address;
+        // SAFETY: `new_address_ptr` is the return value pointer of
+        // `AddressAllocator::allocate_address()` (checked above), which the guest initialized since
+        // the call succeeded
+        let new_address = unsafe { new_address_ptr.read() };
+        if !slots.add_new_contract(new_address) {
+            warn!("Failed to add new contract returned by address allocator");
+            return Err(ContractError::InternalError);
+        }
+    }
+
+    for &entry in &post_processing {
+        match entry {
+            PostProcessing::Slot {
+                internal_args_ptr,
+                slot_index,
+                must_be_not_empty,
+            } => {
+                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
+                // this slot above, which is still alive, and the guest no longer accesses it
+                let FfiDataSizeCapacityRw {
+                    data_ptr,
+                    size,
+                    capacity: _,
+                } = unsafe { internal_args_ptr.cast().read() };
+
+                if must_be_not_empty && size == 0 {
+                    error!(
+                        %size,
+                        "Contract returned empty size where it is not allowed, likely state of \
+                        `#[init]` method"
+                    );
+                    return Err(ContractError::BadOutput);
+                }
+
+                let slot_bytes = slots
+                    .access_used_rw(slot_index)
+                    .expect("Was used above and must exist since `Slots` was not dropped yet; qed");
+
+                // Guest created a different allocation for slot, copy bytes
+                if !ptr::eq(data_ptr, slot_bytes.as_ptr()) {
+                    if data_ptr.is_null() {
+                        error!("Contract returned `null` pointer for slot data");
+                        return Err(ContractError::BadOutput);
+                    }
+                    // SAFETY: The guest replaced the slot contents with a different allocation,
+                    // whose first `size` bytes are initialized as required by `IoType` (the native
+                    // executor trusts contracts to uphold it, see `NativeExecutor`)
+                    let data =
+                        unsafe { slice::from_raw_parts(data_ptr.cast::<u8>(), size as usize) };
+                    slot_bytes.copy_from_slice(data);
+                    continue;
+                }
+
+                if size > slot_bytes.capacity() {
+                    error!(
+                        %size,
+                        capacity = %slot_bytes.capacity(),
+                        "Contract returned invalid size for slot data in source allocation"
+                    );
+                    return Err(ContractError::BadOutput);
+                }
+                // Otherwise, set the size to what guest claims
+                //
+                // SAFETY: Checked to be within capacity above, and the guest initialized the first
+                // `size` bytes as required by `IoType` (the native executor trusts contracts to
+                // uphold it, see `NativeExecutor`)
+                unsafe {
+                    slot_bytes.set_len(size);
+                }
+            }
+            PostProcessing::Output {
+                internal_args_ptr,
+                external_args_ptr,
+            } => {
+                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
+                // this output above, which is still alive, and the guest no longer accesses it
+                let source_size =
+                    unsafe { internal_args_ptr.cast::<FfiDataSizeCapacityRw>().read() }.size;
+                // SAFETY: Points to this output's pointer, size and capacity in `ExternalArgs`,
+                // which are valid for writes during the call as per function contract and not
+                // accessed by anything else, since the guest returned
+                let FfiDataSizeCapacityRw {
+                    data_ptr: _,
+                    size,
+                    capacity,
+                } = unsafe { external_args_ptr.cast::<FfiDataSizeCapacityRw>().as_mut() };
+
+                if source_size > *capacity {
+                    error!(
+                        size = %source_size,
+                        %capacity,
+                        "Contract returned invalid size for output in source allocation"
+                    );
+                    return Err(ContractError::BadOutput);
+                }
+
+                *size = source_size;
+            }
+        }
+    }
 
     slots.commit();
 
