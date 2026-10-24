@@ -15,11 +15,13 @@ use crate::basic::{
 };
 use crate::rv64::test_utils::TestHart;
 use crate::{
-    Address, ExecutionError, ExecutionResult, FetchInstructionResult, InstructionFetcher,
-    OpaqueThreadedExecutionResult, ProgramCounter, RegisterFile, SystemInstructionHandler,
-    ThreadedExecutableInstruction,
+    Address, ExecutableInstruction, ExecutableInstructionCsr, ExecutableInstructionOperands,
+    ExecutionError, ExecutionResult, FetchInstructionResult, InstructionFetcher,
+    OpaqueThreadedExecutionResult, PackedAddress, ProgramCounter, RegisterFile,
+    Rs1Rs2OperandValues, Rs1Rs2Operands, SystemInstructionHandler, ThreadedExecutableInstruction,
+    ThreadedExecutionResult, VirtualMemory,
 };
-use ab_riscv_macros::instruction;
+use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
@@ -123,7 +125,8 @@ where
 
 /// Decode [`code()`], which [`new_fetcher()`] then walks
 fn new_instructions(return_trap_address: u64) -> BasicEagerInstructions<I> {
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
     unsafe { BasicEagerInstructions::decode(&code(), FALLBACK, return_trap_address, BASE_ADDR) }
         .expect("Callers only pass a return trap outside of the code and not too far from it; qed")
 }
@@ -281,7 +284,8 @@ fn jump_to_a_trap_below_the_stream_stops_at_the_trap() {
     // `jal zero, -0x1000`, from the first instruction down to address 0
     assert_eq!(BASE_ADDR, 0x1000);
     let code = 0x800f_f06f_u32.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
     let instructions =
         unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) }
             .expect("Short code at an aligned address, return trap close below it; qed");
@@ -310,7 +314,8 @@ fn jump_to_a_trap_below_the_stream_stops_at_the_trap() {
 /// The last one is from the loop started again where it stopped.
 fn ret_to_trap(return_trap_address: u64) -> [u64; 3] {
     let code = RET.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
     let instructions = unsafe {
         BasicEagerInstructions::<I>::decode(&code, FALLBACK, return_trap_address, BASE_ADDR)
     }
@@ -662,7 +667,8 @@ fn branch_that_wraps_around_the_address_space_is_out_of_bounds() {
 fn falling_through_the_end_reaches_the_fallback() {
     // Doesn't end with a jump
     let code = NOP.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
     let instructions =
         unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) }
             .expect("Short code at an aligned address, return trap close below it; qed");
@@ -683,7 +689,8 @@ fn falling_through_the_end_reaches_the_fallback() {
 fn jump_into_the_second_half_of_the_last_instruction_falls_through_to_the_fallback() {
     // `jal zero, 2` jumps into its own second half, which decodes as `c.addi4spn s0, sp, 8`
     let code = 0x0020_006f_u32.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
     let instructions = unsafe {
         BasicEagerInstructions::<CompressedInstruction>::decode(
             &code,
@@ -712,7 +719,8 @@ fn instruction_longer_than_guest_code_left_is_not_decoded() {
     // zeroes that are not in the guest code
     let code = [0x0001_u16.to_le_bytes(), 0x006f_u16.to_le_bytes()].concat();
     assert!(<CompressedInstruction>::try_decode(0x006f).is_some());
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
     let instructions = unsafe {
         BasicEagerInstructions::<CompressedInstruction>::decode(
             &code,
@@ -728,6 +736,249 @@ fn instruction_longer_than_guest_code_left_is_not_decoded() {
 
     // SAFETY: The fetcher is new
     assert_eq!(unsafe { fetch(&mut fetcher) }, COMPRESSED_FALLBACK);
+}
+
+/// Instruction word with the custom-0 opcode and nothing else set, which no standard instruction
+/// decodes from
+const CUSTOM_0: u32 = 0x0000_000b;
+
+/// RV64I with an instruction of its own that is half of an alignment step long, so execution
+/// can't move past it to the start of a slot
+#[instruction(inherit = [Rv64Instruction])]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HalfSizeInstruction<Hart = BasicHart<Reg<u64>>>
+where
+    Hart: HartConfig,
+{
+    /// Decoded from [`CUSTOM_0`] and does nothing
+    Half,
+}
+
+#[instruction]
+const impl<Reg, Hart> Instruction for HalfSizeInstruction<Hart>
+where
+    Hart: [const] HartConfig<Reg = Reg>,
+{
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Hart = Hart;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        if instruction == CUSTOM_0 {
+            Some(Self::Half)
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u16>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg, Hart> fmt::Display for HalfSizeInstruction<Hart>
+where
+    Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Half => write!(f, "half"),
+        }
+    }
+}
+
+#[instruction_execution]
+impl<Reg, Hart> ExecutableInstructionOperands for HalfSizeInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Env> ExecutableInstructionCsr<Env> for HalfSizeInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+{
+}
+
+#[instruction_execution]
+impl<Reg, Hart, Regs, Env, Memory, PC> ExecutableInstruction<Regs, Env, Memory, PC>
+    for HalfSizeInstruction<Hart>
+where
+    Reg: Register,
+    Hart: HartConfig<Reg = Reg>,
+    Regs: RegisterFile<Reg>,
+{
+    #[inline(always)]
+    fn execute(
+        self,
+        Rs1Rs2OperandValues {
+            rs1_value,
+            rs2_value,
+        }: Rs1Rs2OperandValues<Reg::Type>,
+        _regs: &mut Regs,
+        _env: &mut Env,
+        _memory: &mut Memory,
+        _program_counter: &PC,
+    ) -> ExecutionResult<Reg> {
+        match self {
+            Self::Half => ExecutionResult::ContinueNoWrite,
+        }
+    }
+}
+
+/// [`FALLBACK`] for [`HalfSizeInstruction`]
+const HALF_SIZE_FALLBACK: HalfSizeInstruction = HalfSizeInstruction::Unimp {
+    rs1: Reg::ZERO,
+    rs2: Reg::ZERO,
+};
+
+/// RV64I with an instruction of its own that is zero bytes long, so execution can't move past it
+#[instruction(inherit = [Rv64Instruction])]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ZeroSizeInstruction<Hart = BasicHart<Reg<u64>>>
+where
+    Hart: HartConfig,
+{
+    /// Decoded from [`CUSTOM_0`]
+    Empty,
+}
+
+#[instruction]
+const impl<Reg, Hart> Instruction for ZeroSizeInstruction<Hart>
+where
+    Hart: [const] HartConfig<Reg = Reg>,
+{
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Hart = Hart;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        if instruction == CUSTOM_0 {
+            Some(Self::Empty)
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        0
+    }
+}
+
+#[instruction]
+impl<Reg, Hart> fmt::Display for ZeroSizeInstruction<Hart>
+where
+    Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => write!(f, "empty"),
+        }
+    }
+}
+
+/// [`FALLBACK`] for [`ZeroSizeInstruction`]
+const ZERO_SIZE_FALLBACK: ZeroSizeInstruction = ZeroSizeInstruction::Unimp {
+    rs1: Reg::ZERO,
+    rs2: Reg::ZERO,
+};
+
+#[test]
+fn instruction_whose_size_is_not_a_multiple_of_the_alignment_is_not_decoded() {
+    // The instruction of half a slot, then `nop` and `ret`
+    let code = [CUSTOM_0, NOP, RET]
+        .iter()
+        .flat_map(|instruction| instruction.to_le_bytes())
+        .collect::<Vec<_>>();
+    assert_matches!(
+        <HalfSizeInstruction>::try_decode(CUSTOM_0),
+        Some(HalfSizeInstruction::Half { .. })
+    );
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
+    let instructions = unsafe {
+        BasicEagerInstructions::<HalfSizeInstruction>::decode(
+            &code,
+            HALF_SIZE_FALLBACK,
+            0,
+            BASE_ADDR,
+        )
+    }
+    .expect("Short code at an aligned address, return trap close below it; qed");
+    let fetcher = instructions
+        .fetcher(BASE_ADDR)
+        .expect("This is the address of the first instruction; qed");
+
+    // Execution runs the fallback instruction that is stored instead, rather than continuing from
+    // the middle of the next slot
+    let mut state = BasicInterpreterState {
+        regs: BasicRegisters::<Reg<u64>>::default(),
+        env: IllegalEcallSystemInstructionHandler,
+        memory: Memory::default(),
+        instruction_fetcher: fetcher,
+    };
+    let outcome = state.execute::<HalfSizeInstruction>();
+    assert_matches!(
+        outcome,
+        Err(ExecutionError::IllegalInstruction { address }) if address.get() == BASE_ADDR,
+        "Unexpected outcome {outcome:?}"
+    );
+
+    // Threaded dispatch can't run on an x86-64 CPU without AVX
+    if OpaqueThreadedExecutionResult::<HalfSizeInstruction>::platform_supported() {
+        let outcome = HalfSizeInstruction::execute_threaded(
+            fetcher,
+            &mut BasicRegisters::<Reg<u64>>::default(),
+            IllegalEcallSystemInstructionHandler,
+            &mut Memory::default(),
+        )
+        .outcome;
+        assert_matches!(
+            outcome,
+            Err(ExecutionError::IllegalInstruction { address }) if address.get() == BASE_ADDR,
+            "Unexpected outcome {outcome:?}"
+        );
+    }
+}
+
+#[test]
+fn instruction_of_zero_bytes_is_not_decoded() {
+    let code = CUSTOM_0.to_le_bytes();
+    assert_matches!(
+        <ZeroSizeInstruction>::try_decode(CUSTOM_0),
+        Some(ZeroSizeInstruction::Empty { .. })
+    );
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
+    let instructions = unsafe {
+        BasicEagerInstructions::<ZeroSizeInstruction>::decode(
+            &code,
+            ZERO_SIZE_FALLBACK,
+            0,
+            BASE_ADDR,
+        )
+    }
+    .expect("Short code at an aligned address, return trap close below it; qed");
+    let mut fetcher = instructions
+        .fetcher(BASE_ADDR)
+        .expect("This is the address of the first instruction; qed");
+
+    // SAFETY: The fetcher is new
+    assert_eq!(unsafe { fetch(&mut fetcher) }, ZERO_SIZE_FALLBACK);
 }
 
 /// Start execution at `fetcher` with the loop of [`BasicInterpreterState`] and, where the platform
@@ -881,7 +1132,8 @@ fn execution_after_a_jump_to_a_trap_above_the_stream_stops_right_away() {
 fn execution_that_starts_again_past_the_fallback_fails_right_away() {
     // Doesn't end with a jump, so execution falls through to the fallback instruction
     let code = NOP.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
     let instructions =
         unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) }
             .expect("Short code at an aligned address, return trap close below it; qed");
@@ -918,7 +1170,8 @@ fn execution_that_starts_again_past_the_fallback_fails_right_away() {
 fn falling_through_to_a_trap_right_after_the_code_runs_the_fallback() {
     // Doesn't end with a jump, so execution falls through to the return trap right after it
     let code = NOP.to_le_bytes();
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
     let instructions =
         unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, BASE_ADDR + 4, BASE_ADDR) }
             .expect("Short code at an aligned address, return trap right after it; qed");
@@ -969,7 +1222,8 @@ fn ecall_with(handler: JumpingEcallHandler) -> Vec<(Result<(), ExecutionError<u6
         .iter()
         .flat_map(|instruction| instruction.to_le_bytes())
         .collect::<Vec<_>>();
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `size()` depends only
+    // on the variant
     let instructions =
         unsafe { BasicEagerInstructions::<I>::decode(&code, FALLBACK, 0, BASE_ADDR) }
             .expect("Short code at an aligned address, return trap close below it; qed");

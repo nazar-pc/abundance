@@ -79,7 +79,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         // internally (+ memory allocation)
         group.bench_function("decode-instructions", |b| {
             b.iter(|| {
-                // SAFETY: `unimp` never continues to the next instruction
+                // SAFETY: `unimp` never continues to the next instruction, and
+                // `ContractInstruction::size()` depends only on the variant
                 let instructions = unsafe {
                     BasicEagerInstructions::decode(
                         code,
@@ -130,7 +131,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         ),
     };
 
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `ContractInstruction::size()`
+    // depends only on the variant
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             contract_file.get_code(),

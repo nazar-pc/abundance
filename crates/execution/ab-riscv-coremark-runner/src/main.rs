@@ -86,7 +86,8 @@ fn main() -> anyhow::Result<()> {
     regs.write(Reg::A0, 1);
     regs.write(Reg::A1, argv_addr);
 
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `CoremarkInstruction::size()`
+    // depends only on the variant
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             text_data,

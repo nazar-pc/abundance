@@ -110,7 +110,8 @@ where
             state.memory
         }
         RunType::Eager => {
-            // SAFETY: `unimp` never continues to the next instruction
+            // SAFETY: `unimp` never continues to the next instruction, and
+            // `ContractInstruction::size()` depends only on the variant
             let instructions = unsafe {
                 BasicEagerInstructions::decode(
                     contract_file.get_code(),
@@ -134,7 +135,8 @@ where
             state.memory
         }
         RunType::EagerThreaded => {
-            // SAFETY: `unimp` never continues to the next instruction
+            // SAFETY: `unimp` never continues to the next instruction, and
+            // `ContractInstruction::size()` depends only on the variant
             let instructions = unsafe {
                 BasicEagerInstructions::decode(
                     contract_file.get_code(),

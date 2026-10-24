@@ -865,11 +865,15 @@ where
     /// [`Self::peek_instruction()`] has just returned.
     ///
     /// # Safety
-    /// Must be called exactly once after a successful [`Self::peek_instruction()`], with the size
-    /// of the instruction that call returned. Implementations are free to rely on that and skip
-    /// checks accordingly: one over a pre-decoded stream that is followed by an instruction that
-    /// never continues, for instance, treats the resulting position as valid without
-    /// bounds-checking it.
+    /// Must be called exactly once after a successful [`Self::peek_instruction()`], with what
+    /// [`Instruction::size()`] returns for the instruction that call returned. Implementations are
+    /// free to rely on that and skip checks accordingly: one over a pre-decoded stream that is
+    /// followed by an instruction that never continues, for instance, treats the resulting
+    /// position as valid without bounds-checking it.
+    ///
+    /// [`Instruction`] is a safe trait, so nothing stops `size()` from returning a different value
+    /// for the same instruction later. An implementation that needs the size to match what it
+    /// checked earlier has to require that itself, the way `BasicEagerInstructions::decode()` does.
     unsafe fn advance(&mut self, instruction_size: u8);
 
     /// Fetch a single instruction at a specified address and advance the program counter on

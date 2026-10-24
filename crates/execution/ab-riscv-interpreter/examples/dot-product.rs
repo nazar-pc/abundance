@@ -413,7 +413,8 @@ fn main() -> anyhow::Result<()> {
     let text = elf
         .section_by_name(".text")
         .context("Guest ELF has no `.text` section")?;
-    // SAFETY: `unimp` never continues to the next instruction
+    // SAFETY: `unimp` never continues to the next instruction, and `DotProductInstruction::size()`
+    // depends only on the variant
     let instructions = unsafe {
         BasicEagerInstructions::decode(
             text.data()

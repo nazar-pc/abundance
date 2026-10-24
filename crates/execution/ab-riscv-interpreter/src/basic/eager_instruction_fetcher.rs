@@ -269,6 +269,11 @@ where
     /// which is only ever reached by jumping into the middle of one. Such a slot may or may not
     /// decode into a valid instruction on its own, and `fallback` is what is stored when it
     /// doesn't.
+    ///
+    /// Execution moves past an instruction by its [`Instruction::size()`], so an instruction whose
+    /// size is zero, isn't a multiple of [`Instruction::ALIGNMENT`] or is larger than the guest
+    /// code left is stored as `fallback` too.
+    ///
     /// `fallback` is also stored right after the last slot, where execution ends up when it falls
     /// through the end of the decoded stream.
     ///
@@ -301,11 +306,15 @@ where
     /// # Safety
     /// Execution of the resulting instruction stream skips the checks that
     /// [`BasicInstructionFetcher`](super::BasicInstructionFetcher) does, which is where the
-    /// performance comes from. `fallback` must never continue to the next instruction when executed
-    /// (`unimp`, which always fails, is the canonical choice). Instruction fetching does not
-    /// bounds-check the position, only [`ProgramCounter::set_pc()`] and
-    /// [`ProgramCounter::try_set_pc_relative()`] do, and falling through the end of the decoded
-    /// stream lands on `fallback`, which must not fall through any further.
+    /// performance comes from. Both of the following must hold:
+    /// * `fallback` must never continue to the next instruction when executed (`unimp`, which
+    ///   always fails, is the canonical choice). Instruction fetching does not bounds-check the
+    ///   position, only [`ProgramCounter::set_pc()`] and [`ProgramCounter::try_set_pc_relative()`]
+    ///   do, and falling through the end of the decoded stream lands on `fallback`, which must not
+    ///   fall through any further.
+    /// * [`Instruction::size()`] must return the same value every time for the same instruction.
+    ///   Decoding checks the size of each instruction once, and execution moves past the
+    ///   instruction by whatever size it returns later, without checking it again.
     pub unsafe fn decode(
         instructions: &[u8],
         fallback: I,
@@ -419,9 +428,17 @@ where
         };
 
         I::try_decode(instruction)
-            // An instruction that doesn't fit into the guest code left would make execution skip
-            // the fallback instruction after the decoded stream when falling through it
-            .filter(|instruction| usize::from(instruction.size()) <= guest_code_left.len())
+            .filter(|instruction| {
+                let size = usize::from(instruction.size());
+                // Execution moves past an instruction by its size, so the size must be a whole
+                // number of slots, and more than zero. Otherwise execution would continue between
+                // two slots, or run the same instruction forever. An instruction that doesn't fit
+                // into the guest code left would make execution skip the fallback instruction
+                // after the decoded stream when falling through it.
+                size != 0
+                    && size.is_multiple_of(Self::GUEST_BYTES_PER_SLOT)
+                    && size <= guest_code_left.len()
+            })
             .unwrap_or(fallback)
     }
 }
@@ -661,10 +678,11 @@ where
         // Wherever fetching is allowed, the position is at a decoded instruction or at the
         // fallback instruction after them. `BasicEagerInstructions::fetcher()`, `Self::set_pc()`
         // and `Self::try_set_pc_relative()` only accept positions within the decoded stream.
-        // Moving past an instruction that continues stays within it or lands on the fallback
-        // instruction, which `BasicEagerInstructions::decode()` guarantees, and the fallback
-        // instruction never continues. The decoded instructions are borrowed for as long as
-        // `self` is.
+        // Moving past an instruction that continues lands on a decoded instruction or on the
+        // fallback instruction after them. `BasicEagerInstructions::decode()` only keeps
+        // instructions whose size is a whole number of slots and fits into the guest code left,
+        // and its caller promises that the size doesn't change later. The fallback instruction
+        // never continues. The decoded instructions are borrowed for as long as `self` is.
         unsafe { &*self.next_instruction }
     }
 
@@ -673,9 +691,9 @@ where
     unsafe fn advance(&mut self, instruction_size: u8) {
         let byte_advance = usize::from(instruction_size)
             * BasicEagerInstructions::<I>::STREAM_BYTES_PER_GUEST_BYTE;
-        // Wrapping because nothing here dereferences the pointer: the contract of this method is
-        // what makes the resulting position a decoded instruction, and the bounds check that
-        // matters lives in `set_pc()`
+        // Wrapping because nothing here dereferences the pointer: the contracts of this method and
+        // of `BasicEagerInstructions::decode()` are what make the resulting position a decoded
+        // instruction, and the bounds check that matters lives in `set_pc()`
         self.next_instruction = self.next_instruction.wrapping_byte_add(byte_advance);
     }
 
