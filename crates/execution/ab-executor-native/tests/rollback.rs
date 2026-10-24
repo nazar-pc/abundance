@@ -37,10 +37,10 @@ impl Rollback {
     #[init]
     pub fn new_without_state(
         #[env] env: &mut Env<'_>,
-        #[slot] slot: &mut MaybeData<Value>,
+        #[slot] slot: &mut MaybeData<'_, Value>,
         #[input] value: &u64,
         #[input] nested_owner: &Address,
-        #[output] _state: &mut MaybeData<Self>,
+        #[output] _state: &mut MaybeData<'_, Self>,
     ) -> Result<(), ContractError> {
         slot.replace(Value { value: *value });
         env.rollback_write(MethodContext::Keep, env.own_address(), nested_owner, value)
@@ -48,15 +48,15 @@ impl Rollback {
 
     /// Writes a slot
     #[update]
-    pub fn write(#[slot] slot: &mut MaybeData<Value>, #[input] &value: &u64) {
+    pub fn write(#[slot] slot: &mut MaybeData<'_, Value>, #[input] &value: &u64) {
         slot.replace(Value { value });
     }
 
     /// Writes two slots, the call fails before the method runs if both have the same owner
     #[update]
     pub fn write_two(
-        #[slot] slot: &mut MaybeData<Value>,
-        #[slot] other_slot: &mut MaybeData<Value>,
+        #[slot] slot: &mut MaybeData<'_, Value>,
+        #[slot] other_slot: &mut MaybeData<'_, Value>,
         #[input] &value: &u64,
     ) {
         slot.replace(Value { value });
@@ -75,7 +75,7 @@ impl Rollback {
     /// Writes a slot, then fails
     #[update]
     pub fn write_and_fail(
-        #[slot] slot: &mut MaybeData<Value>,
+        #[slot] slot: &mut MaybeData<'_, Value>,
         #[input] &value: &u64,
     ) -> Result<(), ContractError> {
         slot.replace(Value { value });
@@ -97,7 +97,7 @@ impl Rollback {
     #[update]
     pub fn write_and_call_write(
         #[env] env: &mut Env<'_>,
-        #[slot] slot: &mut MaybeData<Value>,
+        #[slot] slot: &mut MaybeData<'_, Value>,
         #[input] value: &u64,
         #[input] nested_owner: &Address,
     ) -> Result<(), ContractError> {
@@ -109,7 +109,7 @@ impl Rollback {
     #[update]
     pub fn write_call_nested_and_fail(
         #[env] env: &mut Env<'_>,
-        #[slot] slot: &mut MaybeData<Value>,
+        #[slot] slot: &mut MaybeData<'_, Value>,
         #[input] value: &u64,
         #[input] nested_owner: &Address,
         #[input] nested_nested_owner: &Address,
@@ -131,7 +131,7 @@ impl Rollback {
     #[update]
     pub fn survive_nested_failure(
         #[env] env: &mut Env<'_>,
-        #[slot] slot: &mut MaybeData<Value>,
+        #[slot] slot: &mut MaybeData<'_, Value>,
         #[input] &value: &u64,
         #[input] nested_owner: &Address,
         #[input] nested_nested_owner: &Address,
@@ -164,7 +164,7 @@ impl Rollback {
     #[update]
     pub fn survive_failed_argument_preparation(
         #[env] env: &mut Env<'_>,
-        #[slot] slot: &mut MaybeData<Value>,
+        #[slot] slot: &mut MaybeData<'_, Value>,
         #[input] &value: &u64,
         #[input] nested_owner: &Address,
     ) -> Result<(), ContractError> {
@@ -187,7 +187,7 @@ impl Rollback {
     #[update]
     pub fn deploy_and_fail(
         #[env] env: &mut Env<'_>,
-        #[input] code: &VariableBytes<MAX_CODE_SIZE>,
+        #[input] code: &VariableBytes<'_, MAX_CODE_SIZE>,
     ) -> Result<(), ContractError> {
         env.code_deploy(MethodContext::Keep, Address::SYSTEM_CODE, code)?;
         Err(ContractError::Forbidden)
@@ -195,7 +195,7 @@ impl Rollback {
 
     /// Value of a slot, `0` if it is empty
     #[view]
-    pub fn read(#[slot] slot: &MaybeData<Value>) -> u64 {
+    pub fn read(#[slot] slot: &MaybeData<'_, Value>) -> u64 {
         slot.get().map_or(0, |slot| slot.value)
     }
 }

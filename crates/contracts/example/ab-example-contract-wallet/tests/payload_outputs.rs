@@ -33,7 +33,7 @@ pub struct Outputs;
 impl Outputs {
     /// Fails unless the output is given empty
     #[view]
-    pub fn maybe_data_output(#[output] value: &mut MaybeData<u8>) -> Result<(), ContractError> {
+    pub fn maybe_data_output(#[output] value: &mut MaybeData<'_, u8>) -> Result<(), ContractError> {
         if value.get().is_some() {
             return Err(ContractError::Forbidden);
         }

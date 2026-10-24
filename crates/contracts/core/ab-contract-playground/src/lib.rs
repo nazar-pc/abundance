@@ -59,7 +59,7 @@ impl Fungible for Playground {
 impl Playground {
     #[init]
     pub fn new(
-        #[slot] (owner_addr, owner): (&Address, &mut MaybeData<Slot>),
+        #[slot] (owner_addr, owner): (&Address, &mut MaybeData<'_, Slot>),
         #[input] total_supply: &Balance,
     ) -> Self {
         owner.replace(Slot {
@@ -73,9 +73,9 @@ impl Playground {
 
     #[init]
     pub fn new_result(
-        #[slot] (owner_addr, owner): (&Address, &mut MaybeData<Slot>),
+        #[slot] (owner_addr, owner): (&Address, &mut MaybeData<'_, Slot>),
         #[input] total_supply: &Balance,
-        #[output] result: &mut MaybeData<Self>,
+        #[output] result: &mut MaybeData<'_, Self>,
     ) {
         owner.replace(Slot {
             balance: *total_supply,
@@ -90,8 +90,8 @@ impl Playground {
     pub fn mint(
         &mut self,
         #[env] env: &mut Env<'_>,
-        #[tmp] last_action: &mut MaybeData<LastAction>,
-        #[slot] to: &mut MaybeData<Slot>,
+        #[tmp] last_action: &mut MaybeData<'_, LastAction>,
+        #[slot] to: &mut MaybeData<'_, Slot>,
         #[input] &value: &Balance,
     ) -> Result<(), ContractError> {
         if env.context() != self.owner && env.caller() != self.owner {
@@ -111,7 +111,7 @@ impl Playground {
     }
 
     #[view]
-    pub fn balance(#[slot] target: &MaybeData<Slot>) -> Balance {
+    pub fn balance(#[slot] target: &MaybeData<'_, Slot>) -> Balance {
         target
             .get()
             .map_or_else(Balance::default, |slot| slot.balance)
@@ -119,8 +119,8 @@ impl Playground {
 
     #[view]
     pub fn balance_output(
-        #[slot] target: &MaybeData<Slot>,
-        #[output] balance: &mut MaybeData<Balance>,
+        #[slot] target: &MaybeData<'_, Slot>,
+        #[output] balance: &mut MaybeData<'_, Balance>,
         #[output] balance_2: &mut Balance,
     ) {
         let value = target
@@ -131,16 +131,16 @@ impl Playground {
     }
 
     #[view]
-    pub fn var_bytes(#[output] _out: &mut VariableBytes<1024>) {
+    pub fn var_bytes(#[output] _out: &mut VariableBytes<'_, 1024>) {
         // TODO
     }
 
     #[update]
     pub fn transfer(
         #[env] env: &mut Env<'_>,
-        #[tmp] last_action: &mut MaybeData<LastAction>,
-        #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),
-        #[slot] to: &mut MaybeData<Slot>,
+        #[tmp] last_action: &mut MaybeData<'_, LastAction>,
+        #[slot] (from_address, from): (&Address, &mut MaybeData<'_, Slot>),
+        #[slot] to: &mut MaybeData<'_, Slot>,
         #[input] &amount: &Balance,
     ) -> Result<(), ContractError> {
         if !(env.context() == from_address
@@ -177,7 +177,7 @@ impl Playground {
     }
 
     #[update]
-    pub fn last_action(#[tmp] maybe_last_action: &MaybeData<LastAction>) -> LastAction {
+    pub fn last_action(#[tmp] maybe_last_action: &MaybeData<'_, LastAction>) -> LastAction {
         maybe_last_action.get().copied().unwrap_or_default()
     }
 }

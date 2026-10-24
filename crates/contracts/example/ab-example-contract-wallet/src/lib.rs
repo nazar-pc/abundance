@@ -22,10 +22,10 @@ impl TxHandler for ExampleWallet {
     fn authorize(
         #[env] env: &Env<'_>,
         #[input] header: &TransactionHeader,
-        #[input] read_slots: &TxHandlerSlots,
-        #[input] write_slots: &TxHandlerSlots,
-        #[input] payload: &TxHandlerPayload,
-        #[input] seal: &TxHandlerSeal,
+        #[input] read_slots: &TxHandlerSlots<'_>,
+        #[input] write_slots: &TxHandlerSlots<'_>,
+        #[input] payload: &TxHandlerPayload<'_>,
+        #[input] seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError> {
         authorize(env, header, read_slots, write_slots, payload, seal)
     }
@@ -34,10 +34,10 @@ impl TxHandler for ExampleWallet {
     fn execute(
         #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
-        #[input] read_slots: &TxHandlerSlots,
-        #[input] write_slots: &TxHandlerSlots,
-        #[input] payload: &TxHandlerPayload,
-        #[input] seal: &TxHandlerSeal,
+        #[input] read_slots: &TxHandlerSlots<'_>,
+        #[input] write_slots: &TxHandlerSlots<'_>,
+        #[input] payload: &TxHandlerPayload<'_>,
+        #[input] seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError> {
         execute(env, header, read_slots, write_slots, payload, seal)
     }

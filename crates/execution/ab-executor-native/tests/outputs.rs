@@ -82,7 +82,7 @@ impl Outputs {
     }
 
     #[view]
-    pub fn set_flag(#[input] &flag: &Flag, #[output] out: &mut MaybeData<Flag>) {
+    pub fn set_flag(#[input] &flag: &Flag, #[output] out: &mut MaybeData<'_, Flag>) {
         out.replace(flag);
     }
 
@@ -91,7 +91,7 @@ impl Outputs {
     pub fn forward_flag<'a>(
         #[env] env: &mut Env<'a>,
         #[input] flag: &Flag,
-        #[output] out: &'a mut MaybeData<Flag>,
+        #[output] out: &'a mut MaybeData<'_, Flag>,
     ) -> Result<(), ContractError> {
         let mut out = env.lend_output(out);
         env.outputs_set_flag(env.own_address(), flag, &mut out)
@@ -100,7 +100,7 @@ impl Outputs {
     #[view]
     pub fn set_flags(
         #[input] &flag: &Flag,
-        #[output] flags: &mut VariableElements<Flag>,
+        #[output] flags: &mut VariableElements<'_, Flag>,
     ) -> Result<(), ContractError> {
         if flags.append(&[flag, flag]) {
             Ok(())
@@ -112,7 +112,7 @@ impl Outputs {
     #[view]
     pub fn set_three(
         #[input] &flag: &Flag,
-        #[output] maybe_flag: &mut MaybeData<Flag>,
+        #[output] maybe_flag: &mut MaybeData<'_, Flag>,
         #[output] plain_flag: &mut Flag,
         #[output] value: &mut u64,
     ) {
@@ -127,7 +127,7 @@ impl Outputs {
     pub fn mixed<'a>(
         #[env] env: &mut Env<'a>,
         #[input] flag: &Flag,
-        #[output] maybe_flag: &'a mut MaybeData<Flag>,
+        #[output] maybe_flag: &'a mut MaybeData<'_, Flag>,
         #[output] value: &mut u64,
     ) -> Result<Flag, ContractError> {
         let mut maybe_flag = env.lend_output(maybe_flag);
@@ -141,7 +141,7 @@ impl Outputs {
             &mut local_value,
         )?;
         *value = local_value;
-        plain_flag.get_mut().copied()
+        plain_flag.get_mut().map(|flag| *flag)
     }
 }
 
@@ -236,7 +236,7 @@ fn forward_output_that_needs_parsing() {
         let mut flag = MaybeUninit::uninit();
         let mut size = 0;
         {
-            let mut lent = Lent::<MaybeData<Flag>>::from_uninit(&mut flag, &mut size).unwrap();
+            let mut lent = Lent::<MaybeData<'_, Flag>>::from_uninit(&mut flag, &mut size).unwrap();
             env.outputs_forward_flag(MethodContext::Keep, contract, &Flag::On, &mut lent)
                 .unwrap();
             assert_eq!(lent.get_mut().unwrap().get(), Some(&Flag::On));
@@ -256,7 +256,7 @@ fn mixed_outputs() {
         let mut value = 0;
         let flag = {
             let mut lent =
-                Lent::<MaybeData<Flag>>::from_uninit(&mut maybe_flag, &mut maybe_flag_size)
+                Lent::<MaybeData<'_, Flag>>::from_uninit(&mut maybe_flag, &mut maybe_flag_size)
                     .unwrap();
             let flag = env
                 .outputs_mixed(
@@ -284,7 +284,8 @@ fn lent_from_uninit() {
         let mut flag = MaybeUninit::uninit();
         let mut flag_size = 0;
         let flag = {
-            let mut lent = Lent::<MaybeData<Flag>>::from_uninit(&mut flag, &mut flag_size).unwrap();
+            let mut lent =
+                Lent::<MaybeData<'_, Flag>>::from_uninit(&mut flag, &mut flag_size).unwrap();
             env.outputs_set_flag(contract, &Flag::Off, &mut lent)
                 .unwrap();
             lent.get_mut().unwrap().get().copied()
@@ -294,7 +295,8 @@ fn lent_from_uninit() {
         let mut flags_size = 0;
         let flags = {
             let mut lent =
-                Lent::<VariableElements<Flag>>::from_uninit(&mut flags, &mut flags_size).unwrap();
+                Lent::<VariableElements<'_, Flag>>::from_uninit(&mut flags, &mut flags_size)
+                    .unwrap();
             env.outputs_set_flags(contract, &Flag::On, &mut lent)
                 .unwrap();
             lent.get_mut().unwrap().get_initialized().to_vec()
@@ -336,7 +338,7 @@ fn failed_call_leaves_invalid_output() {
         env.outputs_plain_flag_output(Address::NULL, &mut flag),
         Err(ContractError::Forbidden)
     );
-    assert_eq!(flag.get_mut(), Err(ContractError::BadOutput));
+    assert_eq!(flag.get_mut().err(), Some(ContractError::BadOutput));
     flag.set(Flag::On);
-    assert_eq!(flag.get_mut(), Ok(&mut Flag::On));
+    assert_eq!(*flag.get_mut().unwrap(), Flag::On);
 }

@@ -18,7 +18,7 @@ impl Example {
     #[init]
     pub fn new<'a>(
         #[env] env: &mut ab_contracts_common::env::Env<'a>,
-        #[output] state: &'a mut MaybeData<Self>,
+        #[output] state: &'a mut MaybeData<'_, Self>,
     ) {
         let _state = env.lend_output(state);
     }

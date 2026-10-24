@@ -158,6 +158,10 @@ impl<T> DerefMut for DerefWrapper<T> {
 /// [`IoType::try_from_ptr()`] and [`IoType::try_from_mut_ptr()`] return `Some` only if
 /// [`IoType::from_ptr()`] and [`IoType::from_mut_ptr()`] with the same arguments would be sound.
 ///
+/// [`IoType::WithLifetime`] is the same type as `Self`, except that the memory it views, if any, is
+/// borrowed for the lifetime it is given. [`IoType::reborrow_mut()`] returns `self` for types that
+/// don't view memory, and a new value that views the same memory for types that do.
+///
 /// Helper functions are provided to make casting to/from bytes a bit safer than it would otherwise,
 /// but extra care is still needed.
 ///
@@ -177,6 +181,20 @@ pub unsafe trait IoType {
 
     /// Pointer with a trivial type that this `IoType` represents
     type PointerType: TrivialType;
+
+    /// The same type, viewing memory borrowed for `'b`.
+    ///
+    /// Containers like [`VariableElements`] view memory they don't own and have a lifetime
+    /// parameter for it, which is `'b` here. Types that don't view memory, like those implementing
+    /// [`TrivialType`], are `Self`.
+    ///
+    /// Methods that create values from pointers and [`Self::reborrow_mut()`] return this type with
+    /// the lifetime of the borrow. So a container moved out of what they return, for example with
+    /// [`mem::swap()`], can't be used after the borrow ends, whatever lifetime `Self` has.
+    ///
+    /// [`VariableElements`]: variable_elements::VariableElements
+    /// [`mem::swap()`]: core::mem::swap
+    type WithLifetime<'b>: IoType<PointerType = Self::PointerType>;
 
     /// Number of bytes that are currently used to store data
     fn size(&self) -> u32;
@@ -204,16 +222,15 @@ pub unsafe trait IoType {
     /// # Safety
     /// The memory holds a valid value of the type with a valid size, for example one that
     /// [`Self::try_from_ptr()`] accepts.
-    // `impl Deref` is used to tie lifetime of returned value to inputs but still treat it as a
-    // shared reference for most practical purposes. While lifetime here is somewhat superficial due
-    // to the `Copy` nature of the value, it must be respected. Size must point to properly
-    // initialized memory.
+    // `impl Deref` keeps `ptr` and `size` borrowed for `'a`, and otherwise works like a shared
+    // reference. The value it points to has the lifetime of that borrow too (see
+    // `Self::WithLifetime`). Size must point to properly initialized memory.
     #[track_caller]
     unsafe fn from_ptr<'a>(
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
-    ) -> impl Deref<Target = Self> + 'a;
+    ) -> impl Deref<Target = Self::WithLifetime<'a>> + 'a;
 
     /// Create a mutable reference to a type, which is represented by provided memory.
     ///
@@ -227,16 +244,24 @@ pub unsafe trait IoType {
     /// # Safety
     /// The memory holds a valid value of the type with a valid size, for example one that
     /// [`Self::try_from_mut_ptr()`] accepts.
-    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
-    // exclusive reference for most practical purposes. While lifetime here is somewhat superficial
-    // due to the `Copy` nature of the value, it must be respected. Size must point to properly
-    // initialized and aligned memory for non-[`TrivialType`].
+    ///
+    /// The returned value can be used for `'a`. A container like [`VariableElements`] can also be
+    /// moved out of it, for example with [`mem::swap()`], and then used until `'a` ends. So the
+    /// memory must stay valid and must not be accessed otherwise until `'a` ends, not only while
+    /// the returned value exists.
+    ///
+    /// [`VariableElements`]: variable_elements::VariableElements
+    /// [`mem::swap()`]: core::mem::swap
+    // `impl DerefMut` keeps `ptr` and `size` borrowed for `'a`, and otherwise works like an
+    // exclusive reference. The value it points to has the lifetime of that borrow too (see
+    // `Self::WithLifetime`), so a container moved out of it can't be used after `'a` ends either.
+    // Size must point to properly initialized and aligned memory for non-[`TrivialType`].
     #[track_caller]
     unsafe fn from_mut_ptr<'a>(
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
-    ) -> impl DerefMut<Target = Self> + 'a;
+    ) -> impl DerefMut<Target = Self::WithLifetime<'a>> + 'a;
 
     /// Create a reference to a type, which is represented by provided memory, if the memory holds a
     /// valid value.
@@ -260,7 +285,7 @@ pub unsafe trait IoType {
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
-    ) -> Option<impl Deref<Target = Self> + 'a>;
+    ) -> Option<impl Deref<Target = Self::WithLifetime<'a>> + 'a>;
 
     /// Like [`Self::try_from_ptr()`], but returns an exclusive reference.
     ///
@@ -270,6 +295,8 @@ pub unsafe trait IoType {
     /// into it even if it is empty. `ptr` is valid for writes of `capacity` bytes and for reads of
     /// the first `size`, which are initialized, while the bytes after them may be uninitialized.
     /// The memory is not accessed otherwise during the call and while the returned value exists.
+    /// Like with [`Self::from_mut_ptr()`], this lasts until `'a` ends, since a container can be
+    /// moved out of the returned value.
     ///
     /// [`MaybeData`]: maybe_data::MaybeData
     #[track_caller]
@@ -277,7 +304,7 @@ pub unsafe trait IoType {
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
-    ) -> Option<impl DerefMut<Target = Self> + 'a>;
+    ) -> Option<impl DerefMut<Target = Self::WithLifetime<'a>> + 'a>;
 
     /// Get a raw pointer to the underlying data.
     ///
@@ -292,6 +319,13 @@ pub unsafe trait IoType {
     /// [`Self::set_size()`] needs to be called afterward if the number of initialized bytes
     /// changes.
     fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType>;
+
+    /// Exclusive access to this value for the duration of the borrow.
+    ///
+    /// For a container, this is a new view of the same memory with the lifetime of the borrow.
+    /// Replacing it doesn't replace the container behind `self`, and a container moved out of it
+    /// can't be used after the borrow ends. Types that don't view memory return `self`.
+    fn reborrow_mut(&mut self) -> impl DerefMut<Target = Self::WithLifetime<'_>> + '_;
 }
 
 /// Marker trait, companion to [`IoType`] that indicates the ability to store optional contents.
@@ -308,12 +342,8 @@ pub unsafe trait IoTypeOptional: IoType {}
 
 /// Exclusive access to an [`IoType`] value.
 ///
-/// It is implemented for:
-/// * every [`IoType`]
-/// * views that constructors of containers return over exclusive memory, like
-///   [`MaybeData::from_mut()`] and [`VariableElements::from_uninit()`]
-///
-/// This allows generic code to accept both.
+/// It is implemented for every [`IoType`], including containers that constructors return over
+/// exclusive memory, like [`MaybeData::from_mut()`] and [`VariableElements::from_uninit()`].
 ///
 /// # Safety
 /// Generic code relies on [`Self::io_type_mut()`] giving access to a single value owned by `Self`:
@@ -345,18 +375,5 @@ where
     #[inline(always)]
     fn io_type_mut(&mut self) -> &mut Self::Target {
         self
-    }
-}
-
-// SAFETY: The value is the only field of the wrapper, which doesn't implement `Drop`
-unsafe impl<T> IoTypeMut for DerefWrapper<T>
-where
-    T: IoType,
-{
-    type Target = T;
-
-    #[inline(always)]
-    fn io_type_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }

@@ -10,7 +10,7 @@ use core::mem::MaybeUninit;
 fn maybe_data_replace<Data>(uninit: &mut MaybeUninit<Data>, data: Data) -> Data
 where
     Data: TrivialType,
-    MaybeData<Data>: IoType,
+    for<'a> MaybeData<'a, Data>: IoType,
 {
     let mut size = 0;
     let mut maybe_data = MaybeData::from_uninit(uninit, &mut size).expect("Size is zero; qed");
@@ -22,7 +22,7 @@ where
 fn maybe_data_get_mut<Data>(data: &mut Data) -> bool
 where
     Data: TrivialType,
-    MaybeData<Data>: IoType,
+    for<'a> MaybeData<'a, Data>: IoType,
 {
     let mut size = Data::SIZE;
     let mut maybe_data = MaybeData::from_mut(data, &mut size).expect("Size of data; qed");
@@ -32,7 +32,7 @@ where
 fn elements_append<Element>(uninit: &mut [MaybeUninit<Element>], elements: &[Element]) -> usize
 where
     Element: TrivialType,
-    VariableElements<Element>: IoType,
+    for<'a> VariableElements<'a, Element>: IoType,
 {
     let mut size = 0;
     let mut variable_elements =
@@ -45,7 +45,7 @@ where
 fn elements_from_buffer<Element>(buffer: &[Element]) -> u32
 where
     Element: TrivialType,
-    VariableElements<Element>: IoType,
+    for<'a> VariableElements<'a, Element>: IoType,
 {
     let size = u32::try_from(size_of_val(buffer)).expect("Small buffer in tests; qed");
     VariableElements::<Element>::from_buffer(buffer, &size)

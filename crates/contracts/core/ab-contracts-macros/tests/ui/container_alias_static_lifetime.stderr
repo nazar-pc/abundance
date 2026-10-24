@@ -1,0 +1,39 @@
+error[E0521]: borrowed data escapes outside of function
+  --> tests/ui/container_alias_static_lifetime.rs:26:6
+   |
+26 |   impl Example {
+   |  ______^
+27 | |     #[update]
+28 | |     pub fn keep_output(#[output] output: &mut Bytes) {
+   | |         -------------------------------------------^
+   | |         |                                          |
+   | |_________|__________________________________________`args` escapes the function body here
+   |           |                                          argument requires that `'1` must outlive `'static`
+   |           `args` is a reference that is only valid in the function body
+   |           let's call the lifetime of this reference `'1`
+   |
+   = note: requirement occurs because of a mutable reference to `ab_io_type::variable_elements::VariableElements<'static, u8, 8>`
+   = note: mutable references are invariant over their type parameter
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error[E0521]: borrowed data escapes outside of function
+  --> tests/ui/container_alias_static_lifetime.rs:26:6
+   |
+26 |   impl Example {
+   |  ______^
+27 | |     #[update]
+28 | |     pub fn keep_output(#[output] output: &mut Bytes) {
+29 | |         let buffer = Box::leak(Box::new([0; 8]));
+...  |
+36 | |     #[update]
+37 | |     pub fn keep_tmp(#[tmp] tmp: &mut Tmp) {
+   | |         --------------------------------^
+   | |         |                               |
+   | |_________|_______________________________`args` escapes the function body here
+   |           |                               argument requires that `'1` must outlive `'static`
+   |           `args` is a reference that is only valid in the function body
+   |           let's call the lifetime of this reference `'1`
+   |
+   = note: requirement occurs because of a mutable reference to `ab_io_type::maybe_data::MaybeData<'static, u64>`
+   = note: mutable references are invariant over their type parameter
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance

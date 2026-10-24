@@ -60,7 +60,15 @@ pub mod __private;
 /// fail with "lifetime may not live long enough", and rustc will suggest the signature above.
 /// Lifetimes of the state, `#[tmp]` and `#[slot]` arguments, and of the last `#[output]` of
 /// `#[init]` without a return value, which is the initial state, can't be named: they are
-/// trusted without being parsed, so they must not be lent.
+/// trusted without being parsed, so they must not be lent. This includes lifetimes of
+/// containers, like `'a` in `&mut MaybeData<'a, T>`, since a container can be moved out and
+/// lent too.
+///
+/// Containers like `MaybeData<'_, T>` and `VariableBytes<'_, N>` have a lifetime parameter,
+/// which arguments must write out, usually as `'_`. Generated code gives containers a lifetime
+/// that only covers the call, so the method can't keep a container after it returns. A method
+/// that declares a longer lifetime, like `'static`, doesn't compile, even if a type alias
+/// hides it.
 ///
 /// # For struct implementation
 ///
@@ -69,7 +77,7 @@ pub mod __private;
 /// Initializer's purpose is to produce the initial state of the contract.
 ///
 /// The initial state is the return value (`Self` or `Result<Self, ContractError>`) or, without
-/// a return value, the last `#[output]`, which must be `MaybeData<Self>`.
+/// a return value, the last `#[output]`, which must be `MaybeData<'_, Self>`.
 ///
 /// This method type supports the following arguments (must be in this order):
 /// * `#[env]` read-only and read-write
@@ -287,9 +295,9 @@ pub mod __private;
 /// }
 /// ```
 ///
-/// ### `#[tmp] tmp: &MaybeData<Tmp>`
+/// ### `#[tmp] tmp: &MaybeData<'_, Tmp>`
 ///
-/// `#[tmp] tmp: &MaybeData<Tmp>` is for accessing ephemeral value with auxiliary data and
+/// `#[tmp] tmp: &MaybeData<'_, Tmp>` is for accessing ephemeral value with auxiliary data and
 /// generates three fields, all of which are read-only:
 /// ```ignore
 /// #[repr(C)]
@@ -308,11 +316,11 @@ pub mod __private;
 ///
 /// This allows a contract to read the current ephemeral value of the contract.
 ///
-/// ### `#[tmp] tmp: &mut MaybeData<Tmp>`
+/// ### `#[tmp] tmp: &mut MaybeData<'_, Tmp>`
 ///
-/// `#[tmp] tmp: &mut MaybeData<Tmp>` is for accessing ephemeral value with auxiliary data and
-/// generates three fields, `tmp_ptr` and `tmp_size` can be written to, while `tmp_capacity` is
-/// read-only:
+/// `#[tmp] tmp: &mut MaybeData<'_, Tmp>` is for accessing ephemeral value with auxiliary data
+/// and generates three fields, `tmp_ptr` and `tmp_size` can be written to, while
+/// `tmp_capacity` is read-only:
 /// ```ignore
 /// #[repr(C)]
 /// pub struct InternalArgs<'internal_args> {
@@ -336,9 +344,9 @@ pub mod __private;
 /// that the host must read updated value from. This is helpful in case an increase of the
 /// value size beyond allocated capacity is needed.
 ///
-/// ### `#[slot] slot: &MaybeData<Slot>` and `#[slot] (address, slot): (&Address, &MaybeData<Slot>)`
+/// ### `#[slot] slot: &MaybeData<'_, Slot>` and `#[slot] (address, slot): (&Address, &MaybeData<'_, Slot>)`
 ///
-/// `#[slot] slot: &MaybeData<Slot>` and its variant with explicit address argument is for
+/// `#[slot] slot: &MaybeData<'_, Slot>` and its variant with explicit address argument is for
 /// accessing slot data (that corresponds to an optional `address` argument) and generates four
 /// fields, all of which are read-only:
 /// ```ignore
@@ -359,11 +367,11 @@ pub mod __private;
 ///
 /// This allows a contract to read slot data.
 ///
-/// ### `#[slot] slot: &mut MaybeData<Slot>` and `#[slot] (address, slot): (&Address, &mut MaybeData<Slot>)`
+/// ### `#[slot] slot: &mut MaybeData<'_, Slot>` and `#[slot] (address, slot): (&Address, &mut MaybeData<'_, Slot>)`
 ///
-/// `#[slot] slot: &mut MaybeData<Slot>` and its variant with explicit address argument are for
-/// accessing slot data (that corresponds to optional `address` argument) and generates four
-/// fields, `slot_ptr` and `slot_size` can be written to, while `slot_address` and
+/// `#[slot] slot: &mut MaybeData<'_, Slot>` and its variant with explicit address argument are
+/// for accessing slot data (that corresponds to optional `address` argument) and generates
+/// four fields, `slot_ptr` and `slot_size` can be written to, while `slot_address` and
 /// `slot_capacity` are read-only:
 /// ```ignore
 /// #[repr(C)]
@@ -593,14 +601,14 @@ pub mod __private;
 /// #[contract]
 /// impl Token {
 ///     #[view]
-///     pub fn balance(#[slot] target: &MaybeData<Slot>) -> Balance {
+///     pub fn balance(#[slot] target: &MaybeData<'_, Slot>) -> Balance {
 ///         // ...
 ///     }
 ///
 ///     #[view]
 ///     pub fn balances(
-///         #[slot] target: &MaybeData<Slot>,
-///         #[output] balances: &mut VariableElements<Balance>,
+///         #[slot] target: &MaybeData<'_, Slot>,
+///         #[output] balances: &mut VariableElements<'_, Balance>,
 ///     ) {
 ///         // ...
 ///     }
@@ -608,8 +616,8 @@ pub mod __private;
 ///     #[update]
 ///     pub fn transfer(
 ///         #[env] env: &mut Env<'_>,
-///         #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),
-///         #[slot] to: &mut MaybeData<Slot>,
+///         #[slot] (from_address, from): (&Address, &mut MaybeData<'_, Slot>),
+///         #[slot] to: &mut MaybeData<'_, Slot>,
 ///         #[input] &amount: &Balance,
 ///     ) -> Result<(), ContractError> {
 ///         // ...
@@ -624,11 +632,11 @@ pub mod __private;
 ///         target: &Address,
 ///     ) -> Result<Balance, ContractError>;
 ///
-///     fn token_balances(
+///     fn token_balances<'balances>(
 ///         &self,
 ///         contract: Address,
 ///         target: &Address,
-///         balances: &mut impl OutputArg<VariableElements<Balance>>,
+///         balances: &mut impl OutputArg<VariableElements<'balances, Balance>>,
 ///     ) -> Result<(), ContractError>;
 ///
 ///     fn token_transfer(
@@ -654,6 +662,9 @@ pub mod __private;
 /// After a successful call, the size of each output is set to the one the callee reported. The
 /// return value is parsed, and [`ContractError::BadOutput`] is returned if it is not a valid
 /// value of its type, with sizes of outputs already set.
+///
+/// An `#[output]` whose type has a lifetime parameter gets a lifetime named after it, like
+/// `'balances` above, since `'_` is not allowed in `impl Trait` in arguments.
 ///
 /// The name of the extension trait is created as struct or trait name followed by `Ext`
 /// suffix.

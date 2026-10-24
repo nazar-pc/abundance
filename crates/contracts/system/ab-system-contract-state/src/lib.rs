@@ -15,7 +15,7 @@ pub const RECOMMENDED_STATE_CAPACITY: u32 = 1024;
 #[inline]
 pub fn with_state_buffer<F, R>(f: F) -> R
 where
-    F: FnOnce(&mut VariableBytes<RECOMMENDED_STATE_CAPACITY>) -> R,
+    F: FnOnce(&mut VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>) -> R,
 {
     let mut state_bytes = [MaybeUninit::uninit(); RECOMMENDED_STATE_CAPACITY as usize];
     let mut state_size = 0;
@@ -29,8 +29,8 @@ where
 pub fn with_state_buffer_pair<F, R>(f: F) -> R
 where
     F: FnOnce(
-        &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
-        &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        &mut VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
+        &mut VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
     ) -> R,
 {
     let mut state_bytes_a = [MaybeUninit::uninit(); RECOMMENDED_STATE_CAPACITY as usize];
@@ -60,9 +60,9 @@ impl State {
         #[env] env: &mut Env<'_>,
         #[slot] (address, contract_state): (
             &Address,
-            &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+            &mut VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
         ),
-        #[input] state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        #[input] state: &VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
     ) -> Result<(), ContractError> {
         if !Self::is_empty(contract_state) {
             return Err(ContractError::Conflict);
@@ -77,8 +77,8 @@ impl State {
     #[update]
     pub fn write(
         #[env] env: &mut Env<'_>,
-        #[slot] (address, state): (&Address, &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>),
-        #[input] new_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        #[slot] (address, state): (&Address, &mut VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>),
+        #[input] new_state: &VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
     ) -> Result<(), ContractError> {
         // TODO: Check shard?
         if env.caller() != address {
@@ -100,9 +100,9 @@ impl State {
     #[update]
     pub fn compare_and_write(
         #[env] env: &mut Env<'_>,
-        #[slot] (address, state): (&Address, &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>),
-        #[input] old_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
-        #[input] new_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        #[slot] (address, state): (&Address, &mut VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>),
+        #[input] old_state: &VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
+        #[input] new_state: &VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
     ) -> Result<bool, ContractError> {
         // TODO: Check shard?
         if env.caller() != address {
@@ -123,8 +123,8 @@ impl State {
     /// Read state
     #[view]
     pub fn read(
-        #[slot] contract_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>,
-        #[output] state: &mut VariableBytes<RECOMMENDED_STATE_CAPACITY>,
+        #[slot] contract_state: &VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
+        #[output] state: &mut VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
     ) -> Result<(), ContractError> {
         if state.copy_from(contract_state) {
             Ok(())
@@ -135,7 +135,9 @@ impl State {
 
     /// Check if the state is empty
     #[view]
-    pub fn is_empty(#[slot] contract_state: &VariableBytes<RECOMMENDED_STATE_CAPACITY>) -> bool {
+    pub fn is_empty(
+        #[slot] contract_state: &VariableBytes<'_, RECOMMENDED_STATE_CAPACITY>,
+    ) -> bool {
         contract_state.size() == 0
     }
 }

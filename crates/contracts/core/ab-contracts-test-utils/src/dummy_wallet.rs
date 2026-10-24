@@ -24,10 +24,10 @@ impl TxHandler for DummyWallet {
     fn authorize(
         #[env] _env: &Env<'_>,
         #[input] _header: &TransactionHeader,
-        #[input] _read_slots: &TxHandlerSlots,
-        #[input] _write_slots: &TxHandlerSlots,
-        #[input] _payload: &TxHandlerPayload,
-        #[input] _seal: &TxHandlerSeal,
+        #[input] _read_slots: &TxHandlerSlots<'_>,
+        #[input] _write_slots: &TxHandlerSlots<'_>,
+        #[input] _payload: &TxHandlerPayload<'_>,
+        #[input] _seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError> {
         // Allow any transaction
         Ok(())
@@ -37,10 +37,10 @@ impl TxHandler for DummyWallet {
     fn execute(
         #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
-        #[input] read_slots: &TxHandlerSlots,
-        #[input] write_slots: &TxHandlerSlots,
-        #[input] payload: &TxHandlerPayload,
-        #[input] seal: &TxHandlerSeal,
+        #[input] read_slots: &TxHandlerSlots<'_>,
+        #[input] write_slots: &TxHandlerSlots<'_>,
+        #[input] payload: &TxHandlerPayload<'_>,
+        #[input] seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError> {
         env.simple_wallet_base_execute(
             MethodContext::Replace,

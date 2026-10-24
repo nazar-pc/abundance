@@ -626,17 +626,17 @@ fn variable_elements() {
     let expected = Expected::new(IoTypeMetadataKind::VariableElements)
         .u32(0)
         .kind(IoTypeMetadataKind::U8);
-    check_io_type::<VariableElements<u8>>(name, 0, 1, &expected, &expected);
+    check_io_type::<VariableElements<'_, u8>>(name, 0, 1, &expected, &expected);
 
     // Alignment is that of elements
     let expected = Expected::new(IoTypeMetadataKind::VariableElements)
         .u32(0)
         .kind(IoTypeMetadataKind::U128);
-    check_io_type::<VariableElements<u128>>(name, 0, 16, &expected, &expected);
+    check_io_type::<VariableElements<'_, u128>>(name, 0, 16, &expected, &expected);
     let expected = Expected::new(IoTypeMetadataKind::VariableElements)
         .u32(1)
         .kind(IoTypeMetadataKind::U128);
-    check_io_type::<VariableElements<u128, 1>>(name, 16, 16, &expected, &expected);
+    check_io_type::<VariableElements<'_, u128, 1>>(name, 16, 16, &expected, &expected);
 
     let (point, point_compact) = point();
     let expected = Expected::new(IoTypeMetadataKind::VariableElements)
@@ -645,17 +645,17 @@ fn variable_elements() {
     let expected_compact = Expected::new(IoTypeMetadataKind::VariableElements)
         .u32(10)
         .nested(&point_compact);
-    check_io_type::<VariableElements<Point, 10>>(name, 20, 1, &expected, &expected_compact);
+    check_io_type::<VariableElements<'_, Point, 10>>(name, 20, 1, &expected, &expected_compact);
 
     let expected = Expected::new(IoTypeMetadataKind::VariableElements)
         .u32(300)
         .kind(IoTypeMetadataKind::U32);
-    check_io_type::<VariableElements<u32, 300>>(name, 1200, 4, &expected, &expected);
+    check_io_type::<VariableElements<'_, u32, 300>>(name, 1200, 4, &expected, &expected);
 
     let expected = Expected::new(IoTypeMetadataKind::VariableElements)
         .u32(70_000)
         .kind(IoTypeMetadataKind::U16);
-    check_io_type::<VariableElements<u16, 70_000>>(name, 140_000, 2, &expected, &expected);
+    check_io_type::<VariableElements<'_, u16, 70_000>>(name, 140_000, 2, &expected, &expected);
 }
 
 #[test]
@@ -665,14 +665,14 @@ fn maybe_data() {
     let (point, point_compact) = point();
     let expected = Expected::new(IoTypeMetadataKind::MaybeData).nested(&point);
     let expected_compact = Expected::new(IoTypeMetadataKind::MaybeData).nested(&point_compact);
-    check_io_type::<MaybeData<Point>>(name, 2, 1, &expected, &expected_compact);
+    check_io_type::<MaybeData<'_, Point>>(name, 2, 1, &expected, &expected_compact);
 
     let expected = Expected::new(IoTypeMetadataKind::MaybeData).kind(IoTypeMetadataKind::U64);
-    check_io_type::<MaybeData<u64>>(name, 8, 8, &expected, &expected);
+    check_io_type::<MaybeData<'_, u64>>(name, 8, 8, &expected, &expected);
 
     // Data may be missing, so `MaybeData` doesn't compact into the type of data
     assert_ne!(
-        compact(<MaybeData<u64> as ab_io_type::IoType>::METADATA),
+        compact(<MaybeData<'_, u64> as ab_io_type::IoType>::METADATA),
         compact(u64::METADATA)
     );
 }
@@ -941,9 +941,9 @@ fn named_and_tuple_forms_compact_equally() {
     check_same_compact::<[Named2; 3], [Tuple2; 3]>();
     check_same_compact::<[Named11; 300], [Tuple11; 300]>();
     check_same_compact::<Unaligned<Named2>, Unaligned<Tuple2>>();
-    check_same_compact::<MaybeData<Named2>, MaybeData<Tuple2>>();
-    check_same_compact::<VariableElements<Named2>, VariableElements<Tuple2>>();
-    check_same_compact::<VariableElements<Named11, 300>, VariableElements<Tuple11, 300>>();
+    check_same_compact::<MaybeData<'_, Named2>, MaybeData<'_, Tuple2>>();
+    check_same_compact::<VariableElements<'_, Named2>, VariableElements<'_, Tuple2>>();
+    check_same_compact::<VariableElements<'_, Named11, 300>, VariableElements<'_, Tuple11, 300>>();
     check_same_compact::<FixedCapacityElements<Named2, 3>, FixedCapacityElements<Tuple2, 3>>();
     check_same_compact::<EnumOfNamed, EnumOfTuple>();
     check_same_compact::<OuterNamed, OuterTuple>();
@@ -1211,7 +1211,7 @@ fn newtypes_compact_into_wrapped_types() {
     let expected_compact = Expected::new(IoTypeMetadataKind::VariableElements)
         .u32(4)
         .kind(IoTypeMetadataKind::U64);
-    check_io_type::<VariableElements<Tuple, 4>>(
+    check_io_type::<VariableElements<'_, Tuple, 4>>(
         "VariableElements",
         32,
         8,
@@ -1265,9 +1265,9 @@ fn newtypes_compact_into_wrapped_types() {
     check_same_compact::<WrappedEmpty, ()>();
     check_same_compact::<[Tuple; 3], [u64; 3]>();
     check_same_compact::<Unaligned<Tuple>, Unaligned<u64>>();
-    check_same_compact::<MaybeData<Tuple>, MaybeData<u64>>();
+    check_same_compact::<MaybeData<'_, Tuple>, MaybeData<'_, u64>>();
     check_same_compact::<FixedCapacityElements<Wide, 2>, FixedCapacityElements<u128, 2>>();
-    check_same_compact::<VariableElements<Tuple, 4>, VariableElements<u64, 4>>();
+    check_same_compact::<VariableElements<'_, Tuple, 4>, VariableElements<'_, u64, 4>>();
     check_same_compact::<Pair, PlainPair>();
     assert_ne!(compact(Pair::METADATA), compact(<[u64; 2]>::METADATA));
 }

@@ -1,0 +1,83 @@
+error[E0597]: `buffer` does not live long enough
+  --> tests/ui/swap_views.rs:11:61
+   |
+ 8 | fn swap_with_local(elements: &mut VariableElements<'_, u8>) {
+   |                    -------- has type `&mut ab_io_type::variable_elements::VariableElements<'1, u8>`
+ 9 |     let mut buffer = [2u8; 4];
+   |         ---------- binding `buffer` declared here
+10 |     let mut size = 4;
+11 |     let mut local = VariableElements::<u8>::from_buffer_mut(&mut buffer, &mut size).unwrap();
+   |                                                             ^^^^^^^^^^^ borrowed value does not live long enough
+12 |     mem::swap(elements, &mut local);
+   |     ------------------------------- argument requires that `buffer` is borrowed for `'1`
+13 | }
+   | - `buffer` dropped here while still borrowed
+
+error[E0597]: `size` does not live long enough
+  --> tests/ui/swap_views.rs:11:74
+   |
+ 8 | fn swap_with_local(elements: &mut VariableElements<'_, u8>) {
+   |                    -------- has type `&mut ab_io_type::variable_elements::VariableElements<'1, u8>`
+ 9 |     let mut buffer = [2u8; 4];
+10 |     let mut size = 4;
+   |         -------- binding `size` declared here
+11 |     let mut local = VariableElements::<u8>::from_buffer_mut(&mut buffer, &mut size).unwrap();
+   |                                                                          ^^^^^^^^^ borrowed value does not live long enough
+12 |     mem::swap(elements, &mut local);
+   |     ------------------------------- argument requires that `size` is borrowed for `'1`
+13 | }
+   | - `size` dropped here while still borrowed
+
+error[E0597]: `buffer_b` does not live long enough
+  --> tests/ui/swap_views.rs:22:61
+   |
+20 |         let mut buffer_b = vec![2u8; 4];
+   |             ------------ binding `buffer_b` declared here
+21 |         let mut size_b = 4;
+22 |         let mut b = VariableElements::<u8>::from_buffer_mut(&mut buffer_b, &mut size_b).unwrap();
+   |                                                             ^^^^^^^^^^^^^ borrowed value does not live long enough
+23 |         mem::swap(&mut a, &mut b);
+24 |     }
+   |     - `buffer_b` dropped here while still borrowed
+25 |     let _ = a.get_initialized();
+   |             - borrow later used here
+
+error[E0597]: `size_b` does not live long enough
+  --> tests/ui/swap_views.rs:22:76
+   |
+21 |         let mut size_b = 4;
+   |             ---------- binding `size_b` declared here
+22 |         let mut b = VariableElements::<u8>::from_buffer_mut(&mut buffer_b, &mut size_b).unwrap();
+   |                                                                            ^^^^^^^^^^^ borrowed value does not live long enough
+23 |         mem::swap(&mut a, &mut b);
+24 |     }
+   |     - `size_b` dropped here while still borrowed
+25 |     let _ = a.get_initialized();
+   |             - borrow later used here
+
+error[E0597]: `data_b` does not live long enough
+  --> tests/ui/swap_views.rs:33:37
+   |
+31 |         let mut data_b = 2u64;
+   |             ---------- binding `data_b` declared here
+32 |         let mut size_b = 8;
+33 |         let b = MaybeData::from_mut(&mut data_b, &mut size_b).unwrap();
+   |                                     ^^^^^^^^^^^ borrowed value does not live long enough
+34 |         let _ = mem::replace(&mut a, b);
+35 |     }
+   |     - `data_b` dropped here while still borrowed
+36 |     let _ = a.get();
+   |             - borrow later used here
+
+error[E0597]: `size_b` does not live long enough
+  --> tests/ui/swap_views.rs:33:50
+   |
+32 |         let mut size_b = 8;
+   |             ---------- binding `size_b` declared here
+33 |         let b = MaybeData::from_mut(&mut data_b, &mut size_b).unwrap();
+   |                                                  ^^^^^^^^^^^ borrowed value does not live long enough
+34 |         let _ = mem::replace(&mut a, b);
+35 |     }
+   |     - `size_b` dropped here while still borrowed
+36 |     let _ = a.get();
+   |             - borrow later used here

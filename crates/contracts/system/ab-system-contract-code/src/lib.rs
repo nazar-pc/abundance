@@ -18,7 +18,7 @@ impl Code {
     #[update]
     pub fn deploy(
         #[env] env: &mut Env<'_>,
-        #[input] code: &VariableBytes<MAX_CODE_SIZE>,
+        #[input] code: &VariableBytes<'_, MAX_CODE_SIZE>,
     ) -> Result<Address, ContractError> {
         let new_contract_address = env.address_allocator_allocate_address(
             MethodContext::Replace,
@@ -42,8 +42,8 @@ impl Code {
     #[update]
     pub fn store(
         #[env] env: &mut Env<'_>,
-        #[slot] (address, contract_code): (&Address, &mut VariableBytes<MAX_CODE_SIZE>),
-        #[input] new_code: &VariableBytes<MAX_CODE_SIZE>,
+        #[slot] (address, contract_code): (&Address, &mut VariableBytes<'_, MAX_CODE_SIZE>),
+        #[input] new_code: &VariableBytes<'_, MAX_CODE_SIZE>,
     ) -> Result<(), ContractError> {
         // TODO: Would it be helpful to allow indirect updates?
         // Allow updates to system deploy contract (for initial deployment) and to contract itself
@@ -65,8 +65,8 @@ impl Code {
     /// Read contract's code
     #[view]
     pub fn read(
-        #[slot] contract_code: &VariableBytes<MAX_CODE_SIZE>,
-        #[output] code: &mut VariableBytes<MAX_CODE_SIZE>,
+        #[slot] contract_code: &VariableBytes<'_, MAX_CODE_SIZE>,
+        #[output] code: &mut VariableBytes<'_, MAX_CODE_SIZE>,
     ) -> Result<(), ContractError> {
         if code.copy_from(contract_code) {
             Ok(())

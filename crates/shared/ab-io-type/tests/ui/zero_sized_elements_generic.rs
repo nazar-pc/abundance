@@ -44,8 +44,8 @@ fn elements_from_mut_ptr<Element: TrivialType>(ptr: &mut NonNull<Element>) {
 }
 
 // Methods don't create instances, so the check is evaluated with the layout instead
-fn elements_get_initialized<Element: TrivialType>()
--> for<'a> fn(&'a VariableElements<Element>) -> &'a [Element] {
+fn elements_get_initialized<'v, Element: TrivialType>()
+-> for<'a> fn(&'a VariableElements<'v, Element>) -> &'a [Element] {
     VariableElements::<Element>::get_initialized
 }
 
@@ -74,7 +74,7 @@ fn data_from_mut_ptr<Data: TrivialType>(ptr: &mut NonNull<Data>) {
     let _ = unsafe { <MaybeData<Data> as IoType>::from_mut_ptr(ptr, &mut size, Data::SIZE) };
 }
 
-fn data_get<Data: TrivialType>() -> for<'a> fn(&'a MaybeData<Data>) -> Option<&'a Data> {
+fn data_get<'v, Data: TrivialType>() -> for<'a> fn(&'a MaybeData<'v, Data>) -> Option<&'a Data> {
     MaybeData::<Data>::get
 }
 

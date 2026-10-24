@@ -134,10 +134,10 @@ impl SimpleWalletBase {
     pub fn authorize(
         #[input] state: &WalletState,
         #[input] header: &TransactionHeader,
-        #[input] read_slots: &TxHandlerSlots,
-        #[input] write_slots: &TxHandlerSlots,
-        #[input] payload: &TxHandlerPayload,
-        #[input] seal: &TxHandlerSeal,
+        #[input] read_slots: &TxHandlerSlots<'_>,
+        #[input] write_slots: &TxHandlerSlots<'_>,
+        #[input] payload: &TxHandlerPayload<'_>,
+        #[input] seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError> {
         let Some(seal) = Seal::try_read_unaligned_exact(seal.get_initialized()) else {
             return Err(ContractError::BadInput);
@@ -177,10 +177,10 @@ impl SimpleWalletBase {
     pub fn execute(
         #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
-        #[input] read_slots: &TxHandlerSlots,
-        #[input] write_slots: &TxHandlerSlots,
-        #[input] payload: &TxHandlerPayload,
-        #[input] seal: &TxHandlerSeal,
+        #[input] read_slots: &TxHandlerSlots<'_>,
+        #[input] write_slots: &TxHandlerSlots<'_>,
+        #[input] payload: &TxHandlerPayload<'_>,
+        #[input] seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError> {
         let _: &_ = header;
         let _: &_ = read_slots;

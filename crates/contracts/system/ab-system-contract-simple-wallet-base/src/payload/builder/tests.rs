@@ -54,7 +54,7 @@ impl DemoContract {
     }
 
     #[view]
-    pub fn get(&self, #[output] value: &mut MaybeData<u8>) {
+    pub fn get(&self, #[output] value: &mut MaybeData<'_, u8>) {
         value.replace(self.value);
     }
 
@@ -69,12 +69,12 @@ impl DemoContract {
     }
 
     #[view]
-    pub fn stored(#[slot] value: &MaybeData<u8>) -> u8 {
+    pub fn stored(#[slot] value: &MaybeData<'_, u8>) -> u8 {
         value.get().copied().unwrap_or_default()
     }
 
     #[view]
-    pub fn get_value(&self, #[output] value: &mut MaybeData<u8>) -> u8 {
+    pub fn get_value(&self, #[output] value: &mut MaybeData<'_, u8>) -> u8 {
         value.replace(self.value);
         self.value
     }

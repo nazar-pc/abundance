@@ -15,7 +15,7 @@ mod method {
     #[contract]
     impl Example {
         #[view]
-        pub fn get(&self) -> VariableBytes<0> {
+        pub fn get(&self) -> VariableBytes<'static, 0> {
             unimplemented!()
         }
     }
@@ -29,7 +29,7 @@ mod trait_definition {
     #[contract]
     pub trait Getter {
         #[view]
-        fn get(#[env] env: &Env<'_>) -> VariableBytes<0>;
+        fn get(#[env] env: &Env<'_>) -> VariableBytes<'static, 0>;
     }
 }
 

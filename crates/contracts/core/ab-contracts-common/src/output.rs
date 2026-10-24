@@ -5,10 +5,11 @@ use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
 use ab_io_type::variable_elements::VariableElements;
 use ab_io_type::{IoType, IoTypeMut};
+use core::fmt;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
+use core::ops::DerefMut;
 use core::ptr::NonNull;
-use core::{fmt, mem, ptr};
 
 /// Memory that can be given to a method call as an `#[output]` of type `Target`.
 ///
@@ -35,8 +36,9 @@ use core::{fmt, mem, ptr};
     label = "expected `&mut {Target}` (or a view of one) whose contents accept every bit pattern, \
     or `&mut Lent<{Target}>`",
     note = "a failed call can leave invalid contents behind, use `Lent::new()` for a local value, \
-    `Lent::<MaybeData<_>>::from_uninit()` or `Lent::<VariableElements<_>>::from_uninit()` for a \
-    local container, or `Env::lend_output()` for an `#[output]` the method received"
+    `Lent::<MaybeData<'_, _>>::from_uninit()` or \
+    `Lent::<VariableElements<'_, _>>::from_uninit()` for a local container, or \
+    `Env::lend_output()` for an `#[output]` the method received"
 )]
 pub unsafe trait OutputArg<Target>
 where
@@ -89,7 +91,7 @@ enum LentValue<'a, T> {
     Owned(MaybeUninit<T>),
     /// A container view owned by `Lent` over memory borrowed for `'a`. The view itself is valid,
     /// while its contents may not be after a call.
-    View(T, PhantomData<&'a mut ()>),
+    View(T),
     /// A plain value or a container view borrowed for `'a`
     Borrowed(NonNull<T>, PhantomData<&'a mut T>),
 }
@@ -101,8 +103,8 @@ enum LentValue<'a, T> {
 /// each call. Plain values can also be replaced with [`Self::set()`]. Memory whose contents accept
 /// every bit pattern can be given to calls directly, see [`OutputArg`].
 ///
-/// Created with [`Self::new()`] for a local value, with `Lent::<MaybeData<_>>::from_uninit()` or
-/// `Lent::<VariableElements<_>>::from_uninit()` for a local container, and with
+/// Created with [`Self::new()`] for a local value, with `Lent::<MaybeData<'_, _>>::from_uninit()`
+/// or `Lent::<VariableElements<'_, _>>::from_uninit()` for a local container, and with
 /// [`Env::lend_output()`] for an `#[output]` the method received.
 ///
 /// [`Env::lend_output()`]: crate::env::Env::lend_output
@@ -193,32 +195,25 @@ where
     }
 }
 
-impl<'a, Data> Lent<'a, MaybeData<Data>>
+impl<'a, Data> Lent<'a, MaybeData<'a, Data>>
 where
     Data: TrivialType,
-    MaybeData<Data>: IoType,
+    MaybeData<'a, Data>: IoType,
 {
     /// Lend a local [`MaybeData`] over uninitialized memory, like [`MaybeData::from_uninit()`].
     ///
     /// Returns `None` if `size != 0`.
     #[inline(always)]
     pub fn from_uninit(uninit: &'a mut MaybeUninit<Data>, size: &'a mut u32) -> Option<Self> {
-        let mut wrapper = MaybeData::from_uninit(uninit, size)?;
-        // SAFETY: The wrapper owns the view, which isn't accessible other than through the wrapper
-        // and stays valid without it (`IoTypeMut` contract). The wrapper is forgotten right after
-        // the view is moved out of it, so it never uses the view again, while `'a` of the returned
-        // `Lent` keeps the memory the view describes borrowed, like the wrapper did.
-        let view = unsafe { ptr::read(wrapper.io_type_mut()) };
-        mem::forget(wrapper);
-        Some(Self::from_view(view))
+        Some(Self::from_view(MaybeData::from_uninit(uninit, size)?))
     }
 }
 
 impl<'a, Element, const RECOMMENDED_ALLOCATION: u32>
-    Lent<'a, VariableElements<Element, RECOMMENDED_ALLOCATION>>
+    Lent<'a, VariableElements<'a, Element, RECOMMENDED_ALLOCATION>>
 where
     Element: TrivialType,
-    VariableElements<Element, RECOMMENDED_ALLOCATION>: IoType,
+    VariableElements<'a, Element, RECOMMENDED_ALLOCATION>: IoType,
 {
     /// Lend a local [`VariableElements`] over uninitialized memory, like
     /// [`VariableElements::from_uninit()`].
@@ -226,15 +221,9 @@ where
     /// Returns `None` if `size != 0` or if the buffer is larger than `u32::MAX` bytes.
     #[inline(always)]
     pub fn from_uninit(uninit: &'a mut [MaybeUninit<Element>], size: &'a mut u32) -> Option<Self> {
-        let mut wrapper =
-            VariableElements::<Element, RECOMMENDED_ALLOCATION>::from_uninit(uninit, size)?;
-        // SAFETY: The wrapper owns the view, which isn't accessible other than through the wrapper
-        // and stays valid without it (`IoTypeMut` contract). The wrapper is forgotten right after
-        // the view is moved out of it, so it never uses the view again, while `'a` of the returned
-        // `Lent` keeps the memory the view describes borrowed, like the wrapper did.
-        let view = unsafe { ptr::read(wrapper.io_type_mut()) };
-        mem::forget(wrapper);
-        Some(Self::from_view(view))
+        Some(Self::from_view(VariableElements::from_uninit(
+            uninit, size,
+        )?))
     }
 }
 
@@ -249,7 +238,7 @@ where
         let size = IoType::size(&view);
         let capacity = IoType::capacity(&view);
         Self {
-            value: LentValue::View(view, PhantomData),
+            value: LentValue::View(view),
             ptr,
             size,
             capacity,
@@ -289,8 +278,14 @@ where
     /// inaccessible until [`Self::set()`], which only exists for plain values, replaces them.
     /// Lending them again doesn't help either: methods generated by `#[contract]` reject outputs
     /// with invalid initial contents with [`ContractError::BadInput`].
+    ///
+    /// A container is returned as a new view of the lent memory that only lives while `self` is
+    /// borrowed (see [`IoType::reborrow_mut()`]). Code that replaces it, for example with a view
+    /// of other memory, doesn't change what `self` lends to calls.
     #[inline(always)]
-    pub fn get_mut(&mut self) -> Result<&mut T, ContractError> {
+    pub fn get_mut(
+        &mut self,
+    ) -> Result<impl DerefMut<Target = T::WithLifetime<'_>> + '_, ContractError> {
         if !self.checked {
             let (mut ptr, mut size, capacity) = self.raw_parts();
             // SAFETY: The pointer is aligned and valid for writes of the capacity and for reads of
@@ -298,7 +293,8 @@ where
             // bytes initialized. The value was valid with these parts, and calls since then only
             // wrote initialized bytes within the capacity and set a valid size
             // (`OutputArg::set_output_size()` contract). Nothing else accesses the memory while
-            // `self` is exclusively borrowed, and the returned view is dropped right away.
+            // `self` is exclusively borrowed, and nothing is moved out of the returned value,
+            // which is dropped right away.
             if unsafe { T::try_from_mut_ptr(&mut ptr, &mut size, capacity) }.is_none() {
                 return Err(ContractError::BadOutput);
             }
@@ -307,7 +303,8 @@ where
         // SAFETY: A valid value, since it was parsed above or neither a call nor a size set changed
         // it since it was last known to be valid, owned by `self` or borrowed by it, and not
         // referenced elsewhere while `self` is borrowed
-        Ok(unsafe { self.value_ptr().as_mut() })
+        let value = unsafe { self.value_ptr().as_mut() };
+        Ok(value.reborrow_mut())
     }
 
     /// Pointer to the value, which may not be valid unless `checked`
@@ -315,7 +312,7 @@ where
     fn value_ptr(&mut self) -> NonNull<T> {
         match &mut self.value {
             LentValue::Owned(value) => NonNull::from_mut(value).cast::<T>(),
-            LentValue::View(view, _) => NonNull::from_mut(view),
+            LentValue::View(view) => NonNull::from_mut(view),
             LentValue::Borrowed(value, _) => *value,
         }
     }

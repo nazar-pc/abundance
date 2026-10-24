@@ -1,0 +1,17 @@
+error[E0596]: cannot borrow data in dereference of `impl Deref<Target = ab_io_type::variable_elements::VariableElements<'_, u8>> + '_` as mutable
+  --> tests/ui/shared_view_mut.rs:10:13
+   |
+10 |       let _ = VariableElements::<u8>::from_buffer(&buffer, &size)
+   |  _____________^
+11 | |         .unwrap()
+   | |_________________^ cannot borrow as mutable
+   |
+   = help: trait `DerefMut` is required to modify through a dereference, but it is not implemented for `impl Deref<Target = ab_io_type::variable_elements::VariableElements<'_, u8>> + '_`
+
+error[E0596]: cannot borrow data in dereference of `impl Deref<Target = ab_io_type::maybe_data::MaybeData<'_, u64>> + '_` as mutable
+  --> tests/ui/shared_view_mut.rs:15:5
+   |
+15 |     MaybeData::from_ref(Some(&data)).remove();
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot borrow as mutable
+   |
+   = help: trait `DerefMut` is required to modify through a dereference, but it is not implemented for `impl Deref<Target = ab_io_type::maybe_data::MaybeData<'_, u64>> + '_`

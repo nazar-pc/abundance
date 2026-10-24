@@ -5,9 +5,9 @@ use ab_core_primitives::transaction::{TransactionHeader, TransactionSlot};
 use ab_io_type::variable_bytes::VariableBytes;
 use ab_io_type::variable_elements::VariableElements;
 
-pub type TxHandlerPayload = VariableElements<u128>;
-pub type TxHandlerSlots = VariableElements<TransactionSlot>;
-pub type TxHandlerSeal = VariableBytes;
+pub type TxHandlerPayload<'a> = VariableElements<'a, u128>;
+pub type TxHandlerSlots<'a> = VariableElements<'a, TransactionSlot>;
+pub type TxHandlerSeal<'a> = VariableBytes<'a>;
 
 /// A transaction handler interface prototype
 #[contract]
@@ -40,10 +40,10 @@ pub trait TxHandler {
     fn authorize(
         #[env] env: &Env<'_>,
         #[input] header: &TransactionHeader,
-        #[input] read_slots: &TxHandlerSlots,
-        #[input] write_slots: &TxHandlerSlots,
-        #[input] payload: &TxHandlerPayload,
-        #[input] seal: &TxHandlerSeal,
+        #[input] read_slots: &TxHandlerSlots<'_>,
+        #[input] write_slots: &TxHandlerSlots<'_>,
+        #[input] payload: &TxHandlerPayload<'_>,
+        #[input] seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError>;
 
     /// Execute previously verified transaction.
@@ -61,9 +61,9 @@ pub trait TxHandler {
     fn execute(
         #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,
-        #[input] read_slots: &TxHandlerSlots,
-        #[input] write_slots: &TxHandlerSlots,
-        #[input] payload: &TxHandlerPayload,
-        #[input] seal: &TxHandlerSeal,
+        #[input] read_slots: &TxHandlerSlots<'_>,
+        #[input] write_slots: &TxHandlerSlots<'_>,
+        #[input] payload: &TxHandlerPayload<'_>,
+        #[input] seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError>;
 }

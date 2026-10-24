@@ -1,5 +1,5 @@
-//! Tests of `IoTypeMut`, which gives generic code exclusive access to both `IoType` values and the
-//! values that constructors of containers over exclusive memory return
+//! Tests of `IoTypeMut`, which gives generic code exclusive access to `IoType` values, including
+//! the containers that constructors over exclusive memory return
 
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::variable_elements::VariableElements;
@@ -43,11 +43,6 @@ fn maybe_data() {
         assert_eq!(size_of_target(&mut maybe_data), 8);
     }
     assert_eq!(size, 8);
-
-    // A value obtained by dereferencing a view
-    let mut size = 8;
-    let mut maybe_data = MaybeData::from_mut(&mut value, &mut size).unwrap();
-    assert_eq!(size_of_target(&mut *maybe_data), 8);
 }
 
 #[test]

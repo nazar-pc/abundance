@@ -96,7 +96,7 @@ pub unsafe trait Contract: IoType {
     ///
     /// This is NOT the code compiled for guest architecture!
     // TODO: Make `const` when possible
-    fn code() -> impl Deref<Target = VariableBytes<MAX_CODE_SIZE>>;
+    fn code() -> impl Deref<Target = VariableBytes<'static, MAX_CODE_SIZE>>;
 }
 
 /// A trait that indicates the implementation of a contract trait by a contract.

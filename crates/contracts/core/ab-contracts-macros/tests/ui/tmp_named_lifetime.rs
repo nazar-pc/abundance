@@ -15,7 +15,7 @@ impl Example {
     #[update]
     pub fn lend_tmp<'a>(
         #[env] env: &mut ab_contracts_common::env::Env<'a>,
-        #[tmp] tmp: &'a mut ab_io_type::maybe_data::MaybeData<u8>,
+        #[tmp] tmp: &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
     ) {
         let _tmp = env.lend_output(tmp);
     }

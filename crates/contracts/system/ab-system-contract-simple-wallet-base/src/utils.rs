@@ -35,10 +35,10 @@ pub fn initialize_state(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(), 
 pub fn authorize(
     env: &Env<'_>,
     header: &TransactionHeader,
-    read_slots: &TxHandlerSlots,
-    write_slots: &TxHandlerSlots,
-    payload: &TxHandlerPayload,
-    seal: &TxHandlerSeal,
+    read_slots: &TxHandlerSlots<'_>,
+    write_slots: &TxHandlerSlots<'_>,
+    payload: &TxHandlerPayload<'_>,
+    seal: &TxHandlerSeal<'_>,
 ) -> Result<(), ContractError> {
     let state = load_current_state(env)?;
 
@@ -60,10 +60,10 @@ pub fn authorize(
 pub fn execute(
     env: &mut Env<'_>,
     header: &TransactionHeader,
-    read_slots: &TxHandlerSlots,
-    write_slots: &TxHandlerSlots,
-    payload: &TxHandlerPayload,
-    seal: &TxHandlerSeal,
+    read_slots: &TxHandlerSlots<'_>,
+    write_slots: &TxHandlerSlots<'_>,
+    payload: &TxHandlerPayload<'_>,
+    seal: &TxHandlerSeal<'_>,
 ) -> Result<(), ContractError> {
     // Only execution environment can make a direct call here
     if env.caller() != Address::NULL {

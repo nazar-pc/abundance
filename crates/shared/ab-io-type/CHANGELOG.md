@@ -34,12 +34,20 @@ Breaking changes:
   `FixedCapacityElements` use it
 * Provided methods of `TrivialType` can't be overridden
 * `IoType` requires `try_from_ptr()` and `try_from_mut_ptr()`
-* Methods of `MaybeData` and `VariableElements` require `MaybeData<Data>: IoType` and
-  `VariableElements<Element, RECOMMENDED_ALLOCATION>: IoType`, which don't hold for zero-sized types, generic code
-  calling them needs these bounds
+* Methods of `MaybeData` and `VariableElements`, except for `size()`, `capacity()`, `cast_ref()` and `cast_mut()` of
+  `VariableElements`, require `MaybeData<'_, Data>: IoType` and
+  `VariableElements<'_, Element, RECOMMENDED_ALLOCATION>: IoType`, which don't hold for zero-sized types, generic code
+  calling them needs these bounds, like `for<'a> MaybeData<'a, Data>: IoType`
 * `VariableBytes::read_trivial_type()`, which created invalid enum values from bytes in safe code, is removed,
   `TrivialType::try_read_unaligned()` replaces it
 * `Bool` is removed, `bool` implements `TrivialType` and parsing accepts only `0` and `1` for it
+* `VariableElements`, `VariableBytes` and `MaybeData` have a lifetime parameter for the memory they view, previously two
+  of them could be swapped in safe code and one of them used after the memory of the other was freed. Constructors
+  over exclusive memory return `Self`, constructors over shared memory still return `impl Deref`
+* `IoType` requires the associated type `WithLifetime<'b>`, the same type viewing memory borrowed for `'b`, and
+  `reborrow_mut()`, which returns a new view of the same memory for containers. Methods of `IoType` that create values
+  from pointers return `WithLifetime<'a>`, and the memory must stay valid until `'a` ends, since a container can be
+  moved out of what they return
 
 Improvements:
 
@@ -56,10 +64,9 @@ Improvements:
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
 * `IoType::set_size()` requires a size that is valid for the type, while the contents don't need to be a valid value
   when it is called, as long as they are parsed before they are accessed
-* `IoTypeMut` gives exclusive access to an `IoType` value, it is implemented for every `IoType` and for values that
-  `MaybeData::from_mut()`, `MaybeData::from_uninit()`, `VariableElements::from_buffer_mut()` and
-  `VariableElements::from_uninit()` return. It is an `unsafe` trait, so that generic code can rely on
-  `io_type_mut()` returning the same value owned by the implementation on every call
+* `IoTypeMut` gives exclusive access to an `IoType` value, it is implemented for every `IoType`. It is an `unsafe`
+  trait, so that generic code can rely on `io_type_mut()` returning the same value owned by the implementation on every
+  call
 
 Fixes:
 

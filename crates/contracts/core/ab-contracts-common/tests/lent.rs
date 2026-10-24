@@ -8,6 +8,7 @@ use ab_io_type::IoType;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::variable_elements::VariableElements;
+use core::mem;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -77,9 +78,9 @@ fn invalid_value_until_set() {
     let mut lent = Lent::new(Mode::A);
     assert_eq!(*lent.get_mut().unwrap(), Mode::A);
     call(&mut lent, &[7], Some(1));
-    assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
+    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
     // Still invalid
-    assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
+    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
     assert_eq!(*lent.set(Mode::B), Mode::B);
     assert_eq!(*lent.get_mut().unwrap(), Mode::B);
 }
@@ -89,7 +90,7 @@ fn moved_after_failed_call() {
     let mut lent = Lent::new(Mode::A);
     // A failed call leaves an invalid value behind and reports no size
     call(&mut lent, &[9], None);
-    assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
+    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
     // Moved while the value is invalid and lent again, the pointer must follow the value
     let mut moved = Box::new(lent);
     call(&mut *moved, &[1], Some(1));
@@ -122,12 +123,12 @@ fn maybe_data_from_uninit() {
     let mut uninit = MaybeUninit::<Mode>::uninit();
     let mut size = 0;
     {
-        let mut lent = Lent::<MaybeData<Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
+        let mut lent = Lent::<MaybeData<'_, Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
         assert_eq!(lent.get_mut().unwrap().get(), None);
         call(&mut lent, &[1], Some(1));
         assert_eq!(lent.get_mut().unwrap().get(), Some(&Mode::B));
         call(&mut lent, &[9], Some(1));
-        assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
+        assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
         // Size `0` is valid regardless of the contents
         call(&mut lent, &[], Some(0));
         assert_eq!(lent.get_mut().unwrap().get(), None);
@@ -138,7 +139,7 @@ fn maybe_data_from_uninit() {
     assert_eq!(size, 1);
 
     let mut size = 1;
-    assert!(Lent::<MaybeData<Mode>>::from_uninit(&mut uninit, &mut size).is_none());
+    assert!(Lent::<MaybeData<'_, Mode>>::from_uninit(&mut uninit, &mut size).is_none());
 }
 
 #[test]
@@ -146,7 +147,8 @@ fn variable_elements_from_uninit() {
     let mut uninit = [MaybeUninit::<Mode>::uninit(); 4];
     let mut size = 0;
     {
-        let mut lent = Lent::<VariableElements<Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
+        let mut lent =
+            Lent::<VariableElements<'_, Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
         call(&mut lent, &[0, 1, 1], Some(3));
         assert_eq!(
             lent.get_mut().unwrap().get_initialized(),
@@ -158,20 +160,57 @@ fn variable_elements_from_uninit() {
         assert_eq!(lent.get_mut().unwrap().get_initialized(), [Mode::A]);
 
         call(&mut lent, &[0, 2], Some(2));
-        assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
+        assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
     }
     // The size reaches the memory the container describes even if the contents are invalid
     assert_eq!(size, 2);
 
     let mut size = 1;
-    assert!(Lent::<VariableElements<Mode>>::from_uninit(&mut uninit, &mut size).is_none());
+    assert!(Lent::<VariableElements<'_, Mode>>::from_uninit(&mut uninit, &mut size).is_none());
+}
+
+/// `get_mut()` returns a new view of a container, so replacing it doesn't change the memory that
+/// is lent to calls, neither for a container `Lent` owns nor for one it borrows
+#[test]
+fn replaced_view() {
+    let mut typed = [Mode::A];
+    let mut typed_size = Mode::SIZE;
+
+    let mut uninit = [MaybeUninit::<Mode>::uninit(); 1];
+    let mut size = 0;
+    let mut lent = Lent::<VariableElements<'_, Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
+    {
+        let mut view = VariableElements::from_buffer_mut(&mut typed, &mut typed_size).unwrap();
+        mem::swap(&mut *lent.get_mut().unwrap(), &mut view);
+    }
+    // A call writes an invalid value into the lent memory
+    call(&mut lent, &[7], Some(1));
+    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+    assert_eq!(typed, [Mode::A]);
+    assert_eq!(typed_size, Mode::SIZE);
+
+    let mut uninit = [MaybeUninit::<Mode>::uninit(); 1];
+    let mut size = 0;
+    let mut original = VariableElements::<Mode>::from_uninit(&mut uninit, &mut size).unwrap();
+    {
+        // SAFETY: The contents of `original` are not accessed afterward
+        let mut lent = unsafe { Lent::from_mut_unchecked(&mut original) };
+        *lent.get_mut().unwrap() =
+            VariableElements::from_buffer_mut(&mut typed, &mut typed_size).unwrap();
+        call(&mut lent, &[7], Some(1));
+        assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+    }
+    assert_eq!(typed, [Mode::A]);
+    assert_eq!(typed_size, Mode::SIZE);
+    // The size reaches the container that was lent
+    assert_eq!(original.size(), 1);
 }
 
 #[test]
 fn size_set_without_call() {
     let mut uninit = MaybeUninit::<Mode>::uninit();
     let mut size = 0;
-    let mut lent = Lent::<MaybeData<Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
+    let mut lent = Lent::<MaybeData<'_, Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
     // A call writes an invalid value, but reports that the output is empty
     call(&mut lent, &[9], Some(0));
     assert_eq!(lent.get_mut().unwrap().get(), None);
@@ -181,7 +220,7 @@ fn size_set_without_call() {
     unsafe {
         lent.set_output_size(1);
     }
-    assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
+    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
 }
 
 #[test]
@@ -203,7 +242,7 @@ fn from_mut_unchecked_container() {
     let mut maybe_data = MaybeData::from_mut(&mut data, &mut size).unwrap();
     {
         // SAFETY: The contents of `maybe_data` are only accessed after they are parsed below
-        let mut lent = unsafe { Lent::from_mut_unchecked(&mut *maybe_data) };
+        let mut lent = unsafe { Lent::from_mut_unchecked(&mut maybe_data) };
         call(&mut lent, &[1], Some(1));
     }
     // The size reaches the container without `get_mut()`
