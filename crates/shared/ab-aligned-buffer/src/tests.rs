@@ -343,7 +343,7 @@ fn too_many_clones_panic() {
     strong_count.store(isize::MAX.cast_unsigned(), Ordering::Relaxed);
 
     let clone = shared.clone();
-    assert!(catch_unwind(AssertUnwindSafe(|| shared.clone())).is_err());
+    catch_unwind(AssertUnwindSafe(|| shared.clone())).unwrap_err();
     assert_eq!(
         strong_count.load(Ordering::Relaxed),
         isize::MAX.cast_unsigned() + 1

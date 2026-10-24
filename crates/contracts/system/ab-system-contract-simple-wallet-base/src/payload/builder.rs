@@ -128,7 +128,7 @@ pub struct MethodCallReferences<'a> {
 ///
 /// [`TxHandler`]: ab_contracts_standards::tx_handler::TxHandler
 /// [`SimpleWallet`]: crate::SimpleWalletBase
-/// [`TransactionPayloadCaller`]: crate::payload::TransactionPayloadCaller
+/// [`TransactionPayloadCaller`]: crate::payload::caller::TransactionPayloadCaller
 /// [`TransactionPayloadDecoder`]: crate::payload::decoder::TransactionPayloadDecoder
 #[derive(Debug, Clone)]
 pub struct TransactionPayloadBuilder {
@@ -243,7 +243,7 @@ impl TransactionPayloadBuilder {
     /// On error, the builder is left unchanged, so other method calls can still be added.
     ///
     /// [`TransactionPayloadDecoder`]: crate::payload::decoder::TransactionPayloadDecoder
-    /// [`TransactionPayloadCaller`]: crate::payload::TransactionPayloadCaller
+    /// [`TransactionPayloadCaller`]: crate::payload::caller::TransactionPayloadCaller
     /// [`MaybeData`]: ab_io_type::maybe_data::MaybeData
     /// [`VariableElements`]: ab_io_type::variable_elements::VariableElements
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
@@ -677,7 +677,7 @@ impl TransactionPayloadBuilder {
     ///     * Its size as little-endian `u32`
     ///
     /// [`TransactionPayloadDecoder`]: crate::payload::decoder::TransactionPayloadDecoder
-    /// [`TransactionPayloadCaller`]: crate::payload::TransactionPayloadCaller
+    /// [`TransactionPayloadCaller`]: crate::payload::caller::TransactionPayloadCaller
     /// [`TransactionSlotType::Address`]: crate::payload::TransactionSlotType::Address
     /// [`TransactionInputType::Value`]: crate::payload::TransactionInputType::Value
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]

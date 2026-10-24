@@ -26,6 +26,9 @@ no-panic-const = { workspace = true, optional = true }
 schnorrkel = { workspace = true }
 thiserror = { workspace = true }
 
+[dev-dependencies]
+ab-aligned-buffer = { workspace = true }
+
 [[example]]
 name = "build-payload"
 required-features = ["payload-builder"]

@@ -1,14 +1,15 @@
 //! Helpers shared by tests of the payload modules
 
-use crate::payload::caller::CallPrepared;
+use crate::payload::caller::{
+    CallPrepared, OutputChunk, TransactionPayloadCallError, TransactionPayloadCaller,
+};
 use crate::payload::decoder::{
     DecodedInput, DecodedOutput, DecodedSlot, TransactionPayloadDecoder,
 };
 use crate::payload::{
     DeclaredOutput, FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, TransactionInput,
     TransactionMethodContext, TransactionOutput, TransactionOutputKind,
-    TransactionPayloadCallError, TransactionPayloadCaller, TransactionPayloadDecoderError,
-    TransactionSlot,
+    TransactionPayloadDecoderError, TransactionSlot,
 };
 use crate::{EXTERNAL_ARGS_BUFFER_SIZE, MAX_OUTPUTS, OUTPUT_BUFFER_SIZE};
 use ab_contracts_common::ContractError;
@@ -22,7 +23,7 @@ use core::mem::MaybeUninit;
 use core::ptr;
 
 /// Size of the output buffer of `SimpleWalletBase` in bytes
-pub(crate) const OUTPUT_BUFFER_BYTES: u32 = (OUTPUT_BUFFER_SIZE * size_of::<u128>()) as u32;
+pub(crate) const OUTPUT_BUFFER_BYTES: u32 = (OUTPUT_BUFFER_SIZE * size_of::<OutputChunk>()) as u32;
 
 /// Calls prepared methods with a function instead of the host
 pub(crate) struct CallWith<Call>(Call);
@@ -216,7 +217,9 @@ impl ContextByte {
 }
 
 /// Payload written byte by byte, with the same padding as `TransactionPayloadBuilder`, so that
-/// tests can write tags and values that the builder never writes
+/// tests can write tags and values that the builder never writes. It is aligned to
+/// [`Alignment::MAX`], like payloads that the builder creates.
+#[repr(C, align(16))]
 pub(crate) struct TestPayload {
     words: [u128; 256],
     /// Number of bytes written
@@ -425,9 +428,9 @@ pub(crate) fn decode_all(payload: &[u128]) -> Result<usize, TransactionPayloadDe
 /// size `0`.
 pub(crate) fn call_all(
     payload: &[u128],
-    output_buffer: &mut [MaybeUninit<u128>],
+    output_buffer: &mut [MaybeUninit<OutputChunk>],
 ) -> Result<usize, TransactionPayloadDecoderError> {
-    output_buffer.fill(MaybeUninit::new(0));
+    output_buffer.fill_with(MaybeUninit::zeroed);
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
     let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
     let mut caller = TransactionPayloadCaller::new(
@@ -470,7 +473,7 @@ pub(crate) fn decode_and_call(payload: &[u128]) -> Result<usize, TransactionPayl
 pub(crate) fn new_caller<'a>(
     payload: &'a [u128],
     external_args_buffer: &'a mut [*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE],
-    output_buffer: &'a mut [MaybeUninit<u128>; OUTPUT_BUFFER_SIZE],
+    output_buffer: &'a mut [MaybeUninit<OutputChunk>; OUTPUT_BUFFER_SIZE],
     declared_outputs: &'a mut [MaybeUninit<DeclaredOutput>; MAX_OUTPUTS],
 ) -> TransactionPayloadCaller<'a> {
     TransactionPayloadCaller::new(

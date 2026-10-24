@@ -27,9 +27,8 @@ pub mod payload;
 pub mod seal;
 pub mod utils;
 
-use crate::payload::{
-    TransactionMethodContext, TransactionPayloadCallError, TransactionPayloadCaller,
-};
+use crate::payload::TransactionMethodContext;
+use crate::payload::caller::{OutputChunk, TransactionPayloadCallError, TransactionPayloadCaller};
 use crate::seal::hash_and_verify;
 use ab_contracts_common::env::{Env, MethodContext};
 use ab_contracts_common::{ContractError, MAX_TOTAL_METHOD_ARGS};
@@ -58,8 +57,8 @@ pub const SIGNING_CONTEXT: &[u8] = b"system-simple-wallet";
 pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = MAX_TOTAL_METHOD_ARGS as usize
     * (size_of::<*mut c_void>() + size_of::<u32>() * 2)
     / size_of::<*mut c_void>();
-/// Size of the buffer in `u128` elements that holds the memory of the outputs that a payload
-/// declares.
+/// Size of the buffer in [`OutputChunk`] elements that holds the memory of the outputs that a
+/// payload declares.
 ///
 /// This constant is helpful for transaction generation to check whether a created transaction
 /// doesn't exceed this limit.
@@ -70,7 +69,7 @@ pub const EXTERNAL_ARGS_BUFFER_SIZE: usize = MAX_TOTAL_METHOD_ARGS as usize
 /// Overflow will result in an error before any method is called.
 ///
 /// [`Alignment::MAX`]: ab_io_type::alignment::Alignment::MAX
-pub const OUTPUT_BUFFER_SIZE: usize = 32 * 1024 / size_of::<u128>();
+pub const OUTPUT_BUFFER_SIZE: usize = 32 * 1024 / size_of::<OutputChunk>();
 /// The largest number of outputs that a payload can declare.
 ///
 /// This constant is helpful for transaction generation to check whether a created transaction

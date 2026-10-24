@@ -75,16 +75,19 @@ struct PayloadReader<'payload> {
 }
 
 impl<'payload> PayloadReader<'payload> {
+    /// Create a reader of `payload`, which must be aligned to [`Alignment::MAX`]
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-    fn new(payload: &'payload [u128]) -> Self {
-        debug_assert_eq!(align_of_val(payload), usize::from(Alignment::MAX.get()));
+    fn new(payload: &'payload [u128]) -> Result<Self, TransactionPayloadDecoderError> {
+        if !Alignment::MAX.is_slice_aligned(payload) {
+            return Err(TransactionPayloadDecoderError::PayloadMisaligned);
+        }
 
         // SAFETY: Memory is valid and bound by an argument's lifetime
         let payload =
             unsafe { slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload)) };
 
-        Self { payload }
+        Ok(Self { payload })
     }
 
     /// Number of bytes that weren't read yet
@@ -241,7 +244,7 @@ impl<'payload, 'outputs> PayloadDecoderCore<'payload, 'outputs> {
     where
         Allocator: OutputAllocator,
     {
-        let mut reader = PayloadReader::new(payload);
+        let mut reader = PayloadReader::new(payload)?;
 
         let num_declared_outputs = reader.read_u8()?;
         let Some(declared_outputs) = declared_outputs.get_mut(..usize::from(num_declared_outputs))

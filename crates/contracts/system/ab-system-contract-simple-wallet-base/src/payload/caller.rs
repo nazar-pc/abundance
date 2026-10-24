@@ -9,7 +9,7 @@ use crate::payload::decoder_core::{
 };
 use crate::payload::{
     DeclaredOutput, FfiDataSizeCapacityRo, FfiDataSizeCapacityRw, TransactionMethodContext,
-    TransactionOutputKind, TransactionPayloadCallError, TransactionPayloadDecoderError,
+    TransactionOutputKind, TransactionPayloadDecoderError,
 };
 use crate::{EXTERNAL_ARGS_BUFFER_SIZE, MAX_OUTPUTS};
 use ab_contracts_common::env::{Env, MethodContext, PreparedMethod};
@@ -27,8 +27,14 @@ const {
     // Outputs are allocated at offsets that are multiples of `Alignment::MAX`, so their memory is
     // aligned to `Alignment::MAX` when the output buffer is, which makes it aligned for every
     // output type
-    assert!(align_of::<u128>() >= usize::from(Alignment::MAX.get()));
+    assert!(align_of::<OutputChunk>() >= usize::from(Alignment::MAX.get()));
 }
+
+/// Element of the output buffer of [`TransactionPayloadCaller`]: 16 bytes aligned to
+/// [`Alignment::MAX`]
+#[derive(Debug, Copy, Clone)]
+#[repr(C, align(16))]
+pub struct OutputChunk([u8; 16]);
 
 /// Calls prepared methods for [`TransactionPayloadCaller`]: [`Env`], or something that stands in
 /// for the host in tests.
@@ -150,8 +156,8 @@ impl<'payload> MethodSink<'payload> for ExternalArgsWriter<'_> {
 
                 // SAFETY: Declared outputs are allocated within the output buffer in
                 // `TransactionPayloadCaller::new()` at multiples of `Alignment::MAX`, the output
-                // buffer is aligned to `Alignment::MAX` too, and an address, like every
-                // `TrivialType`, has at most that alignment
+                // buffer is aligned to `Alignment::MAX` by its element type, and an address, like
+                // every `TrivialType`, has at most that alignment
                 let address = unsafe { self.output_pointer(output.offset) }.cast::<Address>();
                 debug_assert!(address.is_aligned());
 
@@ -293,6 +299,17 @@ impl<'pending> ExternalArgsWriter<'pending> {
     }
 }
 
+/// Errors for [`TransactionPayloadCaller::call_next_method()`]
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionPayloadCallError {
+    /// Decoder error
+    #[error("Decoder error: {0}")]
+    Decoder(TransactionPayloadDecoderError),
+    /// Method call error
+    #[error("Method call error: {0}")]
+    Method(ContractError),
+}
+
 /// Caller of methods in a transaction payload created using `TransactionPayloadBuilder`.
 ///
 /// The payload must be trusted (see [`SimpleWalletBase::execute()`]): what it declares about the
@@ -324,7 +341,7 @@ pub struct TransactionPayloadCaller<'a> {
     /// Start of the output buffer. Every pointer to an output is derived from it, so using one of
     /// them doesn't invalidate the others.
     output_buffer: NonNull<u8>,
-    output_buffer_lifetime: PhantomData<&'a mut [MaybeUninit<u128>]>,
+    output_buffer_lifetime: PhantomData<&'a mut [MaybeUninit<OutputChunk>]>,
     map_context: fn(TransactionMethodContext) -> MethodContext,
 }
 
@@ -341,23 +358,19 @@ impl<'a> TransactionPayloadCaller<'a> {
     /// together. Each of them starts at the next multiple of [`Alignment::MAX`] after the previous
     /// one.
     ///
-    /// Returns an error if the outputs that the payload declares can't be read or don't fit, so
-    /// that no method of such a payload is called. Every payload starts with the outputs that it
-    /// declares, so an empty payload is too small.
+    /// Returns an error if the payload is not aligned to [`Alignment::MAX`], or if the outputs that
+    /// the payload declares can't be read or don't fit, so that no method of such a payload is
+    /// called. Every payload starts with the outputs that it declares, so an empty payload is too
+    /// small.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn new(
         payload: &'a [u128],
         external_args_buffer: &'a mut [*mut c_void; EXTERNAL_ARGS_BUFFER_SIZE],
-        output_buffer: &'a mut [MaybeUninit<u128>],
+        output_buffer: &'a mut [MaybeUninit<OutputChunk>],
         declared_outputs: &'a mut [MaybeUninit<DeclaredOutput>; MAX_OUTPUTS],
         map_context: fn(TransactionMethodContext) -> MethodContext,
     ) -> Result<Self, TransactionPayloadDecoderError> {
-        debug_assert_eq!(
-            align_of_val(output_buffer),
-            usize::from(Alignment::MAX.get())
-        );
-
         let mut allocator = OutputBufferAllocator {
             size: size_of_val(output_buffer).min(u32::MAX as usize),
             used: 0,
