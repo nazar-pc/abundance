@@ -51,7 +51,9 @@ pub struct Proofs<const K: u8> {
     /// of a proof for corresponding s-bucket, so that the whole array of bytes can be thought as a
     /// large set of bits.
     ///
-    /// There will be at most [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`.
+    /// There are always exactly [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`. This is a
+    /// protected invariant. [`Proofs::for_s_bucket()`] relies on it, and so does plotting in the
+    /// farmer, which encodes every record chunk with one of these proofs.
     pub mut(self) found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
     /// [`Record::NUM_CHUNKS`] proofs, corresponding to set bits of `found_proofs`.
     pub mut(self) proofs: [[u8; PROOF_SIZE::<K>]; const { Record::NUM_CHUNKS }],
@@ -237,7 +239,10 @@ where
             &mut proofs,
         );
 
-        // SAFETY: Fully and correctly initialized above
+        // SAFETY: `Proofs::split_uninit()` initialized `found_proofs`, and
+        // `Self::find_proofs_internal()` wrote all `Record::NUM_CHUNKS` proofs because there are
+        // at least that many targets. This holds with overwhelming probability, which
+        // `test_proofs_lower_bound` checks.
         unsafe { proofs.assume_init() }
     }
 
@@ -291,7 +296,7 @@ where
             }
         }
 
-        // It is statically known to be the case, and there is a test that checks the lower bound
+        // Holds with overwhelming probability, which `test_proofs_lower_bound` checks
         debug_assert_eq!(num_found_proofs, Record::NUM_CHUNKS);
     }
 
@@ -361,7 +366,10 @@ where
                 });
         }
 
-        // SAFETY: Fully and correctly initialized
+        // SAFETY: `Proofs::split_uninit()` initialized `found_proofs`, and a proof was written for
+        // each collected target. There are at least `Record::NUM_CHUNKS` targets, so all proofs
+        // were written. This holds with overwhelming probability, which `test_proofs_lower_bound`
+        // checks.
         unsafe { proofs.assume_init() }
     }
 
@@ -401,6 +409,9 @@ where
                 }
             }
         }
+
+        // Holds with overwhelming probability, which `test_proofs_lower_bound` checks
+        debug_assert_eq!(num_found_proofs, Record::NUM_CHUNKS);
 
         // TODO: Remove once https://github.com/rust-lang/rust/issues/162834 is resolved
         // SAFETY: The loop above is stopped as soon as `Record::NUM_CHUNKS` targets are collected

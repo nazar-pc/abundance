@@ -65,7 +65,9 @@ pub struct PosProofs {
     /// of a proof for corresponding s-bucket, so that the whole array of bytes can be thought as a
     /// large set of bits.
     ///
-    /// There will be at most [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`.
+    /// There are always exactly [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`. This is a
+    /// protected invariant. [`PosProofs::for_s_bucket()`] relies on it, and so does plotting in
+    /// the farmer, which encodes every record chunk with one of these proofs.
     pub mut(self) found_proofs: [u8; Record::NUM_S_BUCKETS / u8::BITS as usize],
     /// [`Record::NUM_CHUNKS`] proofs, corresponding to set bits of `found_proofs`.
     pub mut(self) proofs: [PosProof; const { Record::NUM_CHUNKS }],

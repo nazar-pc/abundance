@@ -179,7 +179,7 @@ impl RawSector {
 /// of a proof for corresponding s-bucket, so that the whole array of bytes can be thought as a
 /// large set of bits.
 ///
-/// There will be at most [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`.
+/// There are always exactly [`Record::NUM_CHUNKS`] proofs produced/bits set to `1`.
 pub type FoundProofs = [u8; Record::NUM_S_BUCKETS / u8::BITS as usize];
 
 /// Error happening when trying to create [`SectorContentsMap`] from bytes
