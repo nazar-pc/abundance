@@ -1,3 +1,4 @@
+use crate::MAX_TOTAL_METHOD_ARGS;
 use crate::metadata::{ContractMetadataKind, MAX_METADATA_DEPTH};
 use ab_io_type::metadata::{IoTypeDetails, IoTypeMetadataKind};
 use core::mem::ManuallyDrop;
@@ -33,14 +34,27 @@ pub enum MetadataDecodingError<'metadata> {
     /// Expected method kind, found something else
     #[error("Expected method kind, found something else: {metadata_kind:?}")]
     ExpectedMethodKind { metadata_kind: ContractMetadataKind },
+    /// More arguments than `#[contract]` allows, see [`MAX_TOTAL_METHOD_ARGS`]
+    #[error("Too many arguments: {number_of_arguments}")]
+    TooManyArguments {
+        /// Number of arguments in metadata, together with `self` in methods that have it
+        number_of_arguments: u8,
+    },
+    /// `#[init]` method that doesn't end with the state, see [`ContractMetadataKind::Init`]
+    #[error("`#[init]` method doesn't end with the state")]
+    InitWithoutState,
     /// Expected argument kind, found something else
     #[error("Expected argument kind, found something else: {metadata_kind:?}")]
     ExpectedArgumentKind { metadata_kind: ContractMetadataKind },
     /// Unexpected argument kind
-    #[error("Unexpected argument kind {argument_kind:?} for method kind {method_kind:?}")]
+    #[error(
+        "Unexpected argument kind {argument_kind:?} for method kind {method_kind:?} in container \
+        kind {container_kind:?}"
+    )]
     UnexpectedArgumentKind {
         argument_kind: ArgumentKind,
         method_kind: MethodKind,
+        container_kind: MethodsContainerKind,
     },
     /// An argument out of the order that `#[contract]` generates, see
     /// [`ContractMetadataKind::Init`]
@@ -499,9 +513,23 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
             .split_off_first()
             .ok_or(MetadataDecodingError::NotEnoughMetadata)?;
 
+        // `self` is not in metadata, but counts towards `MAX_TOTAL_METHOD_ARGS` in methods with it
+        let number_of_arguments = num_arguments.saturating_add(u8::from(method_kind.has_self()));
+        if number_of_arguments > MAX_TOTAL_METHOD_ARGS {
+            return Err(MetadataDecodingError::TooManyArguments {
+                number_of_arguments,
+            });
+        }
+
+        // The state is the last argument of `#[init]`, the arguments decoder checks its kind
+        if matches!(method_kind, MethodKind::Init) && num_arguments == 0 {
+            return Err(MetadataDecodingError::InitWithoutState);
+        }
+
         let decoder = ArgumentsMetadataDecoder {
             metadata,
             method_kind,
+            container_kind,
             remaining: num_arguments,
             next_position: ArgumentPosition::Env,
         };
@@ -569,6 +597,7 @@ pub struct ArgumentMetadataItem<'metadata> {
 pub struct ArgumentsMetadataDecoder<'a, 'metadata> {
     metadata: &'a mut &'metadata [u8],
     method_kind: MethodKind,
+    container_kind: MethodsContainerKind,
     remaining: u8,
     /// The earliest position that the next argument can have
     next_position: ArgumentPosition,
@@ -614,7 +643,8 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
     ///
     /// Arguments are returned in the order that `#[contract]` generates them in, which
     /// [`ContractMetadataKind::Init`] describes. An argument out of that order is rejected with
-    /// [`MetadataDecodingError::ArgumentOutOfOrder`].
+    /// [`MetadataDecodingError::ArgumentOutOfOrder`]. The last argument of `#[init]` is always its
+    /// state, otherwise [`MetadataDecodingError::InitWithoutState`] is returned.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn decode_next<'a>(
@@ -696,10 +726,27 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             },
         };
 
-        if !argument_allowed {
+        // `#[tmp]` and `#[slot]` types are defined by a contract, so methods of traits have none
+        let argument_allowed_in_container = match self.container_kind {
+            MethodsContainerKind::Contract | MethodsContainerKind::Unknown => true,
+            MethodsContainerKind::Trait => match argument_kind {
+                ArgumentKind::EnvRo
+                | ArgumentKind::EnvRw
+                | ArgumentKind::Input
+                | ArgumentKind::Output
+                | ArgumentKind::Return => true,
+                ArgumentKind::TmpRo
+                | ArgumentKind::TmpRw
+                | ArgumentKind::SlotRo
+                | ArgumentKind::SlotRw => false,
+            },
+        };
+
+        if !argument_allowed || !argument_allowed_in_container {
             return Err(MetadataDecodingError::UnexpectedArgumentKind {
                 argument_kind,
                 method_kind: self.method_kind,
+                container_kind: self.container_kind,
             });
         }
 
@@ -724,6 +771,15 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
             return Err(MetadataDecodingError::ArgumentOutOfOrder { argument_kind });
         }
         self.next_position = next_position;
+
+        let last_argument = self.remaining == 0;
+        // The last argument of `#[init]` is the state, see `ContractMetadataKind::Init` for details
+        if matches!(self.method_kind, MethodKind::Init)
+            && last_argument
+            && !matches!(argument_kind, ArgumentKind::Output | ArgumentKind::Return)
+        {
+            return Err(MetadataDecodingError::InitWithoutState);
+        }
 
         let (argument_name, type_details) = match argument_kind {
             ArgumentKind::EnvRo | ArgumentKind::EnvRw => ("env".as_bytes(), None),
@@ -766,7 +822,6 @@ impl<'metadata> ArgumentsMetadataDecoder<'_, 'metadata> {
                         Some(recommended_capacity)
                     }
                     ArgumentKind::Output | ArgumentKind::Return => {
-                        let last_argument = self.remaining == 0;
                         // May be skipped for `#[init]`, see `ContractMetadataKind::Init` for
                         // details
                         if matches!((self.method_kind, last_argument), (MethodKind::Init, true)) {
