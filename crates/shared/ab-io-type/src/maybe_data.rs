@@ -52,6 +52,11 @@ where
 
     type WithLifetime<'b> = MaybeData<'b, Data>;
 
+    type Reborrowed<'b>
+        = MaybeData<'b, Data>
+    where
+        Self: 'b;
+
     #[inline(always)]
     fn size(&self) -> u32 {
         // SAFETY: guaranteed to be initialized by constructors
@@ -211,13 +216,13 @@ where
     }
 
     #[inline(always)]
-    fn reborrow_mut(&mut self) -> impl DerefMut<Target = Self::WithLifetime<'_>> + '_ {
-        DerefWrapper(MaybeData {
+    fn reborrow_mut(&mut self) -> Self::Reborrowed<'_> {
+        MaybeData {
             data: self.data,
             size: self.size,
             memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
-        })
+        }
     }
 }
 

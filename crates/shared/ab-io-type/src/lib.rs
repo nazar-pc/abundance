@@ -89,6 +89,7 @@ pub mod variable_elements;
 
 use crate::alignment::Alignment;
 use crate::trivial_type::TrivialType;
+use core::borrow::BorrowMut;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 
@@ -195,6 +196,15 @@ pub unsafe trait IoType {
     /// [`VariableElements`]: variable_elements::VariableElements
     /// [`mem::swap()`]: core::mem::swap
     type WithLifetime<'b>: IoType<PointerType = Self::PointerType>;
+
+    /// Exclusive access to a value for `'b`, which [`Self::reborrow_mut()`] returns.
+    ///
+    /// This is `&'b mut Self` for types that don't view memory, like those implementing
+    /// [`TrivialType`], and [`Self::WithLifetime`] by value for containers. Generic code can get
+    /// `&mut Self::WithLifetime<'b>` from both with [`BorrowMut::borrow_mut()`].
+    type Reborrowed<'b>: BorrowMut<Self::WithLifetime<'b>>
+    where
+        Self: 'b;
 
     /// Number of bytes that are currently used to store data
     fn size(&self) -> u32;
@@ -323,9 +333,9 @@ pub unsafe trait IoType {
     /// Exclusive access to this value for the duration of the borrow.
     ///
     /// For a container, this is a new view of the same memory with the lifetime of the borrow.
-    /// Replacing it doesn't replace the container behind `self`, and a container moved out of it
-    /// can't be used after the borrow ends. Types that don't view memory return `self`.
-    fn reborrow_mut(&mut self) -> impl DerefMut<Target = Self::WithLifetime<'_>> + '_;
+    /// Replacing it doesn't replace the container behind `self`, and it can't be used after the
+    /// borrow ends. Types that don't view memory return `self`.
+    fn reborrow_mut(&mut self) -> Self::Reborrowed<'_>;
 }
 
 /// Marker trait, companion to [`IoType`] that indicates the ability to store optional contents.

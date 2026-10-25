@@ -565,6 +565,8 @@ where
 
     type WithLifetime<'b> = T;
 
+    type Reborrowed<'b> = &'b mut T;
+
     #[inline(always)]
     fn size(&self) -> u32 {
         T::SIZE
@@ -677,7 +679,7 @@ where
     }
 
     #[inline(always)]
-    fn reborrow_mut(&mut self) -> impl DerefMut<Target = Self::WithLifetime<'_>> + '_ {
+    fn reborrow_mut(&mut self) -> Self::Reborrowed<'_> {
         self
     }
 }

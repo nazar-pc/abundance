@@ -141,7 +141,7 @@ impl Outputs {
             &mut local_value,
         )?;
         *value = local_value;
-        plain_flag.get_mut().map(|flag| *flag)
+        plain_flag.get_mut().copied()
     }
 }
 
@@ -338,7 +338,7 @@ fn failed_call_leaves_invalid_output() {
         env.outputs_plain_flag_output(Address::NULL, &mut flag),
         Err(ContractError::Forbidden)
     );
-    assert_eq!(flag.get_mut().err(), Some(ContractError::BadOutput));
+    assert_eq!(flag.get_mut(), Err(ContractError::BadOutput));
     flag.set(Flag::On);
-    assert_eq!(*flag.get_mut().unwrap(), Flag::On);
+    assert_eq!(flag.get_mut(), Ok(&mut Flag::On));
 }

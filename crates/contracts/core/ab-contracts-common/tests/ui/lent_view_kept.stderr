@@ -1,23 +1,23 @@
 error[E0499]: cannot borrow `lent` as mutable more than once at a time
-  --> tests/ui/lent_view_kept.rs:28:23
+  --> tests/ui/lent_view_kept.rs:24:23
    |
-26 |     mem::swap(&mut *lent.get_mut().unwrap(), &mut view);
-   |                     ---- first mutable borrow occurs here
-27 |     // A call writes an invalid value and reports its size
-28 |     let (ptr, _, _) = lent.as_raw_output();
+22 |     let view = lent.get_mut().unwrap();
+   |                ---- first mutable borrow occurs here
+23 |     // A call writes an invalid value and reports its size
+24 |     let (ptr, _, _) = lent.as_raw_output();
    |                       ^^^^ second mutable borrow occurs here
 ...
-37 |     let _ = view.get_initialized();
+33 |     let _ = view.get_initialized();
    |             ---- first borrow later used here
 
 error[E0499]: cannot borrow `lent` as mutable more than once at a time
-  --> tests/ui/lent_view_kept.rs:35:9
+  --> tests/ui/lent_view_kept.rs:31:9
    |
-26 |     mem::swap(&mut *lent.get_mut().unwrap(), &mut view);
-   |                     ---- first mutable borrow occurs here
+22 |     let view = lent.get_mut().unwrap();
+   |                ---- first mutable borrow occurs here
 ...
-35 |         lent.set_output_size(1);
+31 |         lent.set_output_size(1);
    |         ^^^^ second mutable borrow occurs here
-36 |     }
-37 |     let _ = view.get_initialized();
+32 |     }
+33 |     let _ = view.get_initialized();
    |             ---- first borrow later used here

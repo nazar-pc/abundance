@@ -8,6 +8,7 @@ use ab_io_type::IoType;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::variable_elements::VariableElements;
+use core::borrow::BorrowMut;
 use core::mem;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
@@ -63,6 +64,14 @@ where
     }
 }
 
+/// Size of the contents, from code that only knows that `T` implements `IoType`
+fn contents_size<T>(lent: &mut Lent<'_, T>) -> Result<u32, ContractError>
+where
+    T: IoType,
+{
+    Ok(lent.get_mut()?.borrow_mut().size())
+}
+
 /// Other fields of an `#[output]` stay accessible after one of its fields was lent
 #[expect(dead_code, reason = "Only checks that it compiles")]
 fn lend_output_field<'a>(env: &Env<'a>, output: &'a mut Pair) -> Result<(), ContractError> {
@@ -78,9 +87,9 @@ fn invalid_value_until_set() {
     let mut lent = Lent::new(Mode::A);
     assert_eq!(*lent.get_mut().unwrap(), Mode::A);
     call(&mut lent, &[7], Some(1));
-    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+    assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
     // Still invalid
-    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+    assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
     assert_eq!(*lent.set(Mode::B), Mode::B);
     assert_eq!(*lent.get_mut().unwrap(), Mode::B);
 }
@@ -90,7 +99,7 @@ fn moved_after_failed_call() {
     let mut lent = Lent::new(Mode::A);
     // A failed call leaves an invalid value behind and reports no size
     call(&mut lent, &[9], None);
-    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+    assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
     // Moved while the value is invalid and lent again, the pointer must follow the value
     let mut moved = Box::new(lent);
     call(&mut *moved, &[1], Some(1));
@@ -128,7 +137,7 @@ fn maybe_data_from_uninit() {
         call(&mut lent, &[1], Some(1));
         assert_eq!(lent.get_mut().unwrap().get(), Some(&Mode::B));
         call(&mut lent, &[9], Some(1));
-        assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+        assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
         // Size `0` is valid regardless of the contents
         call(&mut lent, &[], Some(0));
         assert_eq!(lent.get_mut().unwrap().get(), None);
@@ -160,7 +169,7 @@ fn variable_elements_from_uninit() {
         assert_eq!(lent.get_mut().unwrap().get_initialized(), [Mode::A]);
 
         call(&mut lent, &[0, 2], Some(2));
-        assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+        assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
     }
     // The size reaches the memory the container describes even if the contents are invalid
     assert_eq!(size, 2);
@@ -181,11 +190,12 @@ fn replaced_view() {
     let mut lent = Lent::<VariableElements<'_, Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
     {
         let mut view = VariableElements::from_buffer_mut(&mut typed, &mut typed_size).unwrap();
-        mem::swap(&mut *lent.get_mut().unwrap(), &mut view);
+        let mut lent_view = lent.get_mut().unwrap();
+        mem::swap(&mut lent_view, &mut view);
     }
     // A call writes an invalid value into the lent memory
     call(&mut lent, &[7], Some(1));
-    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+    assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
     assert_eq!(typed, [Mode::A]);
     assert_eq!(typed_size, Mode::SIZE);
 
@@ -195,15 +205,34 @@ fn replaced_view() {
     {
         // SAFETY: The contents of `original` are not accessed afterward
         let mut lent = unsafe { Lent::from_mut_unchecked(&mut original) };
-        *lent.get_mut().unwrap() =
-            VariableElements::from_buffer_mut(&mut typed, &mut typed_size).unwrap();
+        let mut view = VariableElements::from_buffer_mut(&mut typed, &mut typed_size).unwrap();
+        let mut lent_view = lent.get_mut().unwrap();
+        mem::swap(&mut lent_view, &mut view);
         call(&mut lent, &[7], Some(1));
-        assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+        assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
     }
     assert_eq!(typed, [Mode::A]);
     assert_eq!(typed_size, Mode::SIZE);
     // The size reaches the container that was lent
     assert_eq!(original.size(), 1);
+}
+
+/// `get_mut()` returns `&mut T` for a plain value and a new view by value for a container, generic
+/// code gets `&mut T` from both
+#[test]
+fn get_mut_generic() {
+    let mut lent = Lent::new(Mode::A);
+    let mode: &mut Mode = lent.get_mut().unwrap();
+    *mode = Mode::B;
+    assert_eq!(contents_size(&mut lent), Ok(Mode::SIZE));
+    assert_eq!(lent.get_mut(), Ok(&mut Mode::B));
+
+    let mut uninit = [MaybeUninit::<Mode>::uninit(); 2];
+    let mut size = 0;
+    let mut lent = Lent::<VariableElements<'_, Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
+    assert_eq!(contents_size(&mut lent), Ok(0));
+    call(&mut lent, &[0, 1], Some(2));
+    assert_eq!(contents_size(&mut lent), Ok(2));
 }
 
 #[test]
@@ -220,7 +249,7 @@ fn size_set_without_call() {
     unsafe {
         lent.set_output_size(1);
     }
-    assert_eq!(lent.get_mut().err(), Some(ContractError::BadOutput));
+    assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
 }
 
 #[test]

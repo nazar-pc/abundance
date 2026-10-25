@@ -45,9 +45,10 @@ Breaking changes:
   of them could be swapped in safe code and one of them used after the memory of the other was freed. Constructors
   over exclusive memory return `Self`, constructors over shared memory still return `impl Deref`
 * `IoType` requires the associated type `WithLifetime<'b>`, the same type viewing memory borrowed for `'b`, and
-  `reborrow_mut()`, which returns a new view of the same memory for containers. Methods of `IoType` that create values
-  from pointers return `WithLifetime<'a>`, and the memory must stay valid until `'a` ends, since a container can be
-  moved out of what they return
+  `reborrow_mut()`, which returns the associated type `Reborrowed<'b>`: `&'b mut Self` for types that don't view memory
+  and a new view of the same memory for containers. Methods of `IoType` that create values from pointers return
+  `WithLifetime<'a>`, and the memory must stay valid until `'a` ends, since a container can be moved out of what they
+  return
 
 Improvements:
 

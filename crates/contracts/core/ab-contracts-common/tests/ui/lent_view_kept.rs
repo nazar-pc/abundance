@@ -5,7 +5,6 @@
 use ab_contracts_common::output::{Lent, OutputArg};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::variable_elements::VariableElements;
-use core::mem;
 use core::mem::MaybeUninit;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
@@ -18,12 +17,9 @@ enum Mode {
 fn main() {
     let mut uninit = [MaybeUninit::<Mode>::uninit(); 1];
     let mut uninit_size = 0;
-    let mut typed = [Mode::A];
-    let mut typed_size = 1;
     let mut lent =
         Lent::<VariableElements<'_, Mode>>::from_uninit(&mut uninit, &mut uninit_size).unwrap();
-    let mut view = VariableElements::<Mode>::from_buffer_mut(&mut typed, &mut typed_size).unwrap();
-    mem::swap(&mut *lent.get_mut().unwrap(), &mut view);
+    let view = lent.get_mut().unwrap();
     // A call writes an invalid value and reports its size
     let (ptr, _, _) = lent.as_raw_output();
     // SAFETY: The pointer is valid for writes of the capacity, which is one byte

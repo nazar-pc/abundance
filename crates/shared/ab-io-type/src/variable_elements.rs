@@ -87,6 +87,11 @@ where
 
     type WithLifetime<'b> = VariableElements<'b, Element, RECOMMENDED_ALLOCATION>;
 
+    type Reborrowed<'b>
+        = VariableElements<'b, Element, RECOMMENDED_ALLOCATION>
+    where
+        Self: 'b;
+
     #[inline(always)]
     fn size(&self) -> u32 {
         self.size()
@@ -241,14 +246,14 @@ where
     }
 
     #[inline(always)]
-    fn reborrow_mut(&mut self) -> impl DerefMut<Target = Self::WithLifetime<'_>> + '_ {
-        DerefWrapper(VariableElements {
+    fn reborrow_mut(&mut self) -> Self::Reborrowed<'_> {
+        VariableElements {
             elements: self.elements,
             size: self.size,
             capacity: self.capacity,
             memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
-        })
+        }
     }
 }
 
