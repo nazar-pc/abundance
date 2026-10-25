@@ -1069,7 +1069,7 @@ jobs:
           path: *act4-work-cache-path
           key: *act4-work-cache-key
         # Only save on `main` branch and only from one OS since the contents will be identical for all OSes
-        if: steps.restore-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-26.04'
+        if: steps.restore-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-26.04-arm'
 
   rust-all:
     # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
