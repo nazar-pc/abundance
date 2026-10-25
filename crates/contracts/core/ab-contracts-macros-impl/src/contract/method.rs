@@ -751,6 +751,11 @@ impl MethodDetails {
         Ok(quote_spanned! {fn_sig.span() =>
             #[expect(clippy::inline_modules, reason = "Macro-generated")]
             pub mod #original_method_name {
+                #[allow(
+                    unused_imports,
+                    reason = "Unused when types of the method need nothing from the parent module, \
+                    which the macro can't tell without resolving names"
+                )]
                 use super::*;
 
                 #external_args_struct
