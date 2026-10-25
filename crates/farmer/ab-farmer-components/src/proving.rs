@@ -48,6 +48,19 @@ pub enum ProvingError {
     /// Failed to decode sector contents map
     #[error("Failed to decode sector contents map: {0}")]
     FailedToDecodeSectorContentsMap(#[from] SectorContentsMapFromBytesError),
+    /// Sector contents map and sector metadata disagree on the size of the audited s-bucket
+    #[error(
+        "S-bucket {s_bucket} has {actual} chunks in sector contents map, but {expected} in sector \
+        metadata"
+    )]
+    SBucketSizeMismatch {
+        /// S-bucket
+        s_bucket: SBucket,
+        /// Number of chunks according to sector metadata
+        expected: u16,
+        /// Number of chunks according to sector contents map
+        actual: usize,
+    },
     /// I/O error occurred
     #[error("Proving I/O error: {0}")]
     Io(#[from] io::Error),
@@ -66,6 +79,7 @@ impl ProvingError {
         match self {
             ProvingError::FailedToCreatePolynomialForRecord { .. } => false,
             ProvingError::FailedToDecodeSectorContentsMap(_) => false,
+            ProvingError::SBucketSizeMismatch { .. } => false,
             ProvingError::Io(_) => true,
             ProvingError::RecordReadingError(error) => error.is_fatal(),
         }
@@ -394,12 +408,28 @@ where
             .iter_s_bucket_piece_offsets(s_bucket)
             .expect("S-bucket audit index is guaranteed to be in range; qed")
             .collect::<Vec<_>>();
+        let s_bucket_size = sector_metadata
+            .s_bucket_sizes
+            .get(usize::from(s_bucket))
+            .copied()
+            .expect("S-bucket audit index is guaranteed to be in range; qed");
+        // Auditing found candidates among as many chunks as sector metadata says the s-bucket has
+        if s_bucket_piece_offsets.len() != usize::from(s_bucket_size) {
+            return Err(ProvingError::SBucketSizeMismatch {
+                s_bucket,
+                expected: s_bucket_size,
+                actual: s_bucket_piece_offsets.len(),
+            });
+        }
         let winning_chunks = chunk_candidates
             .into_iter()
             .map(move |chunk_candidate| {
                 let piece_offset = s_bucket_piece_offsets
                     .get(chunk_candidate.chunk_offset as usize)
-                    .expect("Wouldn't be a candidate if wasn't within s-bucket; qed");
+                    .expect(
+                        "Auditing only creates candidates within the s-bucket size from metadata, \
+                        which matches the map as checked above; qed",
+                    );
 
                 WinningChunk {
                     piece_offset: *piece_offset,
