@@ -912,7 +912,9 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", tmp.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
-            let tmp_local = format_ident!("macro_{}", tmp.arg_name);
+            // The span of the call site rather than of the argument name, so that `non_snake_case`
+            // doesn't report the local in the method signature, like `macro__tmp` for `_tmp`
+            let tmp_local = format_ident!("macro_{}", tmp.arg_name, span = Span::call_site());
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -980,7 +982,8 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", slot.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
-            let slot_local = format_ident!("macro_{}", slot.arg_name);
+            // The span of the call site, like for `#[tmp]` above
+            let slot_local = format_ident!("macro_{}", slot.arg_name, span = Span::call_site());
 
             internal_args_pointers.push(quote! {
                 // Use `Address` to check if the method argument had the correct type at compile
