@@ -1612,6 +1612,10 @@ impl MethodDetails {
                     reason = "Macro-generated, a generic parameter per output is harder to \
                     generate and reads worse in documentation"
                 )]
+                #[allow(
+                    clippy::too_many_arguments,
+                    reason = "Macro-generated, one argument per argument of the method"
+                )]
                 pub fn new<#( #output_lifetimes ),*>(
                     #( #method_args )*
                 ) -> Self {
@@ -1790,8 +1794,10 @@ impl MethodDetails {
                 format!("Number of arguments must not be more than {}", u8::MAX),
             )
         })?;
-        let total_number_of_arguments =
-            Literal::u8_unsuffixed(number_of_arguments.saturating_add(1));
+        // `self` is not in metadata, but counts towards `MAX_TOTAL_METHOD_ARGS` in methods with it
+        let total_number_of_arguments = Literal::u8_unsuffixed(
+            number_of_arguments.saturating_add(u8::from(self.state.is_some())),
+        );
         let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
 
         let original_method_name = &fn_sig.ident;

@@ -308,8 +308,10 @@ impl<'payload, 'outputs> PayloadDecoderCore<'payload, 'outputs> {
         let input_tags = self.reader.read_tags()?;
         let output_tags = self.reader.read_tags()?;
 
-        // Checked before any argument is given to the sink. This can be off by 1 due to `self` not
-        // included in `ExternalArgs`, but it is good enough for this context.
+        // Checked before any argument is given to the sink. `self`, `#[env]` and `#[tmp]` are not
+        // in `ExternalArgs`, so they are not counted here, but it is good enough for this context.
+        // Wallet buffers only hold arguments that are in `ExternalArgs`, and the executor checks
+        // the exact number of arguments with metadata of the method.
         let number_of_arguments = slot_tags.len() + input_tags.len() + output_tags.len();
         if number_of_arguments > usize::from(MAX_TOTAL_METHOD_ARGS) {
             return Err(TransactionPayloadDecoderError::TooManyArguments(
