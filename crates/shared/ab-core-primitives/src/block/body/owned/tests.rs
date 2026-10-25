@@ -285,6 +285,20 @@ fn owned_bodies_without_child_shard_blocks_fit_into_their_capacity() {
     }
 }
 
+#[test]
+fn beacon_chain_body_with_too_many_pot_checkpoints() {
+    // Their size is 4 GiB, which doesn't fit into `usize` on 32-bit hosts
+    let num_pot_checkpoints =
+        u32::try_from((1u64 << u32::BITS) / u64::try_from(PotCheckpoints::SIZE).unwrap()).unwrap();
+    let mut bytes = num_pot_checkpoints.to_le_bytes().to_vec();
+    // No own segments and no intermediate shard blocks, followed by padding
+    bytes.extend_from_slice(&[0; 4]);
+    let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+
+    assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
+    assert!(BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).is_none());
+}
+
 /// A leaf shard block inside an intermediate shard body
 struct TestLeafShardBlock {
     header: OwnedLeafShardHeader,
