@@ -21,7 +21,7 @@ use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
-use core::iter::TrustedLen;
+use core::iter::{Step, TrustedLen};
 use core::num::NonZeroU8;
 use core::{array, cmp, fmt, iter, slice};
 use derive_more::From;
@@ -70,7 +70,9 @@ where
 
 /// Own segments produced by a shard.
 ///
-/// They have between 1 and `u8::MAX` segment roots, which is how many a body can store.
+/// They have between 1 and `u8::MAX` segment roots, which is how many a body can store. The local
+/// segment index after the last segment root fits into `u64`, because that is where the next
+/// segment of the shard starts. Local segment indices never get close to `u64::MAX` in practice.
 #[derive(Debug, Copy, Clone)]
 pub struct OwnSegments<'a> {
     /// Local segment index of the first own segment root
@@ -82,13 +84,18 @@ pub struct OwnSegments<'a> {
 impl<'a> OwnSegments<'a> {
     /// Create own segments from the local segment index of the first segment root and the roots.
     ///
-    /// Returns `None` if there are no segment roots or more than `u8::MAX` of them.
+    /// Returns `None` if there are no segment roots, more than `u8::MAX` of them, or the local
+    /// segment index after the last one doesn't fit into `u64`.
     #[inline]
     pub fn new(
         first_local_segment_index: LocalSegmentIndex,
         segment_roots: &'a [SegmentRoot],
     ) -> Option<Self> {
-        if segment_roots.is_empty() || segment_roots.len() > usize::from(u8::MAX) {
+        if segment_roots.is_empty()
+            || segment_roots.len() > usize::from(u8::MAX)
+            || LocalSegmentIndex::forward_checked(first_local_segment_index, segment_roots.len())
+                .is_none()
+        {
             return None;
         }
 
@@ -100,7 +107,9 @@ impl<'a> OwnSegments<'a> {
 
     /// Create own segments without checking them.
     ///
-    /// Parsers use it for between 1 and `u8::MAX` segment roots, which is all their layouts allow.
+    /// Iterators of child shard blocks use it for own segments that their parsers have already
+    /// checked: layouts only allow between 1 and `u8::MAX` segment roots, and the parsers check
+    /// that the local segment index after the last one fits into `u64`.
     #[inline(always)]
     const fn new_unchecked(
         first_local_segment_index: LocalSegmentIndex,
@@ -119,6 +128,28 @@ impl<'a> OwnSegments<'a> {
             .ok()
             .and_then(NonZeroU8::new)
             .expect("Constructors ensure between 1 and `u8::MAX` segment roots; qed")
+    }
+
+    /// Iterator over segment roots with their local segment indices
+    #[inline]
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (LocalSegmentIndex, &'a SegmentRoot)> + TrustedLen + use<'a>
+    {
+        let first_local_segment_index = self.first_local_segment_index;
+
+        self.segment_roots
+            .iter()
+            .enumerate()
+            .map(move |(offset, segment_root)| {
+                let local_segment_index =
+                    LocalSegmentIndex::forward_checked(first_local_segment_index, offset).expect(
+                        "`Self::new()` and parsers check that the index after the last root fits \
+                        into `u64`; qed",
+                    );
+
+                (local_segment_index, segment_root)
+            })
     }
 
     /// Compute the root of own segments
@@ -294,8 +325,14 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             }
 
             if num_own_segment_roots > 0 {
-                let _first_local_segment_index =
-                    remainder.split_off(..LocalSegmentIndex::SIZE as usize)?;
+                let first_local_segment_index;
+                (first_local_segment_index, remainder) =
+                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                // The local segment index after the last segment root must fit into `u64`
+                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
+                    first_local_segment_index,
+                    num_own_segment_roots,
+                )?;
                 let _own_segment_roots =
                     remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             }
@@ -306,8 +343,14 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             for &num_own_segment_roots in leaf_shard_segment_roots_counts {
                 let num_own_segment_roots = NonZeroU8::new(num_own_segment_roots)?;
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
-                let _first_local_segment_index =
-                    remainder.split_off(..LocalSegmentIndex::SIZE as usize)?;
+                let first_local_segment_index;
+                (first_local_segment_index, remainder) =
+                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                // The local segment index after the last segment root must fit into `u64`
+                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
+                    first_local_segment_index,
+                    usize::from(num_own_segment_roots.get()),
+                )?;
                 let _own_segment_roots = remainder
                     .split_off(..usize::from(num_own_segment_roots.get()) * SegmentRoot::SIZE)?;
             }
@@ -355,8 +398,14 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             }
 
             if num_own_segment_roots > 0 {
-                let _first_local_segment_index =
-                    remainder.split_off(..LocalSegmentIndex::SIZE as usize)?;
+                let first_local_segment_index;
+                (first_local_segment_index, remainder) =
+                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                // The local segment index after the last segment root must fit into `u64`
+                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
+                    first_local_segment_index,
+                    num_own_segment_roots,
+                )?;
                 let _own_segment_roots =
                     remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             }
@@ -367,8 +416,14 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             for &num_own_segment_roots in leaf_shard_segment_roots_counts {
                 let num_own_segment_roots = NonZeroU8::new(num_own_segment_roots)?;
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
-                let _first_local_segment_index =
-                    remainder.split_off(..LocalSegmentIndex::SIZE as usize)?;
+                let first_local_segment_index;
+                (first_local_segment_index, remainder) =
+                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                // The local segment index after the last segment root must fit into `u64`
+                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
+                    first_local_segment_index,
+                    usize::from(num_own_segment_roots.get()),
+                )?;
                 let _own_segment_roots = remainder
                     .split_off(..usize::from(num_own_segment_roots.get()) * SegmentRoot::SIZE)?;
             }
@@ -778,10 +833,10 @@ impl<'a> BeaconChainBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments::new_unchecked(
+            Some(OwnSegments::new(
                 first_local_segment_index,
                 own_segment_roots,
-            ))
+            )?)
         } else {
             None
         };
@@ -857,10 +912,10 @@ impl<'a> BeaconChainBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments::new_unchecked(
+            Some(OwnSegments::new(
                 first_local_segment_index,
                 own_segment_roots,
-            ))
+            )?)
         } else {
             None
         };
@@ -896,17 +951,12 @@ impl<'a> BeaconChainBody<'a> {
     #[inline(always)]
     pub fn to_owned(self) -> OwnedBeaconChainBody {
         if let Some(own_segments) = self.own_segments {
-            let first_local_segment_index = own_segments.first_local_segment_index;
-
             OwnedBeaconChainBody::new(
-                own_segments.segment_roots.iter().copied().enumerate().map(
-                    |(index, segment_root)| {
-                        (
-                            first_local_segment_index + LocalSegmentIndex::from(index as u64),
-                            segment_root,
-                        )
-                    },
-                ),
+                own_segments
+                    .iter()
+                    .map(|(local_segment_index, &segment_root)| {
+                        (local_segment_index, segment_root)
+                    }),
                 self.intermediate_shard_blocks.iter(),
                 self.pot_checkpoints,
             )
@@ -1023,8 +1073,14 @@ impl<'a> LeafShardBlocksInfo<'a> {
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
 
             if num_own_segment_roots > 0 {
-                let _first_local_segment_index =
-                    remainder.split_off(..LocalSegmentIndex::SIZE as usize)?;
+                let first_local_segment_index;
+                (first_local_segment_index, remainder) =
+                    LocalSegmentIndex::try_from_bytes(remainder)?;
+                // The local segment index after the last segment root must fit into `u64`
+                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
+                    *first_local_segment_index,
+                    num_own_segment_roots,
+                )?;
                 let _segment_roots_proof = remainder.split_off(..OUT_LEN)?;
                 let _own_segment_roots =
                     remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
@@ -1067,8 +1123,14 @@ impl<'a> LeafShardBlocksInfo<'a> {
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
 
             if num_own_segment_roots > 0 {
-                let _first_local_segment_index =
-                    remainder.split_off(..LocalSegmentIndex::SIZE as usize)?;
+                let first_local_segment_index;
+                (first_local_segment_index, remainder) =
+                    LocalSegmentIndex::try_from_bytes(remainder)?;
+                // The local segment index after the last segment root must fit into `u64`
+                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
+                    *first_local_segment_index,
+                    num_own_segment_roots,
+                )?;
                 let _segment_roots_proof = remainder.split_off(..OUT_LEN)?;
                 let _own_segment_roots =
                     remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
@@ -1360,10 +1422,10 @@ impl<'a> IntermediateShardBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments::new_unchecked(
+            Some(OwnSegments::new(
                 first_local_segment_index,
                 own_segment_roots,
-            ))
+            )?)
         } else {
             None
         };
@@ -1419,10 +1481,10 @@ impl<'a> IntermediateShardBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments::new_unchecked(
+            Some(OwnSegments::new(
                 first_local_segment_index,
                 own_segment_roots,
-            ))
+            )?)
         } else {
             None
         };
@@ -1455,17 +1517,12 @@ impl<'a> IntermediateShardBody<'a> {
     #[inline(always)]
     pub fn to_owned(self) -> OwnedIntermediateShardBody {
         if let Some(own_segments) = self.own_segments {
-            let first_local_segment_index = own_segments.first_local_segment_index;
-
             OwnedIntermediateShardBody::new(
-                own_segments.segment_roots.iter().copied().enumerate().map(
-                    |(index, segment_root)| {
-                        (
-                            first_local_segment_index + LocalSegmentIndex::from(index as u64),
-                            segment_root,
-                        )
-                    },
-                ),
+                own_segments
+                    .iter()
+                    .map(|(local_segment_index, &segment_root)| {
+                        (local_segment_index, segment_root)
+                    }),
                 self.leaf_shard_blocks.iter(),
             )
             .expect("`self` is always a valid invariant; qed")
@@ -1656,10 +1713,10 @@ impl<'a> LeafShardBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments::new_unchecked(
+            Some(OwnSegments::new(
                 first_local_segment_index,
                 own_segment_roots,
-            ))
+            )?)
         } else {
             None
         };
@@ -1688,52 +1745,6 @@ impl<'a> LeafShardBody<'a> {
         true
     }
 
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout is the same as in `Self::try_from_bytes()`
-
-        let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
-        let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
-
-        let own_segments = if num_own_segment_roots > 0 {
-            let first_local_segment_index = bytes.split_off(..LocalSegmentIndex::SIZE as usize)?;
-            // SAFETY: Unaligned and correct size
-            let first_local_segment_index = unsafe {
-                Unaligned::<LocalSegmentIndex>::from_bytes_unchecked(first_local_segment_index)
-            }
-            .as_inner();
-
-            let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
-            // SAFETY: Valid pointer and size, no alignment requirements
-            let own_segment_roots = unsafe {
-                slice::from_raw_parts(
-                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
-                    num_own_segment_roots,
-                )
-            };
-            let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
-
-            Some(OwnSegments::new_unchecked(
-                first_local_segment_index,
-                own_segment_roots,
-            ))
-        } else {
-            None
-        };
-
-        let (transactions, remainder) = Transactions::try_from_bytes(bytes)?;
-
-        Some((
-            Self {
-                own_segments,
-                transactions,
-            },
-            remainder,
-        ))
-    }
-
     /// Segment roots produced by this shard
     #[inline(always)]
     pub fn own_segments(&self) -> Option<OwnSegments<'a>> {
@@ -1751,17 +1762,11 @@ impl<'a> LeafShardBody<'a> {
     #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardBody {
         let mut builder = if let Some(own_segments) = self.own_segments {
-            let first_local_segment_index = own_segments.first_local_segment_index;
+            let own_segments = own_segments
+                .iter()
+                .map(|(local_segment_index, &segment_root)| (local_segment_index, segment_root));
 
-            OwnedLeafShardBody::init(own_segments.segment_roots.iter().copied().enumerate().map(
-                |(index, segment_root)| {
-                    (
-                        first_local_segment_index + LocalSegmentIndex::from(index as u64),
-                        segment_root,
-                    )
-                },
-            ))
-            .expect("`self` is always a valid invariant; qed")
+            OwnedLeafShardBody::init(own_segments).expect("`self` is always a valid invariant; qed")
         } else {
             OwnedLeafShardBody::init(iter::empty())
                 .expect("`self` is always a valid invariant; qed")
@@ -1861,7 +1866,8 @@ impl<'a> BlockBody<'a> {
                 Some((Self::IntermediateShard(body), remainder))
             }
             RealShardKind::LeafShard => {
-                let (body, remainder) = LeafShardBody::try_from_bytes_unchecked(bytes)?;
+                // Leaf shard bodies have no consistency checks to skip
+                let (body, remainder) = LeafShardBody::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(body), remainder))
             }
         }

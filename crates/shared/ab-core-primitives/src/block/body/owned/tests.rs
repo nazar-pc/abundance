@@ -1,11 +1,13 @@
 use crate::address::Address;
 use crate::block::body::owned::{
     GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError,
-    OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBody,
+    OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder,
+    OwnedLeafShardBody, OwnedLeafShardBodyError,
 };
 use crate::block::body::{
-    BeaconChainBody, BlockBody, IntermediateShardBlockInfo, IntermediateShardBody,
-    LeafShardBlockInfo, LeafShardOwnSegments, OwnSegments,
+    BeaconChainBody, BlockBody, IntermediateShardBlockInfo, IntermediateShardBlocksInfo,
+    IntermediateShardBody, LeafShardBlockInfo, LeafShardBlocksInfo, LeafShardBody,
+    LeafShardOwnSegments, OwnSegments,
 };
 use crate::block::header::owned::{OwnedIntermediateShardHeader, OwnedLeafShardHeader};
 use crate::block::header::{
@@ -309,17 +311,27 @@ struct TestLeafShardBlock {
 
 impl TestLeafShardBlock {
     fn new(shard_index: u32, number: u64, num_segments: u8) -> Self {
-        let segment_roots_proof = [u8::try_from(number).unwrap(); _];
         let segments = (num_segments > 0).then(|| segments(number, num_segments));
+
+        Self::with_segments(shard_index, number, segments)
+    }
+
+    fn with_segments(
+        shard_index: u32,
+        number: u64,
+        segments: Option<(LocalSegmentIndex, Vec<SegmentRoot>)>,
+    ) -> Self {
+        let segment_roots_proof = [u8::try_from(number).unwrap(); _];
         // The body root that the segment roots proof belongs to
         let body_root = segments.as_ref().map_or_else(
             Blake3Hash::default,
             |(first_local_segment_index, segment_roots)| {
-                let own_segments_root = OwnSegments::new(*first_local_segment_index, segment_roots)
-                    .unwrap()
-                    .root();
+                // Without checks, so that tests can compute roots of segments that parsers must
+                // reject
+                let own_segments =
+                    OwnSegments::new_unchecked(*first_local_segment_index, segment_roots);
                 Blake3Hash::new(BalancedMerkleTree::compute_root_only(&[
-                    *own_segments_root,
+                    *own_segments.root(),
                     segment_roots_proof,
                 ]))
             },
@@ -426,7 +438,6 @@ impl TestIntermediateShardBlock {
         num_own_segments: u8,
         leaf_shards_segments: &[(u32, u8)],
     ) -> Self {
-        let segments_proof = [u8::try_from(number).unwrap(); _];
         let own_segments = (num_own_segments > 0).then(|| segments(number, num_own_segments));
         let leaf_shards_segments = leaf_shards_segments
             .iter()
@@ -437,6 +448,17 @@ impl TestIntermediateShardBlock {
                 )
             })
             .collect::<Vec<_>>();
+
+        Self::with_segments(shard_index, number, own_segments, leaf_shards_segments)
+    }
+
+    fn with_segments(
+        shard_index: u32,
+        number: u64,
+        own_segments: Option<(LocalSegmentIndex, Vec<SegmentRoot>)>,
+        leaf_shards_segments: Vec<(ShardIndex, (LocalSegmentIndex, Vec<SegmentRoot>))>,
+    ) -> Self {
+        let segments_proof = [u8::try_from(number).unwrap(); _];
         // The body root that the segments proof belongs to
         let body_root = if own_segments.is_none() && leaf_shards_segments.is_empty() {
             Blake3Hash::default()
@@ -730,6 +752,15 @@ fn beacon_chain_body_with_leaf_shard_segments_without_segment_roots() {
     }
 }
 
+/// Two segment roots that start at the largest index for which the index after the last root
+/// still fits into `u64`, and two that start one index later, each with whether they are valid
+fn segments_near_u64_max() -> [((LocalSegmentIndex, Vec<SegmentRoot>), bool); 2] {
+    [
+        (segments(u64::MAX - 2, 2), true),
+        (segments(u64::MAX - 1, 2), false),
+    ]
+}
+
 #[test]
 fn own_segments_constructor_checks_invariants() {
     // Between 1 and `u8::MAX` segment roots
@@ -743,5 +774,222 @@ fn own_segments_constructor_checks_invariants() {
         )
         .unwrap();
         assert_eq!(own_segments.num_segment_roots().get(), num_segment_roots);
+    }
+
+    // The local segment index after the last segment root fits into `u64` or doesn't
+    for ((first_local_segment_index, segment_roots), valid) in segments_near_u64_max() {
+        let own_segments = OwnSegments::new(first_local_segment_index, &segment_roots);
+        assert_eq!(own_segments.is_some(), valid);
+        if let Some(own_segments) = own_segments {
+            // The last segment root is right before `u64::MAX`, which the iterator doesn't need to
+            // compute
+            assert_eq!(
+                own_segments.iter().collect::<Vec<_>>(),
+                [
+                    (LocalSegmentIndex::from(u64::MAX - 2), &segment_roots[0]),
+                    (LocalSegmentIndex::from(u64::MAX - 1), &segment_roots[1]),
+                ]
+            );
+        }
+    }
+}
+
+#[test]
+fn own_segments_with_local_segment_indices_near_u64_max() {
+    // Parsers without checks reject the same own segments, `OwnSegments::iter()` relies on it
+    for (own_segments, valid) in segments_near_u64_max() {
+        // No PoT checkpoints and no intermediate shard blocks
+        let mut bytes = 0u32.to_le_bytes().to_vec();
+        bytes.push(2);
+        append_segments(&mut bytes, &own_segments);
+        bytes.extend_from_slice(&0u16.to_le_bytes());
+        pad_to(&mut bytes, 8);
+        let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+        let body = BeaconChainBody::try_from_bytes(bytes.as_slice());
+        assert_eq!(body.is_some(), valid);
+        if let Some((body, _remainder)) = body {
+            assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
+        }
+        assert_eq!(
+            BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
+            valid
+        );
+
+        let bytes = intermediate_shard_body_bytes(&own_segments, &[]);
+        let body = IntermediateShardBody::try_from_bytes(bytes.as_slice());
+        assert_eq!(body.is_some(), valid);
+        if let Some((body, _remainder)) = body {
+            assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
+        }
+        assert_eq!(
+            IntermediateShardBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
+            valid
+        );
+
+        // No transactions
+        let mut bytes = vec![2];
+        append_segments(&mut bytes, &own_segments);
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+        let body = LeafShardBody::try_from_bytes(bytes.as_slice());
+        assert_eq!(body.is_some(), valid);
+        if let Some((body, _remainder)) = body {
+            assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
+        }
+        assert_eq!(
+            BlockBody::try_from_bytes_unchecked(bytes.as_slice(), RealShardKind::LeafShard)
+                .is_some(),
+            valid
+        );
+    }
+}
+
+#[test]
+fn leaf_shard_blocks_with_local_segment_indices_near_u64_max() {
+    for (leaf_shard_segments, valid) in segments_near_u64_max() {
+        let leaf_shard_block =
+            TestLeafShardBlock::with_segments(1 | (1 << 10), 0, Some(leaf_shard_segments));
+        let bytes = intermediate_shard_body_bytes(&segments(3, 1), &[leaf_shard_block]);
+        let body = IntermediateShardBody::try_from_bytes(bytes.as_slice());
+        assert_eq!(body.is_some(), valid);
+        if let Some((body, _remainder)) = body {
+            assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
+        }
+        // Parsers without checks reject the same blocks, `OwnSegments::iter()` relies on it
+        assert_eq!(
+            IntermediateShardBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
+            valid
+        );
+
+        // Leaf shard blocks follow the number of own segment roots, the local segment index of the
+        // first one and the only root
+        let leaf_shard_blocks_bytes = &bytes.as_slice()
+            [size_of::<u8>() + size_of::<LocalSegmentIndex>() + SegmentRoot::SIZE..];
+        assert_eq!(
+            LeafShardBlocksInfo::try_from_bytes(leaf_shard_blocks_bytes).is_some(),
+            valid
+        );
+        assert_eq!(
+            LeafShardBlocksInfo::try_from_bytes_unchecked(leaf_shard_blocks_bytes).is_some(),
+            valid
+        );
+    }
+}
+
+#[test]
+fn intermediate_shard_blocks_with_local_segment_indices_near_u64_max() {
+    let leaf_shard_index = ShardIndex::new(1 | (1 << 10)).unwrap();
+    for (near_max_segments, valid) in segments_near_u64_max() {
+        // Own segments and segments of a leaf shard
+        for intermediate_shard_block in [
+            TestIntermediateShardBlock::with_segments(
+                1,
+                0,
+                Some(near_max_segments.clone()),
+                Vec::new(),
+            ),
+            TestIntermediateShardBlock::with_segments(
+                1,
+                0,
+                None,
+                vec![(leaf_shard_index, near_max_segments.clone())],
+            ),
+        ] {
+            let bytes = beacon_chain_body_bytes(&[intermediate_shard_block], &[]);
+            let body = BeaconChainBody::try_from_bytes(bytes.as_slice());
+            assert_eq!(body.is_some(), valid);
+            if let Some((body, _remainder)) = body {
+                assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
+            }
+            // Parsers without checks reject the same blocks, `OwnSegments::iter()` relies on it
+            assert_eq!(
+                BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
+                valid
+            );
+
+            // Intermediate shard blocks follow the number of PoT checkpoints and the zero number
+            // of own segment roots
+            let intermediate_shard_blocks_bytes =
+                &bytes.as_slice()[size_of::<u32>() + size_of::<u8>()..];
+            assert_eq!(
+                IntermediateShardBlocksInfo::try_from_bytes(intermediate_shard_blocks_bytes)
+                    .is_some(),
+                valid
+            );
+            assert_eq!(
+                IntermediateShardBlocksInfo::try_from_bytes_unchecked(
+                    intermediate_shard_blocks_bytes
+                )
+                .is_some(),
+                valid
+            );
+        }
+    }
+}
+
+#[test]
+fn owned_bodies_with_local_segment_indices_near_u64_max() {
+    for ((first_local_segment_index, segment_roots), valid) in segments_near_u64_max() {
+        // Every index fits into `u64` here, only the index after the last root may not
+        let own_segments = || {
+            segment_roots
+                .iter()
+                .enumerate()
+                .map(|(position, &segment_root)| {
+                    let position = LocalSegmentIndex::from(u64::try_from(position).unwrap());
+                    (first_local_segment_index + position, segment_root)
+                })
+        };
+
+        let beacon_chain_body = OwnedBeaconChainBody::new(
+            own_segments(),
+            iter::empty::<IntermediateShardBlockInfo<'_>>(),
+            &[],
+        );
+        let intermediate_shard_body = OwnedIntermediateShardBody::new(
+            own_segments(),
+            iter::empty::<LeafShardBlockInfo<'_>>(),
+        );
+        let leaf_shard_body =
+            OwnedLeafShardBody::init(own_segments()).map(OwnedLeafShardBlockBodyBuilder::finish);
+
+        if valid {
+            let own_segments = (first_local_segment_index, segment_roots.clone());
+            assert_segments_eq(
+                &beacon_chain_body.unwrap().body().own_segments().unwrap(),
+                &own_segments,
+            );
+            assert_segments_eq(
+                &intermediate_shard_body
+                    .unwrap()
+                    .body()
+                    .own_segments()
+                    .unwrap(),
+                &own_segments,
+            );
+            assert_segments_eq(
+                &leaf_shard_body.unwrap().body().own_segments().unwrap(),
+                &own_segments,
+            );
+        } else {
+            assert!(matches!(
+                beacon_chain_body,
+                Err(OwnedBeaconChainBodyError::OwnSegmentIndexOverflow {
+                    first_local_segment_index: index,
+                }) if index == first_local_segment_index
+            ));
+            assert!(matches!(
+                intermediate_shard_body,
+                Err(OwnedIntermediateShardBodyError::OwnSegmentIndexOverflow {
+                    first_local_segment_index: index,
+                }) if index == first_local_segment_index
+            ));
+            assert!(matches!(
+                leaf_shard_body,
+                Err(OwnedLeafShardBodyError::OwnSegmentIndexOverflow {
+                    first_local_segment_index: index,
+                }) if index == first_local_segment_index
+            ));
+        }
     }
 }

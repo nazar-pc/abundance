@@ -19,7 +19,7 @@ use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
-use core::iter::TrustedLen;
+use core::iter::{Step, TrustedLen};
 use derive_more::From;
 use triomphe::Arc;
 use yoke::Yoke;
@@ -207,6 +207,12 @@ pub enum OwnedBeaconChainBodyError {
         /// Actual number of own segment roots
         actual: usize,
     },
+    /// Local segment index after the last own segment root doesn't fit into `u64`
+    #[error("Own segment index overflow, first local segment index: {first_local_segment_index}")]
+    OwnSegmentIndexOverflow {
+        /// Local segment index of the first own segment root
+        first_local_segment_index: LocalSegmentIndex,
+    },
     /// Too many intermediate shard blocks
     #[error("Too many intermediate shard blocks: {actual}")]
     TooManyIntermediateShardBlocks {
@@ -326,7 +332,19 @@ impl OwnedBeaconChainBody {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
         };
         let mut own_segments = own_segments.peekable();
-        if let Some((first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+        if let Some(&(first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+            // The parser rejects bodies where the index after the last segment root doesn't fit
+            // into `u64`
+            if LocalSegmentIndex::forward_checked(
+                first_local_segment_index,
+                usize::from(num_own_segment_roots),
+            )
+            .is_none()
+            {
+                return Err(OwnedBeaconChainBodyError::OwnSegmentIndexOverflow {
+                    first_local_segment_index,
+                });
+            }
             let true = buffer.append(first_local_segment_index.as_bytes()) else {
                 unreachable!("Checked size above; qed");
             };
@@ -501,6 +519,12 @@ pub enum OwnedIntermediateShardBodyError {
         /// Actual number of own segment roots
         actual: usize,
     },
+    /// Local segment index after the last own segment root doesn't fit into `u64`
+    #[error("Own segment index overflow, first local segment index: {first_local_segment_index}")]
+    OwnSegmentIndexOverflow {
+        /// Local segment index of the first own segment root
+        first_local_segment_index: LocalSegmentIndex,
+    },
     /// Too many leaf shard blocks
     #[error("Too many leaf shard blocks: {actual}")]
     TooManyLeafShardBlocks {
@@ -596,7 +620,19 @@ impl OwnedIntermediateShardBody {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
         };
         let mut own_segments = own_segments.peekable();
-        if let Some((first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+        if let Some(&(first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+            // The parser rejects bodies where the index after the last segment root doesn't fit
+            // into `u64`
+            if LocalSegmentIndex::forward_checked(
+                first_local_segment_index,
+                usize::from(num_own_segment_roots),
+            )
+            .is_none()
+            {
+                return Err(OwnedIntermediateShardBodyError::OwnSegmentIndexOverflow {
+                    first_local_segment_index,
+                });
+            }
             let true = buffer.append(first_local_segment_index.as_bytes()) else {
                 unreachable!("Checked size above; qed");
             };
@@ -720,6 +756,12 @@ pub enum OwnedLeafShardBodyError {
         /// Actual number of own segment roots
         actual: usize,
     },
+    /// Local segment index after the last own segment root doesn't fit into `u64`
+    #[error("Own segment index overflow, first local segment index: {first_local_segment_index}")]
+    OwnSegmentIndexOverflow {
+        /// Local segment index of the first own segment root
+        first_local_segment_index: LocalSegmentIndex,
+    },
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
@@ -815,7 +857,19 @@ impl OwnedLeafShardBody {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
         };
         let mut own_segments = own_segments.peekable();
-        if let Some((first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+        if let Some(&(first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+            // The parser rejects bodies where the index after the last segment root doesn't fit
+            // into `u64`
+            if LocalSegmentIndex::forward_checked(
+                first_local_segment_index,
+                usize::from(num_own_segment_roots),
+            )
+            .is_none()
+            {
+                return Err(OwnedLeafShardBodyError::OwnSegmentIndexOverflow {
+                    first_local_segment_index,
+                });
+            }
             let true = buffer.append(first_local_segment_index.as_bytes()) else {
                 unreachable!("Checked size above; qed");
             };

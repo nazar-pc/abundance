@@ -622,7 +622,8 @@ impl<'a> LeafShardBlock<'a> {
 
         let (header, remainder) = LeafShardHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
-        let (body, remainder) = LeafShardBody::try_from_bytes_unchecked(remainder)?;
+        // Leaf shard bodies have no consistency checks to skip
+        let (body, remainder) = LeafShardBody::try_from_bytes(remainder)?;
 
         Some((Self { header, body }, remainder))
     }
