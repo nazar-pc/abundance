@@ -70,6 +70,10 @@ impl Slot {
 
 #[derive(Debug, Clone)]
 enum SlotState {
+    /// Original slot as given to the execution environment that can only be read.
+    ///
+    /// It never changes, so reads of it are not tracked.
+    ReadOnly(SharedAlignedBuffer),
     /// Original slot as given to the execution environment, not accessed yet
     Original(SharedAlignedBuffer),
     /// Original slot as given to the execution environment that is currently being accessed
@@ -170,7 +174,7 @@ impl Slots {
                 Some(match slot {
                     Slot::ReadOnly { key, buffer } => {
                         // Make sure it can't be written to at all
-                        (key, SlotState::OriginalReadOnly(buffer))
+                        (key, SlotState::ReadOnly(buffer))
                     }
                     Slot::ReadWrite { key, buffer } => (key, SlotState::Original(buffer)),
                 })
@@ -235,6 +239,7 @@ impl Slots {
     #[inline]
     pub fn iter(&self) -> impl ExactSizeIterator<Item = (&SlotKey, &SharedAlignedBuffer)> + '_ {
         self.0.slots.iter().map(|(slot_key, slot)| match slot {
+            SlotState::ReadOnly(buffer) => (slot_key, buffer),
             SlotState::Original(buffer) => (slot_key, buffer),
             SlotState::OriginalReadOnly(_) => {
                 unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
@@ -259,6 +264,7 @@ impl Slots {
             .slots
             .iter()
             .filter_map(|(slot_key, slot)| match slot {
+                SlotState::ReadOnly(_) => None,
                 SlotState::Original(_) => None,
                 SlotState::OriginalReadOnly(_) => unreachable!(
                     "Only original and modified slots can exist at the `Slots` level; qed"
@@ -280,6 +286,7 @@ impl Slots {
     #[inline]
     pub fn into_slots(self) -> impl ExactSizeIterator<Item = (SlotKey, SharedAlignedBuffer)> {
         self.0.slots.into_iter().map(|(slot_key, slot)| match slot {
+            SlotState::ReadOnly(buffer) => (slot_key, buffer),
             SlotState::Original(buffer) => (slot_key, buffer),
             SlotState::OriginalReadOnly(_) => {
                 unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
@@ -462,7 +469,8 @@ impl<'a> NestedSlots<'a> {
             .expect("Just found; qed")
             .1
         {
-            SlotState::Original(buffer)
+            SlotState::ReadOnly(buffer)
+            | SlotState::Original(buffer)
             | SlotState::OriginalReadOnly(buffer)
             | SlotState::Modified(buffer)
             | SlotState::ModifiedReadOnly(buffer) => buffer,
@@ -526,15 +534,9 @@ impl<'a> NestedSlots<'a> {
 
         if let Some(slot_index) = maybe_slot_index {
             // Ensure that the slot is not currently being written to
-            if let Some(read_write) = active_access(slot_access, slot_index) {
-                if read_write {
-                    return None;
-                }
-            } else {
-                slot_access.push(SlotAccess {
-                    slot_index,
-                    kind: SlotAccessKind::ReadOnly,
-                });
+            let maybe_read_write = active_access(slot_access, slot_index);
+            if maybe_read_write == Some(true) {
+                return None;
             }
 
             let slot = &mut slots
@@ -543,28 +545,41 @@ impl<'a> NestedSlots<'a> {
                 .1;
 
             // The slot that is currently being written to is not allowed for read access
-            match slot {
+            let buffer = match slot {
+                SlotState::ReadOnly(buffer) => {
+                    // Read-only slots never change, so reading them is not tracked
+                    return Some(buffer);
+                }
                 SlotState::Original(buffer) => {
                     let buffer = buffer.clone();
                     *slot = SlotState::OriginalReadOnly(buffer);
                     let SlotState::OriginalReadOnly(buffer) = slot else {
                         unreachable!("Just inserted; qed");
                     };
-                    Some(buffer)
+                    buffer
                 }
-                SlotState::OriginalReadOnly(buffer) | SlotState::ModifiedReadOnly(buffer) => {
-                    Some(buffer)
-                }
+                SlotState::OriginalReadOnly(buffer) | SlotState::ModifiedReadOnly(buffer) => buffer,
                 SlotState::Modified(buffer) => {
                     let buffer = buffer.clone();
                     *slot = SlotState::ModifiedReadOnly(buffer);
                     let SlotState::ModifiedReadOnly(buffer) = slot else {
                         unreachable!("Just inserted; qed");
                     };
-                    Some(buffer)
+                    buffer
                 }
-                SlotState::OriginalReadWrite { .. } | SlotState::ModifiedReadWrite { .. } => None,
+                SlotState::OriginalReadWrite { .. } | SlotState::ModifiedReadWrite { .. } => {
+                    return None;
+                }
+            };
+
+            if maybe_read_write.is_none() {
+                slot_access.push(SlotAccess {
+                    slot_index,
+                    kind: SlotAccessKind::ReadOnly,
+                });
             }
+
+            Some(buffer)
         } else {
             // `Address::NULL` is used for `#[tmp]` and is ephemeral. Reads and writes are allowed
             // for any owner, and they will all be thrown away after transaction processing if
@@ -619,7 +634,8 @@ impl<'a> NestedSlots<'a> {
 
             // The slot that is currently being written to is not allowed for read access
             match slot {
-                SlotState::Original(buffer)
+                SlotState::ReadOnly(buffer)
+                | SlotState::Original(buffer)
                 | SlotState::OriginalReadOnly(buffer)
                 | SlotState::ModifiedReadOnly(buffer)
                 | SlotState::Modified(buffer) => Some(buffer),
@@ -688,19 +704,16 @@ impl<'a> NestedSlots<'a> {
                 return None;
             }
 
-            slot_access.push(SlotAccess {
-                slot_index,
-                kind: SlotAccessKind::ReadWrite,
-            });
-
             let slot = &mut slots
                 .get_mut(usize::from(slot_index))
                 .expect("Just found; qed")
                 .1;
 
-            // The slot that is currently being accessed to is not allowed for writing
+            // Read-only slots and slots currently being accessed are not allowed for writing
             let buffer = match slot {
-                SlotState::OriginalReadOnly(_buffer) | SlotState::ModifiedReadOnly(_buffer) => {
+                SlotState::ReadOnly(_buffer)
+                | SlotState::OriginalReadOnly(_buffer)
+                | SlotState::ModifiedReadOnly(_buffer) => {
                     return None;
                 }
                 SlotState::Original(buffer) => {
@@ -737,6 +750,11 @@ impl<'a> NestedSlots<'a> {
                     buffer
                 }
             };
+
+            slot_access.push(SlotAccess {
+                slot_index,
+                kind: SlotAccessKind::ReadWrite,
+            });
 
             Some((slot_index, buffer))
         } else {
@@ -792,7 +810,8 @@ impl<'a> NestedSlots<'a> {
 
         // Must be currently accessed for writing
         match slot {
-            SlotState::Original(_buffer)
+            SlotState::ReadOnly(_buffer)
+            | SlotState::Original(_buffer)
             | SlotState::OriginalReadOnly(_buffer)
             | SlotState::Modified(_buffer)
             | SlotState::ModifiedReadOnly(_buffer) => {
@@ -848,6 +867,9 @@ impl<'a> NestedSlots<'a> {
 
             let mut previous = None;
             replace_with_or_abort(slot, |slot| match slot {
+                SlotState::ReadOnly(_buffer) => {
+                    unreachable!("Accesses of read-only slots are not tracked; qed")
+                }
                 SlotState::Original(_buffer) => {
                     unreachable!("Slot can't be in `Original` state after being accessed; qed")
                 }
@@ -950,6 +972,9 @@ impl<'a> NestedSlots<'a> {
             }
 
             replace_with_or_abort(slot, |slot| match slot {
+                SlotState::ReadOnly(_buffer) => {
+                    unreachable!("Accesses of read-only slots are not tracked; qed");
+                }
                 SlotState::Original(_buffer) => {
                     unreachable!("Slot can't be in `Original` state after being accessed; qed");
                 }
