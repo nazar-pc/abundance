@@ -782,7 +782,7 @@ impl<'a> BeaconChainHeader<'a> {
         // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
         // * child shard blocks: BlockHeaderChildShardBlocks
-        // * beacon chain parameters: BlockHeaderBeaconChainParameters
+        // * consensus parameters: BlockHeaderConsensusParameters
         // * block header seal: BlockHeaderSeal
 
         let (prefix, consensus_info, result, remainder) =
@@ -841,13 +841,7 @@ impl<'a> BeaconChainHeader<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * block header prefix: BlockHeaderPrefix
-        // * block header result: BlockHeaderResult
-        // * consensus info: BlockHeaderConsensusInfo
-        // * child shard blocks: BlockHeaderChildShardBlocks
-        // * beacon chain parameters: BlockHeaderBeaconChainParameters
-        // * block header seal: BlockHeaderSeal
+        // The layout is the same as in `Self::try_from_bytes()`
 
         let (prefix, consensus_info, result, remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
@@ -1068,7 +1062,7 @@ impl<'a> IntermediateShardHeader<'a> {
         // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
         // * beacon chain: BlockHeaderBeaconChainInfo
-        // * child shard blocks: BlockHeaderBeaconChainInfo
+        // * child shard blocks: BlockHeaderChildShardBlocks
         // * block header seal: BlockHeaderSeal
 
         let (prefix, consensus_info, result, mut remainder) =
@@ -1129,13 +1123,7 @@ impl<'a> IntermediateShardHeader<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * block header prefix: BlockHeaderPrefix
-        // * block header result: BlockHeaderResult
-        // * consensus info: BlockHeaderConsensusInfo
-        // * beacon chain: BlockHeaderBeaconChainInfo
-        // * child shard blocks: BlockHeaderBeaconChainInfo
-        // * block header seal: BlockHeaderSeal
+        // The layout is the same as in `Self::try_from_bytes()`
 
         let (prefix, consensus_info, result, mut remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
@@ -1352,8 +1340,8 @@ impl<'a> LeafShardHeader<'a> {
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         // The layout here is as follows:
-        // * block header result: BlockHeaderResult
         // * block header prefix: BlockHeaderPrefix
+        // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
         // * beacon chain: BlockHeaderBeaconChainInfo
         // * block header seal: BlockHeaderSeal
@@ -1412,12 +1400,7 @@ impl<'a> LeafShardHeader<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * block header result: BlockHeaderResult
-        // * block header prefix: BlockHeaderPrefix
-        // * consensus info: BlockHeaderConsensusInfo
-        // * beacon chain: BlockHeaderBeaconChainInfo
-        // * block header seal: BlockHeaderSeal
+        // The layout is the same as in `Self::try_from_bytes()`
 
         let (prefix, consensus_info, result, mut remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;

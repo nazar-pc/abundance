@@ -282,24 +282,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of blocks: u16 as unaligned little-endian bytes
-        // * for each block:
-        //   * number of own segment roots: u8
-        //   * number of leaf shard blocks with segments: u8
-        // * padding to 8-bytes boundary with zeroes
-        // * for each block:
-        //   * block header: IntermediateShardHeader
-        //   * segment roots proof (if either own or child segments are present)
-        //   * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
-        //   * concatenated own segment roots
-        //   * for each leaf shard block with segments:
-        //     * number of own segment roots: u8
-        //   * for each leaf shard block with segments:
-        //     * shard index: u32 as unaligned little-endian bytes
-        //     * local segment index of the first segment root: unaligned `LocalSegmentIndex`
-        //     * concatenated own segment roots
-        //   * padding to 8-bytes boundary with zeroes
+        // The layout is the same as in `Self::try_from_bytes()`
 
         let num_blocks = bytes.split_off(..size_of::<u16>())?;
         let num_blocks = usize::from(u16::from_le_bytes([num_blocks[0], num_blocks[1]]));
@@ -793,13 +776,7 @@ impl<'a> BeaconChainBody<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of PoT checkpoints: u32 as aligned little-endian bytes
-        // * number of own segment roots: u8
-        // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
-        // * concatenated own segment roots
-        // * intermediate shard blocks: IntermediateShardBlocksInfo
-        // * concatenated PoT checkpoints
+        // The layout is the same as in `Self::try_from_bytes()`
 
         let num_pot_checkpoints = bytes.split_off(..size_of::<u32>())?;
         // SAFETY: All bit patterns are valid
@@ -1016,17 +993,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of blocks: u16 as unaligned little-endian bytes
-        // * for each block:
-        //   * number of own segment roots: u8
-        // * padding to 8-bytes boundary with zeroes
-        // * for each block:
-        //   * block header: LeafShardHeader
-        //   * padding to 8-bytes boundary with zeroes
-        //   * local segment index of the first segment root (if any): `LocalSegmentIndex`
-        //   * segment roots proof (if there is at least one segment root)
-        //   * concatenated own segment roots
+        // The layout is the same as in `Self::try_from_bytes()`
 
         let num_blocks = bytes.split_off(..size_of::<u16>())?;
         let num_blocks = usize::from(u16::from_le_bytes([num_blocks[0], num_blocks[1]]));
@@ -1373,11 +1340,7 @@ impl<'a> IntermediateShardBody<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of own segment roots: u8
-        // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
-        // * concatenated own segment roots
-        // * leaf shard blocks: LeafShardBlocksInfo
+        // The layout is the same as in `Self::try_from_bytes()`
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -1673,11 +1636,7 @@ impl<'a> LeafShardBody<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of own segment roots: u8
-        // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
-        // * concatenated own segment roots
-        // * transactions: Transactions
+        // The layout is the same as in `Self::try_from_bytes()`
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -1793,7 +1752,8 @@ pub enum BlockBody<'a> {
 impl<'a> BlockBody<'a> {
     /// Try to create a new instance from provided bytes for the provided shard index.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` should be 4-bytes aligned for the beacon chain and do not need to be aligned for
+    /// other shard kinds.
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.

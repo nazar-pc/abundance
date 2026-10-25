@@ -188,7 +188,7 @@ impl OwnedBeaconChainHeader {
                 unreachable!("Checked size above; qed");
             };
         }
-        // TODO: Would be nice for `BlockHeaderBeaconChainParameters` to have API to write this by
+        // TODO: Would be nice for `BlockHeaderConsensusParameters` to have API to write this by
         //  itself
         {
             let true = buffer.append(&solution_range.to_bytes()) else {
