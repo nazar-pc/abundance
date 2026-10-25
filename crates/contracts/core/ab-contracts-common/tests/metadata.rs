@@ -642,3 +642,49 @@ fn too_many_arguments_are_rejected() {
         );
     }
 }
+
+#[test]
+fn external_args_skip_env_and_tmp() {
+    // `ExternalArgs` of these methods only have the `#[slot]` and the `#[input]`
+    let external_args = [ContractMetadataKind::SlotRw, ContractMetadataKind::Input];
+    let method = method_with_arguments(ContractMetadataKind::UpdateStateless, &external_args);
+    for skipped in [
+        &[ContractMetadataKind::EnvRo][..],
+        &[ContractMetadataKind::EnvRw],
+        &[ContractMetadataKind::TmpRo],
+        &[ContractMetadataKind::TmpRw],
+        &[ContractMetadataKind::EnvRw, ContractMetadataKind::TmpRw],
+    ] {
+        let method_with_skipped = method_with_arguments(
+            ContractMetadataKind::UpdateStateless,
+            &[skipped, &external_args].concat(),
+        );
+        assert_eq!(
+            compact_external_args(&method_with_skipped),
+            compact_external_args(&method),
+            "Skipped {skipped:?}"
+        );
+        assert_eq!(
+            MethodFingerprint::new(&method_with_skipped),
+            MethodFingerprint::new(&method),
+            "Skipped {skipped:?}"
+        );
+        // Compact metadata of the method itself retains them
+        assert_ne!(
+            compact(&method_with_skipped),
+            compact(&method),
+            "Skipped {skipped:?}"
+        );
+    }
+
+    // The state of `#[init]` is still its last argument
+    let init = init_with_state(&[], ContractMetadataKind::Output);
+    let init_with_skipped = init_with_state(
+        &[ContractMetadataKind::EnvRw, ContractMetadataKind::TmpRw],
+        ContractMetadataKind::Output,
+    );
+    assert_eq!(
+        compact_external_args(&init_with_skipped),
+        compact_external_args(&init)
+    );
+}

@@ -150,24 +150,36 @@ const fn compact_method<'i, 'o>(
     (input, output) = copy_n_bytes(input, output, 1 + usize::from(method_name_length))?;
 
     let mut num_arguments = *input.split_off_first()?;
-    *output.split_off_first_mut()? = num_arguments;
+    // Some arguments are skipped for `ExternalArgs`, so the number of arguments is written after
+    // they are compacted
+    let num_arguments_output = output.split_off_first_mut()?;
+    let mut num_compact_arguments = 0;
 
     // Compact arguments
     while num_arguments > 0 {
         num_arguments -= 1;
 
-        (input, output) = compact_method_argument(
+        let kept;
+        (input, output, kept) = compact_method_argument(
             input,
             output,
             contract_metadata_kind,
             num_arguments == 0,
             for_external_args,
         )?;
+        if kept {
+            num_compact_arguments += 1;
+        }
     }
+
+    *num_arguments_output = num_compact_arguments;
 
     Some((input, output))
 }
 
+/// Compact a method argument and return whether it was kept in the output.
+///
+/// `#[env]` and `#[tmp]` are not part of `ExternalArgs`, so they are skipped for it.
 #[inline(always)]
 const fn compact_method_argument<'i, 'o>(
     mut input: &'i [u8],
@@ -175,7 +187,7 @@ const fn compact_method_argument<'i, 'o>(
     method_kind: ContractMetadataKind,
     last_argument: bool,
     for_external_args: bool,
-) -> Option<(&'i [u8], &'o mut [u8])> {
+) -> Option<(&'i [u8], &'o mut [u8], bool)> {
     let contract_metadata_kind_input = *input.split_off_first()?;
     let contract_metadata_kind =
         ContractMetadataKind::try_from(contract_metadata_kind_input).ok()?;
@@ -195,39 +207,37 @@ const fn compact_method_argument<'i, 'o>(
         ContractMetadataKind::EnvRo | ContractMetadataKind::EnvRw => {
             if for_external_args {
                 // For `ExternalArgs` `#[env]` doesn't matter
-            } else {
-                let contract_metadata_kind_output = output.split_off_first_mut()?;
-                *contract_metadata_kind_output = contract_metadata_kind_input;
+                return Some((input, output, false));
             }
+
+            let contract_metadata_kind_output = output.split_off_first_mut()?;
+            *contract_metadata_kind_output = contract_metadata_kind_input;
             // Nothing else to do here, `#[env]` doesn't include metadata of its type
         }
-        ContractMetadataKind::TmpRo
-        | ContractMetadataKind::TmpRw
-        | ContractMetadataKind::SlotRo
-        | ContractMetadataKind::SlotRw => {
-            match contract_metadata_kind {
-                ContractMetadataKind::TmpRo | ContractMetadataKind::TmpRw => {
-                    if for_external_args {
-                        // For `ExternalArgs` `#[tmp]` doesn't matter
-                    } else {
-                        let contract_metadata_kind_output = output.split_off_first_mut()?;
-                        *contract_metadata_kind_output = contract_metadata_kind_input;
-                    }
-                }
-                ContractMetadataKind::SlotRo | ContractMetadataKind::SlotRw => {
-                    let contract_metadata_kind_output = output.split_off_first_mut()?;
-                    *contract_metadata_kind_output = if for_external_args {
-                        // For `ExternalArgs` the kind of `#[slot]` doesn't matter
-                        ContractMetadataKind::SlotRo as u8
-                    } else {
-                        contract_metadata_kind_input
-                    };
-                }
-                _ => {
-                    // Just matched above
-                    unreachable!()
-                }
+        ContractMetadataKind::TmpRo | ContractMetadataKind::TmpRw => {
+            // Skip argument name
+            let argument_name_length = *input.split_off_first()?;
+            // TODO: `split_off()` is not `const fn` yet, even unstably
+            input = input.get(usize::from(argument_name_length)..)?;
+
+            if for_external_args {
+                // For `ExternalArgs` `#[tmp]` doesn't matter
+                return Some((input, output, false));
             }
+
+            let contract_metadata_kind_output = output.split_off_first_mut()?;
+            *contract_metadata_kind_output = contract_metadata_kind_input;
+            // Remove argument name
+            *output.split_off_first_mut()? = 0;
+        }
+        ContractMetadataKind::SlotRo | ContractMetadataKind::SlotRw => {
+            let contract_metadata_kind_output = output.split_off_first_mut()?;
+            *contract_metadata_kind_output = if for_external_args {
+                // For `ExternalArgs` the kind of `#[slot]` doesn't matter
+                ContractMetadataKind::SlotRo as u8
+            } else {
+                contract_metadata_kind_input
+            };
 
             // Remove argument name
             let argument_name_length = *input.split_off_first()?;
@@ -263,7 +273,7 @@ const fn compact_method_argument<'i, 'o>(
         }
     }
 
-    Some((input, output))
+    Some((input, output, true))
 }
 
 /// Copies `n` bytes from input to output and returns both input and output after `n` bytes offset
