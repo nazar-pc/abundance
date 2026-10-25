@@ -1,7 +1,9 @@
 //! A type alias that hides `'static` in a container doesn't let a method keep the container after
-//! the call: generated code gives it a lifetime that only covers the call regardless of the type
+//! the call: generated code gives it a lifetime that only covers the call regardless of the type.
+//! The error points to the alias in the method signature, for every kind of argument.
 
 use ab_contracts_macros::contract;
+use ab_core_primitives::address::Address;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::variable_bytes::VariableBytes;
@@ -10,6 +12,9 @@ use core::mem;
 
 type Bytes = VariableBytes<'static, 8>;
 type Tmp = MaybeData<'static, u64>;
+type Slot = MaybeData<'static, u64>;
+// Ignores its lifetime, so `'_` in `State<'_, Self>` doesn't show that the lifetime is `'static`
+type State<'a, T> = MaybeData<'static, T>;
 
 thread_local! {
     static KEPT_OUTPUT: RefCell<Option<Bytes>> = const { RefCell::new(None) };
@@ -24,14 +29,8 @@ pub struct Example {
 
 #[contract]
 impl Example {
-    #[update]
-    pub fn keep_output(#[output] output: &mut Bytes) {
-        let buffer = Box::leak(Box::new([0; 8]));
-        let size = Box::leak(Box::new(8));
-        let replacement = VariableBytes::from_buffer_mut(buffer, size).unwrap();
-        let kept = mem::replace(output, replacement);
-        KEPT_OUTPUT.with(|kept_output| *kept_output.borrow_mut() = Some(kept));
-    }
+    #[init]
+    pub fn new(#[output] _state: &mut State<'_, Self>) {}
 
     #[update]
     pub fn keep_tmp(#[tmp] tmp: &mut Tmp) {
@@ -40,6 +39,24 @@ impl Example {
         let replacement = MaybeData::from_mut(data, size).unwrap();
         let kept = mem::replace(tmp, replacement);
         KEPT_TMP.with(|kept_tmp| *kept_tmp.borrow_mut() = Some(kept));
+    }
+
+    #[update]
+    pub fn keep_slot(#[slot] _slot: &mut Slot) {}
+
+    #[update]
+    pub fn keep_slot_with_address(#[slot] (_address, _slot): (&Address, &mut Slot)) {}
+
+    #[view]
+    pub fn keep_input(#[input] _input: &Bytes) {}
+
+    #[update]
+    pub fn keep_output(#[output] output: &mut Bytes) {
+        let buffer = Box::leak(Box::new([0; 8]));
+        let size = Box::leak(Box::new(8));
+        let replacement = VariableBytes::from_buffer_mut(buffer, size).unwrap();
+        let kept = mem::replace(output, replacement);
+        KEPT_OUTPUT.with(|kept_output| *kept_output.borrow_mut() = Some(kept));
     }
 }
 

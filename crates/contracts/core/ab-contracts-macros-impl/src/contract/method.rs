@@ -1,6 +1,6 @@
 use crate::contract::common::{
     derive_ident_metadata, extract_ident_from_type, max_depth_assertion, replace_lifetimes,
-    with_lifetime,
+    with_inferred_lifetimes, with_lifetime,
 };
 use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
@@ -770,9 +770,9 @@ impl MethodDetails {
         let mut internal_args_pointers = Vec::new();
         // `preparation` will generate code used before calling the original function
         let mut preparation = Vec::new();
-        // `output_views` will generate local variables with views of outputs, which live until
-        // the function returns
-        let mut output_views = Vec::new();
+        // `views` will generate local variables with views of arguments, which live until the
+        // function returns
+        let mut views = Vec::new();
         // `env_derivation` will generate a local variable with `Env` for the original function
         let mut env_derivation = None;
         // `original_fn_args` will generate arguments for calling original method implementation
@@ -907,6 +907,7 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", tmp.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
+            let tmp_local = format_ident!("macro_{}", tmp.arg_name);
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -921,45 +922,44 @@ impl MethodDetails {
                 pub #capacity_field: ::core::primitive::u32,
             });
 
-            if mutability.is_some() {
-                original_fn_args.push(quote! {&mut *{
-                    // Ensure tmp type implements `IoTypeOptional`, which is required for handling
-                    // of tmp that might be removed or not present and implies implementation of
-                    // `IoType`, which is required for crossing the host/guest boundary
-                    const {
-                        const fn assert_impl_io_type_optional<T>()
-                        where
-                            T: ::ab_contracts_macros::__private::IoTypeOptional,
-                        {}
-                        assert_impl_io_type_optional::<#type_name>();
-                    }
-
+            let view = if mutability.is_some() {
+                quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
                     )
-                }});
+                }
             } else {
-                original_fn_args.push(quote! {&*{
-                    // Ensure tmp type implements `IoTypeOptional`, which is required for handling
-                    // of tmp that might be removed or not present and implies implementation of
-                    // `IoType`, which is required for crossing the host/guest boundary
-                    const {
-                        const fn assert_impl_io_type_optional<T>()
-                        where
-                            T: ::ab_contracts_macros::__private::IoTypeOptional,
-                        {}
-                        assert_impl_io_type_optional::<#type_name>();
-                    }
-
+                quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
                         &args.#size_field,
                         args.#capacity_field,
                     )
-                }});
-            }
+                }
+            };
+            // A local variable rather than a temporary, so that it outlives the block that binds
+            // it to the type of the argument (see `bind_to_type()`)
+            views.push(quote! {let #mutability #tmp_local = {
+                // Ensure tmp type implements `IoTypeOptional`, which is required for handling of
+                // tmp that might be removed or not present and implies implementation of `IoType`,
+                // which is required for crossing the host/guest boundary
+                const {
+                    const fn assert_impl_io_type_optional<T>()
+                    where
+                        T: ::ab_contracts_macros::__private::IoTypeOptional,
+                    {}
+                    assert_impl_io_type_optional::<#type_name>();
+                }
+
+                #view
+            };});
+            original_fn_args.push(bind_to_type(
+                &tmp.type_name,
+                mutability,
+                quote! { &#mutability *#tmp_local },
+            ));
         }
 
         // Slot arguments with:
@@ -975,6 +975,7 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", slot.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
+            let slot_local = format_ident!("macro_{}", slot.arg_name);
 
             internal_args_pointers.push(quote! {
                 // Use `Address` to check if the method argument had the correct type at compile
@@ -992,47 +993,43 @@ impl MethodDetails {
                 pub #capacity_field: ::core::primitive::u32,
             });
 
-            let arg_extraction = if mutability.is_some() {
-                quote! {&mut *{
-                    // Ensure the slot type implements `IoTypeOptional`, which is required for
-                    // handling of slot that might be removed or not present and implies
-                    // implementation of `IoType`, which is required for crossing the host/guest
-                    // boundary
-                    const {
-                        const fn assert_impl_io_type_optional<T>()
-                        where
-                            T: ::ab_contracts_macros::__private::IoTypeOptional,
-                        {}
-                        assert_impl_io_type_optional::<#type_name>();
-                    }
-
+            let view = if mutability.is_some() {
+                quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
                     )
-                }}
+                }
             } else {
-                quote! {&*{
-                    // Ensure the slot type implements `IoTypeOptional`, which is required for
-                    // handling of slot that might be removed or not present and implies
-                    // implementation of `IoType`, which is required for crossing the host/guest
-                    // boundary
-                    const {
-                        const fn assert_impl_io_type_optional<T>()
-                        where
-                            T: ::ab_contracts_macros::__private::IoTypeOptional,
-                        {}
-                        assert_impl_io_type_optional::<#type_name>();
-                    }
-
+                quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
                         &args.#size_field,
                         args.#capacity_field,
                     )
-                }}
+                }
             };
+            // A local variable rather than a temporary, like for `#[tmp]` above
+            views.push(quote! {let #mutability #slot_local = {
+                // Ensure the slot type implements `IoTypeOptional`, which is required for handling
+                // of slot that might be removed or not present and implies implementation of
+                // `IoType`, which is required for crossing the host/guest boundary
+                const {
+                    const fn assert_impl_io_type_optional<T>()
+                    where
+                        T: ::ab_contracts_macros::__private::IoTypeOptional,
+                    {}
+                    assert_impl_io_type_optional::<#type_name>();
+                }
+
+                #view
+            };});
+            let arg_extraction = bind_to_type(
+                &slot.type_name,
+                mutability,
+                quote! { &#mutability *#slot_local },
+            );
 
             if slot.with_address_arg {
                 original_fn_args.push(quote! {
@@ -1056,6 +1053,7 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
+            let input_local = format_ident!("macro_{arg_name}");
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -1067,7 +1065,8 @@ impl MethodDetails {
                 pub #capacity_field: ::core::primitive::u32,
             });
 
-            original_fn_args.push(quote! {&*{
+            // A local variable rather than a temporary, like for `#[tmp]` above
+            views.push(quote! {let #input_local = {
                 // Ensure the input type implements `IoType`, which is required for crossing the
                 // host/guest boundary
                 const {
@@ -1097,7 +1096,12 @@ impl MethodDetails {
                             .exit_code();
                     }
                 }
-            }});
+            };});
+            original_fn_args.push(bind_to_type(
+                &input.type_name,
+                None,
+                quote! { &*#input_local },
+            ));
         }
 
         // Outputs
@@ -1124,7 +1128,7 @@ impl MethodDetails {
 
             // A local variable rather than a temporary, so that the method can borrow the output
             // for the lifetime of `Env`
-            output_views.push(quote! {let mut #output_local = {
+            views.push(quote! {let mut #output_local = {
                 // Ensure the output type implements `IoType`, which is required for crossing the
                 // host/guest boundary
                 const {
@@ -1159,7 +1163,11 @@ impl MethodDetails {
                     }
                 }
             };});
-            original_fn_args.push(quote! { &mut *#output_local });
+            original_fn_args.push(bind_to_type(
+                &output.type_name,
+                Some(<Token![mut]>::default()),
+                quote! { &mut *#output_local },
+            ));
         }
 
         // The host stores the last `#[output]` of `#[init]` without a return value as the state of
@@ -1322,11 +1330,11 @@ impl MethodDetails {
                 #[cfg_attr(feature = "guest", unsafe(no_mangle))]
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes without `Self`")]
                 #[allow(clippy::absurd_extreme_comparisons, reason = "Macro-generated code doesn't know the size upfront")]
-                pub unsafe extern "C" fn #ffi_fn_name(
-                    args: &mut InternalArgs<'_>,
+                pub unsafe extern "C" fn #ffi_fn_name<'args>(
+                    args: &'args mut InternalArgs<'_>,
                 ) -> ::ab_contracts_macros::__private::ExitCode {
                     #( #preparation )*
-                    #( #output_views )*
+                    #( #views )*
                     #env_derivation
 
                     // Call inner function via normal Rust API
@@ -1887,7 +1895,9 @@ impl MethodDetails {
             let (type_name, lifetime) = output.output_arg_type();
             output_lifetimes.extend(lifetime);
 
-            method_args.push(quote_spanned! {fn_sig.span() =>
+            // The bound has the span of the type, so that an error caused by it, like for an alias
+            // that hides `'static` in a container, points to the type rather than to the method
+            method_args.push(quote_spanned! {type_name.span() =>
                 #arg_name: &mut impl ::ab_contracts_macros::__private::OutputArg<#type_name>,
             });
             external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
@@ -2109,6 +2119,24 @@ fn named_lifetime_in_type(ty: &Type) -> Option<&Lifetime> {
     let mut visitor = FindNamedLifetime { found: None };
     visitor.visit_type(ty);
     visitor.found
+}
+
+/// Bind `value` to a reference to `type_name`, the type of an argument as the method declares it.
+///
+/// The binding has the span of `type_name`, so errors about the type point to it in the method
+/// signature. For example, an alias that hides `'static` in a container gets an error at the alias
+/// instead of one for the whole `impl`. The call checks the method signature as before, the binding
+/// only adds a check.
+fn bind_to_type(
+    type_name: &Type,
+    mutability: Option<Token![mut]>,
+    value: TokenStream,
+) -> TokenStream {
+    let user_type = with_inferred_lifetimes(type_name);
+    quote_spanned! {type_name.span() => {
+        let argument: &#mutability #user_type = #value;
+        argument
+    }}
 }
 
 fn extract_arg_name(mut pat: &Pat) -> Option<Ident> {

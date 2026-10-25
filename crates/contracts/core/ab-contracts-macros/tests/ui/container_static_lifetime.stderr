@@ -1,33 +1,21 @@
-error[E0521]: borrowed data escapes outside of function
-  --> tests/ui/container_static_lifetime.rs:15:6
+error: lifetime may not live long enough
+  --> tests/ui/container_static_lifetime.rs:17:41
    |
-15 |   impl Example {
-   |  ______^
-16 | |     #[view]
-17 | |     pub fn keep_input(#[input] _input: &VariableBytes<'static, 8>) {}
-   | |         ---------------------------------------------------------^
-   | |         |                                                        |
-   | |_________|________________________________________________________`args` escapes the function body here
-   |           |                                                        argument requires that `'1` must outlive `'static`
-   |           `args` is a reference that is only valid in the function body
-   |           let's call the lifetime of this reference `'1`
+17 |     pub fn keep_input(#[input] _input: &VariableBytes<'static, 8>) {}
+   |         --------------------------------^^^^^^^^^^^^^^^^^^^^^^^^^-
+   |         |                               |
+   |         |                               type annotation requires that `'args` must outlive `'static`
+   |         lifetime `'args` defined here
 
-error[E0521]: borrowed data escapes outside of function
-  --> tests/ui/container_static_lifetime.rs:15:6
+error: lifetime may not live long enough
+  --> tests/ui/container_static_lifetime.rs:20:48
    |
-15 |   impl Example {
-   |  ______^
-16 | |     #[view]
-17 | |     pub fn keep_input(#[input] _input: &VariableBytes<'static, 8>) {}
-...  |
-20 | |     pub fn keep_output(#[output] _output: &mut VariableBytes<'static, 8>) {}
-   | |         ----------------------------------------------------------------^
-   | |         |                                                               |
-   | |_________|_______________________________________________________________`args` escapes the function body here
-   |           |                                                               argument requires that `'1` must outlive `'static`
-   |           `args` is a reference that is only valid in the function body
-   |           let's call the lifetime of this reference `'1`
+20 |     pub fn keep_output(#[output] _output: &mut VariableBytes<'static, 8>) {}
+   |         ---------------------------------------^^^^^^^^^^^^^^^^^^^^^^^^^-
+   |         |                                      |
+   |         |                                      type annotation requires that `'args` must outlive `'static`
+   |         lifetime `'args` defined here
    |
-   = note: requirement occurs because of a mutable reference to `ab_io_type::variable_elements::VariableElements<'static, u8, 8>`
+   = note: requirement occurs because of a mutable reference to `ab_io_type::variable_elements::VariableElements<'_, u8, 8>`
    = note: mutable references are invariant over their type parameter
    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
