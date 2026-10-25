@@ -578,5 +578,8 @@ fn beacon_chain_body_with_intermediate_shard_blocks() {
                 assert_segments_eq(&info_segments, segments);
             }
         }
+
+        // The builder writes the same bytes
+        assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
     }
 }

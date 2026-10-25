@@ -386,7 +386,8 @@ impl OwnedBeaconChainBody {
                 .expect(
                     "Headers are only created by parsers, which read at most `u16::MAX` child \
                     shard blocks; qed",
-                );
+                )
+                .with_seal(intermediate_shard_block.header.seal);
 
                 if let Some(segments_proof) = &intermediate_shard_block.segments_proof
                     && !buffer.append(*segments_proof)
@@ -635,7 +636,8 @@ impl OwnedIntermediateShardBody {
                     leaf_shard_block.header.consensus_info,
                     leaf_shard_block.header.beacon_chain_info(),
                     &mut buffer,
-                );
+                )
+                .with_seal(leaf_shard_block.header.seal);
                 let true = align_to_8_with_padding(&mut buffer) else {
                     unreachable!("Checked size above; qed");
                 };

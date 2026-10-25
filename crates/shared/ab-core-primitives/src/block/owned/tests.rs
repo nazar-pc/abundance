@@ -22,6 +22,7 @@ use crate::solutions::{Solution, SolutionRange};
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader};
 use ab_aligned_buffer::SharedAlignedBuffer;
+use core::iter::TrustedLen;
 use std::iter;
 use std::num::{NonZeroU16, NonZeroU32};
 
@@ -86,8 +87,13 @@ fn beacon_chain_block() -> OwnedBeaconChainBlock {
     .with_seal(BlockHeaderSeal::Ed25519(&seal()))
 }
 
-fn intermediate_shard_block() -> OwnedIntermediateShardBlock {
-    OwnedIntermediateShardBlock::init(iter::empty(), iter::empty::<LeafShardBlockInfo<'_>>())
+fn intermediate_shard_block<'a, LeafShardBlocks>(
+    leaf_shard_blocks: LeafShardBlocks,
+) -> OwnedIntermediateShardBlock
+where
+    LeafShardBlocks: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
+{
+    OwnedIntermediateShardBlock::init(iter::empty(), leaf_shard_blocks)
         .unwrap()
         .with_header(
             &prefix(ShardIndex::new(1).unwrap()),
@@ -170,7 +176,7 @@ fn beacon_chain_block_bytes_must_be_16_bytes_aligned() {
 
 #[test]
 fn intermediate_shard_block_bytes_must_be_16_bytes_aligned() {
-    let block = intermediate_shard_block();
+    let block = intermediate_shard_block(iter::empty());
 
     let aligned = block_bytes(&block, 0);
     for (parsed, remainder) in [
@@ -212,4 +218,50 @@ fn leaf_shard_block_bytes_must_be_16_bytes_aligned() {
     assert!(LeafShardBlock::try_from_bytes(misaligned).is_none());
     assert!(LeafShardBlock::try_from_bytes_unchecked(misaligned).is_none());
     assert!(Block::try_from_bytes(misaligned, RealShardKind::LeafShard).is_none());
+}
+
+#[test]
+fn blocks_round_trip() {
+    let leaf_shard_block = leaf_shard_block();
+    let bytes = block_bytes(&leaf_shard_block, 0);
+    let (block, _remainder) = LeafShardBlock::try_from_bytes(bytes.as_slice()).unwrap();
+    let block = block.to_owned();
+    assert_eq!(
+        block.header.buffer().as_slice(),
+        leaf_shard_block.header.buffer().as_slice()
+    );
+    assert_eq!(
+        block.body.buffer().as_slice(),
+        leaf_shard_block.body.buffer().as_slice()
+    );
+
+    let intermediate_shard_block = intermediate_shard_block(iter::once(LeafShardBlockInfo {
+        header: leaf_shard_block.header.header().clone(),
+        segments: None,
+    }));
+    let bytes = block_bytes(&intermediate_shard_block, 0);
+    let (block, _remainder) = IntermediateShardBlock::try_from_bytes(bytes.as_slice()).unwrap();
+    assert_eq!(block.body().leaf_shard_blocks().len(), 1);
+    let block = block.to_owned();
+    assert_eq!(
+        block.header.buffer().as_slice(),
+        intermediate_shard_block.header.buffer().as_slice()
+    );
+    assert_eq!(
+        block.body.buffer().as_slice(),
+        intermediate_shard_block.body.buffer().as_slice()
+    );
+
+    let beacon_chain_block = beacon_chain_block();
+    let bytes = block_bytes(&beacon_chain_block, 0);
+    let (block, _remainder) = BeaconChainBlock::try_from_bytes(bytes.as_slice()).unwrap();
+    let block = block.to_owned();
+    assert_eq!(
+        block.header.buffer().as_slice(),
+        beacon_chain_block.header.buffer().as_slice()
+    );
+    assert_eq!(
+        block.body.buffer().as_slice(),
+        beacon_chain_block.body.buffer().as_slice()
+    );
 }

@@ -152,3 +152,90 @@ fn max_allocation_is_enough_for_largest_headers() {
     assert_eq!(buffer.capacity(), OwnedLeafShardHeader::MAX_ALLOCATION);
     assert_eq!(buffer.len(), buffer.capacity());
 }
+
+#[test]
+fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
+    let child_shard_blocks = [BlockRoot::default(); 2];
+    let consensus_parameters = BlockHeaderConsensusParameters {
+        fixed_parameters: BlockHeaderFixedConsensusParameters {
+            solution_range: SolutionRange::MAX,
+            slot_iterations: NonZeroU32::MIN,
+            num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap(),
+        },
+        super_segment_root: None,
+        next_solution_range: None,
+        pot_parameters_change: None,
+    };
+    let seal = seal();
+    let seal = BlockHeaderSeal::Ed25519(&seal);
+    // Headers are written after these bytes
+    let bytes_before = [1, 2, 3];
+
+    let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
+    let unsealed = OwnedBeaconChainHeader::from_parts_into(
+        &prefix(0),
+        &result(),
+        &consensus_info(),
+        &child_shard_blocks,
+        &consensus_parameters,
+        &mut buffer,
+    )
+    .unwrap();
+    let owned_unsealed = OwnedBeaconChainHeader::from_parts(
+        &prefix(0),
+        &result(),
+        &consensus_info(),
+        &child_shard_blocks,
+        &consensus_parameters,
+    )
+    .unwrap();
+    assert_eq!(unsealed.pre_seal_hash(), owned_unsealed.pre_seal_hash());
+    unsealed.with_seal(seal);
+    let header = owned_unsealed.with_seal(seal);
+    assert_eq!(buffer.as_slice()[..3], bytes_before);
+    assert_eq!(buffer.as_slice()[3..], *header.buffer().as_slice());
+
+    let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
+    let unsealed = OwnedIntermediateShardHeader::from_parts_into(
+        &prefix(1),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+        &child_shard_blocks,
+        &mut buffer,
+    )
+    .unwrap();
+    let owned_unsealed = OwnedIntermediateShardHeader::from_parts(
+        &prefix(1),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+        &child_shard_blocks,
+    )
+    .unwrap();
+    assert_eq!(unsealed.pre_seal_hash(), owned_unsealed.pre_seal_hash());
+    unsealed.with_seal(seal);
+    let header = owned_unsealed.with_seal(seal);
+    assert_eq!(buffer.as_slice()[..3], bytes_before);
+    assert_eq!(buffer.as_slice()[3..], *header.buffer().as_slice());
+
+    let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
+    let unsealed = OwnedLeafShardHeader::from_parts_into(
+        &prefix(1 | (1 << 10)),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+        &mut buffer,
+    );
+    let owned_unsealed = OwnedLeafShardHeader::from_parts(
+        &prefix(1 | (1 << 10)),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+    );
+    assert_eq!(unsealed.pre_seal_hash(), owned_unsealed.pre_seal_hash());
+    unsealed.with_seal(seal);
+    let header = owned_unsealed.with_seal(seal);
+    assert_eq!(buffer.as_slice()[..3], bytes_before);
+    assert_eq!(buffer.as_slice()[3..], *header.buffer().as_slice());
+}

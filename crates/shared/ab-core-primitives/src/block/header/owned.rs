@@ -132,7 +132,7 @@ impl OwnedBeaconChainHeader {
         let mut buffer =
             OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(child_shard_blocks));
 
-        Self::from_parts_into(
+        Self::append_unsealed(
             prefix,
             result,
             consensus_info,
@@ -144,8 +144,37 @@ impl OwnedBeaconChainHeader {
         Ok(OwnedBeaconChainHeaderUnsealed { buffer })
     }
 
-    /// Create an owned header from its parts and write it into the provided buffer
-    pub fn from_parts_into(
+    /// Write a header from its parts into the provided buffer, after the bytes already there.
+    ///
+    /// The seal is not attached, the header in the buffer is complete only after
+    /// [`OwnedBeaconChainHeaderUnsealedRef::with_seal()`] attaches it.
+    pub fn from_parts_into<'a>(
+        prefix: &BlockHeaderPrefix,
+        result: &BlockHeaderResult,
+        consensus_info: &BlockHeaderConsensusInfo,
+        child_shard_blocks: &[BlockRoot],
+        consensus_parameters: &BlockHeaderConsensusParameters<'_>,
+        buffer: &'a mut OwnedAlignedBuffer,
+    ) -> Result<OwnedBeaconChainHeaderUnsealedRef<'a>, OwnedBeaconChainHeaderError> {
+        let header_offset = buffer.len();
+
+        Self::append_unsealed(
+            prefix,
+            result,
+            consensus_info,
+            child_shard_blocks,
+            consensus_parameters,
+            buffer,
+        )?;
+
+        Ok(OwnedBeaconChainHeaderUnsealedRef {
+            buffer,
+            header_offset,
+        })
+    }
+
+    /// Append everything except the seal to the buffer
+    fn append_unsealed(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
@@ -321,6 +350,37 @@ impl OwnedBeaconChainHeaderUnsealed {
     }
 }
 
+/// Beacon chain block header written into a buffer by
+/// [`OwnedBeaconChainHeader::from_parts_into()`], which is not sealed yet.
+///
+/// The header in the buffer is not complete until [`Self::with_seal()`] attaches the seal.
+#[derive(Debug)]
+#[must_use = "The header in the buffer is not complete until `with_seal()` attaches the seal"]
+pub struct OwnedBeaconChainHeaderUnsealedRef<'a> {
+    buffer: &'a mut OwnedAlignedBuffer,
+    header_offset: u32,
+}
+
+impl OwnedBeaconChainHeaderUnsealedRef<'_> {
+    /// Hash of the block before seal is applied to it
+    #[inline(always)]
+    pub fn pre_seal_hash(&self) -> Blake3Hash {
+        let header_bytes = self
+            .buffer
+            .as_slice()
+            .get(self.header_offset as usize..)
+            .expect("The buffer only grew since `header_offset` was its length; qed");
+        // TODO: Keyed hash with `block_header_seal` as a key
+        Blake3Hash::from(blake3::hash(header_bytes))
+    }
+
+    /// Attach the seal after the header in the buffer, which completes the header
+    #[inline(always)]
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) {
+        append_seal(self.buffer, seal);
+    }
+}
+
 /// Errors for [`OwnedIntermediateShardHeader`]
 #[derive(Debug, thiserror::Error)]
 pub enum OwnedIntermediateShardHeaderError {
@@ -396,7 +456,7 @@ impl OwnedIntermediateShardHeader {
         let mut buffer =
             OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(child_shard_blocks));
 
-        Self::from_parts_into(
+        Self::append_unsealed(
             prefix,
             result,
             consensus_info,
@@ -408,8 +468,38 @@ impl OwnedIntermediateShardHeader {
         Ok(OwnedIntermediateShardHeaderUnsealed { buffer })
     }
 
-    /// Create an owned header from its parts and write it into the provided buffer
-    pub fn from_parts_into(
+    /// Write a header from its parts into the provided buffer, after the bytes already there.
+    ///
+    /// The seal is not attached, the header in the buffer is complete only after
+    /// [`OwnedIntermediateShardHeaderUnsealedRef::with_seal()`] attaches it.
+    pub fn from_parts_into<'a>(
+        prefix: &BlockHeaderPrefix,
+        result: &BlockHeaderResult,
+        consensus_info: &BlockHeaderConsensusInfo,
+        beacon_chain_info: &BlockHeaderBeaconChainInfo,
+        child_shard_blocks: &[BlockRoot],
+        buffer: &'a mut OwnedAlignedBuffer,
+    ) -> Result<OwnedIntermediateShardHeaderUnsealedRef<'a>, OwnedIntermediateShardHeaderError>
+    {
+        let header_offset = buffer.len();
+
+        Self::append_unsealed(
+            prefix,
+            result,
+            consensus_info,
+            beacon_chain_info,
+            child_shard_blocks,
+            buffer,
+        )?;
+
+        Ok(OwnedIntermediateShardHeaderUnsealedRef {
+            buffer,
+            header_offset,
+        })
+    }
+
+    /// Append everything except the seal to the buffer
+    fn append_unsealed(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
@@ -519,6 +609,37 @@ impl OwnedIntermediateShardHeaderUnsealed {
     }
 }
 
+/// Intermediate shard block header written into a buffer by
+/// [`OwnedIntermediateShardHeader::from_parts_into()`], which is not sealed yet.
+///
+/// The header in the buffer is not complete until [`Self::with_seal()`] attaches the seal.
+#[derive(Debug)]
+#[must_use = "The header in the buffer is not complete until `with_seal()` attaches the seal"]
+pub struct OwnedIntermediateShardHeaderUnsealedRef<'a> {
+    buffer: &'a mut OwnedAlignedBuffer,
+    header_offset: u32,
+}
+
+impl OwnedIntermediateShardHeaderUnsealedRef<'_> {
+    /// Hash of the block before seal is applied to it
+    #[inline(always)]
+    pub fn pre_seal_hash(&self) -> Blake3Hash {
+        let header_bytes = self
+            .buffer
+            .as_slice()
+            .get(self.header_offset as usize..)
+            .expect("The buffer only grew since `header_offset` was its length; qed");
+        // TODO: Keyed hash with `block_header_seal` as a key
+        Blake3Hash::from(blake3::hash(header_bytes))
+    }
+
+    /// Attach the seal after the header in the buffer, which completes the header
+    #[inline(always)]
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) {
+        append_seal(self.buffer, seal);
+    }
+}
+
 /// An owned version of [`LeafShardHeader`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
@@ -571,7 +692,7 @@ impl OwnedLeafShardHeader {
     ) -> OwnedLeafShardHeaderUnsealed {
         let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
-        Self::from_parts_into(
+        Self::append_unsealed(
             prefix,
             result,
             consensus_info,
@@ -582,8 +703,29 @@ impl OwnedLeafShardHeader {
         OwnedLeafShardHeaderUnsealed { buffer }
     }
 
-    /// Create an owned header from its parts and write it into the provided buffer
-    pub fn from_parts_into(
+    /// Write a header from its parts into the provided buffer, after the bytes already there.
+    ///
+    /// The seal is not attached, the header in the buffer is complete only after
+    /// [`OwnedLeafShardHeaderUnsealedRef::with_seal()`] attaches it.
+    pub fn from_parts_into<'a>(
+        prefix: &BlockHeaderPrefix,
+        result: &BlockHeaderResult,
+        consensus_info: &BlockHeaderConsensusInfo,
+        beacon_chain_info: &BlockHeaderBeaconChainInfo,
+        buffer: &'a mut OwnedAlignedBuffer,
+    ) -> OwnedLeafShardHeaderUnsealedRef<'a> {
+        let header_offset = buffer.len();
+
+        Self::append_unsealed(prefix, result, consensus_info, beacon_chain_info, buffer);
+
+        OwnedLeafShardHeaderUnsealedRef {
+            buffer,
+            header_offset,
+        }
+    }
+
+    /// Append everything except the seal to the buffer
+    fn append_unsealed(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
@@ -668,6 +810,37 @@ impl OwnedLeafShardHeaderUnsealed {
         //  return references to parts. Or at least add unchecked version of `from_buffer()`
         OwnedLeafShardHeader::from_buffer(buffer.into_shared())
             .expect("Known to be created correctly; qed")
+    }
+}
+
+/// Leaf shard block header written into a buffer by [`OwnedLeafShardHeader::from_parts_into()`],
+/// which is not sealed yet.
+///
+/// The header in the buffer is not complete until [`Self::with_seal()`] attaches the seal.
+#[derive(Debug)]
+#[must_use = "The header in the buffer is not complete until `with_seal()` attaches the seal"]
+pub struct OwnedLeafShardHeaderUnsealedRef<'a> {
+    buffer: &'a mut OwnedAlignedBuffer,
+    header_offset: u32,
+}
+
+impl OwnedLeafShardHeaderUnsealedRef<'_> {
+    /// Hash of the block before seal is applied to it
+    #[inline(always)]
+    pub fn pre_seal_hash(&self) -> Blake3Hash {
+        let header_bytes = self
+            .buffer
+            .as_slice()
+            .get(self.header_offset as usize..)
+            .expect("The buffer only grew since `header_offset` was its length; qed");
+        // TODO: Keyed hash with `block_header_seal` as a key
+        Blake3Hash::from(blake3::hash(header_bytes))
+    }
+
+    /// Attach the seal after the header in the buffer, which completes the header
+    #[inline(always)]
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) {
+        append_seal(self.buffer, seal);
     }
 }
 
