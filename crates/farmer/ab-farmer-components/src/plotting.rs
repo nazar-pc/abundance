@@ -59,6 +59,29 @@ pub enum PlottingError {
         /// Lower-level error
         error: anyhow::Error,
     },
+    /// Records encoder returned sector contents map for a wrong number of records
+    #[error(
+        "Records encoder returned sector contents map for {provided} records, expected {expected}"
+    )]
+    BadSectorContentsMapSize {
+        /// Number of records in the returned map
+        provided: usize,
+        /// Number of records in the sector
+        expected: usize,
+    },
+    /// Records encoder marked a wrong number of chunks as used in a record
+    #[error(
+        "Records encoder marked {provided} chunks of record {piece_offset} as used, expected \
+        {expected}"
+    )]
+    BadRecordChunksUsed {
+        /// Piece offset of the record
+        piece_offset: PieceOffset,
+        /// Number of chunks marked as used
+        provided: u32,
+        /// Expected number of chunks
+        expected: usize,
+    },
     /// Bad sector output size
     #[error("Bad sector output size: provided {provided}, expected {expected}")]
     BadSectorOutputSize {
@@ -178,10 +201,6 @@ where
             abort_early,
         },
     )?;
-
-    if abort_early.load(Ordering::Acquire) {
-        return Err(PlottingError::AbortEarly);
-    }
 
     write_sector(&encoded_sector, sector_output)?;
 
@@ -315,9 +334,24 @@ where
     })
 }
 
-/// Records encoder for plotting purposes
+/// Records encoder for plotting purposes.
+///
+/// Each record is erasure coded and proofs of space are generated for it. The proofs must be the
+/// ones that [`TableGenerator::create_proofs()`] returns for
+/// `sector_id.derive_evaluation_seed(piece_offset)`, because reading and proving create them again
+/// the same way. There are exactly [`Record::NUM_CHUNKS`] of them. The record is then replaced
+/// with the chunks at the s-buckets of those proofs, each XORed with the hash of its proof, in
+/// s-bucket order. The returned sector contents map has one entry per record with a bit set for
+/// each of those s-buckets.
+///
+/// [`encode_sector()`] checks the number of entries and the number of bits in each entry, but not
+/// which bits are set. Bits that don't match the proofs result in a sector that can't be read or
+/// proven.
 pub trait RecordsEncoder {
-    /// Encode provided sector records
+    /// Encode provided sector records.
+    ///
+    /// Encoding may stop early once `abort_early` is set. The returned map is not used in that
+    /// case.
     fn encode_records(
         &mut self,
         sector_id: &SectorId,
@@ -457,6 +491,13 @@ pub struct EncodedSector {
 ///
 /// This function encodes downloaded sector records and returns sector encoding result that can be
 /// written using [`write_sector`].
+///
+/// Returns an error if the records encoder returns a sector contents map with a wrong number of
+/// entries or bits, see [`RecordsEncoder`].
+///
+/// Returns [`PlottingError::AbortEarly`] if `abort_early` is set once all the work is done, so the
+/// caller doesn't need to check it again. It takes precedence over the map errors above, because
+/// the map may be incomplete when encoding stopped early.
 pub fn encode_sector<RE>(
     downloaded_sector: DownloadedSector,
     encoding_options: EncodeSectorOptions<'_, RE>,
@@ -490,6 +531,33 @@ where
         s_bucket_sizes: sector_contents_map.s_bucket_sizes(),
         history_size,
     });
+
+    // An encoder that stopped early returns an incomplete map. That must result in `AbortEarly`
+    // and not in a map error, so the map is checked after this.
+    if abort_early.load(Ordering::Acquire) {
+        return Err(PlottingError::AbortEarly);
+    }
+
+    let record_chunks_used = sector_contents_map.iter_record_chunks_used();
+    if record_chunks_used.len() != raw_sector.records.len() {
+        return Err(PlottingError::BadSectorContentsMapSize {
+            provided: record_chunks_used.len(),
+            expected: raw_sector.records.len(),
+        });
+    }
+    for (record_chunks_used, piece_offset) in record_chunks_used.iter().zip(PieceOffset::ZERO..) {
+        let chunks_used = record_chunks_used
+            .iter()
+            .map(|bits| bits.count_ones())
+            .sum::<u32>();
+        if usize::try_from(chunks_used) != Ok(Record::NUM_CHUNKS) {
+            return Err(PlottingError::BadRecordChunksUsed {
+                piece_offset,
+                provided: chunks_used,
+                expected: Record::NUM_CHUNKS,
+            });
+        }
+    }
 
     Ok(EncodedSector {
         plotted_sector: PlottedSector {

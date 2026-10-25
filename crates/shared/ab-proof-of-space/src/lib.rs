@@ -19,10 +19,7 @@
 )]
 #![cfg_attr(test, feature(float_erf))]
 #![cfg_attr(feature = "parallel", feature(exact_size_is_empty, sync_unsafe_cell))]
-#![cfg_attr(
-    feature = "alloc",
-    feature(iter_array_chunks, maybe_uninit_fill, ptr_as_uninit)
-)]
+#![cfg_attr(feature = "alloc", feature(maybe_uninit_fill, ptr_as_uninit))]
 
 pub mod chia;
 pub mod chiapos;
