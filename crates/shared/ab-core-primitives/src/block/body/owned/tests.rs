@@ -1,10 +1,11 @@
 use crate::address::Address;
 use crate::block::body::owned::{
-    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedIntermediateShardBody, OwnedLeafShardBody,
+    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError,
+    OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBody,
 };
 use crate::block::body::{
     BeaconChainBody, BlockBody, IntermediateShardBlockInfo, IntermediateShardBody,
-    LeafShardBlockInfo, OwnSegments,
+    LeafShardBlockInfo, LeafShardOwnSegments, OwnSegments,
 };
 use crate::block::header::owned::{OwnedIntermediateShardHeader, OwnedLeafShardHeader};
 use crate::block::header::{
@@ -592,6 +593,124 @@ fn beacon_chain_body_with_intermediate_shard_blocks() {
         // The builder writes the same bytes
         assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
     }
+}
+
+#[test]
+fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
+    let leaf_shard_blocks = [
+        TestLeafShardBlock::new(1 | (1 << 10), 0, 1),
+        TestLeafShardBlock::new(1 | (1 << 10), 1, 1),
+        TestLeafShardBlock::new(1 | (2 << 10), 0, 1),
+    ];
+    let new_body = |leaf_shard_blocks: Vec<LeafShardBlockInfo<'_>>| {
+        OwnedIntermediateShardBody::new(iter::empty(), leaf_shard_blocks.into_iter())
+    };
+
+    // A block created from parts, with its segment roots proof or with a different one
+    let block = &leaf_shard_blocks[0];
+    let (first_local_segment_index, segment_roots) = block.segments.as_ref().unwrap();
+    let block_info = |segment_roots_proof| LeafShardBlockInfo {
+        header: block.header.header().clone(),
+        segments: Some(LeafShardOwnSegments {
+            segment_roots_proof,
+            own_segments: OwnSegments::new(*first_local_segment_index, segment_roots).unwrap(),
+        }),
+    };
+    new_body(vec![block_info(&block.segment_roots_proof)]).unwrap();
+    assert!(matches!(
+        new_body(vec![block_info(&[0xff; _])]),
+        Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
+    ));
+
+    // Blocks of a parsed body, which are in order there
+    let bytes = intermediate_shard_body_bytes(&segments(3, 1), &leaf_shard_blocks);
+    let (body, _remainder) = IntermediateShardBody::try_from_bytes(bytes.as_slice()).unwrap();
+    let infos = body.leaf_shard_blocks().iter().collect::<Vec<_>>();
+    new_body(infos.clone()).unwrap();
+    // Block numbers of the same shard and then shard indices out of order
+    for (first, second) in [(1, 0), (2, 0)] {
+        assert!(matches!(
+            new_body(vec![infos[first].clone(), infos[second].clone()]),
+            Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
+        ));
+    }
+}
+
+#[test]
+fn owned_beacon_chain_body_with_inconsistent_intermediate_shard_blocks() {
+    let intermediate_shard_blocks = [
+        TestIntermediateShardBlock::new(1, 0, 1, &[]),
+        TestIntermediateShardBlock::new(1, 1, 1, &[(1 | (1 << 10), 1)]),
+        TestIntermediateShardBlock::new(2, 0, 1, &[]),
+    ];
+    let bytes = beacon_chain_body_bytes(&intermediate_shard_blocks, &[]);
+    let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
+    let infos = body.intermediate_shard_blocks().iter().collect::<Vec<_>>();
+    let new_body = |intermediate_shard_blocks: Vec<IntermediateShardBlockInfo<'_>>| {
+        OwnedBeaconChainBody::new(iter::empty(), intermediate_shard_blocks.into_iter(), &[])
+    };
+    new_body(infos.clone()).unwrap();
+
+    // A segments proof that doesn't match the body root in the header
+    let mut info = infos[1].clone();
+    info.segments_proof = Some(&[0xff; _]);
+    assert!(matches!(
+        new_body(vec![info]),
+        Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
+    ));
+
+    // A segments proof without segments
+    let mut info = infos[0].clone();
+    info.own_segments = None;
+    assert!(matches!(
+        new_body(vec![info]),
+        Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
+    ));
+
+    // Block numbers of the same shard and then shard indices out of order
+    for (first, second) in [(1, 0), (2, 0)] {
+        assert!(matches!(
+            new_body(vec![infos[first].clone(), infos[second].clone()]),
+            Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
+        ));
+    }
+}
+
+#[test]
+fn owned_beacon_chain_body_with_segments_but_without_segments_proof() {
+    // A block with segments of a leaf shard block with one segment root. Its segments proof is its
+    // number repeated, which the parser below reads as the number of segment roots.
+    let block = TestIntermediateShardBlock::new(1, 2, 0, &[(1 | (1 << 10), 1)]);
+    let bytes = beacon_chain_body_bytes(&[block], &[]);
+    let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
+    let info = body.intermediate_shard_blocks().iter().next().unwrap();
+    let segments_proof_offset =
+        ptr::from_ref(info.segments_proof.unwrap()).addr() - bytes.as_ptr().addr();
+
+    // With 32 more bytes after the header, the parser reads them as the segments proof, and the
+    // original proof and segments as segments of a leaf shard block with 2 segment roots. The body
+    // root in the header doesn't match them, so only the parser without checks accepts it.
+    let mut longer_bytes = bytes.as_slice()[..segments_proof_offset].to_vec();
+    longer_bytes.extend_from_slice(&[0; 32]);
+    longer_bytes.extend_from_slice(&bytes.as_slice()[segments_proof_offset..]);
+    let longer_bytes = SharedAlignedBuffer::from_bytes(&longer_bytes);
+    let (longer_body, _remainder) =
+        BeaconChainBody::try_from_bytes_unchecked(longer_bytes.as_slice()).unwrap();
+    let mut info = longer_body
+        .intermediate_shard_blocks()
+        .iter()
+        .next()
+        .unwrap();
+    let (_leaf_shard_index, leaf_shard_segments) = info.leaf_shards_segments().next().unwrap();
+    assert_eq!(leaf_shard_segments.segment_roots.len(), 2);
+
+    // Without a segments proof, this block would be written exactly as the original bytes, which
+    // the parser accepts as the original block
+    info.segments_proof = None;
+    assert!(matches!(
+        OwnedBeaconChainBody::new(iter::empty(), iter::once(info), &[]),
+        Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
+    ));
 }
 
 #[test]

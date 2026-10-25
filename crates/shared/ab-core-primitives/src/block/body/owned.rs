@@ -216,6 +216,13 @@ pub enum OwnedBeaconChainBodyError {
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
+    /// Intermediate shard blocks are inconsistent, see
+    /// [`IntermediateShardBlocksInfo::is_internally_consistent()`]
+    ///
+    /// [`IntermediateShardBlocksInfo::is_internally_consistent()`]:
+    /// crate::block::body::IntermediateShardBlocksInfo::is_internally_consistent
+    #[error("Intermediate shard blocks are inconsistent")]
+    InconsistentIntermediateShardBlocks,
 }
 
 /// An owned version of [`BeaconChainBody`].
@@ -354,6 +361,14 @@ impl OwnedBeaconChainBody {
                 let num_leaf_shard_blocks_with_segments =
                     intermediate_shard_block.num_leaf_shard_blocks_with_segments();
 
+                // The parser decides from these numbers whether own segments and a segments proof
+                // follow the header, so it would read blocks that disagree with them differently
+                if intermediate_shard_block.segments_proof.is_some()
+                    != (num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0)
+                {
+                    return Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks);
+                }
+
                 buffer.as_mut_slice()[segments_roots_num_cursor] = num_own_segment_roots;
                 buffer.as_mut_slice()[segments_roots_num_cursor + 1..][..2]
                     .copy_from_slice(&num_leaf_shard_blocks_with_segments.to_le_bytes());
@@ -429,7 +444,11 @@ impl OwnedBeaconChainBody {
         };
 
         // TODO: Avoid extra parsing here or at least go through unchecked version
-        Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
+        Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
+            // Everything else is written the way the parser reads it, only contents of
+            // intermediate shard blocks can be rejected
+            OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks
+        })
     }
 
     /// Create an owned body from a buffer
@@ -488,6 +507,12 @@ pub enum OwnedIntermediateShardBodyError {
         /// Actual number of leaf shard blocks
         actual: usize,
     },
+    /// Leaf shard blocks are inconsistent, see [`LeafShardBlocksInfo::is_internally_consistent()`]
+    ///
+    /// [`LeafShardBlocksInfo::is_internally_consistent()`]:
+    /// crate::block::body::LeafShardBlocksInfo::is_internally_consistent
+    #[error("Leaf shard blocks are inconsistent")]
+    InconsistentLeafShardBlocks,
 }
 
 /// An owned version of [`IntermediateShardBody`].
@@ -638,7 +663,11 @@ impl OwnedIntermediateShardBody {
         }
 
         // TODO: Avoid extra parsing here or at least go through unchecked version
-        Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
+        Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
+            // Everything else is written the way the parser reads it, only contents of leaf shard
+            // blocks can be rejected
+            OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks
+        })
     }
 
     /// Create an owned body from a buffer
