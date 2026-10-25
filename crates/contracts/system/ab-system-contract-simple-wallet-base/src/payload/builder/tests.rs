@@ -33,7 +33,7 @@ use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
-use core::{array, ptr};
+use core::{array, assert_matches, ptr};
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -672,17 +672,17 @@ fn payload_unused_output() {
     let mut builder = TransactionPayloadBuilder::new(1024, 3).unwrap();
     with_get_method_call(&mut builder, 0).unwrap();
     with_value_method_call(&mut builder, 2).unwrap();
-    assert!(matches!(
+    assert_matches!(
         builder.into_aligned_bytes(),
         Err(TransactionPayloadBuilderError::UnusedOutput(1))
-    ));
+    );
 
     // The same without method calls
     let builder = TransactionPayloadBuilder::new(1024, 1).unwrap();
-    assert!(matches!(
+    assert_matches!(
         builder.into_aligned_bytes(),
         Err(TransactionPayloadBuilderError::UnusedOutput(0))
-    ));
+    );
 }
 
 #[test]
@@ -695,20 +695,18 @@ fn payload_too_many_outputs() {
         with_get_method_call(&mut builder, output_index).unwrap();
     }
     assert_eq!(declared_capacities(&builder), [u8::SIZE; MAX_OUTPUTS]);
-    assert!(matches!(
+    assert_matches!(
         with_get_method_call(&mut builder, max_outputs),
         Err(TransactionPayloadBuilderError::InvalidOutputIndex(output_index))
             if output_index == max_outputs
-    ));
+    );
     let payload = builder.into_aligned_bytes().unwrap();
     assert_eq!(decode_all(payload.as_u128_slice()), Ok(MAX_OUTPUTS));
 
     for num_outputs in [max_outputs + 1, u8::MAX] {
-        assert!(
-            matches!(
-                TransactionPayloadBuilder::new(4096, num_outputs),
-                Err(TransactionPayloadBuilderError::TooManyOutputs)
-            ),
+        assert_matches!(
+            TransactionPayloadBuilder::new(4096, num_outputs),
+            Err(TransactionPayloadBuilderError::TooManyOutputs),
             "{num_outputs} outputs"
         );
     }
@@ -720,22 +718,20 @@ fn payload_header_max_size() {
     let mut builder = TransactionPayloadBuilder::new(u128::SIZE, 3).unwrap();
     assert_eq!(builder.payload.len(), u128::SIZE);
     assert_eq!(declared_capacities(&builder), [0; 3]);
-    assert!(matches!(
+    assert_matches!(
         with_new_method_call(&mut builder, 0),
         Err(TransactionPayloadBuilderError::PayloadTooLarge)
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         TransactionPayloadBuilder::new(u128::SIZE, 4),
         Err(TransactionPayloadBuilderError::PayloadTooLarge)
-    ));
+    );
 
     // A maximum size below 16 bytes leaves no room for the header, even without declared outputs
     for num_outputs in [0, 1] {
-        assert!(
-            matches!(
-                TransactionPayloadBuilder::new(u128::SIZE - 1, num_outputs),
-                Err(TransactionPayloadBuilderError::PayloadTooLarge)
-            ),
+        assert_matches!(
+            TransactionPayloadBuilder::new(u128::SIZE - 1, num_outputs),
+            Err(TransactionPayloadBuilderError::PayloadTooLarge),
             "{num_outputs} outputs"
         );
     }
@@ -750,28 +746,26 @@ fn payload_method_call_references_mismatch() {
 
     // `get()` has one output
     for outputs in [&[][..], &[0, 1]] {
-        assert!(
-            matches!(
-                builder.with_method_call(
-                    &Address::SYSTEM_SIMPLE_WALLET_BASE,
-                    &DemoContractGetArgs::new(&mut maybe_data),
-                    TransactionMethodContext::Null,
-                    MethodCallReferences {
-                        outputs,
-                        ..MethodCallReferences::default()
-                    },
-                ),
-                Err(TransactionPayloadBuilderError::NumberOfOutputsMismatch {
-                    expected: 1,
-                    actual
-                }) if actual == outputs.len()
+        assert_matches!(
+            builder.with_method_call(
+                &Address::SYSTEM_SIMPLE_WALLET_BASE,
+                &DemoContractGetArgs::new(&mut maybe_data),
+                TransactionMethodContext::Null,
+                MethodCallReferences {
+                    outputs,
+                    ..MethodCallReferences::default()
+                },
             ),
+            Err(TransactionPayloadBuilderError::NumberOfOutputsMismatch {
+                expected: 1,
+                actual
+            }) if actual == outputs.len(),
             "Outputs {outputs:?}"
         );
     }
 
     // `set()` has one input and no slots
-    assert!(matches!(
+    assert_matches!(
         builder.with_method_call(
             &Address::SYSTEM_SIMPLE_WALLET_BASE,
             &DemoContractSetArgs::new(&1),
@@ -785,8 +779,8 @@ fn payload_method_call_references_mismatch() {
             num_slots: 0,
             num_references: 1
         })
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         builder.with_method_call(
             &Address::SYSTEM_SIMPLE_WALLET_BASE,
             &DemoContractSetArgs::new(&1),
@@ -800,7 +794,7 @@ fn payload_method_call_references_mismatch() {
             num_inputs: 1,
             num_references: 2
         })
-    ));
+    );
 
     // Nothing was added or changed, the payload has only its header
     assert_eq!(builder.payload.len(), 12);
@@ -816,7 +810,7 @@ fn payload_undeclared_output() {
 
     // Output index `1` isn't declared, in a slot, an input and an output, which the decoder
     // rejects with the same error
-    assert!(matches!(
+    assert_matches!(
         builder.with_method_call(
             &Address::SYSTEM_SIMPLE_WALLET_BASE,
             &DemoContractStoredArgs::new(&Address::NULL, &mut MaybeUninit::uninit()),
@@ -830,14 +824,14 @@ fn payload_undeclared_output() {
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputIndexNotFound(1)
         ))
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         with_set_method_call(&mut builder, Some(1)),
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputIndexNotFound(1)
         ))
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         builder.with_method_call(
             &Address::SYSTEM_SIMPLE_WALLET_BASE,
             &DemoContractGetArgs::new(&mut maybe_data),
@@ -850,28 +844,28 @@ fn payload_undeclared_output() {
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputIndexNotFound(1)
         ))
-    ));
+    );
     // The first call wrote nothing, although its output index `0` is valid
     assert_eq!(declared_capacities(&builder), [0]);
 
     // A method call that breaks several rules gets the error of the rule that the decoder checks
     // first: its slot refers to declared output `0`, which no earlier method call wrote, and it
     // writes output index `1`, which isn't declared
-    assert!(matches!(
+    assert_matches!(
         with_stored_method_call(&mut builder, Some(0), 1),
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputIndexNotFound(0)
         ))
-    ));
+    );
 
     // The same after a method call was added, whose bytes follow the declared outputs
     with_set_method_call(&mut builder, None).unwrap();
-    assert!(matches!(
+    assert_matches!(
         with_get_method_call(&mut builder, 1),
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputIndexNotFound(1)
         ))
-    ));
+    );
 }
 
 #[test]
@@ -880,28 +874,22 @@ fn payload_invalid_output_index() {
     let mut builder = TransactionPayloadBuilder::new(1024, 1).unwrap();
     with_get_method_call(&mut builder, 0).unwrap();
     for output_index in [u8::try_from(MAX_OUTPUTS).unwrap(), u8::MAX] {
-        assert!(
-            matches!(
-                with_stored_method_call(&mut builder, Some(output_index), 0),
-                Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index))
-                    if invalid_output_index == output_index
-            ),
+        assert_matches!(
+            with_stored_method_call(&mut builder, Some(output_index), 0),
+            Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index))
+                if invalid_output_index == output_index,
             "Output index {output_index}"
         );
-        assert!(
-            matches!(
-                with_set_method_call(&mut builder, Some(output_index)),
-                Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index))
-                    if invalid_output_index == output_index
-            ),
+        assert_matches!(
+            with_set_method_call(&mut builder, Some(output_index)),
+            Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index))
+                if invalid_output_index == output_index,
             "Output index {output_index}"
         );
-        assert!(
-            matches!(
-                with_get_method_call(&mut builder, output_index),
-                Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index))
-                    if invalid_output_index == output_index
-            ),
+        assert_matches!(
+            with_get_method_call(&mut builder, output_index),
+            Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index))
+                if invalid_output_index == output_index,
             "Output index {output_index}"
         );
     }
@@ -912,18 +900,18 @@ fn payload_invalid_output_index() {
 fn payload_reference_to_unwritten_output() {
     // A slot and an input that refer to a declared output that no earlier method call wrote
     let mut builder = TransactionPayloadBuilder::new(1024, 2).unwrap();
-    assert!(matches!(
+    assert_matches!(
         with_set_method_call(&mut builder, Some(0)),
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputIndexNotFound(0)
         ))
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         with_stored_method_call(&mut builder, Some(0), 1),
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputIndexNotFound(0)
         ))
-    ));
+    );
     // Nothing was added or changed, the payload has only its header
     assert_eq!(builder.payload.len(), 12);
     assert_eq!(declared_capacities(&builder), [0, 0]);
@@ -943,14 +931,14 @@ fn payload_reference_to_own_output() {
 
     // A slot that refers to the declared output that the return value of the same method call
     // writes
-    assert!(matches!(
+    assert_matches!(
         with_stored_method_call(&mut builder, Some(0), 0),
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputReferencedBySameMethod(0)
         ))
-    ));
+    );
     // An input that refers to the declared output that the state of the same `#[init]` writes
-    assert!(matches!(
+    assert_matches!(
         builder.with_method_call(
             &Address::SYSTEM_SIMPLE_WALLET_BASE,
             &DemoContractNewArgs::new(&1),
@@ -964,7 +952,7 @@ fn payload_reference_to_own_output() {
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputReferencedBySameMethod(1)
         ))
-    ));
+    );
     let header_and_two_calls = builder.payload.len();
 
     // Referring to the other declared output is accepted
@@ -977,12 +965,12 @@ fn payload_reference_to_own_output() {
 fn payload_output_written_twice() {
     // `get_value()` writes the same declared output with its `#[output]` and its return value
     let mut builder = TransactionPayloadBuilder::new(1024, 2).unwrap();
-    assert!(matches!(
+    assert_matches!(
         with_get_value_method_call(&mut builder, &[1, 1]),
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::OutputUsedTwice(1)
         ))
-    ));
+    );
     assert_eq!(declared_capacities(&builder), [0, 0]);
 
     // Different declared outputs are accepted
@@ -996,7 +984,7 @@ fn payload_slot_from_return_value_size() {
     // A slot can refer to a return value only if it has the size of an address
     let mut builder = TransactionPayloadBuilder::new(1024, 2).unwrap();
     with_value_method_call(&mut builder, 0).unwrap();
-    assert!(matches!(
+    assert_matches!(
         with_stored_method_call(&mut builder, Some(0), 1),
         Err(TransactionPayloadBuilderError::PayloadRule(
             TransactionPayloadDecoderError::InvalidSlotOutputIndexSize {
@@ -1004,7 +992,7 @@ fn payload_slot_from_return_value_size() {
                 size: 1
             }
         ))
-    ));
+    );
 
     // An address returned into the same declared output is accepted, and so is an `#[output]`,
     // whose size is only known when its method is called
@@ -1225,10 +1213,10 @@ fn payload_empty() {
 
     // With room for the header only, no method call can be added
     let mut builder = TransactionPayloadBuilder::new(u128::SIZE, 0).unwrap();
-    assert!(matches!(
+    assert_matches!(
         with_set_method_call(&mut builder, None),
         Err(TransactionPayloadBuilderError::PayloadTooLarge)
-    ));
+    );
 }
 
 #[test]
@@ -1269,11 +1257,9 @@ fn payload_max_size() {
             with_set_method_call(&mut builder, None).unwrap();
         }
 
-        assert!(
-            matches!(
-                with_set_method_call(&mut builder, None),
-                Err(TransactionPayloadBuilderError::PayloadTooLarge)
-            ),
+        assert_matches!(
+            with_set_method_call(&mut builder, None),
+            Err(TransactionPayloadBuilderError::PayloadTooLarge),
             "Max size {max_size}"
         );
         assert!(builder.payload.len() <= capacity, "Max size {max_size}");
@@ -1297,10 +1283,10 @@ fn payload_too_large_leaves_builder_unchanged() {
         TransactionPayloadBuilder::new(payload_size.next_multiple_of(u128::SIZE), 1).unwrap();
     with_get_method_call(&mut builder, 0).unwrap();
     let payload = builder.payload.clone();
-    assert!(matches!(
+    assert_matches!(
         with_wide_value_method_call(&mut builder, 0),
         Err(TransactionPayloadBuilderError::PayloadTooLarge)
-    ));
+    );
     assert_eq!(builder.payload.as_slice(), payload.as_slice());
     assert_eq!(declared_capacities(&builder), [u8::SIZE]);
 
@@ -1310,16 +1296,16 @@ fn payload_too_large_leaves_builder_unchanged() {
 
     // A method call that doesn't fit right after the header leaves the declared output unwritten
     let mut builder = TransactionPayloadBuilder::new(payload_size - 1, 1).unwrap();
-    assert!(matches!(
+    assert_matches!(
         with_get_method_call(&mut builder, 0),
         Err(TransactionPayloadBuilderError::PayloadTooLarge)
-    ));
+    );
     assert_eq!(builder.payload.len(), 8);
     assert_eq!(declared_capacities(&builder), [0]);
-    assert!(matches!(
+    assert_matches!(
         builder.into_aligned_bytes(),
         Err(TransactionPayloadBuilderError::UnusedOutput(0))
-    ));
+    );
 }
 
 /// Add a call of a stateless method with `method_metadata` and the external args of a single `u32`
@@ -1400,12 +1386,12 @@ fn payload_encode_arguments_order() {
     // The metadata decoder rejects an output before an input
     let output_first_metadata = [method, output_argument, input_argument].concat();
     let (_builder, result) = build_with_u32_input(&output_first_metadata);
-    assert!(matches!(
+    assert_matches!(
         result,
         Err(TransactionPayloadBuilderError::MetadataDecodingError(
             MetadataDecodingError::ArgumentOutOfOrder {
                 argument_kind: ArgumentKind::Input
             }
         ))
-    ));
+    );
 }
