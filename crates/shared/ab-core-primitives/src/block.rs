@@ -346,6 +346,10 @@ impl<'a> BeaconChainBlock<'a> {
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
+
         let (header, remainder) = BeaconChainHeader::try_from_bytes(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = BeaconChainBody::try_from_bytes(remainder)?;
@@ -390,6 +394,10 @@ impl<'a> BeaconChainBlock<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
+
         let (header, remainder) = BeaconChainHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = BeaconChainBody::try_from_bytes_unchecked(remainder)?;
@@ -456,6 +464,10 @@ impl<'a> IntermediateShardBlock<'a> {
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
+
         let (header, remainder) = IntermediateShardHeader::try_from_bytes(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = IntermediateShardBody::try_from_bytes(remainder)?;
@@ -500,6 +512,10 @@ impl<'a> IntermediateShardBlock<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
+
         let (header, remainder) = IntermediateShardHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = IntermediateShardBody::try_from_bytes_unchecked(remainder)?;
@@ -566,6 +582,10 @@ impl<'a> LeafShardBlock<'a> {
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
+
         let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = LeafShardBody::try_from_bytes(remainder)?;
@@ -596,6 +616,10 @@ impl<'a> LeafShardBlock<'a> {
     /// checks
     #[inline]
     pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
+
         let (header, remainder) = LeafShardHeader::try_from_bytes_unchecked(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = LeafShardBody::try_from_bytes_unchecked(remainder)?;
