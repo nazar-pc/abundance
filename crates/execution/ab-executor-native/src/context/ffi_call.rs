@@ -111,26 +111,22 @@ enum PostProcessing {
     },
 }
 
-/// Special container that allows aliasing of `Env` stored inside it and tracks the nested context
-/// holding slots.
-///
-/// The nested context is tracked here even when it is given to `Env`, so that the host never reads
-/// anything back from `Env` that the guest had exclusive access to (and could have replaced).
+/// Special container that allows aliasing of `Env` stored inside it.
 ///
 /// Variants with pointers are only created by `Self::insert_ro()`, `Self::insert_rw()` and
-/// `Self::initialize()`, which `Drop` and `Self::into_slots()` rely on.
-enum MaybeEnv<Env, Context> {
-    None(Context),
-    ReadOnly(*mut UnsafeCell<Env>, Context),
-    ReadWrite(*mut UnsafeCell<Env>, Context),
+/// `Self::initialize()`, which `Drop` relies on.
+enum MaybeEnv<Env> {
+    None,
+    ReadOnly(*mut UnsafeCell<Env>),
+    ReadWrite(*mut UnsafeCell<Env>),
 }
 
-impl<Env, Context> Drop for MaybeEnv<Env, Context> {
+impl<Env> Drop for MaybeEnv<Env> {
     #[inline(always)]
     fn drop(&mut self) {
         match self {
-            MaybeEnv::None(_) => {}
-            &mut (MaybeEnv::ReadOnly(env, _) | MaybeEnv::ReadWrite(env, _)) => {
+            MaybeEnv::None => {}
+            &mut (MaybeEnv::ReadOnly(env) | MaybeEnv::ReadWrite(env)) => {
                 // SAFETY: Created with `Box::into_raw()` in `insert_ro()`/`insert_rw()` and only
                 // freed here. The guest gets a pointer to it only for the duration of the FFI call,
                 // during which `self` (owned by `make_ffi_call()`) can't be dropped.
@@ -140,7 +136,7 @@ impl<Env, Context> Drop for MaybeEnv<Env, Context> {
     }
 }
 
-impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
+impl<'env> MaybeEnv<MaybeUninit<Env<'env>>> {
     /// Insert a new value and get a pointer to it, value must be initialized later with
     /// [`Self::initialize()`]
     #[inline(always)]
@@ -152,7 +148,7 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
             let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get().cast_const()
         };
-        *self = Self::ReadOnly(env, ());
+        *self = Self::ReadOnly(env);
         env_ptr
     }
 
@@ -167,41 +163,26 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
             let env_ref = unsafe { env.as_ref_unchecked() };
             env_ref.get()
         };
-        *self = Self::ReadWrite(env, ());
+        *self = Self::ReadWrite(env);
         env_ptr
     }
 
     /// # Safety
     /// Nothing must have a live reference to `self` or its internals
     #[inline(always)]
-    unsafe fn initialize<'slots, CreateNestedContext>(
+    unsafe fn initialize(
         self,
-        slots: NestedSlots<'slots>,
         env_state: EnvState,
-        create_nested_context: CreateNestedContext,
-    ) -> MaybeEnv<Env<'env>, NonNull<NativeExecutorContext<'slots>>>
-    where
-        CreateNestedContext:
-            FnOnce(NestedSlots<'slots>, bool) -> &'env mut NativeExecutorContext<'slots>,
-        'slots: 'env,
-    {
-        // Only `#[view]` methods can be called through `&Env`, and without `Env` the nested context
-        // isn't used for calls at all and only holds onto slots
-        let allow_env_mutation = matches!(self, Self::ReadWrite(..));
-        let context = NonNull::from_mut(create_nested_context(slots, allow_env_mutation));
-
+        executor_context: &'env NativeExecutorContext<'_>,
+    ) -> MaybeEnv<Env<'env>> {
         match self {
-            Self::None(()) => MaybeEnv::None(context),
-            Self::ReadOnly(env_ro, ()) => {
-                // SAFETY: Created from an exclusive reference above. The shared reference given to
-                // `Env` is derived from this pointer, the pointer itself is only used again in
-                // `Self::into_slots()`, after the guest returned.
-                let executor_context = unsafe { context.as_ref() };
+            Self::None => MaybeEnv::None,
+            Self::ReadOnly(env_ro) => {
                 // SAFETY: Created outside of contract code and given by reference only to the FFI
                 // function that `#[contract]` generates for the method, which borrows no memory for
                 // the lifetime of `Env` and gives the method `Env` with a lifetime that only covers
-                // the call (see its `# Safety`), and only dropped in `Self::into_slots()` after the
-                // method returned
+                // the call (see its `# Safety`), and only dropped with the returned container after
+                // the method returned
                 let env = unsafe { Env::with_executor_context(env_state, executor_context) };
                 {
                     // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_ro()`, which is
@@ -216,18 +197,14 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
 
-                MaybeEnv::ReadOnly(env_ro, context)
+                MaybeEnv::ReadOnly(env_ro)
             }
-            Self::ReadWrite(env_rw, ()) => {
-                // SAFETY: Created from an exclusive reference above. The shared reference given to
-                // `Env` is derived from this pointer, the pointer itself is only used again in
-                // `Self::into_slots()`, after the guest returned.
-                let executor_context = unsafe { context.as_ref() };
+            Self::ReadWrite(env_rw) => {
                 // SAFETY: Created outside of contract code and given by reference only to the FFI
                 // function that `#[contract]` generates for the method, which borrows no memory for
                 // the lifetime of `Env` and gives the method `Env` with a lifetime that only covers
-                // the call (see its `# Safety`), and only dropped in `Self::into_slots()` after the
-                // method returned
+                // the call (see its `# Safety`), and only dropped with the returned container after
+                // the method returned
                 let env = unsafe { Env::with_executor_context(env_state, executor_context) };
                 {
                     // SAFETY: Valid pointer from `Box::into_raw()` in `Self::insert_rw()`, which is
@@ -242,155 +219,10 @@ impl<'env> MaybeEnv<MaybeUninit<Env<'env>>, ()> {
                 // Prevent destructor from running and de-allocating `Env`
                 mem::forget(self);
 
-                MaybeEnv::ReadWrite(env_rw, context)
+                MaybeEnv::ReadWrite(env_rw)
             }
         }
     }
-}
-
-impl<'env, 'slots> MaybeEnv<Env<'env>, NonNull<NativeExecutorContext<'slots>>> {
-    /// Free `Env` (if present) and get slots of the nested context
-    #[inline(always)]
-    fn into_slots(self) -> &'env mut NestedSlots<'slots> {
-        let mut context = match self {
-            MaybeEnv::None(context)
-            | MaybeEnv::ReadOnly(_, context)
-            | MaybeEnv::ReadWrite(_, context) => context,
-        };
-        // The host doesn't use `Env` anymore
-        drop(self);
-        // SAFETY: Created in `Self::initialize()` from an exclusive reference to the nested context
-        // that is borrowed for `'env`. The only reference derived from it was given to the guest
-        // through `Env`, and the guest can only use it during the FFI call, while `self` (owned by
-        // `make_ffi_call()`) can't be consumed. Consuming `self` also ensures the host doesn't
-        // access `Env` or create another reference to the nested context afterward.
-        unsafe { context.as_mut() }.slots.get_mut()
-    }
-}
-
-/// Process results of a successful FFI call: register a newly allocated contract address and
-/// integrate changes of slots and outputs.
-///
-/// # Safety
-/// Must only be called by [`make_ffi_call()`] after the FFI call returned successfully, with
-/// `new_address_ptr` and `post_processing` it created for that call, while `internal_args` and
-/// `external_args` they point into are still valid as required by [`make_ffi_call()`].
-#[inline(always)]
-unsafe fn post_process_ffi_call(
-    slots: &mut NestedSlots<'_>,
-    new_address_ptr: Option<*mut Address>,
-    post_processing: &[PostProcessing],
-) -> Result<(), ContractError> {
-    // Catch new address allocation and add it to new contracts in slots for code and other things
-    // to become usable for it
-    if let Some(new_address_ptr) = new_address_ptr {
-        // Assert that the API has the expected shape
-        let _: fn(&mut AddressAllocator, &mut Env<'_>) -> Result<Address, ContractError> =
-            AddressAllocator::allocate_address;
-        // SAFETY: `new_address_ptr` is the return value pointer of
-        // `AddressAllocator::allocate_address()` (checked above), which the guest initialized since
-        // the call succeeded
-        let new_address = unsafe { new_address_ptr.read() };
-        if !slots.add_new_contract(new_address) {
-            warn!("Failed to add new contract returned by address allocator");
-            return Err(ContractError::InternalError);
-        }
-    }
-
-    for &entry in post_processing {
-        match entry {
-            PostProcessing::Slot {
-                internal_args_ptr,
-                slot_index,
-                must_be_not_empty,
-            } => {
-                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
-                // this slot by `make_ffi_call()`, which is still alive as per function contract,
-                // and the guest no longer accesses it
-                let FfiDataSizeCapacityRw {
-                    data_ptr,
-                    size,
-                    capacity: _,
-                } = unsafe { internal_args_ptr.cast().read() };
-
-                if must_be_not_empty && size == 0 {
-                    error!(
-                        %size,
-                        "Contract returned empty size where it is not allowed, likely state of \
-                        `#[init]` method"
-                    );
-                    return Err(ContractError::BadOutput);
-                }
-
-                let slot_bytes = slots
-                    .access_used_rw(slot_index)
-                    .expect("Used before the call and stays in use until `Slots` is dropped; qed");
-
-                // Guest created a different allocation for slot, copy bytes
-                if !ptr::eq(data_ptr, slot_bytes.as_ptr()) {
-                    if data_ptr.is_null() {
-                        error!("Contract returned `null` pointer for slot data");
-                        return Err(ContractError::BadOutput);
-                    }
-                    // SAFETY: The guest replaced the slot contents with a different allocation,
-                    // whose first `size` bytes are initialized as required by `IoType` (the native
-                    // executor trusts contracts to uphold it, see `NativeExecutor`)
-                    let data =
-                        unsafe { slice::from_raw_parts(data_ptr.cast::<u8>(), size as usize) };
-                    slot_bytes.copy_from_slice(data);
-                    continue;
-                }
-
-                if size > slot_bytes.capacity() {
-                    error!(
-                        %size,
-                        capacity = %slot_bytes.capacity(),
-                        "Contract returned invalid size for slot data in source allocation"
-                    );
-                    return Err(ContractError::BadOutput);
-                }
-                // Otherwise, set the size to what guest claims
-                //
-                // SAFETY: Checked to be within capacity above, and the guest initialized the first
-                // `size` bytes as required by `IoType` (the native executor trusts contracts to
-                // uphold it, see `NativeExecutor`)
-                unsafe {
-                    slot_bytes.set_len(size);
-                }
-            }
-            PostProcessing::Output {
-                internal_args_ptr,
-                external_args_ptr,
-            } => {
-                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
-                // this output by `make_ffi_call()`, which is still alive as per function contract,
-                // and the guest no longer accesses it
-                let source_size =
-                    unsafe { internal_args_ptr.cast::<FfiDataSizeCapacityRw>().read() }.size;
-                // SAFETY: Points to this output's pointer, size and capacity in `ExternalArgs`,
-                // which are valid for writes during the call as per function contract and not
-                // accessed by anything else, since the guest returned
-                let FfiDataSizeCapacityRw {
-                    data_ptr: _,
-                    size,
-                    capacity,
-                } = unsafe { external_args_ptr.cast::<FfiDataSizeCapacityRw>().as_mut() };
-
-                if source_size > *capacity {
-                    error!(
-                        size = %source_size,
-                        %capacity,
-                        "Contract returned invalid size for output in source allocation"
-                    );
-                    return Err(ContractError::BadOutput);
-                }
-
-                *size = source_size;
-            }
-        }
-    }
-
-    Ok(())
 }
 
 /// Call method of a contract through its FFI function.
@@ -472,7 +304,10 @@ where
     // keep pointing to the beginning
     let external_args_cursor = &mut external_args.clone();
 
-    // `view_only == true` when only `#[view]` method is allowed
+    // `view_only == true` when only `#[view]` method is allowed.
+    //
+    // Changes to slots are reset when they are dropped on any of the early returns below. They are
+    // only committed once the call and post-processing of its results succeeded.
     let (view_only, mut slots) = match method_kind {
         MethodKind::Init
         | MethodKind::UpdateStateless
@@ -496,7 +331,7 @@ where
         }
     };
 
-    let mut maybe_env = MaybeEnv::None(());
+    let mut maybe_env = MaybeEnv::None;
 
     // Handle `&self` and `&mut self`
     match method_kind {
@@ -818,13 +653,12 @@ where
         }
     }
 
-    let mut nested_context = None;
+    // Only `#[view]` methods can be called through `&Env`, and without `Env` the nested context
+    // isn't used for calls at all and only holds onto slots. Slots are taken back from this nested
+    // context after the call rather than from `Env`, which the guest could have replaced.
+    let nested_context = create_nested_context(slots, matches!(maybe_env, MaybeEnv::ReadWrite(_)));
     // SAFETY: `internal_args` only holds a raw pointer to `Env` and no references exist
-    let maybe_env = unsafe {
-        maybe_env.initialize(slots, env_state, |slots, allow_env_mutation| {
-            nested_context.insert(create_nested_context(slots, allow_env_mutation))
-        })
-    };
+    let maybe_env = unsafe { maybe_env.initialize(env_state, &nested_context) };
 
     let internal_args = internal_args.cast::<c_void>();
     // SAFETY: `internal_args` was built according to `method_metadata`, which `#[contract]`
@@ -833,7 +667,7 @@ where
     // Pointers in it stay valid for the whole call:
     // * state and slot buffers belong to `slots` and are registered as accessed there, so nested
     //   calls can't modify or reallocate them
-    // * `Env` is allocated in `maybe_env` and only freed when it is consumed after the call, the
+    // * `Env` is allocated in `maybe_env` and only freed when it is dropped after the call, the
     //   nested context lives in `nested_context`, which outlives the call
     // * the rest comes from `external_args`, valid during the call as per function contract
     // Contents of outputs are not accessed after the call without being parsed, unless every bit
@@ -843,19 +677,120 @@ where
     // or holds a valid value of the state.
     let result = Result::<(), ContractError>::from(unsafe { ffi_fn(internal_args) });
 
-    let slots = maybe_env.into_slots();
+    // The host doesn't use `Env` anymore
+    drop(maybe_env);
+    let mut slots = nested_context.into_slots();
 
-    let result = result.and_then(|()| {
-        // SAFETY: The call succeeded, `new_address_ptr` and `post_processing` were created above
-        // for it, and `internal_args` and `external_args` they point into are still valid
-        unsafe { post_process_ffi_call(slots, new_address_ptr, &post_processing) }
-    });
+    result?;
 
-    if result.is_err() {
-        // Roll back changes of the call, including those of nested calls, whether the method
-        // returned an error or the host rejected its results
-        slots.reset();
+    // Catch new address allocation and add it to new contracts in slots for code and other things
+    // to become usable for it
+    if let Some(new_address_ptr) = new_address_ptr {
+        // Assert that the API has the expected shape
+        let _: fn(&mut AddressAllocator, &mut Env<'_>) -> Result<Address, ContractError> =
+            AddressAllocator::allocate_address;
+        // SAFETY: `new_address_ptr` is the return value pointer of
+        // `AddressAllocator::allocate_address()` (checked above), which the guest initialized since
+        // the call succeeded
+        let new_address = unsafe { new_address_ptr.read() };
+        if !slots.add_new_contract(new_address) {
+            warn!("Failed to add new contract returned by address allocator");
+            return Err(ContractError::InternalError);
+        }
     }
 
-    result
+    for &entry in &post_processing {
+        match entry {
+            PostProcessing::Slot {
+                internal_args_ptr,
+                slot_index,
+                must_be_not_empty,
+            } => {
+                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
+                // this slot above, which is still alive, and the guest no longer accesses it
+                let FfiDataSizeCapacityRw {
+                    data_ptr,
+                    size,
+                    capacity: _,
+                } = unsafe { internal_args_ptr.cast().read() };
+
+                if must_be_not_empty && size == 0 {
+                    error!(
+                        %size,
+                        "Contract returned empty size where it is not allowed, likely state of \
+                        `#[init]` method"
+                    );
+                    return Err(ContractError::BadOutput);
+                }
+
+                let slot_bytes = slots
+                    .access_used_rw(slot_index)
+                    .expect("Was used above and must exist since `Slots` was not dropped yet; qed");
+
+                // Guest created a different allocation for slot, copy bytes
+                if !ptr::eq(data_ptr, slot_bytes.as_ptr()) {
+                    if data_ptr.is_null() {
+                        error!("Contract returned `null` pointer for slot data");
+                        return Err(ContractError::BadOutput);
+                    }
+                    // SAFETY: The guest replaced the slot contents with a different allocation,
+                    // whose first `size` bytes are initialized as required by `IoType` (the native
+                    // executor trusts contracts to uphold it, see `NativeExecutor`)
+                    let data =
+                        unsafe { slice::from_raw_parts(data_ptr.cast::<u8>(), size as usize) };
+                    slot_bytes.copy_from_slice(data);
+                    continue;
+                }
+
+                if size > slot_bytes.capacity() {
+                    error!(
+                        %size,
+                        capacity = %slot_bytes.capacity(),
+                        "Contract returned invalid size for slot data in source allocation"
+                    );
+                    return Err(ContractError::BadOutput);
+                }
+                // Otherwise, set the size to what guest claims
+                //
+                // SAFETY: Checked to be within capacity above, and the guest initialized the first
+                // `size` bytes as required by `IoType` (the native executor trusts contracts to
+                // uphold it, see `NativeExecutor`)
+                unsafe {
+                    slot_bytes.set_len(size);
+                }
+            }
+            PostProcessing::Output {
+                internal_args_ptr,
+                external_args_ptr,
+            } => {
+                // SAFETY: Points to the `FfiDataSizeCapacityRw` written into `internal_args` for
+                // this output above, which is still alive, and the guest no longer accesses it
+                let source_size =
+                    unsafe { internal_args_ptr.cast::<FfiDataSizeCapacityRw>().read() }.size;
+                // SAFETY: Points to this output's pointer, size and capacity in `ExternalArgs`,
+                // which are valid for writes during the call as per function contract and not
+                // accessed by anything else, since the guest returned
+                let FfiDataSizeCapacityRw {
+                    data_ptr: _,
+                    size,
+                    capacity,
+                } = unsafe { external_args_ptr.cast::<FfiDataSizeCapacityRw>().as_mut() };
+
+                if source_size > *capacity {
+                    error!(
+                        size = %source_size,
+                        %capacity,
+                        "Contract returned invalid size for output in source allocation"
+                    );
+                    return Err(ContractError::BadOutput);
+                }
+
+                *size = source_size;
+            }
+        }
+    }
+
+    slots.commit();
+
+    Ok(())
 }

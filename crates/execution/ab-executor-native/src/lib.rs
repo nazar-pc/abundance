@@ -258,6 +258,7 @@ impl NativeExecutor {
                 let result = nested_slots.add_new_contract(address);
                 debug_assert!(result);
             }
+            nested_slots.commit();
         }
 
         // Deploy and initialize other system contacts
@@ -412,7 +413,11 @@ impl NativeExecutor {
             &write_slots,
             &payload,
             &seal,
-        )
+        )?;
+
+        executor_context.into_slots().commit();
+
+        Ok(())
     }
 
     /// Verify and execute the provided transaction, primarily for testing purposes.
@@ -499,6 +504,8 @@ impl NativeExecutor {
                 &payload,
                 &seal,
             )?;
+
+            executor_context.into_slots().commit();
         }
 
         Ok(())
@@ -538,7 +545,13 @@ impl NativeExecutor {
         // is generic over the lifetime of `Env`, so it can only borrow `'static` memory for that
         // lifetime, and only dropped afterward
         let mut env = unsafe { Env::with_executor_context(env_state, &executor_context) };
-        calls(&mut env)
+        let result = calls(&mut env);
+
+        // Failed calls already rolled back their own changes, while changes of successful ones are
+        // kept regardless of what `calls` returns
+        executor_context.into_slots().commit();
+
+        result
     }
 
     /// Get a read-only `Env` instance for calling `#[view]` methods on it directly.
