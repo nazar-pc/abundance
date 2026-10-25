@@ -217,12 +217,6 @@ pub enum OwnedBeaconChainBodyError {
         /// Actual number of own segment roots
         actual: usize,
     },
-    /// Too many leaf shard blocks with segments
-    #[error("Too many leaf shard blocks with segments: {actual}")]
-    TooManyLeafShardBlocksWithSegments {
-        /// Actual number of shard blocks with segments
-        actual: usize,
-    },
     /// Too many leaf shard block segments
     #[error("Too many leaf shard block segments: {actual}")]
     TooManyLeafShardBlockSegments {
@@ -316,7 +310,7 @@ impl OwnedBeaconChainBody {
                 // Number of intermediate shard blocks
                 + u16::SIZE
                 // Numbers of own segment roots and leaf shard blocks with segments of each block
-                + u32::from(num_blocks) * (u8::SIZE + u8::SIZE)
+                + u32::from(num_blocks) * (u8::SIZE + u16::SIZE)
         )
         // Padding to 8-bytes boundary
         .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
@@ -354,7 +348,7 @@ impl OwnedBeaconChainBody {
             for _ in 0..num_blocks {
                 // Placeholder values for the number of own segment roots and number of leaf shard
                 // blocks with segments
-                let true = buffer.append(&[0, 0]) else {
+                let true = buffer.append(&[0, 0, 0]) else {
                     unreachable!("Checked size above; qed");
                 };
             }
@@ -373,20 +367,13 @@ impl OwnedBeaconChainBody {
                             actual: num_own_segment_roots,
                         }
                     })?;
-                let num_leaf_shard_blocks_with_segments = intermediate_shard_block
-                    .leaf_shards_segments()
-                    .size_hint()
-                    .0;
                 let num_leaf_shard_blocks_with_segments =
-                    u8::try_from(num_leaf_shard_blocks_with_segments).map_err(|_error| {
-                        OwnedBeaconChainBodyError::TooManyLeafShardBlocksWithSegments {
-                            actual: num_leaf_shard_blocks_with_segments,
-                        }
-                    })?;
+                    intermediate_shard_block.num_leaf_shard_blocks_with_segments();
 
-                buffer.as_mut_slice()[segments_roots_num_cursor..][..2]
-                    .copy_from_slice(&[num_own_segment_roots, num_leaf_shard_blocks_with_segments]);
-                segments_roots_num_cursor += 2;
+                buffer.as_mut_slice()[segments_roots_num_cursor] = num_own_segment_roots;
+                buffer.as_mut_slice()[segments_roots_num_cursor + 1..][..2]
+                    .copy_from_slice(&num_leaf_shard_blocks_with_segments.to_le_bytes());
+                segments_roots_num_cursor += 3;
 
                 OwnedIntermediateShardHeader::from_parts_into(
                     intermediate_shard_block.header.prefix,

@@ -130,11 +130,17 @@ pub struct IntermediateShardBlockInfo<'a> {
     pub segments_proof: Option<&'a [u8; OUT_LEN]>,
     /// Segments in the corresponding block
     pub own_segments: Option<OwnSegments<'a>>,
-    num_leaf_shard_blocks_with_segments: u8,
+    num_leaf_shard_blocks_with_segments: u16,
     leaf_shards_segments_bytes: &'a [u8],
 }
 
 impl<'a> IntermediateShardBlockInfo<'a> {
+    /// Number of leaf shard blocks with segments in the corresponding intermediate shard block
+    #[inline(always)]
+    pub const fn num_leaf_shard_blocks_with_segments(&self) -> u16 {
+        self.num_leaf_shard_blocks_with_segments
+    }
+
     /// Segments of leaf shards in the corresponding intermediate shard block
     #[inline]
     pub fn leaf_shards_segments(
@@ -210,7 +216,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         // * number of blocks: u16 as unaligned little-endian bytes
         // * for each block:
         //   * number of own segment roots: u8
-        //   * number of leaf shard blocks with segments: u8
+        //   * number of leaf shard blocks with segments: u16 as unaligned little-endian bytes
         // * padding to 8-bytes boundary with zeroes
         // * for each block:
         //   * block header: IntermediateShardHeader
@@ -230,14 +236,15 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
         let bytes_start = bytes;
 
-        let mut counts = bytes.split_off(..num_blocks * (size_of::<u8>() * 2))?;
+        let mut counts = bytes.split_off(..num_blocks * (size_of::<u8>() + size_of::<u16>()))?;
 
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
         for _ in 0..num_blocks {
             let num_own_segment_roots = usize::from(counts[0]);
-            let num_leaf_shard_blocks_with_segments = usize::from(counts[1]);
-            counts = &counts[2..];
+            let num_leaf_shard_blocks_with_segments =
+                usize::from(u16::from_le_bytes([counts[1], counts[2]]));
+            counts = &counts[3..];
 
             (_, remainder) = IntermediateShardHeader::try_from_bytes(remainder)?;
 
@@ -289,14 +296,15 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
         let bytes_start = bytes;
 
-        let mut counts = bytes.split_off(..num_blocks * (size_of::<u8>() * 2))?;
+        let mut counts = bytes.split_off(..num_blocks * (size_of::<u8>() + size_of::<u16>()))?;
 
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
         for _ in 0..num_blocks {
             let num_own_segment_roots = usize::from(counts[0]);
-            let num_leaf_shard_blocks_with_segments = usize::from(counts[1]);
-            counts = &counts[2..];
+            let num_leaf_shard_blocks_with_segments =
+                usize::from(u16::from_le_bytes([counts[1], counts[2]]));
+            counts = &counts[3..];
 
             (_, remainder) = IntermediateShardHeader::try_from_bytes(remainder)?;
 
@@ -490,22 +498,21 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         &self,
     ) -> impl ExactSizeIterator<Item = IntermediateShardBlockInfo<'a>> + TrustedLen + use<'a> {
         // SAFETY: Checked in constructor
-        let (mut counts, mut remainder) = unsafe {
+        let (mut counts, remainder) = unsafe {
             self.bytes
                 .split_at_unchecked(self.num_blocks * (size_of::<u8>() + size_of::<u16>()))
         };
+        let mut remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
+            .expect("Already checked in constructor; qed");
 
         iter::repeat_with(move || {
             let num_own_segment_roots = usize::from(counts[0]);
-            let num_leaf_shard_blocks_with_segments = counts[1];
-            counts = &counts[2..];
+            let num_leaf_shard_blocks_with_segments = u16::from_le_bytes([counts[1], counts[2]]);
+            counts = &counts[3..];
 
             // TODO: Unchecked method would have been helpful here
             let header;
             (header, remainder) = IntermediateShardHeader::try_from_bytes(remainder)
-                .expect("Already checked in constructor; qed");
-
-            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
                 .expect("Already checked in constructor; qed");
 
             let segments_proof =
@@ -529,9 +536,11 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 // SAFETY: Checked in constructor
                 (first_local_segment_index, remainder) =
                     unsafe { remainder.split_at_unchecked(size_of::<LocalSegmentIndex>()) };
-                // SAFETY: Correct alignment and size
-                let first_local_segment_index =
-                    *unsafe { LocalSegmentIndex::from_bytes_unchecked(first_local_segment_index) };
+                // SAFETY: Correct size and no alignment requirements
+                let first_local_segment_index = unsafe {
+                    Unaligned::<LocalSegmentIndex>::from_bytes_unchecked(first_local_segment_index)
+                }
+                .as_inner();
 
                 let own_segment_roots;
                 // SAFETY: Checked in constructor
@@ -1119,10 +1128,12 @@ impl<'a> LeafShardBlocksInfo<'a> {
         &self,
     ) -> impl ExactSizeIterator<Item = LeafShardBlockInfo<'a>> + TrustedLen + use<'a> {
         // SAFETY: Checked in constructor
-        let (mut counts, mut remainder) = unsafe {
+        let (mut counts, remainder) = unsafe {
             self.bytes
                 .split_at_unchecked(self.num_blocks * size_of::<u8>())
         };
+        let mut remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
+            .expect("Already checked in constructor; qed");
 
         iter::repeat_with(move || {
             let num_own_segment_roots = usize::from(counts[0]);
