@@ -381,10 +381,6 @@ where
                             )
                         })?;
 
-                        if abort_early.load(Ordering::Acquire) {
-                            return Err(PlottingError::AbortEarly);
-                        }
-
                         drop(thread_pools);
 
                         let mut sector = Vec::new();

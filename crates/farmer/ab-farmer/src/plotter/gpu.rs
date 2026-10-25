@@ -350,10 +350,6 @@ where
                             },
                         )?;
 
-                        if abort_early.load(Ordering::Acquire) {
-                            return Err(PlottingError::AbortEarly);
-                        }
-
                         drop(records_encoder);
 
                         let mut sector = Vec::new();
