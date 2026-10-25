@@ -6,7 +6,7 @@ use ab_core_primitives::shard::ShardIndex;
 use ab_io_type::IoType;
 use ab_io_type::trivial_type::TrivialType;
 use core::ffi::c_void;
-use core::marker::PhantomData;
+use core::marker::{PhantomData, PhantomInvariantLifetime};
 use core::ptr::NonNull;
 
 /// Context for method call.
@@ -222,7 +222,7 @@ pub struct Env<'a> {
     /// `Env::with_executor_context()`). If `Env<'a>` could be shortened to `Env<'short>`, the code
     /// could lend memory borrowed only for `'short` and then access it directly once `'short`
     /// ends, while it may still hold an invalid value.
-    invariant_lifetime: PhantomData<fn(&'a ()) -> &'a ()>,
+    invariant_lifetime: PhantomInvariantLifetime<'a>,
 }
 
 // TODO: API to "attach" data structures to the environment to make sure pointers to it can be
@@ -256,7 +256,9 @@ impl<'a> Env<'a> {
         Self {
             state,
             executor_context,
-            invariant_lifetime: PhantomData,
+            // TODO: Use just `PhantomInvariantLifetime` once upgrading to the latest nightly that
+            //  supports it
+            invariant_lifetime: PhantomInvariantLifetime::new(),
         }
     }
 

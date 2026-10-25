@@ -5,7 +5,8 @@
     const_split_off_first_last,
     const_trait_impl,
     const_try,
-    mut_restriction
+    mut_restriction,
+    phantom_variance_markers
 )]
 #![no_std]
 
