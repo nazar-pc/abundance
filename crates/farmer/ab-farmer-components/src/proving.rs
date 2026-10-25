@@ -311,7 +311,8 @@ where
                 .map_err(ProvingError::RecordReadingError)?;
 
             let proof_of_space = pos_proofs.for_s_bucket(self.s_bucket).expect(
-                "Proof exists for this s-bucket, otherwise it wouldn't be a winning chunk; qed",
+                "Reading checked that the map matches the proofs, and the map has a chunk of this \
+                record in this s-bucket; qed",
             );
 
             let chunk_proof = record_merkle_tree

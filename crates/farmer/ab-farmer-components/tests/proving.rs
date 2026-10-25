@@ -15,6 +15,7 @@ use ab_farmer_components::plotting::{
     CpuRecordsEncoder, PlotSectorOptions, PlottedSector, plot_sector,
 };
 use ab_farmer_components::proving::ProvingError;
+use ab_farmer_components::reading::ReadingError;
 use ab_farmer_components::sector::SectorMetadataChecksummed;
 use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
 use ab_proof_of_space::shim::{ShimTable, ShimTableGenerator};
@@ -191,6 +192,47 @@ fn proving_rejects_s_bucket_size_mismatch() {
             }) if actual_s_bucket == s_bucket
                 && expected == expected_size + 1
                 && actual == usize::from(expected_size)
+        ),
+        "{result:?}"
+    );
+}
+
+#[test]
+fn proving_rejects_proofs_that_do_not_match_sector_contents_map() {
+    let erasure_coding = &ErasureCoding::new();
+    let table_generator = &ShimTable::generator();
+    let shard_commitments_roots_cache = &shard_commitments_roots_cache();
+    let (sector, plotted_sector) = plot_test_sector(
+        erasure_coding,
+        table_generator,
+        HistorySize::new(NonZeroU64::MIN),
+    );
+
+    // Metadata with a different history size gives a different sector ID and different proofs.
+    // S-bucket sizes stay the same, so they still match the sector contents map.
+    let mut wrong_sector_metadata = plotted_sector.sector_metadata.clone();
+    wrong_sector_metadata.history_size = HistorySize::new(NonZeroU64::new(2).unwrap());
+    let global_challenge = &find_global_challenge(&wrong_sector_metadata);
+
+    let result = audit_test_sector(
+        shard_commitments_roots_cache,
+        &sector,
+        &wrong_sector_metadata,
+        global_challenge,
+    )
+    .solution_candidates
+    .into_solutions(erasure_coding, |seed: &PosSeed| {
+        table_generator.create_proofs(seed)
+    })
+    .unwrap()
+    .next()
+    .unwrap();
+    assert!(
+        matches!(
+            result,
+            Err(ProvingError::RecordReadingError(
+                ReadingError::PosProofsMismatch { piece_offset }
+            )) if piece_offset == PieceOffset::ZERO
         ),
         "{result:?}"
     );

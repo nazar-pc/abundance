@@ -37,14 +37,17 @@ pub enum ReadingError {
         /// Low-level error
         error: io::Error,
     },
-    /// Missing proof of space proof.
+    /// PoS proofs don't match the sector contents map.
     ///
-    /// This is either hardware issue or if happens for everyone all the time an implementation
-    /// bug.
-    #[error("Missing PoS proof for s-bucket {s_bucket}")]
-    MissingPosProof {
-        /// S-bucket
-        s_bucket: SBucket,
+    /// Either the sector contents map has no entry for the record, or the record's chunks in it
+    /// are not at exactly the s-buckets that have proofs. There is no entry when the piece offset
+    /// is outside of the sector. Chunks at other s-buckets usually mean that the sector doesn't
+    /// match its metadata, so proofs are created for a different sector ID than the one the sector
+    /// was plotted with.
+    #[error("PoS proofs don't match sector contents map for record at offset {piece_offset}")]
+    PosProofsMismatch {
+        /// Piece offset
+        piece_offset: PieceOffset,
     },
     /// Failed to erasure-decode record
     #[error("Failed to erasure-decode record at offset {piece_offset}: {error}")]
@@ -82,7 +85,7 @@ impl ReadingError {
         )]
         match self {
             ReadingError::FailedToReadChunk { .. } => false,
-            ReadingError::MissingPosProof { .. } => false,
+            ReadingError::PosProofsMismatch { .. } => false,
             ReadingError::FailedToErasureDecodeRecord { .. } => false,
             ReadingError::WrongRecordSizeAfterDecoding { .. } => false,
             ReadingError::FailedToDecodeSectorContentsMap(_) => false,
@@ -128,6 +131,11 @@ impl SectorRecordChunks {
 
 /// Read sector record chunks, only plotted s-buckets are marked as present (in decoded form).
 ///
+/// Returns [`ReadingError::PosProofsMismatch`] if the sector contents map has no entry for
+/// `piece_offset`, or if the record's chunks in it are not at exactly the s-buckets of
+/// `pos_proofs`. Each chunk was encoded with the proof for its s-bucket, so chunks can't be
+/// decoded correctly otherwise.
+///
 /// NOTE: This is an async function, but it also does CPU-intensive operation internally, while it
 /// is not very long, make sure it is okay to do so in your context.
 pub async fn read_sector_record_chunks<S, A>(
@@ -142,6 +150,16 @@ where
     S: ReadAtSync,
     A: ReadAtAsync,
 {
+    // Chunks are paired with proofs in s-bucket order below, which is only correct when the record
+    // has chunks at exactly the s-buckets with proofs
+    if sector_contents_map
+        .iter_record_chunks_used()
+        .get(usize::from(piece_offset))
+        != Some(&pos_proofs.found_proofs)
+    {
+        return Err(ReadingError::PosProofsMismatch { piece_offset });
+    }
+
     let mut source = Record::new_boxed();
     let mut parity = Record::new_boxed();
     let mut present = ShardsPresent::none();
