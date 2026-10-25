@@ -288,13 +288,6 @@ where
         ..
     } = method_metadata_item;
 
-    let number_of_arguments = usize::from(num_arguments) + usize::from(method_kind.has_self());
-
-    if number_of_arguments > usize::from(MAX_TOTAL_METHOD_ARGS) {
-        debug!(%number_of_arguments, "Too many arguments");
-        return Err(ContractError::BadInput);
-    }
-
     let internal_args = NonNull::new(internal_args.as_mut_ptr().cast::<c_void>())
         .expect("Taken from non-null instance; qed");
     // This pointer will be moving as the data structure is being constructed, while `internal_args`

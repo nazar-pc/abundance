@@ -45,6 +45,9 @@ pub enum ContractMetadataKind {
     /// * Metadata of methods, each as defined in one of:
     ///   * [`Self::UpdateStateless`]
     ///   * [`Self::ViewStateless`]
+    ///
+    /// Methods of traits have no `#[tmp]` or `#[slot]` arguments, since their types are defined by
+    /// a contract.
     Trait,
 
     /// `#[init]` method.
@@ -79,7 +82,11 @@ pub enum ContractMetadataKind {
     /// `#[slot]`s ([`Self::SlotRo`] and [`Self::SlotRw`]), `#[input]`s, `#[output]`s and the
     /// return value. Each of `#[env]`, `#[tmp]` and the return value appears at most once.
     ///
+    /// The number of arguments, together with `self` in methods that have it, is at most
+    /// [`MAX_TOTAL_METHOD_ARGS`].
+    ///
     /// [`IoTypeMetadataKind`]: ab_io_type::metadata::IoTypeMetadataKind
+    /// [`MAX_TOTAL_METHOD_ARGS`]: crate::MAX_TOTAL_METHOD_ARGS
     ///
     /// NOTE: [`Self::Return`] is encoded as a separate argument and counts towards the number of
     /// arguments. At the same time, `self` doesn't count towards the number of arguments as it

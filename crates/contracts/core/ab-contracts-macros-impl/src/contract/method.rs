@@ -751,6 +751,11 @@ impl MethodDetails {
         Ok(quote_spanned! {fn_sig.span() =>
             #[expect(clippy::inline_modules, reason = "Macro-generated")]
             pub mod #original_method_name {
+                #[allow(
+                    unused_imports,
+                    reason = "Unused when types of the method need nothing from the parent module, \
+                    which the macro can't tell without resolving names"
+                )]
                 use super::*;
 
                 #external_args_struct
@@ -907,7 +912,9 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", tmp.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
-            let tmp_local = format_ident!("macro_{}", tmp.arg_name);
+            // The span of the call site rather than of the argument name, so that `non_snake_case`
+            // doesn't report the local in the method signature, like `macro__tmp` for `_tmp`
+            let tmp_local = format_ident!("macro_{}", tmp.arg_name, span = Span::call_site());
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -975,7 +982,8 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", slot.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
-            let slot_local = format_ident!("macro_{}", slot.arg_name);
+            // The span of the call site, like for `#[tmp]` above
+            let slot_local = format_ident!("macro_{}", slot.arg_name, span = Span::call_site());
 
             internal_args_pointers.push(quote! {
                 // Use `Address` to check if the method argument had the correct type at compile
@@ -1217,15 +1225,23 @@ impl MethodDetails {
                 internally by the contract, there should be no need to construct it explicitly \
                 except maybe in contract's own tests"
             );
+            // A method without arguments and return value has no public fields in `InternalArgs`,
+            // so `clippy::partial_pub_fields` doesn't fire there. The expectation keeps the span of
+            // the signature, otherwise rustc doesn't report it when it is unfulfilled.
+            let partial_pub_fields_expectation = (!internal_args_pointers.is_empty()).then(|| {
+                quote_spanned! {fn_sig.span() =>
+                    #[expect(
+                        clippy::partial_pub_fields,
+                        reason = "Not needed to be constructed publicly, but does need to always \
+                        store the lifetime"
+                    )]
+                }
+            });
             quote_spanned! {fn_sig.span() =>
                 #[doc = #args_struct_doc]
                 #[derive(::core::fmt::Debug)]
                 #[repr(C)]
-                #[expect(
-                    clippy::partial_pub_fields,
-                    reason = "Not needed to be constructed publicly, but does need to always store \
-                    the lifetime"
-                )]
+                #partial_pub_fields_expectation
                 #[allow(clippy::pub_underscore_fields, reason = "Comes from user-provided arguments")]
                 pub struct InternalArgs<'internal_args>
                 {
@@ -1283,6 +1299,14 @@ impl MethodDetails {
                 quote! { #self_type }
             };
 
+            // A method without arguments and return value doesn't read `InternalArgs`, so the
+            // argument isn't bound to a variable then
+            let args_pattern = if internal_args_pointers.is_empty() {
+                quote_spanned! {fn_sig.span() => _ }
+            } else {
+                quote_spanned! {fn_sig.span() => args }
+            };
+
             // Generate FFI function with the original name
             quote_spanned! {fn_sig.span() =>
                 /// FFI interface into a method, called by the host.
@@ -1331,7 +1355,7 @@ impl MethodDetails {
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes without `Self`")]
                 #[allow(clippy::absurd_extreme_comparisons, reason = "Macro-generated code doesn't know the size upfront")]
                 pub unsafe extern "C" fn #ffi_fn_name<'args>(
-                    args: &'args mut InternalArgs<'_>,
+                    #args_pattern: &'args mut InternalArgs<'_>,
                 ) -> ::ab_contracts_macros::__private::ExitCode {
                     #( #preparation )*
                     #( #views )*
@@ -1612,6 +1636,10 @@ impl MethodDetails {
                     reason = "Macro-generated, a generic parameter per output is harder to \
                     generate and reads worse in documentation"
                 )]
+                #[allow(
+                    clippy::too_many_arguments,
+                    reason = "Macro-generated, one argument per argument of the method"
+                )]
                 pub fn new<#( #output_lifetimes ),*>(
                     #( #method_args )*
                 ) -> Self {
@@ -1790,8 +1818,10 @@ impl MethodDetails {
                 format!("Number of arguments must not be more than {}", u8::MAX),
             )
         })?;
-        let total_number_of_arguments =
-            Literal::u8_unsuffixed(number_of_arguments.saturating_add(1));
+        // `self` is not in metadata, but counts towards `MAX_TOTAL_METHOD_ARGS` in methods with it
+        let total_number_of_arguments = Literal::u8_unsuffixed(
+            number_of_arguments.saturating_add(u8::from(self.state.is_some())),
+        );
         let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
 
         let original_method_name = &fn_sig.ident;

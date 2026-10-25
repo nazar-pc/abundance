@@ -1,8 +1,9 @@
 //! Tests of contract metadata and of metadata of types used by contracts
 
+use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::env::{EnvState, MethodContext};
 use ab_contracts_common::metadata::decode::{
-    ArgumentKind, MetadataDecoder, MetadataDecodingError, MethodMetadataDecoder,
+    ArgumentKind, MetadataDecoder, MetadataDecodingError, MethodKind, MethodMetadataDecoder,
     MethodsContainerKind,
 };
 use ab_contracts_common::metadata::{ContractMetadataKind, MAX_METADATA_DEPTH};
@@ -342,10 +343,14 @@ fn method_with_arguments(
     metadata
 }
 
-/// Decode all arguments of method metadata, an error comes with the index of its argument
-fn decode_arguments(mut metadata: &[u8]) -> Result<(), (usize, MetadataDecodingError<'_>)> {
+/// Decode all arguments of method metadata in a container of `container_kind`, an error comes with
+/// the index of its argument
+fn decode_arguments(
+    mut metadata: &[u8],
+    container_kind: MethodsContainerKind,
+) -> Result<(), (usize, MetadataDecodingError<'_>)> {
     let (mut arguments_decoder, _method) =
-        MethodMetadataDecoder::new(&mut metadata, MethodsContainerKind::Contract)
+        MethodMetadataDecoder::new(&mut metadata, container_kind)
             .decode_next()
             .unwrap();
     let mut index = 0;
@@ -378,9 +383,14 @@ fn arguments_in_order_are_accepted() {
             .filter(|&(index, _kind)| subset & (1 << index) != 0)
             .map(|(_index, &kind)| kind)
             .collect::<Vec<_>>();
+        // `&mut self` counts towards `MAX_TOTAL_METHOD_ARGS`, so larger subsets have too many
+        // arguments
+        if argument_kinds.len() >= usize::from(MAX_TOTAL_METHOD_ARGS) {
+            continue;
+        }
         let method = method_with_arguments(ContractMetadataKind::UpdateStatefulRw, &argument_kinds);
         assert!(
-            decode_arguments(&method).is_ok(),
+            decode_arguments(&method, MethodsContainerKind::Contract).is_ok(),
             "Arguments {argument_kinds:?}"
         );
     }
@@ -397,7 +407,7 @@ fn arguments_in_order_are_accepted() {
             &[state as u8, 0],
         ]
         .concat();
-        decode_arguments(&init).unwrap();
+        decode_arguments(&init, MethodsContainerKind::Contract).unwrap();
     }
 }
 
@@ -414,7 +424,7 @@ fn arguments_out_of_order_are_rejected() {
 
             let method =
                 method_with_arguments(ContractMetadataKind::UpdateStatefulRw, &[first, second]);
-            let result = decode_arguments(&method);
+            let result = decode_arguments(&method, MethodsContainerKind::Contract);
             if in_order {
                 assert!(result.is_ok(), "Arguments {first:?} and {second:?}");
             } else {
@@ -444,7 +454,7 @@ fn arguments_out_of_order_are_rejected() {
         ],
     );
     assert!(matches!(
-        decode_arguments(&method),
+        decode_arguments(&method, MethodsContainerKind::Contract),
         Err((
             3,
             MetadataDecodingError::ArgumentOutOfOrder {
@@ -452,4 +462,229 @@ fn arguments_out_of_order_are_rejected() {
             }
         ))
     ));
+}
+
+#[test]
+fn trait_methods_have_no_tmp_or_slots() {
+    // Argument kinds that a method allows in a contract and in a trait. Traits only have stateless
+    // methods, and `#[view]` methods have no `#[tmp]` and only read-only `#[env]` and `#[slot]`s.
+    let allowed_argument_kinds = [
+        (
+            ContractMetadataKind::UpdateStateless,
+            &ARGUMENT_KINDS[..],
+            &[
+                ContractMetadataKind::EnvRo,
+                ContractMetadataKind::EnvRw,
+                ContractMetadataKind::Input,
+                ContractMetadataKind::Output,
+                ContractMetadataKind::Return,
+            ][..],
+        ),
+        (
+            ContractMetadataKind::ViewStateless,
+            &[
+                ContractMetadataKind::EnvRo,
+                ContractMetadataKind::SlotRo,
+                ContractMetadataKind::Input,
+                ContractMetadataKind::Output,
+                ContractMetadataKind::Return,
+            ][..],
+            &[
+                ContractMetadataKind::EnvRo,
+                ContractMetadataKind::Input,
+                ContractMetadataKind::Output,
+                ContractMetadataKind::Return,
+            ][..],
+        ),
+    ];
+
+    for (method_kind, in_contract, in_trait) in allowed_argument_kinds {
+        for argument_kind in ARGUMENT_KINDS {
+            let method = method_with_arguments(method_kind, &[argument_kind]);
+
+            for (container_kind, allowed) in [
+                (MethodsContainerKind::Contract, in_contract),
+                // Without knowing the container, the decoder accepts what a contract allows
+                (MethodsContainerKind::Unknown, in_contract),
+                (MethodsContainerKind::Trait, in_trait),
+            ] {
+                let result = decode_arguments(&method, container_kind);
+                if allowed.contains(&argument_kind) {
+                    assert!(
+                        result.is_ok(),
+                        "{method_kind:?} with {argument_kind:?} in {container_kind:?}: {result:?}"
+                    );
+                } else {
+                    assert!(
+                        matches!(
+                            result,
+                            Err((
+                                0,
+                                MetadataDecodingError::UnexpectedArgumentKind {
+                                    argument_kind: _,
+                                    method_kind: _,
+                                    container_kind: _,
+                                }
+                            ))
+                        ),
+                        "{method_kind:?} with {argument_kind:?} in {container_kind:?}: {result:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    // The container kind reaches the arguments decoder through `MetadataDecoder`
+    let update = method_with_arguments(
+        ContractMetadataKind::UpdateStateless,
+        &[ContractMetadataKind::SlotRw],
+    );
+    decode_first_argument(&contract_with_method(
+        &[IoTypeMetadataKind::Unit as u8],
+        &update,
+    ))
+    .unwrap();
+    assert!(matches!(
+        decode_first_argument(&trait_with_method(&update)),
+        Err(MetadataDecodingError::UnexpectedArgumentKind {
+            argument_kind: ArgumentKind::SlotRw,
+            method_kind: MethodKind::UpdateStateless,
+            container_kind: MethodsContainerKind::Trait,
+        })
+    ));
+}
+
+/// Metadata of an `#[init]` method with arguments of `argument_kinds` followed by the state
+fn init_with_state(
+    argument_kinds: &[ContractMetadataKind],
+    state: ContractMetadataKind,
+) -> Vec<u8> {
+    let mut metadata = vec![ContractMetadataKind::Init as u8, 4];
+    metadata.extend_from_slice(b"init");
+    metadata.push(u8::try_from(argument_kinds.len() + 1).unwrap());
+    for &argument_kind in argument_kinds {
+        metadata.extend_from_slice(&argument_metadata(argument_kind));
+    }
+    // The state has no type
+    metadata.extend_from_slice(&[state as u8, 0]);
+    metadata
+}
+
+#[test]
+fn init_must_end_with_state() {
+    // The state is the return value or, without one, the last `#[output]`
+    for state in [ContractMetadataKind::Output, ContractMetadataKind::Return] {
+        for argument_kinds in [&[][..], &[ContractMetadataKind::Input]] {
+            let init = init_with_state(argument_kinds, state);
+            decode_arguments(&init, MethodsContainerKind::Contract).unwrap();
+        }
+    }
+
+    // Without arguments there is no state
+    let init = method_with_arguments(ContractMetadataKind::Init, &[]);
+    let mut init = init.as_slice();
+    assert!(matches!(
+        MethodMetadataDecoder::new(&mut init, MethodsContainerKind::Contract).decode_next(),
+        Err(MetadataDecodingError::InitWithoutState)
+    ));
+
+    // Any other last argument is not the state, even with a type
+    for argument_kinds in [
+        &[ContractMetadataKind::EnvRw][..],
+        &[ContractMetadataKind::TmpRw],
+        &[ContractMetadataKind::SlotRw],
+        &[ContractMetadataKind::Input],
+        &[
+            ContractMetadataKind::EnvRw,
+            ContractMetadataKind::TmpRw,
+            ContractMetadataKind::SlotRw,
+            ContractMetadataKind::Input,
+        ],
+    ] {
+        let init = method_with_arguments(ContractMetadataKind::Init, argument_kinds);
+        let result = decode_arguments(&init, MethodsContainerKind::Contract);
+        assert!(
+            matches!(
+                result,
+                Err((index, MetadataDecodingError::InitWithoutState))
+                    if index == argument_kinds.len() - 1
+            ),
+            "Arguments {argument_kinds:?}: {result:?}"
+        );
+    }
+}
+
+#[test]
+fn too_many_arguments_are_rejected() {
+    // `self` counts towards `MAX_TOTAL_METHOD_ARGS` in methods that have it
+    for (method_kind, max_arguments) in [
+        (ContractMetadataKind::UpdateStateless, MAX_TOTAL_METHOD_ARGS),
+        (
+            ContractMetadataKind::UpdateStatefulRw,
+            MAX_TOTAL_METHOD_ARGS - 1,
+        ),
+    ] {
+        let arguments = vec![ContractMetadataKind::Input; usize::from(max_arguments)];
+        let method = method_with_arguments(method_kind, &arguments);
+        decode_arguments(&method, MethodsContainerKind::Contract).unwrap();
+
+        let too_many_arguments = vec![ContractMetadataKind::Input; usize::from(max_arguments) + 1];
+        let method = method_with_arguments(method_kind, &too_many_arguments);
+        let mut method = method.as_slice();
+        assert!(
+            matches!(
+                MethodMetadataDecoder::new(&mut method, MethodsContainerKind::Contract)
+                    .decode_next(),
+                Err(MetadataDecodingError::TooManyArguments { number_of_arguments })
+                    if number_of_arguments == MAX_TOTAL_METHOD_ARGS + 1
+            ),
+            "{method_kind:?}"
+        );
+    }
+}
+
+#[test]
+fn external_args_skip_env_and_tmp() {
+    // `ExternalArgs` of these methods only have the `#[slot]` and the `#[input]`
+    let external_args = [ContractMetadataKind::SlotRw, ContractMetadataKind::Input];
+    let method = method_with_arguments(ContractMetadataKind::UpdateStateless, &external_args);
+    for skipped in [
+        &[ContractMetadataKind::EnvRo][..],
+        &[ContractMetadataKind::EnvRw],
+        &[ContractMetadataKind::TmpRo],
+        &[ContractMetadataKind::TmpRw],
+        &[ContractMetadataKind::EnvRw, ContractMetadataKind::TmpRw],
+    ] {
+        let method_with_skipped = method_with_arguments(
+            ContractMetadataKind::UpdateStateless,
+            &[skipped, &external_args].concat(),
+        );
+        assert_eq!(
+            compact_external_args(&method_with_skipped),
+            compact_external_args(&method),
+            "Skipped {skipped:?}"
+        );
+        assert_eq!(
+            MethodFingerprint::new(&method_with_skipped),
+            MethodFingerprint::new(&method),
+            "Skipped {skipped:?}"
+        );
+        // Compact metadata of the method itself retains them
+        assert_ne!(
+            compact(&method_with_skipped),
+            compact(&method),
+            "Skipped {skipped:?}"
+        );
+    }
+
+    // The state of `#[init]` is still its last argument
+    let init = init_with_state(&[], ContractMetadataKind::Output);
+    let init_with_skipped = init_with_state(
+        &[ContractMetadataKind::EnvRw, ContractMetadataKind::TmpRw],
+        ContractMetadataKind::Output,
+    );
+    assert_eq!(
+        compact_external_args(&init_with_skipped),
+        compact_external_args(&init)
+    );
 }

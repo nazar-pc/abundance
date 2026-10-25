@@ -190,7 +190,7 @@ pub mod __private;
 /// // Will generate this
 /// #[cfg_attr(feature = "guest", unsafe(no_mangle))]
 /// pub unsafe extern "C" fn example_hello(
-///     args: &mut InternalArgs,
+///     _: &mut InternalArgs,
 /// ) -> ExitCode {
 ///     // ...
 /// }
