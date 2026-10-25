@@ -1,5 +1,6 @@
 use crate::trivial_type::TrivialType;
 use crate::variable_elements::VariableElements;
+use core::mem;
 use core::mem::MaybeUninit;
 
 #[test]
@@ -119,4 +120,46 @@ fn copy_from() {
 
     assert_eq!(dst_size, u64::SIZE);
     assert_eq!(dst_buffer, [1, 0, 0, 0, 0, 0, 0, 0]);
+}
+
+#[test]
+fn copy_from_shorter_lived() {
+    let mut dst_buffer = [MaybeUninit::<u64>::uninit(); 2];
+    let mut dst_size = 0;
+    let mut dst = VariableElements::<u64>::from_uninit(&mut dst_buffer, &mut dst_size).unwrap();
+    {
+        // The source is gone before the destination is used again
+        let src_buffer = [1_u64, 2];
+        let src_size = 2 * u64::SIZE;
+        let src = VariableElements::<u64>::from_buffer(&src_buffer, &src_size).unwrap();
+        assert!(dst.copy_from(&src));
+    }
+    assert_eq!(dst.get_initialized(), &[1, 2]);
+}
+
+#[test]
+fn swap() {
+    let mut buffer_a = [0_u32; 1];
+    let mut size_a = u32::SIZE;
+    let mut buffer_b = [MaybeUninit::<u32>::uninit(); 2];
+    let mut size_b = 0;
+    {
+        let mut a = VariableElements::<u32>::from_buffer_mut(&mut buffer_a, &mut size_a).unwrap();
+        let mut b = VariableElements::<u32>::from_uninit(&mut buffer_b, &mut size_b).unwrap();
+        // Both buffers outlive both views, so each view can keep using the other's buffer
+        mem::swap(&mut a, &mut b);
+
+        assert_eq!(a.capacity(), 2 * u32::SIZE);
+        assert!(a.append(&[1, 2]));
+        assert_eq!(b.capacity(), u32::SIZE);
+        b.get_initialized_mut().copy_from_slice(&[3]);
+    }
+    assert_eq!(buffer_a, [3]);
+    assert_eq!(size_a, u32::SIZE);
+    assert_eq!(size_b, 2 * u32::SIZE);
+    let buffer_b = buffer_b.map(|element| {
+        // SAFETY: Both elements were appended above
+        unsafe { element.assume_init() }
+    });
+    assert_eq!(buffer_b, [1, 2]);
 }

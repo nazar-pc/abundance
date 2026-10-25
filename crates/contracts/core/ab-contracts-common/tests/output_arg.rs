@@ -32,7 +32,7 @@ where
 }
 
 /// Give a container the method received to a call
-fn forward(output: &mut MaybeData<u64>, bytes: &[u8]) {
+fn forward(output: &mut MaybeData<'_, u64>, bytes: &[u8]) {
     call(output, bytes);
 }
 
@@ -72,7 +72,7 @@ fn maybe_data() {
     // The type of an integer literal is inferred from the target
     let mut inferred = 0;
     let mut size = 0;
-    call::<MaybeData<u8>, _>(
+    call::<MaybeData<'_, u8>, _>(
         &mut MaybeData::from_mut(&mut inferred, &mut size).unwrap(),
         &[4],
     );

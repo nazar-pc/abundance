@@ -44,7 +44,7 @@ pub struct ReusedOutputs;
 impl ReusedOutputs {
     /// Fails unless the output is given empty, then writes [`FILLED`]
     #[view]
-    pub fn fill(#[output] address: &mut MaybeData<Address>) -> Result<(), ContractError> {
+    pub fn fill(#[output] address: &mut MaybeData<'_, Address>) -> Result<(), ContractError> {
         if address.get().is_some() {
             return Err(ContractError::Forbidden);
         }
@@ -72,7 +72,7 @@ impl ReusedOutputs {
 
     /// Fails unless `value` is the single byte [`SMALL`]
     #[view]
-    pub fn check_byte(#[input] value: &VariableBytes) -> Result<(), ContractError> {
+    pub fn check_byte(#[input] value: &VariableBytes<'_>) -> Result<(), ContractError> {
         if value.get_initialized() != [SMALL] {
             return Err(ContractError::BadInput);
         }

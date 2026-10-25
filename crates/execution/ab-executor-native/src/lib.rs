@@ -240,7 +240,7 @@ impl NativeExecutor {
         let address_allocator_address = Address::system_address_allocator(self.shard_index);
         let mut slots = Slots::new(slots);
 
-        let system_contracts: [(Address, &VariableBytes<{ MAX_CODE_SIZE }>); _] = [
+        let system_contracts: [(Address, &VariableBytes<'_, { MAX_CODE_SIZE }>); _] = [
             (Address::SYSTEM_STATE, &State::code()),
             (address_allocator_address, &AddressAllocator::code()),
             (Address::SYSTEM_BLOCK, &Block::code()),

@@ -72,19 +72,19 @@ impl ReturnValues {
 
     /// Stores `value` in `slot`
     #[update]
-    pub fn store(#[slot] slot: &mut MaybeData<u8>, #[input] &value: &u8) {
+    pub fn store(#[slot] slot: &mut MaybeData<'_, u8>, #[input] &value: &u8) {
         slot.replace(value);
     }
 
     /// Returns the value stored in `slot`
     #[view]
-    pub fn stored(#[slot] slot: &MaybeData<u8>) -> Result<u8, ContractError> {
+    pub fn stored(#[slot] slot: &MaybeData<'_, u8>) -> Result<u8, ContractError> {
         slot.get().copied().ok_or(ContractError::NotFound)
     }
 
     /// Fails unless `value` is given empty
     #[view]
-    pub fn expect_empty(#[input] value: &MaybeData<ReturnValues>) -> Result<(), ContractError> {
+    pub fn expect_empty(#[input] value: &MaybeData<'_, ReturnValues>) -> Result<(), ContractError> {
         if value.get().is_some() {
             return Err(ContractError::Forbidden);
         }

@@ -49,7 +49,7 @@ impl Fungible for ExampleFt {
 impl ExampleFt {
     #[init]
     pub fn new(
-        #[slot] (owner_addr, owner): (&Address, &mut MaybeData<Slot>),
+        #[slot] (owner_addr, owner): (&Address, &mut MaybeData<'_, Slot>),
         #[input] total_supply: &Balance,
     ) -> Self {
         owner.replace(Slot {
@@ -65,7 +65,7 @@ impl ExampleFt {
     pub fn mint(
         &mut self,
         #[env] env: &mut Env<'_>,
-        #[slot] to: &mut MaybeData<Slot>,
+        #[slot] to: &mut MaybeData<'_, Slot>,
         #[input] &value: &Balance,
     ) -> Result<(), ContractError> {
         if env.context() != self.owner && env.caller() != self.owner {
@@ -83,7 +83,7 @@ impl ExampleFt {
     }
 
     #[view]
-    pub fn balance(#[slot] target: &MaybeData<Slot>) -> Balance {
+    pub fn balance(#[slot] target: &MaybeData<'_, Slot>) -> Balance {
         target
             .get()
             .map_or_else(Balance::default, |slot| slot.balance)
@@ -92,8 +92,8 @@ impl ExampleFt {
     #[update]
     pub fn transfer(
         #[env] env: &mut Env<'_>,
-        #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),
-        #[slot] to: &mut MaybeData<Slot>,
+        #[slot] (from_address, from): (&Address, &mut MaybeData<'_, Slot>),
+        #[slot] to: &mut MaybeData<'_, Slot>,
         #[input] &amount: &Balance,
     ) -> Result<(), ContractError> {
         if !(env.context() == from_address

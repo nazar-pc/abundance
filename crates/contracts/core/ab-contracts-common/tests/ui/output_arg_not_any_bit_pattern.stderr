@@ -2,7 +2,7 @@ error[E0277]: `Mode` can't be given to a call as an `#[output]` of type `Mode`
   --> tests/ui/output_arg_not_any_bit_pattern.rs:22:10
    |
 22 |     give(&mut mode);
-   |     ---- ^^^^^^^^^ expected `&mut Mode` (or a view of one) whose contents accept every bit pattern, or `&mut Lent<Mode>`
+   |     ---- ^^^^^^^^^ expected `&mut Mode` whose contents accept every bit pattern, or `&mut Lent<Mode>`
    |     |
    |     required by a bound introduced by this call
    |
@@ -11,7 +11,7 @@ help: the trait `OutputArg<Mode>` is not implemented for `Mode`
    |
  9 | enum Mode {
    | ^^^^^^^^^
-   = note: a failed call can leave invalid contents behind, use `Lent::new()` for a local value, `Lent::<MaybeData<_>>::from_uninit()` or `Lent::<VariableElements<_>>::from_uninit()` for a local container, or `Env::lend_output()` for an `#[output]` the method received
+   = note: a failed call can leave invalid contents behind, use `Lent::new()` for a local value, `Lent::<MaybeData<'_, _>>::from_uninit()` or `Lent::<VariableElements<'_, _>>::from_uninit()` for a local container, or `Env::lend_output()` for an `#[output]` the method received
 help: the trait `OutputArg<T>` is implemented for `Lent<'_, T>`
   --> src/output.rs
    |

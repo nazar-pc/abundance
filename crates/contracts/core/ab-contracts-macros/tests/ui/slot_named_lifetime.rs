@@ -16,7 +16,7 @@ mod slot {
         #[update]
         pub fn lend_slot<'a>(
             #[env] env: &mut ab_contracts_common::env::Env<'a>,
-            #[slot] slot: &'a mut ab_io_type::maybe_data::MaybeData<u8>,
+            #[slot] slot: &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
         ) {
             let _slot = env.lend_output(slot);
         }
@@ -40,7 +40,7 @@ mod slot_with_address {
             #[env] env: &mut ab_contracts_common::env::Env<'a>,
             #[slot] (_address, slot): (
                 &ab_core_primitives::address::Address,
-                &'a mut ab_io_type::maybe_data::MaybeData<u8>,
+                &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
             ),
         ) {
             let _slot = env.lend_output(slot);

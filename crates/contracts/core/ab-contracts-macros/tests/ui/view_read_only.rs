@@ -35,7 +35,7 @@ mod slot_mut {
     #[contract]
     impl Example {
         #[view]
-        pub fn set(#[slot] _slot: &mut ab_io_type::maybe_data::MaybeData<u8>) {}
+        pub fn set(#[slot] _slot: &mut ab_io_type::maybe_data::MaybeData<'_, u8>) {}
     }
 }
 

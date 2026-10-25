@@ -1,8 +1,8 @@
 error: `#[tmp]` must appear only once before any `#[slot]`, `#[input]` or `#[output]`
   --> tests/ui/argument_order.rs:20:13
    |
-20 |             #[tmp] _tmp: &mut ab_io_type::maybe_data::MaybeData<u8>,
-   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+20 |             #[tmp] _tmp: &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: `#[env]` must be the first non-Self argument and only appear once
   --> tests/ui/argument_order.rs:41:13

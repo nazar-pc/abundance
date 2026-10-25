@@ -1,0 +1,25 @@
+error[E0277]: `impl Deref<Target = ab_io_type::maybe_data::MaybeData<'_, u64>> + '_` can't be given to a call as an `#[output]` of type `ab_io_type::maybe_data::MaybeData<'_, u64>`
+  --> tests/ui/output_arg_shared_view.rs:15:10
+   |
+15 |     give(&mut MaybeData::from_ref(Some(&value)));
+   |     ---- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut ab_io_type::maybe_data::MaybeData<'_, u64>` whose contents accept every bit pattern, or `&mut Lent<ab_io_type::maybe_data::MaybeData<'_, u64>>`
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = help: the trait `OutputArg<ab_io_type::maybe_data::MaybeData<'_, u64>>` is not implemented for `impl Deref<Target = ab_io_type::maybe_data::MaybeData<'_, u64>> + '_`
+   = note: a failed call can leave invalid contents behind, use `Lent::new()` for a local value, `Lent::<MaybeData<'_, _>>::from_uninit()` or `Lent::<VariableElements<'_, _>>::from_uninit()` for a local container, or `Env::lend_output()` for an `#[output]` the method received
+help: the trait `OutputArg<T>` is implemented for `Lent<'_, T>`
+  --> src/output.rs
+   |
+   | / unsafe impl<T> OutputArg<T> for Lent<'_, T>
+   | | where
+   | |     T: IoType,
+   | |______________^
+note: required by a bound in `give`
+  --> tests/ui/output_arg_shared_view.rs:9:13
+   |
+ 7 | fn give<'a, Output>(_output: &mut Output)
+   |    ---- required by a bound in this function
+ 8 | where
+ 9 |     Output: OutputArg<MaybeData<'a, u64>>,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `give`

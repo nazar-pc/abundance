@@ -14,7 +14,7 @@ mod regular {
     #[contract]
     impl Example {
         #[init]
-        pub fn new(#[output] state: &mut ab_io_type::maybe_data::MaybeData<Self>) -> u8 {
+        pub fn new(#[output] state: &mut ab_io_type::maybe_data::MaybeData<'_, Self>) -> u8 {
             state.replace(Self { value: 1 });
             0
         }
@@ -35,7 +35,7 @@ mod result {
     impl Example {
         #[init]
         pub fn new(
-            #[output] state: &mut ab_io_type::maybe_data::MaybeData<Self>,
+            #[output] state: &mut ab_io_type::maybe_data::MaybeData<'_, Self>,
         ) -> Result<u8, ab_contracts_common::ContractError> {
             state.replace(Self { value: 1 });
             Ok(0)

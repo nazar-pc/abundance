@@ -539,6 +539,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
 
             fn code() -> impl ::core::ops::Deref<
                 Target = ::ab_contracts_macros::__private::VariableBytes<
+                    'static,
                     { ::ab_contracts_macros::__private::MAX_CODE_SIZE },
                 >,
             > {

@@ -204,7 +204,7 @@ impl MyContract {
     #[update]
     pub fn self_increment_by_slot(
         &mut self,
-        #[slot] slot: &MaybeData<u32>,
+        #[slot] slot: &MaybeData<'_, u32>,
     ) -> Result<u32, ContractError> {
         let old_value = self.value;
 

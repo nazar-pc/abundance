@@ -19,7 +19,7 @@ impl Contract for Manual {
     type Slot = ();
     type Tmp = ();
 
-    fn code() -> impl Deref<Target = VariableBytes<MAX_CODE_SIZE>> {
+    fn code() -> impl Deref<Target = VariableBytes<'static, MAX_CODE_SIZE>> {
         static CODE_SIZE: u32 = 6;
 
         VariableBytes::from_buffer(Self::CODE.as_bytes(), &CODE_SIZE).unwrap()

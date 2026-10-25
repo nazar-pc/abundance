@@ -16,8 +16,8 @@ mod slot_before_tmp {
     impl Example {
         #[update]
         pub fn store(
-            #[slot] _slot: &mut ab_io_type::maybe_data::MaybeData<u8>,
-            #[tmp] _tmp: &mut ab_io_type::maybe_data::MaybeData<u8>,
+            #[slot] _slot: &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+            #[tmp] _tmp: &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
         ) {
         }
     }
@@ -37,7 +37,7 @@ mod slot_before_env {
     impl Example {
         #[view]
         pub fn read(
-            #[slot] _slot: &ab_io_type::maybe_data::MaybeData<u8>,
+            #[slot] _slot: &ab_io_type::maybe_data::MaybeData<'_, u8>,
             #[env] _env: &ab_contracts_common::env::Env<'_>,
         ) {
         }
@@ -58,7 +58,7 @@ mod tmp_before_env {
     impl Example {
         #[update]
         pub fn store(
-            #[tmp] _tmp: &mut ab_io_type::maybe_data::MaybeData<u8>,
+            #[tmp] _tmp: &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
             #[env] _env: &mut ab_contracts_common::env::Env<'_>,
         ) {
         }
@@ -79,7 +79,7 @@ mod output_before_input {
     impl Example {
         #[view]
         pub fn copy(
-            #[output] _output: &mut ab_io_type::maybe_data::MaybeData<u8>,
+            #[output] _output: &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
             #[input] _input: &u8,
         ) {
         }

@@ -15,19 +15,19 @@ enum Mode {
     B,
 }
 
-fn give_maybe_data<Output>(_output: &mut Output)
+fn give_maybe_data<'a, Output>(_output: &mut Output)
 where
-    Output: OutputArg<MaybeData<Mode>>,
+    Output: OutputArg<MaybeData<'a, Mode>>,
 {
 }
 
-fn give_elements<Output>(_output: &mut Output)
+fn give_elements<'a, Output>(_output: &mut Output)
 where
-    Output: OutputArg<VariableElements<Mode>>,
+    Output: OutputArg<VariableElements<'a, Mode>>,
 {
 }
 
-fn forward(output: &mut MaybeData<Mode>) {
+fn forward(output: &mut MaybeData<'_, Mode>) {
     give_maybe_data(output);
 }
 

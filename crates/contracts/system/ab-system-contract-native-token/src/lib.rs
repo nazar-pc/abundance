@@ -54,7 +54,7 @@ impl NativeToken {
     #[update]
     pub fn initialize(
         #[env] env: &mut Env<'_>,
-        #[slot] (own_address, own_balance): (&Address, &mut MaybeData<Slot>),
+        #[slot] (own_address, own_balance): (&Address, &mut MaybeData<'_, Slot>),
         #[input] &max_issuance: &Balance,
     ) -> Result<Self, ContractError> {
         // Only execution environment can make a direct call here
@@ -78,7 +78,7 @@ impl NativeToken {
     }
 
     #[view]
-    pub fn balance(#[slot] target: &MaybeData<Slot>) -> Balance {
+    pub fn balance(#[slot] target: &MaybeData<'_, Slot>) -> Balance {
         target
             .get()
             .map_or_else(Balance::default, |slot| slot.balance)
@@ -87,8 +87,8 @@ impl NativeToken {
     #[update]
     pub fn transfer(
         #[env] env: &mut Env<'_>,
-        #[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),
-        #[slot] to: &mut MaybeData<Slot>,
+        #[slot] (from_address, from): (&Address, &mut MaybeData<'_, Slot>),
+        #[slot] to: &mut MaybeData<'_, Slot>,
         #[input] &amount: &Balance,
     ) -> Result<(), ContractError> {
         if !(env.context() == from_address

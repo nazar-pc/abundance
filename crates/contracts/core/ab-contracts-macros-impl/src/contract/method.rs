@@ -1,5 +1,6 @@
 use crate::contract::common::{
-    derive_ident_metadata, extract_ident_from_type, max_depth_assertion,
+    derive_ident_metadata, extract_ident_from_type, max_depth_assertion, replace_lifetimes,
+    with_inferred_lifetimes, with_lifetime,
 };
 use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::{Ident, Literal, Span, TokenStream};
@@ -7,6 +8,7 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Paren;
+use syn::visit::Visit;
 use syn::{
     Attribute, Error, GenericArgument, Lifetime, Meta, Pat, PatType, PathArguments, Receiver,
     ReceiverKind, ReturnType, Signature, Token, Type, TypeTuple,
@@ -75,8 +77,25 @@ struct Output {
     type_name: Type,
     arg_name: Ident,
     has_self: bool,
-    /// Lifetime of the reference, unless it is elided or `'_`
+    /// The first named lifetime in the type (see `named_lifetime_in_type()`)
     named_lifetime: Option<Lifetime>,
+}
+
+impl Output {
+    /// The type for `impl OutputArg<_>` in arguments of generated methods, and the lifetime that
+    /// these methods need to declare for it, if any.
+    ///
+    /// `'_` is not allowed in `impl Trait` in arguments, so lifetimes in the type are replaced with
+    /// one named after the output.
+    fn output_arg_type(&self) -> (Type, Option<Lifetime>) {
+        let mut type_name = self.type_name.clone();
+        let lifetime = Lifetime {
+            apostrophe: self.arg_name.span(),
+            ident: self.arg_name.clone(),
+        };
+        let replaced = replace_lifetimes(&mut type_name, &lifetime);
+        (type_name, replaced.then_some(lifetime))
+    }
 }
 
 enum MethodReturnType {
@@ -147,21 +166,28 @@ impl MethodDetails {
         }
     }
 
-    /// Returns `#[tmp]` type (or `()` if it is not used) if all methods have the same slots type
+    /// Returns `#[tmp]` type (or `()` if it is not used) if all methods have the same slots type.
+    ///
+    /// Lifetimes in the type are replaced with `'static`, so that `Contract::Tmp` can name it.
+    /// `'static` is only used at the type level, like for the pointer type in `InternalArgs`,
+    /// metadata and type checks. The value a method gets is created by an `IoType` method like
+    /// `IoType::from_mut_ptr()`. It gives the value the lifetime of the borrow of `args` of the FFI
+    /// function instead, whatever lifetime the type has (see `IoType::WithLifetime`).
     pub(super) fn tmp_type<'a, I>(iter: I) -> Option<Type>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
         let mut tmp_type = None;
         for slot in iter.flat_map(|method_details| &method_details.tmp) {
+            let type_name = with_lifetime(&slot.type_name, "'static");
             match &tmp_type {
                 Some(tmp_type) => {
-                    if tmp_type != &slot.type_name {
+                    if tmp_type != &type_name {
                         return None;
                     }
                 }
                 None => {
-                    tmp_type.replace(slot.type_name.clone());
+                    tmp_type.replace(type_name);
                 }
             }
         }
@@ -169,21 +195,24 @@ impl MethodDetails {
         Some(tmp_type.unwrap_or_else(MethodReturnType::unit_type))
     }
 
-    /// Returns `#[slot]` type (or `()` if it is not used) if all methods have the same slots type
+    /// Returns `#[slot]` type (or `()` if it is not used) if all methods have the same slots type.
+    ///
+    /// Lifetimes in the type are replaced with `'static`, like in [`Self::tmp_type()`].
     pub(super) fn slot_type<'a, I>(iter: I) -> Option<Type>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
         let mut slot_type = None;
         for slot in iter.flat_map(|method_details| &method_details.slots) {
+            let type_name = with_lifetime(&slot.type_name, "'static");
             match &slot_type {
                 Some(slot_type) => {
-                    if slot_type != &slot.type_name {
+                    if slot_type != &type_name {
                         return None;
                     }
                 }
                 None => {
-                    slot_type.replace(slot.type_name.clone());
+                    slot_type.replace(type_name);
                 }
             }
         }
@@ -329,7 +358,7 @@ impl MethodDetails {
                     "`#[tmp]` argument name must be either a simple variable or a reference",
                 ));
             };
-            if let Some(lifetime) = named_lifetime(type_reference.lifetime.as_ref()) {
+            if let Some(lifetime) = named_lifetime_in_type(&pat_type.ty) {
                 return Err(Error::new(
                     lifetime.span(),
                     "`#[tmp]` must not have a named lifetime, since it is trusted without being \
@@ -350,7 +379,7 @@ impl MethodDetails {
         Err(Error::new(
             pat_type.span(),
             "`#[tmp]` must be a reference to a type implementing `IoTypeOptional` (can be \
-            shared or exclusive) like `&MaybeData<Slot>` or `&mut VariableBytes<1024>`",
+            shared or exclusive) like `&MaybeData<'_, Slot>` or `&mut VariableBytes<'_, 1024>`",
         ))
     }
 
@@ -399,7 +428,7 @@ impl MethodDetails {
                         "`#[slot]` argument name must be either a simple variable or a reference",
                     ));
                 };
-                if let Some(lifetime) = named_lifetime(type_reference.lifetime.as_ref()) {
+                if let Some(lifetime) = named_lifetime_in_type(&pat_type.ty) {
                     return Err(Error::new(lifetime.span(), SLOT_NAMED_LIFETIME_ERROR));
                 }
 
@@ -429,10 +458,8 @@ impl MethodDetails {
                             "`#[slot]` is not allowed to mutate data here",
                         ));
                     }
-                    for type_reference in [address_type, outer_slot_type] {
-                        if let Some(lifetime) = named_lifetime(type_reference.lifetime.as_ref()) {
-                            return Err(Error::new(lifetime.span(), SLOT_NAMED_LIFETIME_ERROR));
-                        }
+                    if let Some(lifetime) = named_lifetime_in_type(&pat_type.ty) {
+                        return Err(Error::new(lifetime.span(), SLOT_NAMED_LIFETIME_ERROR));
                     }
 
                     self.slots.push(Slot {
@@ -458,8 +485,8 @@ impl MethodDetails {
         Err(Error::new(
             pat_type.span(),
             "`#[slot]` must be a reference to a type implementing `IoTypeOptional` (can be \
-            shared or exclusive) like `&MaybeData<Slot>` or a tuple of references to address and \
-            to slot type like `(&Address, &mut VariableBytes<1024>)`",
+            shared or exclusive) like `&MaybeData<'_, Slot>` or a tuple of references to address \
+            and to slot type like `(&Address, &mut VariableBytes<'_, 1024>)`",
         ))
     }
 
@@ -525,13 +552,19 @@ impl MethodDetails {
             let mut type_name = type_reference.elem.as_ref().clone();
             let mut has_self = false;
 
-            // Replace things like `MaybeData<Self>` with `MaybeData<#self_type>`
+            // Replace things like `MaybeData<'_, Self>` with `MaybeData<'_, #self_type>`
             if let Type::Path(type_path) = &mut type_name
                 && let Some(path_segment) = type_path.path.segments.first_mut()
                 && let PathArguments::AngleBracketed(generic_arguments) =
                     &mut path_segment.arguments
-                && let Some(GenericArgument::Type(first_generic_argument)) =
-                    generic_arguments.args.first_mut()
+                && let Some(first_generic_argument) =
+                    generic_arguments
+                        .args
+                        .iter_mut()
+                        .find_map(|generic_argument| match generic_argument {
+                            GenericArgument::Type(generic_argument) => Some(generic_argument),
+                            _ => None,
+                        })
                 && let Type::Path(type_path) = &first_generic_argument
                 && type_path.path.is_ident("Self")
             {
@@ -543,15 +576,15 @@ impl MethodDetails {
                 type_name,
                 arg_name: pat_ident.ident.clone(),
                 has_self,
-                named_lifetime: named_lifetime(type_reference.lifetime.as_ref()).cloned(),
+                named_lifetime: named_lifetime_in_type(&pat_type.ty).cloned(),
             });
             Ok(())
         } else {
             Err(Error::new(
                 pat_type.span(),
                 "`#[output]` must be an exclusive reference to a type implementing `IoType` (it \
-                can be both read and written to) like `&mut MaybeData<Output>` or \
-                `&mut VariableBytes<1024>`",
+                can be both read and written to) like `&mut MaybeData<'_, Output>` or \
+                `&mut VariableBytes<'_, 1024>`",
             ))
         }
     }
@@ -737,9 +770,9 @@ impl MethodDetails {
         let mut internal_args_pointers = Vec::new();
         // `preparation` will generate code used before calling the original function
         let mut preparation = Vec::new();
-        // `output_views` will generate local variables with views of outputs, which live until
-        // the function returns
-        let mut output_views = Vec::new();
+        // `views` will generate local variables with views of arguments, which live until the
+        // function returns
+        let mut views = Vec::new();
         // `env_derivation` will generate a local variable with `Env` for the original function
         let mut env_derivation = None;
         // `original_fn_args` will generate arguments for calling original method implementation
@@ -848,13 +881,15 @@ impl MethodDetails {
                 // doesn't use that `Env` after the call other than to drop it
                 // (`Env::with_executor_context()` contract), and this function doesn't use it
                 // either. Second, the method may mutably borrow memory for the shorter lifetime and
-                // lend it to calls. Named lifetimes of the state, `#[tmp]` and `#[slot]` are
-                // rejected, so this memory is one of its `#[output]`s or memory that outlives this
-                // function. The method can only reach the latter through references it owns, which
-                // are gone once it returns, so afterward that memory is only accessible through the
-                // `Lent` it was lent in, which parses it first. After the call, the caller of this
-                // function only accesses the contents of outputs by parsing them, unless every bit
-                // pattern is valid (`# Safety` of this function).
+                // lend it to calls. Named lifetimes in the types of the state, `#[tmp]`, `#[slot]`
+                // and the last `#[output]` of `#[init]`, which is the initial state, are rejected,
+                // including those of containers like `MaybeData<'a, _>`. So this memory is one of
+                // its other `#[output]`s or memory that outlives this function. The method can only
+                // reach the latter through references it owns, which are gone once it returns, so
+                // afterward that memory is only accessible through the `Lent` it was lent in, which
+                // parses it first. After the call, the caller of this function only accesses the
+                // contents of outputs by parsing them, unless every bit pattern is valid
+                // (`# Safety` of this function).
                 let #env_local = unsafe { macro_shorten_env(args.#env_field) };
             });
 
@@ -863,13 +898,16 @@ impl MethodDetails {
 
         // Optional tmp argument
         if let Some(tmp) = &self.tmp {
-            let type_name = &tmp.type_name;
+            // `'static` only names the type, the value the method gets has the lifetime of the
+            // borrow of `args` (see `MethodDetails::tmp_type()`)
+            let type_name = with_lifetime(&tmp.type_name, "'static");
             let mutability = tmp.mutability;
             let ptr_field = format_ident!("{}_ptr", tmp.arg_name);
             let size_field = format_ident!("{}_size", tmp.arg_name);
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", tmp.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
+            let tmp_local = format_ident!("macro_{}", tmp.arg_name);
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -884,52 +922,52 @@ impl MethodDetails {
                 pub #capacity_field: ::core::primitive::u32,
             });
 
-            if mutability.is_some() {
-                original_fn_args.push(quote! {&mut *{
-                    // Ensure tmp type implements `IoTypeOptional`, which is required for handling
-                    // of tmp that might be removed or not present and implies implementation of
-                    // `IoType`, which is required for crossing the host/guest boundary
-                    const {
-                        const fn assert_impl_io_type_optional<T>()
-                        where
-                            T: ::ab_contracts_macros::__private::IoTypeOptional,
-                        {}
-                        assert_impl_io_type_optional::<#type_name>();
-                    }
-
+            let view = if mutability.is_some() {
+                quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
                     )
-                }});
+                }
             } else {
-                original_fn_args.push(quote! {&*{
-                    // Ensure tmp type implements `IoTypeOptional`, which is required for handling
-                    // of tmp that might be removed or not present and implies implementation of
-                    // `IoType`, which is required for crossing the host/guest boundary
-                    const {
-                        const fn assert_impl_io_type_optional<T>()
-                        where
-                            T: ::ab_contracts_macros::__private::IoTypeOptional,
-                        {}
-                        assert_impl_io_type_optional::<#type_name>();
-                    }
-
+                quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
                         &args.#size_field,
                         args.#capacity_field,
                     )
-                }});
-            }
+                }
+            };
+            // A local variable rather than a temporary, so that it outlives the block that binds
+            // it to the type of the argument (see `bind_to_type()`)
+            views.push(quote! {let #mutability #tmp_local = {
+                // Ensure tmp type implements `IoTypeOptional`, which is required for handling of
+                // tmp that might be removed or not present and implies implementation of `IoType`,
+                // which is required for crossing the host/guest boundary
+                const {
+                    const fn assert_impl_io_type_optional<T>()
+                    where
+                        T: ::ab_contracts_macros::__private::IoTypeOptional,
+                    {}
+                    assert_impl_io_type_optional::<#type_name>();
+                }
+
+                #view
+            };});
+            original_fn_args.push(bind_to_type(
+                &tmp.type_name,
+                mutability,
+                quote! { &#mutability *#tmp_local },
+            ));
         }
 
         // Slot arguments with:
         // * in case address is used: a pointer to address, a pointer to slot and size + capacity
         // * in case address is not used: a pointer to slot and size + capacity
         for slot in &self.slots {
-            let type_name = &slot.type_name;
+            // `'static` only names the type, like for `#[tmp]` above
+            let type_name = with_lifetime(&slot.type_name, "'static");
             let mutability = slot.mutability;
             let address_field = format_ident!("{}_address", slot.arg_name);
             let ptr_field = format_ident!("{}_ptr", slot.arg_name);
@@ -937,6 +975,7 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", slot.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
+            let slot_local = format_ident!("macro_{}", slot.arg_name);
 
             internal_args_pointers.push(quote! {
                 // Use `Address` to check if the method argument had the correct type at compile
@@ -954,47 +993,43 @@ impl MethodDetails {
                 pub #capacity_field: ::core::primitive::u32,
             });
 
-            let arg_extraction = if mutability.is_some() {
-                quote! {&mut *{
-                    // Ensure the slot type implements `IoTypeOptional`, which is required for
-                    // handling of slot that might be removed or not present and implies
-                    // implementation of `IoType`, which is required for crossing the host/guest
-                    // boundary
-                    const {
-                        const fn assert_impl_io_type_optional<T>()
-                        where
-                            T: ::ab_contracts_macros::__private::IoTypeOptional,
-                        {}
-                        assert_impl_io_type_optional::<#type_name>();
-                    }
-
+            let view = if mutability.is_some() {
+                quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
                         &mut args.#ptr_field,
                         &mut args.#size_field,
                         args.#capacity_field,
                     )
-                }}
+                }
             } else {
-                quote! {&*{
-                    // Ensure the slot type implements `IoTypeOptional`, which is required for
-                    // handling of slot that might be removed or not present and implies
-                    // implementation of `IoType`, which is required for crossing the host/guest
-                    // boundary
-                    const {
-                        const fn assert_impl_io_type_optional<T>()
-                        where
-                            T: ::ab_contracts_macros::__private::IoTypeOptional,
-                        {}
-                        assert_impl_io_type_optional::<#type_name>();
-                    }
-
+                quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
                         &args.#ptr_field,
                         &args.#size_field,
                         args.#capacity_field,
                     )
-                }}
+                }
             };
+            // A local variable rather than a temporary, like for `#[tmp]` above
+            views.push(quote! {let #mutability #slot_local = {
+                // Ensure the slot type implements `IoTypeOptional`, which is required for handling
+                // of slot that might be removed or not present and implies implementation of
+                // `IoType`, which is required for crossing the host/guest boundary
+                const {
+                    const fn assert_impl_io_type_optional<T>()
+                    where
+                        T: ::ab_contracts_macros::__private::IoTypeOptional,
+                    {}
+                    assert_impl_io_type_optional::<#type_name>();
+                }
+
+                #view
+            };});
+            let arg_extraction = bind_to_type(
+                &slot.type_name,
+                mutability,
+                quote! { &#mutability *#slot_local },
+            );
 
             if slot.with_address_arg {
                 original_fn_args.push(quote! {
@@ -1010,13 +1045,15 @@ impl MethodDetails {
 
         // Inputs
         for input in &self.inputs {
-            let type_name = &input.type_name;
+            // `'static` only names the type, like for `#[tmp]` above
+            let type_name = with_lifetime(&input.type_name, "'static");
             let arg_name = &input.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
             let size_field = format_ident!("{arg_name}_size");
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
+            let input_local = format_ident!("macro_{arg_name}");
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -1028,7 +1065,8 @@ impl MethodDetails {
                 pub #capacity_field: ::core::primitive::u32,
             });
 
-            original_fn_args.push(quote! {&*{
+            // A local variable rather than a temporary, like for `#[tmp]` above
+            views.push(quote! {let #input_local = {
                 // Ensure the input type implements `IoType`, which is required for crossing the
                 // host/guest boundary
                 const {
@@ -1058,12 +1096,18 @@ impl MethodDetails {
                             .exit_code();
                     }
                 }
-            }});
+            };});
+            original_fn_args.push(bind_to_type(
+                &input.type_name,
+                None,
+                quote! { &*#input_local },
+            ));
         }
 
         // Outputs
         for output in &self.outputs {
-            let type_name = &output.type_name;
+            // `'static` only names the type, like for `#[tmp]` above
+            let type_name = with_lifetime(&output.type_name, "'static");
             let arg_name = &output.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
             let size_field = format_ident!("{arg_name}_size");
@@ -1084,7 +1128,7 @@ impl MethodDetails {
 
             // A local variable rather than a temporary, so that the method can borrow the output
             // for the lifetime of `Env`
-            output_views.push(quote! {let mut #output_local = {
+            views.push(quote! {let mut #output_local = {
                 // Ensure the output type implements `IoType`, which is required for crossing the
                 // host/guest boundary
                 const {
@@ -1101,7 +1145,10 @@ impl MethodDetails {
                 // for writes of the capacity and for reads of the size, with that many bytes
                 // initialized, and the memory is not accessed other than through this pointer
                 // before this function returns, as required by the `# Safety` section of this
-                // function
+                // function. The returned value and a container that the method moves out of it
+                // borrow `args`, and the borrow ends before this function returns: the method
+                // returns a `TrivialType`, which can't hold a borrow, and statics require
+                // `'static`, so only locals of the method or of this function can hold them.
                 match unsafe {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::try_from_mut_ptr(
                         &mut args.#ptr_field,
@@ -1116,21 +1163,25 @@ impl MethodDetails {
                     }
                 }
             };});
-            original_fn_args.push(quote! { &mut *#output_local });
+            original_fn_args.push(bind_to_type(
+                &output.type_name,
+                Some(<Token![mut]>::default()),
+                quote! { &mut *#output_local },
+            ));
         }
 
         // The host stores the last `#[output]` of `#[init]` without a return value as the state of
-        // the contract, so it must be exactly `MaybeData<Self>` and not, for example, an alias of
-        // a container of multiple values
+        // the contract, so it must be exactly `MaybeData<'_, Self>` and not, for example, an alias
+        // of a container of multiple values
         if matches!(self.method_type, MethodType::Init)
             && self.return_type.unit_return_type()
             && let Some(state_output) = self.outputs.last()
         {
-            let type_name = &state_output.type_name;
+            let type_name = with_lifetime(&state_output.type_name, "'static");
             preparation.push(quote_spanned! {type_name.span() =>
                 const {
                     let _: ::core::marker::PhantomData<
-                        ::ab_contracts_macros::__private::MaybeData<#self_type>,
+                        ::ab_contracts_macros::__private::MaybeData<'static, #self_type>,
                     > = ::core::marker::PhantomData::<#type_name>;
                 }
             });
@@ -1279,11 +1330,11 @@ impl MethodDetails {
                 #[cfg_attr(feature = "guest", unsafe(no_mangle))]
                 #[allow(clippy::new_ret_no_self, reason = "Method was re-written for FFI purposes without `Self`")]
                 #[allow(clippy::absurd_extreme_comparisons, reason = "Macro-generated code doesn't know the size upfront")]
-                pub unsafe extern "C" fn #ffi_fn_name(
-                    args: &mut InternalArgs<'_>,
+                pub unsafe extern "C" fn #ffi_fn_name<'args>(
+                    args: &'args mut InternalArgs<'_>,
                 ) -> ::ab_contracts_macros::__private::ExitCode {
                     #( #preparation )*
-                    #( #output_views )*
+                    #( #views )*
                     #env_derivation
 
                     // Call inner function via normal Rust API
@@ -1366,6 +1417,8 @@ impl MethodDetails {
         let mut method_args_fields = Vec::new();
         // Getters for fields that the caller needs to read after the method call
         let mut getters = Vec::new();
+        // Lifetimes of outputs that `::new()` declares
+        let mut output_lifetimes = Vec::new();
 
         // For slots in external args only the address pointer is needed
         for slot in &self.slots {
@@ -1388,7 +1441,8 @@ impl MethodDetails {
 
         // Inputs with pointers to data and size
         for input in &self.inputs {
-            let type_name = &input.type_name;
+            let type_name = with_lifetime(&input.type_name, "'static");
+            let arg_type_name = with_lifetime(&input.type_name, "'_");
             let arg_name = &input.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
             let ptr_doc = format!("Pointer to the contents of `{arg_name}` input");
@@ -1409,7 +1463,7 @@ impl MethodDetails {
             });
 
             method_args.push(quote! {
-                #arg_name: &'external_args #type_name,
+                #arg_name: &'external_args #arg_type_name,
             });
             method_args_fields.push(quote! {
                 // This pointer is used as input to FFI call, and underlying data will not be
@@ -1424,7 +1478,7 @@ impl MethodDetails {
         // Outputs with pointers to data, size and capacity
         let mut outputs_iter = self.outputs.iter().peekable();
         while let Some(output) = outputs_iter.next() {
-            let type_name = &output.type_name;
+            let type_name = with_lifetime(&output.type_name, "'static");
             let arg_name = &output.arg_name;
             let ptr_field = format_ident!("{arg_name}_ptr");
             let ptr_doc = format!("Pointer to the contents of `{arg_name}` output");
@@ -1443,6 +1497,8 @@ impl MethodDetails {
             {
                 continue;
             }
+            let (arg_type_name, lifetime) = output.output_arg_type();
+            output_lifetimes.extend(lifetime);
 
             external_args_fields.push(quote! {
                 #[doc = #ptr_doc]
@@ -1457,7 +1513,7 @@ impl MethodDetails {
 
             method_args.push(quote! {
                 #arg_name: &'external_args mut impl ::ab_contracts_macros::__private::OutputArg<
-                    #type_name,
+                    #arg_type_name,
                 >,
             });
             getters.push(quote! {
@@ -1472,7 +1528,7 @@ impl MethodDetails {
             // borrowed, for the lifetime of the struct
             method_preparation.push(quote! {
                 let (#ptr_field, #size_field, #capacity_field) =
-                    ::ab_contracts_macros::__private::OutputArg::<#type_name>::as_raw_output(
+                    ::ab_contracts_macros::__private::OutputArg::<#arg_type_name>::as_raw_output(
                         #arg_name,
                     );
             });
@@ -1556,7 +1612,7 @@ impl MethodDetails {
                     reason = "Macro-generated, a generic parameter per output is harder to \
                     generate and reads worse in documentation"
                 )]
-                pub fn new(
+                pub fn new<#( #output_lifetimes ),*>(
                     #( #method_args )*
                 ) -> Self {
                     #( #method_preparation )*
@@ -1630,7 +1686,7 @@ impl MethodDetails {
         for input in &self.inputs {
             let io_metadata_type = format_ident!("Input");
             let arg_name_metadata = derive_ident_metadata(&input.arg_name)?;
-            let type_name = &input.type_name;
+            let type_name = with_lifetime(&input.type_name, "'static");
 
             method_metadata.push(quote! {
                 &[::ab_contracts_macros::__private::ContractMetadataKind::#io_metadata_type as ::core::primitive::u8],
@@ -1638,7 +1694,7 @@ impl MethodDetails {
                 <#type_name as ::ab_contracts_macros::__private::IoType>::METADATA,
             });
             max_depth_assertions.push(max_depth_assertion(
-                type_name,
+                &type_name,
                 "`#[input]` type must not be nested deeper than `MAX_METADATA_DEPTH`",
             ));
         }
@@ -1656,9 +1712,9 @@ impl MethodDetails {
             {
                 None
             } else {
-                let type_name = &output.type_name;
+                let type_name = with_lifetime(&output.type_name, "'static");
                 max_depth_assertions.push(max_depth_assertion(
-                    type_name,
+                    &type_name,
                     "`#[output]` type must not be nested deeper than `MAX_METADATA_DEPTH`",
                 ));
                 Some(quote! {
@@ -1792,6 +1848,8 @@ impl MethodDetails {
         // Sizes of outputs are set before the return value is processed, so they match what the
         // callee left in outputs even when the return value is rejected
         let mut size_write_backs = Vec::new();
+        // Lifetimes of outputs that the method declares
+        let mut output_lifetimes = Vec::new();
 
         // Address of the contract
         method_args.push(quote_spanned! {fn_sig.span() =>
@@ -1810,7 +1868,7 @@ impl MethodDetails {
 
         // For each input argument, generate a corresponding read-only argument
         for input in &self.inputs {
-            let type_name = &input.type_name;
+            let type_name = with_lifetime(&input.type_name, "'_");
             let arg_name = &input.arg_name;
 
             method_args.push(quote_spanned! {fn_sig.span() =>
@@ -1822,7 +1880,6 @@ impl MethodDetails {
         // For each output argument, generate a corresponding read-write argument
         let mut outputs_iter = self.outputs.iter().peekable();
         while let Some(output) = outputs_iter.next() {
-            let type_name = &output.type_name;
             let arg_name = &output.arg_name;
             let size_var = format_ident!("macro_{arg_name}_size");
             let size_field = format_ident!("{arg_name}_size");
@@ -1835,8 +1892,12 @@ impl MethodDetails {
             {
                 continue;
             }
+            let (type_name, lifetime) = output.output_arg_type();
+            output_lifetimes.extend(lifetime);
 
-            method_args.push(quote_spanned! {fn_sig.span() =>
+            // The bound has the span of the type, so that an error caused by it, like for an alias
+            // that hides `'static` in a container, points to the type rather than to the method
+            method_args.push(quote_spanned! {type_name.span() =>
                 #arg_name: &mut impl ::ab_contracts_macros::__private::OutputArg<#type_name>,
             });
             external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
@@ -1888,7 +1949,7 @@ impl MethodDetails {
         let method_signature = if let Some(return_type) = return_value {
             quote_spanned! {fn_sig.span() =>
                 #method_args_attrs
-                fn #ext_method_name(
+                fn #ext_method_name<#( #output_lifetimes ),*>(
                     #env_self,
                     #method_context_arg
                     #( #method_args )*
@@ -1901,7 +1962,7 @@ impl MethodDetails {
             quote_spanned! {fn_sig.span() =>
                 #method_args_attrs
                 #[allow(clippy::semicolon_if_nothing_returned, reason = "Macro-generated")]
-                fn #ext_method_name(
+                fn #ext_method_name<#( #output_lifetimes ),*>(
                     #env_self,
                     #method_context_arg
                     #( #method_args )*
@@ -2031,6 +2092,51 @@ impl MethodDetails {
 /// only borrow arguments for it whose lifetimes it names.
 fn named_lifetime(lifetime: Option<&Lifetime>) -> Option<&Lifetime> {
     lifetime.filter(|lifetime| lifetime.ident != "_")
+}
+
+/// Returns the first lifetime in `ty` that [`named_lifetime()`] returns.
+///
+/// Besides the lifetime of a reference, this finds the lifetime of a container, like `'a` in
+/// `&mut MaybeData<'a, T>`. A method could move the container out with `mem::replace()` and lend
+/// it with `Env<'a>`, just like a reference with a named lifetime.
+fn named_lifetime_in_type(ty: &Type) -> Option<&Lifetime> {
+    struct FindNamedLifetime<'ast> {
+        found: Option<&'ast Lifetime>,
+    }
+
+    impl<'ast> Visit<'ast> for FindNamedLifetime<'ast> {
+        #[expect(
+            clippy::renamed_function_params,
+            reason = "`syn` calls it `i`, which says nothing about what it is"
+        )]
+        fn visit_lifetime(&mut self, lifetime: &'ast Lifetime) {
+            if self.found.is_none() {
+                self.found = named_lifetime(Some(lifetime));
+            }
+        }
+    }
+
+    let mut visitor = FindNamedLifetime { found: None };
+    visitor.visit_type(ty);
+    visitor.found
+}
+
+/// Bind `value` to a reference to `type_name`, the type of an argument as the method declares it.
+///
+/// The binding has the span of `type_name`, so errors about the type point to it in the method
+/// signature. For example, an alias that hides `'static` in a container gets an error at the alias
+/// instead of one for the whole `impl`. The call checks the method signature as before, the binding
+/// only adds a check.
+fn bind_to_type(
+    type_name: &Type,
+    mutability: Option<Token![mut]>,
+    value: TokenStream,
+) -> TokenStream {
+    let user_type = with_inferred_lifetimes(type_name);
+    quote_spanned! {type_name.span() => {
+        let argument: &#mutability #user_type = #value;
+        argument
+    }}
 }
 
 fn extract_arg_name(mut pat: &Pat) -> Option<Ident> {

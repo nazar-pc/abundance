@@ -563,6 +563,10 @@ where
 
     type PointerType = T;
 
+    type WithLifetime<'b> = T;
+
+    type Reborrowed<'b> = &'b mut T;
+
     #[inline(always)]
     fn size(&self) -> u32 {
         T::SIZE
@@ -585,7 +589,7 @@ where
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
-    ) -> impl Deref<Target = Self> + 'a {
+    ) -> impl Deref<Target = Self::WithLifetime<'a>> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert_eq!(*size, T::SIZE, "Invalid size");
         debug_assert!(
@@ -603,7 +607,7 @@ where
         ptr: &'a mut NonNull<Self::PointerType>,
         _size: &'a mut u32,
         capacity: u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
+    ) -> impl DerefMut<Target = Self::WithLifetime<'a>> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             Self::SIZE <= capacity,
@@ -621,7 +625,7 @@ where
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
-    ) -> Option<impl Deref<Target = Self> + 'a> {
+    ) -> Option<impl Deref<Target = Self::WithLifetime<'a>> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert_eq!(*size, T::SIZE, "Invalid size");
         debug_assert!(
@@ -645,7 +649,7 @@ where
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
-    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+    ) -> Option<impl DerefMut<Target = Self::WithLifetime<'a>> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert_eq!(*size, T::SIZE, "Invalid size");
         debug_assert!(
@@ -672,5 +676,10 @@ where
     #[inline(always)]
     fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType> {
         NonNull::from_mut(self)
+    }
+
+    #[inline(always)]
+    fn reborrow_mut(&mut self) -> Self::Reborrowed<'_> {
+        self
     }
 }

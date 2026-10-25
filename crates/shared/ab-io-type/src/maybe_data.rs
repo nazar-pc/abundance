@@ -3,7 +3,8 @@ mod tests;
 
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::{NON_ZERO_SIZED, TrivialType};
-use crate::{DerefWrapper, IoType, IoTypeMut, IoTypeOptional};
+use crate::{DerefWrapper, IoType, IoTypeOptional};
+use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
@@ -14,13 +15,16 @@ use core::{ptr, slice};
 /// This is somewhat similar to [`VariableElements`](crate::variable_elements::VariableElements),
 /// but instead of a variable number of elements, data structure allows either having it or not
 /// having the contents, which is a simpler and more appropriate API in many cases.
+///
+/// It is a view of memory that is borrowed for `'a`.
 #[derive(Debug)]
-pub struct MaybeData<Data>
+pub struct MaybeData<'a, Data>
 where
     Data: TrivialType,
 {
     data: NonNull<Data>,
     size: NonNull<u32>,
+    memory: PhantomData<&'a ()>,
     // TODO: Technically redundant with the where-clause, which is not enforced in generic code
     //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed. Every instance
     //  evaluates the check through this field. It is initialized in `const` blocks, which are
@@ -29,7 +33,7 @@ where
 }
 
 // SAFETY: Low-level (effectively internal) implementation that upholds safety requirements
-unsafe impl<Data> IoType for MaybeData<Data>
+unsafe impl<Data> IoType for MaybeData<'_, Data>
 where
     Data: TrivialType,
     [(); NON_ZERO_SIZED::<Data>]:,
@@ -45,6 +49,13 @@ where
     };
 
     type PointerType = Data;
+
+    type WithLifetime<'b> = MaybeData<'b, Data>;
+
+    type Reborrowed<'b>
+        = MaybeData<'b, Data>
+    where
+        Self: 'b;
 
     #[inline(always)]
     fn size(&self) -> u32 {
@@ -78,7 +89,7 @@ where
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
-    ) -> impl Deref<Target = Self> + 'a {
+    ) -> impl Deref<Target = Self::WithLifetime<'a>> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size == 0 || *size <= capacity,
@@ -96,6 +107,7 @@ where
         DerefWrapper(MaybeData {
             data: *ptr,
             size,
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
         })
     }
@@ -106,7 +118,7 @@ where
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
+    ) -> impl DerefMut<Target = Self::WithLifetime<'a>> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size == 0 || *size <= capacity,
@@ -121,6 +133,7 @@ where
         DerefWrapper(MaybeData {
             data: *ptr,
             size: NonNull::from_mut(size),
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
         })
     }
@@ -131,7 +144,7 @@ where
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
-    ) -> Option<impl Deref<Target = Self> + 'a> {
+    ) -> Option<impl Deref<Target = Self::WithLifetime<'a>> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size == 0 || (*size == Data::SIZE && *size <= capacity),
@@ -163,7 +176,7 @@ where
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
-    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+    ) -> Option<impl DerefMut<Target = Self::WithLifetime<'a>> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size == 0 || *size == Data::SIZE,
@@ -186,9 +199,9 @@ where
         }
 
         // SAFETY: `size` and `capacity` are valid, `ptr` is aligned, valid for writes of `capacity`
-        // bytes and the memory is not accessed otherwise while the returned value exists (function
-        // contract), with size `0` nothing is read, otherwise the memory holds a valid value of
-        // `Data` as checked above
+        // bytes, the memory and `size` are not accessed otherwise for as long as
+        // `Self::from_mut_ptr()` requires (function contract), with size `0` nothing is read,
+        // otherwise the memory holds a valid value of `Data` as checked above
         Some(unsafe { Self::from_mut_ptr(ptr, size, capacity) })
     }
 
@@ -201,10 +214,20 @@ where
     fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType> {
         self.data
     }
+
+    #[inline(always)]
+    fn reborrow_mut(&mut self) -> Self::Reborrowed<'_> {
+        MaybeData {
+            data: self.data,
+            size: self.size,
+            memory: PhantomData,
+            _supported: const { [(); NON_ZERO_SIZED::<Data>] },
+        }
+    }
 }
 
 // SAFETY: Size `0` means data is missing, data is only accessed when the size is the size of data
-unsafe impl<Data> IoTypeOptional for MaybeData<Data>
+unsafe impl<Data> IoTypeOptional for MaybeData<'_, Data>
 where
     Data: TrivialType,
     [(); NON_ZERO_SIZED::<Data>]:,
@@ -213,16 +236,16 @@ where
 
 // Absence of data is represented by zero size, so `Data` itself must not be zero-sized, which the
 // `IoType` implementation checks
-impl<Data> MaybeData<Data>
+impl<'a, Data> MaybeData<'a, Data>
 where
     Data: TrivialType,
     Self: IoType,
 {
     /// Create a new shared instance from provided data reference.
     //
-    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
-    // shared reference for most practical purposes.
-    pub const fn from_ref(data: Option<&'_ Data>) -> impl Deref<Target = Self> + '_ {
+    // `impl Deref` is returned instead of `Self`, since methods that take `&mut self` would
+    // otherwise write into shared memory.
+    pub const fn from_ref(data: Option<&'a Data>) -> impl Deref<Target = Self> + 'a {
         let (data, size) = if let Some(data) = data {
             (NonNull::from_ref(data), &Data::SIZE)
         } else {
@@ -232,6 +255,7 @@ where
         DerefWrapper(Self {
             data,
             size: NonNull::from_ref(size),
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
         })
     }
@@ -242,22 +266,17 @@ where
     /// accordingly.
     ///
     /// Returns `None` if `size` is neither `0` nor `Data::SIZE`.
-    //
-    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
-    // exclusive reference for most practical purposes.
-    pub fn from_mut<'a>(
-        buffer: &'a mut Data,
-        size: &'a mut u32,
-    ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
+    pub fn from_mut(buffer: &'a mut Data, size: &'a mut u32) -> Option<Self> {
         if !(*size == 0 || *size == Data::SIZE) {
             return None;
         }
 
-        Some(DerefWrapper(Self {
+        Some(Self {
             data: NonNull::from_mut(buffer),
             size: NonNull::from_mut(size),
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
-        }))
+        })
     }
 
     /// Create a new exclusive instance from provided uninitialized memory.
@@ -265,22 +284,17 @@ where
     /// `size` must be `0` since data is not initialized yet.
     ///
     /// Returns `None` if `size != 0`.
-    //
-    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
-    // exclusive reference for most practical purposes.
-    pub fn from_uninit<'a>(
-        uninit: &'a mut MaybeUninit<Data>,
-        size: &'a mut u32,
-    ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
+    pub fn from_uninit(uninit: &'a mut MaybeUninit<Data>, size: &'a mut u32) -> Option<Self> {
         if *size != 0 {
             return None;
         }
 
-        Some(DerefWrapper(Self {
+        Some(Self {
             data: NonNull::from_mut(uninit).cast::<Data>(),
             size: NonNull::from_mut(size),
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Data>] },
-        }))
+        })
     }
 
     /// Try to get access to initialized `Data`, returns `None` if not initialized
@@ -380,7 +394,7 @@ where
     }
 }
 
-impl<Data> MaybeData<Data>
+impl<Data> MaybeData<'_, Data>
 where
     Data: TrivialType + Default,
     Self: IoType,

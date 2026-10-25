@@ -3,7 +3,8 @@ mod tests;
 
 use crate::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY, concat_metadata_sources};
 use crate::trivial_type::{NON_ZERO_SIZED, TrivialType, try_skip_valid};
-use crate::{DerefWrapper, IoType, IoTypeMut, IoTypeOptional};
+use crate::{DerefWrapper, IoType, IoTypeOptional};
+use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
@@ -33,19 +34,22 @@ where
 
 /// Container for storing variable number of elements.
 ///
+/// It is a view of memory that is borrowed for `'a`.
+///
 /// `RECOMMENDED_ALLOCATION` is what is being used when a host needs to allocate memory for call
 /// into guest, but guest may receive an allocation with more or less memory in practice depending
 /// on other circumstances, like when called from another contract with specific allocation
 /// specified.
 #[derive(Debug)]
 #[repr(C)]
-pub struct VariableElements<Element, const RECOMMENDED_ALLOCATION: u32 = 0>
+pub struct VariableElements<'a, Element, const RECOMMENDED_ALLOCATION: u32 = 0>
 where
     Element: TrivialType,
 {
     elements: NonNull<Element>,
     size: NonNull<u32>,
     capacity: u32,
+    memory: PhantomData<&'a ()>,
     // TODO: Technically redundant with the where-clause, which is not enforced in generic code
     //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed. Every instance
     //  evaluates the check through this field. It is initialized in `const` blocks, which are
@@ -55,7 +59,7 @@ where
 
 // SAFETY: Low-level (effectively internal) implementation that upholds safety requirements
 unsafe impl<Element, const RECOMMENDED_ALLOCATION: u32> IoType
-    for VariableElements<Element, RECOMMENDED_ALLOCATION>
+    for VariableElements<'_, Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
     [(); NON_ZERO_SIZED::<Element>]:,
@@ -80,6 +84,13 @@ where
 
     // TODO: Use `[Element; U32_TO_USIZE::<RECOMMENDED_ALLOCATION>]` with `generic_const_args`
     type PointerType = Element;
+
+    type WithLifetime<'b> = VariableElements<'b, Element, RECOMMENDED_ALLOCATION>;
+
+    type Reborrowed<'b>
+        = VariableElements<'b, Element, RECOMMENDED_ALLOCATION>
+    where
+        Self: 'b;
 
     #[inline(always)]
     fn size(&self) -> u32 {
@@ -117,7 +128,7 @@ where
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
-    ) -> impl Deref<Target = Self> + 'a {
+    ) -> impl Deref<Target = Self::WithLifetime<'a>> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size <= capacity,
@@ -129,10 +140,11 @@ where
             Element::SIZE
         );
 
-        DerefWrapper(Self {
+        DerefWrapper(VariableElements {
             elements: *ptr,
             size: NonNull::from_ref(size),
             capacity,
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
         })
     }
@@ -143,7 +155,7 @@ where
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
-    ) -> impl DerefMut<Target = Self> + 'a {
+    ) -> impl DerefMut<Target = Self::WithLifetime<'a>> + 'a {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size <= capacity,
@@ -155,10 +167,11 @@ where
             Element::SIZE
         );
 
-        DerefWrapper(Self {
+        DerefWrapper(VariableElements {
             elements: *ptr,
             size: NonNull::from_mut(size),
             capacity,
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
         })
     }
@@ -169,7 +182,7 @@ where
         ptr: &'a NonNull<Self::PointerType>,
         size: &'a u32,
         capacity: u32,
-    ) -> Option<impl Deref<Target = Self> + 'a> {
+    ) -> Option<impl Deref<Target = Self::WithLifetime<'a>> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size <= capacity,
@@ -198,7 +211,7 @@ where
         ptr: &'a mut NonNull<Self::PointerType>,
         size: &'a mut u32,
         capacity: u32,
-    ) -> Option<impl DerefMut<Target = Self> + 'a> {
+    ) -> Option<impl DerefMut<Target = Self::WithLifetime<'a>> + 'a> {
         debug_assert!(ptr.is_aligned(), "Misaligned pointer");
         debug_assert!(
             *size <= capacity,
@@ -216,8 +229,9 @@ where
         }
 
         // SAFETY: `size` and `capacity` are valid, `ptr` is aligned, valid for writes of `capacity`
-        // bytes and the memory is not accessed otherwise while the returned value exists (function
-        // contract), and the first `size` bytes are valid elements as checked above
+        // bytes, the memory and `size` are not accessed otherwise for as long as
+        // `Self::from_mut_ptr()` requires (function contract), and the first `size` bytes are
+        // valid elements as checked above
         Some(unsafe { Self::from_mut_ptr(ptr, size, capacity) })
     }
 
@@ -230,12 +244,23 @@ where
     fn as_mut_ptr(&mut self) -> NonNull<Self::PointerType> {
         self.elements
     }
+
+    #[inline(always)]
+    fn reborrow_mut(&mut self) -> Self::Reborrowed<'_> {
+        VariableElements {
+            elements: self.elements,
+            size: self.size,
+            capacity: self.capacity,
+            memory: PhantomData,
+            _supported: const { [(); NON_ZERO_SIZED::<Element>] },
+        }
+    }
 }
 
 // SAFETY: Size `0` means there are no initialized elements, contents are only accessed up to the
 // size
 unsafe impl<Element, const RECOMMENDED_ALLOCATION: u32> IoTypeOptional
-    for VariableElements<Element, RECOMMENDED_ALLOCATION>
+    for VariableElements<'_, Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
     [(); NON_ZERO_SIZED::<Element>]:,
@@ -244,7 +269,8 @@ where
 
 // Sizes are converted to the number of elements by dividing by the element size, so elements must
 // not be zero-sized, which the `IoType` implementation checks
-impl<Element, const RECOMMENDED_ALLOCATION: u32> VariableElements<Element, RECOMMENDED_ALLOCATION>
+impl<'a, Element, const RECOMMENDED_ALLOCATION: u32>
+    VariableElements<'a, Element, RECOMMENDED_ALLOCATION>
 where
     Element: TrivialType,
     Self: IoType,
@@ -255,10 +281,10 @@ where
     ///
     /// Returns `None` if `size_of_val(buffer) != size`.
     //
-    // `impl Deref` is used to tie lifetime of returned value to inputs, but still treat it as a
-    // shared reference for most practical purposes.
+    // `impl Deref` is returned instead of `Self`, since methods that take `&mut self` would
+    // otherwise write into shared memory.
     #[inline(always)]
-    pub const fn from_buffer<'a>(
+    pub const fn from_buffer(
         buffer: &'a [Element],
         size: &'a u32,
     ) -> Option<impl Deref<Target = Self> + 'a> {
@@ -270,6 +296,7 @@ where
             elements: NonNull::new(buffer.as_ptr().cast_mut()).expect("Not null; qed"),
             size: NonNull::from_ref(size),
             capacity: *size,
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
         }))
     }
@@ -279,24 +306,19 @@ where
     /// NOTE: size is specified in bytes, not elements.
     ///
     /// Returns `None` if `size_of_val(buffer) != size`.
-    //
-    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
-    // exclusive reference for most practical purposes.
     #[inline(always)]
-    pub fn from_buffer_mut<'a>(
-        buffer: &'a mut [Element],
-        size: &'a mut u32,
-    ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
+    pub fn from_buffer_mut(buffer: &'a mut [Element], size: &'a mut u32) -> Option<Self> {
         if size_of_val(buffer) != *size as usize {
             return None;
         }
 
-        Some(DerefWrapper(Self {
+        Some(Self {
             elements: NonNull::new(buffer.as_mut_ptr()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity: *size,
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
-        }))
+        })
     }
 
     /// Create a new exclusive instance from provided uninitialized memory buffer.
@@ -305,38 +327,20 @@ where
     /// as capacity.
     ///
     /// Returns `None` if `size != 0` or if the buffer is larger than `u32::MAX` bytes.
-    //
-    // `impl DerefMut` is used to tie lifetime of returned value to inputs, but still treat it as an
-    // exclusive reference for most practical purposes.
     #[inline(always)]
-    pub fn from_uninit<'a>(
-        uninit: &'a mut [MaybeUninit<Element>],
-        size: &'a mut u32,
-    ) -> Option<impl DerefMut<Target = Self> + IoTypeMut<Target = Self> + 'a> {
+    pub fn from_uninit(uninit: &'a mut [MaybeUninit<Element>], size: &'a mut u32) -> Option<Self> {
         if *size != 0 {
             return None;
         }
         let capacity = u32::try_from(size_of_val(uninit)).ok()?;
 
-        Some(DerefWrapper(Self {
+        Some(Self {
             elements: NonNull::new(uninit.as_mut_ptr().cast_init()).expect("Not null; qed"),
             size: NonNull::from_mut(size),
             capacity,
+            memory: PhantomData,
             _supported: const { [(); NON_ZERO_SIZED::<Element>] },
-        }))
-    }
-
-    // Size in bytes
-    #[inline(always)]
-    pub const fn size(&self) -> u32 {
-        // SAFETY: guaranteed to be initialized by constructors
-        unsafe { self.size.read() }
-    }
-
-    /// Capacity in bytes
-    #[inline(always)]
-    pub fn capacity(&self) -> u32 {
-        self.capacity
+        })
     }
 
     /// Number of elements
@@ -425,7 +429,10 @@ where
     /// Returns `false` if actual capacity of the instance is not enough to copy contents of `src`
     #[inline(always)]
     #[must_use = "Operation may fail"]
-    pub fn copy_from(&mut self, src: &Self) -> bool {
+    pub fn copy_from(
+        &mut self,
+        src: &VariableElements<'_, Element, RECOMMENDED_ALLOCATION>,
+    ) -> bool {
         let src_size = src.size();
         if src_size > self.capacity {
             return false;
@@ -441,36 +448,6 @@ where
         }
 
         true
-    }
-
-    /// Cast a shared reference to this instance into a reference to an instance of a different
-    /// recommended allocation
-    #[inline(always)]
-    pub fn cast_ref<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
-        &self,
-    ) -> &VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION> {
-        // SAFETY: `VariableElements` has a fixed layout due to `#[repr(C)]`, which doesn't depend
-        // on recommended allocation
-        unsafe {
-            NonNull::from_ref(self)
-                .cast::<VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION>>()
-                .as_ref()
-        }
-    }
-
-    /// Cast an exclusive reference to this instance into a reference to an instance of a different
-    /// recommended allocation
-    #[inline(always)]
-    pub fn cast_mut<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
-        &mut self,
-    ) -> &mut VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION> {
-        // SAFETY: `VariableElements` has a fixed layout due to `#[repr(C)]`, which doesn't depend
-        // on recommended allocation
-        unsafe {
-            NonNull::from_mut(self)
-                .cast::<VariableElements<Element, DIFFERENT_RECOMMENDED_ALLOCATION>>()
-                .as_mut()
-        }
     }
 
     /// Assume that the first `size` are initialized and can be read.
@@ -492,5 +469,55 @@ where
             self.size.write(size);
         }
         Some(self.get_initialized_mut())
+    }
+}
+
+// These methods don't convert sizes to the number of elements, so they work for any element type
+impl<'a, Element, const RECOMMENDED_ALLOCATION: u32>
+    VariableElements<'a, Element, RECOMMENDED_ALLOCATION>
+where
+    Element: TrivialType,
+{
+    // Size in bytes
+    #[inline(always)]
+    pub const fn size(&self) -> u32 {
+        // SAFETY: guaranteed to be initialized by constructors
+        unsafe { self.size.read() }
+    }
+
+    /// Capacity in bytes
+    #[inline(always)]
+    pub fn capacity(&self) -> u32 {
+        self.capacity
+    }
+
+    /// Cast a shared reference to this instance into a reference to an instance of a different
+    /// recommended allocation
+    #[inline(always)]
+    pub fn cast_ref<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
+        &self,
+    ) -> &VariableElements<'a, Element, DIFFERENT_RECOMMENDED_ALLOCATION> {
+        // SAFETY: `VariableElements` has a fixed layout due to `#[repr(C)]`, which doesn't depend
+        // on recommended allocation
+        unsafe {
+            NonNull::from_ref(self)
+                .cast::<VariableElements<'a, Element, DIFFERENT_RECOMMENDED_ALLOCATION>>()
+                .as_ref()
+        }
+    }
+
+    /// Cast an exclusive reference to this instance into a reference to an instance of a different
+    /// recommended allocation
+    #[inline(always)]
+    pub fn cast_mut<const DIFFERENT_RECOMMENDED_ALLOCATION: u32>(
+        &mut self,
+    ) -> &mut VariableElements<'a, Element, DIFFERENT_RECOMMENDED_ALLOCATION> {
+        // SAFETY: `VariableElements` has a fixed layout due to `#[repr(C)]`, which doesn't depend
+        // on recommended allocation
+        unsafe {
+            NonNull::from_mut(self)
+                .cast::<VariableElements<'a, Element, DIFFERENT_RECOMMENDED_ALLOCATION>>()
+                .as_mut()
+        }
     }
 }

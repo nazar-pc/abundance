@@ -57,7 +57,7 @@ mod slot {
     impl Example {
         // `MaybeData` adds a level, so the `#[slot]` type is nested as deep as `L33`
         #[update]
-        pub fn set(#[slot] _slot: &mut MaybeData<L32>) {}
+        pub fn set(#[slot] _slot: &mut MaybeData<'_, L32>) {}
     }
 }
 
@@ -77,7 +77,7 @@ mod tmp {
     impl Example {
         // `MaybeData` adds a level, so the `#[tmp]` type is nested as deep as `L33`
         #[update]
-        pub fn set(#[tmp] _tmp: &mut MaybeData<L32>) {}
+        pub fn set(#[tmp] _tmp: &mut MaybeData<'_, L32>) {}
     }
 }
 
@@ -99,7 +99,7 @@ mod max_depth {
     impl Example {
         // `MaybeData` adds a level, so `#[tmp]` and `#[slot]` types are nested as deep as `L32`
         #[update]
-        pub fn set(#[tmp] _tmp: &mut MaybeData<L31>, #[slot] _slot: &mut MaybeData<L31>) {}
+        pub fn set(#[tmp] _tmp: &mut MaybeData<'_, L31>, #[slot] _slot: &mut MaybeData<'_, L31>) {}
     }
 }
 

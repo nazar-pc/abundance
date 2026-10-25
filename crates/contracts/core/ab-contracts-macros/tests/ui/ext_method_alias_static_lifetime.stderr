@@ -1,0 +1,36 @@
+error[E0597]: `buffer` does not live long enough
+  --> tests/ui/ext_method_alias_static_lifetime.rs:23:62
+   |
+21 |     let mut buffer = [MaybeUninit::<u8>::uninit(); 8];
+   |         ---------- binding `buffer` declared here
+22 |     let mut size = 0;
+23 |     let mut lent = Lent::<VariableBytes<'_, 8>>::from_uninit(&mut buffer, &mut size).unwrap();
+   |                                                              ^^^^^^^^^^^ borrowed value does not live long enough
+24 |     let _ = env.reader_read(contract, &mut lent);
+   |             ------------------------------------ argument requires that `buffer` is borrowed for `'static`
+25 | }
+   | - `buffer` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'static` introduced here
+  --> tests/ui/ext_method_alias_static_lifetime.rs:17:58
+   |
+17 |     fn read(#[env] env: &Env<'_>, #[output] output: &mut Bytes) -> Result<(), ContractError>;
+   |                                                          ^^^^^
+
+error[E0597]: `size` does not live long enough
+  --> tests/ui/ext_method_alias_static_lifetime.rs:23:75
+   |
+22 |     let mut size = 0;
+   |         -------- binding `size` declared here
+23 |     let mut lent = Lent::<VariableBytes<'_, 8>>::from_uninit(&mut buffer, &mut size).unwrap();
+   |                                                                           ^^^^^^^^^ borrowed value does not live long enough
+24 |     let _ = env.reader_read(contract, &mut lent);
+   |             ------------------------------------ argument requires that `size` is borrowed for `'static`
+25 | }
+   | - `size` dropped here while still borrowed
+   |
+note: requirement that the value outlives `'static` introduced here
+  --> tests/ui/ext_method_alias_static_lifetime.rs:17:58
+   |
+17 |     fn read(#[env] env: &Env<'_>, #[output] output: &mut Bytes) -> Result<(), ContractError>;
+   |                                                          ^^^^^

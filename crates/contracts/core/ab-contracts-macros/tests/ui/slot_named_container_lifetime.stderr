@@ -1,0 +1,11 @@
+error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+  --> tests/ui/slot_named_container_lifetime.rs:20:66
+   |
+20 |             #[slot] slot: &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
+   |                                                                  ^^
+
+error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+  --> tests/ui/slot_named_container_lifetime.rs:50:56
+   |
+50 |                 &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
+   |                                                        ^^

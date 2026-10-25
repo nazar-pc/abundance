@@ -1,5 +1,5 @@
 //! The last `#[output]` of `#[init]` without a return value is the initial state of the contract,
-//! which the host allocates for exactly one `Self`, so it must be `MaybeData<Self>`
+//! which the host allocates for exactly one `Self`, so it must be `MaybeData<'_, Self>`
 
 mod alias {
     use ab_contracts_macros::contract;
@@ -36,7 +36,7 @@ mod variable_elements {
     #[contract]
     impl Example {
         #[init]
-        pub fn new(#[output] state: &mut VariableElements<Self>) {
+        pub fn new(#[output] state: &mut VariableElements<'_, Self>) {
             state.append(&[Self { value: 1 }]);
         }
     }

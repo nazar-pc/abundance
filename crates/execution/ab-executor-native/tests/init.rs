@@ -18,7 +18,7 @@ pub struct InitReturnAndOutput {
 impl InitReturnAndOutput {
     /// The return value is the state, while the output of the same type goes to the caller
     #[init]
-    pub fn init(#[output] other: &mut MaybeData<Self>) -> Self {
+    pub fn init(#[output] other: &mut MaybeData<'_, Self>) -> Self {
         other.replace(Self { value: 2 });
         Self { value: 1 }
     }

@@ -79,7 +79,7 @@ impl Arguments {
     }
 
     #[view]
-    pub fn maybe_data_output(#[output] maybe_flag: &mut MaybeData<Flag>) {
+    pub fn maybe_data_output(#[output] maybe_flag: &mut MaybeData<'_, Flag>) {
         match maybe_flag.get_mut() {
             Some(flag) => {
                 *flag = flag.flipped();
@@ -91,7 +91,7 @@ impl Arguments {
     }
 
     #[view]
-    pub fn variable_elements_output(#[output] flags: &mut VariableElements<Flag>) {
+    pub fn variable_elements_output(#[output] flags: &mut VariableElements<'_, Flag>) {
         for flag in flags.get_initialized_mut() {
             *flag = flag.flipped();
         }
