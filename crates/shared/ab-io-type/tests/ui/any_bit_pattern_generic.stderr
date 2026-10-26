@@ -1,0 +1,18 @@
+error[E0277]: `T` doesn't accept every bit pattern
+  --> tests/ui/any_bit_pattern_generic.rs:16:15
+   |
+16 |     require::<T>();
+   |               ^ the trait `AnyBitPattern` is not implemented for `T`
+   |
+note: required by a bound in `require`
+  --> tests/ui/any_bit_pattern_generic.rs:8:8
+   |
+ 6 | fn require<T>()
+   |    ------- required by a bound in this function
+ 7 | where
+ 8 |     T: AnyBitPattern,
+   |        ^^^^^^^^^^^^^ required by this bound in `require`
+help: consider further restricting type parameter `T` with trait `AnyBitPattern`
+   |
+14 |     T: TrivialType + ab_io_type::trivial_type::AnyBitPattern,
+   |                    +++++++++++++++++++++++++++++++++++++++++

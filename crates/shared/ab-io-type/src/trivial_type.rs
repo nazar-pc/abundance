@@ -320,6 +320,9 @@ where
 {
 }
 
+// Without this attribute errors report the unsatisfied `AnyBitPatternMarker` bound instead,
+// suggesting to require the marker or to implement the `unsafe` marker manually
+#[diagnostic::do_not_recommend]
 impl<T> AnyBitPattern for T where T: TrivialType + AnyBitPatternMarker {}
 
 /// Parsing step of a type whose every bit pattern is a valid value
