@@ -300,16 +300,32 @@ impl OwnedBeaconChainBody {
             OwnedBeaconChainBodyError::TooManyIntermediateShardBlocks { actual: num_blocks }
         })?;
 
-        let mut buffer = OwnedAlignedBuffer::with_capacity(
+        // A body can't hold more than `u32::MAX` bytes of PoT checkpoints
+        let pot_checkpoints_size = num_pot_checkpoints
+            .checked_mul(PotCheckpoints::SIZE as u32)
+            .ok_or(OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+        let capacity = (
+            // Number of PoT checkpoints
             u32::SIZE
+                // Number of own segment roots
                 + u8::SIZE
+                // Local segment index of the first own segment root
                 + if num_own_segment_roots > 0 { LocalSegmentIndex::SIZE } else { 0 }
+                // Own segment roots
                 + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
+                // Number of intermediate shard blocks
                 + u16::SIZE
-                // This is only an estimate to get in the ballpark where reallocation should not be
-                // necessary in many cases
-                + u32::from(num_blocks) * OwnedIntermediateShardHeader::max_allocation_for(&[]) * 2,
-        );
+                // Numbers of own segment roots and leaf shard blocks with segments of each block
+                + u32::from(num_blocks) * (u8::SIZE + u8::SIZE)
+        )
+        // Padding to 8-bytes boundary
+        .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
+            // This is only an estimate of intermediate shard blocks to get in the ballpark where
+            // reallocation should not be necessary in many cases
+            + u32::from(num_blocks) * OwnedIntermediateShardHeader::max_allocation_for(&[]) * 2;
+        // PoT checkpoints, the estimate above can make the capacity larger than any body can be
+        let mut buffer =
+            OwnedAlignedBuffer::with_capacity(capacity.saturating_add(pot_checkpoints_size));
 
         let true = buffer.append(&num_pot_checkpoints.to_le_bytes()) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
@@ -566,11 +582,22 @@ impl OwnedIntermediateShardBody {
         })?;
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(
-            u8::SIZE
-                + if num_own_segment_roots > 0 { LocalSegmentIndex::SIZE } else { 0 }
-                + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
-                // This is only an estimate to get in the ballpark where reallocation should not be
-                // necessary
+            (
+                // Number of own segment roots
+                u8::SIZE
+                    // Local segment index of the first own segment root
+                    + if num_own_segment_roots > 0 { LocalSegmentIndex::SIZE } else { 0 }
+                    // Own segment roots
+                    + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
+                    // Number of leaf shard blocks
+                    + u8::SIZE
+                    // Numbers of own segment roots of each block
+                    + u32::from(num_blocks) * u8::SIZE
+            )
+            // Padding to 8-bytes boundary
+            .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
+                // This is only an estimate of leaf shard blocks to get in the ballpark where
+                // reallocation should not be necessary
                 + u32::from(num_blocks) * OwnedLeafShardHeader::MAX_ALLOCATION * 2,
         );
 
@@ -774,14 +801,20 @@ impl OwnedLeafShardBody {
             }
         })?;
 
+        // Transactions are not known yet, the buffer grows when they are added
         let mut buffer = OwnedAlignedBuffer::with_capacity(
+            // Number of own segment roots
             u8::SIZE
+                // Local segment index of the first own segment root
                 + if num_own_segment_roots > 0 {
                     LocalSegmentIndex::SIZE
                 } else {
                     0
                 }
-                + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32,
+                // Own segment roots
+                + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
+                // Number of transactions
+                + u32::SIZE,
         );
 
         let true = buffer.append(&[num_own_segment_roots]) else {

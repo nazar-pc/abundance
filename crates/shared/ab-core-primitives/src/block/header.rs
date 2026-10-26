@@ -346,11 +346,20 @@ pub struct BlockHeaderConsensusParameters<'a> {
 
 impl<'a> BlockHeaderConsensusParameters<'a> {
     /// Max size of the allocation necessary for this data structure
-    pub const MAX_SIZE: u32 = size_of::<BlockHeaderFixedConsensusParameters>() as u32
-        + u8::SIZE
-        + <SuperSegmentRoot as TrivialType>::SIZE
-        + <SolutionRange as TrivialType>::SIZE
+    pub const MAX_SIZE: u32 =
+        // Solution range of fixed parameters
+        <SolutionRange as TrivialType>::SIZE
+        // PoT slot iterations of fixed parameters
+        + u32::SIZE
+        // Number of shards of fixed parameters
         + <NumShardsUnchecked as TrivialType>::SIZE
+        // Bitflags
+        + u8::SIZE
+        // Super segment root
+        + <SuperSegmentRoot as TrivialType>::SIZE
+        // Next solution range
+        + <SolutionRange as TrivialType>::SIZE
+        // PoT parameters change
         + size_of::<BlockHeaderPotParametersChange>() as u32;
     /// Bitmask for presence of `super_segment_root` field
     pub const SUPER_SEGMENT_ROOT_MASK: u8 = 0b0000_0001;

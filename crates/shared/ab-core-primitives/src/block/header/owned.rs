@@ -1,5 +1,8 @@
 //! Data structures related to the owned version of [`BlockHeader`]
 
+#[cfg(test)]
+mod tests;
+
 use crate::block::BlockRoot;
 use crate::block::header::{
     BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,

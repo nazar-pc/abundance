@@ -1,11 +1,17 @@
 use crate::address::Address;
 use crate::block::BlockRoot;
-use crate::block::body::owned::OwnedLeafShardBody;
-use crate::block::body::{BeaconChainBody, BlockBody};
+use crate::block::body::owned::{
+    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedIntermediateShardBody, OwnedLeafShardBody,
+};
+use crate::block::body::{
+    BeaconChainBody, BlockBody, IntermediateShardBlockInfo, LeafShardBlockInfo,
+};
+use crate::pot::PotCheckpoints;
+use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader, TransactionSlot};
-use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use core::ptr;
 use std::iter;
 
@@ -113,5 +119,54 @@ fn beacon_chain_body_bytes_must_be_4_bytes_aligned() {
                 .map(|(_body, remainder)| remainder.len()),
             expected
         );
+    }
+}
+
+/// The buffer of an owned body, which keeps the capacity it was allocated with unless it had to
+/// grow
+fn into_buffer<Body>(body: Body) -> OwnedAlignedBuffer
+where
+    Body: GenericOwnedBlockBody,
+{
+    let buffer = body.buffer().clone();
+    // The buffer is not shared anymore after this, so it is reused rather than copied
+    drop(body);
+    buffer.into_owned()
+}
+
+#[test]
+fn owned_bodies_without_child_shard_blocks_fit_into_their_capacity() {
+    // As many own segment roots as bodies can have, and none
+    for num_own_segment_roots in [u8::MAX, 0] {
+        let own_segments = || {
+            (0..num_own_segment_roots).map(|index| {
+                (
+                    LocalSegmentIndex::from(u64::from(index)),
+                    SegmentRoot::default(),
+                )
+            })
+        };
+
+        let body = OwnedBeaconChainBody::new(
+            own_segments(),
+            iter::empty::<IntermediateShardBlockInfo<'_>>(),
+            &[PotCheckpoints::default(); 3],
+        )
+        .unwrap();
+        let buffer = into_buffer(body);
+        assert_eq!(buffer.len(), buffer.capacity());
+
+        let body = OwnedIntermediateShardBody::new(
+            own_segments(),
+            iter::empty::<LeafShardBlockInfo<'_>>(),
+        )
+        .unwrap();
+        let buffer = into_buffer(body);
+        assert_eq!(buffer.len(), buffer.capacity());
+
+        // Transactions are added after the buffer is allocated, so there are none here
+        let body = OwnedLeafShardBody::init(own_segments()).unwrap().finish();
+        let buffer = into_buffer(body);
+        assert_eq!(buffer.len(), buffer.capacity());
     }
 }
