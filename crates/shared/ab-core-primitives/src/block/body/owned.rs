@@ -945,7 +945,7 @@ impl OwnedBlockBody {
 #[inline(always)]
 #[must_use]
 fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
-    let alignment = align_of::<u64>();
+    let alignment = usize::from(Alignment::of::<u64>().get());
     let unaligned_by = buffer.len() as usize % alignment;
     if unaligned_by > 0 {
         // SAFETY: Subtracted value is always smaller than alignment
