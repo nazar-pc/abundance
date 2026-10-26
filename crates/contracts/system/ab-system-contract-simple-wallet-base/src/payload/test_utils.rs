@@ -430,7 +430,14 @@ pub(crate) fn call_all(
     payload: &[u128],
     output_buffer: &mut [MaybeUninit<OutputChunk>],
 ) -> Result<usize, TransactionPayloadDecoderError> {
-    output_buffer.fill_with(MaybeUninit::zeroed);
+    // SAFETY: Zero bytes are a valid value of `OutputChunk`, which is plain data. A single bulk
+    // write is much faster under Miri than zeroing chunk by chunk like this:
+    // output_buffer.fill_with(MaybeUninit::zeroed);
+    unsafe {
+        output_buffer
+            .as_mut_ptr()
+            .write_bytes(0, output_buffer.len());
+    }
     let mut external_args_buffer = [ptr::null_mut(); EXTERNAL_ARGS_BUFFER_SIZE];
     let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
     let mut caller = TransactionPayloadCaller::new(
