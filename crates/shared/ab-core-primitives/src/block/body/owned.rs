@@ -7,9 +7,7 @@ use crate::block::body::{
     BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBlockInfo,
     IntermediateShardBody, LeafShardBlockInfo, LeafShardBody,
 };
-use crate::block::header::owned::{
-    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
-};
+use crate::block::header::owned::{OwnedIntermediateShardHeader, OwnedLeafShardHeader};
 use crate::pot::PotCheckpoints;
 use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
@@ -55,9 +53,6 @@ enum AddTransactionError {
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
-    /// Too many transactions
-    #[error("Too many transactions")]
-    TooManyTransactions,
     /// Failed to add transaction
     #[error("Failed to add transaction: {error}")]
     FailedToAddTransaction {
@@ -120,7 +115,7 @@ impl TransactionBuilder {
     {
         // Transactions are aligned, but the very first might come after non-transaction fields that
         // were not aligned
-        if self.inc_transaction_count()? == 1 && !align_to_16_bytes_with_padding(&mut self.buffer) {
+        if self.inc_transaction_count() == 1 && !align_to_16_bytes_with_padding(&mut self.buffer) {
             self.dec_transaction_count();
             return Err(AddTransactionError::BlockBodyIsTooLarge);
         }
@@ -158,7 +153,7 @@ impl TransactionBuilder {
 
     /// Increase the number of stored transactions and return the new value
     #[inline(always)]
-    fn inc_transaction_count(&mut self) -> Result<u32, AddTransactionError> {
+    fn inc_transaction_count(&mut self) -> u32 {
         // SAFETY: Constructor ensures the offset is valid and has space for `u32` (but not
         // necessarily aligned)
         unsafe {
@@ -168,11 +163,12 @@ impl TransactionBuilder {
                 .byte_add(self.num_transactions_offset)
                 .cast::<u32>();
             let num_transactions = num_transactions_ptr.read_unaligned();
-            let num_transactions = num_transactions
-                .checked_add(1)
-                .ok_or(AddTransactionError::TooManyTransactions)?;
+            let num_transactions = num_transactions.checked_add(1).expect(
+                "Each transaction takes at least `TransactionHeader::SIZE` bytes of the buffer, \
+                which can't be longer than `u32::MAX` bytes; qed",
+            );
             num_transactions_ptr.write_unaligned(num_transactions);
-            Ok(num_transactions)
+            num_transactions
         }
     }
 
@@ -232,19 +228,6 @@ pub enum OwnedBeaconChainBodyError {
     TooManyLeafShardBlockSegments {
         /// Actual number of shard block segments
         actual: usize,
-    },
-    /// Too many intermediate shard child segment roots
-    #[error("Too many intermediate shard child segment roots: {actual}")]
-    TooManyIntermediateShardChildSegmentRoots {
-        /// Actual number of child segment roots
-        actual: usize,
-    },
-    /// Failed to intermediate shard header
-    #[error("Failed to intermediate shard header: {error}")]
-    FailedToAddIntermediateShard {
-        /// Inner error
-        #[from]
-        error: OwnedIntermediateShardHeaderError,
     },
     /// Block body is too large
     #[error("Block body is too large")]
@@ -396,7 +379,11 @@ impl OwnedBeaconChainBody {
                     intermediate_shard_block.header.beacon_chain_info(),
                     intermediate_shard_block.header.child_shard_blocks(),
                     &mut buffer,
-                )?;
+                )
+                .expect(
+                    "Headers are only created by parsers, which read at most `u16::MAX` child \
+                    shard blocks; qed",
+                );
 
                 if let Some(segments_proof) = &intermediate_shard_block.segments_proof
                     && !buffer.append(*segments_proof)
@@ -715,9 +702,6 @@ pub enum OwnedLeafShardBodyError {
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
-    /// Too many transactions
-    #[error("Too many transactions")]
-    TooManyTransactions,
     /// Failed to add transaction
     #[error("Failed to add transaction: {error}")]
     FailedToAddTransaction {
@@ -731,9 +715,6 @@ impl From<AddTransactionError> for OwnedLeafShardBodyError {
         match value {
             AddTransactionError::BlockBodyIsTooLarge => {
                 OwnedLeafShardBodyError::BlockBodyIsTooLarge
-            }
-            AddTransactionError::TooManyTransactions => {
-                OwnedLeafShardBodyError::TooManyTransactions
             }
             AddTransactionError::FailedToAddTransaction { error } => {
                 OwnedLeafShardBodyError::FailedToAddTransaction { error }
