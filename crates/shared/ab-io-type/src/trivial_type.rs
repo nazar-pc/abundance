@@ -165,6 +165,14 @@ where
         Some((value, remainder))
     }
 
+    /// Like [`Self::try_from_bytes_mut()`], but returns `None` if there are more bytes than the
+    /// value
+    #[inline(always)]
+    final fn try_from_bytes_mut_exact(bytes: &mut [u8]) -> Option<&mut Self> {
+        let (value, remainder) = Self::try_from_bytes_mut(bytes)?;
+        remainder.is_empty().then_some(value)
+    }
+
     /// Read a copy from the beginning of `bytes`, which don't need to be aligned, returns the value
     /// and the remaining bytes
     #[inline(always)]

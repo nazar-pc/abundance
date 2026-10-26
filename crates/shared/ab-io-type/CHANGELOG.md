@@ -57,9 +57,9 @@ Improvements:
 * `Alignment::is_slice_aligned()` checks where a slice starts
 * `AnyBitPattern` is implemented for `TrivialType`s whose every bit pattern is a valid value, which implement the
   unsafe `AnyBitPatternMarker`, the derive implements it for structs whose fields all implement it
-* `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()`, `try_read_unaligned()` and
-  `try_read_unaligned_exact()` parse bytes safely, checking enum discriminants and the length of
-  `FixedCapacityElements`
+* `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()`, `try_from_bytes_mut_exact()`,
+  `try_read_unaligned()` and `try_read_unaligned_exact()` parse bytes safely, checking enum discriminants and the
+  length of `FixedCapacityElements`
 * `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking its contents, while size, capacity
   and alignment must be valid for the type, like for `from_ptr()` and `from_mut_ptr()`
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`

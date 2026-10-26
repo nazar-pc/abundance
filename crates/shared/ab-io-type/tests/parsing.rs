@@ -454,9 +454,17 @@ fn exact() {
     assert_eq!(u64::try_read_unaligned_exact(&aligned.0), None);
     assert_eq!(u64::try_read_unaligned_exact(&aligned.0[..7]), None);
 
+    let mut aligned = Aligned([1, 0, 0, 0, 0, 0, 0, 0, 2]);
+    let Aligned(bytes) = &mut aligned;
+    assert_eq!(u64::try_from_bytes_mut_exact(&mut bytes[..8]), Some(&mut 1));
+    assert_eq!(u64::try_from_bytes_mut_exact(bytes), None);
+    assert_eq!(u64::try_from_bytes_mut_exact(&mut bytes[..7]), None);
+
     // Zero-sized types are parsed from empty input
     assert_eq!(<()>::try_from_bytes_exact(&[]), Some(&()));
     assert_eq!(<()>::try_from_bytes_exact(&[1]), None);
+    assert_eq!(<()>::try_from_bytes_mut_exact(&mut []), Some(&mut ()));
+    assert_eq!(<()>::try_from_bytes_mut_exact(&mut [1]), None);
     assert_eq!(Empty::try_read_unaligned_exact(&[]), Some(Empty));
 }
 
@@ -491,12 +499,14 @@ fn invalid_values_are_rejected() {
     assert_eq!(Ctx::try_from_bytes(&[3]), None);
     assert_eq!(Ctx::try_from_bytes_exact(&[3]), None);
     assert!(Ctx::try_from_bytes_mut(&mut [3]).is_none());
+    assert!(Ctx::try_from_bytes_mut_exact(&mut [3]).is_none());
     assert_eq!(Ctx::try_read_unaligned(&[3]), None);
     assert_eq!(Ctx::try_read_unaligned_exact(&[3]), None);
 
     assert_eq!(WithCtx::try_from_bytes(&[0, 3, 0, 0]), None);
     assert_eq!(WithCtx::try_from_bytes_exact(&[0, 3, 0, 0]), None);
     assert!(WithCtx::try_from_bytes_mut(&mut [0, 3, 0, 0]).is_none());
+    assert!(WithCtx::try_from_bytes_mut_exact(&mut [0, 3, 0, 0]).is_none());
     assert_eq!(WithCtx::try_read_unaligned(&[0, 3, 0, 0]), None);
     assert_eq!(WithCtx::try_read_unaligned_exact(&[0, 3, 0, 0]), None);
 }
