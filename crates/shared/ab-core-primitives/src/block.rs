@@ -398,7 +398,8 @@ impl<'a> BeaconChainBlock<'a> {
             return None;
         }
 
-        let (header, remainder) = BeaconChainHeader::try_from_bytes_unchecked(bytes)?;
+        // Headers have no expensive consistency checks to skip
+        let (header, remainder) = BeaconChainHeader::try_from_bytes(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = BeaconChainBody::try_from_bytes_unchecked(remainder)?;
 
@@ -516,7 +517,8 @@ impl<'a> IntermediateShardBlock<'a> {
             return None;
         }
 
-        let (header, remainder) = IntermediateShardHeader::try_from_bytes_unchecked(bytes)?;
+        // Headers have no expensive consistency checks to skip
+        let (header, remainder) = IntermediateShardHeader::try_from_bytes(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         let (body, remainder) = IntermediateShardBody::try_from_bytes_unchecked(remainder)?;
 
@@ -620,7 +622,8 @@ impl<'a> LeafShardBlock<'a> {
             return None;
         }
 
-        let (header, remainder) = LeafShardHeader::try_from_bytes_unchecked(bytes)?;
+        // Headers have no expensive consistency checks to skip
+        let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
         let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
         // Leaf shard bodies have no consistency checks to skip
         let (body, remainder) = LeafShardBody::try_from_bytes(remainder)?;

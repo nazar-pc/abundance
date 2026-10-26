@@ -221,6 +221,44 @@ fn leaf_shard_block_bytes_must_be_16_bytes_aligned() {
 }
 
 #[test]
+fn unchecked_parsers_reject_seals_of_other_public_keys() {
+    let beacon_chain_block = beacon_chain_block();
+    let intermediate_shard_block = intermediate_shard_block(iter::empty());
+    let leaf_shard_block = leaf_shard_block();
+
+    for (shard_kind, bytes, header_size) in [
+        (
+            RealShardKind::BeaconChain,
+            block_bytes(&beacon_chain_block, 0),
+            beacon_chain_block.header().buffer().len(),
+        ),
+        (
+            RealShardKind::IntermediateShard,
+            block_bytes(&intermediate_shard_block, 0),
+            intermediate_shard_block.header().buffer().len(),
+        ),
+        (
+            RealShardKind::LeafShard,
+            block_bytes(&leaf_shard_block, 0),
+            leaf_shard_block.header().buffer().len(),
+        ),
+    ] {
+        assert!(Block::try_from_bytes_unchecked(bytes.as_slice(), shard_kind).is_some());
+
+        // The header ends with the seal, which ends with the public key and the signature
+        let mut bytes = bytes.as_slice().to_vec();
+        let public_key_offset =
+            usize::try_from(header_size).unwrap() - Ed25519Signature::SIZE - Ed25519PublicKey::SIZE;
+        bytes[public_key_offset] ^= 1;
+        let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+
+        assert!(Block::try_from_bytes(bytes.as_slice(), shard_kind).is_none());
+        // `to_owned()` of such a block would panic
+        assert!(Block::try_from_bytes_unchecked(bytes.as_slice(), shard_kind).is_none());
+    }
+}
+
+#[test]
 fn blocks_round_trip() {
     let leaf_shard_block = leaf_shard_block();
     let bytes = block_bytes(&leaf_shard_block, 0);
