@@ -68,16 +68,59 @@ where
     Blake3Hash::new(root.unwrap_or_default())
 }
 
-/// Own segments produced by a shard
+/// Own segments produced by a shard.
+///
+/// They have between 1 and `u8::MAX` segment roots, which is how many a body can store.
 #[derive(Debug, Copy, Clone)]
 pub struct OwnSegments<'a> {
     /// Local segment index of the first own segment root
-    pub first_local_segment_index: LocalSegmentIndex,
+    pub mut(self) first_local_segment_index: LocalSegmentIndex,
     /// Segment roots produced by a shard
-    pub segment_roots: &'a [SegmentRoot],
+    pub mut(self) segment_roots: &'a [SegmentRoot],
 }
 
-impl OwnSegments<'_> {
+impl<'a> OwnSegments<'a> {
+    /// Create own segments from the local segment index of the first segment root and the roots.
+    ///
+    /// Returns `None` if there are no segment roots or more than `u8::MAX` of them.
+    #[inline]
+    pub fn new(
+        first_local_segment_index: LocalSegmentIndex,
+        segment_roots: &'a [SegmentRoot],
+    ) -> Option<Self> {
+        if segment_roots.is_empty() || segment_roots.len() > usize::from(u8::MAX) {
+            return None;
+        }
+
+        Some(Self::new_unchecked(
+            first_local_segment_index,
+            segment_roots,
+        ))
+    }
+
+    /// Create own segments without checking them.
+    ///
+    /// Parsers use it for between 1 and `u8::MAX` segment roots, which is all their layouts allow.
+    #[inline(always)]
+    const fn new_unchecked(
+        first_local_segment_index: LocalSegmentIndex,
+        segment_roots: &'a [SegmentRoot],
+    ) -> Self {
+        Self {
+            first_local_segment_index,
+            segment_roots,
+        }
+    }
+
+    /// Number of segment roots
+    #[inline(always)]
+    pub fn num_segment_roots(&self) -> NonZeroU8 {
+        u8::try_from(self.segment_roots.len())
+            .ok()
+            .and_then(NonZeroU8::new)
+            .expect("Constructors ensure between 1 and `u8::MAX` segment roots; qed")
+    }
+
     /// Compute the root of own segments
     #[inline]
     pub fn root(&self) -> Blake3Hash {
@@ -189,10 +232,7 @@ impl<'a> IntermediateShardBlockInfo<'a> {
 
             (
                 shard_index,
-                OwnSegments {
-                    first_local_segment_index,
-                    segment_roots: own_segment_roots,
-                },
+                OwnSegments::new_unchecked(first_local_segment_index, own_segment_roots),
             )
         })
     }
@@ -559,10 +599,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 };
                 let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-                Some(OwnSegments {
+                Some(OwnSegments::new_unchecked(
                     first_local_segment_index,
-                    segment_roots: own_segment_roots,
-                })
+                    own_segment_roots,
+                ))
             } else {
                 None
             };
@@ -738,10 +778,10 @@ impl<'a> BeaconChainBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments {
+            Some(OwnSegments::new_unchecked(
                 first_local_segment_index,
-                segment_roots: own_segment_roots,
-            })
+                own_segment_roots,
+            ))
         } else {
             None
         };
@@ -817,10 +857,10 @@ impl<'a> BeaconChainBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments {
+            Some(OwnSegments::new_unchecked(
                 first_local_segment_index,
-                segment_roots: own_segment_roots,
-            })
+                own_segment_roots,
+            ))
         } else {
             None
         };
@@ -1188,10 +1228,10 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
                 Some(LeafShardOwnSegments {
                     segment_roots_proof,
-                    own_segments: OwnSegments {
+                    own_segments: OwnSegments::new_unchecked(
                         first_local_segment_index,
-                        segment_roots: own_segment_roots,
-                    },
+                        own_segment_roots,
+                    ),
                 })
             } else {
                 None
@@ -1320,10 +1360,10 @@ impl<'a> IntermediateShardBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments {
+            Some(OwnSegments::new_unchecked(
                 first_local_segment_index,
-                segment_roots: own_segment_roots,
-            })
+                own_segment_roots,
+            ))
         } else {
             None
         };
@@ -1379,10 +1419,10 @@ impl<'a> IntermediateShardBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments {
+            Some(OwnSegments::new_unchecked(
                 first_local_segment_index,
-                segment_roots: own_segment_roots,
-            })
+                own_segment_roots,
+            ))
         } else {
             None
         };
@@ -1616,10 +1656,10 @@ impl<'a> LeafShardBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments {
+            Some(OwnSegments::new_unchecked(
                 first_local_segment_index,
-                segment_roots: own_segment_roots,
-            })
+                own_segment_roots,
+            ))
         } else {
             None
         };
@@ -1675,10 +1715,10 @@ impl<'a> LeafShardBody<'a> {
             };
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-            Some(OwnSegments {
+            Some(OwnSegments::new_unchecked(
                 first_local_segment_index,
-                segment_roots: own_segment_roots,
-            })
+                own_segment_roots,
+            ))
         } else {
             None
         };

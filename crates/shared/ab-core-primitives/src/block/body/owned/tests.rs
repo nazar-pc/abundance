@@ -314,11 +314,9 @@ impl TestLeafShardBlock {
         let body_root = segments.as_ref().map_or_else(
             Blake3Hash::default,
             |(first_local_segment_index, segment_roots)| {
-                let own_segments_root = OwnSegments {
-                    first_local_segment_index: *first_local_segment_index,
-                    segment_roots,
-                }
-                .root();
+                let own_segments_root = OwnSegments::new(*first_local_segment_index, segment_roots)
+                    .unwrap()
+                    .root();
                 Blake3Hash::new(BalancedMerkleTree::compute_root_only(&[
                     *own_segments_root,
                     segment_roots_proof,
@@ -442,27 +440,22 @@ impl TestIntermediateShardBlock {
         let body_root = if own_segments.is_none() && leaf_shards_segments.is_empty() {
             Blake3Hash::default()
         } else {
+            // Without checks, so that tests can compute roots of segments that parsers must reject
             let own_segments_root = own_segments.as_ref().map_or_else(
                 Blake3Hash::default,
                 |(first_local_segment_index, segment_roots)| {
-                    OwnSegments {
-                        first_local_segment_index: *first_local_segment_index,
-                        segment_roots,
-                    }
-                    .root()
+                    OwnSegments::new_unchecked(*first_local_segment_index, segment_roots).root()
+                },
+            );
+            let leaf_shards_roots = leaf_shards_segments.iter().map(
+                |(leaf_shard_index, (first_local_segment_index, segment_roots))| {
+                    OwnSegments::new_unchecked(*first_local_segment_index, segment_roots)
+                        .root_with_shard_index(*leaf_shard_index)
                 },
             );
             let leaf_shards_root =
                 UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-                    leaf_shards_segments.iter().map(
-                        |(leaf_shard_index, (first_local_segment_index, segment_roots))| {
-                            OwnSegments {
-                                first_local_segment_index: *first_local_segment_index,
-                                segment_roots,
-                            }
-                            .root_with_shard_index(*leaf_shard_index)
-                        },
-                    ),
+                    leaf_shards_roots,
                 )
                 .unwrap_or_default();
             Blake3Hash::new(BalancedMerkleTree::compute_root_only(&[
@@ -615,5 +608,21 @@ fn beacon_chain_body_with_leaf_shard_segments_without_segment_roots() {
             BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
             valid
         );
+    }
+}
+
+#[test]
+fn own_segments_constructor_checks_invariants() {
+    // Between 1 and `u8::MAX` segment roots
+    let segment_roots = [SegmentRoot::default(); 256];
+    assert!(OwnSegments::new(LocalSegmentIndex::ZERO, &[]).is_none());
+    assert!(OwnSegments::new(LocalSegmentIndex::ZERO, &segment_roots).is_none());
+    for num_segment_roots in [1, u8::MAX] {
+        let own_segments = OwnSegments::new(
+            LocalSegmentIndex::ZERO,
+            &segment_roots[..usize::from(num_segment_roots)],
+        )
+        .unwrap();
+        assert_eq!(own_segments.num_segment_roots().get(), num_segment_roots);
     }
 }

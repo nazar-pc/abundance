@@ -213,18 +213,6 @@ pub enum OwnedBeaconChainBodyError {
         /// Actual number of intermediate shard blocks
         actual: usize,
     },
-    /// Too many intermediate shard own segment roots
-    #[error("Too many intermediate shard own segment roots: {actual}")]
-    TooManyIntermediateShardOwnSegmentRoots {
-        /// Actual number of own segment roots
-        actual: usize,
-    },
-    /// Too many leaf shard block segments
-    #[error("Too many leaf shard block segments: {actual}")]
-    TooManyLeafShardBlockSegments {
-        /// Actual number of shard block segments
-        actual: usize,
-    },
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
@@ -361,14 +349,8 @@ impl OwnedBeaconChainBody {
                 let num_own_segment_roots = intermediate_shard_block
                     .own_segments
                     .as_ref()
-                    .map(|own_segments| own_segments.segment_roots.len())
+                    .map(|own_segments| own_segments.num_segment_roots().get())
                     .unwrap_or_default();
-                let num_own_segment_roots =
-                    u8::try_from(num_own_segment_roots).map_err(|_error| {
-                        OwnedBeaconChainBodyError::TooManyIntermediateShardOwnSegmentRoots {
-                            actual: num_own_segment_roots,
-                        }
-                    })?;
                 let num_leaf_shard_blocks_with_segments =
                     intermediate_shard_block.num_leaf_shard_blocks_with_segments();
 
@@ -417,14 +399,7 @@ impl OwnedBeaconChainBody {
 
                 for (_shard_index, own_segments) in intermediate_shard_block.leaf_shards_segments()
                 {
-                    let num_own_segment_roots = own_segments.segment_roots.len();
-                    let num_own_segment_roots =
-                        u8::try_from(num_own_segment_roots).map_err(|_error| {
-                            OwnedBeaconChainBodyError::TooManyLeafShardBlockSegments {
-                                actual: num_own_segment_roots,
-                            }
-                        })?;
-                    if !buffer.append(&[num_own_segment_roots]) {
+                    if !buffer.append(&[own_segments.num_segment_roots().get()]) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }
                 }
@@ -511,12 +486,6 @@ pub enum OwnedIntermediateShardBodyError {
     #[error("Too many leaf shard blocks: {actual}")]
     TooManyLeafShardBlocks {
         /// Actual number of leaf shard blocks
-        actual: usize,
-    },
-    /// Too many leaf shard own segment roots
-    #[error("Too many leaf shard own segment roots: {actual}")]
-    TooManyLeafShardOwnSegmentRoots {
-        /// Actual number of own segment roots
         actual: usize,
     },
 }
@@ -628,14 +597,8 @@ impl OwnedIntermediateShardBody {
             };
             for leaf_shard_block in leaf_shard_blocks {
                 if let Some(segments) = &leaf_shard_block.segments {
-                    let num_own_segment_roots = segments.own_segments.segment_roots.len();
-                    let num_own_segment_roots =
-                        u8::try_from(num_own_segment_roots).map_err(|_error| {
-                            OwnedIntermediateShardBodyError::TooManyLeafShardOwnSegmentRoots {
-                                actual: num_own_segment_roots,
-                            }
-                        })?;
-                    buffer.as_mut_slice()[own_segments_roots_num_cursor] = num_own_segment_roots;
+                    buffer.as_mut_slice()[own_segments_roots_num_cursor] =
+                        segments.own_segments.num_segment_roots().get();
                 }
                 own_segments_roots_num_cursor += 1;
 

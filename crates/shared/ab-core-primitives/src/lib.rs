@@ -12,6 +12,7 @@
     generic_const_args,
     inherent_associated_types,
     min_generic_const_args,
+    mut_restriction,
     portable_simd,
     slice_split_once,
     step_trait,
