@@ -27,7 +27,6 @@ futures = { workspace = true, features = ["alloc"] }
 rand = { workspace = true, features = ["sys_rng"] }
 replace_with = { workspace = true }
 smallvec = { workspace = true, features = ["drain_filter"] }
-strum = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 triomphe = { workspace = true, features = ["std"] }
