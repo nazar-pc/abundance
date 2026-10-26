@@ -600,3 +600,20 @@ fn beacon_chain_body_with_intermediate_shard_blocks() {
         assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
     }
 }
+
+#[test]
+fn beacon_chain_body_with_leaf_shard_segments_without_segment_roots() {
+    // Segments of a leaf shard block with one segment root and with none
+    for (num_segment_roots, valid) in [(1, true), (0, false)] {
+        let block = TestIntermediateShardBlock::new(1, 0, 0, &[(1 | (1 << 10), num_segment_roots)]);
+        let bytes = beacon_chain_body_bytes(&[block], &[]);
+        assert_eq!(
+            BeaconChainBody::try_from_bytes(bytes.as_slice()).is_some(),
+            valid
+        );
+        assert_eq!(
+            BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
+            valid
+        );
+    }
+}

@@ -22,6 +22,7 @@ use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use core::iter::TrustedLen;
+use core::num::NonZeroU8;
 use core::{array, cmp, fmt, iter, slice};
 use derive_more::From;
 use yoke::Yokeable;
@@ -224,7 +225,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         //   * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
         //   * concatenated own segment roots
         //   * for each leaf shard block with segments:
-        //     * number of own segment roots: u8
+        //     * number of own segment roots: NonZeroU8
         //   * for each leaf shard block with segments:
         //     * shard index: u32 as unaligned little-endian bytes
         //     * local segment index of the first segment root: unaligned `LocalSegmentIndex`
@@ -263,11 +264,12 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 remainder.split_off(..num_leaf_shard_blocks_with_segments * size_of::<u8>())?;
 
             for &num_own_segment_roots in leaf_shard_segment_roots_counts {
+                let num_own_segment_roots = NonZeroU8::new(num_own_segment_roots)?;
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
                 let _first_local_segment_index =
                     remainder.split_off(..LocalSegmentIndex::SIZE as usize)?;
                 let _own_segment_roots = remainder
-                    .split_off(..usize::from(num_own_segment_roots) * SegmentRoot::SIZE)?;
+                    .split_off(..usize::from(num_own_segment_roots.get()) * SegmentRoot::SIZE)?;
             }
 
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
@@ -323,11 +325,12 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 remainder.split_off(..num_leaf_shard_blocks_with_segments * size_of::<u8>())?;
 
             for &num_own_segment_roots in leaf_shard_segment_roots_counts {
+                let num_own_segment_roots = NonZeroU8::new(num_own_segment_roots)?;
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
                 let _first_local_segment_index =
                     remainder.split_off(..LocalSegmentIndex::SIZE as usize)?;
                 let _own_segment_roots = remainder
-                    .split_off(..usize::from(num_own_segment_roots) * SegmentRoot::SIZE)?;
+                    .split_off(..usize::from(num_own_segment_roots.get()) * SegmentRoot::SIZE)?;
             }
 
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
