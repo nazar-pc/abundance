@@ -48,10 +48,10 @@ fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSeal<'_>) {
     match seal {
         BlockHeaderSeal::Ed25519(seal) => {
             let true = buffer.append(&[BlockHeaderSealType::Ed25519 as u8]) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Unsealed headers are only created when the largest seal fits; qed");
             };
             let true = buffer.append(seal.as_bytes()) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Unsealed headers are only created when the largest seal fits; qed");
             };
         }
     }
@@ -66,6 +66,12 @@ pub enum OwnedBeaconChainHeaderError {
         /// Actual number of child shard blocks
         actual: usize,
     },
+    /// Header with the largest possible consensus parameters and seal doesn't fit into the buffer
+    /// after the bytes already there.
+    ///
+    /// Only [`OwnedBeaconChainHeader::from_parts_into()`] returns it.
+    #[error("The header is too large")]
+    HeaderTooLarge,
 }
 
 /// An owned version of [`BeaconChainHeader`].
@@ -147,7 +153,8 @@ impl OwnedBeaconChainHeader {
     /// Write a header from its parts into the provided buffer, after the bytes already there.
     ///
     /// The seal is not attached, the header in the buffer is complete only after
-    /// [`OwnedBeaconChainHeaderUnsealedRef::with_seal()`] attaches it.
+    /// [`OwnedBeaconChainHeaderUnsealedRef::with_seal()`] attaches it. Nothing is written when an
+    /// error is returned, otherwise the seal is guaranteed to fit.
     pub fn from_parts_into<'a>(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
@@ -198,22 +205,32 @@ impl OwnedBeaconChainHeader {
         let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
             OwnedBeaconChainHeaderError::TooManyChildShardBlocks { actual: num_blocks }
         })?;
+        // The header with the largest seal must fit after the bytes already in the buffer, so
+        // that neither the appends below nor the seal appended later can fail. With the number of
+        // child shard blocks checked above, their size fits into `u32`.
+        if buffer
+            .len()
+            .checked_add(Self::max_allocation_for(child_shard_blocks))
+            .is_none()
+        {
+            return Err(OwnedBeaconChainHeaderError::HeaderTooLarge);
+        }
         let true = buffer.append(prefix.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         let true = buffer.append(result.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         let true = buffer.append(consensus_info.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         // TODO: Would be nice for `BlockHeaderChildShardBlocks` to have API to write this by itself
         {
             let true = buffer.append(&num_blocks.to_le_bytes()) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Checked size above; qed");
             };
             let true = buffer.append(&[0; 2]) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Checked size above; qed");
             };
             let true = buffer.append(BlockRoot::repr_from_slice(child_shard_blocks).as_flattened())
             else {
@@ -224,13 +241,13 @@ impl OwnedBeaconChainHeader {
         //  itself
         {
             let true = buffer.append(&solution_range.to_bytes()) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Checked size above; qed");
             };
             let true = buffer.append(&slot_iterations.get().to_le_bytes()) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Checked size above; qed");
             };
             let true = buffer.append(NumShardsUnchecked::from(*num_shards).as_bytes()) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Checked size above; qed");
             };
 
             let bitflags = {
@@ -250,32 +267,32 @@ impl OwnedBeaconChainHeader {
             };
 
             let true = buffer.append(&[bitflags]) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Checked size above; qed");
             };
 
             if let Some(super_segment_root) = super_segment_root {
                 let true = buffer.append(super_segment_root.as_ref()) else {
-                    unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                    unreachable!("Checked size above; qed");
                 };
             }
 
             if let Some(next_solution_range) = next_solution_range {
                 let true = buffer.append(&next_solution_range.to_bytes()) else {
-                    unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                    unreachable!("Checked size above; qed");
                 };
             }
 
             if let Some(pot_parameters_change) = pot_parameters_change {
                 let true = buffer.append(&pot_parameters_change.slot.to_bytes()) else {
-                    unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                    unreachable!("Checked size above; qed");
                 };
                 let true =
                     buffer.append(&pot_parameters_change.slot_iterations.get().to_le_bytes())
                 else {
-                    unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                    unreachable!("Checked size above; qed");
                 };
                 let true = buffer.append(pot_parameters_change.entropy.as_ref()) else {
-                    unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                    unreachable!("Checked size above; qed");
                 };
             }
         }
@@ -390,6 +407,11 @@ pub enum OwnedIntermediateShardHeaderError {
         /// Actual number of child shard blocks
         actual: usize,
     },
+    /// Header doesn't fit into the buffer after the bytes already there.
+    ///
+    /// Only [`OwnedIntermediateShardHeader::from_parts_into()`] returns it.
+    #[error("The header is too large")]
+    HeaderTooLarge,
 }
 
 /// An owned version of [`IntermediateShardHeader`].
@@ -471,7 +493,8 @@ impl OwnedIntermediateShardHeader {
     /// Write a header from its parts into the provided buffer, after the bytes already there.
     ///
     /// The seal is not attached, the header in the buffer is complete only after
-    /// [`OwnedIntermediateShardHeaderUnsealedRef::with_seal()`] attaches it.
+    /// [`OwnedIntermediateShardHeaderUnsealedRef::with_seal()`] attaches it. Nothing is written
+    /// when an error is returned, otherwise the seal is guaranteed to fit.
     pub fn from_parts_into<'a>(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
@@ -511,25 +534,35 @@ impl OwnedIntermediateShardHeader {
         let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
             OwnedIntermediateShardHeaderError::TooManyChildShardBlocks { actual: num_blocks }
         })?;
+        // The header with the largest seal must fit after the bytes already in the buffer, so
+        // that neither the appends below nor the seal appended later can fail. With the number of
+        // child shard blocks checked above, their size fits into `u32`.
+        if buffer
+            .len()
+            .checked_add(Self::max_allocation_for(child_shard_blocks))
+            .is_none()
+        {
+            return Err(OwnedIntermediateShardHeaderError::HeaderTooLarge);
+        }
         let true = buffer.append(prefix.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         let true = buffer.append(result.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         let true = buffer.append(consensus_info.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         let true = buffer.append(beacon_chain_info.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         // TODO: Would be nice for `BlockHeaderChildShardBlocks` to have API to write this by itself
         {
             let true = buffer.append(&num_blocks.to_le_bytes()) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Checked size above; qed");
             };
             let true = buffer.append(&[0; 2]) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+                unreachable!("Checked size above; qed");
             };
             let true = buffer.append(BlockRoot::repr_from_slice(child_shard_blocks).as_flattened())
             else {
@@ -640,6 +673,14 @@ impl OwnedIntermediateShardHeaderUnsealedRef<'_> {
     }
 }
 
+/// Errors for [`OwnedLeafShardHeader`]
+#[derive(Debug, thiserror::Error)]
+pub enum OwnedLeafShardHeaderError {
+    /// Header doesn't fit into the buffer after the bytes already there
+    #[error("The header is too large")]
+    HeaderTooLarge,
+}
+
 /// An owned version of [`LeafShardHeader`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
@@ -698,7 +739,8 @@ impl OwnedLeafShardHeader {
             consensus_info,
             beacon_chain_info,
             &mut buffer,
-        );
+        )
+        .expect("The header with the largest seal fits into an empty buffer; qed");
 
         OwnedLeafShardHeaderUnsealed { buffer }
     }
@@ -706,22 +748,23 @@ impl OwnedLeafShardHeader {
     /// Write a header from its parts into the provided buffer, after the bytes already there.
     ///
     /// The seal is not attached, the header in the buffer is complete only after
-    /// [`OwnedLeafShardHeaderUnsealedRef::with_seal()`] attaches it.
+    /// [`OwnedLeafShardHeaderUnsealedRef::with_seal()`] attaches it. Nothing is written when an
+    /// error is returned, otherwise the seal is guaranteed to fit.
     pub fn from_parts_into<'a>(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
         buffer: &'a mut OwnedAlignedBuffer,
-    ) -> OwnedLeafShardHeaderUnsealedRef<'a> {
+    ) -> Result<OwnedLeafShardHeaderUnsealedRef<'a>, OwnedLeafShardHeaderError> {
         let header_offset = buffer.len();
 
-        Self::append_unsealed(prefix, result, consensus_info, beacon_chain_info, buffer);
+        Self::append_unsealed(prefix, result, consensus_info, beacon_chain_info, buffer)?;
 
-        OwnedLeafShardHeaderUnsealedRef {
+        Ok(OwnedLeafShardHeaderUnsealedRef {
             buffer,
             header_offset,
-        }
+        })
     }
 
     /// Append everything except the seal to the buffer
@@ -731,19 +774,26 @@ impl OwnedLeafShardHeader {
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
         buffer: &mut OwnedAlignedBuffer,
-    ) {
+    ) -> Result<(), OwnedLeafShardHeaderError> {
+        // The header with the largest seal must fit after the bytes already in the buffer, so
+        // that neither the appends below nor the seal appended later can fail
+        if buffer.len().checked_add(Self::MAX_ALLOCATION).is_none() {
+            return Err(OwnedLeafShardHeaderError::HeaderTooLarge);
+        }
         let true = buffer.append(prefix.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         let true = buffer.append(result.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         let true = buffer.append(consensus_info.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
         let true = buffer.append(beacon_chain_info.as_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
+            unreachable!("Checked size above; qed");
         };
+
+        Ok(())
     }
 
     /// Create an owned header from a buffer

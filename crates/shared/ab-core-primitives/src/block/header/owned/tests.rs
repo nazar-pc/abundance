@@ -1,6 +1,6 @@
 use crate::block::header::owned::{
-    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedIntermediateShardHeader,
-    OwnedLeafShardHeader,
+    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
+    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
 };
 use crate::block::header::{
     BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
@@ -226,7 +226,8 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
         &consensus_info(),
         &beacon_chain_info(),
         &mut buffer,
-    );
+    )
+    .unwrap();
     let owned_unsealed = OwnedLeafShardHeader::from_parts(
         &prefix(1 | (1 << 10)),
         &result(),
@@ -238,4 +239,52 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
     let header = owned_unsealed.with_seal(seal);
     assert_eq!(buffer.as_slice()[..3], bytes_before);
     assert_eq!(buffer.as_slice()[3..], *header.buffer().as_slice());
+}
+
+#[test]
+fn from_parts_into_writes_nothing_on_errors() {
+    // One more child shard block than headers can have. A buffer without space for a header
+    // would need 4 GiB of initialized memory, so the other error is not checked here.
+    let child_shard_blocks = vec![BlockRoot::default(); usize::from(u16::MAX) + 1];
+    let consensus_parameters = BlockHeaderConsensusParameters {
+        fixed_parameters: BlockHeaderFixedConsensusParameters {
+            solution_range: SolutionRange::MAX,
+            slot_iterations: NonZeroU32::MIN,
+            num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap(),
+        },
+        super_segment_root: None,
+        next_solution_range: None,
+        pot_parameters_change: None,
+    };
+    let bytes_before = [1, 2, 3];
+
+    let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
+    assert!(matches!(
+        OwnedBeaconChainHeader::from_parts_into(
+            &prefix(0),
+            &result(),
+            &consensus_info(),
+            &child_shard_blocks,
+            &consensus_parameters,
+            &mut buffer,
+        ),
+        Err(OwnedBeaconChainHeaderError::TooManyChildShardBlocks { actual })
+            if actual == child_shard_blocks.len()
+    ));
+    assert_eq!(buffer.as_slice(), bytes_before);
+
+    let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
+    assert!(matches!(
+        OwnedIntermediateShardHeader::from_parts_into(
+            &prefix(1),
+            &result(),
+            &consensus_info(),
+            &beacon_chain_info(),
+            &child_shard_blocks,
+            &mut buffer,
+        ),
+        Err(OwnedIntermediateShardHeaderError::TooManyChildShardBlocks { actual })
+            if actual == child_shard_blocks.len()
+    ));
+    assert_eq!(buffer.as_slice(), bytes_before);
 }

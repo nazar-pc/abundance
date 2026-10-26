@@ -7,7 +7,9 @@ use crate::block::body::{
     BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBlockInfo,
     IntermediateShardBody, LeafShardBlockInfo, LeafShardBody,
 };
-use crate::block::header::owned::{OwnedIntermediateShardHeader, OwnedLeafShardHeader};
+use crate::block::header::owned::{
+    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
+};
 use crate::pot::PotCheckpoints;
 use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
@@ -383,10 +385,17 @@ impl OwnedBeaconChainBody {
                     intermediate_shard_block.header.child_shard_blocks(),
                     &mut buffer,
                 )
-                .expect(
-                    "Headers are only created by parsers, which read at most `u16::MAX` child \
-                    shard blocks; qed",
-                )
+                .map_err(|error| match error {
+                    OwnedIntermediateShardHeaderError::TooManyChildShardBlocks { actual: _ } => {
+                        unreachable!(
+                            "Headers are only created by parsers, which read at most `u16::MAX` \
+                            child shard blocks; qed"
+                        )
+                    }
+                    OwnedIntermediateShardHeaderError::HeaderTooLarge => {
+                        OwnedBeaconChainBodyError::BlockBodyIsTooLarge
+                    }
+                })?
                 .with_seal(intermediate_shard_block.header.seal);
 
                 if let Some(segments_proof) = &intermediate_shard_block.segments_proof
@@ -636,6 +645,10 @@ impl OwnedIntermediateShardBody {
                     leaf_shard_block.header.consensus_info,
                     leaf_shard_block.header.beacon_chain_info(),
                     &mut buffer,
+                )
+                .expect(
+                    "Bodies with at most `u8::MAX` leaf shard blocks with at most `u8::MAX` \
+                    segment roots each are far smaller than `u32::MAX` bytes; qed",
                 )
                 .with_seal(leaf_shard_block.header.seal);
                 let true = align_to_8_with_padding(&mut buffer) else {
