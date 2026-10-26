@@ -55,6 +55,8 @@ Breaking changes:
 * `TrivialType::from_bytes()` and `from_bytes_mut()` are safe, require `AnyBitPattern` and return the remaining bytes
   like the `try_` variants, which replace them for other types. References to zero-sized types are now created from any
   aligned bytes, previously these methods returned `None` for them
+* `TrivialType::as_bytes_mut()` is safe and requires `AnyBitPattern`, the unsafe `as_bytes_mut_unchecked()` replaces it
+  for other types
 
 Improvements:
 

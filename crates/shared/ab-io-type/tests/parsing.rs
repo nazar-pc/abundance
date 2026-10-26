@@ -623,6 +623,14 @@ fn any_bit_pattern_exclusive_references() {
     assert_eq!(Empty::from_bytes_mut_exact(&mut [1]), None);
 }
 
+#[test]
+fn any_bit_pattern_byte_writes() {
+    let mut value = 0x0102_u64;
+    assert_eq!(*value.as_bytes_mut(), 0x0102_u64.to_ne_bytes());
+    *value.as_bytes_mut() = 7_u64.to_ne_bytes();
+    assert_eq!(value, 7);
+}
+
 /// Every parsing method rejects bytes that are not a valid value
 #[test]
 fn invalid_values_are_rejected() {

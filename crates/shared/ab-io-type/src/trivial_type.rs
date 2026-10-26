@@ -258,12 +258,22 @@ where
         unsafe { ptr::from_ref(self).cast::<[u8; _]>().as_ref_unchecked() }
     }
 
-    /// Access the underlying mutable byte representation of a data structure.
+    /// Access the underlying mutable byte representation of a data structure
+    #[inline(always)]
+    final fn as_bytes_mut(&mut self) -> &mut [u8; SIZE_OF::<Self>]
+    where
+        Self: AnyBitPattern,
+    {
+        // SAFETY: Any bytes written are a valid value of `Self` (`AnyBitPatternMarker`)
+        unsafe { self.as_bytes_mut_unchecked() }
+    }
+
+    /// Similar to [`Self::as_bytes_mut()`], but for any type.
     ///
     /// # Safety
     /// Only bytes of a valid value of `Self` may be written to the returned array.
     #[inline(always)]
-    final unsafe fn as_bytes_mut(&mut self) -> &mut [u8; SIZE_OF::<Self>] {
+    final unsafe fn as_bytes_mut_unchecked(&mut self) -> &mut [u8; SIZE_OF::<Self>] {
         // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description, only
         // bytes of a valid value are written (function contract)
         unsafe { ptr::from_mut(self).cast::<[u8; _]>().as_mut_unchecked() }
