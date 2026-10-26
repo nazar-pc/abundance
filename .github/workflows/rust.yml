@@ -144,6 +144,35 @@ jobs:
               job-summary: 'false'
               pr-comment: 'false'
 
+          - name: Install wild-linker
+            uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # 2.87.32
+            with:
+              tool: wild-linker
+            if: runner.os == 'Linux'
+
+          # Use Wild linker for shorter build times
+          - name: Use Wild linker on Linux
+            shell: bash
+            run: |
+              LINKER_FLAGS="-C linker=clang -C link-arg=--ld-path=wild"
+              # Rustc doesn't pass the target to Clang when it is used as a linker driver. This is
+              # here rather than in `RISC-V support`, because steps of this group run in parallel,
+              # and only one of them can set `RUSTFLAGS`.
+              if [[ "${{ matrix.target }}" == riscv32* ]]; then
+                LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv32-linux-gnu"
+              elif [[ "${{ matrix.target }}" == riscv64* ]]; then
+                LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv64-linux-gnu"
+              fi
+              echo "RUSTFLAGS=${RUSTFLAGS} ${LINKER_FLAGS}" >> $GITHUB_ENV
+            if: runner.os == 'Linux'
+
+          # Use LLD linker for shorter build times
+          - name: Use LLD linker on Windows
+            shell: bash
+            run: |
+              echo "RUSTFLAGS=${RUSTFLAGS} -C linker=rust-lld" >> $GITHUB_ENV
+            if: runner.os == 'Windows'
+
           # Clang compiles C code for all RISC-V targets. They are linked with Wild like all Linux
           # targets, see `Use Wild linker on Linux`.
           - name: RISC-V support
@@ -152,7 +181,7 @@ jobs:
               # Unlike GCC, Clang accepts the target `cc` crate passes for the custom guest target
               echo "TARGET_CC=clang" >> $GITHUB_ENV
               echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-              if [[ "${{ matrix.target }}" == *riscv32* ]]; then
+              if [[ "${{ matrix.target }}" == riscv32* ]]; then
                 # Ubuntu has no RV32 glibc, but neither Clippy nor Miri runs C code from build
                 # scripts (like `alloca` used by `criterion`), so compiling it without target
                 # headers is enough
@@ -166,39 +195,6 @@ jobs:
                   libc6-dev-riscv64-cross libgcc-15-dev-riscv64-cross
               fi
             if: contains(matrix.target, 'riscv')
-
-          - name: Install wild-linker
-            uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # 2.87.29
-            with:
-              tool: wild-linker
-            if: runner.os == 'Linux'
-
-          # Use Wild linker for shorter build times
-          - name: Use Wild linker on Linux
-            shell: bash
-            run: |
-              LINKER_FLAGS="-C linker=clang -C link-arg=--ld-path=wild"
-              # TODO: Remove once https://github.com/wild-linker/wild/issues/2260 is resolved
-              if [[ "$(uname -m)" == "aarch64" ]]; then
-                LINKER_FLAGS="${LINKER_FLAGS} -A linker_messages"
-              fi
-              # Rustc doesn't pass the target to Clang when it is used as a linker driver. This is
-              # here rather than in `RISC-V support`, because steps of this group run in parallel,
-              # and only one of them can set `RUSTFLAGS`.
-              if [[ "${{ matrix.target }}" == *riscv32* ]]; then
-                LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv32-linux-gnu"
-              elif [[ "${{ matrix.target }}" == *riscv64* ]]; then
-                LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv64-linux-gnu"
-              fi
-              echo "RUSTFLAGS=${RUSTFLAGS} ${LINKER_FLAGS}" >> $GITHUB_ENV
-            if: runner.os == 'Linux'
-
-          # Use LLD linker for shorter build times
-          - name: Use LLD linker on Windows
-            shell: bash
-            run: |
-              echo "RUSTFLAGS=${RUSTFLAGS} -C linker=rust-lld" >> $GITHUB_ENV
-            if: runner.os == 'Windows'
 
       - name: cargo clippy
         shell: bash
@@ -389,7 +385,7 @@ jobs:
 
     steps: &test-steps
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # 2.87.29
+        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # 2.87.32
         with:
           tool: cargo-nextest
 
