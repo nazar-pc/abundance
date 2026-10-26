@@ -134,32 +134,19 @@ impl<'a> Transaction<'a> {
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        #[expect(
-            clippy::cast_ptr_alignment,
-            reason = "False-positive, see https://github.com/rust-lang/rust-clippy/issues/17636"
-        )]
-        let bytes_ptr = bytes.as_ptr().cast::<u128>();
-        if !Alignment::MAX.is_slice_aligned(bytes)
-            || bytes.len()
-                < size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>()
-        {
+        if !Alignment::MAX.is_slice_aligned(bytes) {
             return None;
         }
 
-        // SAFETY: Checked above that there are enough bytes and they are correctly aligned
-        let lengths = unsafe {
-            bytes_ptr
-                .byte_add(size_of::<TransactionHeader>())
-                .cast::<SerializedTransactionLengths>()
-                .read()
-        };
+        let lengths = bytes.get(size_of::<TransactionHeader>()..)?;
+        let (lengths, _remainder) = SerializedTransactionLengths::from_bytes(lengths)?;
         let SerializedTransactionLengths {
             read_slots,
             write_slots,
             payload,
             seal,
             padding,
-        } = lengths;
+        } = *lengths;
 
         if padding != [0; _] {
             return None;

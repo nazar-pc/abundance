@@ -17,6 +17,7 @@ use crate::shard::{NumShards, NumShardsUnchecked, RealShardKind, ShardIndex, Sha
 use crate::solutions::{Solution, SolutionRange};
 use ab_blake3::{BLOCK_LEN, single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use blake3::CHUNK_LEN;
 use core::num::NonZeroU32;
@@ -204,15 +205,9 @@ impl BlockHeaderFixedConsensusParameters {
             pot_slot_iterations[3],
         ]);
         let slot_iterations = NonZeroU32::new(slot_iterations)?;
-        // SAFETY: All bit patterns are valid
-        let num_shards = unsafe {
-            bytes
-                .split_off(..size_of::<NumShardsUnchecked>())?
-                .as_ptr()
-                .cast::<NumShardsUnchecked>()
-                .read_unaligned()
-        };
-        let num_shards = NumShards::try_from(num_shards).ok()?;
+        let num_shards;
+        (num_shards, bytes) = Unaligned::<NumShardsUnchecked>::from_bytes(bytes)?;
+        let num_shards = NumShards::try_from(num_shards.as_inner()).ok()?;
 
         Some((
             Self {

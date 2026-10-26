@@ -323,13 +323,9 @@ impl<'a> ContractFile<'a> {
                 file_size: file_bytes.len(),
             }
         })?;
-        let (header_bytes, after_header_bytes) = file_bytes
-            .split_at_checked(size_of::<ContractFileHeader>())
+        let (header, after_header_bytes) = Unaligned::<ContractFileHeader>::from_bytes(file_bytes)
             .ok_or(ContractFileParseError::NoHeader)?;
-        // SAFETY: `Unaligned` has alignment 1, `header_bytes` are the size of a header and any
-        // bytes of that size are a valid header, its contents are checked below
-        let header = unsafe { Unaligned::<ContractFileHeader>::from_bytes_unchecked(header_bytes) }
-            .as_inner();
+        let header = header.as_inner();
 
         if header.magic != CONTRACT_FILE_MAGIC {
             return Err(ContractFileParseError::WrongMagicBytes);
@@ -391,21 +387,17 @@ impl<'a> ContractFile<'a> {
                 let mut file_contract_metadata_bytes = after_header_bytes;
 
                 iter::repeat_with(move || {
-                    let contract_file_method_metadata_bytes = file_contract_metadata_bytes
-                        .split_off(..size_of::<ContractFileMethodMetadata>())
+                    let contract_file_method_metadata;
+                    (contract_file_method_metadata, file_contract_metadata_bytes) =
+                        Unaligned::<ContractFileMethodMetadata>::from_bytes(
+                            file_contract_metadata_bytes,
+                        )
                         .ok_or(ContractFileParseError::FileTooSmall {
                             num_methods: header.num_methods,
                             read_only_section_size: header.read_only_section_file_size,
                             file_size,
                         })?;
-                    // SAFETY: `Unaligned` has alignment 1, the number of bytes is correct and any
-                    // bytes are valid method metadata, its contents are checked below
-                    let contract_file_method_metadata = unsafe {
-                        Unaligned::<ContractFileMethodMetadata>::from_bytes_unchecked(
-                            contract_file_method_metadata_bytes,
-                        )
-                    }
-                    .as_inner();
+                    let contract_file_method_metadata = contract_file_method_metadata.as_inner();
 
                     if contract_file_method_metadata
                         .offset
@@ -867,14 +859,12 @@ impl<'a> ContractFile<'a> {
                     )
                     .get_unchecked(..size_of::<ContractFileMethodMetadata>())
             };
-            // SAFETY: `Unaligned` has alignment 1, and the bytes are method metadata (internal
-            // invariant checked in the constructor)
-            let contract_file_method_metadata = unsafe {
-                Unaligned::<ContractFileMethodMetadata>::from_bytes_unchecked(
+            let contract_file_method_metadata =
+                Unaligned::<ContractFileMethodMetadata>::from_bytes_exact(
                     contract_file_method_metadata_bytes,
                 )
-            }
-            .as_inner();
+                .expect("Correct size; qed")
+                .as_inner();
 
             let (method_metadata_item, method_metadata_bytes) = metadata_methods_iter
                 .next()

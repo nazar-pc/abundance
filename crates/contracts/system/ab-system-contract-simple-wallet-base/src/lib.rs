@@ -140,7 +140,7 @@ impl SimpleWalletBase {
         #[input] payload: &TxHandlerPayload<'_>,
         #[input] seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError> {
-        let Some(seal) = Unaligned::<Seal>::try_from_bytes_exact(seal.get_initialized()) else {
+        let Some(seal) = Unaligned::<Seal>::from_bytes_exact(seal.get_initialized()) else {
             return Err(ContractError::BadInput);
         };
 

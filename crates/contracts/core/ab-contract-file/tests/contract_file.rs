@@ -252,6 +252,46 @@ fn compressed_host_call_fn_at_the_end() {
 }
 
 #[test]
+fn misaligned_file() {
+    let metadata = trait_metadata("Test", &["first", "second"]);
+    let read_only_padding = u32::try_from(metadata.len() % 2).unwrap();
+    let mut file = contract_file(
+        &[],
+        &metadata,
+        read_only_padding,
+        &[[RET, C_J_0].concat(), RET.to_vec()],
+    );
+    // Host call function is `c.j 0` at the end of the first method
+    let host_call_fn_offset = u32::try_from(file.len() - RET.len() - C_J_0.len()).unwrap();
+    file[offset_of!(ContractFileHeader, host_call_fn_offset)..][..size_of::<u32>()]
+        .copy_from_slice(&host_call_fn_offset.to_le_bytes());
+
+    // Contract files have no alignment guarantee, a copy at an odd address is parsed the same way
+    let mut buffer = vec![0; file.len() + 1];
+    let offset = usize::from(buffer.as_ptr().addr().is_multiple_of(2));
+    let misaligned_file = &mut buffer[offset..][..file.len()];
+    misaligned_file.copy_from_slice(&file);
+
+    let mut parsed_methods = Vec::new();
+    let contract_file = ContractFile::parse(misaligned_file, |method| {
+        parsed_methods.push((method.address, method.size));
+        Ok(())
+    })
+    .unwrap();
+
+    let code_address = contract_file.header().read_only_section_memory_size;
+    let expected_methods = [(code_address, 4), (code_address + 4, 2)];
+    assert_eq!(parsed_methods, expected_methods);
+    assert_eq!(
+        contract_file
+            .iterate_methods()
+            .map(|method| (method.address, method.size))
+            .collect::<Vec<_>>(),
+        expected_methods
+    );
+}
+
+#[test]
 fn contract_memory_size_limit() {
     let metadata = trait_metadata("Test", &["first"]);
     let methods = [RET.to_vec()];
