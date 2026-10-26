@@ -76,7 +76,7 @@ chacha20 = { version = "0.10.2", default-features = false }
 clap = { version = "4.6.7", features = ["derive"] }
 colored = { version = "3.1.1" }
 const-fn-specialization = "0.1.0"
-const_format = "0.2.36"
+const_format = "0.2.37"
 core_affinity = "0.8.3"
 cpufeatures = "0.3.1"
 criterion = { version = "0.8.2", default-features = false }
@@ -99,7 +99,7 @@ jsonrpsee = "0.26.1"
 libc = "0.2.191"
 libp2p = { version = "0.57.0", git = "https://github.com/autonomys/rust-libp2p", rev = "5914c8763c6073b31208ca343a4da779c90e481f", default-features = false }
 libp2p-swarm-test = { version = "0.7.0", git = "https://github.com/autonomys/rust-libp2p", rev = "5914c8763c6073b31208ca343a4da779c90e481f" }
-memmap2 = "0.9.11"
+memmap2 = "0.9.12"
 mimalloc = "0.1.52"
 multihash = "0.19.5"
 nohash-hasher = "0.2.0"
@@ -128,14 +128,14 @@ serde = { version = "1.0.229", default-features = false }
 serde_json = "1.0.154"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.1", default-features = false }
-smallvec = { version = "1.16.3", features = ["union"] }
+smallvec = { version = "1.16.4", features = ["union"] }
 spirv-std-nightly = "0.11.1"
 stable_deref_trait = { version = "1.2.1", default-features = false }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 syn = "3.0.9"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.21", default-features = false }
-tokio = { version = "1.54.0", default-features = false }
+tokio = { version = "1.54.1", default-features = false }
 tokio-stream = "0.1.19"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
@@ -147,7 +147,7 @@ unsigned-varint = "0.8.0"
 void = "1.0.2"
 wgpu = { version = "30.0.1", default-features = false, features = ["metal", "parking_lot", "spirv", "std", "vulkan"] }
 windows = { version = "0.62.2", features = ["Win32_Storage_FileSystem"] }
-yoke = { version = "0.8.3", default-features = false }
+yoke = { version = "0.8.4", default-features = false }
 zeroize = "1.9.1"
 
 # The following libraries have a major impact on developement experience and need to be compiled with optimizations even
