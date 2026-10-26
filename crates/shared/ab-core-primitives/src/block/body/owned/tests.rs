@@ -555,66 +555,94 @@ fn beacon_chain_body_bytes(
     SharedAlignedBuffer::from_bytes(&bytes)
 }
 
+/// Parse `intermediate_shard_blocks` and check that the body has the same contents and that the
+/// builder writes the same bytes
+fn check_beacon_chain_body_with_intermediate_shard_blocks(
+    intermediate_shard_blocks: &[TestIntermediateShardBlock],
+    pot_checkpoints: &[PotCheckpoints],
+) {
+    let bytes = beacon_chain_body_bytes(intermediate_shard_blocks, pot_checkpoints);
+
+    let (body, remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
+    assert!(remainder.is_empty());
+    assert!(body.own_segments().is_none());
+    assert_eq!(body.pot_checkpoints(), pot_checkpoints);
+    assert_eq!(
+        body.intermediate_shard_blocks().len(),
+        intermediate_shard_blocks.len()
+    );
+    for (info, block) in body
+        .intermediate_shard_blocks()
+        .iter()
+        .zip(intermediate_shard_blocks)
+    {
+        assert_eq!(*info.header.root(), *block.header.header().root());
+        match (&info.own_segments, &block.own_segments) {
+            (Some(info_own_segments), Some(own_segments)) => {
+                assert_segments_eq(info_own_segments, own_segments);
+            }
+            (None, None) => {}
+            _ => panic!("Own segments mismatch"),
+        }
+        assert_eq!(
+            info.segments_proof.copied(),
+            (block.own_segments.is_some() || !block.leaf_shards_segments.is_empty())
+                .then_some(block.segments_proof)
+        );
+        assert_eq!(
+            info.leaf_shards_segments().len(),
+            block.leaf_shards_segments.len()
+        );
+        for ((info_shard_index, info_segments), (shard_index, segments)) in
+            info.leaf_shards_segments().zip(&block.leaf_shards_segments)
+        {
+            assert_eq!(info_shard_index, *shard_index);
+            assert_segments_eq(&info_segments, segments);
+        }
+    }
+
+    assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
+}
+
 #[test]
 fn beacon_chain_body_with_intermediate_shard_blocks() {
-    // More leaf shard blocks with segments than fit into `u8`
-    let many_leaf_shards_segments = (1..=256)
-        .map(|leaf_shard| (3 | (leaf_shard << 10), 1))
-        .collect::<Vec<_>>();
     // A few blocks of the first three intermediate shards with and without segments
     let intermediate_shard_blocks = [
         TestIntermediateShardBlock::new(1, 0, 0, &[]),
         TestIntermediateShardBlock::new(1, 1, 1, &[(1 | (1 << 10), 2), (1 | (2 << 10), 1)]),
         TestIntermediateShardBlock::new(2, 0, 0, &[(2 | (1 << 10), 1)]),
         TestIntermediateShardBlock::new(2, 1, 2, &[]),
-        TestIntermediateShardBlock::new(3, 0, 0, &many_leaf_shards_segments),
+        TestIntermediateShardBlock::new(3, 0, 0, &[(3 | (1 << 10), 1)]),
     ];
     let pot_checkpoints = [PotCheckpoints::default()];
 
     // Different numbers of blocks need different padding after the numbers of segment roots,
     // there is none for three blocks
     for num_blocks in 1..=intermediate_shard_blocks.len() {
-        let intermediate_shard_blocks = &intermediate_shard_blocks[..num_blocks];
-        let bytes = beacon_chain_body_bytes(intermediate_shard_blocks, &pot_checkpoints);
-
-        let (body, remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
-        assert!(remainder.is_empty());
-        assert!(body.own_segments().is_none());
-        assert_eq!(body.pot_checkpoints(), pot_checkpoints);
-        assert_eq!(body.intermediate_shard_blocks().len(), num_blocks);
-        for (info, block) in body
-            .intermediate_shard_blocks()
-            .iter()
-            .zip(intermediate_shard_blocks)
-        {
-            assert_eq!(*info.header.root(), *block.header.header().root());
-            match (&info.own_segments, &block.own_segments) {
-                (Some(info_own_segments), Some(own_segments)) => {
-                    assert_segments_eq(info_own_segments, own_segments);
-                }
-                (None, None) => {}
-                _ => panic!("Own segments mismatch"),
-            }
-            assert_eq!(
-                info.segments_proof.copied(),
-                (block.own_segments.is_some() || !block.leaf_shards_segments.is_empty())
-                    .then_some(block.segments_proof)
-            );
-            assert_eq!(
-                info.leaf_shards_segments().len(),
-                block.leaf_shards_segments.len()
-            );
-            for ((info_shard_index, info_segments), (shard_index, segments)) in
-                info.leaf_shards_segments().zip(&block.leaf_shards_segments)
-            {
-                assert_eq!(info_shard_index, *shard_index);
-                assert_segments_eq(&info_segments, segments);
-            }
-        }
-
-        // The builder writes the same bytes
-        assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
+        check_beacon_chain_body_with_intermediate_shard_blocks(
+            &intermediate_shard_blocks[..num_blocks],
+            &pot_checkpoints,
+        );
     }
+}
+
+#[test]
+fn beacon_chain_body_with_many_leaf_shards_segments() {
+    // More leaf shard blocks with segments than fit into `u8`
+    let many_leaf_shards_segments = (1..=256)
+        .map(|leaf_shard| (3 | (leaf_shard << 10), 1))
+        .collect::<Vec<_>>();
+    let intermediate_shard_blocks = [TestIntermediateShardBlock::new(
+        3,
+        0,
+        0,
+        &many_leaf_shards_segments,
+    )];
+
+    check_beacon_chain_body_with_intermediate_shard_blocks(
+        &intermediate_shard_blocks,
+        &[PotCheckpoints::default()],
+    );
 }
 
 #[test]
