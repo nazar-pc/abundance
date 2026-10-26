@@ -392,6 +392,9 @@ fn intermediate_shard_body_with_leaf_shard_blocks() {
                 _ => panic!("Segments mismatch"),
             }
         }
+
+        // The builder writes the same bytes
+        assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
     }
 }
 

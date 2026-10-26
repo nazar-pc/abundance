@@ -574,7 +574,7 @@ impl OwnedIntermediateShardBody {
             }
         })?;
         let num_blocks = leaf_shard_blocks.size_hint().0;
-        let num_blocks = u8::try_from(num_blocks).map_err(|_error| {
+        let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
             OwnedIntermediateShardBodyError::TooManyLeafShardBlocks { actual: num_blocks }
         })?;
 
@@ -587,7 +587,7 @@ impl OwnedIntermediateShardBody {
                     // Own segment roots
                     + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
                     // Number of leaf shard blocks
-                    + u8::SIZE
+                    + u16::SIZE
                     // Numbers of own segment roots of each block
                     + u32::from(num_blocks) * u8::SIZE
             )
@@ -647,7 +647,7 @@ impl OwnedIntermediateShardBody {
                     &mut buffer,
                 )
                 .expect(
-                    "Bodies with at most `u8::MAX` leaf shard blocks with at most `u8::MAX` \
+                    "Bodies with at most `u16::MAX` leaf shard blocks with at most `u8::MAX` \
                     segment roots each are far smaller than `u32::MAX` bytes; qed",
                 )
                 .with_seal(leaf_shard_block.header.seal);
