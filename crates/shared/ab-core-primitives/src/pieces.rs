@@ -1096,7 +1096,7 @@ const {
 /// A piece of archival history.
 ///
 /// This version is allocated on the stack, for a heap-allocated piece that can be moved around
-/// efficiently, see [`Piece`].
+/// efficiently, see `Piece`.
 ///
 /// Internally, a piece contains a record, supplementary record chunk root, and a proof proving this
 /// piece belongs to can be used to verify that a piece belongs to the actual archival history of

@@ -377,8 +377,8 @@ impl BeaconChainBlockDetails {
                         let shard_index = intermediate_shard_block_info.header.prefix.shard_index;
 
                         move |own_segments| {
-                            (own_segments.first_local_segment_index..)
-                                .zip(own_segments.segment_roots)
+                            own_segments
+                                .iter()
                                 .map(move |(segment_index, &segment_root)| ShardSegmentRoot {
                                     shard_index,
                                     segment_index,
@@ -389,8 +389,8 @@ impl BeaconChainBlockDetails {
                 let child_shard_segment_roots = intermediate_shard_block_info
                     .leaf_shards_segments()
                     .flat_map(move |(shard_index, own_segments)| {
-                        (own_segments.first_local_segment_index..)
-                            .zip(own_segments.segment_roots)
+                        own_segments
+                            .iter()
                             .map(move |(segment_index, &segment_root)| ShardSegmentRoot {
                                 shard_index,
                                 segment_index,

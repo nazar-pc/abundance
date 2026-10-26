@@ -346,11 +346,20 @@ pub struct BlockHeaderConsensusParameters<'a> {
 
 impl<'a> BlockHeaderConsensusParameters<'a> {
     /// Max size of the allocation necessary for this data structure
-    pub const MAX_SIZE: u32 = size_of::<BlockHeaderFixedConsensusParameters>() as u32
-        + u8::SIZE
-        + <SuperSegmentRoot as TrivialType>::SIZE
-        + <SolutionRange as TrivialType>::SIZE
+    pub const MAX_SIZE: u32 =
+        // Solution range of fixed parameters
+        <SolutionRange as TrivialType>::SIZE
+        // PoT slot iterations of fixed parameters
+        + u32::SIZE
+        // Number of shards of fixed parameters
         + <NumShardsUnchecked as TrivialType>::SIZE
+        // Bitflags
+        + u8::SIZE
+        // Super segment root
+        + <SuperSegmentRoot as TrivialType>::SIZE
+        // Next solution range
+        + <SolutionRange as TrivialType>::SIZE
+        // PoT parameters change
         + size_of::<BlockHeaderPotParametersChange>() as u32;
     /// Bitmask for presence of `super_segment_root` field
     pub const SUPER_SEGMENT_ROOT_MASK: u8 = 0b0000_0001;
@@ -782,7 +791,7 @@ impl<'a> BeaconChainHeader<'a> {
         // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
         // * child shard blocks: BlockHeaderChildShardBlocks
-        // * beacon chain parameters: BlockHeaderBeaconChainParameters
+        // * consensus parameters: BlockHeaderConsensusParameters
         // * block header seal: BlockHeaderSeal
 
         let (prefix, consensus_info, result, remainder) =
@@ -835,58 +844,6 @@ impl<'a> BeaconChainHeader<'a> {
             BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
         };
         public_key_hash == self.shared.consensus_info.solution.public_key_hash
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * block header prefix: BlockHeaderPrefix
-        // * block header result: BlockHeaderResult
-        // * consensus info: BlockHeaderConsensusInfo
-        // * child shard blocks: BlockHeaderChildShardBlocks
-        // * beacon chain parameters: BlockHeaderBeaconChainParameters
-        // * block header seal: BlockHeaderSeal
-
-        let (prefix, consensus_info, result, remainder) =
-            BlockHeader::try_from_bytes_shared(bytes)?;
-
-        if prefix.shard_index.shard_kind() != Some(ShardKind::BeaconChain) {
-            return None;
-        }
-
-        let (child_shard_blocks, remainder) =
-            BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
-
-        let (consensus_parameters, remainder) =
-            BlockHeaderConsensusParameters::try_from_bytes(remainder)?;
-
-        let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
-
-        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
-
-        let shared = SharedBlockHeader {
-            prefix,
-            result,
-            consensus_info,
-            seal,
-        };
-
-        Some((
-            Self {
-                shared,
-                child_shard_blocks,
-                consensus_parameters,
-                pre_seal_bytes,
-                #[cfg(any(
-                    feature = "alloc",
-                    not(any(target_os = "none", target_os = "unknown"))
-                ))]
-                cached_block_root: triomphe::Arc::default(),
-            },
-            remainder,
-        ))
     }
 
     /// Create an owned version of this header
@@ -1068,7 +1025,7 @@ impl<'a> IntermediateShardHeader<'a> {
         // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
         // * beacon chain: BlockHeaderBeaconChainInfo
-        // * child shard blocks: BlockHeaderBeaconChainInfo
+        // * child shard blocks: BlockHeaderChildShardBlocks
         // * block header seal: BlockHeaderSeal
 
         let (prefix, consensus_info, result, mut remainder) =
@@ -1123,60 +1080,6 @@ impl<'a> IntermediateShardHeader<'a> {
             BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
         };
         public_key_hash == self.shared.consensus_info.solution.public_key_hash
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * block header prefix: BlockHeaderPrefix
-        // * block header result: BlockHeaderResult
-        // * consensus info: BlockHeaderConsensusInfo
-        // * beacon chain: BlockHeaderBeaconChainInfo
-        // * child shard blocks: BlockHeaderBeaconChainInfo
-        // * block header seal: BlockHeaderSeal
-
-        let (prefix, consensus_info, result, mut remainder) =
-            BlockHeader::try_from_bytes_shared(bytes)?;
-
-        if prefix.shard_index.shard_kind() != Some(ShardKind::IntermediateShard) {
-            return None;
-        }
-
-        let beacon_chain_info = remainder.split_off(..size_of::<BlockHeaderBeaconChainInfo>())?;
-        // SAFETY: All bit patterns are valid
-        let beacon_chain_info =
-            unsafe { BlockHeaderBeaconChainInfo::from_bytes(beacon_chain_info) }?;
-
-        let (child_shard_blocks, remainder) =
-            BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
-
-        let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
-
-        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
-
-        let shared = SharedBlockHeader {
-            prefix,
-            result,
-            consensus_info,
-            seal,
-        };
-
-        Some((
-            Self {
-                shared,
-                beacon_chain_info,
-                child_shard_blocks,
-                pre_seal_bytes,
-                #[cfg(any(
-                    feature = "alloc",
-                    not(any(target_os = "none", target_os = "unknown"))
-                ))]
-                cached_block_root: triomphe::Arc::default(),
-            },
-            remainder,
-        ))
     }
 
     /// Create an owned version of this header
@@ -1352,8 +1255,8 @@ impl<'a> LeafShardHeader<'a> {
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         // The layout here is as follows:
-        // * block header result: BlockHeaderResult
         // * block header prefix: BlockHeaderPrefix
+        // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
         // * beacon chain: BlockHeaderBeaconChainInfo
         // * block header seal: BlockHeaderSeal
@@ -1406,55 +1309,6 @@ impl<'a> LeafShardHeader<'a> {
             BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
         };
         public_key_hash == self.shared.consensus_info.solution.public_key_hash
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * block header result: BlockHeaderResult
-        // * block header prefix: BlockHeaderPrefix
-        // * consensus info: BlockHeaderConsensusInfo
-        // * beacon chain: BlockHeaderBeaconChainInfo
-        // * block header seal: BlockHeaderSeal
-
-        let (prefix, consensus_info, result, mut remainder) =
-            BlockHeader::try_from_bytes_shared(bytes)?;
-
-        if prefix.shard_index.shard_kind() != Some(ShardKind::LeafShard) {
-            return None;
-        }
-
-        let beacon_chain_info = remainder.split_off(..size_of::<BlockHeaderBeaconChainInfo>())?;
-        // SAFETY: All bit patterns are valid
-        let beacon_chain_info =
-            unsafe { BlockHeaderBeaconChainInfo::from_bytes(beacon_chain_info) }?;
-
-        let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
-
-        let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
-
-        let shared = SharedBlockHeader {
-            prefix,
-            result,
-            consensus_info,
-            seal,
-        };
-
-        Some((
-            Self {
-                shared,
-                beacon_chain_info,
-                pre_seal_bytes,
-                #[cfg(any(
-                    feature = "alloc",
-                    not(any(target_os = "none", target_os = "unknown"))
-                ))]
-                cached_block_root: triomphe::Arc::default(),
-            },
-            remainder,
-        ))
     }
 
     /// Create an owned version of this header
@@ -1623,29 +1477,6 @@ impl<'a> BlockHeader<'a> {
             Self::BeaconChain(header) => header.is_internally_consistent(),
             Self::IntermediateShard(header) => header.is_internally_consistent(),
             Self::LeafShard(header) => header.is_internally_consistent(),
-        }
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(
-        bytes: &'a [u8],
-        shard_kind: RealShardKind,
-    ) -> Option<(Self, &'a [u8])> {
-        match shard_kind {
-            RealShardKind::BeaconChain => {
-                let (header, remainder) = BeaconChainHeader::try_from_bytes_unchecked(bytes)?;
-                Some((Self::BeaconChain(header), remainder))
-            }
-            RealShardKind::IntermediateShard => {
-                let (header, remainder) = IntermediateShardHeader::try_from_bytes_unchecked(bytes)?;
-                Some((Self::IntermediateShard(header), remainder))
-            }
-            RealShardKind::LeafShard => {
-                let (header, remainder) = LeafShardHeader::try_from_bytes_unchecked(bytes)?;
-                Some((Self::LeafShard(header), remainder))
-            }
         }
     }
 

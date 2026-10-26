@@ -19,7 +19,7 @@ use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
-use core::iter::TrustedLen;
+use core::iter::{Step, TrustedLen};
 use derive_more::From;
 use triomphe::Arc;
 use yoke::Yoke;
@@ -55,9 +55,6 @@ enum AddTransactionError {
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
-    /// Too many transactions
-    #[error("Too many transactions")]
-    TooManyTransactions,
     /// Failed to add transaction
     #[error("Failed to add transaction: {error}")]
     FailedToAddTransaction {
@@ -120,7 +117,7 @@ impl TransactionBuilder {
     {
         // Transactions are aligned, but the very first might come after non-transaction fields that
         // were not aligned
-        if self.inc_transaction_count()? == 1 && !align_to_16_bytes_with_padding(&mut self.buffer) {
+        if self.inc_transaction_count() == 1 && !align_to_16_bytes_with_padding(&mut self.buffer) {
             self.dec_transaction_count();
             return Err(AddTransactionError::BlockBodyIsTooLarge);
         }
@@ -158,7 +155,7 @@ impl TransactionBuilder {
 
     /// Increase the number of stored transactions and return the new value
     #[inline(always)]
-    fn inc_transaction_count(&mut self) -> Result<u32, AddTransactionError> {
+    fn inc_transaction_count(&mut self) -> u32 {
         // SAFETY: Constructor ensures the offset is valid and has space for `u32` (but not
         // necessarily aligned)
         unsafe {
@@ -168,11 +165,12 @@ impl TransactionBuilder {
                 .byte_add(self.num_transactions_offset)
                 .cast::<u32>();
             let num_transactions = num_transactions_ptr.read_unaligned();
-            let num_transactions = num_transactions
-                .checked_add(1)
-                .ok_or(AddTransactionError::TooManyTransactions)?;
+            let num_transactions = num_transactions.checked_add(1).expect(
+                "Each transaction takes at least `TransactionHeader::SIZE` bytes of the buffer, \
+                which can't be longer than `u32::MAX` bytes; qed",
+            );
             num_transactions_ptr.write_unaligned(num_transactions);
-            Ok(num_transactions)
+            num_transactions
         }
     }
 
@@ -209,46 +207,28 @@ pub enum OwnedBeaconChainBodyError {
         /// Actual number of own segment roots
         actual: usize,
     },
+    /// Local segment index after the last own segment root doesn't fit into `u64`
+    #[error("Own segment index overflow, first local segment index: {first_local_segment_index}")]
+    OwnSegmentIndexOverflow {
+        /// Local segment index of the first own segment root
+        first_local_segment_index: LocalSegmentIndex,
+    },
     /// Too many intermediate shard blocks
     #[error("Too many intermediate shard blocks: {actual}")]
     TooManyIntermediateShardBlocks {
         /// Actual number of intermediate shard blocks
         actual: usize,
     },
-    /// Too many intermediate shard own segment roots
-    #[error("Too many intermediate shard own segment roots: {actual}")]
-    TooManyIntermediateShardOwnSegmentRoots {
-        /// Actual number of own segment roots
-        actual: usize,
-    },
-    /// Too many leaf shard blocks with segments
-    #[error("Too many leaf shard blocks with segments: {actual}")]
-    TooManyLeafShardBlocksWithSegments {
-        /// Actual number of shard blocks with segments
-        actual: usize,
-    },
-    /// Too many leaf shard block segments
-    #[error("Too many leaf shard block segments: {actual}")]
-    TooManyLeafShardBlockSegments {
-        /// Actual number of shard block segments
-        actual: usize,
-    },
-    /// Too many intermediate shard child segment roots
-    #[error("Too many intermediate shard child segment roots: {actual}")]
-    TooManyIntermediateShardChildSegmentRoots {
-        /// Actual number of child segment roots
-        actual: usize,
-    },
-    /// Failed to intermediate shard header
-    #[error("Failed to intermediate shard header: {error}")]
-    FailedToAddIntermediateShard {
-        /// Inner error
-        #[from]
-        error: OwnedIntermediateShardHeaderError,
-    },
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
+    /// Intermediate shard blocks are inconsistent, see
+    /// [`IntermediateShardBlocksInfo::is_internally_consistent()`]
+    ///
+    /// [`IntermediateShardBlocksInfo::is_internally_consistent()`]:
+    /// crate::block::body::IntermediateShardBlocksInfo::is_internally_consistent
+    #[error("Intermediate shard blocks are inconsistent")]
+    InconsistentIntermediateShardBlocks,
 }
 
 /// An owned version of [`BeaconChainBody`].
@@ -317,16 +297,32 @@ impl OwnedBeaconChainBody {
             OwnedBeaconChainBodyError::TooManyIntermediateShardBlocks { actual: num_blocks }
         })?;
 
-        let mut buffer = OwnedAlignedBuffer::with_capacity(
+        // A body can't hold more than `u32::MAX` bytes of PoT checkpoints
+        let pot_checkpoints_size = num_pot_checkpoints
+            .checked_mul(PotCheckpoints::SIZE as u32)
+            .ok_or(OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+        let capacity = (
+            // Number of PoT checkpoints
             u32::SIZE
+                // Number of own segment roots
                 + u8::SIZE
+                // Local segment index of the first own segment root
                 + if num_own_segment_roots > 0 { LocalSegmentIndex::SIZE } else { 0 }
+                // Own segment roots
                 + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
+                // Number of intermediate shard blocks
                 + u16::SIZE
-                // This is only an estimate to get in the ballpark where reallocation should not be
-                // necessary in many cases
-                + u32::from(num_blocks) * OwnedIntermediateShardHeader::max_allocation_for(&[]) * 2,
-        );
+                // Numbers of own segment roots and leaf shard blocks with segments of each block
+                + u32::from(num_blocks) * (u8::SIZE + u16::SIZE)
+        )
+        // Padding to 8-bytes boundary
+        .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
+            // This is only an estimate of intermediate shard blocks to get in the ballpark where
+            // reallocation should not be necessary in many cases
+            + u32::from(num_blocks) * OwnedIntermediateShardHeader::max_allocation_for(&[]) * 2;
+        // PoT checkpoints, the estimate above can make the capacity larger than any body can be
+        let mut buffer =
+            OwnedAlignedBuffer::with_capacity(capacity.saturating_add(pot_checkpoints_size));
 
         let true = buffer.append(&num_pot_checkpoints.to_le_bytes()) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
@@ -336,7 +332,19 @@ impl OwnedBeaconChainBody {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
         };
         let mut own_segments = own_segments.peekable();
-        if let Some((first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+        if let Some(&(first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+            // The parser rejects bodies where the index after the last segment root doesn't fit
+            // into `u64`
+            if LocalSegmentIndex::forward_checked(
+                first_local_segment_index,
+                usize::from(num_own_segment_roots),
+            )
+            .is_none()
+            {
+                return Err(OwnedBeaconChainBodyError::OwnSegmentIndexOverflow {
+                    first_local_segment_index,
+                });
+            }
             let true = buffer.append(first_local_segment_index.as_bytes()) else {
                 unreachable!("Checked size above; qed");
             };
@@ -355,7 +363,7 @@ impl OwnedBeaconChainBody {
             for _ in 0..num_blocks {
                 // Placeholder values for the number of own segment roots and number of leaf shard
                 // blocks with segments
-                let true = buffer.append(&[0, 0]) else {
+                let true = buffer.append(&[0, 0, 0]) else {
                     unreachable!("Checked size above; qed");
                 };
             }
@@ -366,28 +374,23 @@ impl OwnedBeaconChainBody {
                 let num_own_segment_roots = intermediate_shard_block
                     .own_segments
                     .as_ref()
-                    .map(|own_segments| own_segments.segment_roots.len())
+                    .map(|own_segments| own_segments.num_segment_roots().get())
                     .unwrap_or_default();
-                let num_own_segment_roots =
-                    u8::try_from(num_own_segment_roots).map_err(|_error| {
-                        OwnedBeaconChainBodyError::TooManyIntermediateShardOwnSegmentRoots {
-                            actual: num_own_segment_roots,
-                        }
-                    })?;
-                let num_leaf_shard_blocks_with_segments = intermediate_shard_block
-                    .leaf_shards_segments()
-                    .size_hint()
-                    .0;
                 let num_leaf_shard_blocks_with_segments =
-                    u8::try_from(num_leaf_shard_blocks_with_segments).map_err(|_error| {
-                        OwnedBeaconChainBodyError::TooManyLeafShardBlocksWithSegments {
-                            actual: num_leaf_shard_blocks_with_segments,
-                        }
-                    })?;
+                    intermediate_shard_block.num_leaf_shard_blocks_with_segments();
 
-                buffer.as_mut_slice()[segments_roots_num_cursor..][..2]
-                    .copy_from_slice(&[num_own_segment_roots, num_leaf_shard_blocks_with_segments]);
-                segments_roots_num_cursor += 2;
+                // The parser decides from these numbers whether own segments and a segments proof
+                // follow the header, so it would read blocks that disagree with them differently
+                if intermediate_shard_block.segments_proof.is_some()
+                    != (num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0)
+                {
+                    return Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks);
+                }
+
+                buffer.as_mut_slice()[segments_roots_num_cursor] = num_own_segment_roots;
+                buffer.as_mut_slice()[segments_roots_num_cursor + 1..][..2]
+                    .copy_from_slice(&num_leaf_shard_blocks_with_segments.to_le_bytes());
+                segments_roots_num_cursor += 3;
 
                 OwnedIntermediateShardHeader::from_parts_into(
                     intermediate_shard_block.header.prefix,
@@ -396,7 +399,19 @@ impl OwnedBeaconChainBody {
                     intermediate_shard_block.header.beacon_chain_info(),
                     intermediate_shard_block.header.child_shard_blocks(),
                     &mut buffer,
-                )?;
+                )
+                .map_err(|error| match error {
+                    OwnedIntermediateShardHeaderError::TooManyChildShardBlocks { actual: _ } => {
+                        unreachable!(
+                            "Headers are only created by parsers, which read at most `u16::MAX` \
+                            child shard blocks; qed"
+                        )
+                    }
+                    OwnedIntermediateShardHeaderError::HeaderTooLarge => {
+                        OwnedBeaconChainBodyError::BlockBodyIsTooLarge
+                    }
+                })?
+                .with_seal(intermediate_shard_block.header.seal);
 
                 if let Some(segments_proof) = &intermediate_shard_block.segments_proof
                     && !buffer.append(*segments_proof)
@@ -417,14 +432,7 @@ impl OwnedBeaconChainBody {
 
                 for (_shard_index, own_segments) in intermediate_shard_block.leaf_shards_segments()
                 {
-                    let num_own_segment_roots = own_segments.segment_roots.len();
-                    let num_own_segment_roots =
-                        u8::try_from(num_own_segment_roots).map_err(|_error| {
-                            OwnedBeaconChainBodyError::TooManyLeafShardBlockSegments {
-                                actual: num_own_segment_roots,
-                            }
-                        })?;
-                    if !buffer.append(&[num_own_segment_roots]) {
+                    if !buffer.append(&[own_segments.num_segment_roots().get()]) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }
                 }
@@ -454,7 +462,11 @@ impl OwnedBeaconChainBody {
         };
 
         // TODO: Avoid extra parsing here or at least go through unchecked version
-        Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
+        Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
+            // Everything else is written the way the parser reads it, only contents of
+            // intermediate shard blocks can be rejected
+            OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks
+        })
     }
 
     /// Create an owned body from a buffer
@@ -507,18 +519,24 @@ pub enum OwnedIntermediateShardBodyError {
         /// Actual number of own segment roots
         actual: usize,
     },
+    /// Local segment index after the last own segment root doesn't fit into `u64`
+    #[error("Own segment index overflow, first local segment index: {first_local_segment_index}")]
+    OwnSegmentIndexOverflow {
+        /// Local segment index of the first own segment root
+        first_local_segment_index: LocalSegmentIndex,
+    },
     /// Too many leaf shard blocks
     #[error("Too many leaf shard blocks: {actual}")]
     TooManyLeafShardBlocks {
         /// Actual number of leaf shard blocks
         actual: usize,
     },
-    /// Too many leaf shard own segment roots
-    #[error("Too many leaf shard own segment roots: {actual}")]
-    TooManyLeafShardOwnSegmentRoots {
-        /// Actual number of own segment roots
-        actual: usize,
-    },
+    /// Leaf shard blocks are inconsistent, see [`LeafShardBlocksInfo::is_internally_consistent()`]
+    ///
+    /// [`LeafShardBlocksInfo::is_internally_consistent()`]:
+    /// crate::block::body::LeafShardBlocksInfo::is_internally_consistent
+    #[error("Leaf shard blocks are inconsistent")]
+    InconsistentLeafShardBlocks,
 }
 
 /// An owned version of [`IntermediateShardBody`].
@@ -574,16 +592,27 @@ impl OwnedIntermediateShardBody {
             }
         })?;
         let num_blocks = leaf_shard_blocks.size_hint().0;
-        let num_blocks = u8::try_from(num_blocks).map_err(|_error| {
+        let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
             OwnedIntermediateShardBodyError::TooManyLeafShardBlocks { actual: num_blocks }
         })?;
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(
-            u8::SIZE
-                + if num_own_segment_roots > 0 { LocalSegmentIndex::SIZE } else { 0 }
-                + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
-                // This is only an estimate to get in the ballpark where reallocation should not be
-                // necessary
+            (
+                // Number of own segment roots
+                u8::SIZE
+                    // Local segment index of the first own segment root
+                    + if num_own_segment_roots > 0 { LocalSegmentIndex::SIZE } else { 0 }
+                    // Own segment roots
+                    + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
+                    // Number of leaf shard blocks
+                    + u16::SIZE
+                    // Numbers of own segment roots of each block
+                    + u32::from(num_blocks) * u8::SIZE
+            )
+            // Padding to 8-bytes boundary
+            .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
+                // This is only an estimate of leaf shard blocks to get in the ballpark where
+                // reallocation should not be necessary
                 + u32::from(num_blocks) * OwnedLeafShardHeader::MAX_ALLOCATION * 2,
         );
 
@@ -591,7 +620,19 @@ impl OwnedIntermediateShardBody {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
         };
         let mut own_segments = own_segments.peekable();
-        if let Some((first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+        if let Some(&(first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+            // The parser rejects bodies where the index after the last segment root doesn't fit
+            // into `u64`
+            if LocalSegmentIndex::forward_checked(
+                first_local_segment_index,
+                usize::from(num_own_segment_roots),
+            )
+            .is_none()
+            {
+                return Err(OwnedIntermediateShardBodyError::OwnSegmentIndexOverflow {
+                    first_local_segment_index,
+                });
+            }
             let true = buffer.append(first_local_segment_index.as_bytes()) else {
                 unreachable!("Checked size above; qed");
             };
@@ -617,14 +658,8 @@ impl OwnedIntermediateShardBody {
             };
             for leaf_shard_block in leaf_shard_blocks {
                 if let Some(segments) = &leaf_shard_block.segments {
-                    let num_own_segment_roots = segments.own_segments.segment_roots.len();
-                    let num_own_segment_roots =
-                        u8::try_from(num_own_segment_roots).map_err(|_error| {
-                            OwnedIntermediateShardBodyError::TooManyLeafShardOwnSegmentRoots {
-                                actual: num_own_segment_roots,
-                            }
-                        })?;
-                    buffer.as_mut_slice()[own_segments_roots_num_cursor] = num_own_segment_roots;
+                    buffer.as_mut_slice()[own_segments_roots_num_cursor] =
+                        segments.own_segments.num_segment_roots().get();
                 }
                 own_segments_roots_num_cursor += 1;
 
@@ -634,7 +669,12 @@ impl OwnedIntermediateShardBody {
                     leaf_shard_block.header.consensus_info,
                     leaf_shard_block.header.beacon_chain_info(),
                     &mut buffer,
-                );
+                )
+                .expect(
+                    "Bodies with at most `u16::MAX` leaf shard blocks with at most `u8::MAX` \
+                    segment roots each are far smaller than `u32::MAX` bytes; qed",
+                )
+                .with_seal(leaf_shard_block.header.seal);
                 let true = align_to_8_with_padding(&mut buffer) else {
                     unreachable!("Checked size above; qed");
                 };
@@ -659,7 +699,11 @@ impl OwnedIntermediateShardBody {
         }
 
         // TODO: Avoid extra parsing here or at least go through unchecked version
-        Ok(Self::from_buffer(buffer.into_shared()).expect("Known to be created correctly; qed"))
+        Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
+            // Everything else is written the way the parser reads it, only contents of leaf shard
+            // blocks can be rejected
+            OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks
+        })
     }
 
     /// Create an owned body from a buffer
@@ -712,12 +756,15 @@ pub enum OwnedLeafShardBodyError {
         /// Actual number of own segment roots
         actual: usize,
     },
+    /// Local segment index after the last own segment root doesn't fit into `u64`
+    #[error("Own segment index overflow, first local segment index: {first_local_segment_index}")]
+    OwnSegmentIndexOverflow {
+        /// Local segment index of the first own segment root
+        first_local_segment_index: LocalSegmentIndex,
+    },
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
-    /// Too many transactions
-    #[error("Too many transactions")]
-    TooManyTransactions,
     /// Failed to add transaction
     #[error("Failed to add transaction: {error}")]
     FailedToAddTransaction {
@@ -731,9 +778,6 @@ impl From<AddTransactionError> for OwnedLeafShardBodyError {
         match value {
             AddTransactionError::BlockBodyIsTooLarge => {
                 OwnedLeafShardBodyError::BlockBodyIsTooLarge
-            }
-            AddTransactionError::TooManyTransactions => {
-                OwnedLeafShardBodyError::TooManyTransactions
             }
             AddTransactionError::FailedToAddTransaction { error } => {
                 OwnedLeafShardBodyError::FailedToAddTransaction { error }
@@ -793,21 +837,39 @@ impl OwnedLeafShardBody {
             }
         })?;
 
+        // Transactions are not known yet, the buffer grows when they are added
         let mut buffer = OwnedAlignedBuffer::with_capacity(
+            // Number of own segment roots
             u8::SIZE
+                // Local segment index of the first own segment root
                 + if num_own_segment_roots > 0 {
                     LocalSegmentIndex::SIZE
                 } else {
                     0
                 }
-                + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32,
+                // Own segment roots
+                + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
+                // Number of transactions
+                + u32::SIZE,
         );
 
         let true = buffer.append(&[num_own_segment_roots]) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
         };
         let mut own_segments = own_segments.peekable();
-        if let Some((first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+        if let Some(&(first_local_segment_index, _own_segment_root)) = own_segments.peek() {
+            // The parser rejects bodies where the index after the last segment root doesn't fit
+            // into `u64`
+            if LocalSegmentIndex::forward_checked(
+                first_local_segment_index,
+                usize::from(num_own_segment_roots),
+            )
+            .is_none()
+            {
+                return Err(OwnedLeafShardBodyError::OwnSegmentIndexOverflow {
+                    first_local_segment_index,
+                });
+            }
             let true = buffer.append(first_local_segment_index.as_bytes()) else {
                 unreachable!("Checked size above; qed");
             };
@@ -964,7 +1026,7 @@ impl OwnedBlockBody {
 #[inline(always)]
 #[must_use]
 fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
-    let alignment = align_of::<u64>();
+    let alignment = usize::from(Alignment::of::<u64>().get());
     let unaligned_by = buffer.len() as usize % alignment;
     if unaligned_by > 0 {
         // SAFETY: Subtracted value is always smaller than alignment
