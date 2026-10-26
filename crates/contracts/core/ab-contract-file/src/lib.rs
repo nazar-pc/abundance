@@ -518,25 +518,17 @@ impl<'a> ContractFile<'a> {
                     code_section_offset,
                     file_size,
                 })?;
-            // SAFETY: All bit patterns are valid for u32
-            let instruction = if let Some(instruction_bytes) =
-                unsafe { <Unaligned<u32>>::from_bytes(instruction_bytes) }
-            {
-                instruction_bytes.as_inner()
-            } else {
-                // SAFETY: All bit patterns are valid for u16
-                let Some(instruction_bytes) =
-                    (unsafe { <Unaligned<u16>>::from_bytes(instruction_bytes) })
-                else {
-                    return Err(ContractFileParseError::HostCallFnOutOfRange {
-                        offset: header.host_call_fn_offset,
-                        code_section_offset,
-                        file_size,
-                    });
-                };
-
-                u32::from(instruction_bytes.as_inner())
-            };
+            let instruction = Unaligned::<u32>::from_bytes(instruction_bytes)
+                .map(|(instruction, _remainder)| instruction.as_inner())
+                .or_else(|| {
+                    Unaligned::<u16>::from_bytes(instruction_bytes)
+                        .map(|(instruction, _remainder)| u32::from(instruction.as_inner()))
+                })
+                .ok_or(ContractFileParseError::HostCallFnOutOfRange {
+                    offset: header.host_call_fn_offset,
+                    code_section_offset,
+                    file_size,
+                })?;
 
             let instruction = ContractInstruction::try_decode(instruction)
                 .ok_or(ContractFileParseError::InvalidInstruction { instruction })?;

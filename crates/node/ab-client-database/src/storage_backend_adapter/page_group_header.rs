@@ -4,7 +4,6 @@ use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemError, StorageItemWriteResult,
 };
 use ab_io_type::trivial_type::TrivialType;
-use std::mem;
 use std::mem::MaybeUninit;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
@@ -66,16 +65,9 @@ impl StorageItem for StorageItemPageGroupHeader {
                 actual: buffer.len(),
             });
         }
-        let kind_byte = buffer[mem::offset_of!(Self, page_group_kind)];
-        PageGroupKind::from_repr(kind_byte).ok_or(StorageItemError::InvalidBufferContents)?;
+        let (item, _remainder) =
+            Self::try_from_bytes(buffer).ok_or(StorageItemError::InvalidBufferContents)?;
 
-        // SAFETY: `PageGroupKind` checked above, all other bit pattens are valid
-        let maybe_item = unsafe { Self::from_bytes(buffer) };
-        let item = *maybe_item.ok_or(StorageItemError::BufferTooSmall {
-            expected: size_of::<Self>(),
-            actual: buffer.len(),
-        })?;
-
-        Ok(item)
+        Ok(*item)
     }
 }

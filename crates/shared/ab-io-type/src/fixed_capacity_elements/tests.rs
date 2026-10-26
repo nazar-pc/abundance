@@ -139,8 +139,9 @@ fn length_prefix_padding_is_zeroed() {
 fn length_above_capacity() {
     // Bytes of an instance with capacity 4 and length 5
     let bytes = [5, 0, 0, 0, 1, 2, 3, 4];
-    // SAFETY: Any bytes are a valid `FixedCapacityBytes`, an invalid length is what is tested
-    let mut invalid = *unsafe { FixedCapacityBytes::<4>::from_bytes(&bytes) }.unwrap();
+    // SAFETY: `FixedCapacityBytes<4>` has alignment 1, `bytes` are its size and any bytes of that
+    // size are a valid value of it, an invalid length is what is tested
+    let mut invalid = *unsafe { FixedCapacityBytes::<4>::from_bytes_unchecked(&bytes) };
 
     // The length is not checked, but no elements are accessible and none can be appended
     assert_eq!(invalid.len(), 5);
@@ -161,8 +162,9 @@ fn length_above_capacity() {
 
     // The largest length
     let bytes = [0xff, 0xff, 0xff, 0xff, 1, 2, 3, 4];
-    // SAFETY: Any bytes are a valid `FixedCapacityBytes`, an invalid length is what is tested
-    let mut invalid = *unsafe { FixedCapacityBytes::<4>::from_bytes(&bytes) }.unwrap();
+    // SAFETY: `FixedCapacityBytes<4>` has alignment 1, `bytes` are its size and any bytes of that
+    // size are a valid value of it, an invalid length is what is tested
+    let mut invalid = *unsafe { FixedCapacityBytes::<4>::from_bytes_unchecked(&bytes) };
     assert_eq!(invalid.len(), u32::MAX);
     assert_eq!(invalid.get_elements(), &[]);
     assert_eq!(invalid.get_elements_mut(), &mut []);

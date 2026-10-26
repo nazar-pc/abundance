@@ -52,6 +52,9 @@ Breaking changes:
 * `TrivialType::read_unaligned()` and `read_unaligned_unchecked()` are removed, values are read from unaligned memory
   with the `TrivialType` methods of `Unaligned<T>` instead, like `Unaligned::<T>::try_from_bytes()`, and copied out
   with `Unaligned::as_inner()`
+* `TrivialType::from_bytes()` and `from_bytes_mut()` are safe, require `AnyBitPattern` and return the remaining bytes
+  like the `try_` variants, which replace them for other types. References to zero-sized types are now created from any
+  aligned bytes, previously these methods returned `None` for them
 
 Improvements:
 
@@ -62,6 +65,7 @@ Improvements:
   unsafe `AnyBitPatternMarker`, the derive implements it for structs whose fields all implement it
 * `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()` and `try_from_bytes_mut_exact()`
   parse bytes safely, checking enum discriminants and the length of `FixedCapacityElements`
+* `TrivialType::from_bytes_exact()` and `from_bytes_mut_exact()` return `None` if there are more bytes than the value
 * `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking its contents, while size, capacity
   and alignment must be valid for the type, like for `from_ptr()` and `from_mut_ptr()`
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
