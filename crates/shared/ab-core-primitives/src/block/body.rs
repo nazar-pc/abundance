@@ -327,10 +327,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                    Unaligned::<LocalSegmentIndex>::try_from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index,
+                    first_local_segment_index.as_inner(),
                     num_own_segment_roots,
                 )?;
                 let _own_segment_roots =
@@ -345,10 +345,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                    Unaligned::<LocalSegmentIndex>::try_from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index,
+                    first_local_segment_index.as_inner(),
                     usize::from(num_own_segment_roots.get()),
                 )?;
                 let _own_segment_roots = remainder
@@ -400,10 +400,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                    Unaligned::<LocalSegmentIndex>::try_from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index,
+                    first_local_segment_index.as_inner(),
                     num_own_segment_roots,
                 )?;
                 let _own_segment_roots =
@@ -418,10 +418,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                    Unaligned::<LocalSegmentIndex>::try_from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index,
+                    first_local_segment_index.as_inner(),
                     usize::from(num_own_segment_roots.get()),
                 )?;
                 let _own_segment_roots = remainder

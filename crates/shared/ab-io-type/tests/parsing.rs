@@ -354,7 +354,7 @@ fn validate() {
         None
     );
     assert_eq!(parse::<Unaligned<NonMax>>(&[0xff; 4]), None);
-    assert_eq!(NonMax::try_read_unaligned_exact(&[0xff; 4]), None);
+    assert_eq!(Unaligned::<NonMax>::try_from_bytes_exact(&[0xff; 4]), None);
 
     // Containers check it through `try_from_ptr()`
     let mut value = u32::MAX;
@@ -427,15 +427,18 @@ fn aligned_references() {
     assert_eq!(remainder, &[2]);
     assert_eq!(u64::try_from_bytes(&aligned.0[..7]), None);
 
-    // Misaligned bytes are rejected, unless they are read as a copy
+    // Misaligned bytes are rejected, unless they are parsed through `Unaligned`
     let (_first, misaligned) = aligned.0.split_first().unwrap();
     assert_eq!(u64::try_from_bytes(misaligned), None);
     assert_eq!(u64::try_from_bytes_exact(misaligned), None);
     assert_eq!(
-        u64::try_read_unaligned(misaligned),
-        Some((2 << 56, &[][..]))
+        Unaligned::<u64>::try_from_bytes(misaligned),
+        Some((&Unaligned::new(2 << 56), &[][..]))
     );
-    assert_eq!(u64::try_read_unaligned_exact(misaligned), Some(2 << 56));
+    assert_eq!(
+        Unaligned::<u64>::try_from_bytes_exact(misaligned),
+        Some(&Unaligned::new(2 << 56))
+    );
 
     // Types with alignment 1 are never misaligned
     assert_eq!(
@@ -450,9 +453,20 @@ fn exact() {
     assert_eq!(u64::try_from_bytes_exact(&aligned.0[..8]), Some(&1));
     assert_eq!(u64::try_from_bytes_exact(&aligned.0), None);
     assert_eq!(u64::try_from_bytes_exact(&aligned.0[..7]), None);
-    assert_eq!(u64::try_read_unaligned_exact(&aligned.0[..8]), Some(1));
-    assert_eq!(u64::try_read_unaligned_exact(&aligned.0), None);
-    assert_eq!(u64::try_read_unaligned_exact(&aligned.0[..7]), None);
+
+    // Values in misaligned bytes are parsed through `Unaligned`
+    let aligned = Aligned([0, 1, 0, 0, 0, 0, 0, 0, 0, 2]);
+    let Aligned(bytes) = &aligned;
+    let (_first, misaligned) = bytes.split_first().unwrap();
+    assert_eq!(
+        Unaligned::<u64>::try_from_bytes_exact(&misaligned[..8]),
+        Some(&Unaligned::new(1))
+    );
+    assert_eq!(Unaligned::<u64>::try_from_bytes_exact(misaligned), None);
+    assert_eq!(
+        Unaligned::<u64>::try_from_bytes_exact(&misaligned[..7]),
+        None
+    );
 
     let mut aligned = Aligned([1, 0, 0, 0, 0, 0, 0, 0, 2]);
     let Aligned(bytes) = &mut aligned;
@@ -465,7 +479,7 @@ fn exact() {
     assert_eq!(<()>::try_from_bytes_exact(&[1]), None);
     assert_eq!(<()>::try_from_bytes_mut_exact(&mut []), Some(&mut ()));
     assert_eq!(<()>::try_from_bytes_mut_exact(&mut [1]), None);
-    assert_eq!(Empty::try_read_unaligned_exact(&[]), Some(Empty));
+    assert_eq!(Empty::try_from_bytes_exact(&[]), Some(&Empty));
 }
 
 #[test]
@@ -500,15 +514,11 @@ fn invalid_values_are_rejected() {
     assert_eq!(Ctx::try_from_bytes_exact(&[3]), None);
     assert!(Ctx::try_from_bytes_mut(&mut [3]).is_none());
     assert!(Ctx::try_from_bytes_mut_exact(&mut [3]).is_none());
-    assert_eq!(Ctx::try_read_unaligned(&[3]), None);
-    assert_eq!(Ctx::try_read_unaligned_exact(&[3]), None);
 
     assert_eq!(WithCtx::try_from_bytes(&[0, 3, 0, 0]), None);
     assert_eq!(WithCtx::try_from_bytes_exact(&[0, 3, 0, 0]), None);
     assert!(WithCtx::try_from_bytes_mut(&mut [0, 3, 0, 0]).is_none());
     assert!(WithCtx::try_from_bytes_mut_exact(&mut [0, 3, 0, 0]).is_none());
-    assert_eq!(WithCtx::try_read_unaligned(&[0, 3, 0, 0]), None);
-    assert_eq!(WithCtx::try_read_unaligned_exact(&[0, 3, 0, 0]), None);
 }
 
 /// The unsafe methods that skip parsing only require the bytes of the value itself to be a valid
@@ -522,8 +532,6 @@ fn unchecked_methods_ignore_bytes_after_the_value() {
     // SAFETY: The first byte is a valid value of `Ctx`
     let value = unsafe { Ctx::from_bytes_mut(&mut bytes) };
     assert_eq!(value, Some(&mut Ctx::B));
-    // SAFETY: The first byte is a valid value of `Ctx`
-    assert_eq!(unsafe { Ctx::read_unaligned(&bytes) }, Some(Ctx::B));
 }
 
 #[test]
@@ -539,8 +547,8 @@ fn read_from_variable_bytes() {
         let size = 4;
         let bytes = VariableBytes::<0>::from_buffer(&buffer[..4], &size).unwrap();
         assert_eq!(
-            u32::try_read_unaligned(bytes.get_initialized()),
-            Some((u32::from_le_bytes([1, 2, 3, 4]), &[][..]))
+            u32::try_from_bytes(bytes.get_initialized()),
+            Some((&u32::from_le_bytes([1, 2, 3, 4]), &[][..]))
         );
     }
 
@@ -548,8 +556,8 @@ fn read_from_variable_bytes() {
         let size = 4;
         let bytes = VariableBytes::<0>::from_buffer(&buffer[1..5], &size).unwrap();
         assert_eq!(
-            u32::try_read_unaligned(bytes.get_initialized()),
-            Some((u32::from_le_bytes([2, 3, 4, 5]), &[][..]))
+            Unaligned::<u32>::try_from_bytes(bytes.get_initialized()),
+            Some((&Unaligned::new(u32::from_le_bytes([2, 3, 4, 5])), &[][..]))
         );
     }
 
@@ -557,14 +565,14 @@ fn read_from_variable_bytes() {
     {
         let size = 3;
         let bytes = VariableBytes::<0>::from_buffer(&buffer[..3], &size).unwrap();
-        assert_eq!(u32::try_read_unaligned(bytes.get_initialized()), None);
+        assert_eq!(u32::try_from_bytes(bytes.get_initialized()), None);
     }
 
     // Not a valid value
     {
         let size = 1;
         let bytes = VariableBytes::<0>::from_buffer(&[7], &size).unwrap();
-        assert_eq!(Ctx::try_read_unaligned(bytes.get_initialized()), None);
+        assert_eq!(Ctx::try_from_bytes(bytes.get_initialized()), None);
     }
 }
 

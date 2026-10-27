@@ -168,6 +168,35 @@ fn flip() {
         );
     }
 
+    // `VariableBytes` are only aligned for bytes, a seal at an odd address is accepted too
+    {
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        );
+        let seal = seal.as_bytes();
+        let mut buffer = vec![0; seal.len() + 1];
+        let offset = usize::from(buffer.as_ptr().addr().is_multiple_of(2));
+        let misaligned_seal = &mut buffer[offset..][..seal.len()];
+        misaligned_seal.copy_from_slice(seal);
+        executor
+            .transaction_verify(
+                Transaction {
+                    header: &header,
+                    payload: payload.as_u128_slice(),
+                    read_slots,
+                    write_slots,
+                    seal: misaligned_seal,
+                },
+                slots,
+            )
+            .unwrap();
+    }
+
     // Each transaction flips the value
     let mut expected_value = true;
 

@@ -5,6 +5,7 @@ use ab_contract_file::ContractFile;
 use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
@@ -162,12 +163,13 @@ where
         }
     };
 
-    IA::try_read_unaligned_exact(
+    Unaligned::<IA>::try_from_bytes_exact(
         memory
             .read_slice(internal_args_addr, size_of::<IA>() as u32)
             .unwrap(),
     )
     .unwrap()
+    .as_inner()
 }
 
 // TODO: Unlock if it becomes fast enough to run in CI

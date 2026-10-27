@@ -39,7 +39,7 @@ Breaking changes:
   `VariableElements<'_, Element, RECOMMENDED_ALLOCATION>: IoType`, which don't hold for zero-sized types, generic code
   calling them needs these bounds, like `for<'a> MaybeData<'a, Data>: IoType`
 * `VariableBytes::read_trivial_type()`, which created invalid enum values from bytes in safe code, is removed,
-  `TrivialType::try_read_unaligned()` replaces it
+  `Unaligned::<T>::try_from_bytes()` replaces it
 * `Bool` is removed, `bool` implements `TrivialType` and parsing accepts only `0` and `1` for it
 * `VariableElements`, `VariableBytes` and `MaybeData` have a lifetime parameter for the memory they view, previously two
   of them could be swapped in safe code and one of them used after the memory of the other was freed. Constructors
@@ -49,6 +49,9 @@ Breaking changes:
   and a new view of the same memory for containers. Methods of `IoType` that create values from pointers return
   `WithLifetime<'a>`, and the memory must stay valid until `'a` ends, since a container can be moved out of what they
   return
+* `TrivialType::read_unaligned()` and `read_unaligned_unchecked()` are removed, values are read from unaligned memory
+  with the `TrivialType` methods of `Unaligned<T>` instead, like `Unaligned::<T>::try_from_bytes()`, and copied out
+  with `Unaligned::as_inner()`
 
 Improvements:
 
@@ -57,9 +60,8 @@ Improvements:
 * `Alignment::is_slice_aligned()` checks where a slice starts
 * `AnyBitPattern` is implemented for `TrivialType`s whose every bit pattern is a valid value, which implement the
   unsafe `AnyBitPatternMarker`, the derive implements it for structs whose fields all implement it
-* `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()`, `try_from_bytes_mut_exact()`,
-  `try_read_unaligned()` and `try_read_unaligned_exact()` parse bytes safely, checking enum discriminants and the
-  length of `FixedCapacityElements`
+* `TrivialType::try_from_bytes()`, `try_from_bytes_exact()`, `try_from_bytes_mut()` and `try_from_bytes_mut_exact()`
+  parse bytes safely, checking enum discriminants and the length of `FixedCapacityElements`
 * `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking its contents, while size, capacity
   and alignment must be valid for the type, like for `from_ptr()` and `from_mut_ptr()`
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`

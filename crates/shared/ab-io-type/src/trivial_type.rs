@@ -121,7 +121,8 @@ where
     ///
     /// Returns the value and the remaining bytes, or `None` if `bytes` are shorter than the type or
     /// don't start with a valid value. `#[derive(TrivialType)]` implements it, the other parsing
-    /// methods are built on it.
+    /// methods are built on it. Values in memory that is not aligned for `Self` are read with the
+    /// methods of [`Unaligned<Self>`], like `Unaligned::<Self>::try_from_bytes()`.
     fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])>;
 
     /// Parse the beginning of aligned `bytes`, returns the value and the remaining bytes.
@@ -171,46 +172,6 @@ where
     final fn try_from_bytes_mut_exact(bytes: &mut [u8]) -> Option<&mut Self> {
         let (value, remainder) = Self::try_from_bytes_mut(bytes)?;
         remainder.is_empty().then_some(value)
-    }
-
-    /// Read a copy from the beginning of `bytes`, which don't need to be aligned, returns the value
-    /// and the remaining bytes
-    #[inline(always)]
-    final fn try_read_unaligned(bytes: &[u8]) -> Option<(Self, &[u8])> {
-        let (value, remainder) = Self::try_from_bytes_unaligned(bytes)?;
-        Some((value.as_inner(), remainder))
-    }
-
-    /// Like [`Self::try_read_unaligned()`], but returns `None` if there are more bytes than the
-    /// value
-    #[inline(always)]
-    final fn try_read_unaligned_exact(bytes: &[u8]) -> Option<Self> {
-        let (value, remainder) = Self::try_read_unaligned(bytes)?;
-        remainder.is_empty().then_some(value)
-    }
-
-    /// Read unaligned value from memory.
-    ///
-    /// Returns `None` if the number of input bytes is not sufficient to represent the type. Prefer
-    /// [`Self::try_read_unaligned()`], which checks the bytes.
-    ///
-    /// # Safety
-    /// `bytes` start with a valid value of `Self` (see [`TrivialType`]), for example bytes that
-    /// [`Self::try_read_unaligned()`] accepts.
-    #[inline(always)]
-    final unsafe fn read_unaligned(bytes: &[u8]) -> Option<Self> {
-        // SAFETY: Guaranteed by function contract
-        Some(unsafe { Unaligned::<Self>::from_bytes(bytes)?.as_inner() })
-    }
-
-    /// Similar to [`Self::read_unaligned()`], but doesn't do any checks at all.
-    ///
-    /// # Safety
-    /// `bytes` start with a valid value of `Self`.
-    #[inline(always)]
-    final unsafe fn read_unaligned_unchecked(bytes: &[u8]) -> Self {
-        // SAFETY: Guaranteed by function contract
-        unsafe { Unaligned::<Self>::from_bytes_unchecked(bytes).as_inner() }
     }
 
     /// Create a reference to a type, which is represented by provided memory.

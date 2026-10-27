@@ -326,8 +326,10 @@ impl<'a> ContractFile<'a> {
         let (header_bytes, after_header_bytes) = file_bytes
             .split_at_checked(size_of::<ContractFileHeader>())
             .ok_or(ContractFileParseError::NoHeader)?;
-        // SAFETY: Size is correct, content is checked below
-        let header = unsafe { ContractFileHeader::read_unaligned_unchecked(header_bytes) };
+        // SAFETY: `Unaligned` has alignment 1, `header_bytes` are the size of a header and any
+        // bytes of that size are a valid header, its contents are checked below
+        let header = unsafe { Unaligned::<ContractFileHeader>::from_bytes_unchecked(header_bytes) }
+            .as_inner();
 
         if header.magic != CONTRACT_FILE_MAGIC {
             return Err(ContractFileParseError::WrongMagicBytes);
@@ -396,12 +398,14 @@ impl<'a> ContractFile<'a> {
                             read_only_section_size: header.read_only_section_file_size,
                             file_size,
                         })?;
-                    // SAFETY: The number of bytes is correct, content is checked below
+                    // SAFETY: `Unaligned` has alignment 1, the number of bytes is correct and any
+                    // bytes are valid method metadata, its contents are checked below
                     let contract_file_method_metadata = unsafe {
-                        ContractFileMethodMetadata::read_unaligned_unchecked(
+                        Unaligned::<ContractFileMethodMetadata>::from_bytes_unchecked(
                             contract_file_method_metadata_bytes,
                         )
-                    };
+                    }
+                    .as_inner();
 
                     if contract_file_method_metadata
                         .offset
@@ -626,8 +630,10 @@ impl<'a> ContractFile<'a> {
     /// # Safety
     /// Must be a valid input, for example, previously verified using [`ContractFile::parse()`].
     pub unsafe fn parse_unchecked(file_bytes: &'a [u8]) -> Self {
-        // SAFETY: Unchecked method assumed input is correct
-        let header = unsafe { ContractFileHeader::read_unaligned_unchecked(file_bytes) };
+        // SAFETY: `Unaligned` has alignment 1, and valid input starts with a header (function
+        // contract)
+        let header =
+            unsafe { Unaligned::<ContractFileHeader>::from_bytes_unchecked(file_bytes) }.as_inner();
 
         Self {
             read_only_section_file_size: header.read_only_section_file_size,
@@ -640,8 +646,9 @@ impl<'a> ContractFile<'a> {
     /// Get file header
     #[inline(always)]
     pub fn header(&self) -> ContractFileHeader {
-        // SAFETY: Protected internal invariant checked in constructor
-        unsafe { ContractFileHeader::read_unaligned_unchecked(self.bytes) }
+        // SAFETY: `Unaligned` has alignment 1, and `self.bytes` start with a header (internal
+        // invariant checked in the constructor)
+        unsafe { Unaligned::<ContractFileHeader>::from_bytes_unchecked(self.bytes) }.as_inner()
     }
 
     /// Metadata stored in the file
@@ -868,12 +875,14 @@ impl<'a> ContractFile<'a> {
                     )
                     .get_unchecked(..size_of::<ContractFileMethodMetadata>())
             };
-            // SAFETY: Protected internal invariant checked in constructor
+            // SAFETY: `Unaligned` has alignment 1, and the bytes are method metadata (internal
+            // invariant checked in the constructor)
             let contract_file_method_metadata = unsafe {
-                ContractFileMethodMetadata::read_unaligned_unchecked(
+                Unaligned::<ContractFileMethodMetadata>::from_bytes_unchecked(
                     contract_file_method_metadata_bytes,
                 )
-            };
+            }
+            .as_inner();
 
             let (method_metadata_item, method_metadata_bytes) = metadata_methods_iter
                 .next()
