@@ -9,6 +9,7 @@ use ab_io_type::fixed_capacity_bytes::FixedCapacityBytes;
 use ab_io_type::fixed_capacity_elements::FixedCapacityElements;
 use ab_io_type::fixed_capacity_string::FixedCapacityString;
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, TrivialType)]
 #[repr(C)]
@@ -145,7 +146,7 @@ fn parse<Container>(bytes: &[u8]) -> Option<Container>
 where
     Container: TrivialType,
 {
-    let (container, remainder) = Container::try_from_bytes_unaligned(bytes)?;
+    let (container, remainder) = Unaligned::<Container>::try_from_bytes(bytes)?;
     assert!(remainder.is_empty());
     Some(container.as_inner())
 }

@@ -12,8 +12,8 @@ struct Small {
 }
 
 impl Small {
-    const fn is_valid(value: Self) -> bool {
-        value.value < 10
+    const fn is_valid(&self) -> bool {
+        self.value < 10
     }
 }
 

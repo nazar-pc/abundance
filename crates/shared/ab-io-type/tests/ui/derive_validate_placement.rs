@@ -2,7 +2,7 @@
 
 use ab_io_type::trivial_type::TrivialType;
 
-const fn is_valid<T>(_value: T) -> bool
+const fn is_valid<T>(_value: &T) -> bool
 where
     T: Copy,
 {

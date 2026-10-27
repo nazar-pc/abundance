@@ -140,15 +140,29 @@ where
     };
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    #[expect(
+        clippy::cast_ptr_alignment,
+        reason = "The length is only read as `u32` when `bytes` are aligned for it"
+    )]
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         let (bytes, remainder) = bytes.split_at_checked(size_of::<Self>())?;
-        let len = u32::from_le_bytes(*bytes.first_chunk()?);
+        let len = if ALIGNED && align_of::<Self>() >= align_of::<u32>() {
+            // SAFETY: `bytes` are aligned for `Self` (function contract), whose alignment is at
+            // least that of `u32` as checked above, and start with the length prefix of at least
+            // 4 bytes
+            u32::from_le(unsafe { bytes.as_ptr().cast::<u32>().read() })
+        } else {
+            u32::from_le_bytes(*bytes.first_chunk()?)
+        };
         // Casting `CAPACITY` to `u32` is lossless, which is checked by the `SUPPORTED_CAPACITY`
         // bound
         if len > CAPACITY as u32 {
             return None;
         }
-        try_skip_valid::<Element>(bytes.get(LEN_SIZE::<Element>..)?, CAPACITY)?;
+        // SAFETY: If `ALIGNED`, `bytes` are aligned for `Self` (function contract), which has the
+        // alignment of elements, and elements start after the length prefix, whose size is a
+        // multiple of their alignment (see above)
+        unsafe { try_skip_valid::<Element, ALIGNED>(bytes.get(LEN_SIZE::<Element>..)?, CAPACITY) }?;
         // SAFETY: The length prefix consists of bytes, the length doesn't exceed `CAPACITY` and
         // every element is a valid value as checked above, they follow each other without padding
         // (see above), `Unaligned<Self>` has alignment 1 and the size of `Self`

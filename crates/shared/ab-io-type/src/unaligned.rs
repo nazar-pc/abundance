@@ -60,8 +60,10 @@ where
     };
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
-        let (_value, remainder) = Data::try_from_bytes_unaligned(bytes)?;
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+        // SAFETY: The unaligned flavour has no requirements. It is used even if `ALIGNED`, since
+        // `Self` has alignment 1 and `bytes` aren't necessarily aligned for `Data` then.
+        let (_value, remainder) = unsafe { Data::parse_step::<false>(bytes) }?;
         // SAFETY: `bytes` start with a valid value of `Data` (parsing step contract), which has the
         // same bytes and validity as `Self`, `Unaligned<Self>` has alignment 1 and the size of
         // `Self`

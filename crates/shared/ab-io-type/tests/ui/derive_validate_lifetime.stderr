@@ -1,0 +1,15 @@
+error[E0521]: borrowed data escapes outside of associated function
+ --> tests/ui/derive_validate_lifetime.rs:8:27
+  |
+6 | #[derive(Copy, Clone, TrivialType)]
+  |                       ----------- in this derive macro expansion
+7 | #[repr(C)]
+8 | #[trivial_type(validate = Self::is_valid)]
+  |                           -^^^^^^^^^^^^^
+  |                           |
+  |                           `__ab_io_type_value` is a reference that is only valid in the associated function body
+  |                           `__ab_io_type_value` escapes the associated function body here
+  |                           let's call the lifetime of this reference `'1`
+  |                           argument requires that `'1` must outlive `'static`
+  |
+  = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)

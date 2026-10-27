@@ -7,12 +7,74 @@ error[E0308]: mismatched types
  7 | #[trivial_type(validate = Self::is_valid)]
    |                           ^^^^^^^^^^^^^^
    |                           |
-   |                           expected `&NonMax`, found `NonMax`
+   |                           expected `ByValueReceiver`, found `&ByValueReceiver`
    |                           arguments to this function are incorrect
    |
 note: method defined here
   --> tests/ui/derive_validate_signature.rs:13:14
    |
-13 |     const fn is_valid(&self) -> bool {
-   |              ^^^^^^^^ -----
+13 |     const fn is_valid(self) -> bool {
+   |              ^^^^^^^^ ----
+   = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider using clone here
+   |
+ 5 | #[derive(Copy, Clone, TrivialType.clone())]
+   |                                  ++++++++
+
+error[E0308]: mismatched types
+  --> tests/ui/derive_validate_signature.rs:20:27
+   |
+18 | #[derive(Copy, Clone, TrivialType)]
+   |                       ----------- in this derive macro expansion
+19 | #[repr(C)]
+20 | #[trivial_type(validate = is_valid)]
+   |                           ^^^^^^^^
+   |                           |
+   |                           expected `ByValueArgument`, found `&ByValueArgument`
+   |                           arguments to this function are incorrect
+   |
+note: function defined here
+  --> tests/ui/derive_validate_signature.rs:25:10
+   |
+25 | const fn is_valid(value: ByValueArgument) -> bool {
+   |          ^^^^^^^^ ----------------------
+   = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider using clone here
+   |
+18 | #[derive(Copy, Clone, TrivialType.clone())]
+   |                                  ++++++++
+
+error[E0308]: mismatched types
+  --> tests/ui/derive_validate_signature.rs:31:27
+   |
+29 | #[derive(Copy, Clone, TrivialType)]
+   |                       ----------- in this derive macro expansion
+30 | #[repr(C)]
+31 | #[trivial_type(validate = Self::is_valid)]
+   |                           ^^^^^^^^^^^^^^
+   |                           |
+   |                           types differ in mutability
+   |                           arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut MutableReference`
+                      found reference `&MutableReference`
+note: method defined here
+  --> tests/ui/derive_validate_signature.rs:37:14
+   |
+37 |     const fn is_valid(&mut self) -> bool {
+   |              ^^^^^^^^ ---------
+   = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/ui/derive_validate_signature.rs:44:27
+   |
+42 | #[derive(Copy, Clone, TrivialType)]
+   |                       ----------- in this derive macro expansion
+43 | #[repr(C)]
+44 | #[trivial_type(validate = Self::is_valid)]
+   |                           ^^^^^^^^^^^^^^
+   |                           |
+   |                           expected `bool`, found `u8`
+   |                           expected `bool` because of return type
+   |
    = note: this error originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)

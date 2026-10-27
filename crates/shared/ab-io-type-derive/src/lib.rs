@@ -61,14 +61,22 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             let checks = quote! {
                 let fields = bytes;
                 #(
-                    let (_value, fields) =
+                    // SAFETY: If `__AB_IO_TYPE_ALIGNED`, `bytes` are aligned for `Self` (function
+                    // contract). The field starts after the sizes of the fields before it, which
+                    // is its offset in the `#[repr(C)]` layout without padding (asserted below),
+                    // a multiple of its alignment, which divides the alignment of `Self`. With
+                    // `#[repr(transparent)]` all fields but one are zero-sized with alignment 1,
+                    // so that one starts at the beginning. `#[repr(packed)]` is rejected.
+                    let (_value, fields) = unsafe {
                         <#field_types as ::ab_io_type::trivial_type::TrivialType>
-                            ::try_from_bytes_unaligned(fields)?;
+                            ::parse_step::<__AB_IO_TYPE_ALIGNED>(fields)
+                    }?;
                 )*
                 // Empty, there is no padding after the last field
                 let _: &[::core::primitive::u8] = fields;
             };
-            let parsing_step = generate_parsing_step(checks, validate.as_ref());
+            let (parsing_step, validate_wrapper) =
+                generate_parsing_step(type_name, checks, validate.as_ref());
             let alignment = generate_alignment(&field_types);
 
             // A `validate` function rejects some values whose fields are all valid, so such a type
@@ -156,6 +164,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
                     #parsing_step
                 }
+
+                #validate_wrapper
 
                 #marker_impl
             }
@@ -250,9 +260,16 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     quote! {
                         #index => {
                             #(
-                                let (_value, fields) =
+                                // SAFETY: If `__AB_IO_TYPE_ALIGNED`, `bytes` are aligned for `Self`
+                                // (function contract). The field starts after the discriminant and
+                                // the sizes of the fields before it, which is its offset in the
+                                // variant laid out like a `#[repr(C)]` struct without padding
+                                // (asserted below), a multiple of its alignment, which divides the
+                                // alignment of `Self`.
+                                let (_value, fields) = unsafe {
                                     <#field_types as ::ab_io_type::trivial_type::TrivialType>
-                                        ::try_from_bytes_unaligned(fields)?;
+                                        ::parse_step::<__AB_IO_TYPE_ALIGNED>(fields)
+                                }?;
                             )*
                             // Empty, there is no padding after the last field
                             let _: &[::core::primitive::u8] = fields;
@@ -268,7 +285,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     }
                 }
             };
-            let parsing_step = generate_parsing_step(checks, validate.as_ref());
+            let (parsing_step, validate_wrapper) =
+                generate_parsing_step(type_name, checks, validate.as_ref());
 
             let alignment = generate_alignment(&field_types);
 
@@ -329,6 +347,8 @@ pub fn trivial_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
                     #parsing_step
                 }
+
+                #validate_wrapper
             }
         }
         Data::Union(data_union) => {
@@ -444,28 +464,66 @@ fn parse_validate(input: &DeriveInput) -> Result<Option<ExprPath>, Error> {
 
 /// Generate the parsing step of `TrivialType`, which checks the size, runs `checks` with `bytes` of
 /// the size of the type in scope, which must return `None` for invalid bytes, casts `bytes` to the
-/// type and calls the `validate` function with the value if there is one
-fn generate_parsing_step(checks: TokenStream, validate: Option<&ExprPath>) -> TokenStream {
-    let validation = if let Some(path) = validate {
+/// type and calls the `validate` function, if there is one, with a reference to the value: into
+/// `bytes` in the aligned flavour, to a copy in the unaligned flavour.
+///
+/// Also returns an inherent impl of the type with a safe wrapper of the `validate` function, which
+/// the step calls, empty if there is no `validate` function.
+fn generate_parsing_step(
+    type_name: &Ident,
+    checks: TokenStream,
+    validate: Option<&ExprPath>,
+) -> (TokenStream, TokenStream) {
+    let (validation, validate_wrapper) = if let Some(path) = validate {
+        // An `unsafe` function called directly in the `unsafe` step would compile: its body is an
+        // unsafe context before edition 2024, and since then such a call only triggers a lint,
+        // which isn't reported in derive output. So it is called from a safe wrapper instead.
         // Errors, like a wrong signature or an `unsafe` function, point at the path in the
-        // attribute
+        // attribute. The parameter has a prefixed name: it would shadow a `validate` function with
+        // the same name, and a constant with the same name in the module of the type would turn
+        // it into a constant pattern.
         let span = Span::call_site().located_at(path.span());
-        quote_spanned! {span=>
-            if !#path(::ab_io_type::unaligned::Unaligned::<Self>::as_inner(__ab_io_type_value)) {
+        let validate_wrapper = quote_spanned! {span=>
+            impl #type_name {
+                #[doc(hidden)]
+                #[inline(always)]
+                fn __ab_io_type_validate(__ab_io_type_value: &Self) -> ::core::primitive::bool {
+                    #path(__ab_io_type_value)
+                }
+            }
+        };
+        // The wrapper is called in each branch: the copy of the unaligned flavour is a temporary,
+        // which is dropped at the end of its branch
+        let validation = quote! {
+            if !(if __AB_IO_TYPE_ALIGNED {
+                // SAFETY: `bytes` are aligned for `Self` (function contract) and are a valid value
+                // of it, as checked above
+                Self::__ab_io_type_validate(unsafe {
+                    &*<[::core::primitive::u8]>::as_ptr(bytes).cast::<Self>()
+                })
+            } else {
+                // `bytes` may not be aligned for `Self`, so the value is copied
+                Self::__ab_io_type_validate(
+                    &::ab_io_type::unaligned::Unaligned::<Self>::as_inner(__ab_io_type_value),
+                )
+            }) {
                 return ::core::option::Option::None;
             }
-        }
+        };
+        (validation, validate_wrapper)
     } else {
-        TokenStream::new()
+        (TokenStream::new(), TokenStream::new())
     };
 
     // The value is the only local of the step with a prefixed name: a constant with the same name
     // in the module of the type would turn the binding into a constant pattern, which compiles for
     // types with a single value, and the step would return the constant instead of a reference
-    // into `bytes`. Constants named like the other locals only cause compile errors.
-    quote! {
+    // into `bytes`. Constants named like the other locals only cause compile errors. The generic
+    // parameter is prefixed too, since a constant with the same name in a field type, like the
+    // length of an array, would refer to the parameter instead.
+    let parsing_step = quote! {
         #[inline(always)]
-        fn try_from_bytes_unaligned(
+        unsafe fn parse_step<const __AB_IO_TYPE_ALIGNED: ::core::primitive::bool>(
             bytes: &[::core::primitive::u8],
         ) -> ::core::option::Option<(
             &::ab_io_type::unaligned::Unaligned<Self>,
@@ -485,12 +543,13 @@ fn generate_parsing_step(checks: TokenStream, validate: Option<&ExprPath>) -> To
                 &*<[::core::primitive::u8]>::as_ptr(bytes)
                     .cast::<::ab_io_type::unaligned::Unaligned<Self>>()
             };
-            // The `validate` function, if any, rejects values whose invariants don't hold. It is
-            // called outside of the `unsafe` block above, so it can't be an `unsafe` function.
+            // The `validate` function, if any, rejects values whose invariants don't hold
             #validation
             ::core::option::Option::Some((__ab_io_type_value, remainder))
         }
-    }
+    };
+
+    (parsing_step, validate_wrapper)
 }
 
 /// Check that `#[repr(..)]` attributes of the type contain at least one of `allowed` options and no

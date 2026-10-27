@@ -27,7 +27,9 @@ Breaking changes:
 * `TrivialType` derive rejects enums with explicit discriminants that differ from variant indices, which metadata
   doesn't record. It also checks all `#[repr(..)]` attributes instead of only the first one and rejects enums with
   `#[repr(C, u8)]`
-* `TrivialType` requires `'static` and the parsing step `try_from_bytes_unaligned()`, which the derive implements
+* `TrivialType` requires `'static` and the hidden `unsafe` parsing step `parse_step::<ALIGNED>()`, which the derive
+  implements. It has an aligned flavour, which may rely on the bytes being aligned for the type, and an unaligned one,
+  manual implementations must uphold the safety contract for both
 * `TrivialType` requires an alignment of at most `Alignment::MAX` (16 bytes), which derived implementations always have
 * `TrivialType` requires the constant `ALIGNMENT`, the alignment of the type in metadata, which the derive implements.
   It is 16 bytes (`Alignment::MAX`) for `u128` and `i128`. `Alignment::of()` and the length prefix of
@@ -70,7 +72,8 @@ Improvements:
 * `TrivialType::from_bytes_exact()` and `from_bytes_mut_exact()` return `None` if there are more bytes than the value
 * `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking its contents, while size, capacity
   and alignment must be valid for the type, like for `from_ptr()` and `from_mut_ptr()`
-* `#[trivial_type(validate = path)]` adds a check to derived parsing, types that use it don't implement `AnyBitPattern`
+* `#[trivial_type(validate = path)]` adds a check to derived parsing, `path(&value)` returns whether the value is valid,
+  types that use it don't implement `AnyBitPattern`
 * `IoType::set_size()` requires a size that is valid for the type, while the contents don't need to be a valid value
   when it is called, as long as they are parsed before they are accessed
 

@@ -23,7 +23,11 @@ enum Mode {
 
 static VALIDATIONS: AtomicUsize = AtomicUsize::new(0);
 
-fn count_validation(_value: Counted) -> bool {
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "`validate` functions take a reference"
+)]
+fn count_validation(_value: &Counted) -> bool {
     VALIDATIONS.fetch_add(1, Ordering::SeqCst);
     true
 }

@@ -32,9 +32,10 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 /// Simple wrapper data type that is designed in such a way that its serialization/deserialization
 /// is the same as the type itself.
 ///
-/// Serialization takes the bytes of a value. Deserialization parses bytes: the parsing step
-/// [`Self::try_from_bytes_unaligned()`] checks that they are a valid value of the type, which is
-/// a length check for types that accept every bit pattern (see [`AnyBitPattern`]).
+/// Serialization takes the bytes of a value. Deserialization parses bytes: the parsing step checks
+/// that they are a valid value of the type, which is a length check for types that accept every
+/// bit pattern (see [`AnyBitPattern`]). Bytes that are not aligned for the type are parsed with the
+/// methods of [`Unaligned`], like `Unaligned::<T>::try_from_bytes()`.
 ///
 /// A valid value is one whose every field is a valid value of its type, like `0` or `1` for a
 /// `bool` and the index of a variant for the discriminant of an enum, and that satisfies the
@@ -48,9 +49,11 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 /// * [`Self::SIZE`] is not overridden
 /// * [`Self::ALIGNMENT`] is the alignment that [`Self::METADATA`] decodes to, and it is at least
 ///   `align_of::<Self>()`
-/// * [`Self::try_from_bytes_unaligned()`] returns `Some((value, remainder))` only if `bytes` start
-///   with `size_of::<Self>()` bytes that are a valid value of `Self`, `value` points to the
-///   beginning of `bytes` and `remainder` is the rest of `bytes` after those bytes
+/// * The parsing step `parse_step::<ALIGNED>()` returns `Some((value, remainder))` only if `bytes`
+///   start with `size_of::<Self>()` bytes that are a valid value of `Self`, `value` points to the
+///   beginning of `bytes` and `remainder` is the rest of `bytes` after those bytes. This holds for
+///   both flavours: the aligned one (`ALIGNED` is `true`) gets `bytes` aligned for `Self`, the
+///   unaligned one gets `bytes` of any alignment
 ///
 /// Implementations are expected to be composites of existing `TrivialType`s without custom
 /// alignment, whose alignment is then at most [`Alignment::MAX`] as well. Prefer
@@ -84,7 +87,7 @@ pub(crate) const NON_ZERO_SIZED<T: TrivialType>: usize = {
 ///   `#[trivial_type(validate = path)]`
 ///
 /// Invariants that `unsafe` code relies on are checked with `#[trivial_type(validate = path)]`.
-/// `path` is called as `path(value: Self) -> bool` after all fields were parsed and must return
+/// `path` is called as `path(value: &Self) -> bool` after all fields were parsed and must return
 /// `false` for every value that `unsafe` code relying on the invariants can't handle. It must not
 /// panic, since parsing is used in code that is verified not to panic, and a `const fn` is
 /// recommended, the derive may become `const` later. Such types don't implement
@@ -117,13 +120,21 @@ where
     /// [`IoTypeMetadataKind`] for encoding details.
     const METADATA: &[u8];
 
-    /// Parse the beginning of `bytes`, which don't need to be aligned.
+    /// Parse the beginning of `bytes`, which are aligned for `Self` if `ALIGNED`.
     ///
     /// Returns the value and the remaining bytes, or `None` if `bytes` are shorter than the type or
     /// don't start with a valid value. `#[derive(TrivialType)]` implements it, the other parsing
     /// methods are built on it. Values in memory that is not aligned for `Self` are read with the
     /// methods of [`Unaligned<Self>`], like `Unaligned::<Self>::try_from_bytes()`.
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])>;
+    ///
+    /// Both flavours must accept the same values. The aligned one can use aligned loads, which
+    /// matters on targets without fast unaligned access, where unaligned loads wider than a byte
+    /// compile to several byte loads.
+    ///
+    /// # Safety
+    /// If `ALIGNED`, `bytes` are aligned for `Self`.
+    #[doc(hidden)]
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])>;
 
     /// Parse the beginning of aligned `bytes`, returns the value and the remaining bytes.
     ///
@@ -134,7 +145,8 @@ where
         if !bytes.as_ptr().cast::<Self>().is_aligned() {
             return None;
         }
-        let (_value, remainder) = Self::try_from_bytes_unaligned(bytes)?;
+        // SAFETY: Aligned as checked above
+        let (_value, remainder) = unsafe { Self::parse_step::<true>(bytes) }?;
         // SAFETY: `bytes` start with a valid value of `Self` (parsing step contract), aligned as
         // checked above
         let value = unsafe { bytes.as_ptr().cast::<Self>().as_ref_unchecked() };
@@ -156,7 +168,8 @@ where
         if !bytes.as_ptr().cast::<Self>().is_aligned() {
             return None;
         }
-        Self::try_from_bytes_unaligned(bytes)?;
+        // SAFETY: Aligned as checked above
+        unsafe { Self::parse_step::<true>(bytes) }?;
         let (value, remainder) = bytes.split_at_mut_checked(size_of::<Self>())?;
         // SAFETY: `bytes` start with a valid value of `Self` (parsing step contract), aligned as
         // checked above, only valid values of `Self` can be written through the reference, and
@@ -294,8 +307,8 @@ where
 /// Every pattern of `size_of::<Self>()` initialized bytes is a valid value of `Self` that no
 /// invariant of `Self` excludes, not even one that only safe code relies on (like a length that
 /// must not exceed a capacity, or one that `#[trivial_type(validate = path)]` checks), so bytes of
-/// `Self` never need to be checked. If `Self` implements [`TrivialType`], its parsing step
-/// [`TrivialType::try_from_bytes_unaligned()`] accepts every such pattern.
+/// `Self` never need to be checked. If `Self` implements [`TrivialType`], both flavours of its
+/// parsing step `parse_step::<ALIGNED>()` accept every such pattern.
 #[diagnostic::on_unimplemented(message = "`{Self}` doesn't accept every bit pattern")]
 pub unsafe trait AnyBitPatternMarker {}
 
@@ -327,9 +340,15 @@ where
     Some((value, remainder))
 }
 
-/// Returns the bytes after `count` valid values of `T` at the beginning of `bytes`
+/// Returns the bytes after `count` valid values of `T` at the beginning of `bytes`.
+///
+/// # Safety
+/// If `ALIGNED`, `bytes` are aligned for `T`.
 #[inline(always)]
-pub(crate) fn try_skip_valid<T>(bytes: &[u8], count: usize) -> Option<&[u8]>
+pub(crate) unsafe fn try_skip_valid<T, const ALIGNED: bool>(
+    bytes: &[u8],
+    count: usize,
+) -> Option<&[u8]>
 where
     T: TrivialType,
 {
@@ -338,7 +357,8 @@ where
     // bytes
     if size_of::<T>() == 0 {
         if count > 0 {
-            T::try_from_bytes_unaligned(bytes)?;
+            // SAFETY: If `ALIGNED`, `bytes` are aligned for `T` (function contract)
+            unsafe { T::parse_step::<ALIGNED>(bytes) }?;
         }
         return Some(bytes);
     }
@@ -346,7 +366,9 @@ where
     // types whose step only checks the length the loop is optimized away
     let (elements, remainder) = bytes.split_at_checked(count.checked_mul(size_of::<T>())?)?;
     for element in elements.as_chunks::<{ SIZE_OF::<T> }>().0 {
-        T::try_from_bytes_unaligned(element)?;
+        // SAFETY: If `ALIGNED`, `bytes` are aligned for `T` (function contract), and each element
+        // is at an offset into them that is a multiple of the size of `T`, and so of its alignment
+        unsafe { T::parse_step::<ALIGNED>(element) }?;
     }
     Some(remainder)
 }
@@ -358,7 +380,7 @@ unsafe impl TrivialType for () {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Unit as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -371,7 +393,7 @@ unsafe impl TrivialType for bool {
     const METADATA: &[u8] = &[IoTypeMetadataKind::Bool as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         let (&[0 | 1], remainder) = bytes.split_first_chunk::<1>()? else {
             return None;
         };
@@ -387,7 +409,7 @@ unsafe impl TrivialType for u8 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U8 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -400,7 +422,7 @@ unsafe impl TrivialType for u16 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U16 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -413,7 +435,7 @@ unsafe impl TrivialType for u32 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U32 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -426,7 +448,7 @@ unsafe impl TrivialType for u64 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U64 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -440,7 +462,7 @@ unsafe impl TrivialType for u128 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::U128 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -453,7 +475,7 @@ unsafe impl TrivialType for i8 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I8 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -466,7 +488,7 @@ unsafe impl TrivialType for i16 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I16 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -479,7 +501,7 @@ unsafe impl TrivialType for i32 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I32 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -492,7 +514,7 @@ unsafe impl TrivialType for i64 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I64 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -506,7 +528,7 @@ unsafe impl TrivialType for i128 {
     const METADATA: &[u8] = &[IoTypeMetadataKind::I128 as u8];
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         try_from_bytes_any_bit_pattern(bytes)
     }
 }
@@ -539,9 +561,11 @@ where
     };
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         let (bytes, remainder) = bytes.split_at_checked(size_of::<Self>())?;
-        try_skip_valid::<T>(bytes, SIZE)?;
+        // SAFETY: If `ALIGNED`, `bytes` are aligned for `Self` (function contract), which has the
+        // alignment of `T`
+        unsafe { try_skip_valid::<T, ALIGNED>(bytes, SIZE) }?;
         // SAFETY: Elements follow each other without padding and each of them is a valid value as
         // checked above, `Unaligned<Self>` has alignment 1 and the size of `Self`
         let value = unsafe { bytes.as_ptr().cast::<Unaligned<Self>>().as_ref_unchecked() };
@@ -635,7 +659,8 @@ where
         // SAFETY: `ptr` is valid for reads of `size` bytes, which is the size of `T`, initialized
         // and not written to during the call (function contract)
         let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<T>()) };
-        T::try_from_bytes_unaligned(bytes)?;
+        // SAFETY: `ptr` is aligned for `T` (function contract)
+        unsafe { T::parse_step::<true>(bytes) }?;
 
         // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, `ptr` is aligned and the
         // memory is not written to while the returned value exists (function contract), and it
@@ -660,7 +685,8 @@ where
         // and not accessed otherwise during the call (function contract), the slice is not used
         // after parsing
         let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<T>()) };
-        T::try_from_bytes_unaligned(bytes)?;
+        // SAFETY: `ptr` is aligned for `T` (function contract)
+        unsafe { T::parse_step::<true>(bytes) }?;
 
         // SAFETY: `size` is the size of `T` and doesn't exceed `capacity`, `ptr` is aligned and the
         // memory is not accessed otherwise while the returned value exists (function contract),

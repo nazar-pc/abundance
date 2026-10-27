@@ -72,9 +72,11 @@ where
     };
 
     #[inline(always)]
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+        // SAFETY: If `ALIGNED`, `bytes` are aligned for `Self` (function contract), and so for the
+        // only field, which has the same layout
         let (_value, remainder) =
-            FixedCapacityElements::<u8, CAPACITY>::try_from_bytes_unaligned(bytes)?;
+            unsafe { FixedCapacityElements::<u8, CAPACITY>::parse_step::<ALIGNED>(bytes) }?;
         // SAFETY: `bytes` start with a valid value of the only field (parsing step contract), which
         // has the same layout as `Self`, `Unaligned<Self>` has alignment 1 and the size of `Self`
         let value = unsafe { bytes.as_ptr().cast::<Unaligned<Self>>().as_ref_unchecked() };
