@@ -234,19 +234,18 @@ impl<'a> IntermediateShardBlockInfo<'a> {
             // SAFETY: Checked in constructor
             (shard_index, remainder) =
                 unsafe { remainder.split_at_unchecked(ShardIndex::SIZE as usize) };
-            // SAFETY: Correct size and no alignment requirements
-            let shard_index =
-                unsafe { Unaligned::<ShardIndex>::from_bytes_unchecked(shard_index) }.as_inner();
+            let shard_index = Unaligned::<ShardIndex>::from_bytes_exact(shard_index)
+                .expect("Correct size; qed")
+                .as_inner();
 
             let first_local_segment_index;
             // SAFETY: Checked in constructor
             (first_local_segment_index, remainder) =
                 unsafe { remainder.split_at_unchecked(LocalSegmentIndex::SIZE as usize) };
-            // SAFETY: Correct size and no alignment requirements
-            let first_local_segment_index = unsafe {
-                Unaligned::<LocalSegmentIndex>::from_bytes_unchecked(first_local_segment_index)
-            }
-            .as_inner();
+            let first_local_segment_index =
+                Unaligned::<LocalSegmentIndex>::from_bytes_exact(first_local_segment_index)
+                    .expect("Correct size; qed")
+                    .as_inner();
 
             let own_segment_roots;
             // SAFETY: Checked in constructor
@@ -327,10 +326,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                    Unaligned::<LocalSegmentIndex>::from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index,
+                    first_local_segment_index.as_inner(),
                     num_own_segment_roots,
                 )?;
                 let _own_segment_roots =
@@ -345,10 +344,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                    Unaligned::<LocalSegmentIndex>::from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index,
+                    first_local_segment_index.as_inner(),
                     usize::from(num_own_segment_roots.get()),
                 )?;
                 let _own_segment_roots = remainder
@@ -400,10 +399,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                    Unaligned::<LocalSegmentIndex>::from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index,
+                    first_local_segment_index.as_inner(),
                     num_own_segment_roots,
                 )?;
                 let _own_segment_roots =
@@ -418,10 +417,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_read_unaligned(remainder)?;
+                    Unaligned::<LocalSegmentIndex>::from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index,
+                    first_local_segment_index.as_inner(),
                     usize::from(num_own_segment_roots.get()),
                 )?;
                 let _own_segment_roots = remainder
@@ -634,11 +633,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 // SAFETY: Checked in constructor
                 (first_local_segment_index, remainder) =
                     unsafe { remainder.split_at_unchecked(size_of::<LocalSegmentIndex>()) };
-                // SAFETY: Correct size and no alignment requirements
-                let first_local_segment_index = unsafe {
-                    Unaligned::<LocalSegmentIndex>::from_bytes_unchecked(first_local_segment_index)
-                }
-                .as_inner();
+                let first_local_segment_index =
+                    Unaligned::<LocalSegmentIndex>::from_bytes_exact(first_local_segment_index)
+                        .expect("Correct size; qed")
+                        .as_inner();
 
                 let own_segment_roots;
                 // SAFETY: Checked in constructor
@@ -807,21 +805,16 @@ impl<'a> BeaconChainBody<'a> {
         // * intermediate shard blocks: IntermediateShardBlocksInfo
         // * concatenated PoT checkpoints
 
-        let num_pot_checkpoints = bytes.split_off(..size_of::<u32>())?;
-        // SAFETY: All bit patterns are valid
-        let num_pot_checkpoints =
-            *unsafe { <u32 as TrivialType>::from_bytes(num_pot_checkpoints) }? as usize;
+        let num_pot_checkpoints;
+        (num_pot_checkpoints, bytes) = u32::from_bytes(bytes)?;
+        let num_pot_checkpoints = *num_pot_checkpoints as usize;
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
 
         let own_segments = if num_own_segment_roots > 0 {
-            let first_local_segment_index = bytes.split_off(..LocalSegmentIndex::SIZE as usize)?;
-            // SAFETY: Unaligned and correct size
-            let first_local_segment_index = unsafe {
-                Unaligned::<LocalSegmentIndex>::from_bytes_unchecked(first_local_segment_index)
-            }
-            .as_inner();
+            let first_local_segment_index;
+            (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
 
             let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             // SAFETY: Valid pointer and size, no alignment requirements
@@ -834,7 +827,7 @@ impl<'a> BeaconChainBody<'a> {
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
             Some(OwnSegments::new(
-                first_local_segment_index,
+                first_local_segment_index.as_inner(),
                 own_segment_roots,
             )?)
         } else {
@@ -886,21 +879,16 @@ impl<'a> BeaconChainBody<'a> {
     pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         // The layout is the same as in `Self::try_from_bytes()`
 
-        let num_pot_checkpoints = bytes.split_off(..size_of::<u32>())?;
-        // SAFETY: All bit patterns are valid
-        let num_pot_checkpoints =
-            *unsafe { <u32 as TrivialType>::from_bytes(num_pot_checkpoints) }? as usize;
+        let num_pot_checkpoints;
+        (num_pot_checkpoints, bytes) = u32::from_bytes(bytes)?;
+        let num_pot_checkpoints = *num_pot_checkpoints as usize;
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
 
         let own_segments = if num_own_segment_roots > 0 {
-            let first_local_segment_index = bytes.split_off(..LocalSegmentIndex::SIZE as usize)?;
-            // SAFETY: Unaligned and correct size
-            let first_local_segment_index = unsafe {
-                Unaligned::<LocalSegmentIndex>::from_bytes_unchecked(first_local_segment_index)
-            }
-            .as_inner();
+            let first_local_segment_index;
+            (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
 
             let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             // SAFETY: Valid pointer and size, no alignment requirements
@@ -913,7 +901,7 @@ impl<'a> BeaconChainBody<'a> {
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
             Some(OwnSegments::new(
-                first_local_segment_index,
+                first_local_segment_index.as_inner(),
                 own_segment_roots,
             )?)
         } else {
@@ -1074,8 +1062,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
-                (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_from_bytes(remainder)?;
+                (first_local_segment_index, remainder) = LocalSegmentIndex::from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
                     *first_local_segment_index,
@@ -1124,8 +1111,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
-                (first_local_segment_index, remainder) =
-                    LocalSegmentIndex::try_from_bytes(remainder)?;
+                (first_local_segment_index, remainder) = LocalSegmentIndex::from_bytes(remainder)?;
                 // The local segment index after the last segment root must fit into `u64`
                 let _next_local_segment_index = LocalSegmentIndex::forward_checked(
                     *first_local_segment_index,
@@ -1405,12 +1391,8 @@ impl<'a> IntermediateShardBody<'a> {
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
 
         let own_segments = if num_own_segment_roots > 0 {
-            let first_local_segment_index = bytes.split_off(..LocalSegmentIndex::SIZE as usize)?;
-            // SAFETY: Unaligned and correct size
-            let first_local_segment_index = unsafe {
-                Unaligned::<LocalSegmentIndex>::from_bytes_unchecked(first_local_segment_index)
-            }
-            .as_inner();
+            let first_local_segment_index;
+            (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
 
             let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             // SAFETY: Valid pointer and size, no alignment requirements
@@ -1423,7 +1405,7 @@ impl<'a> IntermediateShardBody<'a> {
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
             Some(OwnSegments::new(
-                first_local_segment_index,
+                first_local_segment_index.as_inner(),
                 own_segment_roots,
             )?)
         } else {
@@ -1464,12 +1446,8 @@ impl<'a> IntermediateShardBody<'a> {
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
 
         let own_segments = if num_own_segment_roots > 0 {
-            let first_local_segment_index = bytes.split_off(..LocalSegmentIndex::SIZE as usize)?;
-            // SAFETY: Unaligned and correct size
-            let first_local_segment_index = unsafe {
-                Unaligned::<LocalSegmentIndex>::from_bytes_unchecked(first_local_segment_index)
-            }
-            .as_inner();
+            let first_local_segment_index;
+            (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
 
             let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             // SAFETY: Valid pointer and size, no alignment requirements
@@ -1482,7 +1460,7 @@ impl<'a> IntermediateShardBody<'a> {
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
             Some(OwnSegments::new(
-                first_local_segment_index,
+                first_local_segment_index.as_inner(),
                 own_segment_roots,
             )?)
         } else {
@@ -1696,12 +1674,8 @@ impl<'a> LeafShardBody<'a> {
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
 
         let own_segments = if num_own_segment_roots > 0 {
-            let first_local_segment_index = bytes.split_off(..LocalSegmentIndex::SIZE as usize)?;
-            // SAFETY: Unaligned and correct size
-            let first_local_segment_index = unsafe {
-                Unaligned::<LocalSegmentIndex>::from_bytes_unchecked(first_local_segment_index)
-            }
-            .as_inner();
+            let first_local_segment_index;
+            (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
 
             let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             // SAFETY: Valid pointer and size, no alignment requirements
@@ -1714,7 +1688,7 @@ impl<'a> LeafShardBody<'a> {
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
             Some(OwnSegments::new(
-                first_local_segment_index,
+                first_local_segment_index.as_inner(),
                 own_segment_roots,
             )?)
         } else {

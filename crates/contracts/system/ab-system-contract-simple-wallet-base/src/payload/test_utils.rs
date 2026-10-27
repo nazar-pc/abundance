@@ -259,7 +259,7 @@ impl TestPayload {
 
     /// Fingerprint of every method
     pub(crate) fn fingerprint() -> &'static MethodFingerprint {
-        MethodFingerprint::try_from_bytes_exact(&Self::FINGERPRINT).unwrap()
+        MethodFingerprint::from_bytes_exact(&Self::FINGERPRINT).unwrap()
     }
 
     /// Write `bytes` after zeroes up to `alignment`

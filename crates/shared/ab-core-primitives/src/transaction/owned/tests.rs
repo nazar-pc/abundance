@@ -1,8 +1,11 @@
 use crate::address::Address;
 use crate::block::BlockRoot;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
-use crate::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
+use crate::transaction::{
+    Gas, SerializedTransactionLengths, Transaction, TransactionHeader, TransactionSlot,
+};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use ab_io_type::trivial_type::TrivialType;
 
 fn header() -> TransactionHeader {
     TransactionHeader {
@@ -101,6 +104,30 @@ fn owned_transaction_from_buffer() {
         OwnedTransaction::from_buffer(extended),
         Err(OwnedTransactionError::UnexpectedNumberOfBytes { actual, expected })
             if actual == size + 16 && expected == size
+    ));
+
+    // Lengths after the header with padding that is not zero, then with a payload length that is
+    // not a multiple of `u128` size
+    let mut invalid_padding = OwnedAlignedBuffer::from_bytes(bytes);
+    let (lengths, _remainder) = SerializedTransactionLengths::from_bytes_mut(
+        &mut invalid_padding.as_mut_slice()[size_of::<TransactionHeader>()..],
+    )
+    .unwrap();
+    lengths.padding = [0, 0, 0, 1];
+    assert!(matches!(
+        OwnedTransaction::from_buffer(invalid_padding.into_shared()),
+        Err(OwnedTransactionError::InvalidPadding)
+    ));
+
+    let mut invalid_payload = OwnedAlignedBuffer::from_bytes(bytes);
+    let (lengths, _remainder) = SerializedTransactionLengths::from_bytes_mut(
+        &mut invalid_payload.as_mut_slice()[size_of::<TransactionHeader>()..],
+    )
+    .unwrap();
+    lengths.payload += 1;
+    assert!(matches!(
+        OwnedTransaction::from_buffer(invalid_payload.into_shared()),
+        Err(OwnedTransactionError::PayloadIsNotMultipleOfU128)
     ));
 }
 

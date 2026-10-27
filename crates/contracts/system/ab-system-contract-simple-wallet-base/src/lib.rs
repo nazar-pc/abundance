@@ -36,6 +36,7 @@ use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::{TxHandlerPayload, TxHandlerSeal, TxHandlerSlots};
 use ab_core_primitives::transaction::TransactionHeader;
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 use core::ffi::c_void;
 use core::mem::MaybeUninit;
 use core::ptr;
@@ -139,7 +140,7 @@ impl SimpleWalletBase {
         #[input] payload: &TxHandlerPayload<'_>,
         #[input] seal: &TxHandlerSeal<'_>,
     ) -> Result<(), ContractError> {
-        let Some(seal) = Seal::try_read_unaligned_exact(seal.get_initialized()) else {
+        let Some(seal) = Unaligned::<Seal>::from_bytes_exact(seal.get_initialized()) else {
             return Err(ContractError::BadInput);
         };
 
@@ -158,7 +159,7 @@ impl SimpleWalletBase {
             read_slots.get_initialized(),
             write_slots.get_initialized(),
             payload.get_initialized(),
-            &seal,
+            &seal.as_inner(),
         )
     }
 

@@ -9,10 +9,10 @@ use crate::storage_backend_adapter::PageGroupKind;
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemError, StorageItemWriteResult, UniqueStorageItem,
 };
+use ab_io_type::trivial_type::TrivialType;
 use std::mem::MaybeUninit;
-use strum::FromRepr;
 
-#[derive(Debug, FromRepr)]
+#[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(u8)]
 enum StorageItemBlockVariant {
     Block = 0,
@@ -68,7 +68,8 @@ impl StorageItem for StorageItemTemporary {
 
     #[inline(always)]
     fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError> {
-        let variant = StorageItemBlockVariant::from_repr(variant)
+        let variant = StorageItemBlockVariant::try_from_bytes_exact(&[variant])
+            .copied()
             .ok_or(StorageItemError::UnknownStorageItemVariant(variant))?;
 
         Ok(match variant {

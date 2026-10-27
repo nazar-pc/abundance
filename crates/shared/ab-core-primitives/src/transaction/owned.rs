@@ -217,26 +217,19 @@ impl OwnedTransaction {
     /// transaction it encodes, and [`OwnedTransactionError::UnexpectedNumberOfBytes`] if it is
     /// longer.
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, OwnedTransactionError> {
-        if buffer.len() < TransactionHeader::SIZE + SerializedTransactionLengths::SIZE {
-            return Err(OwnedTransactionError::NotEnoughBytes);
-        }
-
-        // SAFETY: Checked above that there are enough bytes, alignment is guaranteed by
-        // `SharedAlignedBuffer`
-        let lengths = unsafe {
-            buffer
-                .as_ptr()
-                .byte_add(size_of::<TransactionHeader>())
-                .cast::<SerializedTransactionLengths>()
-                .read()
-        };
+        // Alignment is guaranteed by `SharedAlignedBuffer`, so only too few bytes are rejected
+        let (lengths, _remainder) = buffer
+            .as_slice()
+            .get(size_of::<TransactionHeader>()..)
+            .and_then(SerializedTransactionLengths::from_bytes)
+            .ok_or(OwnedTransactionError::NotEnoughBytes)?;
         let SerializedTransactionLengths {
             read_slots: _,
             write_slots: _,
             payload,
             seal: _,
             padding,
-        } = lengths;
+        } = *lengths;
 
         // `Transaction::try_from_bytes()` below checks these too, they are checked here first to
         // return a more specific error

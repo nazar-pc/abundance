@@ -262,10 +262,8 @@ impl SectorContentsMap {
 
         let (single_records_bit_arrays, expected_checksum) =
             bytes.split_at(bytes.len() - Blake3Hash::SIZE);
-        // SAFETY: All bit patterns are valid
-        let expected_checksum = unsafe {
-            Blake3Hash::from_bytes(expected_checksum).expect("No alignment requirements; qed")
-        };
+        let expected_checksum = Blake3Hash::from_bytes_exact(expected_checksum)
+            .expect("Correct size, no alignment requirements; qed");
         // Verify checksum
         let actual_checksum = Blake3Hash::from(blake3::hash(single_records_bit_arrays));
         if &actual_checksum != expected_checksum {

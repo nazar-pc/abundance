@@ -97,15 +97,12 @@ impl StorageItemTemporarySuperSegmentHeaders {
                     size_of::<SuperSegmentHeader>() - buffer_len,
                 ))?;
             // TODO: Would be nice to have slice API in `TrivialType`
-            // SAFETY: This is a local database, so anything that is read that passes checksum
-            // verification is valid
-            let super_segment_header = *unsafe {
-                SuperSegmentHeader::from_bytes(super_segment_header_bytes).ok_or(
-                    StorageItemError::InvalidDataAlignment {
-                        data_type: "SuperSegmentHeader",
-                    },
-                )?
-            };
+            let super_segment_header = *SuperSegmentHeader::from_bytes_exact(
+                super_segment_header_bytes,
+            )
+            .ok_or(StorageItemError::InvalidDataAlignment {
+                data_type: "SuperSegmentHeader",
+            })?;
 
             super_segment_headers.push(super_segment_header);
         }

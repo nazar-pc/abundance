@@ -121,7 +121,8 @@ where
     ///
     /// Returns the value and the remaining bytes, or `None` if `bytes` are shorter than the type or
     /// don't start with a valid value. `#[derive(TrivialType)]` implements it, the other parsing
-    /// methods are built on it.
+    /// methods are built on it. Values in memory that is not aligned for `Self` are read with the
+    /// methods of [`Unaligned<Self>`], like `Unaligned::<Self>::try_from_bytes()`.
     fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])>;
 
     /// Parse the beginning of aligned `bytes`, returns the value and the remaining bytes.
@@ -165,66 +166,45 @@ where
         Some((value, remainder))
     }
 
-    /// Read a copy from the beginning of `bytes`, which don't need to be aligned, returns the value
-    /// and the remaining bytes
-    #[inline(always)]
-    final fn try_read_unaligned(bytes: &[u8]) -> Option<(Self, &[u8])> {
-        let (value, remainder) = Self::try_from_bytes_unaligned(bytes)?;
-        Some((value.as_inner(), remainder))
-    }
-
-    /// Like [`Self::try_read_unaligned()`], but returns `None` if there are more bytes than the
+    /// Like [`Self::try_from_bytes_mut()`], but returns `None` if there are more bytes than the
     /// value
     #[inline(always)]
-    final fn try_read_unaligned_exact(bytes: &[u8]) -> Option<Self> {
-        let (value, remainder) = Self::try_read_unaligned(bytes)?;
+    final fn try_from_bytes_mut_exact(bytes: &mut [u8]) -> Option<&mut Self> {
+        let (value, remainder) = Self::try_from_bytes_mut(bytes)?;
         remainder.is_empty().then_some(value)
     }
 
-    /// Read unaligned value from memory.
+    /// Create a reference to a value at the beginning of aligned `bytes`, returns the value and
+    /// the remaining bytes.
     ///
-    /// Returns `None` if the number of input bytes is not sufficient to represent the type. Prefer
-    /// [`Self::try_read_unaligned()`], which checks the bytes.
-    ///
-    /// # Safety
-    /// `bytes` start with a valid value of `Self` (see [`TrivialType`]), for example bytes that
-    /// [`Self::try_read_unaligned()`] accepts.
+    /// Returns `None` if `bytes` are not aligned for `Self` or are too short. Unlike
+    /// [`Self::try_from_bytes()`] it doesn't parse the bytes, since any bytes are a valid value.
     #[inline(always)]
-    final unsafe fn read_unaligned(bytes: &[u8]) -> Option<Self> {
-        // SAFETY: Guaranteed by function contract
-        Some(unsafe { Unaligned::<Self>::from_bytes(bytes)?.as_inner() })
+    final fn from_bytes(bytes: &[u8]) -> Option<(&Self, &[u8])>
+    where
+        Self: AnyBitPattern,
+    {
+        if !bytes.as_ptr().cast::<Self>().is_aligned() {
+            return None;
+        }
+        let (value, remainder) = bytes.split_at_checked(size_of::<Self>())?;
+        // SAFETY: `value` is `size_of::<Self>()` initialized bytes, aligned as checked above, and
+        // any of them are a valid value of `Self` (`AnyBitPatternMarker`)
+        let value = unsafe { value.as_ptr().cast::<Self>().as_ref_unchecked() };
+        Some((value, remainder))
     }
 
-    /// Similar to [`Self::read_unaligned()`], but doesn't do any checks at all.
-    ///
-    /// # Safety
-    /// `bytes` start with a valid value of `Self`.
+    /// Like [`Self::from_bytes()`], but returns `None` if there are more bytes than the value
     #[inline(always)]
-    final unsafe fn read_unaligned_unchecked(bytes: &[u8]) -> Self {
-        // SAFETY: Guaranteed by function contract
-        unsafe { Unaligned::<Self>::from_bytes_unchecked(bytes).as_inner() }
+    final fn from_bytes_exact(bytes: &[u8]) -> Option<&Self>
+    where
+        Self: AnyBitPattern,
+    {
+        let (value, remainder) = Self::from_bytes(bytes)?;
+        remainder.is_empty().then_some(value)
     }
 
-    /// Create a reference to a type, which is represented by provided memory.
-    ///
-    /// Memory must be correctly aligned, or else `None` will be returned. Size must be sufficient,
-    /// padding beyond the size of the type is allowed. Prefer [`Self::try_from_bytes()`], which
-    /// checks the bytes.
-    ///
-    /// # Safety
-    /// `bytes` start with a valid value of `Self` (see [`TrivialType`]), for example bytes that
-    /// [`Self::try_from_bytes()`] accepts.
-    #[inline(always)]
-    final unsafe fn from_bytes(bytes: &[u8]) -> Option<&Self> {
-        let bytes = bytes.get(..size_of::<Self>())?;
-        // SAFETY: `bytes` are a valid value of `Self` (function contract), which is the only
-        // element of the middle slice if it is aligned
-        let (before, slice, _) = unsafe { bytes.align_to::<Self>() };
-
-        before.is_empty().then(|| slice.first()).flatten()
-    }
-
-    /// Similar to [`Self::from_bytes()`], but doesn't do any checks at all.
+    /// Similar to [`Self::from_bytes()`], but for any type and without any checks
     ///
     /// # Safety
     /// `bytes` are aligned for `Self` and start with a valid value of `Self`.
@@ -234,27 +214,34 @@ where
         unsafe { bytes.as_ptr().cast::<Self>().as_ref_unchecked() }
     }
 
-    /// Create a mutable reference to a type, which is represented by provided memory.
-    ///
-    /// Memory must be correctly aligned, or else `None` will be returned. Size must be sufficient,
-    /// padding beyond the size of the type is allowed. Prefer [`Self::try_from_bytes_mut()`], which
-    /// checks the bytes.
-    ///
-    /// # Safety
-    /// `bytes` start with a valid value of `Self` (see [`TrivialType`]), for example bytes that
-    /// [`Self::try_from_bytes_mut()`] accepts.
+    /// Like [`Self::from_bytes()`], but returns an exclusive reference
     #[inline(always)]
-    final unsafe fn from_bytes_mut(bytes: &mut [u8]) -> Option<&mut Self> {
-        let bytes = bytes.get_mut(..size_of::<Self>())?;
-        // SAFETY: `bytes` are a valid value of `Self` (function contract), which is the only
-        // element of the middle slice if it is aligned, only valid values of `Self` can be written
-        // through it, and they have no padding, so the bytes stay initialized
-        let (before, slice, _) = unsafe { bytes.align_to_mut::<Self>() };
-
-        before.is_empty().then(|| slice.first_mut()).flatten()
+    final fn from_bytes_mut(bytes: &mut [u8]) -> Option<(&mut Self, &mut [u8])>
+    where
+        Self: AnyBitPattern,
+    {
+        if !bytes.as_ptr().cast::<Self>().is_aligned() {
+            return None;
+        }
+        let (value, remainder) = bytes.split_at_mut_checked(size_of::<Self>())?;
+        // SAFETY: `value` is `size_of::<Self>()` initialized bytes, aligned as checked above, and
+        // any of them are a valid value of `Self` (`AnyBitPatternMarker`), values written through
+        // the reference have no padding, so the bytes stay initialized
+        let value = unsafe { value.as_mut_ptr().cast::<Self>().as_mut_unchecked() };
+        Some((value, remainder))
     }
 
-    /// Similar to [`Self::from_bytes_mut()`], but doesn't do any checks at all.
+    /// Like [`Self::from_bytes_mut()`], but returns `None` if there are more bytes than the value
+    #[inline(always)]
+    final fn from_bytes_mut_exact(bytes: &mut [u8]) -> Option<&mut Self>
+    where
+        Self: AnyBitPattern,
+    {
+        let (value, remainder) = Self::from_bytes_mut(bytes)?;
+        remainder.is_empty().then_some(value)
+    }
+
+    /// Similar to [`Self::from_bytes_mut()`], but for any type and without any checks
     ///
     /// # Safety
     /// `bytes` are aligned for `Self` and start with a valid value of `Self`.
@@ -271,12 +258,22 @@ where
         unsafe { ptr::from_ref(self).cast::<[u8; _]>().as_ref_unchecked() }
     }
 
-    /// Access the underlying mutable byte representation of a data structure.
+    /// Access the underlying mutable byte representation of a data structure
+    #[inline(always)]
+    final fn as_bytes_mut(&mut self) -> &mut [u8; SIZE_OF::<Self>]
+    where
+        Self: AnyBitPattern,
+    {
+        // SAFETY: Any bytes written are a valid value of `Self` (`AnyBitPatternMarker`)
+        unsafe { self.as_bytes_mut_unchecked() }
+    }
+
+    /// Similar to [`Self::as_bytes_mut()`], but for any type.
     ///
     /// # Safety
     /// Only bytes of a valid value of `Self` may be written to the returned array.
     #[inline(always)]
-    final unsafe fn as_bytes_mut(&mut self) -> &mut [u8; SIZE_OF::<Self>] {
+    final unsafe fn as_bytes_mut_unchecked(&mut self) -> &mut [u8; SIZE_OF::<Self>] {
         // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description, only
         // bytes of a valid value are written (function contract)
         unsafe { ptr::from_mut(self).cast::<[u8; _]>().as_mut_unchecked() }
@@ -312,6 +309,9 @@ where
 {
 }
 
+// Without this attribute errors report the unsatisfied `AnyBitPatternMarker` bound instead,
+// suggesting to require the marker or to implement the `unsafe` marker manually
+#[diagnostic::do_not_recommend]
 impl<T> AnyBitPattern for T where T: TrivialType + AnyBitPatternMarker {}
 
 /// Parsing step of a type whose every bit pattern is a valid value

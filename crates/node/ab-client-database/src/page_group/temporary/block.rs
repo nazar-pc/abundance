@@ -320,15 +320,11 @@ impl StorageItemTemporaryBlock {
                             size_of::<SystemContractStatePrefix>() - buffer_len,
                         )
                     })?;
-                // SAFETY: This is a local database, so anything that is read that passes checksum
-                // verification is valid
-                let prefix = unsafe {
-                    SystemContractStatePrefix::from_bytes(prefix_bytes).ok_or(
-                        StorageItemError::InvalidDataAlignment {
-                            data_type: "SystemContractStatePrefix",
-                        },
-                    )?
-                };
+                let prefix = SystemContractStatePrefix::from_bytes_exact(prefix_bytes).ok_or(
+                    StorageItemError::InvalidDataAlignment {
+                        data_type: "SystemContractStatePrefix",
+                    },
+                )?;
                 read_len += prefix_bytes.len();
                 prefix
             };

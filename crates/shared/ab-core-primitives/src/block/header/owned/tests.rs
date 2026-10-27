@@ -12,9 +12,10 @@ use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
 use crate::pot::{PotOutput, PotParametersChange, SlotNumber};
 use crate::segments::SuperSegmentRoot;
-use crate::shard::{NumShards, ShardIndex};
+use crate::shard::{NumShards, NumShardsUnchecked, ShardIndex};
 use crate::solutions::{Solution, SolutionRange};
 use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_io_type::trivial_type::TrivialType;
 use std::num::{NonZeroU16, NonZeroU32};
 
 fn prefix(shard_index: u32) -> BlockHeaderPrefix {
@@ -287,4 +288,30 @@ fn from_parts_into_writes_nothing_on_errors() {
             if actual == child_shard_blocks.len()
     ));
     assert_eq!(buffer.as_slice(), bytes_before);
+}
+
+#[test]
+fn fixed_consensus_parameters_from_unaligned_bytes() {
+    let fixed_parameters = BlockHeaderFixedConsensusParameters {
+        solution_range: SolutionRange::MAX,
+        slot_iterations: NonZeroU32::MIN,
+        num_shards: NumShards::new(NonZeroU16::new(2).unwrap(), NonZeroU16::new(3).unwrap())
+            .unwrap(),
+    };
+    // Written like in headers, but after one byte of an aligned buffer, which puts the number of
+    // shards at an odd address
+    let bytes = [
+        &[0][..],
+        &fixed_parameters.solution_range.to_bytes(),
+        &fixed_parameters.slot_iterations.get().to_le_bytes(),
+        NumShardsUnchecked::from(fixed_parameters.num_shards).as_bytes(),
+        &[1],
+    ]
+    .concat();
+    let buffer = OwnedAlignedBuffer::from_bytes(&bytes);
+
+    assert_eq!(
+        BlockHeaderFixedConsensusParameters::try_from_bytes(&buffer.as_slice()[1..]),
+        Some((fixed_parameters, &[1][..]))
+    );
 }

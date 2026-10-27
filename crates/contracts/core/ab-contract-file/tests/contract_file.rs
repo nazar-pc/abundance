@@ -16,6 +16,8 @@ const LI_A0_0: [u8; 2] = 0x4501_u16.to_le_bytes();
 const RET: [u8; 2] = 0x8082_u16.to_le_bytes();
 /// The first half of `jal zero, 0`
 const JAL_ZERO_0_FIRST_HALF: [u8; 2] = 0x006f_u16.to_le_bytes();
+/// `c.j 0`
+const C_J_0: [u8; 2] = 0xa001_u16.to_le_bytes();
 
 /// Trait metadata with stateless view methods without arguments
 fn trait_metadata(trait_name: &str, method_names: &[&str]) -> Vec<u8> {
@@ -233,6 +235,59 @@ fn truncated_host_call_fn() {
             code_section_offset: _,
             file_size: _
         }) if offset == host_call_fn_offset
+    );
+}
+
+#[test]
+fn compressed_host_call_fn_at_the_end() {
+    let metadata = trait_metadata("Test", &["first"]);
+    let read_only_padding = u32::try_from(metadata.len() % 2).unwrap();
+    let mut file = contract_file(&[], &metadata, read_only_padding, &[[RET, C_J_0].concat()]);
+    // Host call function is `c.j 0` in the last two bytes of the file
+    let host_call_fn_offset = u32::try_from(file.len() - C_J_0.len()).unwrap();
+    file[offset_of!(ContractFileHeader, host_call_fn_offset)..][..size_of::<u32>()]
+        .copy_from_slice(&host_call_fn_offset.to_le_bytes());
+
+    ContractFile::parse(&file, |_| Ok(())).unwrap();
+}
+
+#[test]
+fn misaligned_file() {
+    let metadata = trait_metadata("Test", &["first", "second"]);
+    let read_only_padding = u32::try_from(metadata.len() % 2).unwrap();
+    let mut file = contract_file(
+        &[],
+        &metadata,
+        read_only_padding,
+        &[[RET, C_J_0].concat(), RET.to_vec()],
+    );
+    // Host call function is `c.j 0` at the end of the first method
+    let host_call_fn_offset = u32::try_from(file.len() - RET.len() - C_J_0.len()).unwrap();
+    file[offset_of!(ContractFileHeader, host_call_fn_offset)..][..size_of::<u32>()]
+        .copy_from_slice(&host_call_fn_offset.to_le_bytes());
+
+    // Contract files have no alignment guarantee, a copy at an odd address is parsed the same way
+    let mut buffer = vec![0; file.len() + 1];
+    let offset = usize::from(buffer.as_ptr().addr().is_multiple_of(2));
+    let misaligned_file = &mut buffer[offset..][..file.len()];
+    misaligned_file.copy_from_slice(&file);
+
+    let mut parsed_methods = Vec::new();
+    let contract_file = ContractFile::parse(misaligned_file, |method| {
+        parsed_methods.push((method.address, method.size));
+        Ok(())
+    })
+    .unwrap();
+
+    let code_address = contract_file.header().read_only_section_memory_size;
+    let expected_methods = [(code_address, 4), (code_address + 4, 2)];
+    assert_eq!(parsed_methods, expected_methods);
+    assert_eq!(
+        contract_file
+            .iterate_methods()
+            .map(|method| (method.address, method.size))
+            .collect::<Vec<_>>(),
+        expected_methods
     );
 }
 

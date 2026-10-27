@@ -17,6 +17,7 @@ use crate::shard::{NumShards, NumShardsUnchecked, RealShardKind, ShardIndex, Sha
 use crate::solutions::{Solution, SolutionRange};
 use ab_blake3::{BLOCK_LEN, single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use blake3::CHUNK_LEN;
 use core::num::NonZeroU32;
@@ -204,15 +205,9 @@ impl BlockHeaderFixedConsensusParameters {
             pot_slot_iterations[3],
         ]);
         let slot_iterations = NonZeroU32::new(slot_iterations)?;
-        // SAFETY: All bit patterns are valid
-        let num_shards = unsafe {
-            bytes
-                .split_off(..size_of::<NumShardsUnchecked>())?
-                .as_ptr()
-                .cast::<NumShardsUnchecked>()
-                .read_unaligned()
-        };
-        let num_shards = NumShards::try_from(num_shards).ok()?;
+        let num_shards;
+        (num_shards, bytes) = Unaligned::<NumShardsUnchecked>::from_bytes(bytes)?;
+        let num_shards = NumShards::try_from(num_shards.as_inner()).ok()?;
 
         Some((
             Self {
@@ -398,9 +393,8 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
         }
 
         let super_segment_root = if bitflags & Self::SUPER_SEGMENT_ROOT_MASK != 0 {
-            let super_segment_root = remainder.split_off(..size_of::<SuperSegmentRoot>())?;
-            // SAFETY: All bit patterns are valid
-            let super_segment_root = unsafe { SuperSegmentRoot::from_bytes(super_segment_root) }?;
+            let super_segment_root;
+            (super_segment_root, remainder) = SuperSegmentRoot::from_bytes(remainder)?;
 
             Some(super_segment_root)
         } else {
@@ -508,9 +502,9 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
         // * for each block:
         //   * child shard block: BlockHash
 
-        let length = bytes.split_off(..size_of::<u16>())?;
-        // SAFETY: All bit patterns are valid
-        let num_blocks = usize::from(*unsafe { <u16 as TrivialType>::from_bytes(length) }?);
+        let num_blocks;
+        (num_blocks, bytes) = u16::from_bytes(bytes)?;
+        let num_blocks = usize::from(*num_blocks);
 
         let padding = bytes.split_off(..size_of::<[u8; 2]>())?;
 
@@ -669,9 +663,7 @@ impl<'a> BlockHeaderSeal<'a> {
 
         match seal_type {
             BlockHeaderSealType::Ed25519 => {
-                let seal = bytes.split_off(..size_of::<BlockHeaderEd25519Seal>())?;
-                // SAFETY: All bit patterns are valid
-                let seal = unsafe { BlockHeaderEd25519Seal::from_bytes(seal) }?;
+                let (seal, bytes) = BlockHeaderEd25519Seal::from_bytes(bytes)?;
                 Some((Self::Ed25519(seal), bytes))
             }
         }
@@ -1028,17 +1020,14 @@ impl<'a> IntermediateShardHeader<'a> {
         // * child shard blocks: BlockHeaderChildShardBlocks
         // * block header seal: BlockHeaderSeal
 
-        let (prefix, consensus_info, result, mut remainder) =
+        let (prefix, consensus_info, result, remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
         if prefix.shard_index.shard_kind() != Some(ShardKind::IntermediateShard) {
             return None;
         }
 
-        let beacon_chain_info = remainder.split_off(..size_of::<BlockHeaderBeaconChainInfo>())?;
-        // SAFETY: All bit patterns are valid
-        let beacon_chain_info =
-            unsafe { BlockHeaderBeaconChainInfo::from_bytes(beacon_chain_info) }?;
+        let (beacon_chain_info, remainder) = BlockHeaderBeaconChainInfo::from_bytes(remainder)?;
 
         let (child_shard_blocks, remainder) =
             BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
@@ -1261,17 +1250,14 @@ impl<'a> LeafShardHeader<'a> {
         // * beacon chain: BlockHeaderBeaconChainInfo
         // * block header seal: BlockHeaderSeal
 
-        let (prefix, consensus_info, result, mut remainder) =
+        let (prefix, consensus_info, result, remainder) =
             BlockHeader::try_from_bytes_shared(bytes)?;
 
         if prefix.shard_index.shard_kind() != Some(ShardKind::LeafShard) {
             return None;
         }
 
-        let beacon_chain_info = remainder.split_off(..size_of::<BlockHeaderBeaconChainInfo>())?;
-        // SAFETY: All bit patterns are valid
-        let beacon_chain_info =
-            unsafe { BlockHeaderBeaconChainInfo::from_bytes(beacon_chain_info) }?;
+        let (beacon_chain_info, remainder) = BlockHeaderBeaconChainInfo::from_bytes(remainder)?;
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
@@ -1489,9 +1475,8 @@ impl<'a> BlockHeader<'a> {
         &'a BlockHeaderResult,
         &'a [u8],
     )> {
-        let prefix = bytes.split_off(..size_of::<BlockHeaderPrefix>())?;
-        // SAFETY: All bit patterns are valid
-        let prefix = unsafe { BlockHeaderPrefix::from_bytes(prefix) }?;
+        let prefix;
+        (prefix, bytes) = BlockHeaderPrefix::from_bytes(bytes)?;
 
         if !(prefix.padding_0 == [0; _]
             && u32::from(prefix.shard_index) <= ShardIndex::MAX_SHARD_INDEX)
@@ -1499,13 +1484,11 @@ impl<'a> BlockHeader<'a> {
             return None;
         }
 
-        let result = bytes.split_off(..size_of::<BlockHeaderResult>())?;
-        // SAFETY: All bit patterns are valid
-        let result = unsafe { BlockHeaderResult::from_bytes(result) }?;
+        let result;
+        (result, bytes) = BlockHeaderResult::from_bytes(bytes)?;
 
-        let consensus_info = bytes.split_off(..size_of::<BlockHeaderConsensusInfo>())?;
-        // SAFETY: All bit patterns are valid
-        let consensus_info = unsafe { BlockHeaderConsensusInfo::from_bytes(consensus_info) }?;
+        let consensus_info;
+        (consensus_info, bytes) = BlockHeaderConsensusInfo::from_bytes(bytes)?;
 
         if consensus_info.solution.padding != [0; _] {
             return None;

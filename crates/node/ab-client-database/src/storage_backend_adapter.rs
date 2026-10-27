@@ -22,10 +22,9 @@ use std::cmp::Reverse;
 use std::collections::VecDeque;
 use std::task::Poll;
 use std::{future, io, iter};
-use strum::FromRepr;
 use tracing::{Instrument, debug, error, info_span};
 
-#[derive(Debug, Copy, Clone, TrivialType, enum_map::Enum, FromRepr)]
+#[derive(Debug, Copy, Clone, TrivialType, enum_map::Enum)]
 #[repr(u8)]
 pub(crate) enum PageGroupKind {
     /// These pages are stored permanently and are never removed
