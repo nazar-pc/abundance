@@ -15,7 +15,7 @@ unsafe impl TrivialType for Value {
     const ALIGNMENT: Alignment = <u8 as TrivialType>::ALIGNMENT;
     const METADATA: &[u8] = &[];
 
-    fn try_from_bytes_unaligned(_bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(_bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         None
     }
 

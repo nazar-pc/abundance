@@ -48,13 +48,13 @@ mod no_implicit_prelude {
     }
 
     impl Validated {
-        const fn is_valid(value: Self) -> bool {
-            value.value != u32::MAX
+        const fn is_valid(&self) -> bool {
+            self.value != u32::MAX
         }
     }
 
     trait Check {
-        fn check(value: Self) -> bool;
+        fn check(&self) -> bool;
     }
 
     #[derive(Copy, Clone, TrivialType)]
@@ -65,8 +65,8 @@ mod no_implicit_prelude {
     }
 
     impl Check for QualifiedValidated {
-        fn check(value: Self) -> bool {
-            value.value != u32::MAX
+        fn check(&self) -> bool {
+            self.value != u32::MAX
         }
     }
 }

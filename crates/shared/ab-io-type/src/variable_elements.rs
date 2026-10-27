@@ -13,8 +13,8 @@ use core::{ptr, slice};
 /// Whether the first `size` bytes behind `ptr` are valid elements of [`VariableElements`].
 ///
 /// # Safety
-/// `ptr` is valid for reads of `size` bytes, which are initialized and not written to during the
-/// call.
+/// `ptr` is aligned and valid for reads of `size` bytes, which are initialized and not written to
+/// during the call.
 #[inline(always)]
 unsafe fn contents_are_valid<Element>(ptr: NonNull<Element>, size: u32) -> bool
 where
@@ -29,7 +29,8 @@ where
     // SAFETY: `ptr` is valid for reads of `size` initialized bytes, which are not written to
     // during the call (function contract)
     let bytes = unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size as usize) };
-    try_skip_valid::<Element>(bytes, bytes.len() / size_of::<Element>()).is_some()
+    // SAFETY: `ptr` is aligned (function contract)
+    unsafe { try_skip_valid::<Element, true>(bytes, bytes.len() / size_of::<Element>()) }.is_some()
 }
 
 /// Container for storing variable number of elements.
@@ -193,8 +194,8 @@ where
             "Size {size} is invalid for element size {}",
             Element::SIZE
         );
-        // SAFETY: `ptr` is valid for reads of `size` initialized bytes, which are not written to
-        // during the call (function contract)
+        // SAFETY: `ptr` is aligned and valid for reads of `size` initialized bytes, which are not
+        // written to during the call (function contract)
         if !unsafe { contents_are_valid(*ptr, *size) } {
             return None;
         }
@@ -222,8 +223,8 @@ where
             "Size {size} is invalid for element size {}",
             Element::SIZE
         );
-        // SAFETY: `ptr` is valid for reads of the first `size` bytes, which are initialized, and
-        // the memory is not accessed otherwise during the call (function contract)
+        // SAFETY: `ptr` is aligned and valid for reads of the first `size` bytes, which are
+        // initialized, and the memory is not accessed otherwise during the call (function contract)
         if !unsafe { contents_are_valid(*ptr, *size) } {
             return None;
         }

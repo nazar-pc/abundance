@@ -161,7 +161,8 @@ where
             // initialized and not written to during the call (function contract)
             let bytes =
                 unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<Data>()) };
-            Data::try_from_bytes_unaligned(bytes)?;
+            // SAFETY: `ptr` is aligned for `Data` (function contract)
+            unsafe { Data::parse_step::<true>(bytes) }?;
         }
 
         // SAFETY: `size` and `capacity` are valid, `ptr` is aligned and the memory is not written
@@ -195,7 +196,8 @@ where
             // slice is not used after parsing
             let bytes =
                 unsafe { slice::from_raw_parts(ptr.as_ptr().cast::<u8>(), size_of::<Data>()) };
-            Data::try_from_bytes_unaligned(bytes)?;
+            // SAFETY: `ptr` is aligned for `Data` (function contract)
+            unsafe { Data::parse_step::<true>(bytes) }?;
         }
 
         // SAFETY: `size` and `capacity` are valid, `ptr` is aligned, valid for writes of `capacity`

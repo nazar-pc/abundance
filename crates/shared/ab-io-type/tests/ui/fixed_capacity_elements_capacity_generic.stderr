@@ -32,11 +32,11 @@ error[E0080]: evaluation panicked: Capacity must not exceed `u32::MAX`
   | |     );
   | |_____- in this macro invocation
 
-note: the above error was encountered while instantiating `fn elements_try_from_bytes_unaligned::<(), 4294967297>`
+note: the above error was encountered while instantiating `fn elements_try_from_bytes::<(), 4294967297>`
   --> tests/ui/fixed_capacity_elements_capacity_generic.rs:61:5
    |
-61 |     elements_try_from_bytes_unaligned::<(), { (1 << 32) + 1 }>(&[]);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+61 |     elements_try_from_bytes::<(), { (1 << 32) + 1 }>(&[]);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error[E0080]: evaluation panicked: Type size must be smaller than 2^32
  --> $RUST/core/src/panic.rs

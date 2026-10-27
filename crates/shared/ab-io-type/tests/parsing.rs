@@ -88,7 +88,7 @@ unsafe impl TrivialType for Counted {
     const ALIGNMENT: Alignment = <() as TrivialType>::ALIGNMENT;
     const METADATA: &[u8] = <() as TrivialType>::METADATA;
 
-    fn try_from_bytes_unaligned(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
+    unsafe fn parse_step<const ALIGNED: bool>(bytes: &[u8]) -> Option<(&Unaligned<Self>, &[u8])> {
         COUNTED_PARSES.fetch_add(1, Ordering::Relaxed);
         // SAFETY: `Unaligned<Self>` is zero-sized with alignment 1, so any pointer into `bytes` is
         // a valid reference to it
@@ -106,8 +106,12 @@ struct NonMax {
 }
 
 impl NonMax {
-    const fn is_valid(value: Self) -> bool {
-        value.value != u32::MAX
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "`validate` functions take a reference"
+    )]
+    const fn is_valid(&self) -> bool {
+        self.value != u32::MAX
     }
 
     fn plus_one(self) -> NonZeroU32 {
@@ -126,11 +130,34 @@ enum Bounded {
 }
 
 impl Bounded {
-    const fn is_valid(value: Self) -> bool {
-        match value {
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "`validate` functions take a reference"
+    )]
+    const fn is_valid(&self) -> bool {
+        match *self {
             Self::A(byte) => byte < 10,
             Self::B(_) => true,
         }
+    }
+}
+
+/// Address of the last value [`Located`] was validated at
+static LOCATED_AT: AtomicUsize = AtomicUsize::new(0);
+
+/// Accepts every value, but records the address of the value its `validate` function gets
+#[derive(Debug, Copy, Clone, PartialEq, Eq, TrivialType)]
+#[repr(C)]
+#[trivial_type(validate = Self::is_valid)]
+struct Located {
+    value: u64,
+    other: u64,
+}
+
+impl Located {
+    fn is_valid(&self) -> bool {
+        LOCATED_AT.store(core::ptr::from_ref(self).addr(), Ordering::Relaxed);
+        true
     }
 }
 
@@ -139,13 +166,13 @@ impl Bounded {
 #[repr(C, align(8))]
 struct Aligned<const N: usize>([u8; N]);
 
-/// Parse the beginning of `bytes` with the parsing step, returns a copy of the value and the
-/// remaining bytes
+/// Parse the beginning of `bytes`, which don't need to be aligned, returns a copy of the value and
+/// the remaining bytes
 fn parse<T>(bytes: &[u8]) -> Option<(T, &[u8])>
 where
     T: TrivialType,
 {
-    let (value, remainder) = T::try_from_bytes_unaligned(bytes)?;
+    let (value, remainder) = Unaligned::<T>::try_from_bytes(bytes)?;
     Some((value.as_inner(), remainder))
 }
 
@@ -254,11 +281,11 @@ fn fieldless_enum() {
 /// an invalid value
 #[test]
 fn invalid_discriminant() {
-    assert!(Ctx::try_from_bytes_unaligned(&[3]).is_none());
-    assert!(Ctx::try_from_bytes_unaligned(&[7]).is_none());
-    assert!(Ctx::try_from_bytes_unaligned(&[255]).is_none());
-    assert!(Msg::try_from_bytes_unaligned(&[3, 0, 0, 0]).is_none());
-    assert!(Msg::try_from_bytes_unaligned(&[255, 0, 0, 0]).is_none());
+    assert!(parse::<Ctx>(&[3]).is_none());
+    assert!(parse::<Ctx>(&[7]).is_none());
+    assert!(parse::<Ctx>(&[255]).is_none());
+    assert!(parse::<Msg>(&[3, 0, 0, 0]).is_none());
+    assert!(parse::<Msg>(&[255, 0, 0, 0]).is_none());
 }
 
 #[test]
@@ -296,16 +323,30 @@ fn data_enum() {
     );
 }
 
-/// A constant named like a local of the generated parsing step doesn't change what it returns
+/// A constant named like a local of the generated parsing step doesn't change what it returns.
+///
+/// The parsing methods create their own references, so the step is called directly.
 #[test]
 fn constant_named_like_a_local() {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, TrivialType)]
     #[repr(u8)]
+    #[trivial_type(validate = Self::is_valid)]
     enum Single {
         Only,
     }
 
-    // Matches every value of `Single`, a binding with this name would be a constant pattern
+    impl Single {
+        #[expect(
+            clippy::trivially_copy_pass_by_ref,
+            reason = "`validate` functions take a reference"
+        )]
+        const fn is_valid(&self) -> bool {
+            true
+        }
+    }
+
+    // Matches every value of `Single`, a binding with this name in the step would be a constant
+    // pattern, and one in the wrapper of the `validate` function wouldn't compile
     #[expect(
         non_upper_case_globals,
         reason = "Named like a local of the generated step"
@@ -313,7 +354,8 @@ fn constant_named_like_a_local() {
     const value: &Unaligned<Single> = &Unaligned::new(Single::Only);
 
     let bytes = [0, 1];
-    let (parsed, remainder) = Single::try_from_bytes_unaligned(&bytes).unwrap();
+    // SAFETY: The unaligned flavour has no requirements
+    let (parsed, remainder) = unsafe { Single::parse_step::<false>(&bytes) }.unwrap();
     assert_eq!(
         core::ptr::from_ref(parsed).cast::<u8>(),
         <[u8]>::as_ptr(&bytes)
@@ -333,8 +375,8 @@ fn unaligned() {
         parse::<Unaligned<Ctx>>(&[1]),
         Some((Unaligned::new(Ctx::B), &[][..]))
     );
-    assert!(Unaligned::<Ctx>::try_from_bytes_unaligned(&[3]).is_none());
-    assert!(Unaligned::<Msg>::try_from_bytes_unaligned(&[2, 0, 3, 9]).is_none());
+    assert!(Unaligned::<Ctx>::try_from_bytes(&[3]).is_none());
+    assert!(Unaligned::<Msg>::try_from_bytes(&[2, 0, 3, 9]).is_none());
 }
 
 #[test]
@@ -372,6 +414,30 @@ fn validate() {
     assert_eq!(parse::<Bounded>(&[0, 9]), Some((Bounded::A(9), &[][..])));
     assert_eq!(parse::<Bounded>(&[1, 10]), Some((Bounded::B(10), &[][..])));
     assert_eq!(parse::<Bounded>(&[2, 0]), None);
+}
+
+/// The `validate` function gets a reference into the bytes, unless they are parsed as the contents
+/// of `Unaligned`, which copies the value, since the bytes could be unaligned
+#[test]
+fn validate_reference() {
+    let value = Located { value: 1, other: 2 };
+    let bytes = value.as_bytes();
+    let address = <[u8]>::as_ptr(bytes).addr();
+
+    assert_eq!(Located::try_from_bytes(bytes), Some((&value, &[][..])));
+    assert_eq!(LOCATED_AT.load(Ordering::Relaxed), address);
+    let mut words = [1_u64, 2];
+    let words_address = core::ptr::from_ref(&words).addr();
+    assert!(Located::try_from_bytes_mut(words.as_bytes_mut()).is_some());
+    assert_eq!(LOCATED_AT.load(Ordering::Relaxed), words_address);
+    let ptr = NonNull::from_ref(&value);
+    // SAFETY: Aligned, the size and capacity of `Located`, 16 initialized bytes that are not
+    // written to
+    assert!(unsafe { Located::try_from_ptr(&ptr, &Located::SIZE, Located::SIZE) }.is_some());
+    assert_eq!(LOCATED_AT.load(Ordering::Relaxed), address);
+
+    assert!(Unaligned::<Located>::try_from_bytes(bytes).is_some());
+    assert_ne!(LOCATED_AT.load(Ordering::Relaxed), address);
 }
 
 #[test]

@@ -43,8 +43,8 @@ struct NonMax {
 }
 
 impl NonMax {
-    const fn is_valid(value: Self) -> bool {
-        value.value != u32::MAX
+    const fn is_valid(&self) -> bool {
+        self.value != u32::MAX
     }
 }
 
