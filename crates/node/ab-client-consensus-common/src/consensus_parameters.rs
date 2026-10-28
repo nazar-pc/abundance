@@ -600,7 +600,7 @@ where
         target_block_number,
         segment_roots,
     )
-    .ok_or({
+    .ok_or_else(|| {
         // TODO: While very unlikely, this is hypothetically possible and will need to be
         //  worked around in the block builder by excluding extra block headers, especially since
         //  the error will happen much later in the life cycle and it might be too late to revert
