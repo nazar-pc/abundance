@@ -16,6 +16,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("Always set by Cargo; qed"));
 
+    // Environment variables explicitly used here
+    println!("cargo::rerun-if-env-changed=CLIPPY_ARGS");
+    println!("cargo::rerun-if-env-changed=MIRI_SYSROOT");
+    println!("cargo::rerun-if-env-changed=RUSTDOCFLAGS");
+
     // Skip compilation under Miri and rustdoc, it will not be used
     if ["MIRI_SYSROOT", "RUSTDOCFLAGS"]
         .iter()
@@ -33,7 +38,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let shader_crate = PathBuf::from(cargo_manifest_dir);
 
-    let backend = Install::from_shader_crate(shader_crate.clone()).run()?;
+    let backend = Install::from_shader_crate(shader_crate.clone())
+        .within_build_script()
+        .run()?;
 
     // TODO: Workaround for https://github.com/Rust-GPU/rust-gpu/issues/461
     // SAFETY: Single-threaded
@@ -63,17 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // The nested invocation compiles this build script again, and without `build-shader` it
         // does not need any of the build dependencies
         .shader_crate_default_features(false);
-    spirv_builder.build_script.defaults = true;
-    spirv_builder
-        .build_script
-        .forward_rustc_warnings
-        .replace(true);
 
-    // Emitting any `rerun-if-*` disables Cargo's default of rerunning on any package file change,
-    // and in Clippy mode `spirv-builder` doesn't emit dependency info for sources
-    println!("cargo::rerun-if-changed=src");
-    println!("cargo::rerun-if-changed=Cargo.toml");
-    println!("cargo::rerun-if-env-changed=CLIPPY_ARGS");
     let path_to_spv = if env::var("CLIPPY_ARGS").is_ok() {
         match spirv_builder.clippy() {
             Ok(compile_result) => compile_result.module.unwrap_single().to_path_buf(),
