@@ -409,7 +409,7 @@ impl OwnedAlignedBuffer {
     /// # Panics
     /// If the allocation would be larger than `isize::MAX` bytes
     #[inline(always)]
-    #[must_use]
+    #[must_use = "Check for overflow"]
     pub fn append(&mut self, bytes: &[u8]) -> bool {
         let Ok(len) = u32::try_from(bytes.len()) else {
             return false;

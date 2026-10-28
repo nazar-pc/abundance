@@ -1926,7 +1926,7 @@ where
     /// `parent_block_root` and its ancestors.
     ///
     /// Returns `true` on success and `false` if one of the parents was not found.
-    #[must_use]
+    #[must_use = "The return value indicates whether all parent blocks were found"]
     fn adjust_ancestor_block_forks(
         blocks: &mut VecDeque<SmallVec<[ClientDatabaseBlock<Block>; 2]>>,
         mut parent_block_root: BlockRoot,
@@ -2012,7 +2012,7 @@ where
 
     /// Returns `true` if the tip was pruned successfully and `false` if it should be returned to
     /// the list of fork tips
-    #[must_use]
+    #[must_use = "The return value indicates whether the fork tip was pruned"]
     fn prune_outdated_fork(
         best_number: BlockNumber,
         fork_tip: &ForkTip,

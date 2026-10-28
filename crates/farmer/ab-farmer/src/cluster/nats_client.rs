@@ -958,7 +958,7 @@ impl NatsClient {
                 buffer = response.into();
                 buffer.clear();
                 // Fill buffer with any overflown responses that may have been stored
-                buffer.extend(overflow_buffer.drain(..));
+                buffer.append(&mut overflow_buffer);
 
                 if index >= 1 {
                     // Acknowledgements are received with delay

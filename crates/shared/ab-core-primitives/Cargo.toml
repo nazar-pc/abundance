@@ -26,9 +26,8 @@ bytes = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["full"] }
 ed25519-dalek = { workspace = true, optional = true }
 hex = { workspace = true }
-once_cell = { workspace = true, features = ["alloc"], optional = true }
 parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
-replace_with = { workspace = true }
+replace_with = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 serde-big-array = { workspace = true, optional = true }
@@ -36,6 +35,9 @@ thiserror = { workspace = true }
 transparent-wrapper = { workspace = true }
 triomphe = { workspace = true, optional = true }
 yoke = { workspace = true, features = ["derive"] }
+
+[target.'cfg(any(target_os = "none", target_os = "unknown"))'.dependencies]
+once_cell = { workspace = true, features = ["alloc"], optional = true }
 
 [target.'cfg(not(any(target_os = "none", target_os = "unknown")))'.dependencies]
 triomphe = { workspace = true, features = ["std"] }
@@ -49,6 +51,7 @@ alloc = [
     "dep:ab-aligned-buffer",
     "dep:bytes",
     "dep:once_cell",
+    "dep:replace_with",
     "dep:triomphe",
     "serde?/alloc",
 ]

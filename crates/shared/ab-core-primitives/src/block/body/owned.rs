@@ -374,8 +374,7 @@ impl OwnedBeaconChainBody {
                 let num_own_segment_roots = intermediate_shard_block
                     .own_segments
                     .as_ref()
-                    .map(|own_segments| own_segments.num_segment_roots().get())
-                    .unwrap_or_default();
+                    .map_or_default(|own_segments| own_segments.num_segment_roots().get());
                 let num_leaf_shard_blocks_with_segments =
                     intermediate_shard_block.num_leaf_shard_blocks_with_segments();
 
@@ -1024,7 +1023,7 @@ impl OwnedBlockBody {
 ///
 /// Returns `false` if buffer becomes too long.
 #[inline(always)]
-#[must_use]
+#[must_use = "Check if buffer becomes too long"]
 fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
     let alignment = usize::from(Alignment::of::<u64>().get());
     let unaligned_by = buffer.len() as usize % alignment;
@@ -1044,7 +1043,7 @@ fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
 ///
 /// Returns `false` if buffer becomes too long.
 #[inline(always)]
-#[must_use]
+#[must_use = "Check if buffer becomes too long"]
 fn align_to_16_bytes_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
     let alignment = usize::from(Alignment::MAX.get());
     let unaligned_by = buffer.len() as usize % alignment;

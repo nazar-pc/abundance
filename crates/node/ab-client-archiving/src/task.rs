@@ -307,8 +307,7 @@ where
     {
         let blocks_to_archive_from = archiver
             .last_archived_block_number()
-            .map(|n| n + BlockNumber::ONE)
-            .unwrap_or_default();
+            .map_or_default(|n| n + BlockNumber::ONE);
         let blocks_to_archive_to = best_block_number
             .checked_sub(block_confirmation_depth)
             .filter(|&blocks_to_archive_to| blocks_to_archive_to >= blocks_to_archive_from)
