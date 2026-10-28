@@ -581,8 +581,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                     *intermediate_shard_block
                         .own_segments
                         .as_ref()
-                        .map(OwnSegments::root)
-                        .unwrap_or_default(),
+                        .map_or_default(OwnSegments::root),
                     leaf_shards_root,
                 ]),
             )
@@ -983,11 +982,7 @@ impl<'a> BeaconChainBody<'a> {
     pub fn root(&self) -> Blake3Hash {
         // TODO: Keyed hash
         let root = BalancedMerkleTree::compute_root_only(&[
-            *self
-                .own_segments
-                .as_ref()
-                .map(OwnSegments::root)
-                .unwrap_or_default(),
+            *self.own_segments.as_ref().map_or_default(OwnSegments::root),
             *self.intermediate_shard_blocks.segments_root(),
             *self.intermediate_shard_blocks.headers_root(),
             blake3::hash(PotCheckpoints::bytes_from_slice(self.pot_checkpoints).as_flattened())
@@ -1309,14 +1304,11 @@ impl<'a> LeafShardBlocksInfo<'a> {
     pub fn segments_root(&self) -> Blake3Hash {
         let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
             self.iter().map(|shard_block_info| {
-                shard_block_info
-                    .segments
-                    .map(|own_segments| {
-                        own_segments
-                            .own_segments
-                            .root_with_shard_index(shard_block_info.header.prefix.shard_index)
-                    })
-                    .unwrap_or_default()
+                shard_block_info.segments.map_or_default(|own_segments| {
+                    own_segments
+                        .own_segments
+                        .root_with_shard_index(shard_block_info.header.prefix.shard_index)
+                })
             }),
         )
         .unwrap_or_default();
@@ -1516,11 +1508,7 @@ impl<'a> IntermediateShardBody<'a> {
         // Explicit nested trees to emphasize that the proof size for segments is just one hash
         let root = BalancedMerkleTree::compute_root_only(&[
             BalancedMerkleTree::compute_root_only(&[
-                *self
-                    .own_segments
-                    .as_ref()
-                    .map(OwnSegments::root)
-                    .unwrap_or_default(),
+                *self.own_segments.as_ref().map_or_default(OwnSegments::root),
                 *self.leaf_shard_blocks.segments_root(),
             ]),
             *self.leaf_shard_blocks.headers_root(),
@@ -1758,11 +1746,7 @@ impl<'a> LeafShardBody<'a> {
     #[inline]
     pub fn root(&self) -> Blake3Hash {
         let root = BalancedMerkleTree::compute_root_only(&[
-            *self
-                .own_segments
-                .as_ref()
-                .map(OwnSegments::root)
-                .unwrap_or_default(),
+            *self.own_segments.as_ref().map_or_default(OwnSegments::root),
             *self.transactions.root(),
         ]);
 

@@ -62,7 +62,7 @@ impl KnownCaches {
     }
 
     /// Return `false` if cluster cache is unknown and reinitialization is required
-    #[must_use]
+    #[must_use = "The return value indicates whether the cluster cache was refreshed"]
     fn refresh(&mut self, cluster_cache_id: ClusterCacheId) -> bool {
         self.known_caches.iter_mut().any(|known_cache| {
             if known_cache.cluster_cache_id == cluster_cache_id {

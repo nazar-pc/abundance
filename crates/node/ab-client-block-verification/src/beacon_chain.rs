@@ -475,8 +475,7 @@ where
             .map(|segment_header| &segment_header.root)
             .eq(own_segments
                 .as_ref()
-                .map(|own_segments| own_segments.segment_roots)
-                .unwrap_or_default());
+                .map_or_default(|own_segments| own_segments.segment_roots));
         if !(correct_first_local_segment_index && correct_segment_roots) {
             return Err(BlockVerificationError::InvalidOwnSegments {
                 expected_first_local_segment_index,
@@ -489,8 +488,7 @@ where
                     .map(|own_segments| own_segments.first_local_segment_index),
                 actual_segment_roots: own_segments
                     .as_ref()
-                    .map(|own_segments| own_segments.segment_roots.to_vec())
-                    .unwrap_or_default(),
+                    .map_or_default(|own_segments| own_segments.segment_roots.to_vec()),
             });
         }
 

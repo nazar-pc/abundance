@@ -221,7 +221,7 @@ impl Slots {
     ///
     /// Returns `false` if a contract already exits in a map, which is also considered as an access
     /// violation.
-    #[must_use]
+    #[must_use = "Check if contract already exists in a map"]
     #[inline(always)]
     pub fn add_new_contract(&mut self, owner: Address) -> bool {
         let new_contracts = &mut self.0.new_contracts;
@@ -410,7 +410,7 @@ impl<'a> NestedSlots<'a> {
     ///
     /// Returns `false` if a contract already exits in a map, which is also considered as an access
     /// violation.
-    #[must_use]
+    #[must_use = "Check if contract already exists in a map"]
     #[inline(always)]
     pub fn add_new_contract(&mut self, owner: Address) -> bool {
         let Some(inner) = self.inner_rw() else {
