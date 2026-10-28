@@ -35,6 +35,11 @@ fn mt_balanced_16_leaves() {
 
 #[test]
 fn mt_balanced_32_leaves() {
+    // 32 leaves is the smallest tree that uses batched hashing, so it can't be skipped under Miri,
+    // but cross-checks against other implementations for every leaf are too slow there
+    #[cfg(miri)]
+    test_balanced_only::<32, 32>();
+    #[cfg(not(miri))]
     test_basic::<32, 32>();
 }
 
@@ -43,6 +48,42 @@ fn mt_balanced_32_leaves() {
 #[cfg_attr(miri, ignore)]
 fn mt_balanced_64_leaves() {
     test_basic::<64, 64>();
+}
+
+/// A much faster subset of [`test_basic()`] that only checks [`BalancedMerkleTree`] and its root
+/// against an independent implementation
+#[cfg(miri)]
+fn test_balanced_only<const N: usize, const N_U64: u64>() {
+    assert_eq!(N as u64, N_U64);
+
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    let leaves = {
+        let mut leaves = [[0u8; OUT_LEN]; N];
+        for hash in &mut leaves {
+            rng.fill_bytes(hash);
+        }
+        leaves
+    };
+
+    let tree = BalancedMerkleTree::new(&leaves);
+    let root = tree.root();
+    #[cfg(feature = "alloc")]
+    assert_eq!(BalancedMerkleTree::new_boxed(&leaves).root(), root);
+
+    assert_eq!(BalancedMerkleTree::compute_root_only(&leaves), root);
+    assert_eq!(
+        UnbalancedMerkleTree::compute_root_only::<N_U64, _, _>(leaves.iter().copied()).unwrap(),
+        root
+    );
+
+    assert_eq!(tree.all_proofs().len(), N);
+    for (leaf_index, (proof, leaf)) in tree.all_proofs().zip(leaves).enumerate() {
+        assert!(
+            BalancedMerkleTree::<N>::verify(&root, &proof, leaf_index, leaf),
+            "N {N} leaf_index {leaf_index}"
+        );
+    }
 }
 
 fn test_basic<const N: usize, const N_U64: u64>() {
