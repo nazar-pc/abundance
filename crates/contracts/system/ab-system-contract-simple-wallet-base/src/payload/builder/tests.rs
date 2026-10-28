@@ -1077,7 +1077,9 @@ fn payload_accepted_by_builder_decodes() {
     let mut num_payloads = 0;
     let mut num_rejected = 0;
     let mut num_too_large = 0;
-    for _ in 0..1000 {
+    // Miri is very slow, fewer iterations are enough to exercise the same code
+    let iterations = if cfg!(miri) { 250 } else { 1000 };
+    for _ in 0..iterations {
         let num_outputs = rng.below(4);
         let max_size = if rng.below(4) == 0 {
             u128::SIZE * (1 + u32::from(rng.below(16)))
@@ -1104,10 +1106,13 @@ fn payload_accepted_by_builder_decodes() {
     }
 
     // All of them happen often, so that the test checks something
-    assert!(num_payloads > 100, "{num_payloads} payloads");
-    assert!(num_rejected > 100, "{num_rejected} rejected method calls");
+    assert!(num_payloads > iterations / 10, "{num_payloads} payloads");
     assert!(
-        num_too_large > 100,
+        num_rejected > iterations / 10,
+        "{num_rejected} rejected method calls"
+    );
+    assert!(
+        num_too_large > iterations / 10,
         "{num_too_large} method calls that didn't fit"
     );
 }

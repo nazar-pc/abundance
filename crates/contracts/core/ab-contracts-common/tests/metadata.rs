@@ -376,7 +376,11 @@ fn arguments_in_order_are_accepted() {
         ContractMetadataKind::Output,
         ContractMetadataKind::Return,
     ];
-    for subset in 0..1u32 << in_order.len() {
+    let subsets = 0..1u32 << in_order.len();
+    // Miri is very slow, a sample of subsets is enough
+    #[cfg(miri)]
+    let subsets = subsets.step_by(7);
+    for subset in subsets {
         let argument_kinds = in_order
             .iter()
             .enumerate()

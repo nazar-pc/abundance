@@ -286,7 +286,15 @@ fn test_32(total_skip_size: usize) {
     };
 
     // Try all permutations of the location of the full total skip size within a set of leaves
-    for offset in 0..N - total_skip_size {
+    let offsets = 0..N - total_skip_size;
+    // Hashing is very slow under Miri, offsets with different alignment (the number of trailing
+    // zeros determines how skipped leaves are split into aligned chunks) and the last one are
+    // enough
+    #[cfg(miri)]
+    let offsets = offsets.filter(|&offset| {
+        matches!(offset, 0 | 1 | 2 | 4 | 8 | 16) || offset == N - total_skip_size - 1
+    });
+    for offset in offsets {
         let mut modified_leaves = leaves;
         modified_leaves[offset..][..total_skip_size].fill(ZERO);
 

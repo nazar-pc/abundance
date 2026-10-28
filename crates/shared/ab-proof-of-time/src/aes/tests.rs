@@ -95,7 +95,8 @@ fn verify_test(
 fn test_create_verify() {
     let seed = PotSeed::from(SEED);
     let key = PotKey::from(KEY);
-    let checkpoint_iterations = 20;
+    // Miri is very slow, fewer iterations exercise the same code
+    let checkpoint_iterations = if cfg!(miri) { 6 } else { 20 };
 
     // Can encrypt/decrypt.
     let checkpoints = create(seed, key, checkpoint_iterations);

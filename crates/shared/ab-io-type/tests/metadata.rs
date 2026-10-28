@@ -2230,8 +2230,11 @@ fn derived_types_nested_deeply() {
 
 #[test]
 fn deeply_nested_metadata_is_rejected() {
+    // Miri is very slow, a smaller number of levels is still way beyond the max depth
+    const LEVELS: usize = if cfg!(miri) { 1_000 } else { 10_000 };
+
     // Decoders must reject crafted metadata nested too deep without running out of stack
-    let mut metadata = vec![IoTypeMetadataKind::Unaligned as u8; 10_000];
+    let mut metadata = vec![IoTypeMetadataKind::Unaligned as u8; LEVELS];
     metadata.push(IoTypeMetadataKind::U8 as u8);
 
     // Stack usage of decoders doesn't depend on metadata, so a small stack is enough
@@ -2244,8 +2247,8 @@ fn deeply_nested_metadata_is_rejected() {
     });
 
     // Metadata decodes with a large enough max depth
-    assert!(!decodes::<9_999>(&metadata));
-    assert!(decodes::<10_000>(&metadata));
+    assert!(!decodes::<{ LEVELS - 1 }>(&metadata));
+    assert!(decodes::<LEVELS>(&metadata));
 }
 
 /// Metadata of tuple structs with a single field nested in each other around `u8`
