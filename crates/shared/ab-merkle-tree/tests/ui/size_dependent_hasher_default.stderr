@@ -1,0 +1,9 @@
+error[E0119]: conflicting implementations of trait `NewMerkleHasherForTreeSize` for type `TreeSizeHasher`
+  --> tests/ui/size_dependent_hasher_default.rs:11:1
+   |
+11 | const impl NewMerkleHasherForTreeSize for TreeSizeHasher {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: conflicting implementation in crate `ab_merkle_tree`:
+           - impl<H> NewMerkleHasherForTreeSize for H
+             where H: Default;

@@ -1,7 +1,7 @@
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(generic_const_args, min_generic_const_args)]
 
-use ab_merkle_tree::balanced::BalancedMerkleTree;
+use ab_merkle_tree::blake3::BalancedMerkleTree;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 

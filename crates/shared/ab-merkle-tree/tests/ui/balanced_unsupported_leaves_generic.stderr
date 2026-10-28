@@ -24,10 +24,10 @@ note: erroneous constant encountered
   |         const { TREE_SIZE_WITHOUT_LEAVES::<N> };
   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 48>::compute_root_only`
-  --> tests/ui/balanced_unsupported_leaves_generic.rs:16:5
+note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 48, Blake3MerkleHasher>::compute_root_only`
+  --> tests/ui/balanced_unsupported_leaves_generic.rs:17:5
    |
-16 |     BalancedMerkleTree::compute_root_only(leaves)
+17 |     BalancedMerkleTree::compute_root_only(leaves)
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error[E0080]: evaluation panicked: Balanced Merkle Tree must have a number of leaves that is a power of 2
@@ -56,10 +56,10 @@ note: erroneous constant encountered
   |         const { TREE_SIZE_WITHOUT_LEAVES::<N> };
   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 3>::verify`
-  --> tests/ui/balanced_unsupported_leaves_generic.rs:20:5
+note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 3, Blake3MerkleHasher>::verify`
+  --> tests/ui/balanced_unsupported_leaves_generic.rs:21:5
    |
-20 |     BalancedMerkleTree::<N>::verify(&[0; 32], proof, 0, [0; 32])
+21 |     BalancedMerkleTree::<N>::verify(&[0; 32], proof, 0, [0; 32])
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error[E0080]: evaluation panicked: Balanced Merkle Tree must have a number of leaves that is a power of 2
@@ -88,10 +88,10 @@ note: erroneous constant encountered
   |         const { TREE_SIZE_WITHOUT_LEAVES::<N> };
   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 5>::new`
-  --> tests/ui/balanced_unsupported_leaves_generic.rs:24:5
+note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 5, Blake3MerkleHasher>::new`
+  --> tests/ui/balanced_unsupported_leaves_generic.rs:25:5
    |
-24 |     BalancedMerkleTree::new(leaves).root()
+25 |     BalancedMerkleTree::new(leaves).root()
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error[E0080]: evaluation panicked: Balanced Merkle Tree must have a number of leaves that is a power of 2
@@ -120,10 +120,10 @@ note: erroneous constant encountered
   |         const { TREE_SIZE_WITHOUT_LEAVES::<N> };
   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 6>::new_in`
-  --> tests/ui/balanced_unsupported_leaves_generic.rs:33:5
+note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 6, Blake3MerkleHasher>::new_in`
+  --> tests/ui/balanced_unsupported_leaves_generic.rs:34:5
    |
-33 |     BalancedMerkleTree::new_in
+34 |     BalancedMerkleTree::new_in
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error[E0080]: evaluation panicked: This Balanced Merkle Tree must have more than one leaf
@@ -140,8 +140,8 @@ error[E0080]: evaluation panicked: This Balanced Merkle Tree must have more than
   | |     );
   | |_____- in this macro invocation
 
-note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 1>::compute_root_only`
-  --> tests/ui/balanced_unsupported_leaves_generic.rs:16:5
+note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 1, Blake3MerkleHasher>::compute_root_only`
+  --> tests/ui/balanced_unsupported_leaves_generic.rs:17:5
    |
-16 |     BalancedMerkleTree::compute_root_only(leaves)
+17 |     BalancedMerkleTree::compute_root_only(leaves)
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

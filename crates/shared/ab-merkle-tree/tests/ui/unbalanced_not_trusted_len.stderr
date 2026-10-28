@@ -1,0 +1,65 @@
+error[E0277]: the trait bound `FilterMap<Copied<std::slice::Iter<'_, [u8; 32]>>, fn([u8; 32]) -> Option<[u8; 32]> {Option::<[u8; 32]>::Some}>: TrustedLen` is not satisfied
+  --> tests/ui/unbalanced_not_trusted_len.rs:10:56
+   |
+10 |     UnbalancedMerkleTree::compute_root_only::<4, _, _>(leaves.iter().copied().filter_map(Some));
+   |     -------------------------------------------------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = help: the nightly-only, unstable trait `TrustedLen` is not implemented for `FilterMap<Copied<std::slice::Iter<'_, [u8; 32]>>, fn([u8; 32]) -> Option<[u8; 32]> {Option::<[u8; 32]>::Some}>`
+   = help: the following other types implement trait `TrustedLen`:
+             &mut I
+             ArrayWindows<'_, T, N>
+             BoxedArrayIntoIter<T, N, A>
+             Chunks<'_, T>
+             ChunksExact<'_, T>
+             ChunksExactMut<'_, T>
+             ChunksMut<'_, T>
+             Cloned<I>
+           and $N others
+note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_only`
+  --> src/unbalanced.rs
+   |
+   |     pub fn compute_root_only<'a, const MAX_N: u64, Item, Iter>(
+   |            ----------------- required by a bound in this associated function
+...
+   |         Iter::IntoIter: TrustedLen,
+   |                         ^^^^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_only`
+help: consider removing this method call, as the receiver has type `Copied<std::slice::Iter<'_, [u8; 32]>>` and `Copied<std::slice::Iter<'_, [u8; 32]>>: TrustedLen` trivially holds
+   |
+10 -     UnbalancedMerkleTree::compute_root_only::<4, _, _>(leaves.iter().copied().filter_map(Some));
+10 +     UnbalancedMerkleTree::compute_root_only::<4, _, _>(leaves.iter().copied());
+   |
+
+error[E0277]: the trait bound `FilterMap<Copied<std::slice::Iter<'_, [u8; 32]>>, fn([u8; 32]) -> Option<[u8; 32]> {Option::<[u8; 32]>::Some}>: TrustedLen` is not satisfied
+  --> tests/ui/unbalanced_not_trusted_len.rs:12:9
+   |
+11 |     UnbalancedMerkleTree::compute_root_and_proof_in::<4, _, _>(
+   |     ---------------------------------------------------------- required by a bound introduced by this call
+12 |         leaves.iter().copied().filter_map(Some),
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+   |
+   = help: the nightly-only, unstable trait `TrustedLen` is not implemented for `FilterMap<Copied<std::slice::Iter<'_, [u8; 32]>>, fn([u8; 32]) -> Option<[u8; 32]> {Option::<[u8; 32]>::Some}>`
+   = help: the following other types implement trait `TrustedLen`:
+             &mut I
+             ArrayWindows<'_, T, N>
+             BoxedArrayIntoIter<T, N, A>
+             Chunks<'_, T>
+             ChunksExact<'_, T>
+             ChunksExactMut<'_, T>
+             ChunksMut<'_, T>
+             Cloned<I>
+           and $N others
+note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_in`
+  --> src/unbalanced.rs
+   |
+   |     pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
+   |            ------------------------- required by a bound in this associated function
+...
+   |         Iter::IntoIter: TrustedLen,
+   |                         ^^^^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_in`
+help: consider removing this method call, as the receiver has type `Copied<std::slice::Iter<'_, [u8; 32]>>` and `Copied<std::slice::Iter<'_, [u8; 32]>>: TrustedLen` trivially holds
+   |
+12 -         leaves.iter().copied().filter_map(Some),
+12 +         leaves.iter().copied(),
+   |

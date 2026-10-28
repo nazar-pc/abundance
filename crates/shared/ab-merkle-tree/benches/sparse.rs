@@ -5,8 +5,8 @@
     min_generic_const_args
 )]
 
-use ab_merkle_tree::balanced::BalancedMerkleTree;
-use ab_merkle_tree::sparse::{Leaf, PROOF_ELEMENTS, SparseMerkleTree};
+use ab_merkle_tree::blake3::{BalancedMerkleTree, SparseMerkleTree};
+use ab_merkle_tree::sparse::{Leaf, PROOF_ELEMENTS};
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use std::num::NonZeroU128;

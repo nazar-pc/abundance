@@ -1,9 +1,10 @@
-use crate::hash_pair;
-use ab_blake3::OUT_LEN;
+use crate::{MerkleHasher, NewMerkleHasherForTreeSize};
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use core::iter::TrustedLen;
+use core::marker::PhantomCovariant;
 use core::mem::MaybeUninit;
 
 /// Number of elements in a proof for a tree with `MAX_N` leaves
@@ -33,15 +34,20 @@ const USIZE_TO_U64<const N: usize>: u64 = N as u64;
 ///  /  \     /  \     /  \     \
 /// L0  L1   L2  L3   L4  L5    L6
 /// ```
+///
+/// Inner nodes are hashed with `H`, which is created from the number of leaves. That is why methods
+/// that take an iterator of leaves require a [`TrustedLen`] iterator. Variants with `dynamic_len`
+/// in their name accept any iterator instead, but only support hashers that implement [`Default`].
 #[derive(Debug)]
-pub struct UnbalancedMerkleTree;
+pub struct UnbalancedMerkleTree<H>(PhantomCovariant<H>);
 
-// TODO: Optimize by implementing SIMD-accelerated hashing of multiple values:
-//  https://github.com/BLAKE3-team/BLAKE3/issues/478
 // TODO: Experiment with replacing a single pass with splitting the whole data set with a sequence
 //  of power-of-two elements that can be processed in parallel and do it recursively until a single
 //  element is left. This can be done for both root creation and proof generation.
-impl UnbalancedMerkleTree {
+impl<H> UnbalancedMerkleTree<H>
+where
+    H: MerkleHasher,
+{
     /// Compute Merkle Tree Root.
     ///
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
@@ -53,13 +59,46 @@ impl UnbalancedMerkleTree {
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn compute_root_only<'a, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
-    ) -> Option<[u8; OUT_LEN]>
+    ) -> Option<[u8; H::OUT_LEN]>
     where
-        Item: Into<[u8; OUT_LEN]>,
+        H: NewMerkleHasherForTreeSize,
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = Item> + 'a,
+        Iter::IntoIter: TrustedLen,
+    {
+        let leaves = leaves.into_iter();
+        let hasher = Self::hasher_for_leaves(&leaves)?;
+
+        Self::compute_root_only_with::<MAX_N, _, _>(&hasher, leaves)
+    }
+
+    /// Similar to [`Self::compute_root_only()`], but for iterators that are not [`TrustedLen`]
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn compute_root_only_dynamic_len<'a, const MAX_N: u64, Item, Iter>(
+        leaves: Iter,
+    ) -> Option<[u8; H::OUT_LEN]>
+    where
+        H: Default,
+        Item: Into<[u8; H::OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
+        let hasher = H::default();
+
+        Self::compute_root_only_with::<MAX_N, _, _>(&hasher, leaves)
+    }
+
+    #[inline]
+    fn compute_root_only_with<const MAX_N: u64, Item, Iter>(
+        hasher: &H,
+        leaves: Iter,
+    ) -> Option<[u8; H::OUT_LEN]>
+    where
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = Item>,
+    {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; STACK_SIZE::<MAX_N>];
+        let mut stack = [[0u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>];
         let mut num_leaves = 0u64;
 
         for hash in leaves {
@@ -75,7 +114,7 @@ impl UnbalancedMerkleTree {
             // Every bit set to `1` corresponds to an active Merkle Tree level
             let lowest_active_levels = num_leaves.trailing_ones() as usize;
             for item in stack.iter().take(lowest_active_levels) {
-                current = hash_pair(item, &current);
+                current = hasher.hash_pair(&[*item, current]);
             }
 
             // Place the current hash at the first inactive level
@@ -113,7 +152,7 @@ impl UnbalancedMerkleTree {
             // SAFETY: Active level must have been set successfully before, hence it exists
             let lowest_active_level_item = unsafe { stack.get_unchecked(lowest_active_level) };
 
-            stack[0] = hash_pair(lowest_active_level_item, &stack[0]);
+            stack[0] = hasher.hash_pair(&[*lowest_active_level_item, stack[0]]);
         }
 
         Some(stack[0])
@@ -125,19 +164,22 @@ impl UnbalancedMerkleTree {
     /// is the same as the array length.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn compute_root_only_array<const N: usize, Item>(leaves: &[Item; N]) -> [u8; OUT_LEN]
+    pub fn compute_root_only_array<const N: usize, Item>(leaves: &[Item; N]) -> [u8; H::OUT_LEN]
     where
-        Item: Into<[u8; OUT_LEN]> + Copy,
+        H: const NewMerkleHasherForTreeSize,
         [(); SUPPORTED_LEAVES_ARRAY_SIZE::<N>]:,
+        Item: Into<[u8; H::OUT_LEN]> + Copy,
     {
         // TODO: Technically redundant with the where-clause, which is not enforced in generic code
         //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
         const { SUPPORTED_LEAVES_ARRAY_SIZE::<N> };
 
+        let hasher = const { H::new_for_tree_size(N as u64) };
         // Iterating over indices rather than with `leaves.iter().copied()` allows the compiler to
         // prove that the root always exists on aarch64 and riscv64 too
         let leaves = (0..N).map(|index| *leaves.get(index).expect("Index is within array; qed"));
-        let maybe_root = Self::compute_root_only::<{ USIZE_TO_U64::<N> }, _, _>(leaves);
+        let maybe_root =
+            Self::compute_root_only_with::<{ USIZE_TO_U64::<N> }, _, _>(&hasher, leaves);
         maybe_root.expect("Non-empty array with length matching `MAX_N` always has a root; qed")
     }
 
@@ -147,23 +189,63 @@ impl UnbalancedMerkleTree {
     ///
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
     /// usage.
+    #[expect(clippy::type_complexity, reason = "Return type")]
     #[inline]
     #[cfg(feature = "alloc")]
     pub fn compute_root_and_proof<'a, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
-    ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)>
+    ) -> Option<([u8; H::OUT_LEN], Vec<[u8; H::OUT_LEN]>)>
     where
-        Item: Into<[u8; OUT_LEN]>,
+        H: NewMerkleHasherForTreeSize,
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = Item> + 'a,
+        Iter::IntoIter: TrustedLen,
+    {
+        let leaves = leaves.into_iter();
+        let hasher = Self::hasher_for_leaves(&leaves)?;
+
+        Self::compute_root_and_proof_with::<MAX_N, _, _>(&hasher, leaves, target_index)
+    }
+
+    /// Similar to [`Self::compute_root_and_proof()`], but for iterators that are not [`TrustedLen`]
+    #[expect(clippy::type_complexity, reason = "Return type")]
+    #[inline]
+    #[cfg(feature = "alloc")]
+    pub fn compute_root_and_proof_dynamic_len<'a, const MAX_N: u64, Item, Iter>(
+        leaves: Iter,
+        target_index: usize,
+    ) -> Option<([u8; H::OUT_LEN], Vec<[u8; H::OUT_LEN]>)>
+    where
+        H: Default,
+        Item: Into<[u8; H::OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
+        let hasher = H::default();
+
+        Self::compute_root_and_proof_with::<MAX_N, _, _>(&hasher, leaves, target_index)
+    }
+
+    #[expect(clippy::type_complexity, reason = "Return type")]
+    #[inline(always)]
+    #[cfg(feature = "alloc")]
+    fn compute_root_and_proof_with<const MAX_N: u64, Item, Iter>(
+        hasher: &H,
+        leaves: Iter,
+        target_index: usize,
+    ) -> Option<([u8; H::OUT_LEN], Vec<[u8; H::OUT_LEN]>)>
+    where
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = Item>,
+    {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; _];
+        let mut stack = [[0u8; H::OUT_LEN]; _];
         // SAFETY: Inner value is `MaybeUninit`
         let mut proof =
-            unsafe { Box::<[MaybeUninit<[u8; OUT_LEN]>; _]>::new_uninit().assume_init() };
+            unsafe { Box::<[MaybeUninit<[u8; H::OUT_LEN]>; _]>::new_uninit().assume_init() };
 
         let (root, proof_length) = Self::compute_root_and_proof_inner::<MAX_N, _, _>(
+            hasher,
             leaves,
             target_index,
             &mut stack,
@@ -175,7 +257,11 @@ impl UnbalancedMerkleTree {
         // SAFETY: Points to correctly allocated memory where `proof_length` elements were
         // initialized
         let proof = unsafe {
-            Vec::from_raw_parts(proof.cast::<[u8; OUT_LEN]>(), proof_length, proof_capacity)
+            Vec::from_raw_parts(
+                proof.cast::<[u8; H::OUT_LEN]>(),
+                proof_length,
+                proof_capacity,
+            )
         };
 
         Some((root, proof))
@@ -187,21 +273,63 @@ impl UnbalancedMerkleTree {
     ///
     /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
     /// usage.
+    #[expect(clippy::type_complexity, reason = "Return type")]
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
         leaves: Iter,
         target_index: usize,
-        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
-    ) -> Option<([u8; OUT_LEN], &'proof mut [[u8; OUT_LEN]])>
+        proof: &'proof mut [MaybeUninit<[u8; H::OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
+    ) -> Option<([u8; H::OUT_LEN], &'proof mut [[u8; H::OUT_LEN]])>
     where
-        Item: Into<[u8; OUT_LEN]>,
+        H: NewMerkleHasherForTreeSize,
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = Item> + 'a,
+        Iter::IntoIter: TrustedLen,
+    {
+        let leaves = leaves.into_iter();
+        let hasher = Self::hasher_for_leaves(&leaves)?;
+
+        Self::compute_root_and_proof_in_with::<MAX_N, _, _>(&hasher, leaves, target_index, proof)
+    }
+
+    /// Similar to [`Self::compute_root_and_proof_in()`], but for iterators that are not
+    /// [`TrustedLen`]
+    #[expect(clippy::type_complexity, reason = "Return type")]
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn compute_root_and_proof_dynamic_len_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
+        leaves: Iter,
+        target_index: usize,
+        proof: &'proof mut [MaybeUninit<[u8; H::OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
+    ) -> Option<([u8; H::OUT_LEN], &'proof mut [[u8; H::OUT_LEN]])>
+    where
+        H: Default,
+        Item: Into<[u8; H::OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
+        let hasher = H::default();
+
+        Self::compute_root_and_proof_in_with::<MAX_N, _, _>(&hasher, leaves, target_index, proof)
+    }
+
+    #[expect(clippy::type_complexity, reason = "Return type")]
+    #[inline(always)]
+    fn compute_root_and_proof_in_with<'proof, const MAX_N: u64, Item, Iter>(
+        hasher: &H,
+        leaves: Iter,
+        target_index: usize,
+        proof: &'proof mut [MaybeUninit<[u8; H::OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
+    ) -> Option<([u8; H::OUT_LEN], &'proof mut [[u8; H::OUT_LEN]])>
+    where
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = Item>,
+    {
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; _];
+        let mut stack = [[0u8; H::OUT_LEN]; _];
 
         let (root, proof_length) = Self::compute_root_and_proof_inner::<MAX_N, _, _>(
+            hasher,
             leaves,
             target_index,
             &mut stack,
@@ -213,16 +341,18 @@ impl UnbalancedMerkleTree {
         Some((root, proof))
     }
 
+    #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    fn compute_root_and_proof_inner<'a, const MAX_N: u64, Item, Iter>(
+    fn compute_root_and_proof_inner<const MAX_N: u64, Item, Iter>(
+        hasher: &H,
         leaves: Iter,
         target_index: usize,
-        stack: &mut [[u8; OUT_LEN]; STACK_SIZE::<MAX_N>],
-        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
-    ) -> Option<([u8; OUT_LEN], usize)>
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>],
+        proof: &mut [MaybeUninit<[u8; H::OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
+    ) -> Option<([u8; H::OUT_LEN], usize)>
     where
-        Item: Into<[u8; OUT_LEN]>,
-        Iter: IntoIterator<Item = Item> + 'a,
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = Item>,
     {
         let mut proof_length = 0;
         let mut num_leaves = 0u64;
@@ -250,7 +380,7 @@ impl UnbalancedMerkleTree {
                     unsafe { proof.get_unchecked_mut(proof_length) }.write(*item);
                     proof_length += 1;
 
-                    current = hash_pair(item, &current);
+                    current = hasher.hash_pair(&[*item, current]);
 
                     // Move up the tree
                     position /= 2;
@@ -276,7 +406,7 @@ impl UnbalancedMerkleTree {
                         position /= 2;
                     }
 
-                    current = hash_pair(item, &current);
+                    current = hasher.hash_pair(&[*item, current]);
                 }
             }
 
@@ -343,7 +473,7 @@ impl UnbalancedMerkleTree {
             }
 
             // Collect the lowest peak into the proof
-            stack[0] = hash_pair(lowest_active_level_item, &stack[0]);
+            stack[0] = hasher.hash_pair(&[*lowest_active_level_item, stack[0]]);
 
             position /= 2;
         }
@@ -355,16 +485,20 @@ impl UnbalancedMerkleTree {
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn verify(
-        root: &[u8; OUT_LEN],
-        proof: &[[u8; OUT_LEN]],
+        root: &[u8; H::OUT_LEN],
+        proof: &[[u8; H::OUT_LEN]],
         leaf_index: u64,
-        leaf: [u8; OUT_LEN],
+        leaf: [u8; H::OUT_LEN],
         num_leaves: u64,
-    ) -> bool {
+    ) -> bool
+    where
+        H: NewMerkleHasherForTreeSize,
+    {
         if leaf_index >= num_leaves {
             return false;
         }
 
+        let hasher = H::new_for_tree_size(num_leaves);
         let mut current = leaf;
         let mut position = leaf_index;
         let mut proof_pos = 0;
@@ -381,7 +515,7 @@ impl UnbalancedMerkleTree {
                     // Missing sibling
                     return false;
                 }
-                current = hash_pair(&current, &proof[proof_pos]);
+                current = hasher.hash_pair(&[current, proof[proof_pos]]);
                 proof_pos += 1;
             } else if !is_left {
                 // Right node with a left sibling
@@ -389,7 +523,7 @@ impl UnbalancedMerkleTree {
                     // Missing sibling
                     return false;
                 }
-                current = hash_pair(&proof[proof_pos], &current);
+                current = hasher.hash_pair(&[proof[proof_pos], current]);
                 proof_pos += 1;
             } else {
                 // Last node, no sibling, keep current
@@ -402,5 +536,22 @@ impl UnbalancedMerkleTree {
 
         // Check if proof is fully used and matches root
         proof_pos == proof.len() && current == *root
+    }
+
+    /// Create a hasher for a tree with `leaves`.
+    ///
+    /// Returns `None` if there are more than `usize::MAX` leaves.
+    #[inline(always)]
+    fn hasher_for_leaves<Iter>(leaves: &Iter) -> Option<H>
+    where
+        H: NewMerkleHasherForTreeSize,
+        Iter: TrustedLen,
+    {
+        // `TrustedLen` guarantees that the iterator yields exactly this many leaves. An empty list
+        // or more than `MAX_N` leaves are rejected while iterating, which avoids extra checks for
+        // hashers that ignore the number of leaves.
+        let (_lower, upper) = leaves.size_hint();
+
+        Some(H::new_for_tree_size(upper? as u64))
     }
 }

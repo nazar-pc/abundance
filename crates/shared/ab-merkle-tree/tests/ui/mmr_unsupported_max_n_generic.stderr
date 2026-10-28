@@ -24,7 +24,7 @@ note: erroneous constant encountered
   |         const { STACK_SIZE::<MAX_N> };
   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-note: the above error was encountered while instantiating `fn MerkleMountainRange::<0>::new`
+note: the above error was encountered while instantiating `fn MerkleMountainRange::<0, Blake3MerkleHasher>::new`
   --> tests/ui/mmr_unsupported_max_n_generic.rs:16:5
    |
 16 |     MerkleMountainRange::<MAX_N>::new().num_leaves()
@@ -56,7 +56,7 @@ note: erroneous constant encountered
   |         const { STACK_SIZE::<MAX_N> };
   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-note: the above error was encountered while instantiating `fn MerkleMountainRange::<1>::verify`
+note: the above error was encountered while instantiating `fn MerkleMountainRange::<1, Blake3MerkleHasher>::verify`
   --> tests/ui/mmr_unsupported_max_n_generic.rs:20:5
    |
 20 |     MerkleMountainRange::<MAX_N>::verify(&[0; 32], proof, 0, [0; 32], 1)

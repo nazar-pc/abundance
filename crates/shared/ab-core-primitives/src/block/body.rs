@@ -19,8 +19,7 @@ use ab_blake3::{BLOCK_LEN, OUT_LEN, single_block_hash};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
-use ab_merkle_tree::balanced::BalancedMerkleTree;
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use ab_merkle_tree::blake3::{BalancedMerkleTree, UnbalancedMerkleTree};
 use core::iter::{Step, TrustedLen};
 use core::num::NonZeroU8;
 use core::{array, cmp, fmt, iter, slice};
@@ -56,7 +55,7 @@ where
     Iter: IntoIterator<Item = &'a SegmentRoot>,
 {
     // TODO: Keyed hash
-    let root = UnbalancedMerkleTree::compute_root_only::<MAX_SEGMENTS, _, _>(
+    let root = UnbalancedMerkleTree::compute_root_only_dynamic_len::<MAX_SEGMENTS, _, _>(
         segment_roots.into_iter().map(|segment_root| {
             // Hash the root again so we can prove it, otherwise root of segments is
             // indistinguishable from individual segment roots and can be used to confuse verifier

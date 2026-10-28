@@ -40,7 +40,7 @@ ab-core-primitives = { workspace = true, features = ["parallel", "scale-codec", 
 ab-data-retrieval = { workspace = true }
 ab-erasure-coding = { workspace = true }
 ab-io-type = { workspace = true }
-ab-merkle-tree = { workspace = true, features = ["alloc"] }
+ab-merkle-tree = { workspace = true, features = ["alloc", "blake3"] }
 ab-proof-of-space = { workspace = true, features = ["alloc", "parallel"] }
 anyhow = { workspace = true }
 async-lock = { workspace = true, features = ["std"] }

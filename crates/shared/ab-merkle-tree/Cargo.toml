@@ -6,7 +6,7 @@ categories = ["algorithms", "cryptography", "data-structures", "no-std::no-alloc
 repository = "https://github.com/nazar-pc/abundance"
 homepage = "https://github.com/nazar-pc/abundance/tree/main/crates/shared/ab-merkle-tree"
 license = "0BSD"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
@@ -19,7 +19,7 @@ include = [
 
 [package.metadata.docs.rs]
 all-features = false
-features = ["alloc"]
+features = ["alloc", "blake3"]
 
 [lib]
 # Necessary for CLI options to work on benches
@@ -42,24 +42,30 @@ name = "sparse"
 harness = false
 
 [dependencies]
-ab-blake3 = { workspace = true }
+ab-blake3 = { workspace = true, optional = true }
 array-reshape = { workspace = true }
-# NOTE: `blake3` is here only for `no-panic` feature
+# NOTE: The `blake3` dependency is here only for `no-panic` feature
 blake3 = { workspace = true, optional = true }
 no-panic = { workspace = true, optional = true }
 
 [dev-dependencies]
+# Benchmarks use BLAKE3 hasher
+ab-merkle-tree = { path = ".", features = ["blake3"] }
 chacha20 = { workspace = true, features = ["rng"] }
 criterion = { workspace = true }
 trybuild = { workspace = true }
 
 [features]
 alloc = []
+# BLAKE3 hasher and aliases of all trees that use it
+blake3 = ["dep:ab-blake3"]
 # Check that code can't panic under any conditions
 no-panic = [
+    "blake3",
     "dep:no-panic",
+    "dep:blake3",
     # Helps with testing on CPUs without AVX512 support
-    "blake3/no_avx512",
+    "blake3?/no_avx512",
 ]
 
 [lints]

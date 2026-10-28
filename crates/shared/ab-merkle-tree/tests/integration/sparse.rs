@@ -1,10 +1,5 @@
-#![expect(incomplete_features, reason = "generic_const_*")]
-#![feature(generic_const_args, min_generic_const_args)]
-
-use ab_blake3::OUT_LEN;
-use ab_merkle_tree::balanced::BalancedMerkleTree;
-use ab_merkle_tree::hash_pair;
-use ab_merkle_tree::sparse::{Leaf, SparseMerkleTree};
+use crate::test_hasher::{BalancedMerkleTree, OUT_LEN, SparseMerkleTree, hash_pair};
+use ab_merkle_tree::sparse::Leaf;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use std::num::NonZeroU128;
@@ -286,15 +281,7 @@ fn test_32(total_skip_size: usize) {
     };
 
     // Try all permutations of the location of the full total skip size within a set of leaves
-    let offsets = 0..N - total_skip_size;
-    // Hashing is very slow under Miri, offsets with different alignment (the number of trailing
-    // zeros determines how skipped leaves are split into aligned chunks) and the last one are
-    // enough
-    #[cfg(miri)]
-    let offsets = offsets.filter(|&offset| {
-        matches!(offset, 0 | 1 | 2 | 4 | 8 | 16) || offset == N - total_skip_size - 1
-    });
-    for offset in offsets {
+    for offset in 0..N - total_skip_size {
         let mut modified_leaves = leaves;
         modified_leaves[offset..][..total_skip_size].fill(ZERO);
 

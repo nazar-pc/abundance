@@ -10,7 +10,7 @@
     min_generic_const_args
 )]
 
-use ab_merkle_tree::mmr::MerkleMountainRange;
+use ab_merkle_tree::blake3::MerkleMountainRange;
 
 fn num_leaves<const MAX_N: u64>() -> u64 {
     MerkleMountainRange::<MAX_N>::new().num_leaves()

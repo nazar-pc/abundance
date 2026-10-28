@@ -1,16 +1,16 @@
-#![expect(incomplete_features, reason = "generic_const_*")]
-#![feature(generic_const_args, min_generic_const_args)]
-
-use ab_blake3::OUT_LEN;
-use ab_merkle_tree::hash_pair;
-use ab_merkle_tree::mmr::MerkleMountainRange;
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use crate::test_hasher::{MerkleMountainRange, OUT_LEN, UnbalancedMerkleTree, hash_pair};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
-use std::mem;
 use std::mem::MaybeUninit;
+use std::{iter, mem};
 
 const MAX_N: u64 = 100;
+
+/// Iterator over `leaves` that is not `TrustedLen`
+fn not_trusted_len(leaves: &[[u8; OUT_LEN]]) -> impl Iterator<Item = [u8; OUT_LEN]> + '_ {
+    let mut leaves = leaves.iter().copied();
+    iter::from_fn(move || leaves.next())
+}
 
 /// A simplified version that is easier to audit to verify the main optimized version against
 struct SimpleUnbalancedMerkleTree;
@@ -223,6 +223,12 @@ fn mt_unbalanced_too_many_leaves() {
         UnbalancedMerkleTree::compute_root_only::<NUM_LEAVES, _, _>(leaves.iter().copied())
             .is_none()
     );
+    assert!(
+        UnbalancedMerkleTree::compute_root_only_dynamic_len::<NUM_LEAVES, _, _>(not_trusted_len(
+            &leaves
+        ))
+        .is_none()
+    );
     let proof_buffer = &mut [MaybeUninit::uninit(); _];
     assert!(
         UnbalancedMerkleTree::compute_root_and_proof_in::<NUM_LEAVES, _, _>(
@@ -232,15 +238,35 @@ fn mt_unbalanced_too_many_leaves() {
         )
         .is_none()
     );
-    #[cfg(feature = "alloc")]
     assert!(
-        UnbalancedMerkleTree::compute_root_and_proof::<NUM_LEAVES, _, _>(leaves.iter().copied(), 0)
-            .is_none()
+        UnbalancedMerkleTree::compute_root_and_proof_dynamic_len_in::<NUM_LEAVES, _, _>(
+            not_trusted_len(&leaves),
+            0,
+            proof_buffer
+        )
+        .is_none()
     );
+    #[cfg(feature = "alloc")]
+    {
+        assert!(
+            UnbalancedMerkleTree::compute_root_and_proof::<NUM_LEAVES, _, _>(
+                leaves.iter().copied(),
+                0
+            )
+            .is_none()
+        );
+        assert!(
+            UnbalancedMerkleTree::compute_root_and_proof_dynamic_len::<NUM_LEAVES, _, _>(
+                not_trusted_len(&leaves),
+                0
+            )
+            .is_none()
+        );
+    }
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
+#[cfg(not(miri))]
 fn mt_unbalanced_large_range() {
     for number_of_leaves in 1..MAX_N {
         test_basic(number_of_leaves);
@@ -287,6 +313,13 @@ fn test_basic(number_of_leaves: u64) {
         UnbalancedMerkleTree::compute_root_only::<'_, MAX_N, _, _>(leaves.iter().copied()).unwrap();
 
     assert_eq!(root, computed_root, "number_of_leaves {number_of_leaves}");
+    assert_eq!(
+        UnbalancedMerkleTree::compute_root_only_dynamic_len::<MAX_N, _, _>(not_trusted_len(
+            &leaves
+        )),
+        Some(root),
+        "number_of_leaves {number_of_leaves}"
+    );
 
     let random_hash = {
         let mut hash = [0u8; OUT_LEN];
@@ -339,6 +372,24 @@ fn test_basic(number_of_leaves: u64) {
             computed_proof, proof,
             "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
         );
+        {
+            let proof_buffer = &mut [MaybeUninit::uninit(); _];
+            let (computed_root, computed_proof) =
+                UnbalancedMerkleTree::compute_root_and_proof_dynamic_len_in::<MAX_N, _, _>(
+                    not_trusted_len(&leaves),
+                    leaf_index,
+                    proof_buffer,
+                )
+                .unwrap();
+            assert_eq!(
+                computed_root, root,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                computed_proof, proof,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+        }
         #[cfg(feature = "alloc")]
         {
             let (computed_root, computed_proof) = UnbalancedMerkleTree::compute_root_and_proof::<
@@ -347,6 +398,21 @@ fn test_basic(number_of_leaves: u64) {
                 _,
             >(leaves.iter().copied(), leaf_index)
             .unwrap();
+            assert_eq!(
+                computed_root, root,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+            assert_eq!(
+                computed_proof, proof,
+                "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
+            );
+
+            let (computed_root, computed_proof) =
+                UnbalancedMerkleTree::compute_root_and_proof_dynamic_len::<MAX_N, _, _>(
+                    not_trusted_len(&leaves),
+                    leaf_index,
+                )
+                .unwrap();
             assert_eq!(
                 computed_root, root,
                 "number_of_leaves {number_of_leaves} leaf_index {leaf_index}"
@@ -674,11 +740,33 @@ fn test_basic(number_of_leaves: u64) {
         .is_none()
     );
 
-    let empty: [[u8; 32]; 0] = [];
+    let empty: [[u8; OUT_LEN]; 0] = [];
+    assert!(UnbalancedMerkleTree::compute_root_only::<MAX_N, _, _>(empty).is_none());
+    assert!(
+        UnbalancedMerkleTree::compute_root_only_dynamic_len::<MAX_N, _, _>(not_trusted_len(&empty))
+            .is_none()
+    );
     assert!(
         UnbalancedMerkleTree::compute_root_and_proof_in::<MAX_N, _, _>(empty, 0, proof_buffer)
             .is_none()
     );
+    assert!(
+        UnbalancedMerkleTree::compute_root_and_proof_dynamic_len_in::<MAX_N, _, _>(
+            not_trusted_len(&empty),
+            0,
+            proof_buffer
+        )
+        .is_none()
+    );
     #[cfg(feature = "alloc")]
-    assert!(UnbalancedMerkleTree::compute_root_and_proof::<MAX_N, _, _>(empty, 0).is_none());
+    {
+        assert!(UnbalancedMerkleTree::compute_root_and_proof::<MAX_N, _, _>(empty, 0).is_none());
+        assert!(
+            UnbalancedMerkleTree::compute_root_and_proof_dynamic_len::<MAX_N, _, _>(
+                not_trusted_len(&empty),
+                0
+            )
+            .is_none()
+        );
+    }
 }

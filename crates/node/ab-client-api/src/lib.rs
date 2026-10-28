@@ -11,7 +11,7 @@ use ab_core_primitives::segments::{
     SuperSegmentIndex,
 };
 use ab_core_primitives::shard::ShardIndex;
-use ab_merkle_tree::mmr::MerkleMountainRange;
+use ab_merkle_tree::blake3::MerkleMountainRange;
 use std::io;
 use triomphe::Arc;
 

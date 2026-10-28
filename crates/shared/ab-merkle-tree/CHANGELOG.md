@@ -1,4 +1,30 @@
-# 0.2.1
+# 0.3.0
+
+Breaking changes:
+
+* All trees are generic over the hasher, aliases of trees with the default BLAKE3 hasher are in the new `blake3` module
+* BLAKE3 is behind the `blake3` feature, which is not enabled by default
+* `UnbalancedMerkleTree` methods that take an iterator of leaves require it to be `TrustedLen`, `*_dynamic_len*()`
+  variants accept any iterator
+* `MmrPeaks`, `MerkleMountainRangeBytes`, `sparse::Leaf` and `balanced::ProofsIterator` are generic over the hasher too
+* `INNER_NODE_DOMAIN_SEPARATOR`, `hash_pair()` and `hash_pair_block()` were removed, the default key is available as
+  `blake3::DefaultBlake3MerkleKey::KEY`
+
+New features:
+
+* Customizable hasher with the new `MerkleHasher` trait, which defines the size of nodes (`OUT_LEN`) and hashes one or
+  many pairs of nodes at once, such that hash functions with other output sizes and SIMD-accelerated hashing of many
+  pairs can be used
+* Hashers that don't depend on the tree size are created with `Default`, hashers that depend on it implement the new
+  `const` trait `NewMerkleHasherForTreeSize`, which is implemented for all hashers that implement `Default`;
+  `MerkleMountainRange`, `SparseMerkleTree` and `UnbalancedMerkleTree::*_dynamic_len*()` only support the former,
+  `BalancedMerkleTree` and `UnbalancedMerkleTree::compute_root_only_array()` require a `const` implementation
+* `blake3::Blake3MerkleHasher` with a customizable key (`Blake3MerkleKey`), roots and proofs with the default key are
+  unchanged
+
+Improvements:
+
+* BLAKE3 is optional, so users of other hash functions don't need to compile it
 
 Fixes:
 

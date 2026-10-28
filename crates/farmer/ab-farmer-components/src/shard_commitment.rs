@@ -7,7 +7,7 @@ use ab_core_primitives::solutions::{
     ShardCommitmentHash, ShardMembershipEntropy, SolutionShardCommitment,
 };
 use ab_io_type::trivial_type::TrivialType;
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use ab_merkle_tree::blake3::UnbalancedMerkleTree;
 use blake3::Hasher;
 use parking_lot::RwLock;
 use schnellru::{ByLength, LruMap};
@@ -92,7 +92,7 @@ pub fn derive_shard_commitments_root(
 
     // NOTE: Using unbalanced implementation since balanced implementation requires allocation of
     // leaves
-    let root = UnbalancedMerkleTree::compute_root_only::<
+    let root = UnbalancedMerkleTree::compute_root_only_dynamic_len::<
         { SolutionShardCommitment::NUM_LEAVES as u64 },
         _,
         _,
@@ -146,7 +146,7 @@ pub fn derive_solution_shard_commitment(
     let mut proof = [MaybeUninit::uninit(); _];
     // NOTE: Using unbalanced implementation since balanced implementation requires an allocation
     // and uses a lot more RAM
-    let (_root, computed_proof) = UnbalancedMerkleTree::compute_root_and_proof_in::<
+    let (_root, computed_proof) = UnbalancedMerkleTree::compute_root_and_proof_dynamic_len_in::<
         { SolutionShardCommitment::NUM_LEAVES as u64 },
         _,
         _,

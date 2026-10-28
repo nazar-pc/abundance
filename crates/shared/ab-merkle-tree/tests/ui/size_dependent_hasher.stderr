@@ -1,0 +1,150 @@
+error[E0599]: the associated function or constant `new` exists for struct `MerkleMountainRange<4, TreeSizeHasher>`, but its trait bounds were not satisfied
+  --> tests/ui/size_dependent_hasher.rs:33:47
+   |
+13 | struct TreeSizeHasher(u64);
+   | --------------------- doesn't satisfy `TreeSizeHasher: Default`
+...
+33 |     MerkleMountainRange::<4, TreeSizeHasher>::new();
+   |                                               ^^^ associated function or constant cannot be called on `MerkleMountainRange<4, TreeSizeHasher>` due to unsatisfied trait bounds
+   |
+   = note: the following trait bounds were not satisfied:
+           `TreeSizeHasher: Default`
+help: consider annotating `TreeSizeHasher` with `#[derive(Default)]`
+   |
+13 + #[derive(Default)]
+14 | struct TreeSizeHasher(u64);
+   |
+
+error[E0599]: the associated function or constant `default` exists for struct `MerkleMountainRange<4, TreeSizeHasher>`, but its trait bounds were not satisfied
+  --> tests/ui/size_dependent_hasher.rs:34:47
+   |
+13 | struct TreeSizeHasher(u64);
+   | --------------------- doesn't satisfy `TreeSizeHasher: Default`
+...
+34 |     MerkleMountainRange::<4, TreeSizeHasher>::default();
+   |                                               ^^^^^^^ associated function or constant cannot be called on `MerkleMountainRange<4, TreeSizeHasher>` due to unsatisfied trait bounds
+   |
+  ::: src/mmr.rs
+   |
+   | pub struct MerkleMountainRange<const MAX_N: u64, H>
+   | --------------------------------------------------- doesn't satisfy `MerkleMountainRange<4, TreeSizeHasher>: Default`
+   |
+   = note: the following trait bounds were not satisfied:
+           `TreeSizeHasher: Default`
+           which is required by `MerkleMountainRange<4, TreeSizeHasher>: Default`
+help: consider annotating `TreeSizeHasher` with `#[derive(Default)]`
+   |
+13 + #[derive(Default)]
+14 | struct TreeSizeHasher(u64);
+   |
+
+error[E0599]: the associated function or constant `from_peaks` exists for struct `MerkleMountainRange<4, TreeSizeHasher>`, but its trait bounds were not satisfied
+  --> tests/ui/size_dependent_hasher.rs:35:47
+   |
+13 | struct TreeSizeHasher(u64);
+   | --------------------- doesn't satisfy `TreeSizeHasher: Default`
+...
+35 |     MerkleMountainRange::<4, TreeSizeHasher>::from_peaks(&MmrPeaks {
+   |                                               ^^^^^^^^^^ associated function or constant cannot be called on `MerkleMountainRange<4, TreeSizeHasher>` due to unsatisfied trait bounds
+   |
+   = note: the following trait bounds were not satisfied:
+           `TreeSizeHasher: Default`
+help: consider annotating `TreeSizeHasher` with `#[derive(Default)]`
+   |
+13 + #[derive(Default)]
+14 | struct TreeSizeHasher(u64);
+   |
+
+error[E0599]: the associated function or constant `verify` exists for struct `MerkleMountainRange<4, TreeSizeHasher>`, but its trait bounds were not satisfied
+  --> tests/ui/size_dependent_hasher.rs:39:47
+   |
+13 | struct TreeSizeHasher(u64);
+   | --------------------- doesn't satisfy `TreeSizeHasher: Default`
+...
+39 |     MerkleMountainRange::<4, TreeSizeHasher>::verify(&[0; 32], &[], 0, [0; 32], 1);
+   |                                               ^^^^^^ associated function or constant cannot be called on `MerkleMountainRange<4, TreeSizeHasher>` due to unsatisfied trait bounds
+   |
+   = note: the following trait bounds were not satisfied:
+           `TreeSizeHasher: Default`
+help: consider annotating `TreeSizeHasher` with `#[derive(Default)]`
+   |
+13 + #[derive(Default)]
+14 | struct TreeSizeHasher(u64);
+   |
+
+error[E0599]: the associated function or constant `compute_root_only` exists for struct `SparseMerkleTree<4, TreeSizeHasher>`, but its trait bounds were not satisfied
+  --> tests/ui/size_dependent_hasher.rs:41:44
+   |
+13 | struct TreeSizeHasher(u64);
+   | --------------------- doesn't satisfy `TreeSizeHasher: Default`
+...
+41 |     SparseMerkleTree::<4, TreeSizeHasher>::compute_root_only([]);
+   |                                            ^^^^^^^^^^^^^^^^^ associated function or constant cannot be called on `SparseMerkleTree<4, TreeSizeHasher>` due to unsatisfied trait bounds
+   |
+   = note: the following trait bounds were not satisfied:
+           `TreeSizeHasher: Default`
+help: consider annotating `TreeSizeHasher` with `#[derive(Default)]`
+   |
+13 + #[derive(Default)]
+14 | struct TreeSizeHasher(u64);
+   |
+
+error[E0599]: the associated function or constant `verify` exists for struct `SparseMerkleTree<4, TreeSizeHasher>`, but its trait bounds were not satisfied
+  --> tests/ui/size_dependent_hasher.rs:42:44
+   |
+13 | struct TreeSizeHasher(u64);
+   | --------------------- doesn't satisfy `TreeSizeHasher: Default`
+...
+42 |     SparseMerkleTree::<4, TreeSizeHasher>::verify(&[0; 32], &[[0; 32]; 4], 0, [0; 32]);
+   |                                            ^^^^^^ associated function or constant cannot be called on `SparseMerkleTree<4, TreeSizeHasher>` due to unsatisfied trait bounds
+   |
+   = note: the following trait bounds were not satisfied:
+           `TreeSizeHasher: Default`
+help: consider annotating `TreeSizeHasher` with `#[derive(Default)]`
+   |
+13 + #[derive(Default)]
+14 | struct TreeSizeHasher(u64);
+   |
+
+error[E0277]: the trait bound `TreeSizeHasher: Default` is not satisfied
+  --> tests/ui/size_dependent_hasher.rs:44:5
+   |
+44 |     UnbalancedMerkleTree::<TreeSizeHasher>::compute_root_only_dynamic_len::<4, _, _>([[0; 32]]);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `TreeSizeHasher`
+   |
+note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_only_dynamic_len`
+  --> src/unbalanced.rs
+   |
+   |     pub fn compute_root_only_dynamic_len<'a, const MAX_N: u64, Item, Iter>(
+   |            ----------------------------- required by a bound in this associated function
+...
+   |         H: Default,
+   |            ^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_only_dynamic_len`
+help: consider annotating `TreeSizeHasher` with `#[derive(Default)]`
+   |
+13 + #[derive(Default)]
+14 | struct TreeSizeHasher(u64);
+   |
+
+error[E0277]: the trait bound `TreeSizeHasher: Default` is not satisfied
+  --> tests/ui/size_dependent_hasher.rs:48:9
+   |
+45 |     UnbalancedMerkleTree::<TreeSizeHasher>::compute_root_and_proof_dynamic_len_in::<4, _, _>(
+   |     ---------------------------------------------------------------------------------------- required by a bound introduced by this call
+...
+48 |         &mut [MaybeUninit::uninit(); 2],
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `TreeSizeHasher`
+   |
+note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_dynamic_len_in`
+  --> src/unbalanced.rs
+   |
+   |     pub fn compute_root_and_proof_dynamic_len_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
+   |            ------------------------------------- required by a bound in this associated function
+...
+   |         H: Default,
+   |            ^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_dynamic_len_in`
+help: consider annotating `TreeSizeHasher` with `#[derive(Default)]`
+   |
+13 + #[derive(Default)]
+14 | struct TreeSizeHasher(u64);
+   |
