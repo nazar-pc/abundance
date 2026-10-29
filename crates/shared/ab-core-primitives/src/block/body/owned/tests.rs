@@ -24,8 +24,7 @@ use crate::solutions::Solution;
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader, TransactionSlot};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
-use ab_merkle_tree::balanced::BalancedMerkleTree;
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use ab_merkle_tree::blake3::{BalancedMerkleTree, UnbalancedMerkleTree};
 use core::ptr;
 use std::iter;
 

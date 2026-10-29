@@ -1,6 +1,6 @@
 //! Methods that don't construct the tree must reject unsupported numbers of leaves too
 
-use ab_merkle_tree::balanced::BalancedMerkleTree;
+use ab_merkle_tree::blake3::BalancedMerkleTree;
 
 fn main() {
     // Not a power of two

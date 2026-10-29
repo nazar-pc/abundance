@@ -5,17 +5,16 @@
 //! structures, many of which are a subset of each other.
 //!
 //! These implementations can be an order of magnitude faster than traditional implementations by
-//! leveraging the ability of BLAKE3 hash function to hash multiple blocks at once with SIMD.
-//! Traditionally, most Merkle Tree implementations are generic over the hash function with API that
-//! hashes two leaves at a time, which makes it impossible to benefit from the inherent strength of
-//! BLAKE3 hash function.
+//! leveraging the ability of hash functions like BLAKE3 to hash multiple blocks at once with SIMD.
+//! Typical Merkle Tree crates only allow customizing a hash function of two leaves, which makes it
+//! impossible to benefit from the inherent strength of such hash functions.
 //!
 //! Currently [`BalancedMerkleTree`], [`UnbalancedMerkleTree`], [`MerkleMountainRange`] and
 //! [`SparseMerkleTree`] are available.
 //!
 //! [`BalancedMerkleTree`] is an optimized special case of [`UnbalancedMerkleTree`], which is in
 //! turn an optimized version of [`MerkleMountainRange`], and all 3 will return the same results for
-//! identical inputs.
+//! identical inputs and hasher.
 //!
 //! [`SparseMerkleTree`] is a special kind of Merkle Tree, usually of intractable size, where most
 //! of the leaves are empty (missing). It will also produce the same root as other trees in case the
@@ -26,6 +25,15 @@
 //! [`UnbalancedMerkleTree`]: unbalanced::UnbalancedMerkleTree
 //! [`SparseMerkleTree`]: sparse::SparseMerkleTree
 //!
+//! All trees are generic over [`MerkleHasher`], which can hash many pairs of nodes at once and
+//! defines the size of nodes. Hashers are created with [`Default`] when they don't depend on the
+//! number of leaves, otherwise with [`NewMerkleHasherForTreeSize`], which is implemented for all
+//! hashers that implement [`Default`]. Trees that don't know the number of leaves upfront, like
+//! [`MerkleMountainRange`], only support hashers that implement [`Default`].
+//!
+//! `blake3` module contains the BLAKE3 hasher and aliases of all trees that use it (requires
+//! `blake3` feature).
+//!
 //! Does not require a standard library (`no_std`), most APIs are usable without an allocator, never
 //! panics.
 
@@ -33,6 +41,7 @@
 #![feature(
     const_block_items,
     const_convert,
+    const_default,
     const_trait_impl,
     generic_const_args,
     generic_const_items,
@@ -40,13 +49,14 @@
     macroless_generic_const_args,
     maybe_uninit_uninit_array_transpose,
     min_generic_const_args,
+    phantom_variance_markers,
     trusted_len
 )]
 #![no_std]
 
-// TODO: Consider domains-specific internal node separator and inclusion of tree size into hashing
-//  key
 pub mod balanced;
+#[cfg(feature = "blake3")]
+pub mod blake3;
 pub mod mmr;
 pub mod sparse;
 pub mod unbalanced;
@@ -54,42 +64,61 @@ pub mod unbalanced;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use ab_blake3::{BLOCK_LEN, KEY_LEN, OUT_LEN};
 use core::mem;
 
-/// Used as a key in keyed blake3 hash for inner nodes of Merkle Trees.
+/// Hash function for inner nodes of Merkle Trees.
 ///
-/// This value is a blake3 hash of a string `merkle-tree-inner-node`.
-pub const INNER_NODE_DOMAIN_SEPARATOR: [u8; KEY_LEN] =
-    ab_blake3::const_hash(b"merkle-tree-inner-node");
+/// Hashing of many pairs at once is a part of the API, such that hash functions like BLAKE3 can use
+/// SIMD to hash multiple pairs in parallel.
+pub trait MerkleHasher {
+    /// Size of a node hash in bytes
+    const OUT_LEN: usize;
 
-/// Helper function to hash two nodes together using [`ab_blake3::single_block_keyed_hash()`] and
-/// [`INNER_NODE_DOMAIN_SEPARATOR`]
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-pub fn hash_pair(left: &[u8; OUT_LEN], right: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
-    let mut pair = [0u8; OUT_LEN * 2];
-    pair[..OUT_LEN].copy_from_slice(left);
-    pair[OUT_LEN..].copy_from_slice(right);
+    /// Hash a pair of nodes together
+    fn hash_pair(&self, pair: &[[u8; Self::OUT_LEN]; 2]) -> [u8; Self::OUT_LEN];
 
-    ab_blake3::single_block_keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, &pair)
-        .expect("Exactly one block worth of data; qed")
+    /// Similar to [`Self::hash_pair()`], but hashes multiple pairs at once.
+    ///
+    /// The default implementation hashes pairs one by one, hash functions that can do better
+    /// should override it. An override must return the same as [`Self::hash_pair()`] for each pair,
+    /// because trees mix both.
+    #[inline(always)]
+    fn hash_pairs<const NUM_PAIRS: usize>(
+        &self,
+        pairs: &[[[u8; Self::OUT_LEN]; 2]; NUM_PAIRS],
+    ) -> [[u8; Self::OUT_LEN]; NUM_PAIRS] {
+        pairs.each_ref().map(|pair| self.hash_pair(pair))
+    }
 }
 
-/// Similar to [`hash_pair()`] but already has left and right nodes concatenated
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-pub fn hash_pair_block(pair: &[u8; BLOCK_LEN]) -> [u8; OUT_LEN] {
-    ab_blake3::single_block_keyed_hash(&INNER_NODE_DOMAIN_SEPARATOR, pair)
-        .expect("Exactly one block worth of data; qed")
+/// Creates hashers for trees with a known number of leaves.
+///
+/// A hasher either ignores the tree size, in which case it implements [`Default`] and gets this
+/// trait through the blanket implementation, or depends on it, in which case it implements this
+/// trait directly and must not implement [`Default`]. It can't be both: the two implementations
+/// would conflict.
+pub const trait NewMerkleHasherForTreeSize: Sized {
+    /// Create a hasher for a tree with `num_leaves` leaves
+    fn new_for_tree_size(num_leaves: u64) -> Self;
 }
 
-// TODO: Combine `NUM_BLOCKS` and `NUM_LEAVES` into a single generic parameter once compiler is
+/// Hashers that implement [`Default`] ignore the tree size
+const impl<H> NewMerkleHasherForTreeSize for H
+where
+    H: [const] Default,
+{
+    #[inline(always)]
+    fn new_for_tree_size(_num_leaves: u64) -> Self {
+        H::default()
+    }
+}
+
+// TODO: Combine `NUM_PAIRS` and `NUM_LEAVES` into a single generic parameter once compiler is
 //  smart enough to deal with it
-/// Similar to [`hash_pair()`], but hashes multiple pairs at once efficiently.
+/// Similar to [`MerkleHasher::hash_pairs()`], but takes pairs as a flat list of nodes.
 ///
 /// # Panics
-/// Panics when `NUM_LEAVES != NUM_BLOCKS * BLOCK_LEN / OUT_LEN`.
+/// Panics when `NUM_LEAVES != NUM_PAIRS * 2`.
 #[inline(always)]
 // TODO: Unlock on RISC-V, it started failing since https://github.com/nazar-pc/abundance/pull/551
 //  for unknown reason
@@ -97,17 +126,21 @@ pub fn hash_pair_block(pair: &[u8; BLOCK_LEN]) -> [u8; OUT_LEN] {
     all(feature = "no-panic", not(target_arch = "riscv64")),
     no_panic::no_panic
 )]
-fn hash_pairs<const NUM_BLOCKS: usize, const NUM_LEAVES: usize>(
-    pairs: &[[u8; OUT_LEN]; NUM_LEAVES],
-) -> [[u8; OUT_LEN]; NUM_BLOCKS] {
+fn hash_pairs<const NUM_PAIRS: usize, const NUM_LEAVES: usize, H>(
+    hasher: &H,
+    leaves: &[[u8; H::OUT_LEN]; NUM_LEAVES],
+) -> [[u8; H::OUT_LEN]; NUM_PAIRS]
+where
+    H: MerkleHasher,
+{
     // This protects the invariant of the function
-    assert_eq!(NUM_LEAVES, NUM_BLOCKS * BLOCK_LEN / OUT_LEN);
+    assert_eq!(NUM_LEAVES, NUM_PAIRS * 2);
 
     // SAFETY: Same size (checked above) and alignment
     let pairs = unsafe {
-        mem::transmute::<&[[u8; OUT_LEN]; NUM_LEAVES], &[[u8; BLOCK_LEN]; NUM_BLOCKS]>(pairs)
+        mem::transmute::<&[[u8; H::OUT_LEN]; NUM_LEAVES], &[[[u8; H::OUT_LEN]; 2]; NUM_PAIRS]>(
+            leaves,
+        )
     };
-    let mut hashes = [[0; OUT_LEN]; NUM_BLOCKS];
-    ab_blake3::single_block_keyed_hash_many_exact(&INNER_NODE_DOMAIN_SEPARATOR, pairs, &mut hashes);
-    hashes
+    hasher.hash_pairs(pairs)
 }

@@ -19,7 +19,7 @@ use ab_core_primitives::solutions::{
     ChunkProof, ShardMembershipEntropy, Solution, SolutionDistance,
 };
 use ab_erasure_coding::ErasureCoding;
-use ab_merkle_tree::balanced::BalancedMerkleTree;
+use ab_merkle_tree::blake3::BalancedMerkleTree;
 use ab_proof_of_space::PosProofs;
 use futures::FutureExt;
 use std::collections::VecDeque;

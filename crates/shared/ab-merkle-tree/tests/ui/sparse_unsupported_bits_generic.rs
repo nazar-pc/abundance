@@ -9,7 +9,8 @@
     min_generic_const_args
 )]
 
-use ab_merkle_tree::sparse::{PROOF_ELEMENTS, SparseMerkleTree};
+use ab_merkle_tree::blake3::SparseMerkleTree;
+use ab_merkle_tree::sparse::PROOF_ELEMENTS;
 
 fn root<const BITS: u8>() -> Option<[u8; 32]> {
     SparseMerkleTree::<BITS>::compute_root_only([])

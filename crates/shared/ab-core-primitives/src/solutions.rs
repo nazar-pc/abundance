@@ -14,7 +14,7 @@ use crate::segments::{
 use crate::shard::{NumShards, RealShardKind, ShardIndex, ShardKind};
 use ab_blake3::single_block_keyed_hash;
 use ab_io_type::trivial_type::TrivialType;
-use ab_merkle_tree::balanced::BalancedMerkleTree;
+use ab_merkle_tree::blake3::BalancedMerkleTree;
 use blake3::{Hash, OUT_LEN};
 use core::fmt;
 use core::simd::Simd;

@@ -9,7 +9,7 @@
     min_generic_const_args
 )]
 
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use ab_merkle_tree::blake3::UnbalancedMerkleTree;
 
 fn root<const N: usize>(leaves: &[[u8; 32]; N]) -> [u8; 32] {
     UnbalancedMerkleTree::compute_root_only_array(leaves)

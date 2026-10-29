@@ -7,7 +7,7 @@ use ab_core_primitives::segments::{
 };
 use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, ShardsPresent};
-use ab_merkle_tree::balanced::BalancedMerkleTree;
+use ab_merkle_tree::blake3::BalancedMerkleTree;
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;

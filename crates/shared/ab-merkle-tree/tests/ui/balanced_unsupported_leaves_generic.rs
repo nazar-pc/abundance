@@ -9,7 +9,8 @@
     min_generic_const_args
 )]
 
-use ab_merkle_tree::balanced::{BalancedMerkleTree, PROOF_ELEMENTS};
+use ab_merkle_tree::balanced::PROOF_ELEMENTS;
+use ab_merkle_tree::blake3::BalancedMerkleTree;
 use std::mem::MaybeUninit;
 
 fn root<const N: usize>(leaves: &[[u8; 32]; N]) -> [u8; 32] {

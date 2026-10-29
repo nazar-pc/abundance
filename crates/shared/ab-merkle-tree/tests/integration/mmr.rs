@@ -1,13 +1,9 @@
-#![expect(incomplete_features, reason = "generic_const_*")]
-#![feature(generic_const_args, min_generic_const_args)]
-
 //! Tests for [`MerkleMountainRange`]-specific behavior that is not covered by `balanced.rs` and
 //! `unbalanced.rs` (which focus on cross-checking the root and proofs against the other Merkle Tree
 //! implementations).
 
-use ab_blake3::OUT_LEN;
-use ab_merkle_tree::mmr::{MerkleMountainRange, MerkleMountainRangeBytes, MmrPeaks};
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use crate::test_hasher::{MerkleMountainRange, OUT_LEN, TestHasher, UnbalancedMerkleTree};
+use ab_merkle_tree::mmr::{MerkleMountainRangeBytes, MmrPeaks};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use std::mem::MaybeUninit;
@@ -112,12 +108,12 @@ fn mmr_bytes_round_trip() {
         // `Deref` exposes the underlying byte array
         assert_eq!(
             bytes.len(),
-            MerkleMountainRangeBytes::<MAX_N>::default().len()
+            MerkleMountainRangeBytes::<MAX_N, TestHasher>::default().len()
         );
 
         // Byte array conversions round-trip
         let array: [u8; _] = bytes.into();
-        let bytes_from_array = MerkleMountainRangeBytes::<MAX_N>::from(array);
+        let bytes_from_array = MerkleMountainRangeBytes::<MAX_N, TestHasher>::from(array);
         assert_eq!(bytes.as_slice(), bytes_from_array.as_slice());
 
         // SAFETY: Bytes were just produced by `as_bytes()`
@@ -128,13 +124,13 @@ fn mmr_bytes_round_trip() {
     }
 
     // `DerefMut` allows mutating the underlying byte array
-    let mut bytes = MerkleMountainRangeBytes::<MAX_N>::default();
+    let mut bytes = MerkleMountainRangeBytes::<MAX_N, TestHasher>::default();
     bytes[0] = 1;
     assert_eq!(bytes[0], 1);
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
+#[cfg(not(miri))]
 fn mmr_bytes_round_trip_large() {
     const MAX_N: u64 = 65536;
 
@@ -273,7 +269,7 @@ fn mmr_from_peaks_invalid() {
 
     // A number of leaves that doesn't fit into `MAX_N` references peaks/stack levels that don't
     // exist, hence must be rejected
-    let peaks = MmrPeaks::<MAX_N> {
+    let peaks = MmrPeaks::<MAX_N, TestHasher> {
         num_leaves: 8,
         peaks: [[0u8; OUT_LEN]; _],
     };
@@ -281,12 +277,12 @@ fn mmr_from_peaks_invalid() {
 
     // With `MAX_N = 5` there are stack levels and peaks for 8 leaves, but anything above `MAX_N`
     // must still be rejected
-    let peaks = MmrPeaks::<5> {
+    let peaks = MmrPeaks::<5, TestHasher> {
         num_leaves: 8,
         peaks: [[0u8; OUT_LEN]; _],
     };
     assert!(MerkleMountainRange::<5>::from_peaks(&peaks).is_none());
-    let peaks = MmrPeaks::<5> {
+    let peaks = MmrPeaks::<5, TestHasher> {
         num_leaves: 5,
         peaks: [[0u8; OUT_LEN]; _],
     };

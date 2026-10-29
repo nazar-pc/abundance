@@ -6,7 +6,7 @@
     min_generic_const_args
 )]
 
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use ab_merkle_tree::blake3::UnbalancedMerkleTree;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use std::mem::MaybeUninit;

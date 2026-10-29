@@ -18,7 +18,7 @@ all-features = true
 ab-aligned-buffer = { workspace = true, optional = true }
 ab-blake3 = { workspace = true }
 ab-io-type = { workspace = true }
-ab-merkle-tree = { workspace = true }
+ab-merkle-tree = { workspace = true, features = ["blake3"] }
 array-reshape = { workspace = true }
 bech32 = { workspace = true }
 blake3 = { workspace = true }

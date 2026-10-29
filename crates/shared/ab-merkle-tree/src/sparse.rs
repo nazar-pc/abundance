@@ -1,11 +1,12 @@
 //! Sparse Merkle Tree and related data structures.
 //!
 //! Sparse Merkle Tree is essentially a huge Balanced Merkle Tree, where most of the leaves are
-//! empty. By "empty" here we mean `[0u8; 32]`. To optimize proofs and their verification, the
-//! hashing function is customized and returns `[0u8; 32]` when both left and right branch are
-//! `[0u8; 32]`, otherwise BLAKE3 hash is used like in a Balanced Merkle Tree.
+//! empty. By "empty" here we mean all zeroes. To optimize proofs and their verification, the
+//! hashing function is customized and returns all zeroes when both left and right branch are all
+//! zeroes, otherwise inner nodes are hashed like in a Balanced Merkle Tree.
 
-use crate::{OUT_LEN, hash_pair};
+use crate::MerkleHasher;
+use core::marker::PhantomCovariant;
 use core::num::NonZeroU128;
 
 /// Number of elements in a proof for a tree with `BITS`
@@ -32,17 +33,20 @@ const ENSURE_SUPPORTED_BITS<const BITS: u8>: usize = {
 
 /// Sparse Merkle Tree Leaf
 #[derive(Debug)]
-pub enum Leaf<'a> {
+pub enum Leaf<'a, H>
+where
+    H: MerkleHasher,
+{
     // TODO: Batch of leaves for efficiently, especially with SIMD?
     /// Leaf contains a value
     Occupied {
         /// Leaf value
-        leaf: &'a [u8; OUT_LEN],
+        leaf: &'a [u8; H::OUT_LEN],
     },
     /// Leaf contains a value (owned)
     OccupiedOwned {
         /// Leaf value
-        leaf: [u8; OUT_LEN],
+        leaf: [u8; H::OUT_LEN],
     },
     /// Leaf is empty
     Empty {
@@ -51,29 +55,37 @@ pub enum Leaf<'a> {
     },
 }
 
-impl<'a> From<&'a [u8; OUT_LEN]> for Leaf<'a> {
+impl<'a, H> From<&'a [u8; H::OUT_LEN]> for Leaf<'a, H>
+where
+    H: MerkleHasher,
+{
     #[inline(always)]
-    fn from(leaf: &'a [u8; OUT_LEN]) -> Self {
+    fn from(leaf: &'a [u8; H::OUT_LEN]) -> Self {
         Self::Occupied { leaf }
     }
 }
 
 // TODO: A version that can hold intermediate nodes in memory, efficiently update leaves, etc.
 /// Sparse Merkle Tree variant that has hash-sized leaves, with most leaves being empty
-/// (have value `[0u8; 32]`).
+/// (all zeroes).
 ///
 /// In contrast to a proper Balanced Merkle Tree, constant `BITS` here specifies the max number of
 /// leaves hypothetically possible in a tree (2^BITS, often intractable), rather than the number of
 /// non-empty leaves actually present.
+///
+/// Inner nodes are hashed with `H` (except when both children are empty), which is created with
+/// [`Default`] since the number of leaves is always `2^BITS`.
 #[derive(Debug)]
-pub struct SparseMerkleTree<const BITS: u8>;
+pub struct SparseMerkleTree<const BITS: u8, H>(PhantomCovariant<H>);
 
-// TODO: Optimize by implementing SIMD-accelerated hashing of multiple values:
-//  https://github.com/BLAKE3-team/BLAKE3/issues/478
-impl<const BITS: u8> SparseMerkleTree<BITS>
+// TODO: Optimize by hashing multiple pairs at once with `MerkleHasher::hash_pairs()`
+impl<const BITS: u8, H> SparseMerkleTree<BITS, H>
 where
     [(); ENSURE_SUPPORTED_BITS::<BITS>]:,
+    H: MerkleHasher + Default,
 {
+    const ZERO: [u8; H::OUT_LEN] = [0; H::OUT_LEN];
+
     // TODO: Method that generates not only root, but also proof, like Unbalanced Merkle Tree
     /// Compute Merkle Tree root.
     ///
@@ -85,16 +97,19 @@ where
     /// Returns `None` if too many leaves were provided.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn compute_root_only<'a, Iter>(leaves: Iter) -> Option<[u8; OUT_LEN]>
+    pub fn compute_root_only<'a, Iter>(leaves: Iter) -> Option<[u8; H::OUT_LEN]>
     where
-        Iter: IntoIterator<Item = Leaf<'a>> + 'a,
+        H: 'a,
+        Iter: IntoIterator<Item = Leaf<'a, H>> + 'a,
     {
         // TODO: Technically redundant with the where-clause, which is not enforced in generic code
         //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
         const { ENSURE_SUPPORTED_BITS::<BITS> };
 
+        let hasher = H::default();
+
         // Stack of intermediate nodes per tree level
-        let mut stack = [[0u8; OUT_LEN]; _];
+        let mut stack = [[0u8; H::OUT_LEN]; _];
         let mut processed_some = false;
         let mut num_leaves = 0u128;
 
@@ -120,6 +135,7 @@ where
                 Leaf::OccupiedOwned { leaf } => leaf,
                 Leaf::Empty { skip_count } => {
                     num_leaves = Self::skip_leaves(
+                        &hasher,
                         &mut stack,
                         &mut processed_some,
                         num_leaves,
@@ -134,7 +150,7 @@ where
             // Every bit set to `1` corresponds to an active Merkle Tree level
             let lowest_active_levels = num_leaves.trailing_ones() as usize;
             for item in stack.iter().take(lowest_active_levels) {
-                current = hash_pair(item, &current);
+                current = hasher.hash_pair(&[*item, current]);
             }
 
             // Place the current hash at the first inactive level
@@ -148,6 +164,7 @@ where
 
         if u32::from(BITS) < u128::BITS {
             Self::skip_leaves(
+                &hasher,
                 &mut stack,
                 &mut processed_some,
                 num_leaves,
@@ -157,6 +174,7 @@ where
             // For `BITS == u128::BITS` `num_leaves` will wrap around back to zero right at the
             // very end, so we reverse the mechanism here
             Self::skip_leaves(
+                &hasher,
                 &mut stack,
                 &mut processed_some,
                 num_leaves,
@@ -171,13 +189,12 @@ where
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn skip_leaves(
-        stack: &mut [[u8; OUT_LEN]; STACK_SIZE::<BITS>],
+        hasher: &H,
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<BITS>],
         processed_some: &mut bool,
         mut num_leaves: u128,
         mut skip_count: u128,
     ) -> Option<u128> {
-        const ZERO: [u8; OUT_LEN] = [0; OUT_LEN];
-
         if u32::from(BITS) < u128::BITS {
             // How many leaves were processed so far
             if num_leaves.checked_add(skip_count)? > 2u128.pow(u32::from(BITS)) {
@@ -199,7 +216,7 @@ where
             let chunk_size = 1u128 << max_levels_to_skip;
 
             let mut level = max_levels_to_skip;
-            let mut current = ZERO;
+            let mut current = Self::ZERO;
             for item in stack.iter().skip(max_levels_to_skip as usize) {
                 // Check the active level for merging up the stack.
                 //
@@ -213,8 +230,8 @@ where
                 }
 
                 // Hash together unless both are zero
-                if !(item == &ZERO && current == ZERO) {
-                    current = hash_pair(item, &current);
+                if !(item == &Self::ZERO && current == Self::ZERO) {
+                    current = hasher.hash_pair(&[*item, current]);
                 }
 
                 level += 1;
@@ -234,15 +251,15 @@ where
 
     /// Verify previously generated proof.
     ///
-    /// Leaf can either be leaf value for a leaf that is occupied or `[0; 32]` for a leaf that is
+    /// Leaf can either be leaf value for a leaf that is occupied or all zeroes for a leaf that is
     /// supposed to be empty.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn verify(
-        root: &[u8; OUT_LEN],
-        proof: &[[u8; OUT_LEN]; PROOF_ELEMENTS::<BITS>],
+        root: &[u8; H::OUT_LEN],
+        proof: &[[u8; H::OUT_LEN]; PROOF_ELEMENTS::<BITS>],
         leaf_index: u128,
-        leaf: [u8; OUT_LEN],
+        leaf: [u8; H::OUT_LEN],
     ) -> bool {
         // TODO: Technically redundant with the where-clause, which is not enforced in generic code
         //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
@@ -253,14 +270,15 @@ where
             return false;
         }
 
+        let hasher = H::default();
         let mut computed_root = leaf;
 
         let mut position = leaf_index;
         for hash in proof {
             computed_root = if position.is_multiple_of(2) {
-                hash_pair(&computed_root, hash)
+                hasher.hash_pair(&[computed_root, *hash])
             } else {
-                hash_pair(hash, &computed_root)
+                hasher.hash_pair(&[*hash, computed_root])
             };
 
             position /= 2;

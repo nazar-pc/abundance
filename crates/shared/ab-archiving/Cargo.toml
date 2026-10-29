@@ -25,7 +25,7 @@ harness = false
 [dependencies]
 ab-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 ab-erasure-coding = { workspace = true }
-ab-merkle-tree = { workspace = true, features = ["alloc"] }
+ab-merkle-tree = { workspace = true, features = ["alloc", "blake3"] }
 parity-scale-codec = { workspace = true, features = ["derive"] }
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }

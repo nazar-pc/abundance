@@ -9,9 +9,10 @@
     min_generic_const_args
 )]
 
-use ab_merkle_tree::mmr::{MerkleMountainRange, MmrPeaks};
+use ab_merkle_tree::blake3::{Blake3MerkleHasher, MerkleMountainRange};
+use ab_merkle_tree::mmr::MmrPeaks;
 
-fn from_peaks<const MAX_N: u64>(peaks: &MmrPeaks<MAX_N>) -> Option<u64> {
+fn from_peaks<const MAX_N: u64>(peaks: &MmrPeaks<MAX_N, Blake3MerkleHasher>) -> Option<u64> {
     MerkleMountainRange::<MAX_N>::from_peaks(peaks).map(|mmr| mmr.num_leaves())
 }
 

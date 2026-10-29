@@ -12,7 +12,7 @@ use crate::shard::ShardIndex;
 use ab_blake3::{single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use ab_merkle_tree::blake3::UnbalancedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]

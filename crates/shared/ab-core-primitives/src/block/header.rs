@@ -18,7 +18,7 @@ use crate::solutions::{Solution, SolutionRange};
 use ab_blake3::{BLOCK_LEN, single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use ab_merkle_tree::blake3::UnbalancedMerkleTree;
 use blake3::CHUNK_LEN;
 use core::num::NonZeroU32;
 use core::ops::Deref;

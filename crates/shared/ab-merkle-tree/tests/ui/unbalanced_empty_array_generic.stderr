@@ -21,7 +21,7 @@ note: erroneous constant encountered
   |         const { SUPPORTED_LEAVES_ARRAY_SIZE::<N> };
   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-note: the above error was encountered while instantiating `fn UnbalancedMerkleTree::compute_root_only_array::<0, [u8; 32]>`
+note: the above error was encountered while instantiating `fn UnbalancedMerkleTree::<Blake3MerkleHasher>::compute_root_only_array::<0, [u8; 32]>`
   --> tests/ui/unbalanced_empty_array_generic.rs:15:5
    |
 15 |     UnbalancedMerkleTree::compute_root_only_array(leaves)

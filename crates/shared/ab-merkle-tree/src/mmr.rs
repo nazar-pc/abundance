@@ -1,6 +1,5 @@
-use crate::hash_pair;
+use crate::MerkleHasher;
 use crate::unbalanced::UnbalancedMerkleTree;
-use ab_blake3::OUT_LEN;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
@@ -25,26 +24,76 @@ const STACK_SIZE<const MAX_N: u64>: usize = {
 };
 
 /// Size of [`MerkleMountainRange`]/[`MerkleMountainRangeBytes`] in bytes
-const MERKLE_MOUNTAIN_RANGE_BYTES_SIZE<const MAX_N: u64>: usize =
-    size_of::<u64>() + OUT_LEN * (MAX_N.next_power_of_two().ilog2() as usize + 1);
+const MERKLE_MOUNTAIN_RANGE_BYTES_SIZE<const MAX_N: u64, H: MerkleHasher>: usize =
+    size_of::<u64>() + H::OUT_LEN * (MAX_N.next_power_of_two().ilog2() as usize + 1);
+
+/// Hasher with a configurable output size for layout checks below
+#[derive(Debug)]
+struct LayoutHasher<const OUT_LEN: usize>;
+
+impl<const OUT_LEN: usize> MerkleHasher for LayoutHasher<OUT_LEN> {
+    const OUT_LEN: usize = OUT_LEN;
+
+    fn hash_pair(
+        &self,
+        pair: &[[u8; <Self as MerkleHasher>::OUT_LEN]; 2],
+    ) -> [u8; <Self as MerkleHasher>::OUT_LEN] {
+        let [left, _right] = pair;
+        *left
+    }
+}
 
 const {
-    assert!(size_of::<MerkleMountainRangeBytes<2>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<2>);
-    assert!(size_of::<MerkleMountainRange<2>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<2>);
-    assert!(align_of::<MerkleMountainRangeBytes<2>>() == align_of::<MerkleMountainRange<2>>());
+    assert!(
+        size_of::<MerkleMountainRangeBytes<2, LayoutHasher<32>>>()
+            == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<2, LayoutHasher<32>>
+    );
+    assert!(
+        size_of::<MerkleMountainRange<2, LayoutHasher<32>>>()
+            == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<2, LayoutHasher<32>>
+    );
+    assert!(
+        align_of::<MerkleMountainRangeBytes<2, LayoutHasher<32>>>()
+            == align_of::<MerkleMountainRange<2, LayoutHasher<32>>>()
+    );
 
     // `MAX_N` doesn't have to be a power of two, verify the layout formula for a few more shapes,
     // including a large one, to guard against regressions in `MERKLE_MOUNTAIN_RANGE_BYTES_SIZE`
-    assert!(size_of::<MerkleMountainRangeBytes<100>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<100>);
-    assert!(size_of::<MerkleMountainRange<100>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<100>);
-    assert!(align_of::<MerkleMountainRangeBytes<100>>() == align_of::<MerkleMountainRange<100>>());
+    assert!(
+        size_of::<MerkleMountainRangeBytes<100, LayoutHasher<32>>>()
+            == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<100, LayoutHasher<32>>
+    );
+    assert!(
+        size_of::<MerkleMountainRange<100, LayoutHasher<32>>>()
+            == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<100, LayoutHasher<32>>
+    );
+    assert!(
+        align_of::<MerkleMountainRangeBytes<100, LayoutHasher<32>>>()
+            == align_of::<MerkleMountainRange<100, LayoutHasher<32>>>()
+    );
 
     assert!(
-        size_of::<MerkleMountainRangeBytes<65536>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<65536>
+        size_of::<MerkleMountainRangeBytes<65536, LayoutHasher<32>>>()
+            == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<65536, LayoutHasher<32>>
     );
-    assert!(size_of::<MerkleMountainRange<65536>>() == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<65536>);
     assert!(
-        align_of::<MerkleMountainRangeBytes<65536>>() == align_of::<MerkleMountainRange<65536>>()
+        size_of::<MerkleMountainRange<65536, LayoutHasher<32>>>()
+            == MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<65536, LayoutHasher<32>>
+    );
+    assert!(
+        align_of::<MerkleMountainRangeBytes<65536, LayoutHasher<32>>>()
+            == align_of::<MerkleMountainRange<65536, LayoutHasher<32>>>()
+    );
+
+    // Hash size that is not a multiple of the alignment, in which case both types are padded the
+    // same way
+    assert!(
+        size_of::<MerkleMountainRangeBytes<4, LayoutHasher<20>>>()
+            == size_of::<MerkleMountainRange<4, LayoutHasher<20>>>()
+    );
+    assert!(
+        align_of::<MerkleMountainRangeBytes<4, LayoutHasher<20>>>()
+            == align_of::<MerkleMountainRange<4, LayoutHasher<20>>>()
     );
 }
 
@@ -53,15 +102,21 @@ const {
 /// Primarily intended to be used with [`MerkleMountainRange::from_peaks()`], can be sent over the
 /// network, etc.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct MmrPeaks<const MAX_N: u64> {
+pub struct MmrPeaks<const MAX_N: u64, H>
+where
+    H: MerkleHasher,
+{
     /// Number of leaves in MMR
     pub num_leaves: u64,
     /// MMR peaks, first [`Self::num_peaks()`] elements are occupied by values, the rest are
     /// ignored and do not need to be retained.
-    pub peaks: [[u8; OUT_LEN]; NUM_PEAKS::<MAX_N>],
+    pub peaks: [[u8; H::OUT_LEN]; NUM_PEAKS::<MAX_N>],
 }
 
-impl<const MAX_N: u64> MmrPeaks<MAX_N> {
+impl<const MAX_N: u64, H> MmrPeaks<MAX_N, H>
+where
+    H: MerkleHasher,
+{
     /// Number of peaks stored in [`Self::peaks`] that are occupied by actual values
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
@@ -75,35 +130,47 @@ impl<const MAX_N: u64> MmrPeaks<MAX_N> {
 /// Somewhat similar in function to [`MmrPeaks`], but for local use only.
 #[derive(Debug, Copy, Clone)]
 #[repr(C, align(8))]
-pub struct MerkleMountainRangeBytes<const MAX_N: u64>(
-    [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>],
-);
+pub struct MerkleMountainRangeBytes<const MAX_N: u64, H>(
+    [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N, H>],
+)
+where
+    H: MerkleHasher;
 
-impl<const MAX_N: u64> Default for MerkleMountainRangeBytes<MAX_N> {
+impl<const MAX_N: u64, H> Default for MerkleMountainRangeBytes<MAX_N, H>
+where
+    H: MerkleHasher,
+{
     #[inline(always)]
     fn default() -> Self {
         Self([0; _])
     }
 }
 
-impl<const MAX_N: u64> From<[u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>]>
-    for MerkleMountainRangeBytes<MAX_N>
+impl<const MAX_N: u64, H> From<[u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N, H>]>
+    for MerkleMountainRangeBytes<MAX_N, H>
+where
+    H: MerkleHasher,
 {
-    fn from(value: [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>]) -> Self {
+    fn from(value: [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N, H>]) -> Self {
         Self(value)
     }
 }
 
-impl<const MAX_N: u64> From<MerkleMountainRangeBytes<MAX_N>>
-    for [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>]
+impl<const MAX_N: u64, H> From<MerkleMountainRangeBytes<MAX_N, H>>
+    for [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N, H>]
+where
+    H: MerkleHasher,
 {
-    fn from(value: MerkleMountainRangeBytes<MAX_N>) -> Self {
+    fn from(value: MerkleMountainRangeBytes<MAX_N, H>) -> Self {
         value.0
     }
 }
 
-impl<const MAX_N: u64> Deref for MerkleMountainRangeBytes<MAX_N> {
-    type Target = [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N>];
+impl<const MAX_N: u64, H> Deref for MerkleMountainRangeBytes<MAX_N, H>
+where
+    H: MerkleHasher,
+{
+    type Target = [u8; MERKLE_MOUNTAIN_RANGE_BYTES_SIZE::<MAX_N, H>];
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
@@ -111,7 +178,10 @@ impl<const MAX_N: u64> Deref for MerkleMountainRangeBytes<MAX_N> {
     }
 }
 
-impl<const MAX_N: u64> DerefMut for MerkleMountainRangeBytes<MAX_N> {
+impl<const MAX_N: u64, H> DerefMut for MerkleMountainRangeBytes<MAX_N, H>
+where
+    H: MerkleHasher,
+{
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -127,17 +197,24 @@ impl<const MAX_N: u64> DerefMut for MerkleMountainRangeBytes<MAX_N> {
 ///
 /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
 /// usage.
+///
+/// Inner nodes are hashed with `H`, which must not depend on the tree size since it changes as
+/// leaves are added.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
-pub struct MerkleMountainRange<const MAX_N: u64> {
+pub struct MerkleMountainRange<const MAX_N: u64, H>
+where
+    H: MerkleHasher,
+{
     num_leaves: u64,
     // Stack of intermediate nodes per tree level
-    stack: [[u8; OUT_LEN]; STACK_SIZE::<MAX_N>],
+    stack: [[u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>],
 }
 
-impl<const MAX_N: u64> Default for MerkleMountainRange<MAX_N>
+impl<const MAX_N: u64, H> Default for MerkleMountainRange<MAX_N, H>
 where
     [(); STACK_SIZE::<MAX_N>]:,
+    H: MerkleHasher + Default,
 {
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
@@ -147,9 +224,10 @@ where
 }
 
 // TODO: Think harder about proof generation and verification API here
-impl<const MAX_N: u64> MerkleMountainRange<MAX_N>
+impl<const MAX_N: u64, H> MerkleMountainRange<MAX_N, H>
 where
     [(); STACK_SIZE::<MAX_N>]:,
+    H: MerkleHasher + Default,
 {
     /// Create an empty instance
     #[inline(always)]
@@ -161,7 +239,7 @@ where
 
         Self {
             num_leaves: 0,
-            stack: [[0u8; OUT_LEN]; _],
+            stack: [[0u8; H::OUT_LEN]; _],
         }
     }
 
@@ -170,7 +248,7 @@ where
     /// Returns `None` if input is invalid.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn from_peaks(peaks: &MmrPeaks<MAX_N>) -> Option<Self> {
+    pub fn from_peaks(peaks: &MmrPeaks<MAX_N, H>) -> Option<Self> {
         // TODO: Technically redundant with the where-clause, which is not enforced in generic code
         //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
         const { STACK_SIZE::<MAX_N> };
@@ -182,7 +260,7 @@ where
 
         let mut result = Self {
             num_leaves: peaks.num_leaves,
-            stack: [[0u8; OUT_LEN]; _],
+            stack: [[0u8; H::OUT_LEN]; _],
         };
 
         // Convert peaks (where all occupied entries are all at the beginning of the list instead)
@@ -206,7 +284,7 @@ where
     /// Get byte representation of Merkle Mountain Range
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn as_bytes(&self) -> &MerkleMountainRangeBytes<MAX_N> {
+    pub fn as_bytes(&self) -> &MerkleMountainRangeBytes<MAX_N, H> {
         // SAFETY: Both are `#[repr(C)]`, the same size and alignment as `Self`, all bit patterns
         // are valid
         unsafe { mem::transmute(self) }
@@ -215,10 +293,10 @@ where
     /// Create an instance from byte representation.
     ///
     /// # Safety
-    /// Bytes must be previously created by [`Self::as_bytes()`].
+    /// Bytes must be previously created by [`Self::as_bytes()`] of an instance of the same type.
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub unsafe fn from_bytes(bytes: &MerkleMountainRangeBytes<MAX_N>) -> &Self {
+    pub unsafe fn from_bytes(bytes: &MerkleMountainRangeBytes<MAX_N, H>) -> &Self {
         // SAFETY: Both are `#[repr(C)]`, the same size and alignment as `Self`, all bit patterns
         // are valid. `::from_bytes()` is an `unsafe` function with correct invariant being a
         // prerequisite of calling it.
@@ -238,12 +316,13 @@ where
     /// there were no leaves added yet.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn root(&self) -> Option<[u8; OUT_LEN]> {
+    pub fn root(&self) -> Option<[u8; H::OUT_LEN]> {
         if self.num_leaves == 0 {
             // If no leaves were provided
             return None;
         }
 
+        let hasher = H::default();
         let mut root;
         let mut stack_bits = self.num_leaves;
         {
@@ -268,7 +347,7 @@ where
             // SAFETY: Active level must have been set successfully before, hence it exists
             let lowest_active_level_item = unsafe { self.stack.get_unchecked(lowest_active_level) };
 
-            root = hash_pair(lowest_active_level_item, &root);
+            root = hasher.hash_pair(&[*lowest_active_level_item, root]);
         }
 
         Some(root)
@@ -277,10 +356,10 @@ where
     /// Get peaks of Merkle Mountain Range
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn peaks(&self) -> MmrPeaks<MAX_N> {
+    pub fn peaks(&self) -> MmrPeaks<MAX_N, H> {
         let mut result = MmrPeaks {
             num_leaves: self.num_leaves,
-            peaks: [[0u8; OUT_LEN]; _],
+            peaks: [[0u8; H::OUT_LEN]; _],
         };
 
         // Convert stack (where occupied entries are at corresponding offsets) to peaks (where all
@@ -311,19 +390,20 @@ where
     /// Returns `true` on success, `false` if too many leaves were added.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-    pub fn add_leaf(&mut self, leaf: &[u8; OUT_LEN]) -> bool {
+    pub fn add_leaf(&mut self, leaf: &[u8; H::OUT_LEN]) -> bool {
         // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but `>=`
         // helps compiler with panic safety checks.
         if self.num_leaves >= MAX_N {
             return false;
         }
 
+        let hasher = H::default();
         let mut current = *leaf;
 
         // Every bit set to `1` corresponds to an active Merkle Tree level
         let lowest_active_levels = self.num_leaves.trailing_ones() as usize;
         for item in self.stack.iter().take(lowest_active_levels) {
-            current = hash_pair(item, &current);
+            current = hasher.hash_pair(&[*item, current]);
         }
 
         // Place the current hash at the first inactive level
@@ -346,9 +426,11 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn add_leaves<'a, Item, Iter>(&mut self, leaves: Iter) -> bool
     where
-        Item: Into<[u8; OUT_LEN]>,
+        Item: Into<[u8; H::OUT_LEN]>,
         Iter: IntoIterator<Item = Item> + 'a,
     {
+        let hasher = H::default();
+
         // TODO: This can be optimized further
         for leaf in leaves {
             // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
@@ -362,7 +444,7 @@ where
             // Every bit set to `1` corresponds to an active Merkle Tree level
             let lowest_active_levels = self.num_leaves.trailing_ones() as usize;
             for item in self.stack.iter().take(lowest_active_levels) {
-                current = hash_pair(item, &current);
+                current = hasher.hash_pair(&[*item, current]);
             }
 
             // Place the current hash at the first inactive level
@@ -376,15 +458,16 @@ where
     /// Add leaf to Merkle Mountain Range and generate inclusion proof.
     ///
     /// Returns `Some((root, proof))` on success, `None` if too many leaves were added.
+    #[expect(clippy::type_complexity, reason = "Return type")]
     #[inline]
     #[cfg(feature = "alloc")]
     pub fn add_leaf_and_compute_proof(
         &mut self,
-        leaf: &[u8; OUT_LEN],
-    ) -> Option<([u8; OUT_LEN], Vec<[u8; OUT_LEN]>)> {
+        leaf: &[u8; H::OUT_LEN],
+    ) -> Option<([u8; H::OUT_LEN], Vec<[u8; H::OUT_LEN]>)> {
         // SAFETY: Inner value is `MaybeUninit`
         let mut proof =
-            unsafe { Box::<[MaybeUninit<[u8; OUT_LEN]>; _]>::new_uninit().assume_init() };
+            unsafe { Box::<[MaybeUninit<[u8; H::OUT_LEN]>; _]>::new_uninit().assume_init() };
 
         let (root, proof_length) = self.add_leaf_and_compute_proof_inner(leaf, &mut proof)?;
 
@@ -393,7 +476,11 @@ where
         // SAFETY: Points to correctly allocated memory where `proof_length` elements were
         // initialized
         let proof = unsafe {
-            Vec::from_raw_parts(proof.cast::<[u8; OUT_LEN]>(), proof_length, proof_capacity)
+            Vec::from_raw_parts(
+                proof.cast::<[u8; H::OUT_LEN]>(),
+                proof_length,
+                proof_capacity,
+            )
         };
 
         Some((root, proof))
@@ -402,13 +489,14 @@ where
     /// Add leaf to Merkle Mountain Range and generate inclusion proof.
     ///
     /// Returns `Some((root, proof))` on success, `None` if too many leaves were added.
+    #[expect(clippy::type_complexity, reason = "Return type")]
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn add_leaf_and_compute_proof_in<'proof>(
         &mut self,
-        leaf: &[u8; OUT_LEN],
-        proof: &'proof mut [MaybeUninit<[u8; OUT_LEN]>; MAX_PROOF_ELEMENTS::<MAX_N>],
-    ) -> Option<([u8; OUT_LEN], &'proof mut [[u8; OUT_LEN]])> {
+        leaf: &[u8; H::OUT_LEN],
+        proof: &'proof mut [MaybeUninit<[u8; H::OUT_LEN]>; MAX_PROOF_ELEMENTS::<MAX_N>],
+    ) -> Option<([u8; H::OUT_LEN], &'proof mut [[u8; H::OUT_LEN]])> {
         let (root, proof_length) = self.add_leaf_and_compute_proof_inner(leaf, proof)?;
 
         // SAFETY: Just correctly initialized `proof_length` elements
@@ -421,9 +509,10 @@ where
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn add_leaf_and_compute_proof_inner(
         &mut self,
-        leaf: &[u8; OUT_LEN],
-        proof: &mut [MaybeUninit<[u8; OUT_LEN]>; MAX_PROOF_ELEMENTS::<MAX_N>],
-    ) -> Option<([u8; OUT_LEN], usize)> {
+        leaf: &[u8; H::OUT_LEN],
+        proof: &mut [MaybeUninit<[u8; H::OUT_LEN]>; MAX_PROOF_ELEMENTS::<MAX_N>],
+    ) -> Option<([u8; H::OUT_LEN], usize)> {
+        let hasher = H::default();
         let mut proof_length = 0;
 
         let current_target_level;
@@ -449,7 +538,7 @@ where
                     .write(*item);
                 proof_length += 1;
 
-                current = hash_pair(item, &current);
+                current = hasher.hash_pair(&[*item, current]);
 
                 // Move up the tree
                 position /= 2;
@@ -509,7 +598,7 @@ where
             }
 
             // Collect the lowest peak into the proof
-            root = hash_pair(lowest_active_level_item, &root);
+            root = hasher.hash_pair(&[*lowest_active_level_item, root]);
 
             position /= 2;
         }
@@ -523,16 +612,16 @@ where
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn verify(
-        root: &[u8; OUT_LEN],
-        proof: &[[u8; OUT_LEN]],
+        root: &[u8; H::OUT_LEN],
+        proof: &[[u8; H::OUT_LEN]],
         leaf_index: u64,
-        leaf: [u8; OUT_LEN],
+        leaf: [u8; H::OUT_LEN],
         num_leaves: u64,
     ) -> bool {
         // TODO: Technically redundant with the where-clause, which is not enforced in generic code
         //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
         const { STACK_SIZE::<MAX_N> };
 
-        UnbalancedMerkleTree::verify(root, proof, leaf_index, leaf, num_leaves)
+        UnbalancedMerkleTree::<H>::verify(root, proof, leaf_index, leaf, num_leaves)
     }
 }

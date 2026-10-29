@@ -20,7 +20,7 @@ use crate::shard::ShardIndex;
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
-use ab_merkle_tree::balanced::BalancedMerkleTree;
+use ab_merkle_tree::blake3::BalancedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
