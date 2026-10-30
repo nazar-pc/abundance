@@ -725,8 +725,8 @@ pub struct SharedBlockHeader<'a> {
 pub struct BeaconChainHeader<'a> {
     /// Shared block header
     shared: SharedBlockHeader<'a>,
-    /// Information about child shard blocks
-    child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
+    /// Information about intermediate shard blocks
+    intermediate_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// Consensus parameters (on the beacon chain)
     consensus_parameters: BlockHeaderConsensusParameters<'a>,
     /// All bytes of the header except the seal
@@ -782,7 +782,7 @@ impl<'a> BeaconChainHeader<'a> {
         // * block header prefix: BlockHeaderPrefix
         // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
-        // * child shard blocks: BlockHeaderChildShardBlocks
+        // * intermediate shard blocks: BlockHeaderChildShardBlocks
         // * consensus parameters: BlockHeaderConsensusParameters
         // * block header seal: BlockHeaderSeal
 
@@ -793,7 +793,7 @@ impl<'a> BeaconChainHeader<'a> {
             return None;
         }
 
-        let (child_shard_blocks, remainder) =
+        let (intermediate_shard_blocks, remainder) =
             BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
 
         let (consensus_parameters, remainder) =
@@ -812,7 +812,7 @@ impl<'a> BeaconChainHeader<'a> {
 
         let header = Self {
             shared,
-            child_shard_blocks,
+            intermediate_shard_blocks,
             consensus_parameters,
             pre_seal_bytes,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
@@ -846,7 +846,7 @@ impl<'a> BeaconChainHeader<'a> {
             self.shared.prefix,
             self.shared.result,
             self.shared.consensus_info,
-            &self.child_shard_blocks,
+            &self.intermediate_shard_blocks,
             &self.consensus_parameters,
         )
         .expect("`self` is always a valid invariant; qed");
@@ -860,10 +860,10 @@ impl<'a> BeaconChainHeader<'a> {
         &self.shared
     }
 
-    /// Information about child shard blocks
+    /// Information about intermediate shard blocks
     #[inline(always)]
-    pub fn child_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
-        &self.child_shard_blocks
+    pub fn intermediate_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
+        &self.intermediate_shard_blocks
     }
 
     /// Consensus parameters (on the beacon chain)
@@ -899,7 +899,7 @@ impl<'a> BeaconChainHeader<'a> {
     pub fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         let Self {
             shared,
-            child_shard_blocks,
+            intermediate_shard_blocks,
             consensus_parameters,
             pre_seal_bytes: _,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
@@ -919,7 +919,7 @@ impl<'a> BeaconChainHeader<'a> {
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
-                child_shard_blocks.root().unwrap_or_default(),
+                intermediate_shard_blocks.root().unwrap_or_default(),
                 consensus_parameters.hash(),
             ]);
 
@@ -961,8 +961,8 @@ pub struct IntermediateShardHeader<'a> {
     shared: SharedBlockHeader<'a>,
     /// Beacon chain info
     beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
-    /// Information about child shard blocks
-    child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
+    /// Information about leaf shard blocks
+    leaf_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
@@ -1017,7 +1017,7 @@ impl<'a> IntermediateShardHeader<'a> {
         // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
         // * beacon chain: BlockHeaderBeaconChainInfo
-        // * child shard blocks: BlockHeaderChildShardBlocks
+        // * leaf shard blocks: BlockHeaderChildShardBlocks
         // * block header seal: BlockHeaderSeal
 
         let (prefix, consensus_info, result, remainder) =
@@ -1029,7 +1029,7 @@ impl<'a> IntermediateShardHeader<'a> {
 
         let (beacon_chain_info, remainder) = BlockHeaderBeaconChainInfo::from_bytes(remainder)?;
 
-        let (child_shard_blocks, remainder) =
+        let (leaf_shard_blocks, remainder) =
             BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
@@ -1046,7 +1046,7 @@ impl<'a> IntermediateShardHeader<'a> {
         let header = Self {
             shared,
             beacon_chain_info,
-            child_shard_blocks,
+            leaf_shard_blocks,
             pre_seal_bytes,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root: triomphe::Arc::default(),
@@ -1080,7 +1080,7 @@ impl<'a> IntermediateShardHeader<'a> {
             self.shared.result,
             self.shared.consensus_info,
             self.beacon_chain_info,
-            &self.child_shard_blocks,
+            &self.leaf_shard_blocks,
         )
         .expect("`self` is always a valid invariant; qed");
 
@@ -1099,10 +1099,10 @@ impl<'a> IntermediateShardHeader<'a> {
         self.beacon_chain_info
     }
 
-    /// Information about child shard blocks
+    /// Information about leaf shard blocks
     #[inline(always)]
-    pub fn child_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
-        &self.child_shard_blocks
+    pub fn leaf_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
+        &self.leaf_shard_blocks
     }
 
     /// Hash of the block before seal is applied to it
@@ -1133,7 +1133,7 @@ impl<'a> IntermediateShardHeader<'a> {
         let Self {
             shared,
             beacon_chain_info,
-            child_shard_blocks,
+            leaf_shard_blocks,
             pre_seal_bytes: _,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root,
@@ -1153,7 +1153,7 @@ impl<'a> IntermediateShardHeader<'a> {
                 consensus_info.hash(),
                 seal.hash(),
                 beacon_chain_info.hash(),
-                child_shard_blocks.root().unwrap_or_default(),
+                leaf_shard_blocks.root().unwrap_or_default(),
             ]);
 
             BlockRoot::new(Blake3Hash::new(block_root))
