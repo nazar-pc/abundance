@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::ContractSlotState;
 use ab_core_primitives::address::Address;
@@ -66,36 +69,26 @@ impl GlobalState {
         let maybe_state_root = StateOwnersSparseMerkleTree::compute_root_only(
             self.state.iter().flat_map(|(&owner, state)| {
                 let owner = u128::from(owner);
-                let skip_leaf = if let Some(previous_owner) = previous_owner
-                    && previous_owner + 1 != owner
-                {
-                    let skip_count = NonZeroU128::new(owner - previous_owner).expect(
-                        "Owner is a larger number due to BTreeMap, hence the difference is more \
-                        than zero; qed",
-                    );
-                    Some(Leaf::Empty { skip_count })
-                } else {
-                    None
+                // Owners are strictly increasing due to `BTreeMap`, hence no underflow
+                let skip_count = match previous_owner.replace(owner) {
+                    Some(previous_owner) => owner - previous_owner - 1,
+                    None => owner,
                 };
-                previous_owner.replace(owner);
+                let skip_leaf =
+                    NonZeroU128::new(skip_count).map(|skip_count| Leaf::Empty { skip_count });
 
                 let mut previous_contract = None;
 
                 let maybe_owner_root = StateOwnerContractsSparseMerkleTree::compute_root_only(
                     state.iter().flat_map(|(&contract, contents)| {
                         let contract = u128::from(contract);
-                        let skip_leaf = if let Some(previous_contract) = previous_contract
-                            && previous_contract + 1 != contract
-                        {
-                            let skip_count = NonZeroU128::new(contract - previous_contract).expect(
-                                "Contract is a larger number due to BTreeMap, hence the difference \
-                                is more than zero; qed",
-                            );
-                            Some(Leaf::Empty { skip_count })
-                        } else {
-                            None
+                        // Contracts are strictly increasing due to `BTreeMap`, hence no underflow
+                        let skip_count = match previous_contract.replace(contract) {
+                            Some(previous_contract) => contract - previous_contract - 1,
+                            None => contract,
                         };
-                        previous_contract.replace(contract);
+                        let skip_leaf = NonZeroU128::new(skip_count)
+                            .map(|skip_count| Leaf::Empty { skip_count });
 
                         skip_leaf.into_iter().chain([Leaf::OccupiedOwned {
                             leaf: *hash(contents.as_slice()).as_bytes(),
