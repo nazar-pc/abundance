@@ -15,11 +15,15 @@ use crate::pot::{PotOutput, PotParametersChange, SlotNumber};
 use crate::segments::SuperSegmentRoot;
 use crate::shard::{NumShards, NumShardsUnchecked, RealShardKind, ShardIndex, ShardKind};
 use crate::solutions::{Solution, SolutionRange};
+use crate::trees::{
+    BeaconChainHeaderMerkleTree, ChildIntermediateShardBlocksMerkleTree,
+    ChildLeafShardBlocksMerkleTree, IntermediateShardHeaderMerkleTree, LeafShardHeaderMerkleTree,
+};
 use ab_blake3::{BLOCK_LEN, single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
-use ab_merkle_tree::blake3::UnbalancedMerkleTree;
 use blake3::CHUNK_LEN;
+use core::iter::TrustedLen;
 use core::num::NonZeroU32;
 use core::ops::Deref;
 use core::{fmt, slice};
@@ -95,7 +99,6 @@ impl BlockHeaderPrefix {
         const {
             assert!(size_of::<Self>() <= CHUNK_LEN);
         }
-        // TODO: Keyed hash
         Blake3Hash::new(
             single_chunk_hash(self.as_bytes())
                 .expect("Less than a single chunk worth of bytes; qed"),
@@ -123,7 +126,6 @@ pub struct BlockHeaderConsensusInfo {
 impl BlockHeaderConsensusInfo {
     /// Hash of the consensus info, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash
         Blake3Hash::from(blake3::hash(self.as_bytes()))
     }
 }
@@ -147,7 +149,6 @@ impl BlockHeaderBeaconChainInfo {
         const {
             assert!(size_of::<Self>() <= BLOCK_LEN);
         }
-        // TODO: Keyed hash
         Blake3Hash::new(
             single_block_hash(self.as_bytes())
                 .expect("Less than a single block worth of bytes; qed"),
@@ -455,7 +456,6 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
             num_shards,
         } = fixed_parameters;
 
-        // TODO: Keyed hash
         let mut hasher = blake3::Hasher::new();
         hasher.update(solution_range.as_bytes());
         hasher.update(&slot_iterations.get().to_le_bytes());
@@ -526,23 +526,19 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
         Some((Self { child_shard_blocks }, bytes))
     }
 
-    /// Compute Merkle Tree with child shard blocks, part of the eventual block root.
-    ///
-    /// `None` is returned if there are no child shard blocks.
-    pub fn root(&self) -> Option<Blake3Hash> {
-        let root = UnbalancedMerkleTree::compute_root_only::<'_, { u64::from(u32::MAX) }, _, _>(
-            // TODO: Keyed hash
-            self.child_shard_blocks
-                .iter()
-                .map(|child_shard_block_root| {
-                    // Hash the root again so we can prove it, otherwise headers root is
-                    // indistinguishable from individual block roots and can be used to confuse
-                    // verifier
+    /// Leaves of the Merkle Tree with child shard blocks, part of the eventual block root
+    fn leaves(&self) -> impl ExactSizeIterator<Item = Blake3Hash> + TrustedLen + use<'a> {
+        self.child_shard_blocks
+            .iter()
+            .map(|child_shard_block_root| {
+                // Hash the root again so we can prove it, otherwise headers root is
+                // indistinguishable from individual block roots and can be used to confuse
+                // verifier
+                Blake3Hash::new(
                     single_block_hash(child_shard_block_root.as_ref())
-                        .expect("Less than a single block worth of bytes; qed")
-                }),
-        )?;
-        Some(Blake3Hash::new(root))
+                        .expect("Less than a single block worth of bytes; qed"),
+                )
+            })
     }
 }
 
@@ -569,7 +565,6 @@ impl BlockHeaderResult {
         const {
             assert!(size_of::<Self>() <= BLOCK_LEN);
         }
-        // TODO: Keyed hash
         Blake3Hash::new(
             single_block_hash(self.as_bytes())
                 .expect("Less than a single block worth of bytes; qed"),
@@ -694,7 +689,6 @@ impl<'a> BlockHeaderSeal<'a> {
     pub fn hash(&self) -> Blake3Hash {
         match self {
             BlockHeaderSeal::Ed25519(seal) => {
-                // TODO: Keyed hash
                 let mut hasher = blake3::Hasher::new();
                 hasher.update(&[BlockHeaderSealType::Ed25519 as u8]);
                 hasher.update(seal.as_bytes());
@@ -914,12 +908,19 @@ impl<'a> BeaconChainHeader<'a> {
                 seal,
             } = shared;
 
-            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
+            let intermediate_shard_blocks_root =
+                ChildIntermediateShardBlocksMerkleTree::compute_root_only::<
+                    { u64::from(u16::MAX) },
+                    _,
+                    _,
+                >(intermediate_shard_blocks.leaves())
+                .unwrap_or_default();
+            let block_root = BeaconChainHeaderMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
-                intermediate_shard_blocks.root().unwrap_or_default(),
+                Blake3Hash::new(intermediate_shard_blocks_root),
                 consensus_parameters.hash(),
             ]);
 
@@ -1147,13 +1148,18 @@ impl<'a> IntermediateShardHeader<'a> {
                 seal,
             } = shared;
 
-            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
+            let leaf_shard_blocks_root =
+                ChildLeafShardBlocksMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
+                    leaf_shard_blocks.leaves(),
+                )
+                .unwrap_or_default();
+            let block_root = IntermediateShardHeaderMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
                 beacon_chain_info.hash(),
-                leaf_shard_blocks.root().unwrap_or_default(),
+                Blake3Hash::new(leaf_shard_blocks_root),
             ]);
 
             BlockRoot::new(Blake3Hash::new(block_root))
@@ -1364,7 +1370,7 @@ impl<'a> LeafShardHeader<'a> {
                 seal,
             } = shared;
 
-            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
+            let block_root = LeafShardHeaderMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
@@ -1563,7 +1569,6 @@ impl<'a> BlockHeader<'a> {
             }
         }
 
-        // TODO: Should unique keyed hash be used for different kinds of shards?
         match self {
             Self::BeaconChain(header) => Wrapper::BeaconChain(header.root()),
             Self::IntermediateShard(header) => Wrapper::IntermediateShard(header.root()),

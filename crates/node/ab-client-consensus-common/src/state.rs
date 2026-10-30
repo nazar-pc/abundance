@@ -2,15 +2,13 @@ use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::ContractSlotState;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_merkle_tree::blake3::SparseMerkleTree;
+use ab_core_primitives::trees::{StateOwnerContractsSparseMerkleTree, StateOwnersSparseMerkleTree};
 use ab_merkle_tree::sparse::Leaf;
 use blake3::hash;
 use std::collections::BTreeMap;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU128;
 use triomphe::{Arc, UniqueArc};
-
-type Smt128 = SparseMerkleTree<{ size_of::<Address>() as u8 * u8::BITS as u8 }>;
 
 // TODO: This is very inefficient, but will do for now
 #[derive(Debug, Clone)]
@@ -65,8 +63,8 @@ impl GlobalState {
     pub fn root(&self) -> Blake3Hash {
         let mut previous_owner = None;
 
-        let maybe_state_root =
-            Smt128::compute_root_only(self.state.iter().flat_map(|(&owner, state)| {
+        let maybe_state_root = StateOwnersSparseMerkleTree::compute_root_only(
+            self.state.iter().flat_map(|(&owner, state)| {
                 let owner = u128::from(owner);
                 let skip_leaf = if let Some(previous_owner) = previous_owner
                     && previous_owner + 1 != owner
@@ -83,8 +81,8 @@ impl GlobalState {
 
                 let mut previous_contract = None;
 
-                let maybe_owner_root =
-                    Smt128::compute_root_only(state.iter().flat_map(|(&contract, contents)| {
+                let maybe_owner_root = StateOwnerContractsSparseMerkleTree::compute_root_only(
+                    state.iter().flat_map(|(&contract, contents)| {
                         let contract = u128::from(contract);
                         let skip_leaf = if let Some(previous_contract) = previous_contract
                             && previous_contract + 1 != contract
@@ -100,10 +98,10 @@ impl GlobalState {
                         previous_contract.replace(contract);
 
                         skip_leaf.into_iter().chain([Leaf::OccupiedOwned {
-                            // TODO: Should probably use keyed hash instead
                             leaf: *hash(contents.as_slice()).as_bytes(),
                         }])
-                    }));
+                    }),
+                );
                 let owner_root = maybe_owner_root.expect(
                     "The number of leaves is limited by address space, which is 128-bit; qed",
                 );
@@ -111,7 +109,8 @@ impl GlobalState {
                 skip_leaf
                     .into_iter()
                     .chain([Leaf::OccupiedOwned { leaf: owner_root }])
-            }));
+            }),
+        );
         let state_root = maybe_state_root
             .expect("The number of leaves is limited by address space, which is 128-bit; qed");
 

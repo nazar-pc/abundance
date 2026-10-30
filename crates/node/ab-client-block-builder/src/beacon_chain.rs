@@ -1,7 +1,7 @@
 //! Block building for the beacon chain
 
 use crate::{BlockBuilder, BlockBuilderError, BlockBuilderResult};
-use ab_client_api::{BeaconChainInfo, BlockDetails, BlockMerkleMountainRange, ContractSlotState};
+use ab_client_api::{BeaconChainInfo, BlockDetails, ContractSlotState};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersError, DeriveSuperSegmentForBlockError, derive_consensus_parameters,
@@ -22,6 +22,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, SlotNumber};
 use ab_core_primitives::segments::SuperSegmentRoot;
 use ab_core_primitives::shard::ShardIndex;
+use ab_core_primitives::trees::BlockMerkleMountainRange;
 use std::iter;
 use std::time::SystemTime;
 use triomphe::Arc;

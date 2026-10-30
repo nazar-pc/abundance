@@ -15,11 +15,18 @@ use crate::pot::PotCheckpoints;
 use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::{RealShardKind, ShardIndex};
 use crate::transaction::Transaction;
+use crate::trees::{
+    BeaconChainBodyMerkleTree, ChildIntermediateShardBlocksMerkleTree,
+    ChildLeafShardBlocksMerkleTree, IntermediateShardBlockSegmentsMerkleTree,
+    IntermediateShardBodyMerkleTree, IntermediateShardBodySegmentsMerkleTree,
+    IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
+    OwnSegmentsMerkleTree, SegmentRootsMerkleTree, ShardOwnSegmentsMerkleTree,
+    TransactionsMerkleTree,
+};
 use ab_blake3::{BLOCK_LEN, OUT_LEN, single_block_hash};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
-use ab_merkle_tree::blake3::{BalancedMerkleTree, UnbalancedMerkleTree};
 use core::iter::{Step, TrustedLen};
 use core::num::NonZeroU8;
 use core::{array, cmp, fmt, iter, slice};
@@ -52,10 +59,9 @@ where
 #[inline]
 pub fn compute_segments_root<'a, const MAX_SEGMENTS: u64, Iter>(segment_roots: Iter) -> Blake3Hash
 where
-    Iter: IntoIterator<Item = &'a SegmentRoot>,
+    Iter: IntoIterator<Item = &'a SegmentRoot, IntoIter: TrustedLen>,
 {
-    // TODO: Keyed hash
-    let root = UnbalancedMerkleTree::compute_root_only_dynamic_len::<MAX_SEGMENTS, _, _>(
+    let root = SegmentRootsMerkleTree::compute_root_only::<MAX_SEGMENTS, _, _>(
         segment_roots.into_iter().map(|segment_root| {
             // Hash the root again so we can prove it, otherwise root of segments is
             // indistinguishable from individual segment roots and can be used to confuse verifier
@@ -154,8 +160,7 @@ impl<'a> OwnSegments<'a> {
     /// Compute the root of own segments
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        // TODO: Keyed hash
-        let root = BalancedMerkleTree::compute_root_only(&[
+        let root = OwnSegmentsMerkleTree::compute_root_only(&[
             single_block_hash(self.first_local_segment_index.as_bytes())
                 .expect("Less than a single block worth of bytes; qed"),
             *compute_segments_root::<{ u64::from(u8::MAX) }, _>(self.segment_roots),
@@ -171,8 +176,7 @@ impl<'a> OwnSegments<'a> {
     /// shard block header).
     #[inline]
     pub fn root_with_shard_index(&self, shard_index: ShardIndex) -> Blake3Hash {
-        // TODO: Keyed hash
-        let root = BalancedMerkleTree::compute_root_only(&[
+        let root = ShardOwnSegmentsMerkleTree::compute_root_only(&[
             {
                 const {
                     assert!((ShardIndex::SIZE + LocalSegmentIndex::SIZE) as usize <= BLOCK_LEN);
@@ -563,7 +567,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             let segments_proof = intermediate_shard_block.segments_proof.unwrap_or(&[0; _]);
 
             let leaf_shards_root =
-                UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
+                LeafShardsSegmentsMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
                     intermediate_shard_block.leaf_shards_segments().map(
                         |(shard_index, own_segments)| {
                             own_segments.root_with_shard_index(shard_index)
@@ -572,11 +576,11 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 )
                 .unwrap_or_default();
 
-            BalancedMerkleTree::<2>::verify(
+            IntermediateShardBodyMerkleTree::verify(
                 &intermediate_shard_block.header.result.body_root,
                 array::from_ref(segments_proof),
                 0,
-                BalancedMerkleTree::compute_root_only(&[
+                IntermediateShardBodySegmentsMerkleTree::compute_root_only(&[
                     *intermediate_shard_block
                         .own_segments
                         .as_ref()
@@ -712,23 +716,29 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     /// Returns the default value for an empty collection of segment roots.
     #[inline]
     pub fn segments_root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-            self.iter().map(|shard_block_info| {
-                UnbalancedMerkleTree::compute_root_only::<{ u64::from(u32::MAX) }, _, _>(
-                    shard_block_info
-                        .own_segments
-                        .as_ref()
-                        .map(OwnSegments::root)
-                        .into_iter()
-                        .chain(shard_block_info.leaf_shards_segments().map(
-                            |(shard_index, own_segments)| {
-                                own_segments.root_with_shard_index(shard_index)
-                            },
-                        )),
-                )
-                .unwrap_or_default()
-            }),
-        )
+        let root = IntermediateShardsSegmentsMerkleTree::compute_root_only::<
+            { u64::from(u16::MAX) },
+            _,
+            _,
+        >(self.iter().map(|shard_block_info| {
+            IntermediateShardBlockSegmentsMerkleTree::compute_root_only::<
+                { u64::from(u32::MAX) },
+                _,
+                _,
+            >(
+                shard_block_info
+                    .own_segments
+                    .as_ref()
+                    .map(OwnSegments::root)
+                    .into_iter()
+                    .chain(shard_block_info.leaf_shards_segments().map(
+                        |(shard_index, own_segments)| {
+                            own_segments.root_with_shard_index(shard_index)
+                        },
+                    )),
+            )
+            .unwrap_or_default()
+        }))
         .unwrap_or_default();
 
         Blake3Hash::new(root)
@@ -739,16 +749,17 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-            // TODO: Keyed hash
-            self.iter().map(|shard_block_info| {
-                // Hash the root again so we can prove it, otherwise the root of headers is
-                // indistinguishable from individual block roots and can be used to confuse
-                // verifier
-                single_block_hash(shard_block_info.header.root().as_ref())
-                    .expect("Less than a single block worth of bytes; qed")
-            }),
-        )
+        let root = ChildIntermediateShardBlocksMerkleTree::compute_root_only::<
+            { u64::from(u16::MAX) },
+            _,
+            _,
+        >(self.iter().map(|shard_block_info| {
+            // Hash the root again so we can prove it, otherwise the root of headers is
+            // indistinguishable from individual block roots and can be used to confuse
+            // verifier
+            single_block_hash(shard_block_info.header.root().as_ref())
+                .expect("Less than a single block worth of bytes; qed")
+        }))
         .unwrap_or_default();
 
         Blake3Hash::new(root)
@@ -979,8 +990,7 @@ impl<'a> BeaconChainBody<'a> {
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        // TODO: Keyed hash
-        let root = BalancedMerkleTree::compute_root_only(&[
+        let root = BeaconChainBodyMerkleTree::compute_root_only(&[
             *self.own_segments.as_ref().map_or_default(OwnSegments::root),
             *self.intermediate_shard_blocks.segments_root(),
             *self.intermediate_shard_blocks.headers_root(),
@@ -1200,7 +1210,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
                 return true;
             };
 
-            BalancedMerkleTree::<2>::verify(
+            LeafShardBodyMerkleTree::verify(
                 &leaf_shard_block.header.result.body_root,
                 array::from_ref(segments.segment_roots_proof),
                 0,
@@ -1301,16 +1311,17 @@ impl<'a> LeafShardBlocksInfo<'a> {
     /// Returns the default value for an empty collection of segment roots.
     #[inline]
     pub fn segments_root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-            self.iter().map(|shard_block_info| {
-                shard_block_info.segments.map_or_default(|own_segments| {
-                    own_segments
-                        .own_segments
-                        .root_with_shard_index(shard_block_info.header.prefix.shard_index)
-                })
-            }),
-        )
-        .unwrap_or_default();
+        let root =
+            LeafShardsSegmentsMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
+                self.iter().map(|shard_block_info| {
+                    shard_block_info.segments.map_or_default(|own_segments| {
+                        own_segments
+                            .own_segments
+                            .root_with_shard_index(shard_block_info.header.prefix.shard_index)
+                    })
+                }),
+            )
+            .unwrap_or_default();
 
         Blake3Hash::new(root)
     }
@@ -1320,16 +1331,17 @@ impl<'a> LeafShardBlocksInfo<'a> {
     /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-            self.iter().map(|shard_block_info| {
-                // Hash the root again so we can prove it, otherwise root of headers is
-                // indistinguishable from individual block roots and can be used to confuse
-                // verifier
-                single_block_hash(shard_block_info.header.root().as_ref())
-                    .expect("Less than a single block worth of bytes; qed")
-            }),
-        )
-        .unwrap_or_default();
+        let root =
+            ChildLeafShardBlocksMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
+                self.iter().map(|shard_block_info| {
+                    // Hash the root again so we can prove it, otherwise root of headers is
+                    // indistinguishable from individual block roots and can be used to confuse
+                    // verifier
+                    single_block_hash(shard_block_info.header.root().as_ref())
+                        .expect("Less than a single block worth of bytes; qed")
+                }),
+            )
+            .unwrap_or_default();
 
         Blake3Hash::new(root)
     }
@@ -1505,8 +1517,8 @@ impl<'a> IntermediateShardBody<'a> {
     #[inline]
     pub fn root(&self) -> Blake3Hash {
         // Explicit nested trees to emphasize that the proof size for segments is just one hash
-        let root = BalancedMerkleTree::compute_root_only(&[
-            BalancedMerkleTree::compute_root_only(&[
+        let root = IntermediateShardBodyMerkleTree::compute_root_only(&[
+            IntermediateShardBodySegmentsMerkleTree::compute_root_only(&[
                 *self.own_segments.as_ref().map_or_default(OwnSegments::root),
                 *self.leaf_shard_blocks.segments_root(),
             ]),
@@ -1599,7 +1611,7 @@ impl<'a> Transactions<'a> {
     /// Returns the default value for an empty collection of transactions.
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        let root = UnbalancedMerkleTree::compute_root_only::<{ u64::from(u32::MAX) }, _, _>(
+        let root = TransactionsMerkleTree::compute_root_only::<{ u64::from(u32::MAX) }, _, _>(
             self.iter().map(|transaction| {
                 // Hash the hash again so we can prove it, otherwise root of transactions is
                 // indistinguishable from individual transaction roots and can be used to
@@ -1744,7 +1756,7 @@ impl<'a> LeafShardBody<'a> {
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        let root = BalancedMerkleTree::compute_root_only(&[
+        let root = LeafShardBodyMerkleTree::compute_root_only(&[
             *self.own_segments.as_ref().map_or_default(OwnSegments::root),
             *self.transactions.root(),
         ]);

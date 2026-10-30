@@ -1,7 +1,8 @@
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use ab_aligned_buffer::SharedAlignedBuffer;
-use ab_client_api::{BlockMerkleMountainRange, ContractSlotState};
+use ab_client_api::ContractSlotState;
 use ab_core_primitives::address::Address;
+use ab_core_primitives::trees::BlockMerkleMountainRange;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::mmr::MerkleMountainRangeBytes;
 use std::mem::MaybeUninit;

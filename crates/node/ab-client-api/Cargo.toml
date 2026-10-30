@@ -16,7 +16,6 @@ all-features = true
 [dependencies]
 ab-aligned-buffer = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }
-ab-merkle-tree = { workspace = true, features = ["blake3"] }
 thiserror = { workspace = true }
 triomphe = { workspace = true, features = ["std"] }
 

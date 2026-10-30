@@ -1,7 +1,5 @@
 //! Client API
 
-#![feature(const_convert, const_trait_impl)]
-
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
@@ -11,16 +9,9 @@ use ab_core_primitives::segments::{
     SuperSegmentIndex,
 };
 use ab_core_primitives::shard::ShardIndex;
-use ab_merkle_tree::blake3::MerkleMountainRange;
+use ab_core_primitives::trees::BlockMerkleMountainRange;
 use std::io;
 use triomphe::Arc;
-
-const MAX_U32_AS_U64: u64 = u64::from(u32::MAX);
-/// Type alias for Merkle Mountain Range with block roots.
-///
-/// NOTE: `u32` is smaller than `BlockNumber`'s internal `u64` but will be sufficient for a long
-/// time and substantially decrease the size of the in-memory data structure.
-pub type BlockMerkleMountainRange = MerkleMountainRange<MAX_U32_AS_U64>;
 
 /// State of a contract slot
 #[derive(Debug, Clone)]

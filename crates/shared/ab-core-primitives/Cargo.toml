@@ -23,6 +23,7 @@ array-reshape = { workspace = true }
 bech32 = { workspace = true }
 blake3 = { workspace = true }
 bytes = { workspace = true, optional = true }
+const-fn-specialization = { workspace = true }
 derive_more = { workspace = true, features = ["full"] }
 ed25519-dalek = { workspace = true, optional = true }
 hex = { workspace = true }
