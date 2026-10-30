@@ -3,6 +3,7 @@
 //! Every tree hashes its inner nodes with its own key, so a node of one tree can't be interpreted
 //! as a node of another tree. Trees with a known number of leaves also commit to it.
 
+mod alias;
 mod hashers;
 #[cfg(test)]
 mod tests;
@@ -15,7 +16,7 @@ use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::blake3::Blake3MerkleHasher;
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use ab_merkle_tree::sparse::SparseMerkleTree;
-use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
+use alias::UnbalancedMerkleTreeAlias;
 use array_reshape::FlattenEach;
 use hashers::{Blake3SizedMerkleHasher, Blake3StaticMerkleHasher};
 
@@ -104,7 +105,7 @@ const {
 const ADDRESS_BITS: u8 = Address::SIZE as u8 * u8::BITS as u8;
 
 /// Segment roots of own segments of a shard
-pub type SegmentRootsMerkleTree = UnbalancedMerkleTree<SegmentRootsMerkleHasher>;
+pub type SegmentRootsMerkleTree = <SegmentRootsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Own segments: the first local segment index and the root of segment roots
 pub type OwnSegmentsMerkleTree<'a> = BalancedMerkleTree<'a, 2, OwnSegmentsMerkleHasher>;
 /// Own segments of a leaf shard: the shard index with the first local segment index and the root
@@ -113,7 +114,7 @@ pub type ShardOwnSegmentsMerkleTree<'a> = BalancedMerkleTree<'a, 2, ShardOwnSegm
 /// Leaf shard block body: own segments and transactions
 pub type LeafShardBodyMerkleTree<'a> = BalancedMerkleTree<'a, 2, LeafShardBodyMerkleHasher>;
 /// Transactions of a leaf shard block
-pub type TransactionsMerkleTree = UnbalancedMerkleTree<TransactionsMerkleHasher>;
+pub type TransactionsMerkleTree = <TransactionsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Intermediate shard block body: segments and child leaf shard blocks
 pub type IntermediateShardBodyMerkleTree<'a> =
     BalancedMerkleTree<'a, 2, IntermediateShardBodyMerkleHasher>;
@@ -121,30 +122,34 @@ pub type IntermediateShardBodyMerkleTree<'a> =
 pub type IntermediateShardBodySegmentsMerkleTree<'a> =
     BalancedMerkleTree<'a, 2, IntermediateShardBodySegmentsMerkleHasher>;
 /// Own segments of child leaf shard blocks of an intermediate shard block
-pub type LeafShardsSegmentsMerkleTree = UnbalancedMerkleTree<LeafShardsSegmentsMerkleHasher>;
+pub type LeafShardsSegmentsMerkleTree =
+    <LeafShardsSegmentsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Child leaf shard block roots of an intermediate shard block
-pub type ChildLeafShardBlocksMerkleTree = UnbalancedMerkleTree<ChildLeafShardBlocksMerkleHasher>;
+pub type ChildLeafShardBlocksMerkleTree =
+    <ChildLeafShardBlocksMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Child intermediate shard block roots of a beacon chain block
 pub type ChildIntermediateShardBlocksMerkleTree =
-    UnbalancedMerkleTree<ChildIntermediateShardBlocksMerkleHasher>;
+    <ChildIntermediateShardBlocksMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Beacon chain block body: own segments, segments of intermediate shards, child intermediate
 /// shard blocks and PoT checkpoints
 pub type BeaconChainBodyMerkleTree<'a> = BalancedMerkleTree<'a, 4, BeaconChainBodyMerkleHasher>;
 /// Segments of child intermediate shard blocks of a beacon chain block
 pub type IntermediateShardsSegmentsMerkleTree =
-    UnbalancedMerkleTree<IntermediateShardsSegmentsMerkleHasher>;
+    <IntermediateShardsSegmentsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Segments of one intermediate shard block: its own segments and those of its leaf shards
 pub type IntermediateShardBlockSegmentsMerkleTree =
-    UnbalancedMerkleTree<IntermediateShardBlockSegmentsMerkleHasher>;
+    <IntermediateShardBlockSegmentsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Beacon chain block header fields, its root is the block root
-pub type BeaconChainHeaderMerkleTree = UnbalancedMerkleTree<BeaconChainHeaderMerkleHasher>;
+pub type BeaconChainHeaderMerkleTree =
+    <BeaconChainHeaderMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Intermediate shard block header fields, its root is the block root
 pub type IntermediateShardHeaderMerkleTree =
-    UnbalancedMerkleTree<IntermediateShardHeaderMerkleHasher>;
+    <IntermediateShardHeaderMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Leaf shard block header fields, its root is the block root
-pub type LeafShardHeaderMerkleTree = UnbalancedMerkleTree<LeafShardHeaderMerkleHasher>;
+pub type LeafShardHeaderMerkleTree =
+    <LeafShardHeaderMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Segment roots with their positions in a super segment
-pub type SuperSegmentMerkleTree = UnbalancedMerkleTree<SuperSegmentMerkleHasher>;
+pub type SuperSegmentMerkleTree = <SuperSegmentMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Global state: state roots of owners by owner address
 pub type StateOwnersSparseMerkleTree =
     SparseMerkleTree<ADDRESS_BITS, StateOwnersSparseMerkleHasher>;
