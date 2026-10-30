@@ -47,11 +47,14 @@ where
 /// Read exactly `dst.len()` bytes at `address` with a single `read_slice()` call
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-fn read_exact(
-    memory: &impl VirtualMemory,
+fn read_exact<Memory>(
+    memory: &Memory,
     address: u64,
     dst: &mut [u8],
-) -> Result<(), VirtualMemoryError> {
+) -> Result<(), VirtualMemoryError>
+where
+    Memory: VirtualMemory,
+{
     let Ok(len) = u32::try_from(dst.len()) else {
         cold_path();
         return Err(VirtualMemoryError::OutOfBoundsRead { address });
@@ -140,13 +143,14 @@ where
 /// (little-endian)
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
-fn read_mem_element<Reg>(
-    memory: &impl VirtualMemory,
+fn read_mem_element<Reg, Memory>(
+    memory: &Memory,
     addr: u64,
     eew: Eew,
 ) -> Result<[u8; const { usize::from(Eew::MAX_BYTES) }], VirtualMemoryError>
 where
     Reg: Register,
+    Memory: VirtualMemory,
 {
     let mut out = [0; _];
     let element = out
@@ -250,7 +254,7 @@ where
         // `nf <= Nf::MAX`, which is exactly the length of `field_buf`, so every field has a slot
         for (f, field) in (0..nf.fields_per_segment()).zip(&mut field_buf) {
             let addr = effective_address::<Reg>(elem_base, u64::from(f * elem_bytes));
-            match read_mem_element::<Reg>(memory, addr, eew) {
+            match read_mem_element::<Reg, _>(memory, addr, eew) {
                 Ok(data) => {
                     *field = u64::from_le_bytes(data);
                 }
@@ -322,7 +326,7 @@ where
         for field in element.fields() {
             let f = field.index();
             let addr = effective_address::<Reg>(elem_base, u64::from(f * elem_bytes));
-            let data = match read_mem_element::<Reg>(memory, addr, eew) {
+            let data = match read_mem_element::<Reg, _>(memory, addr, eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
                     cold_path();
@@ -390,7 +394,7 @@ where
             let f = field.index();
             let addr =
                 effective_address::<Reg>(elem_addr, u64::from(f) * u64::from(data_elem_bytes));
-            let data = match read_mem_element::<Reg>(memory, addr, data_eew) {
+            let data = match read_mem_element::<Reg, _>(memory, addr, data_eew) {
                 Ok(data) => data,
                 Err(mem_err) => {
                     cold_path();
