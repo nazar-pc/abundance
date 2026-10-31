@@ -99,17 +99,15 @@ const ADDRESS_BITS: u8 = Address::SIZE as u8 * u8::BITS as u8;
 
 /// Segment roots of own segments of a shard
 pub type SegmentRootsMerkleTree = <SegmentRootsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
-/// Own segments: the first local segment index and the root of segment roots
+/// Own segments of a shard
 pub type OwnSegmentsMerkleTree<'a> = BalancedMerkleTree<'a, 2, OwnSegmentsMerkleHasher>;
-/// Own segments of a leaf shard: the shard index with the first local segment index and the root
-/// of segment roots
+/// Own segments of a leaf shard
 pub type ShardOwnSegmentsMerkleTree<'a> = BalancedMerkleTree<'a, 2, ShardOwnSegmentsMerkleHasher>;
-/// Leaf shard block body: own segments and transactions
+/// Leaf shard block body
 pub type LeafShardBodyMerkleTree<'a> = BalancedMerkleTree<'a, 2, LeafShardBodyMerkleHasher>;
 /// Transactions of a leaf shard block
 pub type TransactionsMerkleTree = <TransactionsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
-/// Intermediate shard block body: own segments, segments of leaf shards and child leaf shard
-/// blocks
+/// Intermediate shard block body
 pub type IntermediateShardBodyMerkleTree =
     <IntermediateShardBodyMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Own segments of child leaf shard blocks of an intermediate shard block
@@ -121,8 +119,7 @@ pub type ChildLeafShardBlocksMerkleTree =
 /// Child intermediate shard block roots of a beacon chain block
 pub type ChildIntermediateShardBlocksMerkleTree =
     <ChildIntermediateShardBlocksMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
-/// Beacon chain block body: own segments, segments of intermediate shards, child intermediate
-/// shard blocks and PoT checkpoints
+/// Beacon chain block body
 pub type BeaconChainBodyMerkleTree<'a> = BalancedMerkleTree<'a, 4, BeaconChainBodyMerkleHasher>;
 /// Segments of child intermediate shard blocks of a beacon chain block
 pub type IntermediateShardsSegmentsMerkleTree =
