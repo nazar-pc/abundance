@@ -1,7 +1,8 @@
 //! Merkle Trees used by the protocol.
 //!
 //! Every tree hashes its inner nodes with its own key, so a node of one tree can't be interpreted
-//! as a node of another tree. Trees with a known number of leaves also commit to it.
+//! as a node of another tree. Trees with a number of leaves that isn't known at compile time also
+//! commit to it.
 
 mod alias;
 mod hashers;
@@ -23,18 +24,15 @@ use hashers::{Blake3SizedMerkleHasher, Blake3StaticMerkleHasher};
 type SegmentRootsMerkleHasher =
     Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"segment-roots-merkle-tree") }>;
 type OwnSegmentsMerkleHasher =
-    Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"own-segments-merkle-tree") }>;
+    Blake3StaticMerkleHasher<{ ab_blake3::const_hash(b"own-segments-merkle-tree") }>;
 type ShardOwnSegmentsMerkleHasher =
-    Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"shard-own-segments-merkle-tree") }>;
+    Blake3StaticMerkleHasher<{ ab_blake3::const_hash(b"shard-own-segments-merkle-tree") }>;
 type LeafShardBodyMerkleHasher =
-    Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"leaf-shard-body-merkle-tree") }>;
+    Blake3StaticMerkleHasher<{ ab_blake3::const_hash(b"leaf-shard-body-merkle-tree") }>;
 type TransactionsMerkleHasher =
     Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"transactions-merkle-tree") }>;
 type IntermediateShardBodyMerkleHasher =
-    Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"intermediate-shard-body-merkle-tree") }>;
-type IntermediateShardBodySegmentsMerkleHasher = Blake3SizedMerkleHasher<
-    { ab_blake3::const_hash(b"intermediate-shard-body-segments-merkle-tree") },
->;
+    Blake3StaticMerkleHasher<{ ab_blake3::const_hash(b"intermediate-shard-body-merkle-tree") }>;
 type LeafShardsSegmentsMerkleHasher =
     Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"leaf-shards-segments-merkle-tree") }>;
 type ChildLeafShardBlocksMerkleHasher =
@@ -43,18 +41,18 @@ type ChildIntermediateShardBlocksMerkleHasher = Blake3SizedMerkleHasher<
     { ab_blake3::const_hash(b"child-intermediate-shard-blocks-merkle-tree") },
 >;
 type BeaconChainBodyMerkleHasher =
-    Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"beacon-chain-body-merkle-tree") }>;
+    Blake3StaticMerkleHasher<{ ab_blake3::const_hash(b"beacon-chain-body-merkle-tree") }>;
 type IntermediateShardsSegmentsMerkleHasher =
     Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"intermediate-shards-segments-merkle-tree") }>;
 type IntermediateShardBlockSegmentsMerkleHasher = Blake3SizedMerkleHasher<
     { ab_blake3::const_hash(b"intermediate-shard-block-segments-merkle-tree") },
 >;
 type BeaconChainHeaderMerkleHasher =
-    Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"beacon-chain-header-merkle-tree") }>;
+    Blake3StaticMerkleHasher<{ ab_blake3::const_hash(b"beacon-chain-header-merkle-tree") }>;
 type IntermediateShardHeaderMerkleHasher =
-    Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"intermediate-shard-header-merkle-tree") }>;
+    Blake3StaticMerkleHasher<{ ab_blake3::const_hash(b"intermediate-shard-header-merkle-tree") }>;
 type LeafShardHeaderMerkleHasher =
-    Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"leaf-shard-header-merkle-tree") }>;
+    Blake3StaticMerkleHasher<{ ab_blake3::const_hash(b"leaf-shard-header-merkle-tree") }>;
 type SuperSegmentMerkleHasher =
     Blake3SizedMerkleHasher<{ ab_blake3::const_hash(b"super-segment-merkle-tree") }>;
 type StateOwnersSparseMerkleHasher =
@@ -69,21 +67,20 @@ const {
     let keys = [
         Blake3MerkleHasher::KEY,
         SegmentRootsMerkleHasher::BASE_KEY,
-        OwnSegmentsMerkleHasher::BASE_KEY,
-        ShardOwnSegmentsMerkleHasher::BASE_KEY,
-        LeafShardBodyMerkleHasher::BASE_KEY,
+        OwnSegmentsMerkleHasher::KEY,
+        ShardOwnSegmentsMerkleHasher::KEY,
+        LeafShardBodyMerkleHasher::KEY,
         TransactionsMerkleHasher::BASE_KEY,
-        IntermediateShardBodyMerkleHasher::BASE_KEY,
-        IntermediateShardBodySegmentsMerkleHasher::BASE_KEY,
+        IntermediateShardBodyMerkleHasher::KEY,
         LeafShardsSegmentsMerkleHasher::BASE_KEY,
         ChildLeafShardBlocksMerkleHasher::BASE_KEY,
         ChildIntermediateShardBlocksMerkleHasher::BASE_KEY,
-        BeaconChainBodyMerkleHasher::BASE_KEY,
+        BeaconChainBodyMerkleHasher::KEY,
         IntermediateShardsSegmentsMerkleHasher::BASE_KEY,
         IntermediateShardBlockSegmentsMerkleHasher::BASE_KEY,
-        BeaconChainHeaderMerkleHasher::BASE_KEY,
-        IntermediateShardHeaderMerkleHasher::BASE_KEY,
-        LeafShardHeaderMerkleHasher::BASE_KEY,
+        BeaconChainHeaderMerkleHasher::KEY,
+        IntermediateShardHeaderMerkleHasher::KEY,
+        LeafShardHeaderMerkleHasher::KEY,
         SuperSegmentMerkleHasher::BASE_KEY,
         StateOwnersSparseMerkleHasher::KEY,
         StateOwnerContractsSparseMerkleHasher::KEY,
@@ -115,12 +112,10 @@ pub type ShardOwnSegmentsMerkleTree<'a> = BalancedMerkleTree<'a, 2, ShardOwnSegm
 pub type LeafShardBodyMerkleTree<'a> = BalancedMerkleTree<'a, 2, LeafShardBodyMerkleHasher>;
 /// Transactions of a leaf shard block
 pub type TransactionsMerkleTree = <TransactionsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
-/// Intermediate shard block body: segments and child leaf shard blocks
-pub type IntermediateShardBodyMerkleTree<'a> =
-    BalancedMerkleTree<'a, 2, IntermediateShardBodyMerkleHasher>;
-/// Segments of an intermediate shard block body: own segments and segments of leaf shards
-pub type IntermediateShardBodySegmentsMerkleTree<'a> =
-    BalancedMerkleTree<'a, 2, IntermediateShardBodySegmentsMerkleHasher>;
+/// Intermediate shard block body: own segments, segments of leaf shards and child leaf shard
+/// blocks
+pub type IntermediateShardBodyMerkleTree =
+    <IntermediateShardBodyMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
 /// Own segments of child leaf shard blocks of an intermediate shard block
 pub type LeafShardsSegmentsMerkleTree =
     <LeafShardsSegmentsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
@@ -262,7 +257,6 @@ impl_merkle_hasher!(
     LeafShardBodyMerkleHasher,
     TransactionsMerkleHasher,
     IntermediateShardBodyMerkleHasher,
-    IntermediateShardBodySegmentsMerkleHasher,
     LeafShardsSegmentsMerkleHasher,
     ChildLeafShardBlocksMerkleHasher,
     ChildIntermediateShardBlocksMerkleHasher,

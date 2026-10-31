@@ -24,8 +24,7 @@ use crate::solutions::Solution;
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader, TransactionSlot};
 use crate::trees::{
-    IntermediateShardBodyMerkleTree, IntermediateShardBodySegmentsMerkleTree,
-    LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
+    IntermediateShardBodyMerkleTree, LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
 };
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use core::ptr;
@@ -483,11 +482,9 @@ impl TestIntermediateShardBlock {
                     leaf_shards_roots,
                 )
                 .unwrap_or_default();
-            Blake3Hash::new(IntermediateShardBodyMerkleTree::compute_root_only(&[
-                IntermediateShardBodySegmentsMerkleTree::compute_root_only(&[
-                    *own_segments_root,
-                    leaf_shards_root,
-                ]),
+            Blake3Hash::new(IntermediateShardBodyMerkleTree::compute_root_only_array(&[
+                *own_segments_root,
+                leaf_shards_root,
                 segments_proof,
             ]))
         };

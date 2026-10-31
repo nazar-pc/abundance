@@ -18,10 +18,9 @@ use crate::transaction::Transaction;
 use crate::trees::{
     BeaconChainBodyMerkleTree, ChildIntermediateShardBlocksMerkleTree,
     ChildLeafShardBlocksMerkleTree, IntermediateShardBlockSegmentsMerkleTree,
-    IntermediateShardBodyMerkleTree, IntermediateShardBodySegmentsMerkleTree,
-    IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
-    OwnSegmentsMerkleTree, SegmentRootsMerkleTree, ShardOwnSegmentsMerkleTree,
-    TransactionsMerkleTree,
+    IntermediateShardBodyMerkleTree, IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree,
+    LeafShardsSegmentsMerkleTree, OwnSegmentsMerkleTree, SegmentRootsMerkleTree,
+    ShardOwnSegmentsMerkleTree, TransactionsMerkleTree,
 };
 use ab_blake3::{BLOCK_LEN, OUT_LEN, single_block_hash};
 use ab_io_type::alignment::Alignment;
@@ -571,18 +570,16 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 )
                 .unwrap_or_default();
 
-            IntermediateShardBodyMerkleTree::verify(
-                &intermediate_shard_block.header.result.body_root,
-                array::from_ref(segments_proof),
-                0,
-                IntermediateShardBodySegmentsMerkleTree::compute_root_only(&[
-                    *intermediate_shard_block
-                        .own_segments
-                        .as_ref()
-                        .map_or_default(OwnSegments::root),
-                    leaf_shards_root,
-                ]),
-            )
+            let body_root = IntermediateShardBodyMerkleTree::compute_root_only_array(&[
+                *intermediate_shard_block
+                    .own_segments
+                    .as_ref()
+                    .map_or_default(OwnSegments::root),
+                leaf_shards_root,
+                *segments_proof,
+            ]);
+
+            body_root == *intermediate_shard_block.header.result.body_root
         })
     }
 
@@ -1511,12 +1508,9 @@ impl<'a> IntermediateShardBody<'a> {
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        // Explicit nested trees to emphasize that the proof size for segments is just one hash
-        let root = IntermediateShardBodyMerkleTree::compute_root_only(&[
-            IntermediateShardBodySegmentsMerkleTree::compute_root_only(&[
-                *self.own_segments.as_ref().map_or_default(OwnSegments::root),
-                *self.leaf_shard_blocks.segments_root(),
-            ]),
+        let root = IntermediateShardBodyMerkleTree::compute_root_only_array(&[
+            *self.own_segments.as_ref().map_or_default(OwnSegments::root),
+            *self.leaf_shard_blocks.segments_root(),
             *self.leaf_shard_blocks.headers_root(),
         ]);
 

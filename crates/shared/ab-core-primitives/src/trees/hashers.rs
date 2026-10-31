@@ -4,7 +4,7 @@ use const_fn_specialization::const_fn_specialization;
 
 /// Keyed BLAKE3 hasher of inner nodes with [`Self::KEY`], which doesn't depend on the tree size.
 ///
-/// Used for trees that don't know the number of leaves upfront and for sparse trees.
+/// Used for trees with a number of leaves known at compile time, the MMR and sparse trees.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Blake3StaticMerkleHasher<const KEY: [u8; KEY_LEN]>;
 
@@ -32,7 +32,7 @@ impl<const KEY: [u8; KEY_LEN]> Blake3StaticMerkleHasher<KEY> {
 
 /// Keyed BLAKE3 hasher of inner nodes with [`Self::key()`], which commits to the tree size.
 ///
-/// Used for trees that know the number of leaves upfront.
+/// Used for trees with a number of leaves that is only known at runtime.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Blake3SizedMerkleHasher<const BASE_KEY: [u8; KEY_LEN]> {
     key: [u8; KEY_LEN],
