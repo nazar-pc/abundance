@@ -1,8 +1,9 @@
 use crate::importing_blocks::private::ImportingBlockEntryInner;
-use ab_client_api::{BlockMerkleMountainRange, ContractSlotState};
+use ab_client_api::ContractSlotState;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
+use ab_core_primitives::trees::BlockMerkleMountainRange;
 use async_lock::{RwLock, RwLockWriteGuard};
 use parking_lot::Mutex;
 use stable_deref_trait::StableDeref;
@@ -14,8 +15,9 @@ use yoke::{Yoke, Yokeable};
 
 #[expect(clippy::inline_modules, reason = "Intentional tiny module inline")]
 mod private {
-    use ab_client_api::{BlockMerkleMountainRange, ContractSlotState};
+    use ab_client_api::ContractSlotState;
     use ab_core_primitives::block::BlockRoot;
+    use ab_core_primitives::trees::BlockMerkleMountainRange;
     use async_lock::RwLock;
     use triomphe::Arc;
 

@@ -9,10 +9,10 @@ use crate::pieces::{PieceIndex, Record, SegmentProof};
 #[cfg(feature = "alloc")]
 pub use crate::segments::archival_history_segment::ArchivedHistorySegment;
 use crate::shard::ShardIndex;
+use crate::trees::SuperSegmentMerkleTree;
 use ab_blake3::{single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
-use ab_merkle_tree::blake3::UnbalancedMerkleTree;
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
@@ -319,9 +319,8 @@ impl SuperSegment {
             u64::from(previous_header.max_segment_index.as_inner()) + u64::from(num_segments),
         );
 
-        // TODO: Keyed hash
         let maybe_super_segment_root =
-            UnbalancedMerkleTree::compute_root_only::<
+            SuperSegmentMerkleTree::compute_root_only::<
                 { u64::from(SuperSegmentRoot::MAX_SEGMENTS) },
                 _,
                 _,
@@ -345,9 +344,8 @@ impl SuperSegment {
 
     /// Produce a proof for a segment in the super segment at a given position
     pub fn proof_for_segment(&self, segment_position: SegmentPosition) -> Option<SegmentProof> {
-        // TODO: Keyed hash
         let mut segment_proof = [MaybeUninit::uninit(); _];
-        let (_root, proof_hashes) = UnbalancedMerkleTree::compute_root_and_proof_in::<
+        let (_root, proof_hashes) = SuperSegmentMerkleTree::compute_root_and_proof_in::<
             { u64::from(SuperSegmentRoot::MAX_SEGMENTS) },
             _,
             _,
@@ -694,7 +692,7 @@ impl SegmentRoot {
         let segment_proof = segment_proof
             .split_once(|hash| hash == &[0; _])
             .map_or(segment_proof.as_slice(), |(before, _after)| before);
-        UnbalancedMerkleTree::verify(
+        SuperSegmentMerkleTree::verify(
             super_segment_root,
             segment_proof,
             u64::from(segment_position),

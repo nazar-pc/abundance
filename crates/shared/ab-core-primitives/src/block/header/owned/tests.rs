@@ -269,7 +269,7 @@ fn from_parts_into_writes_nothing_on_errors() {
             &consensus_parameters,
             &mut buffer,
         ),
-        Err(OwnedBeaconChainHeaderError::TooManyChildShardBlocks { actual })
+        Err(OwnedBeaconChainHeaderError::TooManyIntermediateShardBlocks { actual })
             if actual == child_shard_blocks.len()
     ));
     assert_eq!(buffer.as_slice(), bytes_before);
@@ -284,7 +284,7 @@ fn from_parts_into_writes_nothing_on_errors() {
             &child_shard_blocks,
             &mut buffer,
         ),
-        Err(OwnedIntermediateShardHeaderError::TooManyChildShardBlocks { actual })
+        Err(OwnedIntermediateShardHeaderError::TooManyLeafShardBlocks { actual })
             if actual == child_shard_blocks.len()
     ));
     assert_eq!(buffer.as_slice(), bytes_before);

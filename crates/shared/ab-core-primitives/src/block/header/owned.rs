@@ -60,10 +60,10 @@ fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSeal<'_>) {
 /// Errors for [`OwnedBeaconChainHeader`]
 #[derive(Debug, thiserror::Error)]
 pub enum OwnedBeaconChainHeaderError {
-    /// Too many child shard blocks
-    #[error("Too many child shard blocks: {actual}")]
-    TooManyChildShardBlocks {
-        /// Actual number of child shard blocks
+    /// Too many intermediate shard blocks
+    #[error("Too many intermediate shard blocks: {actual}")]
+    TooManyIntermediateShardBlocks {
+        /// Actual number of intermediate shard blocks
         actual: usize,
     },
     /// Header with the largest possible consensus parameters and seal doesn't fit into the buffer
@@ -112,16 +112,16 @@ impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
 impl OwnedBeaconChainHeader {
     /// Max allocation needed by this header
     #[inline(always)]
-    pub const fn max_allocation_for(child_shard_blocks: &[BlockRoot]) -> u32 {
+    pub const fn max_allocation_for(intermediate_shard_blocks: &[BlockRoot]) -> u32 {
         BlockHeaderPrefix::SIZE
             + BlockHeaderResult::SIZE
             + BlockHeaderConsensusInfo::SIZE
             + (
-                // Number of child shard blocks
+                // Number of intermediate shard blocks
                 u16::SIZE
                 // Padding
                 + <[u8; 2]>::SIZE
-                + size_of_val(child_shard_blocks) as u32
+                + size_of_val(intermediate_shard_blocks) as u32
             )
             + BlockHeaderConsensusParameters::MAX_SIZE
             + BlockHeaderSeal::MAX_SIZE
@@ -132,17 +132,17 @@ impl OwnedBeaconChainHeader {
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
-        child_shard_blocks: &[BlockRoot],
+        intermediate_shard_blocks: &[BlockRoot],
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
     ) -> Result<OwnedBeaconChainHeaderUnsealed, OwnedBeaconChainHeaderError> {
         let mut buffer =
-            OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(child_shard_blocks));
+            OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(intermediate_shard_blocks));
 
         Self::append_unsealed(
             prefix,
             result,
             consensus_info,
-            child_shard_blocks,
+            intermediate_shard_blocks,
             consensus_parameters,
             &mut buffer,
         )?;
@@ -159,7 +159,7 @@ impl OwnedBeaconChainHeader {
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
-        child_shard_blocks: &[BlockRoot],
+        intermediate_shard_blocks: &[BlockRoot],
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedBeaconChainHeaderUnsealedRef<'a>, OwnedBeaconChainHeaderError> {
@@ -169,7 +169,7 @@ impl OwnedBeaconChainHeader {
             prefix,
             result,
             consensus_info,
-            child_shard_blocks,
+            intermediate_shard_blocks,
             consensus_parameters,
             buffer,
         )?;
@@ -185,7 +185,7 @@ impl OwnedBeaconChainHeader {
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
-        child_shard_blocks: &[BlockRoot],
+        intermediate_shard_blocks: &[BlockRoot],
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedBeaconChainHeaderError> {
@@ -201,16 +201,16 @@ impl OwnedBeaconChainHeader {
             num_shards,
         } = fixed_parameters;
 
-        let num_blocks = child_shard_blocks.len();
+        let num_blocks = intermediate_shard_blocks.len();
         let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
-            OwnedBeaconChainHeaderError::TooManyChildShardBlocks { actual: num_blocks }
+            OwnedBeaconChainHeaderError::TooManyIntermediateShardBlocks { actual: num_blocks }
         })?;
         // The header with the largest seal must fit after the bytes already in the buffer, so
         // that neither the appends below nor the seal appended later can fail. With the number of
-        // child shard blocks checked above, their size fits into `u32`.
+        // intermediate shard blocks checked above, their size fits into `u32`.
         if buffer
             .len()
-            .checked_add(Self::max_allocation_for(child_shard_blocks))
+            .checked_add(Self::max_allocation_for(intermediate_shard_blocks))
             .is_none()
         {
             return Err(OwnedBeaconChainHeaderError::HeaderTooLarge);
@@ -232,7 +232,8 @@ impl OwnedBeaconChainHeader {
             let true = buffer.append(&[0; 2]) else {
                 unreachable!("Checked size above; qed");
             };
-            let true = buffer.append(BlockRoot::repr_from_slice(child_shard_blocks).as_flattened())
+            let true =
+                buffer.append(BlockRoot::repr_from_slice(intermediate_shard_blocks).as_flattened())
             else {
                 unreachable!("Checked size above; qed");
             };
@@ -401,10 +402,10 @@ impl OwnedBeaconChainHeaderUnsealedRef<'_> {
 /// Errors for [`OwnedIntermediateShardHeader`]
 #[derive(Debug, thiserror::Error)]
 pub enum OwnedIntermediateShardHeaderError {
-    /// Too many child shard blocks
-    #[error("Too many child shard blocks: {actual}")]
-    TooManyChildShardBlocks {
-        /// Actual number of child shard blocks
+    /// Too many leaf shard blocks
+    #[error("Too many leaf shard blocks: {actual}")]
+    TooManyLeafShardBlocks {
+        /// Actual number of leaf shard blocks
         actual: usize,
     },
     /// Header doesn't fit into the buffer after the bytes already there.
@@ -452,17 +453,17 @@ impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
 impl OwnedIntermediateShardHeader {
     /// Max allocation needed by this header
     #[inline(always)]
-    pub const fn max_allocation_for(child_shard_blocks: &[BlockRoot]) -> u32 {
+    pub const fn max_allocation_for(leaf_shard_blocks: &[BlockRoot]) -> u32 {
         BlockHeaderPrefix::SIZE
             + BlockHeaderResult::SIZE
             + BlockHeaderConsensusInfo::SIZE
             + BlockHeaderBeaconChainInfo::SIZE
             + (
-                // Number of child shard blocks
+                // Number of leaf shard blocks
                 u16::SIZE
                 // Padding
                 + <[u8; 2]>::SIZE
-                + size_of_val(child_shard_blocks) as u32
+                + size_of_val(leaf_shard_blocks) as u32
             )
             + BlockHeaderSeal::MAX_SIZE
     }
@@ -473,17 +474,17 @@ impl OwnedIntermediateShardHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-        child_shard_blocks: &[BlockRoot],
+        leaf_shard_blocks: &[BlockRoot],
     ) -> Result<OwnedIntermediateShardHeaderUnsealed, OwnedIntermediateShardHeaderError> {
         let mut buffer =
-            OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(child_shard_blocks));
+            OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(leaf_shard_blocks));
 
         Self::append_unsealed(
             prefix,
             result,
             consensus_info,
             beacon_chain_info,
-            child_shard_blocks,
+            leaf_shard_blocks,
             &mut buffer,
         )?;
 
@@ -500,7 +501,7 @@ impl OwnedIntermediateShardHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-        child_shard_blocks: &[BlockRoot],
+        leaf_shard_blocks: &[BlockRoot],
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedIntermediateShardHeaderUnsealedRef<'a>, OwnedIntermediateShardHeaderError>
     {
@@ -511,7 +512,7 @@ impl OwnedIntermediateShardHeader {
             result,
             consensus_info,
             beacon_chain_info,
-            child_shard_blocks,
+            leaf_shard_blocks,
             buffer,
         )?;
 
@@ -527,19 +528,19 @@ impl OwnedIntermediateShardHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-        child_shard_blocks: &[BlockRoot],
+        leaf_shard_blocks: &[BlockRoot],
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedIntermediateShardHeaderError> {
-        let num_blocks = child_shard_blocks.len();
+        let num_blocks = leaf_shard_blocks.len();
         let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
-            OwnedIntermediateShardHeaderError::TooManyChildShardBlocks { actual: num_blocks }
+            OwnedIntermediateShardHeaderError::TooManyLeafShardBlocks { actual: num_blocks }
         })?;
         // The header with the largest seal must fit after the bytes already in the buffer, so
         // that neither the appends below nor the seal appended later can fail. With the number of
-        // child shard blocks checked above, their size fits into `u32`.
+        // leaf shard blocks checked above, their size fits into `u32`.
         if buffer
             .len()
-            .checked_add(Self::max_allocation_for(child_shard_blocks))
+            .checked_add(Self::max_allocation_for(leaf_shard_blocks))
             .is_none()
         {
             return Err(OwnedIntermediateShardHeaderError::HeaderTooLarge);
@@ -564,7 +565,7 @@ impl OwnedIntermediateShardHeader {
             let true = buffer.append(&[0; 2]) else {
                 unreachable!("Checked size above; qed");
             };
-            let true = buffer.append(BlockRoot::repr_from_slice(child_shard_blocks).as_flattened())
+            let true = buffer.append(BlockRoot::repr_from_slice(leaf_shard_blocks).as_flattened())
             else {
                 unreachable!("Checked size above; qed");
             };

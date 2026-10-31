@@ -374,10 +374,11 @@ impl<'a> BeaconChainBlock<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         self.body.root() == self.header.result.body_root
-            && self.header.child_shard_blocks().len() == self.body.intermediate_shard_blocks().len()
+            && self.header.intermediate_shard_blocks().len()
+                == self.body.intermediate_shard_blocks().len()
             && self
                 .header
-                .child_shard_blocks()
+                .intermediate_shard_blocks()
                 .iter()
                 .zip(self.body.intermediate_shard_blocks().iter())
                 .all(|(child_shard_block_root, intermediate_shard_block)| {
@@ -493,10 +494,10 @@ impl<'a> IntermediateShardBlock<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         self.body.root() == self.header.result.body_root
-            && self.header.child_shard_blocks().len() == self.body.leaf_shard_blocks().len()
+            && self.header.leaf_shard_blocks().len() == self.body.leaf_shard_blocks().len()
             && self
                 .header
-                .child_shard_blocks()
+                .leaf_shard_blocks()
                 .iter()
                 .zip(self.body.leaf_shard_blocks().iter())
                 .all(|(child_shard_block_root, leaf_shard_block)| {

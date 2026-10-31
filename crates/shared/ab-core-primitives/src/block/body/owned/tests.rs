@@ -23,8 +23,11 @@ use crate::shard::{RealShardKind, ShardIndex};
 use crate::solutions::Solution;
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader, TransactionSlot};
+use crate::trees::{
+    IntermediateShardBodyMerkleTree, IntermediateShardBodySegmentsMerkleTree,
+    LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
+};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
-use ab_merkle_tree::blake3::{BalancedMerkleTree, UnbalancedMerkleTree};
 use core::ptr;
 use std::iter;
 
@@ -329,7 +332,7 @@ impl TestLeafShardBlock {
                 // reject
                 let own_segments =
                     OwnSegments::new_unchecked(*first_local_segment_index, segment_roots);
-                Blake3Hash::new(BalancedMerkleTree::compute_root_only(&[
+                Blake3Hash::new(LeafShardBodyMerkleTree::compute_root_only(&[
                     *own_segments.root(),
                     segment_roots_proof,
                 ]))
@@ -476,12 +479,15 @@ impl TestIntermediateShardBlock {
                 },
             );
             let leaf_shards_root =
-                UnbalancedMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
+                LeafShardsSegmentsMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
                     leaf_shards_roots,
                 )
                 .unwrap_or_default();
-            Blake3Hash::new(BalancedMerkleTree::compute_root_only(&[
-                BalancedMerkleTree::compute_root_only(&[*own_segments_root, leaf_shards_root]),
+            Blake3Hash::new(IntermediateShardBodyMerkleTree::compute_root_only(&[
+                IntermediateShardBodySegmentsMerkleTree::compute_root_only(&[
+                    *own_segments_root,
+                    leaf_shards_root,
+                ]),
                 segments_proof,
             ]))
         };

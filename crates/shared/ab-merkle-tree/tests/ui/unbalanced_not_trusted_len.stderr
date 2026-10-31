@@ -23,8 +23,8 @@ note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_only`
    |     pub fn compute_root_only<'a, const MAX_N: u64, Item, Iter>(
    |            ----------------- required by a bound in this associated function
 ...
-   |         Iter::IntoIter: TrustedLen,
-   |                         ^^^^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_only`
+   |         Iter: IntoIterator<Item = Item, IntoIter: TrustedLen> + 'a,
+   |                                                   ^^^^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_only`
 help: consider removing this method call, as the receiver has type `Copied<std::slice::Iter<'_, [u8; 32]>>` and `Copied<std::slice::Iter<'_, [u8; 32]>>: TrustedLen` trivially holds
    |
 10 -     UnbalancedMerkleTree::compute_root_only::<4, _, _>(leaves.iter().copied().filter_map(Some));
@@ -56,8 +56,8 @@ note: required by a bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_
    |     pub fn compute_root_and_proof_in<'a, 'proof, const MAX_N: u64, Item, Iter>(
    |            ------------------------- required by a bound in this associated function
 ...
-   |         Iter::IntoIter: TrustedLen,
-   |                         ^^^^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_in`
+   |         Iter: IntoIterator<Item = Item, IntoIter: TrustedLen> + 'a,
+   |                                                   ^^^^^^^^^^ required by this bound in `UnbalancedMerkleTree::<H>::compute_root_and_proof_in`
 help: consider removing this method call, as the receiver has type `Copied<std::slice::Iter<'_, [u8; 32]>>` and `Copied<std::slice::Iter<'_, [u8; 32]>>: TrustedLen` trivially holds
    |
 12 -         leaves.iter().copied().filter_map(Some),

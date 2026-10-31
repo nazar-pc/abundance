@@ -15,11 +15,15 @@ use crate::pot::{PotOutput, PotParametersChange, SlotNumber};
 use crate::segments::SuperSegmentRoot;
 use crate::shard::{NumShards, NumShardsUnchecked, RealShardKind, ShardIndex, ShardKind};
 use crate::solutions::{Solution, SolutionRange};
+use crate::trees::{
+    BeaconChainHeaderMerkleTree, ChildIntermediateShardBlocksMerkleTree,
+    ChildLeafShardBlocksMerkleTree, IntermediateShardHeaderMerkleTree, LeafShardHeaderMerkleTree,
+};
 use ab_blake3::{BLOCK_LEN, single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
-use ab_merkle_tree::blake3::UnbalancedMerkleTree;
 use blake3::CHUNK_LEN;
+use core::iter::TrustedLen;
 use core::num::NonZeroU32;
 use core::ops::Deref;
 use core::{fmt, slice};
@@ -95,7 +99,6 @@ impl BlockHeaderPrefix {
         const {
             assert!(size_of::<Self>() <= CHUNK_LEN);
         }
-        // TODO: Keyed hash
         Blake3Hash::new(
             single_chunk_hash(self.as_bytes())
                 .expect("Less than a single chunk worth of bytes; qed"),
@@ -123,7 +126,6 @@ pub struct BlockHeaderConsensusInfo {
 impl BlockHeaderConsensusInfo {
     /// Hash of the consensus info, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash
         Blake3Hash::from(blake3::hash(self.as_bytes()))
     }
 }
@@ -147,7 +149,6 @@ impl BlockHeaderBeaconChainInfo {
         const {
             assert!(size_of::<Self>() <= BLOCK_LEN);
         }
-        // TODO: Keyed hash
         Blake3Hash::new(
             single_block_hash(self.as_bytes())
                 .expect("Less than a single block worth of bytes; qed"),
@@ -455,7 +456,6 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
             num_shards,
         } = fixed_parameters;
 
-        // TODO: Keyed hash
         let mut hasher = blake3::Hasher::new();
         hasher.update(solution_range.as_bytes());
         hasher.update(&slot_iterations.get().to_le_bytes());
@@ -526,23 +526,19 @@ impl<'a> BlockHeaderChildShardBlocks<'a> {
         Some((Self { child_shard_blocks }, bytes))
     }
 
-    /// Compute Merkle Tree with child shard blocks, part of the eventual block root.
-    ///
-    /// `None` is returned if there are no child shard blocks.
-    pub fn root(&self) -> Option<Blake3Hash> {
-        let root = UnbalancedMerkleTree::compute_root_only::<'_, { u64::from(u32::MAX) }, _, _>(
-            // TODO: Keyed hash
-            self.child_shard_blocks
-                .iter()
-                .map(|child_shard_block_root| {
-                    // Hash the root again so we can prove it, otherwise headers root is
-                    // indistinguishable from individual block roots and can be used to confuse
-                    // verifier
+    /// Leaves of the Merkle Tree with child shard blocks, part of the eventual block root
+    fn leaves(&self) -> impl ExactSizeIterator<Item = Blake3Hash> + TrustedLen + use<'a> {
+        self.child_shard_blocks
+            .iter()
+            .map(|child_shard_block_root| {
+                // Hash the root again so we can prove it, otherwise headers root is
+                // indistinguishable from individual block roots and can be used to confuse
+                // verifier
+                Blake3Hash::new(
                     single_block_hash(child_shard_block_root.as_ref())
-                        .expect("Less than a single block worth of bytes; qed")
-                }),
-        )?;
-        Some(Blake3Hash::new(root))
+                        .expect("Less than a single block worth of bytes; qed"),
+                )
+            })
     }
 }
 
@@ -569,7 +565,6 @@ impl BlockHeaderResult {
         const {
             assert!(size_of::<Self>() <= BLOCK_LEN);
         }
-        // TODO: Keyed hash
         Blake3Hash::new(
             single_block_hash(self.as_bytes())
                 .expect("Less than a single block worth of bytes; qed"),
@@ -694,7 +689,6 @@ impl<'a> BlockHeaderSeal<'a> {
     pub fn hash(&self) -> Blake3Hash {
         match self {
             BlockHeaderSeal::Ed25519(seal) => {
-                // TODO: Keyed hash
                 let mut hasher = blake3::Hasher::new();
                 hasher.update(&[BlockHeaderSealType::Ed25519 as u8]);
                 hasher.update(seal.as_bytes());
@@ -725,8 +719,8 @@ pub struct SharedBlockHeader<'a> {
 pub struct BeaconChainHeader<'a> {
     /// Shared block header
     shared: SharedBlockHeader<'a>,
-    /// Information about child shard blocks
-    child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
+    /// Information about intermediate shard blocks
+    intermediate_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// Consensus parameters (on the beacon chain)
     consensus_parameters: BlockHeaderConsensusParameters<'a>,
     /// All bytes of the header except the seal
@@ -782,7 +776,7 @@ impl<'a> BeaconChainHeader<'a> {
         // * block header prefix: BlockHeaderPrefix
         // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
-        // * child shard blocks: BlockHeaderChildShardBlocks
+        // * intermediate shard blocks: BlockHeaderChildShardBlocks
         // * consensus parameters: BlockHeaderConsensusParameters
         // * block header seal: BlockHeaderSeal
 
@@ -793,7 +787,7 @@ impl<'a> BeaconChainHeader<'a> {
             return None;
         }
 
-        let (child_shard_blocks, remainder) =
+        let (intermediate_shard_blocks, remainder) =
             BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
 
         let (consensus_parameters, remainder) =
@@ -812,7 +806,7 @@ impl<'a> BeaconChainHeader<'a> {
 
         let header = Self {
             shared,
-            child_shard_blocks,
+            intermediate_shard_blocks,
             consensus_parameters,
             pre_seal_bytes,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
@@ -846,7 +840,7 @@ impl<'a> BeaconChainHeader<'a> {
             self.shared.prefix,
             self.shared.result,
             self.shared.consensus_info,
-            &self.child_shard_blocks,
+            &self.intermediate_shard_blocks,
             &self.consensus_parameters,
         )
         .expect("`self` is always a valid invariant; qed");
@@ -860,10 +854,10 @@ impl<'a> BeaconChainHeader<'a> {
         &self.shared
     }
 
-    /// Information about child shard blocks
+    /// Information about intermediate shard blocks
     #[inline(always)]
-    pub fn child_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
-        &self.child_shard_blocks
+    pub fn intermediate_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
+        &self.intermediate_shard_blocks
     }
 
     /// Consensus parameters (on the beacon chain)
@@ -899,7 +893,7 @@ impl<'a> BeaconChainHeader<'a> {
     pub fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
         let Self {
             shared,
-            child_shard_blocks,
+            intermediate_shard_blocks,
             consensus_parameters,
             pre_seal_bytes: _,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
@@ -914,12 +908,19 @@ impl<'a> BeaconChainHeader<'a> {
                 seal,
             } = shared;
 
-            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
+            let intermediate_shard_blocks_root =
+                ChildIntermediateShardBlocksMerkleTree::compute_root_only::<
+                    { u64::from(u16::MAX) },
+                    _,
+                    _,
+                >(intermediate_shard_blocks.leaves())
+                .unwrap_or_default();
+            let block_root = BeaconChainHeaderMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
-                child_shard_blocks.root().unwrap_or_default(),
+                Blake3Hash::new(intermediate_shard_blocks_root),
                 consensus_parameters.hash(),
             ]);
 
@@ -961,8 +962,8 @@ pub struct IntermediateShardHeader<'a> {
     shared: SharedBlockHeader<'a>,
     /// Beacon chain info
     beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
-    /// Information about child shard blocks
-    child_shard_blocks: BlockHeaderChildShardBlocks<'a>,
+    /// Information about leaf shard blocks
+    leaf_shard_blocks: BlockHeaderChildShardBlocks<'a>,
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
@@ -1017,7 +1018,7 @@ impl<'a> IntermediateShardHeader<'a> {
         // * block header result: BlockHeaderResult
         // * consensus info: BlockHeaderConsensusInfo
         // * beacon chain: BlockHeaderBeaconChainInfo
-        // * child shard blocks: BlockHeaderChildShardBlocks
+        // * leaf shard blocks: BlockHeaderChildShardBlocks
         // * block header seal: BlockHeaderSeal
 
         let (prefix, consensus_info, result, remainder) =
@@ -1029,7 +1030,7 @@ impl<'a> IntermediateShardHeader<'a> {
 
         let (beacon_chain_info, remainder) = BlockHeaderBeaconChainInfo::from_bytes(remainder)?;
 
-        let (child_shard_blocks, remainder) =
+        let (leaf_shard_blocks, remainder) =
             BlockHeaderChildShardBlocks::try_from_bytes(remainder)?;
 
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
@@ -1046,7 +1047,7 @@ impl<'a> IntermediateShardHeader<'a> {
         let header = Self {
             shared,
             beacon_chain_info,
-            child_shard_blocks,
+            leaf_shard_blocks,
             pre_seal_bytes,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root: triomphe::Arc::default(),
@@ -1080,7 +1081,7 @@ impl<'a> IntermediateShardHeader<'a> {
             self.shared.result,
             self.shared.consensus_info,
             self.beacon_chain_info,
-            &self.child_shard_blocks,
+            &self.leaf_shard_blocks,
         )
         .expect("`self` is always a valid invariant; qed");
 
@@ -1099,10 +1100,10 @@ impl<'a> IntermediateShardHeader<'a> {
         self.beacon_chain_info
     }
 
-    /// Information about child shard blocks
+    /// Information about leaf shard blocks
     #[inline(always)]
-    pub fn child_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
-        &self.child_shard_blocks
+    pub fn leaf_shard_blocks(&self) -> &BlockHeaderChildShardBlocks<'a> {
+        &self.leaf_shard_blocks
     }
 
     /// Hash of the block before seal is applied to it
@@ -1133,7 +1134,7 @@ impl<'a> IntermediateShardHeader<'a> {
         let Self {
             shared,
             beacon_chain_info,
-            child_shard_blocks,
+            leaf_shard_blocks,
             pre_seal_bytes: _,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root,
@@ -1147,13 +1148,18 @@ impl<'a> IntermediateShardHeader<'a> {
                 seal,
             } = shared;
 
-            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
+            let leaf_shard_blocks_root =
+                ChildLeafShardBlocksMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
+                    leaf_shard_blocks.leaves(),
+                )
+                .unwrap_or_default();
+            let block_root = IntermediateShardHeaderMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
                 seal.hash(),
                 beacon_chain_info.hash(),
-                child_shard_blocks.root().unwrap_or_default(),
+                Blake3Hash::new(leaf_shard_blocks_root),
             ]);
 
             BlockRoot::new(Blake3Hash::new(block_root))
@@ -1364,7 +1370,7 @@ impl<'a> LeafShardHeader<'a> {
                 seal,
             } = shared;
 
-            let block_root = UnbalancedMerkleTree::compute_root_only_array(&[
+            let block_root = LeafShardHeaderMerkleTree::compute_root_only_array(&[
                 prefix.hash(),
                 result.hash(),
                 consensus_info.hash(),
@@ -1563,7 +1569,6 @@ impl<'a> BlockHeader<'a> {
             }
         }
 
-        // TODO: Should unique keyed hash be used for different kinds of shards?
         match self {
             Self::BeaconChain(header) => Wrapper::BeaconChain(header.root()),
             Self::IntermediateShard(header) => Wrapper::IntermediateShard(header.root()),

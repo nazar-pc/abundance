@@ -396,14 +396,14 @@ impl OwnedBeaconChainBody {
                     intermediate_shard_block.header.result,
                     intermediate_shard_block.header.consensus_info,
                     intermediate_shard_block.header.beacon_chain_info(),
-                    intermediate_shard_block.header.child_shard_blocks(),
+                    intermediate_shard_block.header.leaf_shard_blocks(),
                     &mut buffer,
                 )
                 .map_err(|error| match error {
-                    OwnedIntermediateShardHeaderError::TooManyChildShardBlocks { actual: _ } => {
+                    OwnedIntermediateShardHeaderError::TooManyLeafShardBlocks { actual: _ } => {
                         unreachable!(
                             "Headers are only created by parsers, which read at most `u16::MAX` \
-                            child shard blocks; qed"
+                            leaf shard blocks; qed"
                         )
                     }
                     OwnedIntermediateShardHeaderError::HeaderTooLarge => {

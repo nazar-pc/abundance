@@ -11,6 +11,7 @@
     const_try,
     generic_const_args,
     inherent_associated_types,
+    min_adt_const_params,
     min_generic_const_args,
     mut_restriction,
     portable_simd,
@@ -37,6 +38,7 @@ pub mod segments;
 pub mod shard;
 pub mod solutions;
 pub mod transaction;
+pub mod trees;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;

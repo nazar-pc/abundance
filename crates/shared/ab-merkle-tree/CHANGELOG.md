@@ -8,7 +8,7 @@ Breaking changes:
   variants accept any iterator
 * `MmrPeaks`, `MerkleMountainRangeBytes`, `sparse::Leaf` and `balanced::ProofsIterator` are generic over the hasher too
 * `INNER_NODE_DOMAIN_SEPARATOR`, `hash_pair()` and `hash_pair_block()` were removed, the default key is available as
-  `blake3::DefaultBlake3MerkleKey::KEY`
+  `blake3::Blake3MerkleHasher::KEY`
 
 New features:
 
@@ -19,8 +19,8 @@ New features:
   `const` trait `NewMerkleHasherForTreeSize`, which is implemented for all hashers that implement `Default`;
   `MerkleMountainRange`, `SparseMerkleTree` and `UnbalancedMerkleTree::*_dynamic_len*()` only support the former,
   `BalancedMerkleTree` and `UnbalancedMerkleTree::compute_root_only_array()` require a `const` implementation
-* `blake3::Blake3MerkleHasher` with a customizable key (`Blake3MerkleKey`), roots and proofs with the default key are
-  unchanged
+* `blake3::Blake3MerkleHasher`, which produces the same roots and proofs as 0.2.0, other BLAKE3 keys require a custom
+  `MerkleHasher`
 
 Improvements:
 

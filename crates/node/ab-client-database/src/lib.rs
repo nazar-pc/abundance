@@ -63,8 +63,8 @@ use crate::storage_backend_adapter::{
     StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers, WriteLocation,
 };
 use ab_client_api::{
-    BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, BlockMerkleMountainRange, ChainInfo,
-    ChainInfoWrite, ContractSlotState, PersistBlockError, PersistSegmentHeadersError,
+    BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, ChainInfo, ChainInfoWrite,
+    ContractSlotState, PersistBlockError, PersistSegmentHeadersError,
     PersistSuperSegmentHeadersError, ReadBlockError, ShardSegmentRoot, ShardSegmentRootsError,
 };
 use ab_core_primitives::block::body::BeaconChainBody;
@@ -77,6 +77,7 @@ use ab_core_primitives::segments::{
     LocalSegmentIndex, SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
 };
 use ab_core_primitives::shard::RealShardKind;
+use ab_core_primitives::trees::BlockMerkleMountainRange;
 use ab_io_type::trivial_type::TrivialType;
 use async_lock::{
     RwLock as AsyncRwLock, RwLockUpgradableReadGuard, RwLockWriteGuard as AsyncRwLockWriteGuard,

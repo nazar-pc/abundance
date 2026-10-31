@@ -307,7 +307,6 @@ impl<'a> Transaction<'a> {
     /// Note: this computes transaction hash on every call, so worth caching if it is expected to be
     /// called often.
     pub fn hash(&self) -> TransactionHash {
-        // TODO: Keyed hash
         let mut hasher = Hasher::new();
 
         hasher.update(self.header.as_bytes());
