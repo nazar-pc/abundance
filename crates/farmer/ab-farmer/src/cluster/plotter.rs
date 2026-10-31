@@ -314,8 +314,7 @@ impl ClusterPlotter {
         pieces_in_sector: u16,
         mut progress_sender: PS,
     ) where
-        PS: Sink<SectorPlottingProgress> + Unpin + Send + 'static,
-        PS::Error: Error,
+        PS: Sink<SectorPlottingProgress, Error: Error> + Unpin + Send + 'static,
     {
         trace!("Starting plotting, getting plotting permit");
 
@@ -476,8 +475,7 @@ async fn get_free_plotter_instance<PS>(
     retry_backoff_policy: &mut ExponentialBackoff,
 ) -> Option<String>
 where
-    PS: Sink<SectorPlottingProgress> + Unpin + Send + 'static,
-    PS::Error: Error,
+    PS: Sink<SectorPlottingProgress, Error: Error> + Unpin + Send + 'static,
 {
     loop {
         match nats_client
@@ -575,8 +573,7 @@ async fn process_response_notification<PS>(
     maybe_sector_receiver: &mut Option<mpsc::Receiver<Result<Bytes, String>>>,
 ) -> ResponseProcessingResult
 where
-    PS: Sink<SectorPlottingProgress> + Unpin + Send + 'static,
-    PS::Error: Error,
+    PS: Sink<SectorPlottingProgress, Error: Error> + Unpin + Send + 'static,
 {
     if matches!(response, ClusterSectorPlottingProgress::SectorChunk(_)) {
         trace!("Processing plotting response notification (sector chunk)");
@@ -708,8 +705,7 @@ impl ProgressUpdater {
         progress: SectorPlottingProgress,
     ) -> bool
     where
-        PS: Sink<SectorPlottingProgress> + Unpin,
-        PS::Error: Error,
+        PS: Sink<SectorPlottingProgress, Error: Error> + Unpin,
     {
         self.handlers.plotting_progress.call_simple(
             &self.public_key,

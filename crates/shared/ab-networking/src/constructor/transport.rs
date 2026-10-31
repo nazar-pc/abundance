@@ -72,8 +72,7 @@ impl<T> CustomTransportWrapper<T> {
 
 impl<T> Transport for CustomTransportWrapper<T>
 where
-    T: Transport + Unpin,
-    T::Error: From<io::Error>,
+    T: Transport<Error: From<io::Error>> + Unpin,
 {
     type Output = T::Output;
     type Error = T::Error;

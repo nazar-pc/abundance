@@ -242,8 +242,7 @@ where
         replotting: bool,
         mut progress_sender: PS,
     ) where
-        PS: Sink<SectorPlottingProgress> + Unpin + Send + 'static,
-        PS::Error: Error,
+        PS: Sink<SectorPlottingProgress, Error: Error> + Unpin + Send + 'static,
     {
         if let Some(metrics) = &self.metrics {
             metrics.sector_plotting.inc();
@@ -480,8 +479,7 @@ impl ProgressUpdater {
         progress: SectorPlottingProgress,
     ) -> bool
     where
-        PS: Sink<SectorPlottingProgress> + Unpin,
-        PS::Error: Error,
+        PS: Sink<SectorPlottingProgress, Error: Error> + Unpin,
     {
         if let Some(metrics) = &self.metrics {
             #[expect(

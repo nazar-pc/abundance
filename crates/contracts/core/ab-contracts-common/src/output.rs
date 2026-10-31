@@ -63,8 +63,7 @@ where
 // contents are a valid value, since every bit pattern is.
 unsafe impl<T> OutputArg<T> for T
 where
-    T: IoType,
-    T::PointerType: AnyBitPattern,
+    T: IoType<PointerType: AnyBitPattern>,
 {
     #[inline(always)]
     fn as_raw_output(&mut self) -> (NonNull<T::PointerType>, u32, u32) {
