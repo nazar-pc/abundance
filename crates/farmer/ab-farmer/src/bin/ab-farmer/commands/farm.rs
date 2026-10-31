@@ -501,7 +501,7 @@ where
         let (plotting_delay_senders, plotting_delay_receivers) =
             iter::repeat_with(oneshot::channel)
                 .take(disk_farms.len())
-                .unzip::<_, _, Vec<_>, Vec<_>>();
+                .collect::<(Vec<_>, Vec<_>)>();
         let registry = &Mutex::new(&mut registry);
 
         let mut farms = Vec::with_capacity(disk_farms.len());

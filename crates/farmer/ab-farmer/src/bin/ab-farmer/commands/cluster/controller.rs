@@ -134,7 +134,7 @@ pub(super) async fn controller(
     let (farmer_caches, farmer_cache_workers) = cache_groups
         .iter()
         .map(|_cache_group| FarmerCache::new(node_client.clone(), peer_id, Some(registry)))
-        .unzip::<_, _, Vec<_>, Vec<_>>();
+        .collect::<(Vec<_>, Vec<_>)>();
     let farmer_caches = Arc::from(farmer_caches);
 
     // TODO: Metrics
