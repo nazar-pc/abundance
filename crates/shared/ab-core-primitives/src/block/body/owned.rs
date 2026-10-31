@@ -378,14 +378,6 @@ impl OwnedBeaconChainBody {
                 let num_leaf_shard_blocks_with_segments =
                     intermediate_shard_block.num_leaf_shard_blocks_with_segments();
 
-                // The parser decides from these numbers whether own segments and a segments proof
-                // follow the header, so it would read blocks that disagree with them differently
-                if intermediate_shard_block.segments_proof.is_some()
-                    != (num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0)
-                {
-                    return Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks);
-                }
-
                 buffer.as_mut_slice()[segments_roots_num_cursor] = num_own_segment_roots;
                 buffer.as_mut_slice()[segments_roots_num_cursor + 1..][..2]
                     .copy_from_slice(&num_leaf_shard_blocks_with_segments.to_le_bytes());
@@ -403,12 +395,6 @@ impl OwnedBeaconChainBody {
                     OwnedBeaconChainBodyError::BlockBodyIsTooLarge
                 })?
                 .with_seal(intermediate_shard_block.header.seal);
-
-                if let Some(segments_proof) = &intermediate_shard_block.segments_proof
-                    && !buffer.append(*segments_proof)
-                {
-                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                }
 
                 if let Some(own_segments) = &intermediate_shard_block.own_segments {
                     if !buffer.append(own_segments.first_local_segment_index.as_bytes()) {

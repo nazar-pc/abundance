@@ -33,7 +33,7 @@ use crate::trees::{
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use core::num::{NonZeroU16, NonZeroU32};
 use core::ptr;
-use std::iter;
+use std::{iter, slice};
 
 fn transaction_header() -> TransactionHeader {
     TransactionHeader {
@@ -118,13 +118,14 @@ fn intermediate_shard_header(
     shard_index: u32,
     number: u64,
     body_root: Blake3Hash,
+    leaf_shard_blocks_root: &Blake3Hash,
 ) -> OwnedIntermediateShardHeader {
     OwnedIntermediateShardHeader::from_parts(
         &header_prefix(shard_index, number),
         &header_result(body_root),
         &consensus_info(),
         &beacon_chain_info(),
-        &Blake3Hash::default(),
+        leaf_shard_blocks_root,
     )
     .with_seal(BlockHeaderSeal::Ed25519(&seal()))
 }
@@ -509,7 +510,6 @@ struct TestIntermediateShardBlock {
     header: OwnedIntermediateShardHeader,
     own_segments: Option<(LocalSegmentIndex, Vec<SegmentRoot>)>,
     leaf_shards_segments: Vec<(ShardIndex, (LocalSegmentIndex, Vec<SegmentRoot>))>,
-    segments_proof: [u8; 32],
 }
 
 impl TestIntermediateShardBlock {
@@ -539,8 +539,8 @@ impl TestIntermediateShardBlock {
         own_segments: Option<(LocalSegmentIndex, Vec<SegmentRoot>)>,
         leaf_shards_segments: Vec<(ShardIndex, (LocalSegmentIndex, Vec<SegmentRoot>))>,
     ) -> Self {
-        let segments_proof = [u8::try_from(number).unwrap(); _];
-        // The body root that the segments proof belongs to
+        let leaf_shard_blocks_root = Blake3Hash::new([u8::try_from(number).unwrap(); _]);
+        // The body root that the root of leaf shard blocks in the header belongs to
         let body_root = if own_segments.is_none() && leaf_shards_segments.is_empty() {
             Blake3Hash::default()
         } else {
@@ -565,15 +565,19 @@ impl TestIntermediateShardBlock {
             Blake3Hash::new(IntermediateShardBodyMerkleTree::compute_root_only_array(&[
                 *own_segments_root,
                 leaf_shards_root,
-                segments_proof,
+                *leaf_shard_blocks_root,
             ]))
         };
 
         Self {
-            header: intermediate_shard_header(shard_index, number, body_root),
+            header: intermediate_shard_header(
+                shard_index,
+                number,
+                body_root,
+                &leaf_shard_blocks_root,
+            ),
             own_segments,
             leaf_shards_segments,
-            segments_proof,
         }
     }
 }
@@ -610,9 +614,6 @@ fn beacon_chain_body_bytes(
     pad_to(&mut bytes, 8);
     for block in intermediate_shard_blocks {
         bytes.extend_from_slice(block.header.buffer().as_slice());
-        if block.own_segments.is_some() || !block.leaf_shards_segments.is_empty() {
-            bytes.extend_from_slice(&block.segments_proof);
-        }
         if let Some(own_segments) = &block.own_segments {
             append_segments(&mut bytes, own_segments);
         }
@@ -666,11 +667,6 @@ fn check_beacon_chain_body_with_intermediate_shard_blocks(
             (None, None) => {}
             _ => panic!("Own segments mismatch"),
         }
-        assert_eq!(
-            info.segments_proof.copied(),
-            (block.own_segments.is_some() || !block.leaf_shards_segments.is_empty())
-                .then_some(block.segments_proof)
-        );
         assert_eq!(
             info.leaf_shards_segments().len(),
             block.leaf_shards_segments.len()
@@ -783,17 +779,15 @@ fn owned_beacon_chain_body_with_inconsistent_intermediate_shard_blocks() {
     };
     new_body(infos.clone()).unwrap();
 
-    // A segments proof that doesn't match the body root in the header
+    // A header whose root of leaf shard blocks differs from the one the body root was built with
+    let header = intermediate_shard_header(
+        1,
+        1,
+        infos[1].header.result.body_root,
+        &Blake3Hash::new([0xff; _]),
+    );
     let mut info = infos[1].clone();
-    info.segments_proof = Some(&[0xff; _]);
-    assert!(matches!(
-        new_body(vec![info]),
-        Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
-    ));
-
-    // A segments proof without segments
-    let mut info = infos[0].clone();
-    info.own_segments = None;
+    info.header = header.header().clone();
     assert!(matches!(
         new_body(vec![info]),
         Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
@@ -809,40 +803,34 @@ fn owned_beacon_chain_body_with_inconsistent_intermediate_shard_blocks() {
 }
 
 #[test]
-fn owned_beacon_chain_body_with_segments_but_without_segments_proof() {
-    // A block with segments of a leaf shard block with one segment root. Its segments proof is its
-    // number repeated, which the parser below reads as the number of segment roots.
-    let block = TestIntermediateShardBlock::new(1, 2, 0, &[(1 | (1 << 10), 1)]);
-    let bytes = beacon_chain_body_bytes(&[block], &[]);
-    let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
-    let info = body.intermediate_shard_blocks().iter().next().unwrap();
-    let segments_proof_offset =
-        ptr::from_ref(info.segments_proof.unwrap()).addr() - bytes.as_ptr().addr();
+fn beacon_chain_body_checks_segments_against_the_header_root() {
+    // Own segments, segments of a leaf shard block and both
+    for block in [
+        TestIntermediateShardBlock::new(1, 1, 1, &[]),
+        TestIntermediateShardBlock::new(1, 1, 0, &[(1 | (1 << 10), 1)]),
+        TestIntermediateShardBlock::new(1, 1, 2, &[(1 | (1 << 10), 1), (1 | (2 << 10), 2)]),
+    ] {
+        let bytes = beacon_chain_body_bytes(slice::from_ref(&block), &[]);
+        BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
 
-    // With 32 more bytes after the header, the parser reads them as the segments proof, and the
-    // original proof and segments as segments of a leaf shard block with 2 segment roots. The body
-    // root in the header doesn't match them, so only the parser without checks accepts it.
-    let mut longer_bytes = bytes.as_slice()[..segments_proof_offset].to_vec();
-    longer_bytes.extend_from_slice(&[0; 32]);
-    longer_bytes.extend_from_slice(&bytes.as_slice()[segments_proof_offset..]);
-    let longer_bytes = SharedAlignedBuffer::from_bytes(&longer_bytes);
-    let (longer_body, _remainder) =
-        BeaconChainBody::try_from_bytes_unchecked(longer_bytes.as_slice()).unwrap();
-    let mut info = longer_body
-        .intermediate_shard_blocks()
-        .iter()
-        .next()
-        .unwrap();
-    let (_leaf_shard_index, leaf_shard_segments) = info.leaf_shards_segments().next().unwrap();
-    assert_eq!(leaf_shard_segments.segment_roots.len(), 2);
-
-    // Without a segments proof, this block would be written exactly as the original bytes, which
-    // the parser accepts as the original block
-    info.segments_proof = None;
-    assert!(matches!(
-        OwnedBeaconChainBody::new(iter::empty(), iter::once(info), &[]),
-        Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
-    ));
+        // The same segments and body root, but a header that stores a different root of leaf
+        // shard blocks than the one the body root was built with
+        let mut block = block;
+        block.header = intermediate_shard_header(
+            1,
+            1,
+            block.header.header().result.body_root,
+            &Blake3Hash::new([0xff; _]),
+        );
+        let bytes = beacon_chain_body_bytes(slice::from_ref(&block), &[]);
+        assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
+        let (body, _remainder) =
+            BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).unwrap();
+        assert!(matches!(
+            OwnedBeaconChainBody::new(iter::empty(), body.intermediate_shard_blocks().iter(), &[]),
+            Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
+        ));
+    }
 }
 
 #[test]

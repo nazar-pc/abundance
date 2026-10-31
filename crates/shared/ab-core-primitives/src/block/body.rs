@@ -198,8 +198,6 @@ impl<'a> OwnSegments<'a> {
 pub struct IntermediateShardBlockInfo<'a> {
     /// A block header that corresponds to an intermediate shard
     pub header: IntermediateShardHeader<'a>,
-    /// Segments proof if either own or child segments are present
-    pub segments_proof: Option<&'a [u8; OUT_LEN]>,
     /// Segments in the corresponding block
     pub own_segments: Option<OwnSegments<'a>>,
     num_leaf_shard_blocks_with_segments: u16,
@@ -288,7 +286,6 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         // * padding to 8-bytes boundary with zeroes
         // * for each block:
         //   * block header: IntermediateShardHeader
-        //   * segment roots proof (if either own or child segments are present)
         //   * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
         //   * concatenated own segment roots
         //   * for each leaf shard block with segments:
@@ -315,10 +312,6 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             counts = &counts[3..];
 
             (_, remainder) = IntermediateShardHeader::try_from_bytes(remainder)?;
-
-            if num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0 {
-                let _segments_proof = remainder.split_off(..SegmentRoot::SIZE)?;
-            }
 
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
@@ -388,10 +381,6 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             counts = &counts[3..];
 
             (_, remainder) = IntermediateShardHeader::try_from_bytes(remainder)?;
-
-            if num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0 {
-                let _segments_proof = remainder.split_off(..OUT_LEN)?;
-            }
 
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
@@ -555,10 +544,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                     .0
                     == 0
             {
-                return intermediate_shard_block.segments_proof.is_none();
+                // Segments of leaf shards of such blocks can't be checked against the body root
+                // without knowing the number of leaf shard blocks
+                return true;
             }
-
-            let segments_proof = intermediate_shard_block.segments_proof.unwrap_or(&[0; _]);
 
             let leaf_shards_root =
                 LeafShardsSegmentsMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
@@ -576,7 +565,9 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                     .as_ref()
                     .map_or_default(OwnSegments::root),
                 leaf_shards_root,
-                *segments_proof,
+                // Equals the root of leaf shard block headers in the body of a consistent
+                // intermediate shard block
+                **intermediate_shard_block.header.leaf_shard_blocks_root(),
             ]);
 
             body_root == *intermediate_shard_block.header.result.body_root
@@ -605,22 +596,6 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             let header;
             (header, remainder) = IntermediateShardHeader::try_from_bytes(remainder)
                 .expect("Already checked in constructor; qed");
-
-            let segments_proof =
-                if num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0 {
-                    let segments_proof;
-                    // SAFETY: Checked in constructor
-                    (segments_proof, remainder) = unsafe { remainder.split_at_unchecked(OUT_LEN) };
-                    // SAFETY: Valid pointer and size, no alignment requirements
-                    Some(unsafe {
-                        segments_proof
-                            .as_ptr()
-                            .cast::<[u8; OUT_LEN]>()
-                            .as_ref_unchecked()
-                    })
-                } else {
-                    None
-                };
 
             let own_segments = if num_own_segment_roots > 0 {
                 let first_local_segment_index;
@@ -682,7 +657,6 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
             IntermediateShardBlockInfo {
                 header,
-                segments_proof,
                 own_segments,
                 num_leaf_shard_blocks_with_segments,
                 leaf_shards_segments_bytes,

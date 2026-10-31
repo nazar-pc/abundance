@@ -1033,7 +1033,8 @@ impl<'a> IntermediateShardHeader<'a> {
     /// Root of leaf shard block roots.
     ///
     /// It duplicates `headers_root()` of leaf shard blocks in the body on purpose, to keep proofs
-    /// through the header short.
+    /// through the header short and so that the beacon chain can verify segments of intermediate
+    /// shard blocks without storing a sibling for each of them.
     #[inline(always)]
     pub fn leaf_shard_blocks_root(&self) -> &'a Blake3Hash {
         self.leaf_shard_blocks_root
