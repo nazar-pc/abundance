@@ -646,9 +646,9 @@ impl OwnedIntermediateShardBody {
                 unreachable!("Checked size above; qed");
             };
             for leaf_shard_block in leaf_shard_blocks {
-                if let Some(segments) = &leaf_shard_block.segments {
+                if let Some(own_segments) = &leaf_shard_block.own_segments {
                     buffer.as_mut_slice()[own_segments_roots_num_cursor] =
-                        segments.own_segments.num_segment_roots().get();
+                        own_segments.num_segment_roots().get();
                 }
                 own_segments_roots_num_cursor += 1;
 
@@ -668,18 +668,16 @@ impl OwnedIntermediateShardBody {
                     unreachable!("Checked size above; qed");
                 };
 
-                if let Some(segments) = &leaf_shard_block.segments {
-                    let true =
-                        buffer.append(segments.own_segments.first_local_segment_index.as_bytes())
+                let true = buffer.append(leaf_shard_block.transactions_root.as_bytes()) else {
+                    unreachable!("Checked size above; qed");
+                };
+                if let Some(own_segments) = &leaf_shard_block.own_segments {
+                    let true = buffer.append(own_segments.first_local_segment_index.as_bytes())
                     else {
                         unreachable!("Checked size above; qed");
                     };
-                    let true = buffer.append(segments.segment_roots_proof) else {
-                        unreachable!("Checked size above; qed");
-                    };
                     let true = buffer.append(
-                        SegmentRoot::repr_from_slice(segments.own_segments.segment_roots)
-                            .as_flattened(),
+                        SegmentRoot::repr_from_slice(own_segments.segment_roots).as_flattened(),
                     ) else {
                         unreachable!("Checked size above; qed");
                     };

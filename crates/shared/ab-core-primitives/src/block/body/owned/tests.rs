@@ -6,8 +6,7 @@ use crate::block::body::owned::{
 };
 use crate::block::body::{
     BeaconChainBody, BlockBody, IntermediateShardBlockInfo, IntermediateShardBlocksInfo,
-    IntermediateShardBody, LeafShardBlockInfo, LeafShardBlocksInfo, LeafShardBody,
-    LeafShardOwnSegments, OwnSegments,
+    IntermediateShardBody, LeafShardBlockInfo, LeafShardBlocksInfo, LeafShardBody, OwnSegments,
 };
 use crate::block::header::owned::{
     OwnedBeaconChainHeader, OwnedIntermediateShardHeader, OwnedLeafShardHeader,
@@ -388,8 +387,8 @@ fn beacon_chain_body_with_too_many_pot_checkpoints() {
 /// A leaf shard block inside an intermediate shard body
 struct TestLeafShardBlock {
     header: OwnedLeafShardHeader,
+    transactions_root: Blake3Hash,
     segments: Option<(LocalSegmentIndex, Vec<SegmentRoot>)>,
-    segment_roots_proof: [u8; 32],
 }
 
 impl TestLeafShardBlock {
@@ -404,26 +403,23 @@ impl TestLeafShardBlock {
         number: u64,
         segments: Option<(LocalSegmentIndex, Vec<SegmentRoot>)>,
     ) -> Self {
-        let segment_roots_proof = [u8::try_from(number).unwrap(); _];
-        // The body root that the segment roots proof belongs to
-        let body_root = segments.as_ref().map_or_else(
+        let transactions_root = Blake3Hash::new([u8::try_from(number).unwrap(); _]);
+        // Without checks, so that tests can compute roots of segments that parsers must reject
+        let own_segments_root = segments.as_ref().map_or_else(
             Blake3Hash::default,
             |(first_local_segment_index, segment_roots)| {
-                // Without checks, so that tests can compute roots of segments that parsers must
-                // reject
-                let own_segments =
-                    OwnSegments::new_unchecked(*first_local_segment_index, segment_roots);
-                Blake3Hash::new(LeafShardBodyMerkleTree::compute_root_only(&[
-                    *own_segments.root(),
-                    segment_roots_proof,
-                ]))
+                OwnSegments::new_unchecked(*first_local_segment_index, segment_roots).root()
             },
         );
+        let body_root = Blake3Hash::new(LeafShardBodyMerkleTree::compute_root_only(&[
+            *own_segments_root,
+            *transactions_root,
+        ]));
 
         Self {
             header: leaf_shard_header(shard_index, number, body_root),
+            transactions_root,
             segments,
-            segment_roots_proof,
         }
     }
 }
@@ -460,12 +456,9 @@ fn intermediate_shard_body_bytes(
     for block in leaf_shard_blocks {
         bytes.extend_from_slice(block.header.buffer().as_slice());
         pad_to(&mut bytes, 8);
-        if let Some((first_local_segment_index, segment_roots)) = &block.segments {
-            bytes.extend_from_slice(&u64::from(*first_local_segment_index).to_le_bytes());
-            bytes.extend_from_slice(&block.segment_roots_proof);
-            for segment_root in segment_roots {
-                bytes.extend_from_slice(segment_root.as_ref());
-            }
+        bytes.extend_from_slice(block.transactions_root.as_ref());
+        if let Some(segments) = &block.segments {
+            append_segments(&mut bytes, segments);
         }
     }
 
@@ -493,13 +486,10 @@ fn intermediate_shard_body_with_leaf_shard_blocks() {
         assert_eq!(body.leaf_shard_blocks().len(), num_blocks);
         for (info, block) in body.leaf_shard_blocks().iter().zip(leaf_shard_blocks) {
             assert_eq!(*info.header.root(), *block.header.header().root());
-            match (&info.segments, &block.segments) {
-                (Some(info_segments), Some(segments)) => {
-                    assert_eq!(
-                        *info_segments.segment_roots_proof,
-                        block.segment_roots_proof
-                    );
-                    assert_segments_eq(&info_segments.own_segments, segments);
+            assert_eq!(*info.transactions_root, block.transactions_root);
+            match (&info.own_segments, &block.segments) {
+                (Some(own_segments), Some(segments)) => {
+                    assert_segments_eq(own_segments, segments);
                 }
                 (None, None) => {}
                 _ => panic!("Segments mismatch"),
@@ -611,22 +601,21 @@ impl TestIntermediateShardBlock {
             .iter()
             .zip(0..)
             .filter_map(|(leaf_shard_block, position)| {
-                let LeafShardBlockInfo { header, segments } = leaf_shard_block;
-                segments.map(
-                    |LeafShardOwnSegments {
-                         segment_roots_proof: _,
-                         own_segments,
-                     }| {
+                let LeafShardBlockInfo {
+                    header,
+                    transactions_root: _,
+                    own_segments,
+                } = leaf_shard_block;
+                own_segments.map(|own_segments| {
+                    (
+                        position,
+                        header.prefix.shard_index,
                         (
-                            position,
-                            header.prefix.shard_index,
-                            (
-                                own_segments.first_local_segment_index,
-                                own_segments.segment_roots.to_vec(),
-                            ),
-                        )
-                    },
-                )
+                            own_segments.first_local_segment_index,
+                            own_segments.segment_roots.to_vec(),
+                        ),
+                    )
+                })
             })
             .collect();
 
@@ -822,19 +811,17 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
         OwnedIntermediateShardBody::new(iter::empty(), leaf_shard_blocks.into_iter())
     };
 
-    // A block created from parts, with its segment roots proof or with a different one
+    // A block created from parts, with its transactions root or with a different one
     let block = &leaf_shard_blocks[0];
     let (first_local_segment_index, segment_roots) = block.segments.as_ref().unwrap();
-    let block_info = |segment_roots_proof| LeafShardBlockInfo {
+    let block_info = |transactions_root| LeafShardBlockInfo {
         header: block.header.header().clone(),
-        segments: Some(LeafShardOwnSegments {
-            segment_roots_proof,
-            own_segments: OwnSegments::new(*first_local_segment_index, segment_roots).unwrap(),
-        }),
+        transactions_root,
+        own_segments: Some(OwnSegments::new(*first_local_segment_index, segment_roots).unwrap()),
     };
-    new_body(vec![block_info(&block.segment_roots_proof)]).unwrap();
+    new_body(vec![block_info(&block.transactions_root)]).unwrap();
     assert!(matches!(
-        new_body(vec![block_info(&[0xff; _])]),
+        new_body(vec![block_info(&Blake3Hash::new([0xff; _]))]),
         Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
     ));
 
@@ -849,6 +836,54 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
             new_body(vec![infos[first].clone(), infos[second].clone()]),
             Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
         ));
+    }
+}
+
+/// Check that the intermediate shard body with `leaf_shard_blocks` is rejected by the parser with
+/// checks, and by the builder with leaf shard blocks from the parser without checks
+fn assert_inconsistent_leaf_shard_blocks(leaf_shard_blocks: &[TestLeafShardBlock]) {
+    let bytes = intermediate_shard_body_bytes(None, leaf_shard_blocks);
+    assert!(IntermediateShardBody::try_from_bytes(bytes.as_slice()).is_none());
+
+    let (body, _remainder) =
+        IntermediateShardBody::try_from_bytes_unchecked(bytes.as_slice()).unwrap();
+    assert!(matches!(
+        OwnedIntermediateShardBody::new(iter::empty(), body.leaf_shard_blocks().iter()),
+        Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
+    ));
+}
+
+#[test]
+fn intermediate_shard_body_checks_leaf_shard_blocks_without_segments() {
+    // Leaf shard blocks without segments around one with segments
+    let leaf_shard_blocks = || {
+        [
+            TestLeafShardBlock::new(1 | (1 << 10), 0, 0),
+            TestLeafShardBlock::new(1 | (1 << 10), 1, 1),
+            TestLeafShardBlock::new(1 | (2 << 10), 0, 0),
+        ]
+    };
+    let bytes = intermediate_shard_body_bytes(None, &leaf_shard_blocks());
+    let (body, _remainder) = IntermediateShardBody::try_from_bytes(bytes.as_slice()).unwrap();
+    let owned_body =
+        OwnedIntermediateShardBody::new(iter::empty(), body.leaf_shard_blocks().iter()).unwrap();
+    assert_eq!(owned_body.buffer().as_slice(), bytes.as_slice());
+
+    // Segments of a leaf shard block dropped, with its transactions root
+    let mut blocks = leaf_shard_blocks();
+    blocks[1].segments = None;
+    assert_inconsistent_leaf_shard_blocks(&blocks);
+
+    // Segments added to a leaf shard block without segments
+    let mut blocks = leaf_shard_blocks();
+    blocks[2].segments = Some(segments(0, 1));
+    assert_inconsistent_leaf_shard_blocks(&blocks);
+
+    // Another transactions root of a leaf shard block without segments
+    for index in [0, 2] {
+        let mut blocks = leaf_shard_blocks();
+        blocks[index].transactions_root = Blake3Hash::new([0xff; _]);
+        assert_inconsistent_leaf_shard_blocks(&blocks);
     }
 }
 

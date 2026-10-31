@@ -1,5 +1,5 @@
 use crate::address::Address;
-use crate::block::body::owned::GenericOwnedBlockBody;
+use crate::block::body::owned::{GenericOwnedBlockBody, OwnedIntermediateShardBodyError};
 use crate::block::body::{IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedIntermediateShardHeader,
@@ -286,9 +286,11 @@ fn blocks_round_trip() {
         leaf_shard_block.body.buffer().as_slice()
     );
 
+    let transactions_root = leaf_shard_block.body.body().transactions().root();
     let intermediate_shard_block = intermediate_shard_block(iter::once(LeafShardBlockInfo {
         header: leaf_shard_block.header.header().clone(),
-        segments: None,
+        transactions_root: &transactions_root,
+        own_segments: None,
     }));
     let bytes = block_bytes(&intermediate_shard_block, 0);
     let (block, _remainder) = IntermediateShardBlock::try_from_bytes(bytes.as_slice()).unwrap();
@@ -318,16 +320,48 @@ fn blocks_round_trip() {
 }
 
 #[test]
+fn intermediate_shard_blocks_check_leaf_shard_blocks_without_segments() {
+    let leaf_shard_block = leaf_shard_block();
+    let transactions_root = leaf_shard_block.body.body().transactions().root();
+    let init = |transactions_root| {
+        OwnedIntermediateShardBlock::init(
+            iter::empty(),
+            iter::once(LeafShardBlockInfo {
+                header: leaf_shard_block.header.header().clone(),
+                transactions_root,
+                own_segments: None,
+            }),
+        )
+    };
+
+    init(&transactions_root).unwrap();
+    // The root of transactions of a leaf shard block without transactions
+    assert!(matches!(
+        init(&Blake3Hash::default()),
+        Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
+    ));
+}
+
+#[test]
 fn blocks_with_inconsistent_child_block_roots_are_rejected() {
-    fn leaf_shard_block_info(leaf_shard_block: &OwnedLeafShardBlock) -> LeafShardBlockInfo<'_> {
+    fn leaf_shard_block_info<'a>(
+        leaf_shard_block: &'a OwnedLeafShardBlock,
+        transactions_root: &'a Blake3Hash,
+    ) -> LeafShardBlockInfo<'a> {
         LeafShardBlockInfo {
             header: leaf_shard_block.header.header().clone(),
-            segments: None,
+            transactions_root,
+            own_segments: None,
         }
     }
 
     let leaf_shard_block = leaf_shard_block();
-    let block = intermediate_shard_block(iter::once(leaf_shard_block_info(&leaf_shard_block)));
+    // Both leaf shard blocks below have the same transactions
+    let transactions_root = leaf_shard_block.body.body().transactions().root();
+    let block = intermediate_shard_block(iter::once(leaf_shard_block_info(
+        &leaf_shard_block,
+        &transactions_root,
+    )));
     let header = block.header.header();
     assert_eq!(
         *header.leaf_shard_blocks_root(),
@@ -346,6 +380,7 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
     // A list of another leaf shard block
     let other_block = intermediate_shard_block(iter::once(leaf_shard_block_info(
         &leaf_shard_block_with_state_root(Blake3Hash::new([1; _])),
+        &transactions_root,
     )));
     for leaf_shard_blocks_root in [
         Blake3Hash::new([1; _]),
