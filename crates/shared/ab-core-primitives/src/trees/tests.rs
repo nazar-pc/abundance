@@ -45,6 +45,13 @@ fn static_hasher() {
         16,
         17
     );
+
+    // Doesn't depend on the tree size, so a single leaf is the root as is
+    let [[leaf, _]] = random_pairs::<1>();
+    assert_eq!(
+        BlockMerkleMountainRangeHasher::default().hash_single_leaf(&leaf),
+        leaf
+    );
 }
 
 #[test]
@@ -66,5 +73,12 @@ fn sized_hasher() {
         3,
         16,
         17
+    );
+
+    // Commits to the tree size, so a single leaf is hashed with the key for one leaf
+    let [[leaf, _]] = random_pairs::<1>();
+    assert_eq!(
+        TransactionsMerkleHasher::new_for_tree_size(1).hash_single_leaf(&leaf),
+        ab_blake3::const_keyed_hash(&TransactionsMerkleHasher::key(1), &leaf)
     );
 }

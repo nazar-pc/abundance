@@ -18,10 +18,9 @@ use crate::transaction::Transaction;
 use crate::trees::{
     BeaconChainBodyMerkleTree, ChildIntermediateShardBlocksMerkleTree,
     ChildLeafShardBlocksMerkleTree, IntermediateShardBlockSegmentsMerkleTree,
-    IntermediateShardBodyMerkleTree, IntermediateShardBodySegmentsMerkleTree,
-    IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
-    OwnSegmentsMerkleTree, SegmentRootsMerkleTree, ShardOwnSegmentsMerkleTree,
-    TransactionsMerkleTree,
+    IntermediateShardBodyMerkleTree, IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree,
+    LeafShardsSegmentsMerkleTree, OwnSegmentsMerkleTree, SegmentRootsMerkleTree,
+    ShardOwnSegmentsMerkleTree, TransactionsMerkleTree,
 };
 use ab_blake3::{BLOCK_LEN, OUT_LEN, single_block_hash};
 use ab_io_type::alignment::Alignment;
@@ -62,14 +61,7 @@ where
     Iter: IntoIterator<Item = &'a SegmentRoot, IntoIter: TrustedLen>,
 {
     let root = SegmentRootsMerkleTree::compute_root_only::<MAX_SEGMENTS, _, _>(
-        segment_roots.into_iter().map(|segment_root| {
-            // Segment roots are raw values from the body rather than hashes computed by the
-            // verifier, and the root of a tree with one leaf is the leaf itself. Without hashing
-            // them first, a single segment root equal to the root of several segment roots would
-            // give the same root as those several segment roots.
-            single_block_hash(segment_root.as_ref())
-                .expect("Less than a single block worth of bytes; qed")
-        }),
+        segment_roots.into_iter().copied(),
     );
 
     Blake3Hash::new(root.unwrap_or_default())
@@ -578,18 +570,16 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 )
                 .unwrap_or_default();
 
-            IntermediateShardBodyMerkleTree::verify(
-                &intermediate_shard_block.header.result.body_root,
-                array::from_ref(segments_proof),
-                0,
-                IntermediateShardBodySegmentsMerkleTree::compute_root_only(&[
-                    *intermediate_shard_block
-                        .own_segments
-                        .as_ref()
-                        .map_or_default(OwnSegments::root),
-                    leaf_shards_root,
-                ]),
-            )
+            let body_root = IntermediateShardBodyMerkleTree::compute_root_only_array(&[
+                *intermediate_shard_block
+                    .own_segments
+                    .as_ref()
+                    .map_or_default(OwnSegments::root),
+                leaf_shards_root,
+                *segments_proof,
+            ]);
+
+            body_root == *intermediate_shard_block.header.result.body_root
         })
     }
 
@@ -1518,12 +1508,9 @@ impl<'a> IntermediateShardBody<'a> {
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        // Explicit nested trees to emphasize that the proof size for segments is just one hash
-        let root = IntermediateShardBodyMerkleTree::compute_root_only(&[
-            IntermediateShardBodySegmentsMerkleTree::compute_root_only(&[
-                *self.own_segments.as_ref().map_or_default(OwnSegments::root),
-                *self.leaf_shard_blocks.segments_root(),
-            ]),
+        let root = IntermediateShardBodyMerkleTree::compute_root_only_array(&[
+            *self.own_segments.as_ref().map_or_default(OwnSegments::root),
+            *self.leaf_shard_blocks.segments_root(),
             *self.leaf_shard_blocks.headers_root(),
         ]);
 
@@ -1614,14 +1601,7 @@ impl<'a> Transactions<'a> {
     #[inline]
     pub fn root(&self) -> Blake3Hash {
         let root = TransactionsMerkleTree::compute_root_only::<{ u64::from(u32::MAX) }, _, _>(
-            self.iter().map(|transaction| {
-                // The root of a tree with one leaf is the leaf itself. Without hashing transaction
-                // hashes first, the root of several transactions could pass for the hash of a
-                // single transaction, so a claim that there is only one transaction couldn't be
-                // verified.
-                single_block_hash(transaction.hash().as_ref())
-                    .expect("Less than a single block worth of bytes; qed")
-            }),
+            self.iter().map(|transaction| **transaction.hash()),
         )
         .unwrap_or_default();
 

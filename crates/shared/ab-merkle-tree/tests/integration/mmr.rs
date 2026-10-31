@@ -2,8 +2,11 @@
 //! `unbalanced.rs` (which focus on cross-checking the root and proofs against the other Merkle Tree
 //! implementations).
 
-use crate::test_hasher::{MerkleMountainRange, OUT_LEN, TestHasher, UnbalancedMerkleTree};
-use ab_merkle_tree::mmr::{MerkleMountainRangeBytes, MmrPeaks};
+use crate::test_hasher::{
+    MerkleMountainRange, OUT_LEN, SingleLeafTestHasher, TestHasher, UnbalancedMerkleTree,
+};
+use ab_merkle_tree::mmr::{self, MerkleMountainRangeBytes, MmrPeaks};
+use ab_merkle_tree::{MerkleHasher, unbalanced};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use std::mem::MaybeUninit;
@@ -287,4 +290,61 @@ fn mmr_from_peaks_invalid() {
         peaks: [[0u8; OUT_LEN]; _],
     };
     assert!(MerkleMountainRange::<5>::from_peaks(&peaks).is_some());
+}
+
+/// A hasher that customizes the root of a tree with a single leaf gives the same roots and proofs
+/// as with [`UnbalancedMerkleTree`], whose verification the Merkle Mountain Range uses
+#[test]
+fn mmr_hash_single_leaf() {
+    const MAX_N: u64 = 8;
+    type Mmr = mmr::MerkleMountainRange<MAX_N, SingleLeafTestHasher>;
+    type Unbalanced = unbalanced::UnbalancedMerkleTree<SingleLeafTestHasher>;
+
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let leaves = random_leaves::<{ MAX_N as usize }>(&mut rng);
+    let [first_leaf, ..] = leaves;
+
+    let mmr_proof_buffer = &mut [MaybeUninit::uninit(); _];
+    let unbalanced_proof_buffer = &mut [MaybeUninit::uninit(); _];
+
+    let mut mmr = Mmr::new();
+    for (leaf_index, leaf) in leaves.iter().enumerate() {
+        let num_leaves = leaf_index as u64 + 1;
+        let (mmr_root, mmr_proof) = mmr
+            .add_leaf_and_compute_proof_in(leaf, mmr_proof_buffer)
+            .unwrap();
+        let (expected_root, expected_proof) = Unbalanced::compute_root_and_proof_in::<MAX_N, _, _>(
+            leaves[..=leaf_index].iter().copied(),
+            leaf_index,
+            unbalanced_proof_buffer,
+        )
+        .unwrap();
+
+        assert_eq!(mmr_root, expected_root, "num_leaves {num_leaves}");
+        assert_eq!(mmr_proof, expected_proof, "num_leaves {num_leaves}");
+        assert_eq!(mmr.root(), Some(expected_root), "num_leaves {num_leaves}");
+        assert!(
+            Mmr::verify(&mmr_root, mmr_proof, leaf_index as u64, *leaf, num_leaves),
+            "num_leaves {num_leaves}"
+        );
+
+        let mut mmr_from_leaves = Mmr::new();
+        assert!(mmr_from_leaves.add_leaves(leaves[..=leaf_index].iter().copied()));
+        assert_eq!(
+            mmr_from_leaves.root(),
+            Some(expected_root),
+            "num_leaves {num_leaves}"
+        );
+    }
+
+    let mut mmr = Mmr::new();
+    assert!(mmr.add_leaf(&first_leaf));
+    let root = mmr.root().unwrap();
+    assert_eq!(root, SingleLeafTestHasher.hash_single_leaf(&first_leaf));
+    assert_ne!(root, first_leaf);
+    // Peaks keep the leaf as is
+    let peaks = mmr.peaks();
+    assert_eq!(peaks.peaks[0], first_leaf);
+    assert_eq!(Mmr::from_peaks(&peaks).unwrap().root(), Some(root));
+    assert!(!Mmr::verify(&first_leaf, &[], 0, first_leaf, 1));
 }

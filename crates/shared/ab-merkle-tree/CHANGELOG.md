@@ -21,6 +21,9 @@ New features:
   `BalancedMerkleTree` and `UnbalancedMerkleTree::compute_root_only_array()` require a `const` implementation
 * `blake3::Blake3MerkleHasher`, which produces the same roots and proofs as 0.2.0, other BLAKE3 keys require a custom
   `MerkleHasher`
+* `MerkleHasher::hash_single_leaf()` customizes the root of an `UnbalancedMerkleTree` or `MerkleMountainRange` with a
+  single leaf, which is the leaf itself by default, so hashers that depend on the tree size can commit to it in that
+  case too
 
 Improvements:
 
