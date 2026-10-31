@@ -9,24 +9,29 @@ use crate::block::body::{
     IntermediateShardBody, LeafShardBlockInfo, LeafShardBlocksInfo, LeafShardBody,
     LeafShardOwnSegments, OwnSegments,
 };
-use crate::block::header::owned::{OwnedIntermediateShardHeader, OwnedLeafShardHeader};
-use crate::block::header::{
-    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderEd25519Seal,
-    BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
+use crate::block::header::owned::{
+    OwnedBeaconChainHeader, OwnedIntermediateShardHeader, OwnedLeafShardHeader,
 };
-use crate::block::{BlockNumber, BlockRoot, BlockTimestamp};
+use crate::block::header::{
+    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
+    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
+    BlockHeaderResult, BlockHeaderSeal,
+};
+use crate::block::owned::OwnedBeaconChainBlock;
+use crate::block::{BeaconChainBlock, BlockNumber, BlockRoot, BlockTimestamp};
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
 use crate::pot::{PotCheckpoints, PotOutput, SlotNumber};
 use crate::segments::{LocalSegmentIndex, SegmentRoot};
-use crate::shard::{RealShardKind, ShardIndex};
-use crate::solutions::Solution;
+use crate::shard::{NumShards, RealShardKind, ShardIndex};
+use crate::solutions::{Solution, SolutionRange};
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader, TransactionSlot};
 use crate::trees::{
     IntermediateShardBodyMerkleTree, LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
 };
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use core::num::{NonZeroU16, NonZeroU32};
 use core::ptr;
 use std::iter;
 
@@ -119,9 +124,8 @@ fn intermediate_shard_header(
         &header_result(body_root),
         &consensus_info(),
         &beacon_chain_info(),
-        &[],
+        &Blake3Hash::default(),
     )
-    .unwrap()
     .with_seal(BlockHeaderSeal::Ed25519(&seal()))
 }
 
@@ -286,6 +290,82 @@ fn owned_bodies_without_child_shard_blocks_fit_into_their_capacity() {
         let body = OwnedLeafShardBody::init(own_segments()).unwrap().finish();
         let buffer = into_buffer(body);
         assert_eq!(buffer.len(), buffer.capacity());
+    }
+}
+
+/// A beacon chain block is only consistent when the root of intermediate shard block roots in its
+/// header matches intermediate shard blocks in its body
+#[test]
+fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_rejected() {
+    fn intermediate_shard_blocks_root(
+        intermediate_shard_blocks: &[TestIntermediateShardBlock],
+    ) -> Blake3Hash {
+        let bytes = beacon_chain_body_bytes(intermediate_shard_blocks, &[]);
+        let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
+        body.intermediate_shard_blocks().headers_root()
+    }
+
+    fn is_consistent(
+        body: &SharedAlignedBuffer,
+        intermediate_shard_blocks_root: &Blake3Hash,
+    ) -> bool {
+        let (parsed_body, _remainder) = BeaconChainBody::try_from_bytes(body.as_slice()).unwrap();
+        let header = OwnedBeaconChainHeader::from_parts(
+            &header_prefix(u32::from(ShardIndex::BEACON_CHAIN), 0),
+            &header_result(parsed_body.root()),
+            &consensus_info(),
+            intermediate_shard_blocks_root,
+            &BlockHeaderConsensusParameters {
+                fixed_parameters: BlockHeaderFixedConsensusParameters {
+                    solution_range: SolutionRange::MAX,
+                    slot_iterations: NonZeroU32::MIN,
+                    num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap(),
+                },
+                super_segment_root: None,
+                next_solution_range: None,
+                pot_parameters_change: None,
+            },
+        )
+        .with_seal(BlockHeaderSeal::Ed25519(&seal()));
+        let mut bytes = header.buffer().as_slice().to_vec();
+        // The body starts at a 16-byte boundary
+        pad_to(&mut bytes, 16);
+        bytes.extend_from_slice(body.as_slice());
+        let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+
+        // Child block roots are checked at the block level only
+        assert!(BeaconChainBlock::try_from_bytes_unchecked(bytes.as_slice()).is_some());
+        let consistent = BeaconChainBlock::try_from_bytes(bytes.as_slice()).is_some();
+        assert_eq!(
+            OwnedBeaconChainBlock::from_buffers(header.buffer().clone(), body.clone()).is_some(),
+            consistent
+        );
+        consistent
+    }
+
+    let intermediate_shard_blocks = (0..3)
+        .map(|number| TestIntermediateShardBlock::new(1, number, 0, &[]))
+        .collect::<Vec<_>>();
+    let other_root = intermediate_shard_blocks_root(&intermediate_shard_blocks[1..]);
+
+    for num_blocks in [1, 3] {
+        let intermediate_shard_blocks = &intermediate_shard_blocks[..num_blocks];
+        let body = beacon_chain_body_bytes(intermediate_shard_blocks, &[]);
+        assert!(is_consistent(
+            &body,
+            &intermediate_shard_blocks_root(intermediate_shard_blocks)
+        ));
+
+        for wrong_root in [
+            Blake3Hash::new([1; _]),
+            // The root without intermediate shard blocks
+            Blake3Hash::default(),
+            other_root,
+            // The root of the first intermediate shard block
+            **intermediate_shard_blocks[0].header.header().root(),
+        ] {
+            assert!(!is_consistent(&body, &wrong_root));
+        }
     }
 }
 

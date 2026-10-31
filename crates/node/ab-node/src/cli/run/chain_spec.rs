@@ -121,7 +121,6 @@ impl ChainSpec {
                     pot_parameters_change: None,
                 },
             )
-            .expect("Values of the genesis block are valid; qed")
             .with_seal(BlockHeaderSeal::Ed25519(&BlockHeaderEd25519Seal {
                 public_key: Ed25519PublicKey::default(),
                 signature: Ed25519Signature::default(),

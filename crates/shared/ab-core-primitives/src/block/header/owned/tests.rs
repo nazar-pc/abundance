@@ -1,6 +1,6 @@
 use crate::block::header::owned::{
-    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
-    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
+    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedIntermediateShardHeader,
+    OwnedLeafShardHeader,
 };
 use crate::block::header::{
     BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
@@ -74,8 +74,6 @@ where
 
 #[test]
 fn max_allocation_is_enough_for_largest_headers() {
-    // As many child shard blocks as the headers can have
-    let child_shard_blocks = vec![BlockRoot::default(); usize::from(u16::MAX)];
     let super_segment_root = SuperSegmentRoot::from([1; _]);
     let pot_parameters_change = BlockHeaderPotParametersChange::from(PotParametersChange {
         slot: SlotNumber::ZERO,
@@ -113,34 +111,32 @@ fn max_allocation_is_enough_for_largest_headers() {
             &prefix(0),
             &result(),
             &consensus_info(),
-            &child_shard_blocks,
+            &Blake3Hash::default(),
             &consensus_parameters,
         )
-        .unwrap()
         .with_seal(BlockHeaderSeal::Ed25519(&seal()));
         let buffer = into_buffer(header);
-        assert_eq!(
-            buffer.capacity(),
-            OwnedBeaconChainHeader::max_allocation_for(&child_shard_blocks)
-        );
+        assert_eq!(buffer.capacity(), OwnedBeaconChainHeader::MAX_ALLOCATION);
         assert_eq!(buffer.len() == buffer.capacity(), largest);
     }
+    assert_eq!(OwnedBeaconChainHeader::MAX_ALLOCATION, 2862);
 
+    // Intermediate shard headers have a fixed size
     let header = OwnedIntermediateShardHeader::from_parts(
         &prefix(1),
         &result(),
         &consensus_info(),
         &beacon_chain_info(),
-        &child_shard_blocks,
+        &Blake3Hash::default(),
     )
-    .unwrap()
     .with_seal(BlockHeaderSeal::Ed25519(&seal()));
     let buffer = into_buffer(header);
     assert_eq!(
         buffer.capacity(),
-        OwnedIntermediateShardHeader::max_allocation_for(&child_shard_blocks)
+        OwnedIntermediateShardHeader::MAX_ALLOCATION
     );
     assert_eq!(buffer.len(), buffer.capacity());
+    assert_eq!(OwnedIntermediateShardHeader::MAX_ALLOCATION, 2801);
 
     let header = OwnedLeafShardHeader::from_parts(
         &prefix(1 | (1 << 10)),
@@ -156,7 +152,7 @@ fn max_allocation_is_enough_for_largest_headers() {
 
 #[test]
 fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
-    let child_shard_blocks = [BlockRoot::default(); 2];
+    let child_shard_blocks_root = Blake3Hash::new([1; _]);
     let consensus_parameters = BlockHeaderConsensusParameters {
         fixed_parameters: BlockHeaderFixedConsensusParameters {
             solution_range: SolutionRange::MAX,
@@ -177,7 +173,7 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
         &prefix(0),
         &result(),
         &consensus_info(),
-        &child_shard_blocks,
+        &child_shard_blocks_root,
         &consensus_parameters,
         &mut buffer,
     )
@@ -186,10 +182,9 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
         &prefix(0),
         &result(),
         &consensus_info(),
-        &child_shard_blocks,
+        &child_shard_blocks_root,
         &consensus_parameters,
-    )
-    .unwrap();
+    );
     assert_eq!(unsealed.pre_seal_hash(), owned_unsealed.pre_seal_hash());
     unsealed.with_seal(seal);
     let header = owned_unsealed.with_seal(seal);
@@ -202,7 +197,7 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
         &result(),
         &consensus_info(),
         &beacon_chain_info(),
-        &child_shard_blocks,
+        &child_shard_blocks_root,
         &mut buffer,
     )
     .unwrap();
@@ -211,9 +206,8 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
         &result(),
         &consensus_info(),
         &beacon_chain_info(),
-        &child_shard_blocks,
-    )
-    .unwrap();
+        &child_shard_blocks_root,
+    );
     assert_eq!(unsealed.pre_seal_hash(), owned_unsealed.pre_seal_hash());
     unsealed.with_seal(seal);
     let header = owned_unsealed.with_seal(seal);
@@ -243,10 +237,7 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
 }
 
 #[test]
-fn from_parts_into_writes_nothing_on_errors() {
-    // One more child shard block than headers can have. A buffer without space for a header
-    // would need 4 GiB of initialized memory, so the other error is not checked here.
-    let child_shard_blocks = vec![BlockRoot::default(); usize::from(u16::MAX) + 1];
+fn header_roots_commit_to_child_block_roots() {
     let consensus_parameters = BlockHeaderConsensusParameters {
         fixed_parameters: BlockHeaderFixedConsensusParameters {
             solution_range: SolutionRange::MAX,
@@ -257,37 +248,54 @@ fn from_parts_into_writes_nothing_on_errors() {
         next_solution_range: None,
         pot_parameters_change: None,
     };
-    let bytes_before = [1, 2, 3];
+    let seal = seal();
+    let seal = BlockHeaderSeal::Ed25519(&seal);
+    // Headers that only differ in the root of child block roots
+    let child_shard_blocks_roots = [Blake3Hash::default(), Blake3Hash::new([1; _])];
 
-    let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
-    assert!(matches!(
-        OwnedBeaconChainHeader::from_parts_into(
+    let [header_a, header_b] = child_shard_blocks_roots.map(|intermediate_shard_blocks_root| {
+        OwnedBeaconChainHeader::from_parts(
             &prefix(0),
             &result(),
             &consensus_info(),
-            &child_shard_blocks,
+            &intermediate_shard_blocks_root,
             &consensus_parameters,
-            &mut buffer,
-        ),
-        Err(OwnedBeaconChainHeaderError::TooManyIntermediateShardBlocks { actual })
-            if actual == child_shard_blocks.len()
-    ));
-    assert_eq!(buffer.as_slice(), bytes_before);
+        )
+        .with_seal(seal)
+    });
+    for (header, root) in [&header_a, &header_b]
+        .into_iter()
+        .zip(&child_shard_blocks_roots)
+    {
+        assert_eq!(header.header().intermediate_shard_blocks_root(), root);
+    }
+    assert_ne!(*header_a.header().root(), *header_b.header().root());
+    assert_ne!(
+        header_a.header().pre_seal_hash(),
+        header_b.header().pre_seal_hash()
+    );
 
-    let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
-    assert!(matches!(
-        OwnedIntermediateShardHeader::from_parts_into(
+    let [header_a, header_b] = child_shard_blocks_roots.map(|leaf_shard_blocks_root| {
+        OwnedIntermediateShardHeader::from_parts(
             &prefix(1),
             &result(),
             &consensus_info(),
             &beacon_chain_info(),
-            &child_shard_blocks,
-            &mut buffer,
-        ),
-        Err(OwnedIntermediateShardHeaderError::TooManyLeafShardBlocks { actual })
-            if actual == child_shard_blocks.len()
-    ));
-    assert_eq!(buffer.as_slice(), bytes_before);
+            &leaf_shard_blocks_root,
+        )
+        .with_seal(seal)
+    });
+    for (header, root) in [&header_a, &header_b]
+        .into_iter()
+        .zip(&child_shard_blocks_roots)
+    {
+        assert_eq!(header.header().leaf_shard_blocks_root(), root);
+    }
+    assert_ne!(*header_a.header().root(), *header_b.header().root());
+    assert_ne!(
+        header_a.header().pre_seal_hash(),
+        header_b.header().pre_seal_hash()
+    );
 }
 
 #[test]

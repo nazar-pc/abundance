@@ -319,7 +319,7 @@ impl OwnedBeaconChainBody {
         .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
             // This is only an estimate of intermediate shard blocks to get in the ballpark where
             // reallocation should not be necessary in many cases
-            + u32::from(num_blocks) * OwnedIntermediateShardHeader::max_allocation_for(&[]) * 2;
+            + u32::from(num_blocks) * OwnedIntermediateShardHeader::MAX_ALLOCATION * 2;
         // PoT checkpoints, the estimate above can make the capacity larger than any body can be
         let mut buffer =
             OwnedAlignedBuffer::with_capacity(capacity.saturating_add(pot_checkpoints_size));
@@ -396,19 +396,11 @@ impl OwnedBeaconChainBody {
                     intermediate_shard_block.header.result,
                     intermediate_shard_block.header.consensus_info,
                     intermediate_shard_block.header.beacon_chain_info(),
-                    intermediate_shard_block.header.leaf_shard_blocks(),
+                    intermediate_shard_block.header.leaf_shard_blocks_root(),
                     &mut buffer,
                 )
-                .map_err(|error| match error {
-                    OwnedIntermediateShardHeaderError::TooManyLeafShardBlocks { actual: _ } => {
-                        unreachable!(
-                            "Headers are only created by parsers, which read at most `u16::MAX` \
-                            leaf shard blocks; qed"
-                        )
-                    }
-                    OwnedIntermediateShardHeaderError::HeaderTooLarge => {
-                        OwnedBeaconChainBodyError::BlockBodyIsTooLarge
-                    }
+                .map_err(|OwnedIntermediateShardHeaderError::HeaderTooLarge| {
+                    OwnedBeaconChainBodyError::BlockBodyIsTooLarge
                 })?
                 .with_seal(intermediate_shard_block.header.seal);
 

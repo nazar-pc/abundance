@@ -374,20 +374,18 @@ impl<'a> BeaconChainBlock<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         self.body.root() == self.header.result.body_root
-            && self.header.intermediate_shard_blocks().len()
-                == self.body.intermediate_shard_blocks().len()
+            && *self.header.intermediate_shard_blocks_root()
+                == self.body.intermediate_shard_blocks().headers_root()
             && self
-                .header
+                .body
                 .intermediate_shard_blocks()
                 .iter()
-                .zip(self.body.intermediate_shard_blocks().iter())
-                .all(|(child_shard_block_root, intermediate_shard_block)| {
-                    child_shard_block_root == &*intermediate_shard_block.header.root()
-                        && intermediate_shard_block
-                            .header
-                            .prefix
-                            .shard_index
-                            .is_child_of(self.header.prefix.shard_index)
+                .all(|intermediate_shard_block| {
+                    intermediate_shard_block
+                        .header
+                        .prefix
+                        .shard_index
+                        .is_child_of(self.header.prefix.shard_index)
                 })
     }
 
@@ -494,19 +492,17 @@ impl<'a> IntermediateShardBlock<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         self.body.root() == self.header.result.body_root
-            && self.header.leaf_shard_blocks().len() == self.body.leaf_shard_blocks().len()
+            && *self.header.leaf_shard_blocks_root() == self.body.leaf_shard_blocks().headers_root()
             && self
-                .header
+                .body
                 .leaf_shard_blocks()
                 .iter()
-                .zip(self.body.leaf_shard_blocks().iter())
-                .all(|(child_shard_block_root, leaf_shard_block)| {
-                    child_shard_block_root == &*leaf_shard_block.header.root()
-                        && leaf_shard_block
-                            .header
-                            .prefix
-                            .shard_index
-                            .is_child_of(self.header.prefix.shard_index)
+                .all(|leaf_shard_block| {
+                    leaf_shard_block
+                        .header
+                        .prefix
+                        .shard_index
+                        .is_child_of(self.header.prefix.shard_index)
                 })
     }
 
