@@ -24,6 +24,7 @@ impl<const KEY: [u8; KEY_LEN]> Blake3StaticMerkleHasher<KEY> {
         &KEY
     }
 
+    /// The key doesn't depend on the tree size, so a single leaf is the root of the tree
     #[inline(always)]
     pub(super) fn single_leaf_root(self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
         *leaf

@@ -482,7 +482,10 @@ impl<'a> NestedSlots<'a> {
         Some(buffer.clone())
     }
 
-    /// Read-only access to a slot with a specified owner and contract, marks it as used.
+    /// Read-only access to a slot with a specified owner and contract.
+    ///
+    /// Marks the slot as used, except for read-only slots, which never change, so their reads are
+    /// not tracked.
     ///
     /// Returns `None` in case of access violation.
     #[inline(always)]

@@ -189,8 +189,7 @@ impl<'a> OwnSegments<'a> {
     }
 }
 
-/// Compute the root of segments of leaf shard blocks, with a zero leaf for each leaf shard block
-/// without segments.
+/// Compute the root of segments of leaf shard blocks.
 ///
 /// Takes positions of leaf shard blocks with segments among `num_leaf_shard_blocks` blocks, their
 /// shard indices and segments. Returns `None` if positions aren't strictly increasing or not
@@ -324,8 +323,7 @@ impl<'a> IntermediateShardBlockInfo<'a> {
         })
     }
 
-    /// Compute the root of segments of leaf shards in the corresponding intermediate shard block,
-    /// with a zero leaf for each leaf shard block without segments
+    /// Compute the root of segments of leaf shards in the corresponding intermediate shard block
     #[inline]
     fn leaf_shards_segments_root(&self) -> Blake3Hash {
         compute_leaf_shards_segments_root(self.num_leaf_shard_blocks, self.leaf_shards_segments())
@@ -1340,8 +1338,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
         self.num_blocks == 0
     }
 
-    /// Compute the root of segments of the leaf shard blocks info, with a zero leaf for each
-    /// leaf shard block without segments.
+    /// Compute the root of segments of the leaf shard blocks info.
     ///
     /// Returns the default value for an empty collection of shard blocks.
     #[inline]
