@@ -63,8 +63,7 @@ where
     where
         H: NewMerkleHasherForTreeSize,
         Item: Into<[u8; H::OUT_LEN]>,
-        Iter: IntoIterator<Item = Item> + 'a,
-        Iter::IntoIter: TrustedLen,
+        Iter: IntoIterator<Item = Item, IntoIter: TrustedLen> + 'a,
     {
         let leaves = leaves.into_iter();
         let hasher = Self::hasher_for_leaves(&leaves)?;
@@ -199,8 +198,7 @@ where
     where
         H: NewMerkleHasherForTreeSize,
         Item: Into<[u8; H::OUT_LEN]>,
-        Iter: IntoIterator<Item = Item> + 'a,
-        Iter::IntoIter: TrustedLen,
+        Iter: IntoIterator<Item = Item, IntoIter: TrustedLen> + 'a,
     {
         let leaves = leaves.into_iter();
         let hasher = Self::hasher_for_leaves(&leaves)?;
@@ -284,8 +282,7 @@ where
     where
         H: NewMerkleHasherForTreeSize,
         Item: Into<[u8; H::OUT_LEN]>,
-        Iter: IntoIterator<Item = Item> + 'a,
-        Iter::IntoIter: TrustedLen,
+        Iter: IntoIterator<Item = Item, IntoIter: TrustedLen> + 'a,
     {
         let leaves = leaves.into_iter();
         let hasher = Self::hasher_for_leaves(&leaves)?;
