@@ -213,6 +213,17 @@ pub enum OwnedBeaconChainBodyError {
         /// Local segment index of the first own segment root
         first_local_segment_index: LocalSegmentIndex,
     },
+    /// Local segment indices of own segment roots are not consecutive
+    #[error(
+        "Own segment indices are not consecutive: {local_segment_index} after \
+        {previous_local_segment_index}"
+    )]
+    NonConsecutiveOwnSegmentIndices {
+        /// Local segment index of the previous own segment root
+        previous_local_segment_index: LocalSegmentIndex,
+        /// Local segment index that doesn't follow the previous one
+        local_segment_index: LocalSegmentIndex,
+    },
     /// Too many intermediate shard blocks
     #[error("Too many intermediate shard blocks: {actual}")]
     TooManyIntermediateShardBlocks {
@@ -267,7 +278,6 @@ impl GenericOwnedBlockBody for OwnedBeaconChainBody {
 }
 
 impl OwnedBeaconChainBody {
-    // TODO: Verify order of headers and segments?
     /// Create a new instance
     pub fn new<'a, OS, ISB>(
         own_segments: OS,
@@ -350,7 +360,20 @@ impl OwnedBeaconChainBody {
                 unreachable!("Checked size above; qed");
             };
         }
-        for (_segment_index, own_segment_root) in own_segments {
+        let mut previous_local_segment_index = None;
+        for (local_segment_index, own_segment_root) in own_segments {
+            // Only the first local segment index is stored, the rest must follow it one by one
+            if let Some(previous_local_segment_index) = previous_local_segment_index
+                && LocalSegmentIndex::forward_checked(previous_local_segment_index, 1)
+                    != Some(local_segment_index)
+            {
+                return Err(OwnedBeaconChainBodyError::NonConsecutiveOwnSegmentIndices {
+                    previous_local_segment_index,
+                    local_segment_index,
+                });
+            }
+            previous_local_segment_index = Some(local_segment_index);
+
             let true = buffer.append(own_segment_root.as_ref()) else {
                 unreachable!("Checked size above; qed");
             };
@@ -514,6 +537,17 @@ pub enum OwnedIntermediateShardBodyError {
         /// Local segment index of the first own segment root
         first_local_segment_index: LocalSegmentIndex,
     },
+    /// Local segment indices of own segment roots are not consecutive
+    #[error(
+        "Own segment indices are not consecutive: {local_segment_index} after \
+        {previous_local_segment_index}"
+    )]
+    NonConsecutiveOwnSegmentIndices {
+        /// Local segment index of the previous own segment root
+        previous_local_segment_index: LocalSegmentIndex,
+        /// Local segment index that doesn't follow the previous one
+        local_segment_index: LocalSegmentIndex,
+    },
     /// Too many leaf shard blocks
     #[error("Too many leaf shard blocks: {actual}")]
     TooManyLeafShardBlocks {
@@ -564,7 +598,6 @@ impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
 }
 
 impl OwnedIntermediateShardBody {
-    // TODO: Verify order of headers and segments?
     /// Create a new instance
     pub fn new<'a, OS, LSB>(
         own_segments: OS,
@@ -626,7 +659,22 @@ impl OwnedIntermediateShardBody {
                 unreachable!("Checked size above; qed");
             };
         }
-        for (_segment_index, own_segment_root) in own_segments {
+        let mut previous_local_segment_index = None;
+        for (local_segment_index, own_segment_root) in own_segments {
+            // Only the first local segment index is stored, the rest must follow it one by one
+            if let Some(previous_local_segment_index) = previous_local_segment_index
+                && LocalSegmentIndex::forward_checked(previous_local_segment_index, 1)
+                    != Some(local_segment_index)
+            {
+                return Err(
+                    OwnedIntermediateShardBodyError::NonConsecutiveOwnSegmentIndices {
+                        previous_local_segment_index,
+                        local_segment_index,
+                    },
+                );
+            }
+            previous_local_segment_index = Some(local_segment_index);
+
             let true = buffer.append(own_segment_root.as_ref()) else {
                 unreachable!("Checked size above; qed");
             };
@@ -749,6 +797,17 @@ pub enum OwnedLeafShardBodyError {
         /// Local segment index of the first own segment root
         first_local_segment_index: LocalSegmentIndex,
     },
+    /// Local segment indices of own segment roots are not consecutive
+    #[error(
+        "Own segment indices are not consecutive: {local_segment_index} after \
+        {previous_local_segment_index}"
+    )]
+    NonConsecutiveOwnSegmentIndices {
+        /// Local segment index of the previous own segment root
+        previous_local_segment_index: LocalSegmentIndex,
+        /// Local segment index that doesn't follow the previous one
+        local_segment_index: LocalSegmentIndex,
+    },
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
@@ -809,7 +868,6 @@ impl GenericOwnedBlockBody for OwnedLeafShardBody {
 }
 
 impl OwnedLeafShardBody {
-    // TODO: Verify order of segments?
     /// Initialize building of [`OwnedLeafShardBody`]
     pub fn init<OS>(
         own_segments: OS,
@@ -861,7 +919,20 @@ impl OwnedLeafShardBody {
                 unreachable!("Checked size above; qed");
             };
         }
-        for (_segment_index, own_segment_root) in own_segments {
+        let mut previous_local_segment_index = None;
+        for (local_segment_index, own_segment_root) in own_segments {
+            // Only the first local segment index is stored, the rest must follow it one by one
+            if let Some(previous_local_segment_index) = previous_local_segment_index
+                && LocalSegmentIndex::forward_checked(previous_local_segment_index, 1)
+                    != Some(local_segment_index)
+            {
+                return Err(OwnedLeafShardBodyError::NonConsecutiveOwnSegmentIndices {
+                    previous_local_segment_index,
+                    local_segment_index,
+                });
+            }
+            previous_local_segment_index = Some(local_segment_index);
+
             let true = buffer.append(own_segment_root.as_ref()) else {
                 unreachable!("Checked size above; qed");
             };

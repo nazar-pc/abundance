@@ -11,8 +11,8 @@ use crate::block::body::owned::{
 use crate::block::body::{BlockBody, IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderUnsealed,
-    OwnedBlockHeader, OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError,
-    OwnedIntermediateShardHeaderUnsealed, OwnedLeafShardHeader, OwnedLeafShardHeaderUnsealed,
+    OwnedBlockHeader, OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderUnsealed,
+    OwnedLeafShardHeader, OwnedLeafShardHeaderUnsealed,
 };
 use crate::block::header::{
     BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
@@ -209,17 +209,6 @@ impl OwnedBeaconChainBlockUnsealed {
             body: self.body,
         }
     }
-}
-
-/// Errors for [`OwnedIntermediateShardBlock`]
-#[derive(Debug, thiserror::Error)]
-pub enum OwnedIntermediateShardBlockError {
-    /// Intermediate shard block header error
-    #[error("Intermediate shard block header error: {0}")]
-    Header(#[from] OwnedIntermediateShardHeaderError),
-    /// Intermediate shard block body error
-    #[error("Intermediate shard block body error: {0}")]
-    Body(#[from] OwnedIntermediateShardBodyError),
 }
 
 /// An owned version of [`IntermediateShardBlock`].

@@ -1492,3 +1492,66 @@ fn owned_bodies_with_local_segment_indices_near_u64_max() {
         }
     }
 }
+
+/// Builders only store the first local segment index, so the others must follow it one by one
+#[test]
+fn owned_bodies_with_non_consecutive_local_segment_indices() {
+    let (_first_local_segment_index, segment_roots) = segments(0, 3);
+    for (local_segment_indices, inconsistency) in [
+        (&[5, 6, 7][..], None),
+        (&[5, 9], Some((5, 9))),
+        (&[5, 6, 8], Some((6, 8))),
+        (&[5, 5], Some((5, 5))),
+        (&[5, 4], Some((5, 4))),
+    ] {
+        let own_segments = || {
+            local_segment_indices.iter().zip(&segment_roots).map(
+                |(&local_segment_index, &segment_root)| {
+                    (LocalSegmentIndex::from(local_segment_index), segment_root)
+                },
+            )
+        };
+
+        let beacon_chain_body = OwnedBeaconChainBody::new(
+            own_segments(),
+            iter::empty::<IntermediateShardBlockInfo<'_>>(),
+            &[],
+        );
+        let intermediate_shard_body = OwnedIntermediateShardBody::new(
+            own_segments(),
+            iter::empty::<LeafShardBlockInfo<'_>>(),
+        );
+        let leaf_shard_body =
+            OwnedLeafShardBody::init(own_segments()).map(OwnedLeafShardBlockBodyBuilder::finish);
+
+        let Some((previous, unexpected)) = inconsistency else {
+            assert!(beacon_chain_body.is_ok());
+            assert!(intermediate_shard_body.is_ok());
+            assert!(leaf_shard_body.is_ok());
+            continue;
+        };
+        let previous = LocalSegmentIndex::from(previous);
+        let unexpected = LocalSegmentIndex::from(unexpected);
+        assert!(matches!(
+            beacon_chain_body,
+            Err(OwnedBeaconChainBodyError::NonConsecutiveOwnSegmentIndices {
+                previous_local_segment_index,
+                local_segment_index,
+            }) if previous_local_segment_index == previous && local_segment_index == unexpected
+        ));
+        assert!(matches!(
+            intermediate_shard_body,
+            Err(OwnedIntermediateShardBodyError::NonConsecutiveOwnSegmentIndices {
+                previous_local_segment_index,
+                local_segment_index,
+            }) if previous_local_segment_index == previous && local_segment_index == unexpected
+        ));
+        assert!(matches!(
+            leaf_shard_body,
+            Err(OwnedLeafShardBodyError::NonConsecutiveOwnSegmentIndices {
+                previous_local_segment_index,
+                local_segment_index,
+            }) if previous_local_segment_index == previous && local_segment_index == unexpected
+        ));
+    }
+}
