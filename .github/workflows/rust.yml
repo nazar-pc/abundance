@@ -53,56 +53,33 @@ jobs:
         run: cargo fmt --all -- --check
 
   cargo-clippy:
+    name: cargo-clippy (${{ matrix.platform.name }}, ${{ matrix.type }})
     strategy:
       matrix:
-        os:
-          - ubuntu-26.04
-          - ubuntu-26.04-arm
-          - macos-26
-          - windows-11-arm
-          - windows-2025
+        platform:
+          - { name: linux-x86_64, runner: ubuntu-26.04, target: '' }
+          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '' }
+          - { name: macos-aarch64, runner: macos-26, target: '' }
+          - { name: windows-aarch64, runner: windows-11-arm, target: '' }
+          # TODO: Use cross-compilation below once https://github.com/kunobi-ninja/kache/issues/1788 is resolved
+          - { name: windows-x86_64, runner: windows-2025, target: '' }
+          # Cross-compiled on a faster `aarch64` runner
+          # - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc }
+          - { name: linux-riscv64gc, runner: ubuntu-26.04-arm, target: riscv64gc-unknown-linux-gnu }
+          - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu }
+          # 32-bit target, see `skip_crates` below for the crates that it doesn't check
+          - { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu }
         type:
           - together
           - individually
           - features
-        target:
-          - ""
-        include:
-          - os: ubuntu-26.04-arm
-            type: together
-            target: riscv64gc-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            type: features
-            target: riscv64gc-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            type: individually
-            target: riscv64gc-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            type: together
-            target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            type: features
-            target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            type: individually
-            target: riscv64a23-unknown-linux-gnu
-          # 32-bit target, see `skip_crates` below for the crates that it doesn't check
-          - os: ubuntu-26.04-arm
-            type: together
-            target: riscv32gc-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            type: features
-            target: riscv32gc-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            type: individually
-            target: riscv32gc-unknown-linux-gnu
       fail-fast: false
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.platform.runner }}
     env:
       command: >-
         cargo -Zgitoxide -Zgit clippy
-        ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+        ${{ matrix.platform.target != '' && format('-Zjson-target-spec --target {0}', matrix.platform.target) || '' }}
       # Regex of names of crates that are not checked or tested on 32-bit targets. Node and farmer
       # crates expect a 64-bit platform. `ab-networking` enables the `parking_lot` feature of
       # `tokio`, and `parking_lot_core` 0.9 doesn't compile for RV32 Linux. With feature
@@ -110,7 +87,7 @@ jobs:
       # Coremark runner need the eager instruction fetcher, which is only available on 64-bit
       # hosts. A crate that depends on one of these crates needs its own entry.
       skip_crates: &skip-crates >-
-        ${{ contains(matrix.target, 'riscv32') && '^(ab-client-.*|ab-farmer.*|ab-networking|ab-node.*|ab-proof-of-space-gpu|ab-riscv-benchmarks|ab-riscv-coremark-runner)$' || '' }}
+        ${{ contains(matrix.platform.target, 'riscv32') && '^(ab-client-.*|ab-farmer.*|ab-networking|ab-node.*|ab-proof-of-space-gpu|ab-riscv-benchmarks|ab-riscv-coremark-runner)$' || '' }}
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
 
@@ -158,9 +135,9 @@ jobs:
               # Rustc doesn't pass the target to Clang when it is used as a linker driver. This is
               # here rather than in `RISC-V support`, because steps of this group run in parallel,
               # and only one of them can set `RUSTFLAGS`.
-              if [[ "${{ matrix.target }}" == riscv32* ]]; then
+              if [[ "${{ matrix.platform.target }}" == riscv32* ]]; then
                 LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv32-linux-gnu"
-              elif [[ "${{ matrix.target }}" == riscv64* ]]; then
+              elif [[ "${{ matrix.platform.target }}" == riscv64* ]]; then
                 LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv64-linux-gnu"
               fi
               echo "RUSTFLAGS=${RUSTFLAGS} ${LINKER_FLAGS}" >> $GITHUB_ENV
@@ -177,11 +154,10 @@ jobs:
           # targets, see `Use Wild linker on Linux`.
           - name: RISC-V support
             run: |
-              echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
               # Unlike GCC, Clang accepts the target `cc` crate passes for the custom guest target
               echo "TARGET_CC=clang" >> $GITHUB_ENV
               echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-              if [[ "${{ matrix.target }}" == riscv32* ]]; then
+              if [[ "${{ matrix.platform.target }}" == riscv32* ]]; then
                 # Ubuntu has no RV32 glibc, but neither Clippy nor Miri runs C code from build
                 # scripts (like `alloca` used by `criterion`), so compiling it without target
                 # headers is enough
@@ -194,7 +170,23 @@ jobs:
                 sudo apt-get install --no-install-recommends --yes \
                   libc6-dev-riscv64-cross libgcc-15-dev-riscv64-cross
               fi
-            if: contains(matrix.target, 'riscv')
+            if: contains(matrix.platform.target, 'riscv')
+
+      # Not a part of the parallel group above since it needs the repository checked out for `rust-toolchain.toml`
+      - &target-setup-step
+        name: Set up target
+        shell: bash
+        run: |
+          # Installs the toolchain from `rust-toolchain.toml`
+          rustup toolchain install
+          target="${{ matrix.platform.target }}"
+          # Custom JSON targets and targets without prebuilt standard library build it from source
+          if rustup target list | tr -d '\r' | cut -d' ' -f1 | grep -qxF "$target"; then
+            rustup target add "$target"
+          else
+            echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
+          fi
+        if: matrix.platform.target != ''
 
       - name: cargo clippy
         shell: bash
@@ -303,83 +295,64 @@ jobs:
             run: *parallel_worker
             if: matrix.type == 'individually' || matrix.type == 'features'
 
-      - name: Save cache
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
-        with:
-          path: *cache-path
-          key: *cache-key
-        # Only save on `main` branch and only from one canonical matrix variant per OS
-        if: github.ref == 'refs/heads/main' && matrix.type == 'together' && matrix.target == ''
-
   cargo-test:
+    name: cargo-test (${{ matrix.platform.name }}${{ matrix.platform.miri && ', miri' || '' }}, ${{ matrix.type }})
     strategy:
       matrix:
-        os:
-          - ubuntu-26.04
-          - ubuntu-26.04-arm
-          - macos-26
-          - windows-11-arm
-          - windows-2025
-        miri:
-          - true
-          - false
-        target:
-          - ""
+        # Each entry is a complete configuration, with or without Miri. Miri can run on any runner of the same OS since
+        # it interprets the code instead of running it natively, so foreign targets only run under Miri.
+        platform: &test-platforms
+          - &linux-x86_64-test
+            { name: linux-x86_64, runner: ubuntu-26.04, target: '', miri: false }
+          - &linux-x86_64-test-miri
+            { name: linux-x86_64, runner: ubuntu-26.04, target: '', miri: true }
+          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '', miri: false }
+          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '', miri: true }
+          - { name: macos-aarch64, runner: macos-26, target: '', miri: false }
+          - { name: macos-aarch64, runner: macos-26, target: '', miri: true }
+          - { name: windows-aarch64, runner: windows-11-arm, target: '', miri: false }
+          - { name: windows-aarch64, runner: windows-11-arm, target: '', miri: true }
+          - { name: windows-x86_64, runner: windows-2025, target: '', miri: false }
+          # Miri runs on a faster `aarch64` runner
+          - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc, miri: true }
+          - &linux-riscv64a23-test-miri
+            { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu, miri: true }
+          # 32-bit target, see `skip_crates` below for the crates that it doesn't test
+          - &linux-riscv32gc-test-miri
+            { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu, miri: true }
         type:
           # `together` variant is running in a separate job, see `cargo-test-slow`
           # - together
           - features
-          # Only a few select targets are explicitly included with `guest-feature` below
+          # Only a few select platforms are explicitly included with `guest-feature` below
           # - guest-feature
-        # Test a few RISC-V targets (both Linux and one used for contracts) using Miri
         include:
-          - os: ubuntu-26.04
-            miri: true
-            type: guest-feature
-            target: ""
-          - os: ubuntu-26.04
-            miri: false
-            type: guest-feature
-            target: ""
-
-          - os: ubuntu-26.04-arm
-            miri: true
-            type: features
-            target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            miri: true
-            type: guest-feature
-            target: riscv64a23-unknown-linux-gnu
-
-          # 32-bit target, see `skip_crates` below for the crates that it doesn't test
-          - os: ubuntu-26.04-arm
-            miri: true
-            type: features
-            target: riscv32gc-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            miri: true
-            type: guest-feature
-            target: riscv32gc-unknown-linux-gnu
+          - { platform: *linux-x86_64-test, type: guest-feature }
+          - { platform: *linux-x86_64-test-miri, type: guest-feature }
+          - { platform: *linux-riscv64a23-test-miri, type: guest-feature }
+          - { platform: *linux-riscv32gc-test-miri, type: guest-feature }
 
           # TODO: Tests will need custom allocator to work under this target
-          # - os: ubuntu-26.04-arm
-          #   miri: true
+          # - platform:
+          #     name: riscv64-abundance
+          #     runner: ubuntu-26.04-arm
+          #     target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
+          #     miri: true
           #   type: guest-feature
-          #   target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
       fail-fast: false
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.platform.runner }}
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
     env: &test-env
       # NOTE: Running tests under Miri with nextest is SLOWER than without it:
       #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
       command: >-
-        ${{ matrix.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
-        ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+        ${{ matrix.platform.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
+        ${{ matrix.platform.target != '' && format('-Zjson-target-spec --target {0}', matrix.platform.target) || '' }}
       # `cargo nextest` doesn't support doc tests, so they are run with regular `cargo test` separately (not under Miri)
       doc_test_command: >-
-        ${{ matrix.miri == false && format('test --doc{0}', matrix.target != '' && format(' -Zjson-target-spec --target {0}', matrix.target) || '') || '' }}
+        ${{ matrix.platform.miri == false && format('test --doc{0}', matrix.platform.target != '' && format(' -Zjson-target-spec --target {0}', matrix.platform.target) || '') || '' }}
       # The same crates as in `cargo-clippy` job
       skip_crates: *skip-crates
 
@@ -391,12 +364,13 @@ jobs:
 
       - *rust-gpu-cache
       - *shared-test-steps
+      - *target-setup-step
 
       - name: Install Vulkan runtime (Linux)
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes mesa-vulkan-drivers
-        if: matrix.miri == false && runner.os == 'Linux' && matrix.type == 'together'
+        if: matrix.platform.miri == false && runner.os == 'Linux' && matrix.type == 'together'
 
       - name: Install Vulkan runtime (Windows)
         run: |
@@ -468,17 +442,17 @@ jobs:
             New-Item -Path "HKLM:\SOFTWARE\Khronos\Vulkan\Drivers" -Force| Out-Null
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Khronos\Vulkan\Drivers" -Name $icdPath -Value 0 -Type DWord
           }
-        if: matrix.miri == false && runner.os == 'Windows' && matrix.type == 'together'
+        if: matrix.platform.miri == false && runner.os == 'Windows' && matrix.type == 'together'
 
       - name: cargo ${{ env.command }} (together)
         run: |
           cargo -Zgitoxide -Zgit ${{ env.command }} --locked
-        if: matrix.miri == false && matrix.type == 'together'
+        if: matrix.platform.miri == false && matrix.type == 'together'
 
       - name: cargo ${{ env.doc_test_command }} (together)
         run: |
           cargo -Zgitoxide -Zgit ${{ env.doc_test_command }} --locked
-        if: matrix.miri == false && matrix.type == 'together'
+        if: matrix.platform.miri == false && matrix.type == 'together'
 
       # The whole app is only needed on Windows since it doesn't support shebang
       - name: Install Miri capture wrapper
@@ -621,7 +595,7 @@ jobs:
           RUST_EOF
 
           rustc "${{ runner.temp }}/miri_wrapper.rs" -o "$miri_bin"
-        if: matrix.miri == true
+        if: matrix.platform.miri == true
 
       - name: cargo ${{ env.command }} --capture (together)
         shell: bash
@@ -636,7 +610,7 @@ jobs:
               ) | "--exclude \(.name)"' \
             | tr -d '\r')
           cargo -Zgitoxide -Zgit ${{ env.command }} --locked ${excluded:+--workspace $excluded}
-        if: matrix.miri == true && matrix.type == 'together'
+        if: matrix.platform.miri == true && matrix.type == 'together'
 
       - name: cargo test (various features)
         shell: bash
@@ -720,114 +694,98 @@ jobs:
             echo "$message"
             eval "$command"
           done < "${{ runner.temp }}/capture_queue"
-        if: matrix.miri == true && (matrix.type == 'features' || matrix.type == 'guest-feature')
+        if: matrix.platform.miri == true && (matrix.type == 'features' || matrix.type == 'guest-feature')
 
       - parallel:
           - shell: bash
             env:
               WORKER_ID: "1"
             run: *parallel_worker
-            if: matrix.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
+            if: matrix.platform.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
 
           - shell: bash
             env:
               WORKER_ID: "2"
             run: *parallel_worker
-            if: matrix.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
+            if: matrix.platform.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
 
           - shell: bash
             env:
               WORKER_ID: "3"
             run: *parallel_worker
-            if: matrix.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
+            if: matrix.platform.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
 
           - shell: bash
             env:
               WORKER_ID: "4"
             run: *parallel_worker
-            if: matrix.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
+            if: matrix.platform.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
+
+      - name: Save cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
+        with:
+          path: *cache-path
+          key: *cache-key
+        # Only save on `main` branch and only from one canonical matrix variant per OS
+        if: github.ref == 'refs/heads/main' && matrix.type == 'together' && matrix.platform.target == '' && matrix.platform.miri == false
 
   # This is a hack to start slower jobs before the rest, see `cargo-test` job for full definition
   cargo-test-slow:
+    name: cargo-test-slow (${{ matrix.platform.name }}${{ matrix.platform.miri && ', miri' || '' }}, ${{ matrix.type }})
     strategy:
       matrix:
-        os:
-          - ubuntu-26.04
-          - ubuntu-26.04-arm
-          - macos-26
-          - windows-11-arm
-          - windows-2025
-        miri:
-          - true
-          - false
-        target:
-          - ""
+        platform: *test-platforms
         type:
           - together
-          # - features
-          # - guest-feature
-        include:
-          - os: ubuntu-26.04-arm
-            miri: true
-            type: together
-            target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            miri: true
-            type: together
-            target: riscv32gc-unknown-linux-gnu
       fail-fast: false
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.platform.runner }}
     env: *test-env
 
     steps: *test-steps
 
   no-panic:
+    name: no-panic (${{ matrix.platform.name }}, ${{ matrix.type }})
     strategy:
       matrix:
-        os:
-          - ubuntu-26.04
-          - ubuntu-26.04-arm
-          - macos-26
-          - windows-11-arm
-          - windows-2025
+        platform:
+          - { name: linux-x86_64, runner: ubuntu-26.04, target: '' }
+          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '' }
+          - { name: macos-aarch64, runner: macos-26, target: '' }
+          - { name: windows-aarch64, runner: windows-11-arm, target: '' }
+          - { name: windows-x86_64, runner: windows-2025, target: '' }
+          - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu }
         type:
           - default
           - features
-          # Only one target is explicitly included with `guest-feature` below
+          # Only one platform is explicitly included with `guest-feature` below
           # - guest-feature
-        target:
-          - ""
-        include:
-          - os: ubuntu-26.04-arm
-            type: default
-            target: riscv64a23-unknown-linux-gnu
-          - os: ubuntu-26.04-arm
-            type: features
-            target: riscv64a23-unknown-linux-gnu
-
-          # TODO: Tests will need custom allocator to work under this target
-          # - os: ubuntu-26.04-arm
-          #   type: guest-feature
-          #   target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
+        # TODO: Tests will need custom allocator to work under this target
+        # include:
+        #   - platform:
+        #       name: riscv64-abundance
+        #       runner: ubuntu-26.04-arm
+        #       target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
+        #     type: guest-feature
       fail-fast: false
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.platform.runner }}
     env:
       command: >-
         cargo -Zgitoxide -Zgit build
-        ${{ matrix.target != '' && format('-Zjson-target-spec --target {0}', matrix.target) || '' }}
+        ${{ matrix.platform.target != '' && format('-Zjson-target-spec --target {0}', matrix.platform.target) || '' }}
 
     steps:
       - *rust-gpu-cache
       - *shared-test-steps
+      - *target-setup-step
 
       # Increase the inlining threshold to make sure the compiler can see that some functions do not panic.
       # Native CPU and LTO to allow the compiler to apply more optimizations and prove lack of panics in more cases.
       - name: Set up RUSTFLAGS
         shell: bash
         run: |
-          echo "RUSTFLAGS=${RUSTFLAGS} -Cllvm-args=--inline-threshold=10000 -C embed-bitcode -C lto -Z dylib-lto ${{ matrix.target == '' && '-C target-cpu=native' || '' }}" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${RUSTFLAGS} -Cllvm-args=--inline-threshold=10000 -C embed-bitcode -C lto -Z dylib-lto ${{ matrix.platform.target == '' && '-C target-cpu=native' || '' }}" >> $GITHUB_ENV
 
       - name: Ensure no panics in annotated code
         shell: bash
