@@ -23,6 +23,7 @@ use crate::shard::{NumShards, RealShardKind, ShardIndex};
 use crate::solutions::{Solution, SolutionRange};
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader};
+use crate::trees::ChildLeafShardBlocksMerkleTree;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use core::iter::TrustedLen;
 use std::iter;
@@ -126,12 +127,19 @@ fn leaf_shard_block() -> OwnedLeafShardBlock {
 }
 
 fn leaf_shard_block_with_state_root(state_root: Blake3Hash) -> OwnedLeafShardBlock {
+    leaf_shard_block_with(BlockNumber::ZERO, state_root)
+}
+
+fn leaf_shard_block_with(number: BlockNumber, state_root: Blake3Hash) -> OwnedLeafShardBlock {
     let mut builder = OwnedLeafShardBlock::init(iter::empty()).unwrap();
     builder.add_transaction(&transaction()).unwrap();
     builder
         .with_header(
-            // The first leaf shard of the first intermediate shard
-            &prefix(ShardIndex::new(1 | (1 << 10)).unwrap()),
+            &BlockHeaderPrefix {
+                number,
+                // The first leaf shard of the first intermediate shard
+                ..prefix(ShardIndex::new(1 | (1 << 10)).unwrap())
+            },
             state_root,
             &consensus_info(),
             &beacon_chain_info(),
@@ -439,4 +447,41 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
         .is_none()
     );
     assert!(BeaconChainBlock::try_from_bytes_unchecked(bytes.as_slice()).is_some());
+}
+
+#[test]
+fn child_block_roots_are_tree_roots_of_header_roots() {
+    let leaf_shard_blocks = (0..3)
+        .map(|number| leaf_shard_block_with(BlockNumber::from(number), Blake3Hash::default()))
+        .collect::<Vec<_>>();
+    // All leaf shard blocks have the same transactions
+    let transactions_root = leaf_shard_blocks[0].body.body().transactions().root();
+
+    for num_leaf_shard_blocks in [1, 3] {
+        let leaf_shard_blocks = &leaf_shard_blocks[..num_leaf_shard_blocks];
+        let block = intermediate_shard_block(leaf_shard_blocks.iter().map(|leaf_shard_block| {
+            LeafShardBlockInfo {
+                header: leaf_shard_block.header.header().clone(),
+                transactions_root: &transactions_root,
+                own_segments: None,
+            }
+        }));
+        let leaf_shard_block_roots = leaf_shard_blocks
+            .iter()
+            .map(|leaf_shard_block| **leaf_shard_block.header.header().root())
+            .collect::<Vec<_>>();
+
+        let leaf_shard_blocks_root = *block.header.header().leaf_shard_blocks_root();
+        assert_eq!(
+            *leaf_shard_blocks_root,
+            ChildLeafShardBlocksMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
+                leaf_shard_block_roots.iter().copied()
+            )
+            .unwrap()
+        );
+        if let [leaf_shard_block_root] = leaf_shard_block_roots.as_slice() {
+            // The root of a tree with a single leaf is not the leaf itself
+            assert_ne!(leaf_shard_blocks_root, *leaf_shard_block_root);
+        }
+    }
 }

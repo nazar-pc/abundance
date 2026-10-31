@@ -27,8 +27,8 @@ use crate::solutions::{Solution, SolutionRange};
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader, TransactionSlot};
 use crate::trees::{
-    IntermediateShardBodyMerkleTree, IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree,
-    LeafShardsSegmentsMerkleTree,
+    ChildIntermediateShardBlocksMerkleTree, IntermediateShardBodyMerkleTree,
+    IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
 };
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use core::num::{NonZeroU16, NonZeroU32};
@@ -1065,6 +1065,38 @@ fn beacon_chain_segments_root_commits_to_intermediate_shard_body_nodes() {
             >([segments_node])
             .unwrap()
         );
+    }
+}
+
+#[test]
+fn intermediate_shard_block_roots_are_tree_roots_of_header_roots() {
+    let intermediate_shard_blocks = (0..3)
+        .map(|number| TestIntermediateShardBlock::new(1, number, 0, 1, &[]))
+        .collect::<Vec<_>>();
+
+    for num_blocks in [1, 3] {
+        let intermediate_shard_blocks = &intermediate_shard_blocks[..num_blocks];
+        let bytes = beacon_chain_body_bytes(intermediate_shard_blocks, &[]);
+        let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
+        let block_roots = intermediate_shard_blocks
+            .iter()
+            .map(|block| **block.header.header().root())
+            .collect::<Vec<_>>();
+
+        let headers_root = body.intermediate_shard_blocks().headers_root();
+        assert_eq!(
+            *headers_root,
+            ChildIntermediateShardBlocksMerkleTree::compute_root_only::<
+                { u64::from(u16::MAX) },
+                _,
+                _,
+            >(block_roots.iter().copied())
+            .unwrap()
+        );
+        if let [block_root] = block_roots.as_slice() {
+            // The root of a tree with a single leaf is not the leaf itself
+            assert_ne!(headers_root, *block_root);
+        }
     }
 }
 

@@ -783,7 +783,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         Blake3Hash::new(root)
     }
 
-    /// Compute the root of headers of the intermediate shard blocks info.
+    /// Compute the root of child block roots, which the header stores.
     ///
     /// Returns the default value for an empty collection of shard blocks.
     #[inline]
@@ -792,13 +792,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             { u64::from(u16::MAX) },
             _,
             _,
-        >(self.iter().map(|shard_block_info| {
-            // Hash the root again so we can prove it, otherwise the root of headers is
-            // indistinguishable from individual block roots and can be used to confuse
-            // verifier
-            single_block_hash(shard_block_info.header.root().as_ref())
-                .expect("Less than a single block worth of bytes; qed")
-        }))
+        >(
+            self.iter()
+                .map(|shard_block_info| **shard_block_info.header.root()),
+        )
         .unwrap_or_default();
 
         Blake3Hash::new(root)
@@ -1367,20 +1364,15 @@ impl<'a> LeafShardBlocksInfo<'a> {
         .expect("Positions are strictly increasing and smaller than the number of blocks; qed")
     }
 
-    /// Compute the root of headers of the leaf shard blocks info.
+    /// Compute the root of child block roots, which the header stores.
     ///
     /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
         let root =
             ChildLeafShardBlocksMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-                self.iter().map(|shard_block_info| {
-                    // Hash the root again so we can prove it, otherwise root of headers is
-                    // indistinguishable from individual block roots and can be used to confuse
-                    // verifier
-                    single_block_hash(shard_block_info.header.root().as_ref())
-                        .expect("Less than a single block worth of bytes; qed")
-                }),
+                self.iter()
+                    .map(|shard_block_info| **shard_block_info.header.root()),
             )
             .unwrap_or_default();
 
