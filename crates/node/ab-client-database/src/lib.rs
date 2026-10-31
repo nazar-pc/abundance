@@ -389,7 +389,7 @@ impl BeaconChainBlockDetails {
                     });
                 let child_shard_segment_roots = intermediate_shard_block_info
                     .leaf_shards_segments()
-                    .flat_map(move |(shard_index, own_segments)| {
+                    .flat_map(move |(_position, shard_index, own_segments)| {
                         own_segments
                             .iter()
                             .map(move |(segment_index, &segment_root)| ShardSegmentRoot {

@@ -312,8 +312,9 @@ impl OwnedBeaconChainBody {
                 + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
                 // Number of intermediate shard blocks
                 + u16::SIZE
-                // Numbers of own segment roots and leaf shard blocks with segments of each block
-                + u32::from(num_blocks) * (u8::SIZE + u16::SIZE)
+                // Numbers of own segment roots, leaf shard blocks and leaf shard blocks with
+                // segments of each block
+                + u32::from(num_blocks) * (u8::SIZE + 2 * u16::SIZE)
         )
         // Padding to 8-bytes boundary
         .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
@@ -361,9 +362,9 @@ impl OwnedBeaconChainBody {
             };
             let mut segments_roots_num_cursor = buffer.len() as usize;
             for _ in 0..num_blocks {
-                // Placeholder values for the number of own segment roots and number of leaf shard
-                // blocks with segments
-                let true = buffer.append(&[0, 0, 0]) else {
+                // Placeholder values for the number of own segment roots, number of leaf shard
+                // blocks and number of leaf shard blocks with segments
+                let true = buffer.append(&[0; 5]) else {
                     unreachable!("Checked size above; qed");
                 };
             }
@@ -379,9 +380,14 @@ impl OwnedBeaconChainBody {
                     intermediate_shard_block.num_leaf_shard_blocks_with_segments();
 
                 buffer.as_mut_slice()[segments_roots_num_cursor] = num_own_segment_roots;
-                buffer.as_mut_slice()[segments_roots_num_cursor + 1..][..2]
+                buffer.as_mut_slice()[segments_roots_num_cursor + 1..][..2].copy_from_slice(
+                    &intermediate_shard_block
+                        .num_leaf_shard_blocks()
+                        .to_le_bytes(),
+                );
+                buffer.as_mut_slice()[segments_roots_num_cursor + 3..][..2]
                     .copy_from_slice(&num_leaf_shard_blocks_with_segments.to_le_bytes());
-                segments_roots_num_cursor += 3;
+                segments_roots_num_cursor += 5;
 
                 OwnedIntermediateShardHeader::from_parts_into(
                     intermediate_shard_block.header.prefix,
@@ -407,13 +413,19 @@ impl OwnedBeaconChainBody {
                     }
                 }
 
-                for (_shard_index, own_segments) in intermediate_shard_block.leaf_shards_segments()
+                for (_position, _shard_index, own_segments) in
+                    intermediate_shard_block.leaf_shards_segments()
                 {
                     if !buffer.append(&[own_segments.num_segment_roots().get()]) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }
                 }
-                for (shard_index, own_segments) in intermediate_shard_block.leaf_shards_segments() {
+                for (position, shard_index, own_segments) in
+                    intermediate_shard_block.leaf_shards_segments()
+                {
+                    if !buffer.append(&position.to_le_bytes()) {
+                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
+                    }
                     if !buffer.append(shard_index.as_bytes()) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }

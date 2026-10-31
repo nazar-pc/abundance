@@ -28,7 +28,8 @@ use crate::solutions::{Solution, SolutionRange};
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader, TransactionSlot};
 use crate::trees::{
-    IntermediateShardBodyMerkleTree, LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
+    IntermediateShardBodyMerkleTree, IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree,
+    LeafShardsSegmentsMerkleTree,
 };
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use core::num::{NonZeroU16, NonZeroU32};
@@ -345,7 +346,7 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
     }
 
     let intermediate_shard_blocks = (0..3)
-        .map(|number| TestIntermediateShardBlock::new(1, number, 0, &[]))
+        .map(|number| TestIntermediateShardBlock::new(1, number, 0, 0, &[]))
         .collect::<Vec<_>>();
     let other_root = intermediate_shard_blocks_root(&intermediate_shard_blocks[1..]);
 
@@ -430,12 +431,17 @@ impl TestLeafShardBlock {
 /// Bytes of an intermediate shard body with leaf shard blocks, following the layout described in
 /// `LeafShardBlocksInfo::try_from_bytes()`
 fn intermediate_shard_body_bytes(
-    own_segments: &(LocalSegmentIndex, Vec<SegmentRoot>),
+    own_segments: Option<&(LocalSegmentIndex, Vec<SegmentRoot>)>,
     leaf_shard_blocks: &[TestLeafShardBlock],
 ) -> SharedAlignedBuffer {
-    let (_first_local_segment_index, own_segment_roots) = own_segments;
-    let mut bytes = vec![u8::try_from(own_segment_roots.len()).unwrap()];
-    append_segments(&mut bytes, own_segments);
+    let mut bytes = Vec::new();
+    if let Some(own_segments) = own_segments {
+        let (_first_local_segment_index, own_segment_roots) = own_segments;
+        bytes.push(u8::try_from(own_segment_roots.len()).unwrap());
+        append_segments(&mut bytes, own_segments);
+    } else {
+        bytes.push(0);
+    }
 
     bytes.extend_from_slice(
         &u16::try_from(leaf_shard_blocks.len())
@@ -479,7 +485,7 @@ fn intermediate_shard_body_with_leaf_shard_blocks() {
     // Different numbers of blocks need different padding after the numbers of segment roots
     for num_blocks in 1..=leaf_shard_blocks.len() {
         let leaf_shard_blocks = &leaf_shard_blocks[..num_blocks];
-        let bytes = intermediate_shard_body_bytes(&own_segments, leaf_shard_blocks);
+        let bytes = intermediate_shard_body_bytes(Some(&own_segments), leaf_shard_blocks);
 
         let (body, remainder) = IntermediateShardBody::try_from_bytes(bytes.as_slice()).unwrap();
         assert!(remainder.is_empty());
@@ -505,69 +511,84 @@ fn intermediate_shard_body_with_leaf_shard_blocks() {
     }
 }
 
+/// Segments of a leaf shard block inside a beacon chain body: the position of the block among
+/// leaf shard blocks of the intermediate shard block, its shard index and segments
+type TestLeafShardSegments = (u16, ShardIndex, (LocalSegmentIndex, Vec<SegmentRoot>));
+
 /// An intermediate shard block inside a beacon chain body
 struct TestIntermediateShardBlock {
     header: OwnedIntermediateShardHeader,
     own_segments: Option<(LocalSegmentIndex, Vec<SegmentRoot>)>,
-    leaf_shards_segments: Vec<(ShardIndex, (LocalSegmentIndex, Vec<SegmentRoot>))>,
+    num_leaf_shard_blocks: u16,
+    leaf_shards_segments: Vec<TestLeafShardSegments>,
 }
 
 impl TestIntermediateShardBlock {
+    /// `leaf_shards_segments` are positions among `num_leaf_shard_blocks`, shard indices and
+    /// numbers of segments of leaf shard blocks with segments
     fn new(
         shard_index: u32,
         number: u64,
         num_own_segments: u8,
-        leaf_shards_segments: &[(u32, u8)],
+        num_leaf_shard_blocks: u16,
+        leaf_shards_segments: &[(u16, u32, u8)],
     ) -> Self {
         let own_segments = (num_own_segments > 0).then(|| segments(number, num_own_segments));
         let leaf_shards_segments = leaf_shards_segments
             .iter()
-            .map(|&(leaf_shard_index, num_segments)| {
+            .map(|&(position, leaf_shard_index, num_segments)| {
                 (
+                    position,
                     ShardIndex::new(leaf_shard_index).unwrap(),
                     segments(number, num_segments),
                 )
             })
             .collect::<Vec<_>>();
 
-        Self::with_segments(shard_index, number, own_segments, leaf_shards_segments)
+        Self::with_segments(
+            shard_index,
+            number,
+            own_segments,
+            num_leaf_shard_blocks,
+            leaf_shards_segments,
+        )
     }
 
     fn with_segments(
         shard_index: u32,
         number: u64,
         own_segments: Option<(LocalSegmentIndex, Vec<SegmentRoot>)>,
-        leaf_shards_segments: Vec<(ShardIndex, (LocalSegmentIndex, Vec<SegmentRoot>))>,
+        num_leaf_shard_blocks: u16,
+        leaf_shards_segments: Vec<TestLeafShardSegments>,
     ) -> Self {
         let leaf_shard_blocks_root = Blake3Hash::new([u8::try_from(number).unwrap(); _]);
-        // The body root that the root of leaf shard blocks in the header belongs to
-        let body_root = if own_segments.is_none() && leaf_shards_segments.is_empty() {
-            Blake3Hash::default()
-        } else {
-            // Without checks, so that tests can compute roots of segments that parsers must reject
-            let own_segments_root = own_segments.as_ref().map_or_else(
-                Blake3Hash::default,
-                |(first_local_segment_index, segment_roots)| {
-                    OwnSegments::new_unchecked(*first_local_segment_index, segment_roots).root()
-                },
-            );
-            let leaf_shards_roots = leaf_shards_segments.iter().map(
-                |(leaf_shard_index, (first_local_segment_index, segment_roots))| {
-                    OwnSegments::new_unchecked(*first_local_segment_index, segment_roots)
-                        .root_with_shard_index(*leaf_shard_index)
-                },
-            );
-            let leaf_shards_root =
-                LeafShardsSegmentsMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-                    leaf_shards_roots,
-                )
-                .unwrap_or_default();
+        // Without checks, so that tests can compute roots of segments that parsers must reject
+        let own_segments_root = own_segments.as_ref().map_or_else(
+            Blake3Hash::default,
+            |(first_local_segment_index, segment_roots)| {
+                OwnSegments::new_unchecked(*first_local_segment_index, segment_roots).root()
+            },
+        );
+        // A zero leaf for each leaf shard block without segments, computed with the dense tree
+        let mut leaf_shards_leaves = vec![[0; _]; usize::from(num_leaf_shard_blocks)];
+        for (position, leaf_shard_index, (first_local_segment_index, segment_roots)) in
+            &leaf_shards_segments
+        {
+            leaf_shards_leaves[usize::from(*position)] =
+                *OwnSegments::new_unchecked(*first_local_segment_index, segment_roots)
+                    .root_with_shard_index(*leaf_shard_index);
+        }
+        let leaf_shards_root =
+            LeafShardsSegmentsMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
+                leaf_shards_leaves.iter().copied(),
+            )
+            .unwrap_or_default();
+        let body_root =
             Blake3Hash::new(IntermediateShardBodyMerkleTree::compute_root_only_array(&[
                 *own_segments_root,
                 leaf_shards_root,
                 *leaf_shard_blocks_root,
-            ]))
-        };
+            ]));
 
         Self {
             header: intermediate_shard_header(
@@ -577,6 +598,52 @@ impl TestIntermediateShardBlock {
                 &leaf_shard_blocks_root,
             ),
             own_segments,
+            num_leaf_shard_blocks,
+            leaf_shards_segments,
+        }
+    }
+
+    /// An intermediate shard block with `body`, with entries derived from it the way a producer
+    /// derives them
+    fn from_body(shard_index: u32, number: u64, body: &IntermediateShardBody<'_>) -> Self {
+        let leaf_shards_segments = body
+            .leaf_shard_blocks()
+            .iter()
+            .zip(0..)
+            .filter_map(|(leaf_shard_block, position)| {
+                let LeafShardBlockInfo { header, segments } = leaf_shard_block;
+                segments.map(
+                    |LeafShardOwnSegments {
+                         segment_roots_proof: _,
+                         own_segments,
+                     }| {
+                        (
+                            position,
+                            header.prefix.shard_index,
+                            (
+                                own_segments.first_local_segment_index,
+                                own_segments.segment_roots.to_vec(),
+                            ),
+                        )
+                    },
+                )
+            })
+            .collect();
+
+        Self {
+            header: intermediate_shard_header(
+                shard_index,
+                number,
+                body.root(),
+                &body.leaf_shard_blocks().headers_root(),
+            ),
+            own_segments: body.own_segments().map(|own_segments| {
+                (
+                    own_segments.first_local_segment_index,
+                    own_segments.segment_roots.to_vec(),
+                )
+            }),
+            num_leaf_shard_blocks: u16::try_from(body.leaf_shard_blocks().len()).unwrap(),
             leaf_shards_segments,
         }
     }
@@ -605,6 +672,7 @@ fn beacon_chain_body_bytes(
                 u8::try_from(own_segment_roots.len()).unwrap()
             },
         ));
+        bytes.extend_from_slice(&block.num_leaf_shard_blocks.to_le_bytes());
         bytes.extend_from_slice(
             &u16::try_from(block.leaf_shards_segments.len())
                 .unwrap()
@@ -617,12 +685,13 @@ fn beacon_chain_body_bytes(
         if let Some(own_segments) = &block.own_segments {
             append_segments(&mut bytes, own_segments);
         }
-        for (_leaf_shard_index, (_first_local_segment_index, segment_roots)) in
+        for (_position, _leaf_shard_index, (_first_local_segment_index, segment_roots)) in
             &block.leaf_shards_segments
         {
             bytes.push(u8::try_from(segment_roots.len()).unwrap());
         }
-        for (leaf_shard_index, segments) in &block.leaf_shards_segments {
+        for (position, leaf_shard_index, segments) in &block.leaf_shards_segments {
+            bytes.extend_from_slice(&position.to_le_bytes());
             bytes.extend_from_slice(&u32::from(*leaf_shard_index).to_le_bytes());
             append_segments(&mut bytes, segments);
         }
@@ -660,6 +729,7 @@ fn check_beacon_chain_body_with_intermediate_shard_blocks(
         .zip(intermediate_shard_blocks)
     {
         assert_eq!(*info.header.root(), *block.header.header().root());
+        assert_eq!(info.body_root(), info.header.result.body_root);
         match (&info.own_segments, &block.own_segments) {
             (Some(info_own_segments), Some(own_segments)) => {
                 assert_segments_eq(info_own_segments, own_segments);
@@ -667,13 +737,15 @@ fn check_beacon_chain_body_with_intermediate_shard_blocks(
             (None, None) => {}
             _ => panic!("Own segments mismatch"),
         }
+        assert_eq!(info.num_leaf_shard_blocks(), block.num_leaf_shard_blocks);
         assert_eq!(
             info.leaf_shards_segments().len(),
             block.leaf_shards_segments.len()
         );
-        for ((info_shard_index, info_segments), (shard_index, segments)) in
+        for ((info_position, info_shard_index, info_segments), (position, shard_index, segments)) in
             info.leaf_shards_segments().zip(&block.leaf_shards_segments)
         {
+            assert_eq!(info_position, *position);
             assert_eq!(info_shard_index, *shard_index);
             assert_segments_eq(&info_segments, segments);
         }
@@ -684,18 +756,26 @@ fn check_beacon_chain_body_with_intermediate_shard_blocks(
 
 #[test]
 fn beacon_chain_body_with_intermediate_shard_blocks() {
-    // A few blocks of the first three intermediate shards with and without segments
+    // A few blocks of the first three intermediate shards with and without segments, and with
+    // and without leaf shard blocks without segments
     let intermediate_shard_blocks = [
-        TestIntermediateShardBlock::new(1, 0, 0, &[]),
-        TestIntermediateShardBlock::new(1, 1, 1, &[(1 | (1 << 10), 2), (1 | (2 << 10), 1)]),
-        TestIntermediateShardBlock::new(2, 0, 0, &[(2 | (1 << 10), 1)]),
-        TestIntermediateShardBlock::new(2, 1, 2, &[]),
-        TestIntermediateShardBlock::new(3, 0, 0, &[(3 | (1 << 10), 1)]),
+        TestIntermediateShardBlock::new(1, 0, 0, 3, &[]),
+        TestIntermediateShardBlock::new(
+            1,
+            1,
+            1,
+            4,
+            &[(1, 1 | (1 << 10), 2), (3, 1 | (2 << 10), 1)],
+        ),
+        TestIntermediateShardBlock::new(2, 0, 0, 1, &[(0, 2 | (1 << 10), 1)]),
+        TestIntermediateShardBlock::new(2, 1, 2, 2, &[]),
+        TestIntermediateShardBlock::new(3, 0, 0, 2, &[(1, 3 | (1 << 10), 1)]),
+        TestIntermediateShardBlock::new(3, 1, 0, 0, &[]),
     ];
     let pot_checkpoints = [PotCheckpoints::default()];
 
     // Different numbers of blocks need different padding after the numbers of segment roots,
-    // there is none for three blocks
+    // there is none for five blocks
     for num_blocks in 1..=intermediate_shard_blocks.len() {
         check_beacon_chain_body_with_intermediate_shard_blocks(
             &intermediate_shard_blocks[..num_blocks],
@@ -706,14 +786,22 @@ fn beacon_chain_body_with_intermediate_shard_blocks() {
 
 #[test]
 fn beacon_chain_body_with_many_leaf_shards_segments() {
-    // More leaf shard blocks with segments than fit into `u8`
+    // More leaf shard blocks with segments than fit into `u8`, each after a leaf shard block
+    // without segments
     let many_leaf_shards_segments = (1..=256)
-        .map(|leaf_shard| (3 | (leaf_shard << 10), 1))
+        .map(|leaf_shard| {
+            (
+                u16::try_from(leaf_shard * 2 - 1).unwrap(),
+                3 | (leaf_shard << 10),
+                1,
+            )
+        })
         .collect::<Vec<_>>();
     let intermediate_shard_blocks = [TestIntermediateShardBlock::new(
         3,
         0,
         0,
+        512,
         &many_leaf_shards_segments,
     )];
 
@@ -751,7 +839,7 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
     ));
 
     // Blocks of a parsed body, which are in order there
-    let bytes = intermediate_shard_body_bytes(&segments(3, 1), &leaf_shard_blocks);
+    let bytes = intermediate_shard_body_bytes(Some(&segments(3, 1)), &leaf_shard_blocks);
     let (body, _remainder) = IntermediateShardBody::try_from_bytes(bytes.as_slice()).unwrap();
     let infos = body.leaf_shard_blocks().iter().collect::<Vec<_>>();
     new_body(infos.clone()).unwrap();
@@ -767,9 +855,9 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
 #[test]
 fn owned_beacon_chain_body_with_inconsistent_intermediate_shard_blocks() {
     let intermediate_shard_blocks = [
-        TestIntermediateShardBlock::new(1, 0, 1, &[]),
-        TestIntermediateShardBlock::new(1, 1, 1, &[(1 | (1 << 10), 1)]),
-        TestIntermediateShardBlock::new(2, 0, 1, &[]),
+        TestIntermediateShardBlock::new(1, 0, 1, 1, &[]),
+        TestIntermediateShardBlock::new(1, 1, 1, 2, &[(1, 1 | (1 << 10), 1)]),
+        TestIntermediateShardBlock::new(2, 0, 1, 0, &[]),
     ];
     let bytes = beacon_chain_body_bytes(&intermediate_shard_blocks, &[]);
     let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
@@ -804,11 +892,18 @@ fn owned_beacon_chain_body_with_inconsistent_intermediate_shard_blocks() {
 
 #[test]
 fn beacon_chain_body_checks_segments_against_the_header_root() {
-    // Own segments, segments of a leaf shard block and both
+    // No segments, own segments, segments of a leaf shard block and both
     for block in [
-        TestIntermediateShardBlock::new(1, 1, 1, &[]),
-        TestIntermediateShardBlock::new(1, 1, 0, &[(1 | (1 << 10), 1)]),
-        TestIntermediateShardBlock::new(1, 1, 2, &[(1 | (1 << 10), 1), (1 | (2 << 10), 2)]),
+        TestIntermediateShardBlock::new(1, 1, 0, 2, &[]),
+        TestIntermediateShardBlock::new(1, 1, 1, 0, &[]),
+        TestIntermediateShardBlock::new(1, 1, 0, 1, &[(0, 1 | (1 << 10), 1)]),
+        TestIntermediateShardBlock::new(
+            1,
+            1,
+            2,
+            3,
+            &[(0, 1 | (1 << 10), 1), (2, 1 | (2 << 10), 2)],
+        ),
     ] {
         let bytes = beacon_chain_body_bytes(slice::from_ref(&block), &[]);
         BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
@@ -833,11 +928,248 @@ fn beacon_chain_body_checks_segments_against_the_header_root() {
     }
 }
 
+/// Bodies of intermediate shard blocks of shard 1 with segments of leaf shard blocks at different
+/// positions, with and without own segments and leaf shard blocks
+fn intermediate_shard_bodies() -> Vec<SharedAlignedBuffer> {
+    let with_segments = |shard_index, number| TestLeafShardBlock::new(shard_index, number, 1);
+    let without_segments = |shard_index, number| TestLeafShardBlock::new(shard_index, number, 0);
+
+    [
+        (
+            Some(segments(10, 1)),
+            vec![
+                without_segments(1 | (1 << 10), 0),
+                with_segments(1 | (1 << 10), 1),
+                without_segments(1 | (1 << 10), 2),
+                with_segments(1 | (2 << 10), 0),
+            ],
+        ),
+        (
+            Some(segments(20, 2)),
+            vec![
+                without_segments(1 | (1 << 10), 0),
+                without_segments(1 | (2 << 10), 0),
+            ],
+        ),
+        (
+            None,
+            vec![
+                with_segments(1 | (1 << 10), 0),
+                with_segments(1 | (1 << 10), 1),
+            ],
+        ),
+        (
+            None,
+            vec![
+                without_segments(1 | (1 << 10), 0),
+                without_segments(1 | (1 << 10), 1),
+                without_segments(1 | (2 << 10), 0),
+            ],
+        ),
+        (Some(segments(30, 1)), Vec::new()),
+        (None, Vec::new()),
+    ]
+    .iter()
+    .map(|(own_segments, leaf_shard_blocks)| {
+        intermediate_shard_body_bytes(own_segments.as_ref(), leaf_shard_blocks)
+    })
+    .collect()
+}
+
+#[test]
+fn beacon_chain_body_accepts_intermediate_shard_blocks_built_from_their_bodies() {
+    let bodies = intermediate_shard_bodies();
+    let intermediate_shard_blocks = bodies
+        .iter()
+        .zip(0..)
+        .map(|(bytes, number)| {
+            let (body, _remainder) =
+                IntermediateShardBody::try_from_bytes(bytes.as_slice()).unwrap();
+            TestIntermediateShardBlock::from_body(1, number, &body)
+        })
+        .collect::<Vec<_>>();
+
+    for block in &intermediate_shard_blocks {
+        check_beacon_chain_body_with_intermediate_shard_blocks(slice::from_ref(block), &[]);
+    }
+    check_beacon_chain_body_with_intermediate_shard_blocks(&intermediate_shard_blocks, &[]);
+}
+
+#[test]
+fn beacon_chain_segments_root_commits_to_intermediate_shard_body_nodes() {
+    for bytes in intermediate_shard_bodies() {
+        let (intermediate_shard_body, _remainder) =
+            IntermediateShardBody::try_from_bytes(bytes.as_slice()).unwrap();
+        let block = TestIntermediateShardBlock::from_body(1, 0, &intermediate_shard_body);
+        let bytes = beacon_chain_body_bytes(slice::from_ref(&block), &[]);
+        let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
+
+        // The inner node over own segments and segments of leaf shards in the body tree of the
+        // intermediate shard block
+        let segments_node = IntermediateShardBodyMerkleTree::compute_root_only_array(&[
+            *intermediate_shard_body
+                .own_segments()
+                .as_ref()
+                .map_or_default(OwnSegments::root),
+            *intermediate_shard_body.leaf_shard_blocks().segments_root(),
+        ]);
+        assert_eq!(
+            IntermediateShardBodyMerkleTree::compute_root_only_array(&[
+                segments_node,
+                *intermediate_shard_body.leaf_shard_blocks().headers_root(),
+            ]),
+            *intermediate_shard_body.root()
+        );
+
+        assert_eq!(
+            *body.intermediate_shard_blocks().segments_root(),
+            IntermediateShardsSegmentsMerkleTree::compute_root_only::<
+                { u64::from(u16::MAX) },
+                _,
+                _,
+            >([segments_node])
+            .unwrap()
+        );
+    }
+}
+
+/// Check that the beacon chain body with `block` is rejected by the parser with checks, and by
+/// the builder if the parser without checks accepts it, which it does for `structurally_valid`
+/// blocks
+fn assert_inconsistent_intermediate_shard_block(
+    block: &TestIntermediateShardBlock,
+    structurally_valid: bool,
+) {
+    let bytes = beacon_chain_body_bytes(slice::from_ref(block), &[]);
+    assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
+
+    let body = BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice());
+    assert_eq!(body.is_some(), structurally_valid);
+    if let Some((body, _remainder)) = body {
+        assert!(matches!(
+            OwnedBeaconChainBody::new(iter::empty(), body.intermediate_shard_blocks().iter(), &[]),
+            Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
+        ));
+    }
+}
+
+#[test]
+fn beacon_chain_body_with_wrong_leaf_shard_segments_positions() {
+    let block = || {
+        TestIntermediateShardBlock::new(1, 1, 1, 6, &[(1, 1 | (1 << 10), 1), (4, 1 | (3 << 10), 2)])
+    };
+    check_beacon_chain_body_with_intermediate_shard_blocks(&[block()], &[]);
+
+    // Another number of leaf shard blocks
+    for num_leaf_shard_blocks in [5, 7] {
+        let mut block = block();
+        block.num_leaf_shard_blocks = num_leaf_shard_blocks;
+        assert_inconsistent_intermediate_shard_block(&block, true);
+    }
+
+    // An entry moved to a neighbouring position of a leaf shard block without segments
+    for (index, position) in [(0, 0), (0, 2), (1, 3), (1, 5)] {
+        let mut block = block();
+        let (entry_position, _leaf_shard_index, _segments) = &mut block.leaf_shards_segments[index];
+        *entry_position = position;
+        assert_inconsistent_intermediate_shard_block(&block, true);
+    }
+
+    // An entry dropped
+    for index in [0, 1] {
+        let mut block = block();
+        block.leaf_shards_segments.remove(index);
+        assert_inconsistent_intermediate_shard_block(&block, true);
+    }
+
+    // An entry duplicated at a position of a leaf shard block without segments, and an entry of
+    // another leaf shard added there
+    let mut block_with_duplicate = block();
+    let (_position, leaf_shard_index, segments) =
+        block_with_duplicate.leaf_shards_segments[1].clone();
+    block_with_duplicate
+        .leaf_shards_segments
+        .push((5, leaf_shard_index, segments.clone()));
+    let mut block_with_another = block();
+    block_with_another.leaf_shards_segments.push((
+        5,
+        ShardIndex::new(1 | (4 << 10)).unwrap(),
+        segments,
+    ));
+    for block in [block_with_duplicate, block_with_another] {
+        assert_inconsistent_intermediate_shard_block(&block, true);
+    }
+
+    // An entry of another child leaf shard, which keeps the order of shard indices
+    let mut block_with_another_shard = block();
+    let (_position, leaf_shard_index, _segments) =
+        &mut block_with_another_shard.leaf_shards_segments[0];
+    *leaf_shard_index = ShardIndex::new(1 | (2 << 10)).unwrap();
+    assert_inconsistent_intermediate_shard_block(&block_with_another_shard, true);
+
+    // Positions that aren't increasing or not smaller than the number of leaf shard blocks are
+    // rejected by both parsers
+    for positions in [[4, 1], [1, 1], [1, 6]] {
+        let mut block = block();
+        for ((position, _leaf_shard_index, _segments), new_position) in
+            block.leaf_shards_segments.iter_mut().zip(positions)
+        {
+            *position = new_position;
+        }
+        assert_inconsistent_intermediate_shard_block(&block, false);
+    }
+}
+
+#[test]
+fn beacon_chain_body_checks_intermediate_shard_blocks_without_segments() {
+    // Leaf shard blocks without segments, but no segments at all
+    check_beacon_chain_body_with_intermediate_shard_blocks(
+        &[TestIntermediateShardBlock::new(1, 1, 0, 3, &[])],
+        &[],
+    );
+
+    // Own segments dropped
+    let mut block = TestIntermediateShardBlock::new(1, 1, 1, 3, &[]);
+    block.own_segments = None;
+    assert_inconsistent_intermediate_shard_block(&block, true);
+
+    // Segments of a leaf shard block dropped
+    let mut block = TestIntermediateShardBlock::new(1, 1, 0, 3, &[(1, 1 | (1 << 10), 1)]);
+    block.leaf_shards_segments.clear();
+    assert_inconsistent_intermediate_shard_block(&block, true);
+
+    // Another number of leaf shard blocks without segments
+    for num_leaf_shard_blocks in [0, 2, 4] {
+        let mut block = TestIntermediateShardBlock::new(1, 1, 0, 3, &[]);
+        block.num_leaf_shard_blocks = num_leaf_shard_blocks;
+        assert_inconsistent_intermediate_shard_block(&block, true);
+    }
+}
+
+#[test]
+#[cfg_attr(miri, ignore)]
+fn beacon_chain_body_with_many_empty_leaf_shard_blocks() {
+    // The largest number of leaf shard blocks, without segments and with segments in the last one
+    for leaf_shards_segments in [&[][..], &[(u16::MAX - 1, 1 | (1 << 10), 1)]] {
+        check_beacon_chain_body_with_intermediate_shard_blocks(
+            &[TestIntermediateShardBlock::new(
+                1,
+                1,
+                0,
+                u16::MAX,
+                leaf_shards_segments,
+            )],
+            &[],
+        );
+    }
+}
+
 #[test]
 fn beacon_chain_body_with_leaf_shard_segments_without_segment_roots() {
     // Segments of a leaf shard block with one segment root and with none
     for (num_segment_roots, valid) in [(1, true), (0, false)] {
-        let block = TestIntermediateShardBlock::new(1, 0, 0, &[(1 | (1 << 10), num_segment_roots)]);
+        let block =
+            TestIntermediateShardBlock::new(1, 0, 0, 1, &[(0, 1 | (1 << 10), num_segment_roots)]);
         let bytes = beacon_chain_body_bytes(&[block], &[]);
         assert_eq!(
             BeaconChainBody::try_from_bytes(bytes.as_slice()).is_some(),
@@ -913,7 +1245,7 @@ fn own_segments_with_local_segment_indices_near_u64_max() {
             valid
         );
 
-        let bytes = intermediate_shard_body_bytes(&own_segments, &[]);
+        let bytes = intermediate_shard_body_bytes(Some(&own_segments), &[]);
         let body = IntermediateShardBody::try_from_bytes(bytes.as_slice());
         assert_eq!(body.is_some(), valid);
         if let Some((body, _remainder)) = body {
@@ -947,7 +1279,7 @@ fn leaf_shard_blocks_with_local_segment_indices_near_u64_max() {
     for (leaf_shard_segments, valid) in segments_near_u64_max() {
         let leaf_shard_block =
             TestLeafShardBlock::with_segments(1 | (1 << 10), 0, Some(leaf_shard_segments));
-        let bytes = intermediate_shard_body_bytes(&segments(3, 1), &[leaf_shard_block]);
+        let bytes = intermediate_shard_body_bytes(Some(&segments(3, 1)), &[leaf_shard_block]);
         let body = IntermediateShardBody::try_from_bytes(bytes.as_slice());
         assert_eq!(body.is_some(), valid);
         if let Some((body, _remainder)) = body {
@@ -984,13 +1316,15 @@ fn intermediate_shard_blocks_with_local_segment_indices_near_u64_max() {
                 1,
                 0,
                 Some(near_max_segments.clone()),
+                0,
                 Vec::new(),
             ),
             TestIntermediateShardBlock::with_segments(
                 1,
                 0,
                 None,
-                vec![(leaf_shard_index, near_max_segments.clone())],
+                1,
+                vec![(0, leaf_shard_index, near_max_segments.clone())],
             ),
         ] {
             let bytes = beacon_chain_body_bytes(&[intermediate_shard_block], &[]);
