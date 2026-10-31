@@ -1,10 +1,18 @@
-use crate::test_hasher::{MerkleMountainRange, OUT_LEN, UnbalancedMerkleTree, hash_pair};
+use crate::test_hasher::{
+    MerkleMountainRange, OUT_LEN, TreeSizeTestHasher, UnbalancedMerkleTree, hash_pair,
+};
+use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize, unbalanced};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use std::mem::MaybeUninit;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::{iter, mem};
 
 const MAX_N: u64 = 100;
+
+/// Tree with a hasher that depends on the number of leaves, so that the sparse root is checked to
+/// use the number of leaves of the whole tree
+type TreeSizeUnbalanced = unbalanced::UnbalancedMerkleTree<TreeSizeTestHasher>;
 
 /// Iterator over `leaves` that is not `TrustedLen`
 fn not_trusted_len(leaves: &[[u8; OUT_LEN]]) -> impl Iterator<Item = [u8; OUT_LEN]> + '_ {
@@ -769,4 +777,188 @@ fn test_basic(number_of_leaves: u64) {
             .is_none()
         );
     }
+}
+
+/// Number of hashes computed by [`CountingTestHasher`]
+static NUM_HASHES: AtomicU32 = AtomicU32::new(0);
+
+/// [`TreeSizeTestHasher`] that counts hashes in [`NUM_HASHES`], only one test uses it
+#[derive(Debug, Copy, Clone)]
+struct CountingTestHasher(TreeSizeTestHasher);
+
+impl NewMerkleHasherForTreeSize for CountingTestHasher {
+    fn new_for_tree_size(num_leaves: u64) -> Self {
+        Self(TreeSizeTestHasher::new_for_tree_size(num_leaves))
+    }
+}
+
+impl MerkleHasher for CountingTestHasher {
+    const OUT_LEN: usize = OUT_LEN;
+
+    fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
+        NUM_HASHES.fetch_add(1, Ordering::Relaxed);
+        self.0.hash_pair(pair)
+    }
+
+    fn hash_single_leaf(&self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
+        NUM_HASHES.fetch_add(1, Ordering::Relaxed);
+        self.0.hash_single_leaf(leaf)
+    }
+}
+
+/// The largest number of leaves in sparse tree tests
+const SPARSE_MAX_N: u64 = u16::MAX as u64;
+
+/// Leaves at `positions` with random contents
+fn sparse_leaves(rng: &mut ChaCha8Rng, positions: &[u64]) -> Vec<(u64, [u8; OUT_LEN])> {
+    positions
+        .iter()
+        .map(|&position| {
+            let mut leaf = [0u8; OUT_LEN];
+            rng.fill_bytes(&mut leaf);
+            (position, leaf)
+        })
+        .collect()
+}
+
+/// Random strictly increasing positions in a tree with `num_leaves` leaves
+fn random_positions(rng: &mut ChaCha8Rng, num_leaves: u64) -> Vec<u64> {
+    // Different densities, from almost all zero leaves to almost no zero leaves
+    let density = rng.next_u32() % 4;
+    (0..num_leaves)
+        .filter(|_| match density {
+            0 => rng.next_u32().is_multiple_of(64),
+            1 => rng.next_u32().is_multiple_of(8),
+            2 => rng.next_u32().is_multiple_of(2),
+            _ => !rng.next_u32().is_multiple_of(8),
+        })
+        .collect()
+}
+
+/// Compare the sparse root with the root of the same leaves with zeroes in all other positions
+fn check_sparse_root(rng: &mut ChaCha8Rng, num_leaves: u64, positions: &[u64]) {
+    let leaves = sparse_leaves(rng, positions);
+
+    let mut dense_leaves = vec![[0u8; OUT_LEN]; num_leaves as usize];
+    for &(position, leaf) in &leaves {
+        dense_leaves[position as usize] = leaf;
+    }
+    let dense_root =
+        TreeSizeUnbalanced::compute_root_only::<SPARSE_MAX_N, _, _>(dense_leaves.iter().copied());
+    assert!(dense_root.is_some(), "num_leaves {num_leaves}");
+
+    assert_eq!(
+        TreeSizeUnbalanced::compute_root_only_sparse::<SPARSE_MAX_N, _, _>(num_leaves, leaves),
+        dense_root,
+        "num_leaves {num_leaves} positions {positions:?}"
+    );
+}
+
+/// The sparse root is the same as the root of all leaves with zeroes in all other positions
+#[test]
+#[cfg_attr(miri, ignore)]
+fn sparse_root_matches_dense_root() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    for num_leaves in 1..=300 {
+        check_sparse_root(&mut rng, num_leaves, &[]);
+        check_sparse_root(&mut rng, num_leaves, &(0..num_leaves).collect::<Vec<_>>());
+        for position in 0..num_leaves {
+            check_sparse_root(&mut rng, num_leaves, &[position]);
+        }
+        for _ in 0..8 {
+            let positions = random_positions(&mut rng, num_leaves);
+            check_sparse_root(&mut rng, num_leaves, &positions);
+        }
+    }
+
+    for num_leaves in [1000, 4095, 4096, 4097, SPARSE_MAX_N] {
+        check_sparse_root(&mut rng, num_leaves, &[]);
+        check_sparse_root(&mut rng, num_leaves, &[0]);
+        check_sparse_root(&mut rng, num_leaves, &[num_leaves - 1]);
+        check_sparse_root(&mut rng, num_leaves, &[0, num_leaves / 2, num_leaves - 1]);
+        for _ in 0..4 {
+            let positions = random_positions(&mut rng, num_leaves);
+            check_sparse_root(&mut rng, num_leaves, &positions);
+        }
+    }
+}
+
+/// Small trees, such that Miri checks unchecked indexing too
+#[test]
+fn sparse_root_matches_dense_root_small() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    for num_leaves in 1..=9 {
+        check_sparse_root(&mut rng, num_leaves, &[]);
+        check_sparse_root(&mut rng, num_leaves, &(0..num_leaves).collect::<Vec<_>>());
+        for position in 0..num_leaves {
+            check_sparse_root(&mut rng, num_leaves, &[position]);
+        }
+        let positions = random_positions(&mut rng, num_leaves);
+        check_sparse_root(&mut rng, num_leaves, &positions);
+    }
+}
+
+/// Indices must be strictly increasing and smaller than the number of leaves, which must be
+/// between 1 and `MAX_N`
+#[test]
+fn sparse_root_rejects_invalid_indices() {
+    let a = [1; OUT_LEN];
+    let b = [2; OUT_LEN];
+    let root = |num_leaves, leaves: Vec<(u64, [u8; OUT_LEN])>| {
+        TreeSizeUnbalanced::compute_root_only_sparse::<8, _, _>(num_leaves, leaves)
+    };
+
+    assert!(root(8, vec![(1, a), (3, b)]).is_some());
+    assert!(root(8, vec![(7, a)]).is_some());
+    assert!(root(1, vec![]).is_some());
+
+    // Decreasing indices
+    assert_eq!(root(8, vec![(3, a), (1, b)]), None);
+    // Repeated index
+    assert_eq!(root(8, vec![(3, a), (3, b)]), None);
+    // Index equal to or larger than the number of leaves
+    assert_eq!(root(8, vec![(1, a), (8, b)]), None);
+    assert_eq!(root(5, vec![(5, a)]), None);
+    assert_eq!(root(5, vec![(u64::MAX, a)]), None);
+    // No leaves
+    assert_eq!(root(0, vec![]), None);
+    assert_eq!(root(0, vec![(0, a)]), None);
+    // More leaves than `MAX_N`
+    assert_eq!(root(9, vec![]), None);
+    assert_eq!(root(9, vec![(0, a)]), None);
+    assert_eq!(root(u64::MAX, vec![]), None);
+}
+
+/// Runs of zero leaves are hashed as whole subtrees, so the number of hashes depends on the number
+/// of non-zero leaves and the height of the tree rather than on the number of leaves
+#[test]
+fn sparse_root_hashes_zero_runs_as_subtrees() {
+    const HEIGHT: u64 = SPARSE_MAX_N.next_power_of_two().ilog2() as u64;
+
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let num_hashes = |rng: &mut ChaCha8Rng, positions: &[u64]| {
+        let leaves = sparse_leaves(rng, positions);
+        NUM_HASHES.store(0, Ordering::Relaxed);
+        let root = unbalanced::UnbalancedMerkleTree::<CountingTestHasher>::compute_root_only_sparse::<
+            SPARSE_MAX_N,
+            _,
+            _,
+        >(SPARSE_MAX_N, leaves);
+        assert!(root.is_some());
+        u64::from(NUM_HASHES.load(Ordering::Relaxed))
+    };
+
+    // At most `HEIGHT` merges above each non-zero leaf, `HEIGHT` roots of zero subtrees and
+    // `HEIGHT` hashes of peaks, plus the hash of a single leaf
+    assert!(num_hashes(&mut rng, &[]) <= 2 * HEIGHT + 1);
+
+    let mut positions = iter::repeat_with(|| u64::from(rng.next_u32()) % SPARSE_MAX_N)
+        .take(16)
+        .collect::<Vec<_>>();
+    positions.sort_unstable();
+    positions.dedup();
+    let num_positions = positions.len() as u64;
+    assert!(num_hashes(&mut rng, &positions) <= (num_positions + 2) * HEIGHT + 1);
 }
