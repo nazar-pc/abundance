@@ -2,6 +2,8 @@
 
 #[cfg(feature = "alloc")]
 mod archival_history_segment;
+#[cfg(all(test, feature = "alloc"))]
+mod tests;
 
 use crate::block::BlockNumber;
 use crate::hashes::Blake3Hash;
@@ -689,9 +691,13 @@ impl SegmentRoot {
         };
         // The proof is fixed size and contains zero padding elements, which must be skipped for
         // verification purposes
-        let segment_proof = segment_proof
+        let (segment_proof, padding) = segment_proof
             .split_once(|hash| hash == &[0; _])
-            .map_or(segment_proof.as_slice(), |(before, _after)| before);
+            .unwrap_or((segment_proof.as_slice(), &[]));
+        // Padding must only contain zeroes, so that a proof has a single encoding
+        if padding.iter().any(|hash| hash != &[0; _]) {
+            return false;
+        }
         SuperSegmentMerkleTree::verify(
             super_segment_root,
             segment_proof,
