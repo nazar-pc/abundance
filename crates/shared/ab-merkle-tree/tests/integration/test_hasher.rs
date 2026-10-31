@@ -25,6 +25,23 @@ impl MerkleHasher for TestHasher {
     }
 }
 
+/// Hasher that doesn't depend on the tree size, but hashes a single leaf of a tree
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive_const(Default)]
+pub(crate) struct SingleLeafTestHasher;
+
+impl MerkleHasher for SingleLeafTestHasher {
+    const OUT_LEN: usize = OUT_LEN;
+
+    fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
+        hash_pair_with_seed(0, pair)
+    }
+
+    fn hash_single_leaf(&self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
+        hash_pair_with_seed(1, &[*leaf, [0; OUT_LEN]])
+    }
+}
+
 /// Hasher that depends on the tree size, it only implements [`NewMerkleHasherForTreeSize`]
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct TreeSizeTestHasher {
@@ -42,6 +59,10 @@ impl MerkleHasher for TreeSizeTestHasher {
 
     fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
         hash_pair_with_seed(self.num_leaves, pair)
+    }
+
+    fn hash_single_leaf(&self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
+        hash_pair_with_seed(self.num_leaves, &[*leaf, [0; OUT_LEN]])
     }
 }
 

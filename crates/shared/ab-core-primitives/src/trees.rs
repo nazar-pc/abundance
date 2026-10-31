@@ -203,6 +203,14 @@ pub type BlockMerkleMountainRange =
 //         );
 //         hashes
 //     }
+//
+//     #[inline(always)]
+//     fn hash_single_leaf(
+//         &self,
+//         leaf: &[u8; <Self as MerkleHasher>::OUT_LEN],
+//     ) -> [u8; <Self as MerkleHasher>::OUT_LEN] {
+//         [self.single_leaf_root(array::from_ref(leaf).flatten_ref::<OUT_LEN>())].flatten()
+//     }
 // }
 //
 // // Same body as above
@@ -236,6 +244,11 @@ macro_rules! impl_merkle_hasher {
                         &mut hashes,
                     );
                     hashes
+                }
+
+                #[inline(always)]
+                fn hash_single_leaf(&self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
+                    self.single_leaf_root(leaf)
                 }
             }
         )+

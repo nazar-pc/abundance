@@ -125,6 +125,37 @@ fn size_dependent_hasher_rejects_wrong_num_leaves() {
     assert!(SizeIndependent::verify(&root, proof, 0, leaves[0], 6));
 }
 
+/// The root of a tree with a single leaf is the leaf hashed by the hasher, so the root of a larger
+/// tree can't pass for a single leaf
+#[test]
+fn size_dependent_hasher_single_leaf() {
+    let leaves = random_leaves::<2>();
+    let [leaf, _] = leaves;
+
+    let root = Unbalanced::compute_root_only_array(&[leaf]);
+    assert_eq!(
+        root,
+        TreeSizeTestHasher::new_for_tree_size(1).hash_single_leaf(&leaf)
+    );
+
+    let proof_buffer = &mut [MaybeUninit::uninit(); _];
+    let (proof_root, proof) =
+        Unbalanced::compute_root_and_proof_in::<1, _, _>(iter::once(leaf), 0, proof_buffer)
+            .unwrap();
+    assert_eq!(proof_root, root);
+    assert!(proof.is_empty());
+    assert!(Unbalanced::verify(&root, proof, 0, leaf, 1));
+
+    // The root of two leaves claimed to be the only leaf
+    let root = Unbalanced::compute_root_only_array(&leaves);
+    assert!(!Unbalanced::verify(&root, &[], 0, root, 1));
+
+    // A hasher that keeps a single leaf unchanged accepts it, so the rejection above comes from the
+    // hasher
+    let root = SizeIndependent::compute_root_only_array(&leaves);
+    assert!(SizeIndependent::verify(&root, &[], 0, root, 1));
+}
+
 /// `TrustedLen` iterators of unsupported length are rejected
 #[test]
 fn size_dependent_hasher_iterator_length() {

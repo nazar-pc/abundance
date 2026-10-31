@@ -1,4 +1,4 @@
-use ab_blake3::KEY_LEN;
+use ab_blake3::{KEY_LEN, OUT_LEN};
 use ab_merkle_tree::NewMerkleHasherForTreeSize;
 use const_fn_specialization::const_fn_specialization;
 
@@ -22,6 +22,11 @@ impl<const KEY: [u8; KEY_LEN]> Blake3StaticMerkleHasher<KEY> {
     #[inline(always)]
     pub(super) fn node_key(&self) -> &[u8; KEY_LEN] {
         &KEY
+    }
+
+    #[inline(always)]
+    pub(super) fn single_leaf_root(self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
+        *leaf
     }
 }
 
@@ -64,5 +69,12 @@ impl<const BASE_KEY: [u8; KEY_LEN]> Blake3SizedMerkleHasher<BASE_KEY> {
     #[inline(always)]
     pub(super) fn node_key(&self) -> &[u8; KEY_LEN] {
         &self.key
+    }
+
+    /// The key commits to the tree size, so a single leaf is hashed with it too
+    #[inline(always)]
+    pub(super) fn single_leaf_root(&self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
+        ab_blake3::single_block_keyed_hash(&self.key, leaf)
+            .expect("Less than a single block worth of bytes; qed")
     }
 }

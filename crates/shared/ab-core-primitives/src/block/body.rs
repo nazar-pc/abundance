@@ -62,14 +62,7 @@ where
     Iter: IntoIterator<Item = &'a SegmentRoot, IntoIter: TrustedLen>,
 {
     let root = SegmentRootsMerkleTree::compute_root_only::<MAX_SEGMENTS, _, _>(
-        segment_roots.into_iter().map(|segment_root| {
-            // Segment roots are raw values from the body rather than hashes computed by the
-            // verifier, and the root of a tree with one leaf is the leaf itself. Without hashing
-            // them first, a single segment root equal to the root of several segment roots would
-            // give the same root as those several segment roots.
-            single_block_hash(segment_root.as_ref())
-                .expect("Less than a single block worth of bytes; qed")
-        }),
+        segment_roots.into_iter().copied(),
     );
 
     Blake3Hash::new(root.unwrap_or_default())
@@ -1614,14 +1607,7 @@ impl<'a> Transactions<'a> {
     #[inline]
     pub fn root(&self) -> Blake3Hash {
         let root = TransactionsMerkleTree::compute_root_only::<{ u64::from(u32::MAX) }, _, _>(
-            self.iter().map(|transaction| {
-                // The root of a tree with one leaf is the leaf itself. Without hashing transaction
-                // hashes first, the root of several transactions could pass for the hash of a
-                // single transaction, so a claim that there is only one transaction couldn't be
-                // verified.
-                single_block_hash(transaction.hash().as_ref())
-                    .expect("Less than a single block worth of bytes; qed")
-            }),
+            self.iter().map(|transaction| **transaction.hash()),
         )
         .unwrap_or_default();
 

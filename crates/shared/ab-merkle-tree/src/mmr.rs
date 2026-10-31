@@ -312,8 +312,8 @@ where
 
     /// Calculate the root of Merkle Mountain Range.
     ///
-    /// In case MMR contains a single leaf hash, that leaf hash is returned, `None` is returned if
-    /// there were no leaves added yet.
+    /// In case MMR contains a single leaf, [`MerkleHasher::hash_single_leaf()`] of it is returned,
+    /// `None` is returned if there were no leaves added yet.
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn root(&self) -> Option<[u8; H::OUT_LEN]> {
@@ -348,6 +348,10 @@ where
             let lowest_active_level_item = unsafe { self.stack.get_unchecked(lowest_active_level) };
 
             root = hasher.hash_pair(&[*lowest_active_level_item, root]);
+        }
+
+        if self.num_leaves == 1 {
+            root = hasher.hash_single_leaf(&root);
         }
 
         Some(root)
@@ -601,6 +605,10 @@ where
             root = hasher.hash_pair(&[*lowest_active_level_item, root]);
 
             position /= 2;
+        }
+
+        if self.num_leaves == 1 {
+            root = hasher.hash_single_leaf(&root);
         }
 
         Some((root, proof_length))

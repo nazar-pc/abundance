@@ -89,6 +89,20 @@ pub trait MerkleHasher {
     ) -> [[u8; Self::OUT_LEN]; NUM_PAIRS] {
         pairs.each_ref().map(|pair| self.hash_pair(pair))
     }
+
+    /// Root of an [`UnbalancedMerkleTree`] or [`MerkleMountainRange`] with a single leaf.
+    ///
+    /// The default implementation returns the leaf unchanged, which keeps a tree of trees the
+    /// same as a single larger tree. Hashers that depend on the tree size should hash the leaf
+    /// instead, otherwise the size isn't committed to when the tree has a single leaf and no inner
+    /// nodes.
+    ///
+    /// [`UnbalancedMerkleTree`]: unbalanced::UnbalancedMerkleTree
+    /// [`MerkleMountainRange`]: mmr::MerkleMountainRange
+    #[inline(always)]
+    fn hash_single_leaf(&self, leaf: &[u8; Self::OUT_LEN]) -> [u8; Self::OUT_LEN] {
+        *leaf
+    }
 }
 
 /// Creates hashers for trees with a known number of leaves.

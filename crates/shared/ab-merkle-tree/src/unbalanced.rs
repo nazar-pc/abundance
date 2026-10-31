@@ -154,6 +154,10 @@ where
             stack[0] = hasher.hash_pair(&[*lowest_active_level_item, stack[0]]);
         }
 
+        if num_leaves == 1 {
+            stack[0] = hasher.hash_single_leaf(&stack[0]);
+        }
+
         Some(stack[0])
     }
 
@@ -475,6 +479,10 @@ where
             position /= 2;
         }
 
+        if num_leaves == 1 {
+            stack[0] = hasher.hash_single_leaf(&stack[0]);
+        }
+
         Some((stack[0], proof_length))
     }
 
@@ -529,6 +537,10 @@ where
             position /= 2;
             // Size of next level
             level_size = level_size.div_ceil(2);
+        }
+
+        if num_leaves == 1 {
+            current = hasher.hash_single_leaf(&current);
         }
 
         // Check if proof is fully used and matches root
