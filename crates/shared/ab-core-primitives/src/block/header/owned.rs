@@ -3,7 +3,6 @@
 #[cfg(test)]
 mod tests;
 
-use crate::block::BlockRoot;
 use crate::block::header::{
     BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
     BlockHeaderConsensusParameters, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
@@ -60,16 +59,8 @@ fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSeal<'_>) {
 /// Errors for [`OwnedBeaconChainHeader`]
 #[derive(Debug, thiserror::Error)]
 pub enum OwnedBeaconChainHeaderError {
-    /// Too many intermediate shard blocks
-    #[error("Too many intermediate shard blocks: {actual}")]
-    TooManyIntermediateShardBlocks {
-        /// Actual number of intermediate shard blocks
-        actual: usize,
-    },
     /// Header with the largest possible consensus parameters and seal doesn't fit into the buffer
-    /// after the bytes already there.
-    ///
-    /// Only [`OwnedBeaconChainHeader::from_parts_into()`] returns it.
+    /// after the bytes already there
     #[error("The header is too large")]
     HeaderTooLarge,
 }
@@ -111,43 +102,34 @@ impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
 
 impl OwnedBeaconChainHeader {
     /// Max allocation needed by this header
-    #[inline(always)]
-    pub const fn max_allocation_for(intermediate_shard_blocks: &[BlockRoot]) -> u32 {
-        BlockHeaderPrefix::SIZE
-            + BlockHeaderResult::SIZE
-            + BlockHeaderConsensusInfo::SIZE
-            + (
-                // Number of intermediate shard blocks
-                u16::SIZE
-                // Padding
-                + <[u8; 2]>::SIZE
-                + size_of_val(intermediate_shard_blocks) as u32
-            )
-            + BlockHeaderConsensusParameters::MAX_SIZE
-            + BlockHeaderSeal::MAX_SIZE
-    }
+    pub const MAX_ALLOCATION: u32 = BlockHeaderPrefix::SIZE
+        + BlockHeaderResult::SIZE
+        + BlockHeaderConsensusInfo::SIZE
+        + <Blake3Hash as TrivialType>::SIZE
+        + BlockHeaderConsensusParameters::MAX_SIZE
+        + BlockHeaderSeal::MAX_SIZE;
 
     /// Create a new [`OwnedBeaconChainHeader`] from its parts
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
-        intermediate_shard_blocks: &[BlockRoot],
+        intermediate_shard_blocks_root: &Blake3Hash,
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
-    ) -> Result<OwnedBeaconChainHeaderUnsealed, OwnedBeaconChainHeaderError> {
-        let mut buffer =
-            OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(intermediate_shard_blocks));
+    ) -> OwnedBeaconChainHeaderUnsealed {
+        let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
         Self::append_unsealed(
             prefix,
             result,
             consensus_info,
-            intermediate_shard_blocks,
+            intermediate_shard_blocks_root,
             consensus_parameters,
             &mut buffer,
-        )?;
+        )
+        .expect("The header with the largest seal fits into an empty buffer; qed");
 
-        Ok(OwnedBeaconChainHeaderUnsealed { buffer })
+        OwnedBeaconChainHeaderUnsealed { buffer }
     }
 
     /// Write a header from its parts into the provided buffer, after the bytes already there.
@@ -159,7 +141,7 @@ impl OwnedBeaconChainHeader {
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
-        intermediate_shard_blocks: &[BlockRoot],
+        intermediate_shard_blocks_root: &Blake3Hash,
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedBeaconChainHeaderUnsealedRef<'a>, OwnedBeaconChainHeaderError> {
@@ -169,7 +151,7 @@ impl OwnedBeaconChainHeader {
             prefix,
             result,
             consensus_info,
-            intermediate_shard_blocks,
+            intermediate_shard_blocks_root,
             consensus_parameters,
             buffer,
         )?;
@@ -185,7 +167,7 @@ impl OwnedBeaconChainHeader {
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
-        intermediate_shard_blocks: &[BlockRoot],
+        intermediate_shard_blocks_root: &Blake3Hash,
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedBeaconChainHeaderError> {
@@ -201,18 +183,9 @@ impl OwnedBeaconChainHeader {
             num_shards,
         } = fixed_parameters;
 
-        let num_blocks = intermediate_shard_blocks.len();
-        let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
-            OwnedBeaconChainHeaderError::TooManyIntermediateShardBlocks { actual: num_blocks }
-        })?;
         // The header with the largest seal must fit after the bytes already in the buffer, so
-        // that neither the appends below nor the seal appended later can fail. With the number of
-        // intermediate shard blocks checked above, their size fits into `u32`.
-        if buffer
-            .len()
-            .checked_add(Self::max_allocation_for(intermediate_shard_blocks))
-            .is_none()
-        {
+        // that neither the appends below nor the seal appended later can fail
+        if buffer.len().checked_add(Self::MAX_ALLOCATION).is_none() {
             return Err(OwnedBeaconChainHeaderError::HeaderTooLarge);
         }
         let true = buffer.append(prefix.as_bytes()) else {
@@ -224,20 +197,9 @@ impl OwnedBeaconChainHeader {
         let true = buffer.append(consensus_info.as_bytes()) else {
             unreachable!("Checked size above; qed");
         };
-        // TODO: Would be nice for `BlockHeaderChildShardBlocks` to have API to write this by itself
-        {
-            let true = buffer.append(&num_blocks.to_le_bytes()) else {
-                unreachable!("Checked size above; qed");
-            };
-            let true = buffer.append(&[0; 2]) else {
-                unreachable!("Checked size above; qed");
-            };
-            let true =
-                buffer.append(BlockRoot::repr_from_slice(intermediate_shard_blocks).as_flattened())
-            else {
-                unreachable!("Checked size above; qed");
-            };
-        }
+        let true = buffer.append(intermediate_shard_blocks_root.as_bytes()) else {
+            unreachable!("Checked size above; qed");
+        };
         // TODO: Would be nice for `BlockHeaderConsensusParameters` to have API to write this by
         //  itself
         {
@@ -402,15 +364,7 @@ impl OwnedBeaconChainHeaderUnsealedRef<'_> {
 /// Errors for [`OwnedIntermediateShardHeader`]
 #[derive(Debug, thiserror::Error)]
 pub enum OwnedIntermediateShardHeaderError {
-    /// Too many leaf shard blocks
-    #[error("Too many leaf shard blocks: {actual}")]
-    TooManyLeafShardBlocks {
-        /// Actual number of leaf shard blocks
-        actual: usize,
-    },
-    /// Header doesn't fit into the buffer after the bytes already there.
-    ///
-    /// Only [`OwnedIntermediateShardHeader::from_parts_into()`] returns it.
+    /// Header doesn't fit into the buffer after the bytes already there
     #[error("The header is too large")]
     HeaderTooLarge,
 }
@@ -452,21 +406,12 @@ impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
 
 impl OwnedIntermediateShardHeader {
     /// Max allocation needed by this header
-    #[inline(always)]
-    pub const fn max_allocation_for(leaf_shard_blocks: &[BlockRoot]) -> u32 {
-        BlockHeaderPrefix::SIZE
-            + BlockHeaderResult::SIZE
-            + BlockHeaderConsensusInfo::SIZE
-            + BlockHeaderBeaconChainInfo::SIZE
-            + (
-                // Number of leaf shard blocks
-                u16::SIZE
-                // Padding
-                + <[u8; 2]>::SIZE
-                + size_of_val(leaf_shard_blocks) as u32
-            )
-            + BlockHeaderSeal::MAX_SIZE
-    }
+    pub const MAX_ALLOCATION: u32 = BlockHeaderPrefix::SIZE
+        + BlockHeaderResult::SIZE
+        + BlockHeaderConsensusInfo::SIZE
+        + BlockHeaderBeaconChainInfo::SIZE
+        + <Blake3Hash as TrivialType>::SIZE
+        + BlockHeaderSeal::MAX_SIZE;
 
     /// Create a new [`OwnedIntermediateShardHeader`] from its parts
     pub fn from_parts(
@@ -474,21 +419,21 @@ impl OwnedIntermediateShardHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-        leaf_shard_blocks: &[BlockRoot],
-    ) -> Result<OwnedIntermediateShardHeaderUnsealed, OwnedIntermediateShardHeaderError> {
-        let mut buffer =
-            OwnedAlignedBuffer::with_capacity(Self::max_allocation_for(leaf_shard_blocks));
+        leaf_shard_blocks_root: &Blake3Hash,
+    ) -> OwnedIntermediateShardHeaderUnsealed {
+        let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
         Self::append_unsealed(
             prefix,
             result,
             consensus_info,
             beacon_chain_info,
-            leaf_shard_blocks,
+            leaf_shard_blocks_root,
             &mut buffer,
-        )?;
+        )
+        .expect("The header with the largest seal fits into an empty buffer; qed");
 
-        Ok(OwnedIntermediateShardHeaderUnsealed { buffer })
+        OwnedIntermediateShardHeaderUnsealed { buffer }
     }
 
     /// Write a header from its parts into the provided buffer, after the bytes already there.
@@ -501,7 +446,7 @@ impl OwnedIntermediateShardHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-        leaf_shard_blocks: &[BlockRoot],
+        leaf_shard_blocks_root: &Blake3Hash,
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedIntermediateShardHeaderUnsealedRef<'a>, OwnedIntermediateShardHeaderError>
     {
@@ -512,7 +457,7 @@ impl OwnedIntermediateShardHeader {
             result,
             consensus_info,
             beacon_chain_info,
-            leaf_shard_blocks,
+            leaf_shard_blocks_root,
             buffer,
         )?;
 
@@ -528,21 +473,12 @@ impl OwnedIntermediateShardHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-        leaf_shard_blocks: &[BlockRoot],
+        leaf_shard_blocks_root: &Blake3Hash,
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedIntermediateShardHeaderError> {
-        let num_blocks = leaf_shard_blocks.len();
-        let num_blocks = u16::try_from(num_blocks).map_err(|_error| {
-            OwnedIntermediateShardHeaderError::TooManyLeafShardBlocks { actual: num_blocks }
-        })?;
         // The header with the largest seal must fit after the bytes already in the buffer, so
-        // that neither the appends below nor the seal appended later can fail. With the number of
-        // leaf shard blocks checked above, their size fits into `u32`.
-        if buffer
-            .len()
-            .checked_add(Self::max_allocation_for(leaf_shard_blocks))
-            .is_none()
-        {
+        // that neither the appends below nor the seal appended later can fail
+        if buffer.len().checked_add(Self::MAX_ALLOCATION).is_none() {
             return Err(OwnedIntermediateShardHeaderError::HeaderTooLarge);
         }
         let true = buffer.append(prefix.as_bytes()) else {
@@ -557,19 +493,9 @@ impl OwnedIntermediateShardHeader {
         let true = buffer.append(beacon_chain_info.as_bytes()) else {
             unreachable!("Checked size above; qed");
         };
-        // TODO: Would be nice for `BlockHeaderChildShardBlocks` to have API to write this by itself
-        {
-            let true = buffer.append(&num_blocks.to_le_bytes()) else {
-                unreachable!("Checked size above; qed");
-            };
-            let true = buffer.append(&[0; 2]) else {
-                unreachable!("Checked size above; qed");
-            };
-            let true = buffer.append(BlockRoot::repr_from_slice(leaf_shard_blocks).as_flattened())
-            else {
-                unreachable!("Checked size above; qed");
-            };
-        }
+        let true = buffer.append(leaf_shard_blocks_root.as_bytes()) else {
+            unreachable!("Checked size above; qed");
+        };
 
         Ok(())
     }

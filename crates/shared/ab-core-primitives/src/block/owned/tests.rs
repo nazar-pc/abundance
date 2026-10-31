@@ -1,7 +1,9 @@
 use crate::address::Address;
-use crate::block::body::owned::GenericOwnedBlockBody;
+use crate::block::body::owned::{GenericOwnedBlockBody, OwnedIntermediateShardBodyError};
 use crate::block::body::{IntermediateShardBlockInfo, LeafShardBlockInfo};
-use crate::block::header::owned::GenericOwnedBlockHeader;
+use crate::block::header::owned::{
+    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedIntermediateShardHeader,
+};
 use crate::block::header::{
     BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
     BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
@@ -21,6 +23,7 @@ use crate::shard::{NumShards, RealShardKind, ShardIndex};
 use crate::solutions::{Solution, SolutionRange};
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader};
+use crate::trees::ChildLeafShardBlocksMerkleTree;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use core::iter::TrustedLen;
 use std::iter;
@@ -83,7 +86,6 @@ fn beacon_chain_block() -> OwnedBeaconChainBlock {
             pot_parameters_change: None,
         },
     )
-    .unwrap()
     .with_seal(BlockHeaderSeal::Ed25519(&seal()))
 }
 
@@ -101,7 +103,6 @@ where
             &consensus_info(),
             &beacon_chain_info(),
         )
-        .unwrap()
         .with_seal(BlockHeaderSeal::Ed25519(&seal()))
 }
 
@@ -122,13 +123,24 @@ fn transaction() -> OwnedTransaction {
 }
 
 fn leaf_shard_block() -> OwnedLeafShardBlock {
+    leaf_shard_block_with_state_root(Blake3Hash::default())
+}
+
+fn leaf_shard_block_with_state_root(state_root: Blake3Hash) -> OwnedLeafShardBlock {
+    leaf_shard_block_with(BlockNumber::ZERO, state_root)
+}
+
+fn leaf_shard_block_with(number: BlockNumber, state_root: Blake3Hash) -> OwnedLeafShardBlock {
     let mut builder = OwnedLeafShardBlock::init(iter::empty()).unwrap();
     builder.add_transaction(&transaction()).unwrap();
     builder
         .with_header(
-            // The first leaf shard of the first intermediate shard
-            &prefix(ShardIndex::new(1 | (1 << 10)).unwrap()),
-            Blake3Hash::default(),
+            &BlockHeaderPrefix {
+                number,
+                // The first leaf shard of the first intermediate shard
+                ..prefix(ShardIndex::new(1 | (1 << 10)).unwrap())
+            },
+            state_root,
             &consensus_info(),
             &beacon_chain_info(),
         )
@@ -143,11 +155,20 @@ fn block_bytes<Block>(block: &Block, offset: usize) -> SharedAlignedBuffer
 where
     Block: GenericOwnedBlock,
 {
+    parts_bytes(block.header().buffer(), block.body().buffer(), offset)
+}
+
+/// The same as [`block_bytes()`], but for a header and a body that may not form a valid block
+fn parts_bytes(
+    header: &SharedAlignedBuffer,
+    body: &SharedAlignedBuffer,
+    offset: usize,
+) -> SharedAlignedBuffer {
     let mut bytes = vec![0; offset];
-    bytes.extend_from_slice(block.header().buffer().as_slice());
+    bytes.extend_from_slice(header.as_slice());
     // The returned buffer is aligned to 16 bytes
     bytes.resize(bytes.len().next_multiple_of(16), 0);
-    bytes.extend_from_slice(block.body().buffer().as_slice());
+    bytes.extend_from_slice(body.as_slice());
     SharedAlignedBuffer::from_bytes(&bytes)
 }
 
@@ -273,9 +294,11 @@ fn blocks_round_trip() {
         leaf_shard_block.body.buffer().as_slice()
     );
 
+    let transactions_root = leaf_shard_block.body.body().transactions().root();
     let intermediate_shard_block = intermediate_shard_block(iter::once(LeafShardBlockInfo {
         header: leaf_shard_block.header.header().clone(),
-        segments: None,
+        transactions_root: &transactions_root,
+        own_segments: None,
     }));
     let bytes = block_bytes(&intermediate_shard_block, 0);
     let (block, _remainder) = IntermediateShardBlock::try_from_bytes(bytes.as_slice()).unwrap();
@@ -302,4 +325,163 @@ fn blocks_round_trip() {
         block.body.buffer().as_slice(),
         beacon_chain_block.body.buffer().as_slice()
     );
+}
+
+#[test]
+fn intermediate_shard_blocks_check_leaf_shard_blocks_without_segments() {
+    let leaf_shard_block = leaf_shard_block();
+    let transactions_root = leaf_shard_block.body.body().transactions().root();
+    let init = |transactions_root| {
+        OwnedIntermediateShardBlock::init(
+            iter::empty(),
+            iter::once(LeafShardBlockInfo {
+                header: leaf_shard_block.header.header().clone(),
+                transactions_root,
+                own_segments: None,
+            }),
+        )
+    };
+
+    init(&transactions_root).unwrap();
+    // The root of transactions of a leaf shard block without transactions
+    assert!(matches!(
+        init(&Blake3Hash::default()),
+        Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
+    ));
+}
+
+#[test]
+fn blocks_with_inconsistent_child_block_roots_are_rejected() {
+    fn leaf_shard_block_info<'a>(
+        leaf_shard_block: &'a OwnedLeafShardBlock,
+        transactions_root: &'a Blake3Hash,
+    ) -> LeafShardBlockInfo<'a> {
+        LeafShardBlockInfo {
+            header: leaf_shard_block.header.header().clone(),
+            transactions_root,
+            own_segments: None,
+        }
+    }
+
+    let leaf_shard_block = leaf_shard_block();
+    // Both leaf shard blocks below have the same transactions
+    let transactions_root = leaf_shard_block.body.body().transactions().root();
+    let block = intermediate_shard_block(iter::once(leaf_shard_block_info(
+        &leaf_shard_block,
+        &transactions_root,
+    )));
+    let header = block.header.header();
+    assert_eq!(
+        *header.leaf_shard_blocks_root(),
+        block.body.body().leaf_shard_blocks().headers_root()
+    );
+    let bytes = block_bytes(&block, 0);
+    assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_some());
+    assert!(
+        OwnedIntermediateShardBlock::from_buffers(
+            block.header.buffer().clone(),
+            block.body.buffer().clone()
+        )
+        .is_some()
+    );
+
+    // A list of another leaf shard block
+    let other_block = intermediate_shard_block(iter::once(leaf_shard_block_info(
+        &leaf_shard_block_with_state_root(Blake3Hash::new([1; _])),
+        &transactions_root,
+    )));
+    for leaf_shard_blocks_root in [
+        Blake3Hash::new([1; _]),
+        // The root of an empty list
+        Blake3Hash::default(),
+        other_block.body.body().leaf_shard_blocks().headers_root(),
+        // The root of the only leaf shard block
+        **leaf_shard_block.header.header().root(),
+    ] {
+        // The same header with a different root of leaf shard block roots
+        let inconsistent_header = OwnedIntermediateShardHeader::from_parts(
+            header.prefix,
+            header.result,
+            header.consensus_info,
+            header.beacon_chain_info(),
+            &leaf_shard_blocks_root,
+        )
+        .with_seal(header.seal);
+        let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
+
+        assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_none());
+        assert!(
+            OwnedIntermediateShardBlock::from_buffers(
+                inconsistent_header.buffer().clone(),
+                block.body.buffer().clone()
+            )
+            .is_none()
+        );
+        // Child block roots are checked at the block level only
+        assert!(IntermediateShardBlock::try_from_bytes_unchecked(bytes.as_slice()).is_some());
+    }
+
+    // A beacon chain block without intermediate shard blocks, which claims to have some
+    let block = beacon_chain_block();
+    let header = block.header.header();
+    assert_eq!(
+        *header.intermediate_shard_blocks_root(),
+        Blake3Hash::default()
+    );
+    let inconsistent_header = OwnedBeaconChainHeader::from_parts(
+        header.prefix,
+        header.result,
+        header.consensus_info,
+        &Blake3Hash::new([1; _]),
+        header.consensus_parameters(),
+    )
+    .with_seal(header.seal);
+    let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
+
+    assert!(BeaconChainBlock::try_from_bytes(bytes.as_slice()).is_none());
+    assert!(
+        OwnedBeaconChainBlock::from_buffers(
+            inconsistent_header.buffer().clone(),
+            block.body.buffer().clone()
+        )
+        .is_none()
+    );
+    assert!(BeaconChainBlock::try_from_bytes_unchecked(bytes.as_slice()).is_some());
+}
+
+#[test]
+fn child_block_roots_are_tree_roots_of_header_roots() {
+    let leaf_shard_blocks = (0..3)
+        .map(|number| leaf_shard_block_with(BlockNumber::from(number), Blake3Hash::default()))
+        .collect::<Vec<_>>();
+    // All leaf shard blocks have the same transactions
+    let transactions_root = leaf_shard_blocks[0].body.body().transactions().root();
+
+    for num_leaf_shard_blocks in [1, 3] {
+        let leaf_shard_blocks = &leaf_shard_blocks[..num_leaf_shard_blocks];
+        let block = intermediate_shard_block(leaf_shard_blocks.iter().map(|leaf_shard_block| {
+            LeafShardBlockInfo {
+                header: leaf_shard_block.header.header().clone(),
+                transactions_root: &transactions_root,
+                own_segments: None,
+            }
+        }));
+        let leaf_shard_block_roots = leaf_shard_blocks
+            .iter()
+            .map(|leaf_shard_block| **leaf_shard_block.header.header().root())
+            .collect::<Vec<_>>();
+
+        let leaf_shard_blocks_root = *block.header.header().leaf_shard_blocks_root();
+        assert_eq!(
+            *leaf_shard_blocks_root,
+            ChildLeafShardBlocksMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
+                leaf_shard_block_roots.iter().copied()
+            )
+            .unwrap()
+        );
+        if let [leaf_shard_block_root] = leaf_shard_block_roots.as_slice() {
+            // The root of a tree with a single leaf is not the leaf itself
+            assert_ne!(leaf_shard_blocks_root, *leaf_shard_block_root);
+        }
+    }
 }

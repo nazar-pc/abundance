@@ -312,14 +312,15 @@ impl OwnedBeaconChainBody {
                 + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
                 // Number of intermediate shard blocks
                 + u16::SIZE
-                // Numbers of own segment roots and leaf shard blocks with segments of each block
-                + u32::from(num_blocks) * (u8::SIZE + u16::SIZE)
+                // Numbers of own segment roots, leaf shard blocks and leaf shard blocks with
+                // segments of each block
+                + u32::from(num_blocks) * (u8::SIZE + 2 * u16::SIZE)
         )
         // Padding to 8-bytes boundary
         .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
             // This is only an estimate of intermediate shard blocks to get in the ballpark where
             // reallocation should not be necessary in many cases
-            + u32::from(num_blocks) * OwnedIntermediateShardHeader::max_allocation_for(&[]) * 2;
+            + u32::from(num_blocks) * OwnedIntermediateShardHeader::MAX_ALLOCATION * 2;
         // PoT checkpoints, the estimate above can make the capacity larger than any body can be
         let mut buffer =
             OwnedAlignedBuffer::with_capacity(capacity.saturating_add(pot_checkpoints_size));
@@ -361,9 +362,9 @@ impl OwnedBeaconChainBody {
             };
             let mut segments_roots_num_cursor = buffer.len() as usize;
             for _ in 0..num_blocks {
-                // Placeholder values for the number of own segment roots and number of leaf shard
-                // blocks with segments
-                let true = buffer.append(&[0, 0, 0]) else {
+                // Placeholder values for the number of own segment roots, number of leaf shard
+                // blocks and number of leaf shard blocks with segments
+                let true = buffer.append(&[0; 5]) else {
                     unreachable!("Checked size above; qed");
                 };
             }
@@ -378,45 +379,28 @@ impl OwnedBeaconChainBody {
                 let num_leaf_shard_blocks_with_segments =
                     intermediate_shard_block.num_leaf_shard_blocks_with_segments();
 
-                // The parser decides from these numbers whether own segments and a segments proof
-                // follow the header, so it would read blocks that disagree with them differently
-                if intermediate_shard_block.segments_proof.is_some()
-                    != (num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0)
-                {
-                    return Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks);
-                }
-
                 buffer.as_mut_slice()[segments_roots_num_cursor] = num_own_segment_roots;
-                buffer.as_mut_slice()[segments_roots_num_cursor + 1..][..2]
+                buffer.as_mut_slice()[segments_roots_num_cursor + 1..][..2].copy_from_slice(
+                    &intermediate_shard_block
+                        .num_leaf_shard_blocks()
+                        .to_le_bytes(),
+                );
+                buffer.as_mut_slice()[segments_roots_num_cursor + 3..][..2]
                     .copy_from_slice(&num_leaf_shard_blocks_with_segments.to_le_bytes());
-                segments_roots_num_cursor += 3;
+                segments_roots_num_cursor += 5;
 
                 OwnedIntermediateShardHeader::from_parts_into(
                     intermediate_shard_block.header.prefix,
                     intermediate_shard_block.header.result,
                     intermediate_shard_block.header.consensus_info,
                     intermediate_shard_block.header.beacon_chain_info(),
-                    intermediate_shard_block.header.leaf_shard_blocks(),
+                    intermediate_shard_block.header.leaf_shard_blocks_root(),
                     &mut buffer,
                 )
-                .map_err(|error| match error {
-                    OwnedIntermediateShardHeaderError::TooManyLeafShardBlocks { actual: _ } => {
-                        unreachable!(
-                            "Headers are only created by parsers, which read at most `u16::MAX` \
-                            leaf shard blocks; qed"
-                        )
-                    }
-                    OwnedIntermediateShardHeaderError::HeaderTooLarge => {
-                        OwnedBeaconChainBodyError::BlockBodyIsTooLarge
-                    }
+                .map_err(|OwnedIntermediateShardHeaderError::HeaderTooLarge| {
+                    OwnedBeaconChainBodyError::BlockBodyIsTooLarge
                 })?
                 .with_seal(intermediate_shard_block.header.seal);
-
-                if let Some(segments_proof) = &intermediate_shard_block.segments_proof
-                    && !buffer.append(*segments_proof)
-                {
-                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                }
 
                 if let Some(own_segments) = &intermediate_shard_block.own_segments {
                     if !buffer.append(own_segments.first_local_segment_index.as_bytes()) {
@@ -429,13 +413,19 @@ impl OwnedBeaconChainBody {
                     }
                 }
 
-                for (_shard_index, own_segments) in intermediate_shard_block.leaf_shards_segments()
+                for (_position, _shard_index, own_segments) in
+                    intermediate_shard_block.leaf_shards_segments()
                 {
                     if !buffer.append(&[own_segments.num_segment_roots().get()]) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }
                 }
-                for (shard_index, own_segments) in intermediate_shard_block.leaf_shards_segments() {
+                for (position, shard_index, own_segments) in
+                    intermediate_shard_block.leaf_shards_segments()
+                {
+                    if !buffer.append(&position.to_le_bytes()) {
+                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
+                    }
                     if !buffer.append(shard_index.as_bytes()) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }
@@ -656,9 +646,9 @@ impl OwnedIntermediateShardBody {
                 unreachable!("Checked size above; qed");
             };
             for leaf_shard_block in leaf_shard_blocks {
-                if let Some(segments) = &leaf_shard_block.segments {
+                if let Some(own_segments) = &leaf_shard_block.own_segments {
                     buffer.as_mut_slice()[own_segments_roots_num_cursor] =
-                        segments.own_segments.num_segment_roots().get();
+                        own_segments.num_segment_roots().get();
                 }
                 own_segments_roots_num_cursor += 1;
 
@@ -678,18 +668,16 @@ impl OwnedIntermediateShardBody {
                     unreachable!("Checked size above; qed");
                 };
 
-                if let Some(segments) = &leaf_shard_block.segments {
-                    let true =
-                        buffer.append(segments.own_segments.first_local_segment_index.as_bytes())
+                let true = buffer.append(leaf_shard_block.transactions_root.as_bytes()) else {
+                    unreachable!("Checked size above; qed");
+                };
+                if let Some(own_segments) = &leaf_shard_block.own_segments {
+                    let true = buffer.append(own_segments.first_local_segment_index.as_bytes())
                     else {
                         unreachable!("Checked size above; qed");
                     };
-                    let true = buffer.append(segments.segment_roots_proof) else {
-                        unreachable!("Checked size above; qed");
-                    };
                     let true = buffer.append(
-                        SegmentRoot::repr_from_slice(segments.own_segments.segment_roots)
-                            .as_flattened(),
+                        SegmentRoot::repr_from_slice(own_segments.segment_roots).as_flattened(),
                     ) else {
                         unreachable!("Checked size above; qed");
                     };

@@ -24,6 +24,9 @@ New features:
 * `MerkleHasher::hash_single_leaf()` customizes the root of an `UnbalancedMerkleTree` or `MerkleMountainRange` with a
   single leaf, which is the leaf itself by default, so hashers that depend on the tree size can commit to it in that
   case too
+* `UnbalancedMerkleTree::compute_root_only_sparse()` computes the root of a tree whose leaves are mostly zeroes, it
+  hashes runs of zero leaves as whole subtrees, so the cost depends on the number of non-zero leaves and the height of
+  the tree rather than on the number of leaves
 
 Improvements:
 

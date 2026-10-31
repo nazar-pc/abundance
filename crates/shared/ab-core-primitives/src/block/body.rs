@@ -17,18 +17,18 @@ use crate::shard::{RealShardKind, ShardIndex};
 use crate::transaction::Transaction;
 use crate::trees::{
     BeaconChainBodyMerkleTree, ChildIntermediateShardBlocksMerkleTree,
-    ChildLeafShardBlocksMerkleTree, IntermediateShardBlockSegmentsMerkleTree,
-    IntermediateShardBodyMerkleTree, IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree,
-    LeafShardsSegmentsMerkleTree, OwnSegmentsMerkleTree, SegmentRootsMerkleTree,
-    ShardOwnSegmentsMerkleTree, TransactionsMerkleTree,
+    ChildLeafShardBlocksMerkleTree, IntermediateShardBodyMerkleTree,
+    IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
+    OwnSegmentsMerkleTree, SegmentRootsMerkleTree, ShardOwnSegmentsMerkleTree,
+    TransactionsMerkleTree,
 };
-use ab_blake3::{BLOCK_LEN, OUT_LEN, single_block_hash};
+use ab_blake3::{BLOCK_LEN, single_block_hash};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 use core::iter::{Step, TrustedLen};
 use core::num::NonZeroU8;
-use core::{array, cmp, fmt, iter, slice};
+use core::{cmp, fmt, iter, slice};
 use derive_more::From;
 use yoke::Yokeable;
 
@@ -189,6 +189,53 @@ impl<'a> OwnSegments<'a> {
     }
 }
 
+/// Compute the root of segments of leaf shard blocks, with a zero leaf for each leaf shard block
+/// without segments.
+///
+/// Takes positions of leaf shard blocks with segments among `num_leaf_shard_blocks` blocks, their
+/// shard indices and segments. Returns `None` if positions aren't strictly increasing or not
+/// smaller than `num_leaf_shard_blocks`.
+fn compute_leaf_shards_segments_root<'a, Iter>(
+    num_leaf_shard_blocks: u16,
+    leaf_shard_blocks_segments: Iter,
+) -> Option<Blake3Hash>
+where
+    Iter: IntoIterator<Item = (u16, ShardIndex, OwnSegments<'a>)>,
+{
+    let mut leaves =
+        leaf_shard_blocks_segments
+            .into_iter()
+            .map(|(position, shard_index, own_segments)| {
+                (
+                    u64::from(position),
+                    *own_segments.root_with_shard_index(shard_index),
+                )
+            });
+
+    if num_leaf_shard_blocks == 0 {
+        return leaves.next().is_none().then_some(Blake3Hash::default());
+    }
+
+    LeafShardsSegmentsMerkleTree::compute_root_only_sparse::<{ u64::from(u16::MAX) }, _, _>(
+        u64::from(num_leaf_shard_blocks),
+        leaves,
+    )
+    .map(Blake3Hash::new)
+}
+
+/// Compute the body root of an intermediate shard block
+fn intermediate_shard_body_root(
+    own_segments: Option<&OwnSegments<'_>>,
+    leaf_shards_segments_root: &Blake3Hash,
+    leaf_shard_blocks_root: &Blake3Hash,
+) -> Blake3Hash {
+    Blake3Hash::new(IntermediateShardBodyMerkleTree::compute_root_only_array(&[
+        *own_segments.map_or_default(OwnSegments::root),
+        **leaf_shards_segments_root,
+        **leaf_shard_blocks_root,
+    ]))
+}
+
 /// Information about intermediate shard block
 #[derive(Debug, Clone)]
 #[expect(
@@ -198,26 +245,33 @@ impl<'a> OwnSegments<'a> {
 pub struct IntermediateShardBlockInfo<'a> {
     /// A block header that corresponds to an intermediate shard
     pub header: IntermediateShardHeader<'a>,
-    /// Segments proof if either own or child segments are present
-    pub segments_proof: Option<&'a [u8; OUT_LEN]>,
     /// Segments in the corresponding block
     pub own_segments: Option<OwnSegments<'a>>,
+    num_leaf_shard_blocks: u16,
     num_leaf_shard_blocks_with_segments: u16,
     leaf_shards_segments_bytes: &'a [u8],
 }
 
 impl<'a> IntermediateShardBlockInfo<'a> {
+    /// Number of leaf shard blocks in the corresponding intermediate shard block
+    #[inline(always)]
+    pub const fn num_leaf_shard_blocks(&self) -> u16 {
+        self.num_leaf_shard_blocks
+    }
+
     /// Number of leaf shard blocks with segments in the corresponding intermediate shard block
     #[inline(always)]
     pub const fn num_leaf_shard_blocks_with_segments(&self) -> u16 {
         self.num_leaf_shard_blocks_with_segments
     }
 
-    /// Segments of leaf shards in the corresponding intermediate shard block
+    /// Segments of leaf shards in the corresponding intermediate shard block, with positions of
+    /// their blocks among leaf shard blocks of the intermediate shard block
     #[inline]
     pub fn leaf_shards_segments(
         &self,
-    ) -> impl ExactSizeIterator<Item = (ShardIndex, OwnSegments<'a>)> + TrustedLen + use<'a> {
+    ) -> impl ExactSizeIterator<Item = (u16, ShardIndex, OwnSegments<'a>)> + TrustedLen + use<'a>
+    {
         // SAFETY: Checked in constructor
         let (counts, mut remainder) = unsafe {
             self.leaf_shards_segments_bytes.split_at_unchecked(
@@ -226,6 +280,11 @@ impl<'a> IntermediateShardBlockInfo<'a> {
         };
         counts.iter().map(move |&num_own_segment_roots| {
             let num_own_segment_roots = usize::from(num_own_segment_roots);
+
+            let position;
+            // SAFETY: Checked in constructor
+            (position, remainder) = unsafe { remainder.split_at_unchecked(size_of::<u16>()) };
+            let position = u16::from_le_bytes([position[0], position[1]]);
 
             let shard_index;
             // SAFETY: Checked in constructor
@@ -258,10 +317,32 @@ impl<'a> IntermediateShardBlockInfo<'a> {
             let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
             (
+                position,
                 shard_index,
                 OwnSegments::new_unchecked(first_local_segment_index, own_segment_roots),
             )
         })
+    }
+
+    /// Compute the root of segments of leaf shards in the corresponding intermediate shard block,
+    /// with a zero leaf for each leaf shard block without segments
+    #[inline]
+    fn leaf_shards_segments_root(&self) -> Blake3Hash {
+        compute_leaf_shards_segments_root(self.num_leaf_shard_blocks, self.leaf_shards_segments())
+            .expect("Positions are checked in constructor; qed")
+    }
+
+    /// Compute the body root of the corresponding intermediate shard block.
+    ///
+    /// It commits to the root of leaf shard blocks in the header, which is the same as in the body
+    /// of a consistent intermediate shard block.
+    #[inline]
+    pub fn body_root(&self) -> Blake3Hash {
+        intermediate_shard_body_root(
+            self.own_segments.as_ref(),
+            &self.leaf_shards_segments_root(),
+            self.header.leaf_shard_blocks_root(),
+        )
     }
 }
 
@@ -284,16 +365,18 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         // * number of blocks: u16 as unaligned little-endian bytes
         // * for each block:
         //   * number of own segment roots: u8
+        //   * number of leaf shard blocks: u16 as unaligned little-endian bytes
         //   * number of leaf shard blocks with segments: u16 as unaligned little-endian bytes
         // * padding to 8-bytes boundary with zeroes
         // * for each block:
         //   * block header: IntermediateShardHeader
-        //   * segment roots proof (if either own or child segments are present)
         //   * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
         //   * concatenated own segment roots
         //   * for each leaf shard block with segments:
         //     * number of own segment roots: NonZeroU8
         //   * for each leaf shard block with segments:
+        //     * position among leaf shard blocks, strictly increasing: u16 as unaligned
+        //       little-endian bytes
         //     * shard index: u32 as unaligned little-endian bytes
         //     * local segment index of the first segment root: unaligned `LocalSegmentIndex`
         //     * concatenated own segment roots
@@ -304,21 +387,19 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
         let bytes_start = bytes;
 
-        let mut counts = bytes.split_off(..num_blocks * (size_of::<u8>() + size_of::<u16>()))?;
+        let mut counts =
+            bytes.split_off(..num_blocks * (size_of::<u8>() + 2 * size_of::<u16>()))?;
 
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
         for _ in 0..num_blocks {
             let num_own_segment_roots = usize::from(counts[0]);
+            let num_leaf_shard_blocks = u16::from_le_bytes([counts[1], counts[2]]);
             let num_leaf_shard_blocks_with_segments =
-                usize::from(u16::from_le_bytes([counts[1], counts[2]]));
-            counts = &counts[3..];
+                usize::from(u16::from_le_bytes([counts[3], counts[4]]));
+            counts = &counts[5..];
 
             (_, remainder) = IntermediateShardHeader::try_from_bytes(remainder)?;
-
-            if num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0 {
-                let _segments_proof = remainder.split_off(..SegmentRoot::SIZE)?;
-            }
 
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
@@ -336,8 +417,17 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             let leaf_shard_segment_roots_counts =
                 remainder.split_off(..num_leaf_shard_blocks_with_segments * size_of::<u8>())?;
 
+            // Positions of leaf shard blocks with segments must be strictly increasing and smaller
+            // than the number of leaf shard blocks, the root of their segments relies on it
+            let mut next_position = 0;
             for &num_own_segment_roots in leaf_shard_segment_roots_counts {
                 let num_own_segment_roots = NonZeroU8::new(num_own_segment_roots)?;
+                let position = remainder.split_off(..size_of::<u16>())?;
+                let position = u16::from_le_bytes([position[0], position[1]]);
+                if position < next_position || position >= num_leaf_shard_blocks {
+                    return None;
+                }
+                next_position = position + 1;
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
@@ -377,21 +467,19 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
         let bytes_start = bytes;
 
-        let mut counts = bytes.split_off(..num_blocks * (size_of::<u8>() + size_of::<u16>()))?;
+        let mut counts =
+            bytes.split_off(..num_blocks * (size_of::<u8>() + 2 * size_of::<u16>()))?;
 
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
         for _ in 0..num_blocks {
             let num_own_segment_roots = usize::from(counts[0]);
+            let num_leaf_shard_blocks = u16::from_le_bytes([counts[1], counts[2]]);
             let num_leaf_shard_blocks_with_segments =
-                usize::from(u16::from_le_bytes([counts[1], counts[2]]));
-            counts = &counts[3..];
+                usize::from(u16::from_le_bytes([counts[3], counts[4]]));
+            counts = &counts[5..];
 
             (_, remainder) = IntermediateShardHeader::try_from_bytes(remainder)?;
-
-            if num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0 {
-                let _segments_proof = remainder.split_off(..OUT_LEN)?;
-            }
 
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
@@ -409,8 +497,17 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             let leaf_shard_segment_roots_counts =
                 remainder.split_off(..num_leaf_shard_blocks_with_segments * size_of::<u8>())?;
 
+            // Positions of leaf shard blocks with segments must be strictly increasing and smaller
+            // than the number of leaf shard blocks, the root of their segments relies on it
+            let mut next_position = 0;
             for &num_own_segment_roots in leaf_shard_segment_roots_counts {
                 let num_own_segment_roots = NonZeroU8::new(num_own_segment_roots)?;
+                let position = remainder.split_off(..size_of::<u16>())?;
+                let position = u16::from_le_bytes([position[0], position[1]]);
+                if position < next_position || position >= num_leaf_shard_blocks {
+                    return None;
+                }
+                next_position = position + 1;
                 let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
@@ -513,7 +610,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
             // Ensure increasing order of shard indices and local segment indices
             if !intermediate_shard_block.leaf_shards_segments().all(
-                |(leaf_shard_index, own_segments)| {
+                |(_position, leaf_shard_index, own_segments)| {
                     if !leaf_shard_index.is_child_of(shard_index) {
                         return false;
                     }
@@ -548,38 +645,9 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 return false;
             }
 
-            if intermediate_shard_block.own_segments.is_none()
-                && intermediate_shard_block
-                    .leaf_shards_segments()
-                    .size_hint()
-                    .0
-                    == 0
-            {
-                return intermediate_shard_block.segments_proof.is_none();
-            }
-
-            let segments_proof = intermediate_shard_block.segments_proof.unwrap_or(&[0; _]);
-
-            let leaf_shards_root =
-                LeafShardsSegmentsMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-                    intermediate_shard_block.leaf_shards_segments().map(
-                        |(shard_index, own_segments)| {
-                            own_segments.root_with_shard_index(shard_index)
-                        },
-                    ),
-                )
-                .unwrap_or_default();
-
-            let body_root = IntermediateShardBodyMerkleTree::compute_root_only_array(&[
-                *intermediate_shard_block
-                    .own_segments
-                    .as_ref()
-                    .map_or_default(OwnSegments::root),
-                leaf_shards_root,
-                *segments_proof,
-            ]);
-
-            body_root == *intermediate_shard_block.header.result.body_root
+            // Also checks blocks without segments, positions and the number of leaf shard blocks,
+            // the root of segments of leaf shards commits to them
+            intermediate_shard_block.body_root() == intermediate_shard_block.header.result.body_root
         })
     }
 
@@ -591,36 +659,21 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         // SAFETY: Checked in constructor
         let (mut counts, remainder) = unsafe {
             self.bytes
-                .split_at_unchecked(self.num_blocks * (size_of::<u8>() + size_of::<u16>()))
+                .split_at_unchecked(self.num_blocks * (size_of::<u8>() + 2 * size_of::<u16>()))
         };
         let mut remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
             .expect("Already checked in constructor; qed");
 
         iter::repeat_with(move || {
             let num_own_segment_roots = usize::from(counts[0]);
-            let num_leaf_shard_blocks_with_segments = u16::from_le_bytes([counts[1], counts[2]]);
-            counts = &counts[3..];
+            let num_leaf_shard_blocks = u16::from_le_bytes([counts[1], counts[2]]);
+            let num_leaf_shard_blocks_with_segments = u16::from_le_bytes([counts[3], counts[4]]);
+            counts = &counts[5..];
 
             // TODO: Unchecked method would have been helpful here
             let header;
             (header, remainder) = IntermediateShardHeader::try_from_bytes(remainder)
                 .expect("Already checked in constructor; qed");
-
-            let segments_proof =
-                if num_own_segment_roots > 0 || num_leaf_shard_blocks_with_segments > 0 {
-                    let segments_proof;
-                    // SAFETY: Checked in constructor
-                    (segments_proof, remainder) = unsafe { remainder.split_at_unchecked(OUT_LEN) };
-                    // SAFETY: Valid pointer and size, no alignment requirements
-                    Some(unsafe {
-                        segments_proof
-                            .as_ptr()
-                            .cast::<[u8; OUT_LEN]>()
-                            .as_ref_unchecked()
-                    })
-                } else {
-                    None
-                };
 
             let own_segments = if num_own_segment_roots > 0 {
                 let first_local_segment_index;
@@ -667,7 +720,8 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 remainder.split_at_unchecked(
                     usize::from(num_leaf_shard_blocks_with_segments) * size_of::<u8>()
                         + usize::from(num_leaf_shard_blocks_with_segments)
-                            * (ShardIndex::SIZE + LocalSegmentIndex::SIZE) as usize
+                            * (size_of::<u16>()
+                                + (ShardIndex::SIZE + LocalSegmentIndex::SIZE) as usize)
                         + leaf_shard_segment_roots_counts.iter().fold(
                             0usize,
                             |acc, &num_own_segment_roots| {
@@ -682,8 +736,8 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
             IntermediateShardBlockInfo {
                 header,
-                segments_proof,
                 own_segments,
+                num_leaf_shard_blocks,
                 num_leaf_shard_blocks_with_segments,
                 leaf_shards_segments_bytes,
             }
@@ -705,7 +759,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
     /// Compute the root of segments of the intermediate shard blocks info.
     ///
-    /// Returns the default value for an empty collection of segment roots.
+    /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn segments_root(&self) -> Blake3Hash {
         let root = IntermediateShardsSegmentsMerkleTree::compute_root_only::<
@@ -713,30 +767,23 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             _,
             _,
         >(self.iter().map(|shard_block_info| {
-            IntermediateShardBlockSegmentsMerkleTree::compute_root_only::<
-                { u64::from(u32::MAX) },
-                _,
-                _,
-            >(
-                shard_block_info
+            // The hasher doesn't depend on the number of leaves, so this is the inner node over the
+            // first two leaves of the body tree of the intermediate shard block, which commits to
+            // the same segments
+            IntermediateShardBodyMerkleTree::compute_root_only_array(&[
+                *shard_block_info
                     .own_segments
                     .as_ref()
-                    .map(OwnSegments::root)
-                    .into_iter()
-                    .chain(shard_block_info.leaf_shards_segments().map(
-                        |(shard_index, own_segments)| {
-                            own_segments.root_with_shard_index(shard_index)
-                        },
-                    )),
-            )
-            .unwrap_or_default()
+                    .map_or_default(OwnSegments::root),
+                *shard_block_info.leaf_shards_segments_root(),
+            ])
         }))
         .unwrap_or_default();
 
         Blake3Hash::new(root)
     }
 
-    /// Compute the root of headers of the intermediate shard blocks info.
+    /// Compute the root of child block roots, which the header stores.
     ///
     /// Returns the default value for an empty collection of shard blocks.
     #[inline]
@@ -745,13 +792,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             { u64::from(u16::MAX) },
             _,
             _,
-        >(self.iter().map(|shard_block_info| {
-            // Hash the root again so we can prove it, otherwise the root of headers is
-            // indistinguishable from individual block roots and can be used to confuse
-            // verifier
-            single_block_hash(shard_block_info.header.root().as_ref())
-                .expect("Less than a single block worth of bytes; qed")
-        }))
+        >(
+            self.iter()
+                .map(|shard_block_info| **shard_block_info.header.root()),
+        )
         .unwrap_or_default();
 
         Blake3Hash::new(root)
@@ -994,13 +1038,15 @@ impl<'a> BeaconChainBody<'a> {
     }
 }
 
-/// Information about leaf shard segments
-#[derive(Debug, Copy, Clone)]
-pub struct LeafShardOwnSegments<'a> {
-    /// Segment roots proof
-    pub segment_roots_proof: &'a [u8; OUT_LEN],
-    /// Segments produced by this shard
-    pub own_segments: OwnSegments<'a>,
+/// Compute the body root of a leaf shard block
+fn leaf_shard_body_root(
+    own_segments: Option<&OwnSegments<'_>>,
+    transactions_root: &Blake3Hash,
+) -> Blake3Hash {
+    Blake3Hash::new(LeafShardBodyMerkleTree::compute_root_only(&[
+        *own_segments.map_or_default(OwnSegments::root),
+        **transactions_root,
+    ]))
 }
 
 /// Information about the leaf shard block container inside the intermediate shard block body
@@ -1008,14 +1054,16 @@ pub struct LeafShardOwnSegments<'a> {
 pub struct LeafShardBlockInfo<'a> {
     /// A block header that corresponds to a leaf shard
     pub header: LeafShardHeader<'a>,
+    /// Root of transactions in the corresponding block
+    pub transactions_root: &'a Blake3Hash,
     /// Segments in the corresponding block
-    pub segments: Option<LeafShardOwnSegments<'a>>,
+    pub own_segments: Option<OwnSegments<'a>>,
 }
 
 /// Information about a collection of leaf shard blocks
 #[derive(Debug, Copy, Clone)]
 pub struct LeafShardBlocksInfo<'a> {
-    num_blocks: usize,
+    num_blocks: u16,
     bytes: &'a [u8],
 }
 
@@ -1035,16 +1083,16 @@ impl<'a> LeafShardBlocksInfo<'a> {
         // * for each block:
         //   * block header: LeafShardHeader
         //   * padding to 8-bytes boundary with zeroes
+        //   * root of transactions: `Blake3Hash`
         //   * local segment index of the first segment root (if any): `LocalSegmentIndex`
-        //   * segment roots proof (if there is at least one segment root)
         //   * concatenated own segment roots
 
         let num_blocks = bytes.split_off(..size_of::<u16>())?;
-        let num_blocks = usize::from(u16::from_le_bytes([num_blocks[0], num_blocks[1]]));
+        let num_blocks = u16::from_le_bytes([num_blocks[0], num_blocks[1]]);
 
         let bytes_start = bytes;
 
-        let mut counts = bytes.split_off(..num_blocks * size_of::<u8>())?;
+        let mut counts = bytes.split_off(..usize::from(num_blocks) * size_of::<u8>())?;
 
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
@@ -1056,6 +1104,8 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
 
+            (_, remainder) = Blake3Hash::from_bytes(remainder)?;
+
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) = LocalSegmentIndex::from_bytes(remainder)?;
@@ -1064,7 +1114,6 @@ impl<'a> LeafShardBlocksInfo<'a> {
                     *first_local_segment_index,
                     num_own_segment_roots,
                 )?;
-                let _segment_roots_proof = remainder.split_off(..OUT_LEN)?;
                 let _own_segment_roots =
                     remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             }
@@ -1089,11 +1138,11 @@ impl<'a> LeafShardBlocksInfo<'a> {
         // The layout is the same as in `Self::try_from_bytes()`
 
         let num_blocks = bytes.split_off(..size_of::<u16>())?;
-        let num_blocks = usize::from(u16::from_le_bytes([num_blocks[0], num_blocks[1]]));
+        let num_blocks = u16::from_le_bytes([num_blocks[0], num_blocks[1]]);
 
         let bytes_start = bytes;
 
-        let mut counts = bytes.split_off(..num_blocks * size_of::<u8>())?;
+        let mut counts = bytes.split_off(..usize::from(num_blocks) * size_of::<u8>())?;
 
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
@@ -1105,6 +1154,8 @@ impl<'a> LeafShardBlocksInfo<'a> {
 
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
 
+            (_, remainder) = Blake3Hash::from_bytes(remainder)?;
+
             if num_own_segment_roots > 0 {
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) = LocalSegmentIndex::from_bytes(remainder)?;
@@ -1113,7 +1164,6 @@ impl<'a> LeafShardBlocksInfo<'a> {
                     *first_local_segment_index,
                     num_own_segment_roots,
                 )?;
-                let _segment_roots_proof = remainder.split_off(..OUT_LEN)?;
                 let _own_segment_roots =
                     remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
             }
@@ -1152,20 +1202,20 @@ impl<'a> LeafShardBlocksInfo<'a> {
                             shard_index,
                             leaf_shard_block.header.prefix.number,
                             leaf_shard_block
-                                .segments
+                                .own_segments
                                 .as_ref()
-                                .map(|segments| segments.own_segments.first_local_segment_index),
+                                .map(|own_segments| own_segments.first_local_segment_index),
                         ));
                     }
                     cmp::Ordering::Equal => {
                         if last_leaf_shard_block_number >= leaf_shard_block.header.prefix.number {
                             return false;
                         }
-                        if let Some(leaf_shard_segments) = &leaf_shard_block.segments {
+                        if let Some(own_segments) = &leaf_shard_block.own_segments {
                             if let Some(last_leaf_shard_first_local_segment_index) =
                                 last_leaf_shard_first_local_segment_index
                                 && last_leaf_shard_first_local_segment_index
-                                    >= leaf_shard_segments.own_segments.first_local_segment_index
+                                    >= own_segments.first_local_segment_index
                             {
                                 return false;
                             }
@@ -1173,7 +1223,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
                             last_leaf_shard_info.replace((
                                 shard_index,
                                 leaf_shard_block.header.prefix.number,
-                                Some(leaf_shard_segments.own_segments.first_local_segment_index),
+                                Some(own_segments.first_local_segment_index),
                             ));
                         } else {
                             last_leaf_shard_info.replace((
@@ -1192,22 +1242,17 @@ impl<'a> LeafShardBlocksInfo<'a> {
                     shard_index,
                     leaf_shard_block.header.prefix.number,
                     leaf_shard_block
-                        .segments
+                        .own_segments
                         .as_ref()
-                        .map(|segments| segments.own_segments.first_local_segment_index),
+                        .map(|own_segments| own_segments.first_local_segment_index),
                 ));
             }
 
-            let Some(segments) = leaf_shard_block.segments else {
-                return true;
-            };
-
-            LeafShardBodyMerkleTree::verify(
-                &leaf_shard_block.header.result.body_root,
-                array::from_ref(segments.segment_roots_proof),
-                0,
-                *segments.own_segments.root(),
-            )
+            // Also checks blocks without segments, whose body root has a zero leaf for segments
+            leaf_shard_body_root(
+                leaf_shard_block.own_segments.as_ref(),
+                leaf_shard_block.transactions_root,
+            ) == leaf_shard_block.header.result.body_root
         })
     }
 
@@ -1219,7 +1264,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
         // SAFETY: Checked in constructor
         let (mut counts, remainder) = unsafe {
             self.bytes
-                .split_at_unchecked(self.num_blocks * size_of::<u8>())
+                .split_at_unchecked(usize::from(self.num_blocks) * size_of::<u8>())
         };
         let mut remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
             .expect("Already checked in constructor; qed");
@@ -1236,7 +1281,14 @@ impl<'a> LeafShardBlocksInfo<'a> {
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
                 .expect("Already checked in constructor; qed");
 
-            let segments = if num_own_segment_roots > 0 {
+            let transactions_root;
+            // SAFETY: Checked in constructor
+            (transactions_root, remainder) =
+                unsafe { remainder.split_at_unchecked(Blake3Hash::SIZE) };
+            // SAFETY: Correct alignment and size
+            let transactions_root = unsafe { Blake3Hash::from_bytes_unchecked(transactions_root) };
+
+            let own_segments = if num_own_segment_roots > 0 {
                 let first_local_segment_index;
                 // SAFETY: Checked in constructor
                 (first_local_segment_index, remainder) =
@@ -1244,17 +1296,6 @@ impl<'a> LeafShardBlocksInfo<'a> {
                 // SAFETY: Correct alignment and size
                 let first_local_segment_index =
                     *unsafe { LocalSegmentIndex::from_bytes_unchecked(first_local_segment_index) };
-
-                let segment_roots_proof;
-                // SAFETY: Checked in constructor
-                (segment_roots_proof, remainder) = unsafe { remainder.split_at_unchecked(OUT_LEN) };
-                // SAFETY: Valid pointer and size, no alignment requirements
-                let segment_roots_proof = unsafe {
-                    segment_roots_proof
-                        .as_ptr()
-                        .cast::<[u8; OUT_LEN]>()
-                        .as_ref_unchecked()
-                };
 
                 let own_segment_roots;
                 // SAFETY: Checked in constructor
@@ -1270,26 +1311,27 @@ impl<'a> LeafShardBlocksInfo<'a> {
                 };
                 let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
 
-                Some(LeafShardOwnSegments {
-                    segment_roots_proof,
-                    own_segments: OwnSegments::new_unchecked(
-                        first_local_segment_index,
-                        own_segment_roots,
-                    ),
-                })
+                Some(OwnSegments::new_unchecked(
+                    first_local_segment_index,
+                    own_segment_roots,
+                ))
             } else {
                 None
             };
 
-            LeafShardBlockInfo { header, segments }
+            LeafShardBlockInfo {
+                header,
+                transactions_root,
+                own_segments,
+            }
         })
-        .take(self.num_blocks)
+        .take(usize::from(self.num_blocks))
     }
 
     /// Number of leaf shard blocks
     #[inline(always)]
     pub const fn len(&self) -> usize {
-        self.num_blocks
+        self.num_blocks as usize
     }
 
     /// Returns `true` if there are no leaf shard blocks
@@ -1298,40 +1340,39 @@ impl<'a> LeafShardBlocksInfo<'a> {
         self.num_blocks == 0
     }
 
-    /// Compute the root of segments of the leaf shard blocks info.
+    /// Compute the root of segments of the leaf shard blocks info, with a zero leaf for each
+    /// leaf shard block without segments.
     ///
-    /// Returns the default value for an empty collection of segment roots.
+    /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn segments_root(&self) -> Blake3Hash {
-        let root =
-            LeafShardsSegmentsMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-                self.iter().map(|shard_block_info| {
-                    shard_block_info.segments.map_or_default(|own_segments| {
-                        own_segments
-                            .own_segments
-                            .root_with_shard_index(shard_block_info.header.prefix.shard_index)
+        // Blocks come first, so positions never step past `u16::MAX`
+        compute_leaf_shards_segments_root(
+            self.num_blocks,
+            self.iter()
+                .zip(0..)
+                .filter_map(|(shard_block_info, position)| {
+                    shard_block_info.own_segments.map(|own_segments| {
+                        (
+                            position,
+                            shard_block_info.header.prefix.shard_index,
+                            own_segments,
+                        )
                     })
                 }),
-            )
-            .unwrap_or_default();
-
-        Blake3Hash::new(root)
+        )
+        .expect("Positions are strictly increasing and smaller than the number of blocks; qed")
     }
 
-    /// Compute the root of headers of the leaf shard blocks info.
+    /// Compute the root of child block roots, which the header stores.
     ///
     /// Returns the default value for an empty collection of shard blocks.
     #[inline]
     pub fn headers_root(&self) -> Blake3Hash {
         let root =
             ChildLeafShardBlocksMerkleTree::compute_root_only::<{ u64::from(u16::MAX) }, _, _>(
-                self.iter().map(|shard_block_info| {
-                    // Hash the root again so we can prove it, otherwise root of headers is
-                    // indistinguishable from individual block roots and can be used to confuse
-                    // verifier
-                    single_block_hash(shard_block_info.header.root().as_ref())
-                        .expect("Less than a single block worth of bytes; qed")
-                }),
+                self.iter()
+                    .map(|shard_block_info| **shard_block_info.header.root()),
             )
             .unwrap_or_default();
 
@@ -1508,13 +1549,11 @@ impl<'a> IntermediateShardBody<'a> {
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        let root = IntermediateShardBodyMerkleTree::compute_root_only_array(&[
-            *self.own_segments.as_ref().map_or_default(OwnSegments::root),
-            *self.leaf_shard_blocks.segments_root(),
-            *self.leaf_shard_blocks.headers_root(),
-        ]);
-
-        Blake3Hash::new(root)
+        intermediate_shard_body_root(
+            self.own_segments.as_ref(),
+            &self.leaf_shard_blocks.segments_root(),
+            &self.leaf_shard_blocks.headers_root(),
+        )
     }
 }
 
@@ -1739,12 +1778,7 @@ impl<'a> LeafShardBody<'a> {
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
-        let root = LeafShardBodyMerkleTree::compute_root_only(&[
-            *self.own_segments.as_ref().map_or_default(OwnSegments::root),
-            *self.transactions.root(),
-        ]);
-
-        Blake3Hash::new(root)
+        leaf_shard_body_root(self.own_segments.as_ref(), &self.transactions.root())
     }
 }
 

@@ -9,9 +9,7 @@ use ab_client_consensus_common::consensus_parameters::{
 };
 use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::body::owned::OwnedBeaconChainBodyError;
-use ab_core_primitives::block::header::owned::{
-    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
-};
+use ab_core_primitives::block::header::owned::{GenericOwnedBlockHeader, OwnedBeaconChainHeader};
 use ab_core_primitives::block::header::{
     BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderPrefix,
     OwnedBlockHeaderConsensusParameters, OwnedBlockHeaderSeal,
@@ -50,13 +48,6 @@ pub enum BeaconChainBlockBuilderError {
         // Body creation error
         #[from]
         error: OwnedBeaconChainBodyError,
-    },
-    /// Failed to create a header
-    #[error("Failed to create a header: {error}")]
-    FailedToCreateHeader {
-        // Header creation error
-        #[from]
-        error: OwnedBeaconChainHeaderError,
     },
 }
 
@@ -138,14 +129,12 @@ where
         )
         .map_err(BeaconChainBlockBuilderError::from)?;
 
-        let block_unsealed = block_builder
-            .with_header(
-                &header_prefix,
-                state_root,
-                consensus_info,
-                &consensus_parameters.as_ref(),
-            )
-            .map_err(BeaconChainBlockBuilderError::from)?;
+        let block_unsealed = block_builder.with_header(
+            &header_prefix,
+            state_root,
+            consensus_info,
+            &consensus_parameters.as_ref(),
+        );
 
         let seal = seal_block(block_unsealed.pre_seal_hash())
             .await

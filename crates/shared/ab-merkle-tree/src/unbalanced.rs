@@ -126,6 +126,22 @@ where
             return None;
         }
 
+        // SAFETY: `num_leaves` is not zero, not larger than `MAX_N`, and peaks of all `num_leaves`
+        // leaves are on the stack
+        Some(unsafe { Self::root_from_peaks::<MAX_N>(hasher, &mut stack, num_leaves) })
+    }
+
+    /// Hash peaks of `num_leaves` leaves on the `stack` together into the root.
+    ///
+    /// # Safety
+    /// `num_leaves` must not be zero or larger than `MAX_N`, and peaks of all `num_leaves` leaves
+    /// must be on the `stack`.
+    #[inline(always)]
+    unsafe fn root_from_peaks<const MAX_N: u64>(
+        hasher: &H,
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>],
+        num_leaves: u64,
+    ) -> [u8; H::OUT_LEN] {
         let mut stack_bits = num_leaves;
 
         {
@@ -158,7 +174,150 @@ where
             stack[0] = hasher.hash_single_leaf(&stack[0]);
         }
 
-        Some(stack[0])
+        stack[0]
+    }
+
+    /// Compute Merkle Tree Root of `num_leaves` leaves, which are all zeroes except `leaves`.
+    ///
+    /// `leaves` are pairs of leaf index and leaf, with strictly increasing indices. Produces the
+    /// same root as [`Self::compute_root_only()`] with zeroes in all other positions, but hashes
+    /// runs of zero leaves as whole subtrees, so the number of hashes is proportional to the number
+    /// of `leaves` and the height of the tree rather than to `num_leaves`.
+    ///
+    /// `MAX_N` generic constant defines the maximum number of elements supported and controls stack
+    /// usage.
+    ///
+    /// Returns `None` if `num_leaves` is zero or larger than `MAX_N`, or if indices aren't strictly
+    /// increasing or not smaller than `num_leaves`.
+    #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn compute_root_only_sparse<const MAX_N: u64, Item, Iter>(
+        num_leaves: u64,
+        leaves: Iter,
+    ) -> Option<[u8; H::OUT_LEN]>
+    where
+        H: NewMerkleHasherForTreeSize,
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = (u64, Item)>,
+    {
+        if num_leaves == 0 || num_leaves > MAX_N {
+            return None;
+        }
+
+        let hasher = H::new_for_tree_size(num_leaves);
+        // Stack of intermediate nodes per tree level
+        let mut stack = [[0u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>];
+        // Roots of perfect subtrees of zero leaves per height, filled up to `zeros_height`
+        let mut zeros = [[0u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>];
+        let mut zeros_height = 0;
+        // Number of leaves processed so far, including zero leaves
+        let mut processed = 0u64;
+
+        for (index, leaf) in leaves {
+            if index < processed || index >= num_leaves {
+                return None;
+            }
+
+            // SAFETY: `processed <= index < num_leaves <= MAX_N`
+            unsafe {
+                Self::push_zero_leaves::<MAX_N>(
+                    &hasher,
+                    &mut stack,
+                    &mut zeros,
+                    &mut zeros_height,
+                    &mut processed,
+                    index,
+                );
+            }
+            // SAFETY: Any `processed` is a multiple of `2^0` and `processed + 1 <= num_leaves`,
+            // which is not larger than `MAX_N`
+            unsafe {
+                Self::push_subtree::<MAX_N>(&hasher, &mut stack, processed, 0, leaf.into());
+            }
+            processed += 1;
+        }
+
+        // SAFETY: `processed <= num_leaves <= MAX_N`
+        unsafe {
+            Self::push_zero_leaves::<MAX_N>(
+                &hasher,
+                &mut stack,
+                &mut zeros,
+                &mut zeros_height,
+                &mut processed,
+                num_leaves,
+            );
+        }
+
+        // SAFETY: `num_leaves` is not zero, not larger than `MAX_N`, and peaks of all `num_leaves`
+        // leaves are on the stack
+        Some(unsafe { Self::root_from_peaks::<MAX_N>(&hasher, &mut stack, num_leaves) })
+    }
+
+    /// Push zero leaves until `processed` reaches `target`, as perfect subtrees that are as large
+    /// as possible.
+    ///
+    /// # Safety
+    /// `processed` must not be larger than `target`, which must not be larger than `MAX_N`.
+    #[inline(always)]
+    unsafe fn push_zero_leaves<const MAX_N: u64>(
+        hasher: &H,
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>],
+        zeros: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>],
+        zeros_height: &mut usize,
+        processed: &mut u64,
+        target: u64,
+    ) {
+        while let Some(height) = (target - *processed).checked_ilog2() {
+            // The largest subtree that fits into the remaining zero leaves and starts at a multiple
+            // of its size
+            let height = height.min(processed.trailing_zeros()) as usize;
+
+            while *zeros_height < height {
+                // SAFETY: `height` is at most `log2(MAX_N)`, which is within `STACK_SIZE`
+                let zero = unsafe { zeros.get_unchecked(*zeros_height) };
+                let zero = hasher.hash_pair(&[*zero, *zero]);
+                *zeros_height += 1;
+                // SAFETY: `height` is at most `log2(MAX_N)`, which is within `STACK_SIZE`
+                *unsafe { zeros.get_unchecked_mut(*zeros_height) } = zero;
+            }
+
+            // SAFETY: `height` is at most `log2(MAX_N)`, which is within `STACK_SIZE`
+            let zero = *unsafe { zeros.get_unchecked(height) };
+            // SAFETY: `processed` is a multiple of `2^height` and `processed + 2^height <= target`,
+            // which is not larger than `MAX_N`
+            unsafe {
+                Self::push_subtree::<MAX_N>(hasher, stack, *processed, height, zero);
+            }
+            *processed += 1 << height;
+        }
+    }
+
+    /// Push the root of a perfect subtree of height `height` after `processed` leaves, merging it
+    /// with the peaks it completes the same way as [`Self::compute_root_only()`] merges a leaf.
+    ///
+    /// # Safety
+    /// `processed` must be a multiple of `2^height`, and `processed + 2^height` must not be larger
+    /// than `MAX_N`.
+    #[inline(always)]
+    unsafe fn push_subtree<const MAX_N: u64>(
+        hasher: &H,
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>],
+        processed: u64,
+        height: usize,
+        mut node: [u8; H::OUT_LEN],
+    ) {
+        // Every bit set to `1` corresponds to an active Merkle Tree level
+        let active_levels = (processed >> height).trailing_ones() as usize;
+        for item in stack.iter().skip(height).take(active_levels) {
+            node = hasher.hash_pair(&[*item, node]);
+        }
+
+        // Place the node at the first inactive level.
+        //
+        // SAFETY: Bit `height + active_levels` is set in `processed + 2^height`, which is not
+        // larger than `MAX_N`, so the level is at most `log2(MAX_N)`, which is within `STACK_SIZE`
+        *unsafe { stack.get_unchecked_mut(height + active_levels) } = node;
     }
 
     /// Compute Merkle Tree Root for an array of leaves.

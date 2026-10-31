@@ -10,10 +10,9 @@ use crate::block::body::owned::{
 };
 use crate::block::body::{BlockBody, IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
-    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
-    OwnedBeaconChainHeaderUnsealed, OwnedBlockHeader, OwnedIntermediateShardHeader,
-    OwnedIntermediateShardHeaderError, OwnedIntermediateShardHeaderUnsealed, OwnedLeafShardHeader,
-    OwnedLeafShardHeaderUnsealed,
+    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderUnsealed,
+    OwnedBlockHeader, OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError,
+    OwnedIntermediateShardHeaderUnsealed, OwnedLeafShardHeader, OwnedLeafShardHeaderUnsealed,
 };
 use crate::block::header::{
     BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
@@ -25,7 +24,6 @@ use crate::pot::PotCheckpoints;
 use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
 use ab_aligned_buffer::SharedAlignedBuffer;
-use alloc::vec::Vec;
 use core::any::Any;
 use core::fmt;
 use core::iter::TrustedLen;
@@ -171,7 +169,7 @@ impl OwnedBeaconChainBlockBuilder {
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
-    ) -> Result<OwnedBeaconChainBlockUnsealed, OwnedBeaconChainHeaderError> {
+    ) -> OwnedBeaconChainBlockUnsealed {
         let body = self.body;
         let header = OwnedBeaconChainHeader::from_parts(
             prefix,
@@ -180,16 +178,11 @@ impl OwnedBeaconChainBlockBuilder {
                 state_root,
             },
             consensus_info,
-            &body
-                .body()
-                .intermediate_shard_blocks()
-                .iter()
-                .map(|block| *block.header.root())
-                .collect::<Vec<_>>(),
+            &body.body().intermediate_shard_blocks().headers_root(),
             consensus_parameters,
-        )?;
+        );
 
-        Ok(OwnedBeaconChainBlockUnsealed { body, header })
+        OwnedBeaconChainBlockUnsealed { body, header }
     }
 }
 
@@ -330,7 +323,7 @@ impl OwnedIntermediateShardBlockBuilder {
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> Result<OwnedIntermediateShardBlockUnsealed, OwnedIntermediateShardHeaderError> {
+    ) -> OwnedIntermediateShardBlockUnsealed {
         let body = self.body;
         let header = OwnedIntermediateShardHeader::from_parts(
             prefix,
@@ -340,15 +333,10 @@ impl OwnedIntermediateShardBlockBuilder {
             },
             consensus_info,
             beacon_chain_info,
-            &body
-                .body()
-                .leaf_shard_blocks()
-                .iter()
-                .map(|block| *block.header.root())
-                .collect::<Vec<_>>(),
-        )?;
+            &body.body().leaf_shard_blocks().headers_root(),
+        );
 
-        Ok(OwnedIntermediateShardBlockUnsealed { body, header })
+        OwnedIntermediateShardBlockUnsealed { body, header }
     }
 }
 
