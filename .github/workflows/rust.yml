@@ -17,9 +17,10 @@ env:
   RUST_BACKTRACE: full
 
 jobs:
-  # One-off experiment: compare `no-panic` builds with and without kache on the same runner, with per-unit timings
+  # One-off experiment: compare `no-panic` builds with and without kache on the same runner, with per-unit timings and
+  # kache debug logs
   no-panic-timings:
-    name: no-panic-timings (${{ matrix.platform.name }})
+    name: no-panic-timings (${{ matrix.platform.name }}, cache-executables=${{ matrix.cache-executables }})
     strategy:
       matrix:
         platform:
@@ -27,6 +28,9 @@ jobs:
           - { name: linux-aarch64, runner: ubuntu-26.04-arm }
           - { name: windows-x86_64, runner: windows-2025 }
           - { name: windows-aarch64, runner: windows-11-arm }
+        cache-executables:
+          - 'true'
+          - 'false'
       fail-fast: false
 
     runs-on: ${{ matrix.platform.runner }}
@@ -53,7 +57,7 @@ jobs:
           version: v2.0.0-rc.3
           cache-c-cpp: 'true'
           cache-dir: ${{ runner.temp }}/kache
-          cache-executables: 'true'
+          cache-executables: ${{ matrix.cache-executables }}
           github-cache: 'false'
           job-summary: 'false'
           pr-comment: 'false'
@@ -102,7 +106,8 @@ jobs:
             local crate="$1"
             local mode="$2"
             local target_dir="${3:-target_${crate}_${mode}}"
-            local -a env_cmd=()
+            # Debug logs are only collected for builds with kache
+            local -a env_cmd=(env KACHE_LOG=kache=debug)
             if [[ "${mode}" == "no-kache" ]]; then
               # Everything kache action sets up to wrap Rust, C and C++ compilers
               env_cmd=(env -u RUSTC_WRAPPER -u CC_KNOWN_WRAPPER_CUSTOM -u CMAKE_C_COMPILER_LAUNCHER -u CMAKE_CXX_COMPILER_LAUNCHER)
@@ -135,7 +140,45 @@ jobs:
       - name: Upload timings
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # 7.0.2
         with:
-          name: timings-${{ matrix.platform.name }}
+          name: timings-${{ matrix.platform.name }}-cache-executables-${{ matrix.cache-executables }}
           path: target_*/cargo-timings/cargo-timing-*.html
+          retention-days: 7
+        if: always()
+
+      # Diagnostics requested by kache's bug report template, plus everything from kache's data and runtime directories
+      # (logs, including the daemon's startup log)
+      - name: Collect kache diagnostics
+        shell: bash
+        run: |
+          mkdir -p kache-diagnostics
+          kache="$(command -v kache || cygpath "${RUSTC_WRAPPER}" 2>/dev/null || echo "${RUSTC_WRAPPER}")"
+          "${kache}" doctor --verify > kache-diagnostics/doctor.txt 2>&1 || true
+          "${kache}" stats > kache-diagnostics/stats.txt 2>&1 || true
+          "${kache}" report --since 24h > kache-diagnostics/report.txt 2>&1 || true
+          "${kache}" daemon status > kache-diagnostics/daemon-status.txt 2>&1 || true
+
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            data_dir="$(cygpath "$LOCALAPPDATA")/kache"
+          else
+            data_dir="$HOME/.cache/kache"
+          fi
+          runtime_dir="$(cygpath "${KACHE_RUNTIME_DIR}" 2>/dev/null || echo "${KACHE_RUNTIME_DIR}")"
+          for entry in "data:${data_dir}" "runtime:${runtime_dir}"; do
+            name="${entry%%:*}"
+            dir="${entry#*:}"
+            if [[ -d "${dir}" ]]; then
+              mkdir -p "kache-diagnostics/${name}"
+              # Regular files only (skips sockets), large files are unlikely to be logs
+              (cd "${dir}" && find . -type f -size -200M -print0 | xargs -0 -r cp --parents -t "${GITHUB_WORKSPACE}/kache-diagnostics/${name}/") || true
+            fi
+          done
+          ls -laR kache-diagnostics
+        if: always()
+
+      - name: Upload kache diagnostics
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # 7.0.2
+        with:
+          name: kache-diagnostics-${{ matrix.platform.name }}-cache-executables-${{ matrix.cache-executables }}
+          path: kache-diagnostics
           retention-days: 7
         if: always()
