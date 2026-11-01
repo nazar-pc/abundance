@@ -3,13 +3,9 @@ name: Rust
 on:
   push:
     branches:
-      - main
+      - claude/windows-build-timings
   pull_request:
   workflow_dispatch:
-
-concurrency:
-  group: rust-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 env:
   # Not needed in CI, should make things a bit faster
@@ -18,1031 +14,104 @@ env:
   CARGO_BUILD_WARNINGS: deny
   # Build smaller artifacts to avoid running out of space in CI and make it a bit faster.
   RUSTFLAGS: -C strip=symbols
-  # Needed for things like file system access
-  MIRIFLAGS: -Zmiri-disable-isolation
   RUST_BACKTRACE: full
-  # TODO: Short-term workaround for https://github.com/rust-lang/miri/issues/5234
-  __CARGO_TEMPORARY_BUILD_DIR_NEW_LAYOUT_OPT_OUT: 1
 
 jobs:
-  cargo-fmt:
-    runs-on: ubuntu-26.04
-    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
-    needs: act4
+  # One-off experiment: compare `no-panic` builds across platforms with and without kache, with per-unit timings
+  no-panic-timings:
+    name: no-panic-timings (${{ matrix.platform.name }}, kache=${{ matrix.kache }})
+    strategy:
+      matrix:
+        platform:
+          - { name: linux-x86_64, runner: ubuntu-26.04 }
+          - { name: linux-aarch64, runner: ubuntu-26.04-arm }
+          - { name: windows-x86_64, runner: windows-2025 }
+          - { name: windows-aarch64, runner: windows-11-arm }
+        kache:
+          - true
+          - false
+      fail-fast: false
+
+    runs-on: ${{ matrix.platform.runner }}
 
     steps:
-      - &checkout-step
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # 7.0.1
         with:
           persist-credentials: 'false'
 
-      - &cache-restore-step
-        name: Restore cache
+      - name: Restore cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
         with:
-          path: &cache-path |
+          path: |
             ~/.cargo/registry
             ~/.cargo/git
-            ${{ env.RUST_GPU_CACHE }}
-          key: &cache-key ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-cargo-
 
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
+      - name: Install kache
+        uses: kunobi-ninja/kache-action@ad7317540dcdd71c904f7a60a87b620a0c0e67ed # v1
+        with:
+          version: v1.2.1
+          cache-c-cpp: 'true'
+          cache-dir: ${{ runner.temp }}/kache
+          cache-executables: 'true'
+          github-cache: 'false'
+          job-summary: 'false'
+          pr-comment: 'false'
+        if: matrix.kache
 
-  cargo-clippy:
-    name: cargo-clippy (${{ matrix.platform.name }}, ${{ matrix.type }})
-    strategy:
-      matrix:
-        platform:
-          - { name: linux-x86_64, runner: ubuntu-26.04, target: '' }
-          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '' }
-          - { name: macos-aarch64, runner: macos-26, target: '' }
-          - { name: windows-aarch64, runner: windows-11-arm, target: '' }
-          # TODO: Use cross-compilation below once https://github.com/kunobi-ninja/kache/issues/1788 is resolved
-          - { name: windows-x86_64, runner: windows-2025, target: '' }
-          # Cross-compiled on a faster `aarch64` runner
-          # - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc }
-          - { name: linux-riscv64gc, runner: ubuntu-26.04-arm, target: riscv64gc-unknown-linux-gnu }
-          - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu }
-          # 32-bit target, see `skip_crates` below for the crates that it doesn't check
-          - { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu }
-        type:
-          - together
-          - individually
-          - features
-      fail-fast: false
-
-    runs-on: ${{ matrix.platform.runner }}
-    env:
-      command: >-
-        cargo -Zgitoxide -Zgit clippy
-        ${{ matrix.platform.target != '' && format('-Zjson-target-spec --target {0}', matrix.platform.target) || '' }}
-      # Regex of names of crates that are not checked or tested on 32-bit targets. Node and farmer
-      # crates expect a 64-bit platform. `ab-networking` enables the `parking_lot` feature of
-      # `tokio`, and `parking_lot_core` 0.9 doesn't compile for RV32 Linux. With feature
-      # unification, that would break the build of all crates together. RISC-V benchmarks and the
-      # Coremark runner need the eager instruction fetcher, which is only available on 64-bit
-      # hosts. A crate that depends on one of these crates needs its own entry.
-      skip_crates: &skip-crates >-
-        ${{ contains(matrix.platform.target, 'riscv32') && '^(ab-client-.*|ab-farmer.*|ab-networking|ab-node.*|ab-proof-of-space-gpu|ab-riscv-benchmarks|ab-riscv-coremark-runner)$' || '' }}
-    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
-    needs: act4
-
-    steps:
-      - &rust-gpu-cache
-        name: Set rust-gpu cache path
-        shell: bash
-        run: |
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            echo "RUST_GPU_CACHE=$HOME/Library/Caches/rust-gpu" >> "$GITHUB_ENV"
-          elif [[ "$RUNNER_OS" == "Windows" ]]; then
-            echo "RUST_GPU_CACHE=$LOCALAPPDATA/rust-gpu" >> "$GITHUB_ENV"
-          else
-            echo "RUST_GPU_CACHE=$HOME/.cache/rust-gpu" >> "$GITHUB_ENV"
-          fi
-
-      - &shared-test-steps
-        parallel:
-          - *checkout-step
-          - *cache-restore-step
-
-          - &install-kache-step
-            name: Install kache
-            uses: kunobi-ninja/kache-action@ad7317540dcdd71c904f7a60a87b620a0c0e67ed # v1
-            with:
-              version: v1.2.1
-              cache-c-cpp: 'true'
-              cache-dir: ${{ runner.temp }}/kache
-              cache-executables: 'true'
-              github-cache: 'false'
-              job-summary: 'false'
-              pr-comment: 'false'
-
-          - name: Install wild-linker
-            uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # 2.87.32
-            with:
-              tool: wild-linker
-            if: runner.os == 'Linux'
-
-          # Use Wild linker for shorter build times
-          - name: Use Wild linker on Linux
-            shell: bash
-            run: |
-              LINKER_FLAGS="-C linker=clang -C link-arg=--ld-path=wild"
-              # Rustc doesn't pass the target to Clang when it is used as a linker driver. This is
-              # here rather than in `RISC-V support`, because steps of this group run in parallel,
-              # and only one of them can set `RUSTFLAGS`.
-              if [[ "${{ matrix.platform.target }}" == riscv32* ]]; then
-                LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv32-linux-gnu"
-              elif [[ "${{ matrix.platform.target }}" == riscv64* ]]; then
-                LINKER_FLAGS="${LINKER_FLAGS} -C link-arg=--target=riscv64-linux-gnu"
-              fi
-              echo "RUSTFLAGS=${RUSTFLAGS} ${LINKER_FLAGS}" >> $GITHUB_ENV
-            if: runner.os == 'Linux'
-
-          # Use LLD linker for shorter build times
-          - name: Use LLD linker on Windows
-            shell: bash
-            run: |
-              echo "RUSTFLAGS=${RUSTFLAGS} -C linker=rust-lld" >> $GITHUB_ENV
-            if: runner.os == 'Windows'
-
-          # Clang compiles C code for all RISC-V targets. They are linked with Wild like all Linux
-          # targets, see `Use Wild linker on Linux`.
-          - name: RISC-V support
-            run: |
-              # Unlike GCC, Clang accepts the target `cc` crate passes for the custom guest target
-              echo "TARGET_CC=clang" >> $GITHUB_ENV
-              echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
-              if [[ "${{ matrix.platform.target }}" == riscv32* ]]; then
-                # Ubuntu has no RV32 glibc, but neither Clippy nor Miri runs C code from build
-                # scripts (like `alloca` used by `criterion`), so compiling it without target
-                # headers is enough
-                echo "TARGET_CFLAGS=-ffreestanding" >> $GITHUB_ENV
-              else
-                # Clang finds glibc headers for C code (like `mimalloc`) and CRT objects with
-                # `libgcc_s` for linking binaries (which `no-panic` relies on) in these packages
-                sudo apt-get update
-                # The version of `libgcc` matches the default GCC of Ubuntu 26.04
-                sudo apt-get install --no-install-recommends --yes \
-                  libc6-dev-riscv64-cross libgcc-15-dev-riscv64-cross
-              fi
-            if: contains(matrix.platform.target, 'riscv')
-
-      # Not a part of the parallel group above since it needs the repository checked out for `rust-toolchain.toml`
-      - &target-setup-step
-        name: Set up target
-        shell: bash
-        run: |
-          # Installs the toolchain from `rust-toolchain.toml`
-          rustup toolchain install
-          target="${{ matrix.platform.target }}"
-          # Custom JSON targets and targets without prebuilt standard library build it from source
-          if rustup target list | tr -d '\r' | cut -d' ' -f1 | grep -qxF "$target"; then
-            rustup target add "$target"
-          else
-            echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
-          fi
-        if: matrix.platform.target != ''
-
-      - name: cargo clippy
-        shell: bash
-        run: |
-          excluded=$(cargo metadata --no-deps --format-version 1 \
-            | jq -r --arg skip "$skip_crates" '.packages[] | select(
-                $skip != "" and (.name | test($skip))
-              ) | "--exclude \(.name)"' \
-            | tr -d '\r')
-          ${{ env.command }} --locked --all-targets ${excluded:+--workspace $excluded}
-        if: matrix.type == 'together'
-
-      - name: cargo clippy (each crate individually)
-        shell: bash
-        run: |
-          cargo metadata --no-deps --format-version 1 \
-            | jq -r --arg skip "$skip_crates" '.packages[] | select(
-                $skip == "" or (.name | test($skip) | not)
-              ) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --all-targets --package \"${crate}\"" >> "${{ runner.temp }}/queue"
-              done
-        if: matrix.type == 'individually'
-
-      - name: cargo clippy (various features)
-        shell: bash
-        run: |
-          metadata=$(cargo metadata --no-deps --format-version 1)
-
-          for feature in alloc parallel scale-codec serde; do
-            printf '%s' "$metadata" \
-              | jq -r --arg feature "$feature" --arg skip "$skip_crates" '.packages[] | select(
-                  (.features | has($feature)) and
-                  (.manifest_path | gsub("\\\\"; "/") | test("/crates/(execution|farmer|node|shared)/")) and
-                  ($skip == "" or (.name | test($skip) | not))
-                ) | .name' \
-              | tr -d '\r' \
-              | while IFS= read -r crate; do
-                  echo "Checking \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                  echo "$command --all-targets --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
-                done
-          done
-
-          # Ensure `clippy` is happy with `guest` feature
-          printf '%s' "$metadata" \
-            | jq -r '.packages[] | select(.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/(example|system)/")) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-              done
-
-          printf '%s' "$metadata" \
-            | jq -r '.packages[] | select(
-                (.features | has("guest")) and
-                (.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/core/"))
-              ) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-              done
-
-          echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
-          echo "$command --all-targets --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
-
-          echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
-          echo "$command --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
-        if: matrix.type == 'features'
-
-      - parallel:
-          - shell: bash
-            env:
-              WORKER_ID: "1"
-            run: &parallel_worker |
-              set -e
-
-              mkdir -p "${{ runner.temp }}/claims"
-              export CARGO_TARGET_DIR="target_${WORKER_ID}"
-              while IFS= read -r message && IFS= read -r command; do
-                hash=$(printf '%s\n%s\n' "$message" "$command" | sha256sum | cut -d' ' -f1)
-                if mkdir "${{ runner.temp }}/claims/${hash}" 2>/dev/null; then
-                  echo "$message"
-                  eval "$command"
-                fi
-              done < "${{ runner.temp }}/queue"
-            if: matrix.type == 'individually' || matrix.type == 'features'
-
-          - shell: bash
-            env:
-              WORKER_ID: "2"
-            run: *parallel_worker
-            if: matrix.type == 'individually' || matrix.type == 'features'
-
-          - shell: bash
-            env:
-              WORKER_ID: "3"
-            run: *parallel_worker
-            if: matrix.type == 'individually' || matrix.type == 'features'
-
-          - shell: bash
-            env:
-              WORKER_ID: "4"
-            run: *parallel_worker
-            if: matrix.type == 'individually' || matrix.type == 'features'
-
-  cargo-test:
-    name: cargo-test (${{ matrix.platform.name }}${{ matrix.platform.miri && ', miri' || '' }}, ${{ matrix.type }})
-    strategy:
-      matrix:
-        # Each entry is a complete configuration, with or without Miri. Miri can run on any runner of the same OS since
-        # it interprets the code instead of running it natively, so foreign targets only run under Miri.
-        platform: &test-platforms
-          - &linux-x86_64-test
-            { name: linux-x86_64, runner: ubuntu-26.04, target: '', miri: false }
-          - &linux-x86_64-test-miri
-            { name: linux-x86_64, runner: ubuntu-26.04, target: '', miri: true }
-          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '', miri: false }
-          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '', miri: true }
-          - { name: macos-aarch64, runner: macos-26, target: '', miri: false }
-          - { name: macos-aarch64, runner: macos-26, target: '', miri: true }
-          - { name: windows-aarch64, runner: windows-11-arm, target: '', miri: false }
-          - { name: windows-aarch64, runner: windows-11-arm, target: '', miri: true }
-          - { name: windows-x86_64, runner: windows-2025, target: '', miri: false }
-          # Miri runs on a faster `aarch64` runner
-          - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc, miri: true }
-          - &linux-riscv64a23-test-miri
-            { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu, miri: true }
-          # 32-bit target, see `skip_crates` below for the crates that it doesn't test
-          - &linux-riscv32gc-test-miri
-            { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu, miri: true }
-        type:
-          # `together` variant is running in a separate job, see `cargo-test-slow`
-          # - together
-          - features
-          # Only a few select platforms are explicitly included with `guest-feature` below
-          # - guest-feature
-        include:
-          - { platform: *linux-x86_64-test, type: guest-feature }
-          - { platform: *linux-x86_64-test-miri, type: guest-feature }
-          - { platform: *linux-riscv64a23-test-miri, type: guest-feature }
-          - { platform: *linux-riscv32gc-test-miri, type: guest-feature }
-
-          # TODO: Tests will need custom allocator to work under this target
-          # - platform:
-          #     name: riscv64-abundance
-          #     runner: ubuntu-26.04-arm
-          #     target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
-          #     miri: true
-          #   type: guest-feature
-      fail-fast: false
-
-    runs-on: ${{ matrix.platform.runner }}
-    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
-    needs: act4
-    env: &test-env
-      # NOTE: Running tests under Miri with nextest is SLOWER than without it:
-      #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
-      command: >-
-        ${{ matrix.platform.miri == true && 'miri test --bins --lib --tests' || 'nextest run --no-tests pass' }}
-        ${{ matrix.platform.target != '' && format('-Zjson-target-spec --target {0}', matrix.platform.target) || '' }}
-      # `cargo nextest` doesn't support doc tests, so they are run with regular `cargo test` separately (not under Miri)
-      doc_test_command: >-
-        ${{ matrix.platform.miri == false && format('test --doc{0}', matrix.platform.target != '' && format(' -Zjson-target-spec --target {0}', matrix.platform.target) || '') || '' }}
-      # The same crates as in `cargo-clippy` job
-      skip_crates: *skip-crates
-
-    steps: &test-steps
-      - name: Install cargo-nextest
+      - name: Install wild-linker
         uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # 2.87.32
         with:
-          tool: cargo-nextest
+          tool: wild-linker
+        if: runner.os == 'Linux'
 
-      - *rust-gpu-cache
-      - *shared-test-steps
-      - *target-setup-step
-
-      - name: Install Vulkan runtime (Linux)
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes mesa-vulkan-drivers
-        if: matrix.platform.miri == false && runner.os == 'Linux' && matrix.type == 'together'
-
-      - name: Install Vulkan runtime (Windows)
-        run: |
-          & {
-            # See https://vulkan.lunarg.com/sdk/home for updates
-            $sdkVersion = "1.4.363.0"
-            if ("${{ runner.arch }}" -eq "ARM64") {
-              $arch = "ARM64"
-              $urlPath = "warm"
-              $archDir = ""
-              $expectedHash = "fede2cc8b62e55d3b0607019e1f8ca612bc663ae9301be5de10a52329a552271"
-            } else {
-              $arch = "X64"
-              $urlPath = "windows"
-              # The archive also contains 32-bit loader in `x86`, which can't be used by 64-bit tests
-              $archDir = "x64\"
-              $expectedHash = "a25a927aa8b9f0371048f1861cf88ac3b9bc9b1fb332c42d897c8ab32695769a"
-            }
-
-            $url = "https://sdk.lunarg.com/sdk/download/$sdkVersion/$urlPath/VulkanRT-$arch-$sdkVersion-Components.zip"
-            Invoke-WebRequest -Uri $url -OutFile VulkanRT.zip
-
-            $actualHash = (Get-FileHash VulkanRT.zip -Algorithm SHA256).Hash.ToLower()
-            if ($actualHash -ne $expectedHash.ToLower()) {
-              throw "SHA256 mismatch: expected $expectedHash, got $actualHash"
-            }
-
-            7z e VulkanRT.zip -o"${{ runner.temp }}\vulkan" "VulkanRT-$arch-$sdkVersion-Components\${archDir}vulkan-1.dll"
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to extract Vulkan loader"
-            }
-            Remove-Item VulkanRT.zip
-
-            $vulkanPath = "${{ runner.temp }}\vulkan"
-            "$vulkanPath" >> $env:GITHUB_PATH
-          }
-
-          & {
-            # See https://github.com/mmozeiko/build-mesa/releases for updates
-            $version = "26.2.4"
-            if ("${{ runner.arch }}" -eq "ARM64") {
-              $arch = "arm64"
-              $archJson = "aarch64"
-              $expectedHash = "712f39e12e11fc8a3727a594377e5e4a7c8976731df0791726a889d2bb031bf8"
-            } else {
-              $arch = "x64"
-              $archJson = "x86_64"
-              $expectedHash = "0f12da1693e95bfc0929be39499629b07e367d6b1dd2a8192a16b5d80743294a"
-            }
-
-            $url = "https://github.com/mmozeiko/build-mesa/releases/download/$version/mesa-lavapipe-$arch-$version.7z"
-            Invoke-WebRequest -Uri $url -OutFile mesa-lavapipe.7z
-
-            $actualHash = (Get-FileHash mesa-lavapipe.7z -Algorithm SHA256).Hash.ToLower()
-            if ($actualHash -ne $expectedHash.ToLower()) {
-              throw "SHA256 mismatch: expected $expectedHash, got $actualHash"
-            }
-
-            7z x mesa-lavapipe.7z -o"${{ runner.temp }}\mesa"
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to extract lavapipe"
-            }
-            Remove-Item mesa-lavapipe.7z
-
-            $mesaPath = "${{ runner.temp }}\mesa"
-            "$mesaPath" >> $env:GITHUB_PATH
-
-            $icdPath = "$mesaPath\lvp_icd.$archJson.json"
-            New-Item -Path "HKLM:\SOFTWARE\Khronos\Vulkan\Drivers" -Force| Out-Null
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Khronos\Vulkan\Drivers" -Name $icdPath -Value 0 -Type DWord
-          }
-        if: matrix.platform.miri == false && runner.os == 'Windows' && matrix.type == 'together'
-
-      - name: cargo ${{ env.command }} (together)
-        run: |
-          cargo -Zgitoxide -Zgit ${{ env.command }} --locked
-        if: matrix.platform.miri == false && matrix.type == 'together'
-
-      - name: cargo ${{ env.doc_test_command }} (together)
-        run: |
-          cargo -Zgitoxide -Zgit ${{ env.doc_test_command }} --locked
-        if: matrix.platform.miri == false && matrix.type == 'together'
-
-      # The whole app is only needed on Windows since it doesn't support shebang
-      - name: Install Miri capture wrapper
+      - name: Use Wild linker on Linux
         shell: bash
         run: |
-          miri_bin="$(rustup which miri)"
-          miri_dir="$(dirname "$miri_bin")"
+          echo "RUSTFLAGS=${RUSTFLAGS} -C linker=clang -C link-arg=--ld-path=wild" >> $GITHUB_ENV
+        if: runner.os == 'Linux'
 
-          mv "$miri_bin" "$miri_dir/miri.real"
-
-          mkdir -p "${{ runner.temp }}/miri_invocations"
-
-          cat > "${{ runner.temp }}/miri_wrapper.rs" << 'RUST_EOF'
-              use std::fmt::Write as FmtWrite;
-              use std::io::Write;
-              use std::{env, fs, iter, process};
-
-              fn main() {
-                  let exe = env::current_exe().unwrap();
-                  let miri_real = exe.parent().unwrap().join("miri.real");
-
-                  if env::var_os("MIRI_BE_RUSTC").is_some() {
-                      let status = process::Command::new(&miri_real)
-                          .args(env::args_os().skip(1))
-                          .status()
-                          .expect("failed to exec miri.real");
-                      process::exit(status.code().unwrap_or(1));
-                  }
-
-                  if let Ok(inv_path) = env::var("MIRI_REPLAY") {
-                      let data = fs::read_to_string(&inv_path).unwrap();
-                      let mut lines = data.lines();
-
-                      let cwd = lines.next().unwrap();
-
-                      let n_args = lines.next().unwrap().parse().unwrap();
-                      let args = iter::repeat_with(|| lines.next().unwrap())
-                          .take(n_args)
-                          .collect::<Vec<_>>();
-
-                      let n_envs = lines.next().unwrap().parse().unwrap();
-                      let envs = iter::repeat_with(|| lines.next().unwrap().split_once('=').unwrap())
-                          .take(n_envs)
-                          .collect::<Vec<_>>();
-
-                      let status = process::Command::new(&miri_real)
-                          .args(&args)
-                          .env_clear()
-                          .envs(envs)
-                          .current_dir(cwd)
-                          .status()
-                          .expect("failed to exec miri.real in replay");
-                      process::exit(status.code().unwrap_or(1));
-                  }
-
-                  let args = env::args().skip(1).collect::<Vec<_>>();
-
-                  let crate_name = args
-                      .windows(2)
-                      .find_map(|w| (w[0] == "--crate-name").then(|| w[1].as_str()))
-                      .unwrap_or("unknown");
-
-                  let inv_dir = env::var("MIRI_INVOCATIONS_DIR").expect("MIRI_INVOCATIONS_DIR not set");
-                  let queue_path = env::var("MIRI_QUEUE_PATH").expect("MIRI_QUEUE_PATH not set");
-
-                  // Lines are `crate-name: filter1 filter2 ...`, each filter becomes a separate invocation and one
-                  // more invocation runs everything else. Earlier filters are skipped by later invocations to avoid
-                  // running the same test more than once.
-                  let filters = env::var_os("MIRI_TEST_PARTITIONING")
-                      .and_then(|path| {
-                          fs::read_to_string(path)
-                              .unwrap()
-                              .lines()
-                              .find_map(|line| {
-                                  let line = line.split('#').next().unwrap();
-                                  let (name, filters) = line.split_once(':')?;
-                                  (name.trim().replace('-', "_") == crate_name)
-                                      .then(|| filters.split_whitespace().map(str::to_string).collect::<Vec<_>>())
-                              })
-                      })
-                      .unwrap_or_default();
-
-                  let cwd = env::current_dir().unwrap();
-                  let envs = env::vars().collect::<Vec<_>>();
-
-                  let mut queue = fs::OpenOptions::new()
-                      .create(true)
-                      .append(true)
-                      .open(&queue_path)
-                      .unwrap();
-
-                  for partition in 0..=filters.len() {
-                      let mut args = args.clone();
-                      if !args.iter().any(|arg| arg == "--") {
-                          args.push("--".to_string());
-                      }
-                      args.extend(filters.get(partition).cloned());
-                      for filter in &filters[..partition] {
-                          args.push("--skip".to_string());
-                          args.push(filter.clone());
-                      }
-
-                      let mut data = String::new();
-                      writeln!(data, "{}", cwd.display()).unwrap();
-                      writeln!(data, "{}", args.len()).unwrap();
-                      for arg in &args {
-                          writeln!(data, "{arg}").unwrap();
-                      }
-                      writeln!(data, "{}", envs.len()).unwrap();
-                      for (k, v) in &envs {
-                          writeln!(data, "{k}={v}").unwrap();
-                      }
-
-                      // PIDs can be reused across invocations, so pick the first file name that is not taken yet
-                      let (name, inv_path) = (0..)
-                          .map(|index| {
-                              let name = format!("{crate_name}-{}-{index}", process::id());
-                              let inv_path = format!("{inv_dir}/{name}");
-                              (name, inv_path)
-                          })
-                          .find(|(_name, inv_path)| {
-                              fs::OpenOptions::new()
-                                  .write(true)
-                                  .create_new(true)
-                                  .open(inv_path)
-                                  .is_ok()
-                          })
-                          .unwrap();
-                      fs::write(&inv_path, &data).unwrap();
-
-                      let description = match filters.get(partition) {
-                          Some(filter) => format!(" (`{filter}` partition)"),
-                          None if !filters.is_empty() => " (remaining partition)".to_string(),
-                          None => String::new(),
-                      };
-                      writeln!(queue, "Miri: running {name}{description}").unwrap();
-                      writeln!(queue, "MIRI_REPLAY=\"{inv_path}\" \"{}\"", exe.display()).unwrap();
-                  }
-              }
-          RUST_EOF
-
-          rustc "${{ runner.temp }}/miri_wrapper.rs" -o "$miri_bin"
-        if: matrix.platform.miri == true
-
-      - name: cargo ${{ env.command }} --capture (together)
-        shell: bash
-        env: &miri-capture-env
-          MIRI_INVOCATIONS_DIR: ${{ runner.temp }}/miri_invocations
-          MIRI_QUEUE_PATH: ${{ runner.temp }}/queue
-          MIRI_TEST_PARTITIONING: ${{ github.workspace }}/.github/miri-test-partitioning.txt
-        run: |
-          excluded=$(cargo metadata --no-deps --format-version 1 \
-            | jq -r --arg skip "$skip_crates" '.packages[] | select(
-                $skip != "" and (.name | test($skip))
-              ) | "--exclude \(.name)"' \
-            | tr -d '\r')
-          cargo -Zgitoxide -Zgit ${{ env.command }} --locked ${excluded:+--workspace $excluded}
-        if: matrix.platform.miri == true && matrix.type == 'together'
-
-      - name: cargo test (various features)
+      - name: Use LLD linker on Windows
         shell: bash
         run: |
-          metadata=$(cargo metadata --no-deps --format-version 1)
+          echo "RUSTFLAGS=${RUSTFLAGS} -C linker=rust-lld" >> $GITHUB_ENV
+        if: runner.os == 'Windows'
 
-          for feature in alloc parallel scale-codec serde; do
-            printf '%s' "$metadata" \
-              | jq -r --arg feature "$feature" --arg skip "$skip_crates" '.packages[] | select(
-                  (.features | has($feature)) and
-                  (.manifest_path | gsub("\\\\"; "/") | test("/crates/(execution|farmer|node|shared)/")) and
-                  ($skip == "" or (.name | test($skip) | not))
-                ) | .name' \
-              | tr -d '\r' \
-              | while IFS= read -r crate; do
-                  echo "Testing \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                  echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
-                  if [[ -n "$doc_test_command" ]]; then
-                    echo "Testing doc tests of \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                    echo "cargo -Zgitoxide -Zgit $doc_test_command --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
-                  fi
-                done
-          done
-
-          echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
-          echo "cargo -Zgitoxide -Zgit $command --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
-          if [[ -n "$doc_test_command" ]]; then
-            echo "Checking doc tests of \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
-            echo "cargo -Zgitoxide -Zgit $doc_test_command --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
-          fi
-
-          echo "Testing \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
-          echo "cargo -Zgitoxide -Zgit $command --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
-          if [[ -n "$doc_test_command" ]]; then
-            echo "Testing doc tests of \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
-            echo "cargo -Zgitoxide -Zgit $doc_test_command --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
-          fi
-        if: matrix.type == 'features'
-
-      - name: cargo ${{ env.command }} (guest feature)
-        shell: bash
-        run: |
-          metadata=$(cargo metadata --no-deps --format-version 1)
-
-          # Ensure tests pass with `guest` feature
-          printf '%s' "$metadata" \
-            | jq -r '.packages[] | select(.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/(example|system)/")) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Testing \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-                if [[ -n "$doc_test_command" ]]; then
-                  echo "Testing doc tests of \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                  echo "cargo -Zgitoxide -Zgit $doc_test_command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-                fi
-              done
-
-          printf '%s' "$metadata" \
-            | jq -r '.packages[] | select(
-                (.features | has("guest")) and
-                (.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/core/"))
-              ) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Testing \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-                if [[ -n "$doc_test_command" ]]; then
-                  echo "Testing doc tests of \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                  echo "cargo -Zgitoxide -Zgit $doc_test_command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-                fi
-              done
-        if: matrix.type == 'guest-feature' && runner.os == 'Linux'
-
-      - name: cargo ${{ env.command }} --capture (features)
-        shell: bash
-        env: *miri-capture-env
-        run: |
-          # Commands in the queue only capture Miri invocations, which are then added to a fresh queue for workers
-          mv "${{ runner.temp }}/queue" "${{ runner.temp }}/capture_queue"
-          while IFS= read -r message && IFS= read -r command; do
-            echo "$message"
-            eval "$command"
-          done < "${{ runner.temp }}/capture_queue"
-        if: matrix.platform.miri == true && (matrix.type == 'features' || matrix.type == 'guest-feature')
-
-      - parallel:
-          - shell: bash
-            env:
-              WORKER_ID: "1"
-            run: *parallel_worker
-            if: matrix.platform.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
-
-          - shell: bash
-            env:
-              WORKER_ID: "2"
-            run: *parallel_worker
-            if: matrix.platform.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
-
-          - shell: bash
-            env:
-              WORKER_ID: "3"
-            run: *parallel_worker
-            if: matrix.platform.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
-
-          - shell: bash
-            env:
-              WORKER_ID: "4"
-            run: *parallel_worker
-            if: matrix.platform.miri == true || matrix.type == 'features' || matrix.type == 'guest-feature'
-
-      - name: Save cache
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
-        with:
-          path: *cache-path
-          key: *cache-key
-        # Only save on `main` branch and only from one canonical matrix variant per OS
-        if: github.ref == 'refs/heads/main' && matrix.type == 'together' && matrix.platform.target == '' && matrix.platform.miri == false
-
-  # This is a hack to start slower jobs before the rest, see `cargo-test` job for full definition
-  cargo-test-slow:
-    name: cargo-test-slow (${{ matrix.platform.name }}${{ matrix.platform.miri && ', miri' || '' }}, ${{ matrix.type }})
-    strategy:
-      matrix:
-        platform: *test-platforms
-        type:
-          - together
-      fail-fast: false
-
-    runs-on: ${{ matrix.platform.runner }}
-    env: *test-env
-
-    steps: *test-steps
-
-  no-panic:
-    name: no-panic (${{ matrix.platform.name }}, ${{ matrix.type }})
-    strategy:
-      matrix:
-        platform:
-          - { name: linux-x86_64, runner: ubuntu-26.04, target: '' }
-          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '' }
-          - { name: macos-aarch64, runner: macos-26, target: '' }
-          - { name: windows-aarch64, runner: windows-11-arm, target: '' }
-          - { name: windows-x86_64, runner: windows-2025, target: '' }
-          - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu }
-        type:
-          - default
-          - features
-          # Only one platform is explicitly included with `guest-feature` below
-          # - guest-feature
-        # TODO: Tests will need custom allocator to work under this target
-        # include:
-        #   - platform:
-        #       name: riscv64-abundance
-        #       runner: ubuntu-26.04-arm
-        #       target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
-        #     type: guest-feature
-      fail-fast: false
-
-    runs-on: ${{ matrix.platform.runner }}
-    env:
-      command: >-
-        cargo -Zgitoxide -Zgit build
-        ${{ matrix.platform.target != '' && format('-Zjson-target-spec --target {0}', matrix.platform.target) || '' }}
-
-    steps:
-      - *rust-gpu-cache
-      - *shared-test-steps
-      - *target-setup-step
-
-      # Increase the inlining threshold to make sure the compiler can see that some functions do not panic.
-      # Native CPU and LTO to allow the compiler to apply more optimizations and prove lack of panics in more cases.
+      # Same flags as `no-panic` job in the regular workflow
       - name: Set up RUSTFLAGS
         shell: bash
         run: |
-          echo "RUSTFLAGS=${RUSTFLAGS} -Cllvm-args=--inline-threshold=10000 -C embed-bitcode -C lto -Z dylib-lto ${{ matrix.platform.target == '' && '-C target-cpu=native' || '' }}" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${RUSTFLAGS} -Cllvm-args=--inline-threshold=10000 -C embed-bitcode -C lto -Z dylib-lto -C target-cpu=native" >> $GITHUB_ENV
 
-      - name: Ensure no panics in annotated code
+      # Installs the toolchain and downloads dependencies, so that neither is included in measurements below
+      - name: Fetch dependencies
         shell: bash
         run: |
-          # TODO: This doesn't seem to work for now: https://users.rust-lang.org/t/compiler-optimizations-are-different-for-crate-itself-vs-dependency/130187?u=nazar-pc
-          # So we end up building individual crates instead, which is unfortunate
-          # ${{ env.command }} --release --all-targets --features no-panic
-          cargo metadata --no-deps --format-version 1 \
-            | jq -r '.packages[] | select(.features | has("no-panic")) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --release --all-targets --features no-panic --package \"${crate}\"" >> "${{ runner.temp }}/queue"
-              done
-        if: matrix.type == 'default'
+          rustup toolchain install
+          cargo -Zgitoxide -Zgit fetch --locked
 
-      - name: Ensure no panics in annotated code (various features)
+      # Sequential builds with a separate target directory each, so that timings are not skewed by concurrent builds.
+      # A small crate shows fixed per-unit overhead, while a large crate is dominated by compilation itself.
+      - name: Build with timings
         shell: bash
         run: |
-          cargo metadata --no-deps --format-version 1 \
-            | jq -r '.packages[] | select(
-                (.features | has("no-panic")) and
-                (.features | has("alloc"))
-              ) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`alloc\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/alloc\"" >> "${{ runner.temp }}/queue"
-              done
-
-          echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
-          echo "$command --release --all-targets --features no-panic --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
-
-          echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
-          echo "$command --release --all-targets --features no-panic --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
-        if: matrix.type == 'features'
-
-      - name: Ensure no panics in annotated code (guest feature)
-        shell: bash
-        run: |
-          metadata=$(cargo metadata --no-deps --format-version 1)
-
-          # Not all example/system contracts have the `no-panic` feature yet
-          printf '%s' "$metadata" \
-            | jq -r '.packages[] | select(
-                (.features | has("no-panic")) and
-                (.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/(example|system)/"))
-              ) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-              done
-
-          # Not all core contracts have both `no-panic` and `guest` features yet
-          printf '%s' "$metadata" \
-            | jq -r '.packages[] | select(
-                (.features | has("no-panic")) and
-                (.features | has("guest")) and
-                (.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/core/"))
-              ) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-              done
-        if: matrix.type == 'guest-feature' && runner.os == 'Linux'
-
-      - &parallel-workers
-        parallel:
-          - shell: bash
-            env:
-              WORKER_ID: "1"
-            run: *parallel_worker
-
-          - shell: bash
-            env:
-              WORKER_ID: "2"
-            run: *parallel_worker
-
-          - shell: bash
-            env:
-              WORKER_ID: "3"
-            run: *parallel_worker
-
-          - shell: bash
-            env:
-              WORKER_ID: "4"
-            run: *parallel_worker
-
-  contracts:
-    runs-on: ubuntu-26.04-arm
-    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
-    needs: act4
-
-    steps:
-      - *checkout-step
-      - *cache-restore-step
-      - *install-kache-step
-
-      # TODO: Run clippy and `no-panic` on custom target for contracts too
-      - name: Ensure contracts compile for a custom target
-        shell: bash
-        run: |
-          cargo metadata --no-deps --format-version 1 \
-            | jq -r '.packages[] | select(.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/(example|system)/")) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`${crate}\` (release profile)" >> "${{ runner.temp }}/queue"
-                echo "cargo run --bin cargo-ab-contract -- build --package \"${crate}\"" >> "${{ runner.temp }}/queue"
-                echo "Checking \`${crate}\` (contract profile)" >> "${{ runner.temp }}/queue"
-                echo "cargo run --bin cargo-ab-contract -- build --package \"${crate}\" --profile contract" >> "${{ runner.temp }}/queue"
-              done
-
-      - *parallel-workers
-
-  act4:
-    env:
-      ACT4_RELEASE: sha-6e8a45123f14cebfb3df151a0e7b849b4389b33b # 4.1.0
-
-    strategy:
-      matrix:
-        os:
-          - ubuntu-26.04
-          - ubuntu-26.04-arm
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - *checkout-step
-
-      # Compute the hashes of inputs to avoid cloning and building ELFs when nothing has changed, see:
-      # https://github.com/riscv/riscv-arch-test/issues/1654
-      - name: Compute sources hash
-        id: sources-hash
-        working-directory: crates/execution/ab-riscv-act4-runner
-        run: |
-          RES_HASH=$(find res -type f -print0 \
-            | sort -z \
-            | xargs -0 sha256sum \
-            | sha256sum \
-            | cut -d' ' -f1)
-          COMBINED=$(printf '%s\n%s\n' "${ACT4_RELEASE}" "${RES_HASH}" \
-            | sha256sum \
-            | cut -d' ' -f1)
-          echo "value=${COMBINED}" >> $GITHUB_OUTPUT
-
-      - name: Restore cache
-        id: restore-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
-        with:
-          path: &act4-work-cache-path |
-            crates/execution/ab-riscv-act4-runner/work/*/elfs
-          key: &act4-work-cache-key act4-work-${{ steps.sources-hash.outputs.value }}
-
-      # TODO: Workaround for https://github.com/rust-lang/rustup/issues/988
-      - name: Download toolchain
-        run: rustc --version
-
-      - name: Build ELFs
-        working-directory: crates/execution/ab-riscv-act4-runner
-        env:
-          # Folded into a single space-separated line, ACT4's Makefile doesn't handle newlines
-          CONFIG_FILES: >-
-            config/abundance/abundance-rv32i-zve32x-zvbb/test_config.yaml
-            config/abundance/abundance-rv64i-zve32x-zvbb/test_config.yaml
-            config/abundance/abundance-rv32i-max/test_config.yaml
-            config/abundance/abundance-rv64i-max/test_config.yaml
-        # TODO: Remove `make vector-tests` once enabled by default
-        run: |
-          mkdir -p work
-          docker run --rm \
-            -u $(id -u):$(id -g) \
-            -v ./work:/act4/work \
-            -v ./res/abundance:/act4/config/abundance:ro \
-            -e CONFIG_FILES \
-            -e EXCLUDE_EXTENSIONS="InterruptsSm,ZawrsSm" \
-            -e FAST=True \
-            -e CLEAN_INTERMEDIATES=True \
-            ghcr.io/riscv/act4:${{ env.ACT4_RELEASE }} \
-            sh -c 'make vector-tests && make'
-        if: steps.restore-cache.outputs.cache-hit != 'true'
-
-      # TODO: Remove once `ACT4_RELEASE` uses Sail 0.14.1 or newer. Sail 0.13.1 does not treat `vd` of
-      #  `vwmacc*` as a source that must not overlap sources with a different EEW
-      #  (`norm:vreg_source_eew_rsv`), so these tests expect reserved encodings to execute.
-      - name: Skip tests that expect Sail 0.13.1 behavior
-        working-directory: crates/execution/ab-riscv-act4-runner
-        run: |
-          for test in 01 02 04 05 07 08; do
-            find work -path '*/elfs/*' -name "SsstrictSm_VectorInstr-${test}.elf*" -print -delete
+          for crate in ab-blake3 ab-riscv-interpreter; do
+            echo "::group::${crate}"
+            start=$(date +%s)
+            CARGO_TARGET_DIR="target_${crate}" cargo -Zgitoxide -Zgit build --locked --release --all-targets \
+              --features no-panic --package "${crate}" --timings
+            end=$(date +%s)
+            echo "::endgroup::"
+            echo "\`${crate}\`: $((end - start))s" | tee -a "$GITHUB_STEP_SUMMARY"
           done
 
-      - parallel:
-          - name: ACT4 tests RV32I-Zve32x-Zvbb
-            working-directory: crates/execution/ab-riscv-act4-runner
-            env:
-              CARGO_TARGET_DIR: target_default
-            run: |
-              cargo run --release -- rv32i-zve32x-zvbb work/abundance-rv32i-zve32x-zvbb/elfs
-
-          - name: ACT4 tests RV64I-Zve32x-Zvbb
-            working-directory: crates/execution/ab-riscv-act4-runner
-            env:
-              CARGO_TARGET_DIR: target_default
-            run: |
-              cargo run --release -- rv64i-zve32x-zvbb work/abundance-rv64i-zve32x-zvbb/elfs
-
-          - name: ACT4 tests RV32I-max
-            working-directory: crates/execution/ab-riscv-act4-runner
-            env:
-              CARGO_TARGET_DIR: target_default
-            run: |
-              cargo run --release -- rv32i-max work/abundance-rv32i-max/elfs
-
-          - name: ACT4 tests RV64I-max (native)
-            working-directory: crates/execution/ab-riscv-act4-runner
-            env:
-              CARGO_TARGET_DIR: target_native
-            # Native CPU will use AES intrinsics for Zknd/Zkne implementation
-            run: |
-              RUSTFLAGS="$RUSTFLAGS -C target-cpu=native" cargo run --release -- rv64i-max work/abundance-rv64i-max/elfs
-
-          # Force-disable AES intrinsics to test software implementation
-          - name: ACT4 tests RV64I-max (-aes)
-            working-directory: crates/execution/ab-riscv-act4-runner
-            env:
-              CARGO_TARGET_DIR: target_aes_disabled
-            run: |
-              RUSTFLAGS="$RUSTFLAGS -C target-feature=-aes" cargo run --release -- rv64i-max work/abundance-rv64i-max/elfs
-
-      - name: Save cache
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # 6.1.0
+      - name: Upload timings
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # 7.0.2
         with:
-          path: *act4-work-cache-path
-          key: *act4-work-cache-key
-        # Only save on `main` branch and only from one OS since the contents will be identical for all OSes
-        if: steps.restore-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' && matrix.os == 'ubuntu-26.04-arm'
-
-  rust-all:
-    # Hack for buggy GitHub Actions behavior with skipped checks: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks
-    if: ${{ always() }}
-    runs-on: ubuntu-slim
-    needs:
-      - cargo-clippy
-      - cargo-fmt
-      - cargo-test
-      - cargo-test-slow
-      - contracts
-      - no-panic
-      - act4
-
-    steps:
-      - name: Job status check
-        env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
-        run: |
-          for result in $RESULTS; do
-            [[ "$result" == "success" ]] || exit 1
-          done
+          name: timings-${{ matrix.platform.name }}-kache-${{ matrix.kache }}
+          path: target_*/cargo-timings/cargo-timing-*.html
+          retention-days: 7
+        if: always()
