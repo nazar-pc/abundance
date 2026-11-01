@@ -63,7 +63,7 @@ anyhow = { version = "1.0.104", default-features = false }
 array-reshape = { version = "0.1.1", features = ["const-trait"] }
 arrayvec = { version = "0.7.8", default-features = false }
 async-lock = { version = "3.4.2", default-features = false }
-async-nats = { version = "0.50.0", default-features = false, features = ["ring"] }
+async-nats = { version = "0.51.0", default-features = false, features = ["ring"] }
 async-trait = "0.1.92"
 backon = { version = "1.6.0", default-features = false }
 bech32 = { version = "0.12.0", default-features = false }
@@ -86,7 +86,7 @@ dirs = { version = "7.0.0" }
 ed25519-dalek = { version = "3.0.0", default-features = false }
 enum-map = "3.1.0"
 event-listener = "5.4.2"
-event-listener-primitives = "2.0.2"
+event-listener-primitives = "2.0.3"
 fdlimit = "0.3.0"
 fs4 = "1.1.0"
 futures = { version = "0.3.34", default-features = false, features = ["async-await"] }
@@ -114,7 +114,7 @@ parking_lot = "0.13.0"
 pin-project = "1.1.13"
 prettyplease = "0.3.0"
 proc-macro2 = "1.0.107"
-prometheus-client = "0.25.1"
+prometheus-client = "0.25.2"
 quote = "1.0.47"
 rand = { version = "0.10.3", default-features = false }
 rayon = "1.12.0"
