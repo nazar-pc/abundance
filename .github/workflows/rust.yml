@@ -61,12 +61,10 @@ jobs:
           - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '' }
           - { name: macos-aarch64, runner: macos-26, target: '' }
           - { name: windows-aarch64, runner: windows-11-arm, target: '' }
-          # TODO: Use cross-compilation below once https://github.com/kunobi-ninja/kache/issues/1788 is resolved
-          - { name: windows-x86_64, runner: windows-2025, target: '' }
           # Cross-compiled on a faster `aarch64` runner
-          # - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc }
           - { name: linux-riscv64gc, runner: ubuntu-26.04-arm, target: riscv64gc-unknown-linux-gnu }
           - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu }
+          - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc }
           # 32-bit target, see `skip_crates` below for the crates that it doesn't check
           - { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu }
         type:
@@ -111,9 +109,9 @@ jobs:
 
           - &install-kache-step
             name: Install kache
-            uses: kunobi-ninja/kache-action@ad7317540dcdd71c904f7a60a87b620a0c0e67ed # v1
+            uses: kunobi-ninja/kache-action@1a33fb2ff51be23eb9e87abeae6edb65be78f71c # v1
             with:
-              version: v1.2.1
+              version: v2.0.0-rc.3
               cache-c-cpp: 'true'
               cache-dir: ${{ runner.temp }}/kache
               cache-executables: 'true'
