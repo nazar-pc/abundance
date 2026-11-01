@@ -90,15 +90,18 @@ jobs:
           cargo -Zgitoxide -Zgit fetch --locked
 
       # Sequential builds with a separate target directory each, so that timings are not skewed by concurrent builds.
-      # Both modes run on the same runner, since performance differs a lot between runners of the same type. The order
-      # of modes alternates between crates to cancel out effects of warm caches. A small crate shows fixed per-unit
-      # overhead, while a large crate is dominated by compilation itself.
+      # Both modes run on the same runner, since performance differs a lot between runners of the same type. An untimed
+      # warm-up build without kache first brings the toolchain, dependency sources and linker into OS caches (and past
+      # any first-access scanning), so that whichever build happens to run first is not penalized. The order of modes
+      # also alternates between crates to cancel out any remaining effects of warm caches. A small crate shows fixed
+      # per-unit overhead, while a large crate is dominated by compilation itself.
       - name: Build with timings
         shell: bash
         run: |
           build() {
             local crate="$1"
             local mode="$2"
+            local target_dir="${3:-target_${crate}_${mode}}"
             local -a env_cmd=()
             if [[ "${mode}" == "no-kache" ]]; then
               # Everything kache action sets up to wrap Rust, C and C++ compilers
@@ -108,16 +111,21 @@ jobs:
               done
             fi
 
-            echo "::group::${crate} (${mode})"
+            echo "::group::${crate} (${mode}, ${target_dir})"
             local start
             start=$(date +%s)
-            CARGO_TARGET_DIR="target_${crate}_${mode}" "${env_cmd[@]}" cargo -Zgitoxide -Zgit build --locked --release \
+            CARGO_TARGET_DIR="${target_dir}" "${env_cmd[@]}" cargo -Zgitoxide -Zgit build --locked --release \
               --all-targets --features no-panic --package "${crate}" --timings
             local end
             end=$(date +%s)
             echo "::endgroup::"
-            echo "\`${crate}\` (${mode}): $((end - start))s" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "\`${crate}\` (${mode}, ${target_dir}): $((end - start))s" | tee -a "$GITHUB_STEP_SUMMARY"
           }
+
+          # Untimed warm-up, its time is still printed for reference
+          build ab-blake3 no-kache target_warmup
+          build ab-riscv-interpreter no-kache target_warmup
+          rm -rf target_warmup
 
           build ab-blake3 no-kache
           build ab-blake3 kache
