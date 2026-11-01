@@ -293,7 +293,7 @@ jobs:
             if: matrix.type == 'individually' || matrix.type == 'features'
 
   cargo-test:
-    name: cargo-test (${{ matrix.platform.name }}${{ matrix.platform.miri && ', miri' || '' }}, ${{ matrix.type }})
+    name: cargo-test (${{ matrix.platform.name }}, ${{ matrix.type }}${{ matrix.platform.miri && ', miri' || '' }})
     strategy:
       matrix:
         # Each entry is a complete configuration, with or without Miri. Miri can run on any runner of the same OS since
@@ -728,7 +728,7 @@ jobs:
 
   # This is a hack to start slower jobs before the rest, see `cargo-test` job for full definition
   cargo-test-slow:
-    name: cargo-test-slow (${{ matrix.platform.name }}${{ matrix.platform.miri && ', miri' || '' }}, ${{ matrix.type }})
+    name: cargo-test-slow (${{ matrix.platform.name }}, ${{ matrix.type }}${{ matrix.platform.miri && ', miri' || '' }})
     strategy:
       matrix:
         platform: *test-platforms
@@ -751,6 +751,7 @@ jobs:
           - { name: macos-aarch64, runner: macos-26, target: '' }
           - { name: windows-aarch64, runner: windows-11-arm, target: '' }
           - { name: windows-x86_64, runner: windows-2025, target: '' }
+          # No-panic runs on a faster `aarch64` runner
           - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu }
         type:
           - default
