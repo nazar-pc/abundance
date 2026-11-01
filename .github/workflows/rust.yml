@@ -114,7 +114,6 @@ jobs:
               version: v2.0.0-rc.3
               cache-c-cpp: 'true'
               cache-dir: ${{ runner.temp }}/kache
-              cache-executables: 'true'
               github-cache: 'false'
               job-summary: 'false'
               pr-comment: 'false'
