@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="FFI interface into a method, called by the host."><title>playground_var_bytes in ab_contract_playground::ffi::var_bytes - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-203241e4.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ab_contract_playground" data-themes="" data-resource-suffix="" data-rustdoc-version="1.100.0-nightly (e7769602a 2026-08-24)" data-channel="nightly" data-search-js="search-b167f383.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-1814ead3.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">playground_var_bytes</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../ab_contract_playground/index.html">ab_<wbr>contract_<wbr>playground</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">playground_<wbr>var_<wbr>bytes</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#safety" title="Safety">Safety</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In ab_<wbr>contract_<wbr>playground::<wbr>ffi::<wbr>var_<wbr>bytes</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">ab_contract_playground</a>::<wbr><a href="../index.html">ffi</a>::<wbr><a href="index.html">var_bytes</a></div><h1>Function <span class="fn">playground_<wbr>var_<wbr>bytes</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/ab_contract_playground/lib.rs.html#134">Source</a> </span></div><pre class="rust item-decl"><code><div class="code-attribute">#[unsafe(no_mangle)]</div>pub unsafe extern &quot;C&quot; fn playground_var_bytes&lt;'args&gt;(
+    args: &amp;'args mut <a class="struct" href="struct.InternalArgs.html" title="struct ab_contract_playground::ffi::var_bytes::InternalArgs">InternalArgs</a>&lt;'_&gt;,
+) -&gt; ExitCode</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>FFI interface into a method, called by the host.</p>
+<p>NOTE: Calling this function directly shouldn’t be necessary except maybe in
+contract’s own tests.</p>
+<p>Contents of <code>#[input]</code> and <code>#[output]</code> arguments are parsed, the exit code of
+<code>ContractError::BadInput</code> is returned if they are not valid values of their
+types.</p>
+<h2 id="safety"><a class="doc-anchor" href="#safety">§</a>Safety</h2>
+<p>Caller must ensure the provided pointer corresponds to the expected ABI.
+Sizes, capacities and alignment of inputs and outputs match the method’s
+metadata, which the executor guarantees (the RISC-V VM checks them, the
+native executor trusts callers and only catches mismatches with debug
+assertions): pointers are aligned for the <code>IoType::PointerType</code> of their
+types, and sizes and capacities are valid for their types, as
+<code>IoType::try_from_ptr()</code> requires for inputs and <code>IoType::try_from_mut_ptr()</code>
+for outputs. The pointer of an input is valid for reads of its size, with that
+many bytes initialized and not written to during the call. The pointer of an
+output is valid for writes of its capacity and for reads of its size, with that
+many bytes initialized, and the memory is not accessed other than through this
+pointer during the call.</p>
+<p>The state, <code>#[tmp]</code> and <code>#[slot]</code> arguments are not parsed: their pointers
+are aligned and point to valid values of their types with valid sizes and
+capacities, accessed like inputs if they are read-only and like outputs
+otherwise.</p>
+<p>The <code>Env</code> behind <code>#[env]</code> (if present) is created as
+<code>Env::with_executor_context()</code> requires for an <code>Env</code> given to code by reference,
+or by the host in <code>guest</code> builds. The method gets it with a lifetime that only
+covers the call. For that lifetime, it can borrow its <code>#[output]</code>s other than
+the state and lend them to calls (see <code>Env::lend_output()</code>), which can leave
+contents behind that are not valid values. Hence, after the call, the contents
+of outputs must not be accessed as values of their types without being parsed
+first, unless every bit pattern is a valid value. <code>OutputArg</code> ensures this for
+callers of extension methods. The exception is the last <code>#[output]</code> of <code>#[init]</code>
+without a return value, which is the initial state. The method can’t lend it
+with <code>Env::lend_output()</code>, since <code>#[contract]</code> rejects a named lifetime on it,
+so after a successful call it is either empty or holds a valid value of the
+state.</p>
+</div></details></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OwnedBlock"],"struct":["OwnedBeaconChainBlock","OwnedBeaconChainBlockBuilder","OwnedBeaconChainBlockUnsealed","OwnedIntermediateShardBlock","OwnedIntermediateShardBlockBuilder","OwnedIntermediateShardBlockUnsealed","OwnedLeafShardBlock","OwnedLeafShardBlockBuilder","OwnedLeafShardBlockUnsealed"],"trait":["GenericOwnedBlock"]};

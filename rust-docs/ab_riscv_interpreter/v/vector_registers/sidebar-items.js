@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["IndexedSegmentElement","IndexedSegmentGroup","SegmentElement","SegmentField","VRegGroup","VRegSegmentGroup","VectorRegisterFile"],"trait":["VectorRegisters","VectorRegistersExt"]};
