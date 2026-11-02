@@ -119,7 +119,7 @@ jobs:
               pr-comment: 'false'
 
           - name: Install wild-linker
-            uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # 2.87.32
+            uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # 2.88.1
             with:
               tool: wild-linker
             if: runner.os == 'Linux'
@@ -355,7 +355,7 @@ jobs:
 
     steps: &test-steps
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # 2.87.32
+        uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # 2.88.1
         with:
           tool: cargo-nextest
 
