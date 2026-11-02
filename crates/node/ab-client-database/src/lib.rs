@@ -1252,7 +1252,7 @@ where
             beacon_chain_block_details,
         });
 
-        Self::prune_outdated_fork_tips(block_number, &mut state.data, &self.inner.options);
+        Self::prune_outdated_fork_tips(best_number, &mut state.data, &self.inner.options);
 
         Ok(())
     }

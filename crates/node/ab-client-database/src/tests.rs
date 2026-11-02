@@ -82,3 +82,26 @@ fn super_segment_headers_and_blocks_survive_reopen() {
     }
     assert_persisted_chain(&database, chain, 12);
 }
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn fork_below_best_block_keeps_best_block() {
+    // genesis - c1 .. c3 -+- c4 - c5 - c6 (best block)
+    //                     \- a4 - a5 (imported below the best block)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=5, 0));
+    let c5 = chain[5];
+
+    let a4 = persist_block(&database, 4, chain[3], 1).unwrap();
+
+    assert_eq!(database.best_root(), c5);
+    assert!(database.header(&a4).is_some());
+
+    // Both the best chain and the fork can still be extended
+    let c6 = persist_block(&database, 6, c5, 0).unwrap();
+    assert_eq!(database.best_root(), c6);
+    persist_block(&database, 5, a4, 1).unwrap();
+    assert_eq!(database.best_root(), c6);
+}
