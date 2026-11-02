@@ -2081,8 +2081,11 @@ where
                 break;
             };
 
-            // More than one instance means something somewhere is using or depends on this block
-            if block.header().ref_count() > 1 {
+            let header = block.header();
+
+            // More than one instance means something somewhere is using this block, children are
+            // not counted here and are checked separately below
+            if header.ref_count() > 1 {
                 break;
             }
 
@@ -2103,11 +2106,21 @@ where
                 }
             }
 
+            let parent_root = header.header().prefix.parent_root;
             state.block_roots.remove(&block_root_to_prune);
-            block_root_to_prune = block.header().header().prefix.parent_root;
             fork_blocks.swap_remove(fork_offset);
 
             pruned_tip = true;
+
+            // The parent is still needed by its other children
+            if fork_blocks
+                .iter()
+                .any(|fork_block| fork_block.header().header().prefix.parent_root == parent_root)
+            {
+                break;
+            }
+
+            block_root_to_prune = parent_root;
         }
 
         pruned_tip

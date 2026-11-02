@@ -5,7 +5,7 @@ use crate::test_utils::{
 use ab_client_api::{
     BeaconChainInfo, BeaconChainInfoWrite, ChainInfo, ChainInfoWrite, ReadBlockError,
 };
-use ab_core_primitives::block::BlockRoot;
+use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{LocalSegmentIndex, SuperSegmentIndex};
 use futures::executor::block_on;
 
@@ -133,4 +133,35 @@ fn pruned_fork_tip_is_unknown() {
         block_on(database.block(&block_root)).unwrap();
     }
     assert_eq!(database.best_root(), chain[3]);
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn pruned_fork_tip_keeps_parent_with_other_children() {
+    // genesis -+- c1 -+- c2
+    //          |      \- d2 (added last, exceeds `max_fork_tips`)
+    //          \- a1 -+- a2 (oldest fork tip, pruned)
+    //                 \- b2 (keeps `a1`, then extended with `b3`, the new best block)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let genesis_root = database.best_root();
+
+    let c1 = persist_block(&database, 1, genesis_root, 0).unwrap();
+    let a1 = persist_block(&database, 1, genesis_root, 1).unwrap();
+    persist_block(&database, 2, c1, 0).unwrap();
+    let a2 = persist_block(&database, 2, a1, 1).unwrap();
+    let b2 = persist_block(&database, 2, a1, 2).unwrap();
+    persist_block(&database, 2, c1, 3).unwrap();
+
+    assert!(database.header(&a2).is_none());
+    assert!(database.header(&a1).is_some());
+    assert_eq!(
+        database
+            .ancestor_header(BlockNumber::ONE, &b2)
+            .map(|header| *header.header().root()),
+        Some(a1)
+    );
+
+    let b3 = persist_block(&database, 3, b2, 0).unwrap();
+    assert_eq!(database.best_root(), b3);
 }
