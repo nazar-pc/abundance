@@ -996,3 +996,113 @@ fn max_fork_tip_distance_from_block_confirmation_depth_minus_two_up_has_the_same
         roots_after_each_best_block(BlockNumber::MAX)
     );
 }
+
+/// Whether `block_root` is one of the fork tips
+fn is_fork_tip(database: &Database, block_root: &BlockRoot) -> bool {
+    let state = database.inner.state.read_blocking();
+    state
+        .data
+        .fork_tips
+        .iter()
+        .any(|fork_tip| fork_tip.root == *block_root)
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn fork_beyond_max_fork_tip_distance_is_pruned_before_it_is_written() {
+    // genesis - c1 .. c3 -+- c4 .. c7 (`a5` is at distance 2) .. c9 (best block)
+    //                     \- a4 - a5 (pruned with `a4` at `c7`, before `a4` is persisted)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database_with_options(DatabaseOptions {
+        max_fork_tip_distance: BlockNumber::ONE,
+        ..database_options(&storage_backend)
+    })
+    .unwrap();
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=5, 0));
+    let a4 = persist_block(&database, 4, chain[3], 1).unwrap();
+    let a5 = persist_block(&database, 5, a4, 1).unwrap();
+
+    chain.push(persist_block(&database, 6, chain[5], 0).unwrap());
+    assert!(is_fork_tip(&database, &a5));
+
+    chain.push(persist_block(&database, 7, chain[6], 0).unwrap());
+    for block_root in [a4, a5] {
+        assert!(database.header(&block_root).is_none());
+    }
+    assert!(matches!(
+        persist_block(&database, 6, a5, 1),
+        Err(PersistBlockError::MissingParent)
+    ));
+
+    chain.extend(persist_chain(&database, chain[7], 8..=9, 0));
+    let database = reopen(database, &storage_backend);
+    assert_consistent(&database, highest_persisted_number(&database, 9));
+    for block_root in [a4, a5] {
+        assert!(database.header(&block_root).is_none());
+    }
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn fork_in_use_is_kept_beyond_max_fork_tip_distance() {
+    // genesis - c1 .. c3 -+- c4 .. c8 (best block)
+    //                     +- a4 (in use until `c6`, pruned at `c7`)
+    //                     \- b4 (in use, pruned at `c8` at block offset
+    //                         `block_confirmation_depth - 1` nevertheless)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database_with_options(DatabaseOptions {
+        max_fork_tip_distance: BlockNumber::ONE,
+        ..database_options(&storage_backend)
+    })
+    .unwrap();
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=4, 0));
+    let [a4, b4] = [1, 2].map(|salt| persist_block(&database, 4, chain[3], salt).unwrap());
+    let [a4_header, b4_header] = [a4, b4].map(|block_root| database.header(&block_root).unwrap());
+
+    chain.extend(persist_chain(&database, chain[4], 5..=6, 0));
+    for block_root in [a4, b4] {
+        assert!(database.header(&block_root).is_some());
+        assert!(is_fork_tip(&database, &block_root));
+    }
+
+    drop(a4_header);
+    chain.push(persist_block(&database, 7, chain[6], 0).unwrap());
+    assert!(database.header(&a4).is_none());
+    assert!(database.header(&b4).is_some());
+
+    chain.push(persist_block(&database, 8, chain[7], 0).unwrap());
+    assert!(database.header(&b4).is_none());
+    assert_eq!(*b4_header.header().root(), b4);
+    assert_best_chain(&database, &chain);
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn persisted_fork_beyond_max_fork_tip_distance_is_kept_until_fork_pruning_block_offset() {
+    // genesis - c1 - c2 -+- c3 .. c7 (best block)
+    //                    \- a3 (persisted at `c4`, no longer a fork tip at `c5`, pruned at `c7`)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database_with_options(DatabaseOptions {
+        soft_confirmation_depth: BlockNumber::ONE,
+        max_fork_tip_distance: BlockNumber::ONE,
+        ..database_options(&storage_backend)
+    })
+    .unwrap();
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=3, 0));
+    let a3 = persist_block(&database, 3, chain[2], 1).unwrap();
+
+    chain.extend(persist_chain(&database, chain[3], 4..=5, 0));
+    assert!(!is_fork_tip(&database, &a3));
+    let block = block_on(database.block(&a3)).unwrap();
+    assert_eq!(*block.header.header().root(), a3);
+
+    chain.push(persist_block(&database, 6, chain[5], 0).unwrap());
+    assert!(database.header(&a3).is_some());
+
+    chain.push(persist_block(&database, 7, chain[6], 0).unwrap());
+    assert!(database.header(&a3).is_none());
+    assert_best_chain(&database, &chain);
+}
