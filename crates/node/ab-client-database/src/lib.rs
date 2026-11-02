@@ -920,8 +920,11 @@ where
         let descendant_header = descendant_block_candidates
             .iter()
             .find(|block| &*block.header().header().root() == descendant_block_root)?
-            .header()
             .header();
+
+        if ancestor_block_number == descendant_block_number {
+            return Some(descendant_header.clone());
+        }
 
         // If there are no forks at this level, then this is the canonical chain and ancestor
         // block number we're looking for is the first block at the corresponding block number.
@@ -934,7 +937,7 @@ where
                 .map(|block| block.header().clone());
         }
 
-        let mut parent_block_root = &descendant_header.prefix.parent_root;
+        let mut parent_block_root = &descendant_header.header().prefix.parent_root;
 
         // Iterate over the blocks following descendant until ancestor is reached
         for (block_offset, parent_candidates) in blocks_range_iter {

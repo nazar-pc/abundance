@@ -30,6 +30,17 @@ fn assert_persisted_chain(database: &Database, mut chain: Vec<BlockRoot>, best_n
     .unwrap();
 }
 
+/// Root of the block at `number` on the chain ending at `descendant_root`
+fn ancestor_root(
+    database: &Database,
+    number: u64,
+    descendant_root: &BlockRoot,
+) -> Option<BlockRoot> {
+    database
+        .ancestor_header(BlockNumber::from(number), descendant_root)
+        .map(|header| *header.header().root())
+}
+
 #[test]
 fn segment_headers_and_blocks_survive_reopen() {
     let storage_backend = MemoryStorageBackend::new();
@@ -164,4 +175,37 @@ fn pruned_fork_tip_keeps_parent_with_other_children() {
 
     let b3 = persist_block(&database, 3, b2, 0).unwrap();
     assert_eq!(database.best_root(), b3);
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn ancestor_header_includes_descendant() {
+    // genesis - c1 - c2 -+- c3 - c4 -+- c5 (best block)
+    //                    \- b3       \- a5
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=5, 0));
+
+    // Levels without forks, at and below the best block
+    for (number, block_root) in [(5, chain[5]), (3, chain[3])] {
+        assert_eq!(
+            ancestor_root(&database, number, &block_root),
+            Some(block_root)
+        );
+    }
+
+    // Levels with forks `a5` and `b3`, at and below the best block
+    for (number, parent_root, block_root) in [(5, chain[4], chain[5]), (3, chain[2], chain[3])] {
+        let fork_root = persist_block(&database, number, parent_root, 1).unwrap();
+        for descendant_root in [block_root, fork_root] {
+            assert_eq!(
+                ancestor_root(&database, number, &descendant_root),
+                Some(descendant_root)
+            );
+        }
+    }
+    assert_eq!(database.best_root(), chain[5]);
+
+    assert_eq!(ancestor_root(&database, 4, &chain[3]), None);
 }
