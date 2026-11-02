@@ -1,9 +1,10 @@
 use crate::test_utils::{
-    Database, MemoryStorageBackend, highest_persisted_number, open_database, persist_block,
-    persist_chain, reopen, segment_header, super_segment_header,
+    Database, MemoryStorageBackend, beacon_chain_block, highest_persisted_number, open_database,
+    persist_block, persist_chain, reopen, segment_header, super_segment_header,
 };
 use ab_client_api::{
-    BeaconChainInfo, BeaconChainInfoWrite, ChainInfo, ChainInfoWrite, ReadBlockError,
+    BeaconChainInfo, BeaconChainInfoWrite, ChainInfo, ChainInfoWrite, PersistBlockError,
+    ReadBlockError,
 };
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{LocalSegmentIndex, SuperSegmentIndex};
@@ -39,6 +40,18 @@ fn ancestor_root(
     database
         .ancestor_header(BlockNumber::from(number), descendant_root)
         .map(|header| *header.header().root())
+}
+
+/// Check that `chain` (block roots from genesis to the best block) is the canonical chain
+fn assert_best_chain(database: &Database, chain: &[BlockRoot]) {
+    let best_root = database.best_root();
+    assert_eq!(chain.last(), Some(&best_root));
+    for (number, block_root) in (0..).zip(chain) {
+        assert_eq!(
+            ancestor_root(database, number, &best_root),
+            Some(*block_root)
+        );
+    }
 }
 
 #[test]
@@ -208,4 +221,86 @@ fn ancestor_header_includes_descendant() {
     assert_eq!(database.best_root(), chain[5]);
 
     assert_eq!(ancestor_root(&database, 4, &chain[3]), None);
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn reorgs_move_new_best_chain_to_fork_offset_zero() {
+    // genesis - c1 .. cF -+- c(F+1) .. c6 - c7 - c8 (best block again)
+    //                     \- a(F+1) .. a7 (best block first)
+    //
+    // Fork points `F` from right below the best block to several blocks deep
+    for fork_number in 1..=5 {
+        let storage_backend = MemoryStorageBackend::new();
+        let database = open_database(&storage_backend);
+        let mut chain = vec![database.best_root()];
+        chain.extend(persist_chain(&database, chain[0], 1..=6, 0));
+
+        // Fork reaching the best block number and then overtaking it
+        let mut fork_chain = chain[..=fork_number].to_vec();
+        fork_chain.extend(persist_chain(
+            &database,
+            chain[fork_number],
+            u64::try_from(fork_number).unwrap() + 1..=7,
+            1,
+        ));
+        assert_best_chain(&database, &fork_chain);
+
+        // Reorg back to the original chain
+        chain.extend(persist_chain(&database, chain[6], 7..=8, 0));
+        assert_best_chain(&database, &chain);
+    }
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn reopen_moves_best_chain_to_fork_offset_zero() {
+    // genesis - c1 .. c3 -+- c4 .. c9 (best block, `c7 .. c9` are not persisted)
+    //                     \- a4 (written before `c4`)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=6, 0));
+    let a4 = persist_block(&database, 4, chain[3], 1).unwrap();
+    // Persists `a4`, which ends up below the highest persisted block number
+    chain.extend(persist_chain(&database, chain[6], 7..=9, 0));
+
+    let database = reopen(database, &storage_backend);
+
+    let persisted_best_number = highest_persisted_number(9);
+    chain.truncate(usize::try_from(persisted_best_number + 1).unwrap());
+    assert_best_chain(&database, &chain);
+    assert!(database.header(&a4).is_some());
+    persist_block(
+        &database,
+        persisted_best_number + 1,
+        *chain.last().unwrap(),
+        0,
+    )
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn block_with_unknown_parent_is_rejected() {
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let genesis_root = database.best_root();
+    let unknown_root = *beacon_chain_block(0, BlockRoot::default(), 1)
+        .header
+        .header()
+        .root();
+
+    // With only the genesis block and with more blocks in memory
+    for number in 1..=2 {
+        assert!(matches!(
+            persist_block(&database, number, unknown_root, 0),
+            Err(PersistBlockError::MissingParent)
+        ));
+        persist_block(&database, number, database.best_root(), 0).unwrap();
+    }
+    assert_eq!(
+        ancestor_root(&database, 0, &database.best_root()),
+        Some(genesis_root)
+    );
 }

@@ -125,7 +125,11 @@ impl MemoryStorageBackend {
 pub(crate) type Database = ClientDatabase<OwnedBeaconChainBlock, MemoryStorageBackend>;
 
 /// Minimal beacon chain block, `salt` makes blocks with the same number and parent unique
-fn beacon_chain_block(number: u64, parent_root: BlockRoot, salt: u64) -> OwnedBeaconChainBlock {
+pub(crate) fn beacon_chain_block(
+    number: u64,
+    parent_root: BlockRoot,
+    salt: u64,
+) -> OwnedBeaconChainBlock {
     OwnedBeaconChainBlock::init([].into_iter(), [].into_iter(), &[])
         .unwrap()
         .with_header(

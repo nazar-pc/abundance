@@ -352,6 +352,16 @@ struct ForkTip {
     root: BlockRoot,
 }
 
+/// How far [`ClientDatabase::adjust_ancestor_block_forks()`] walks towards older blocks
+#[derive(Debug, Copy, Clone)]
+enum AncestorBlockForksWalk {
+    /// Stop at the first ancestor that is already at fork offset `0`, relies on the invariant
+    /// documented on [`StateData::blocks`]
+    UntilCanonical,
+    /// Walk every block offset, for when the invariant doesn't hold (in [`ClientDatabase::open()`])
+    AllBlockOffsets,
+}
+
 enum FullBlock<'a, Block>
 where
     Block: GenericOwnedBlock,
@@ -549,6 +559,12 @@ where
     /// anything more than that will be very rare. The list of forks for a block number is
     /// organized in such a way that the first entry at every block number corresponds to the
     /// canonical version of the blockchain at any point in time.
+    ///
+    /// In other words, except while reading blocks in [`ClientDatabase::open()`], the block at
+    /// block offset `n + 1` and fork offset `0` is always the parent of the block at block offset
+    /// `n` and fork offset `0`. New best blocks establish this with
+    /// [`ClientDatabase::adjust_ancestor_block_forks()`], other blocks are only appended at fork
+    /// offset `1` or higher, and pruning never removes the block at fork offset `0`.
     ///
     /// A position withing this data structure is called "block offset". This is an ephemeral value
     /// and changes as new best blocks are added. Blocks at the same height are collectively called
@@ -1666,7 +1682,12 @@ where
             let block_number = header.prefix.number;
             let block_root = *header.root();
 
-            if !Self::adjust_ancestor_block_forks(&mut state_data.blocks, block_root) {
+            // Block forks are in the order they were written in, so all block offsets are adjusted
+            if !Self::adjust_ancestor_block_forks(
+                &mut state_data.blocks,
+                block_root,
+                AncestorBlockForksWalk::AllBlockOffsets,
+            ) {
                 return Err(ClientDatabaseError::FailedToAdjustAncestorBlockForks);
             }
 
@@ -1773,7 +1794,11 @@ where
 
         // Adjust the relative order of forks to ensure the first index always corresponds to
         // ancestors of the new best block
-        if !Self::adjust_ancestor_block_forks(&mut state.data.blocks, parent_root) {
+        if !Self::adjust_ancestor_block_forks(
+            &mut state.data.blocks,
+            parent_root,
+            AncestorBlockForksWalk::UntilCanonical,
+        ) {
             return Err(PersistBlockError::MissingParent);
         }
 
@@ -1938,20 +1963,9 @@ where
     fn adjust_ancestor_block_forks(
         blocks: &mut VecDeque<SmallVec<[ClientDatabaseBlock<Block>; 2]>>,
         mut parent_block_root: BlockRoot,
+        walk: AncestorBlockForksWalk,
     ) -> bool {
-        let mut ancestor_blocks = blocks.iter_mut();
-
-        loop {
-            if ancestor_blocks.len() == 1 {
-                // Nothing left to adjust with a single fork
-                break;
-            }
-
-            let Some(parent_blocks) = ancestor_blocks.next() else {
-                // No more parent headers present
-                break;
-            };
-
+        for parent_blocks in blocks.iter_mut() {
             let Some(fork_offset_parent_block_root) =
                 parent_blocks
                     .iter()
@@ -1970,6 +1984,11 @@ where
 
             let fork_offset;
             (fork_offset, parent_block_root) = fork_offset_parent_block_root;
+
+            if fork_offset == 0 && matches!(walk, AncestorBlockForksWalk::UntilCanonical) {
+                // All older ancestors are already at fork offset `0` too
+                break;
+            }
 
             parent_blocks.swap(0, fork_offset);
         }
