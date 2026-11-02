@@ -2,7 +2,9 @@ use crate::test_utils::{
     Database, MemoryStorageBackend, highest_persisted_number, open_database, persist_block,
     persist_chain, reopen, segment_header, super_segment_header,
 };
-use ab_client_api::{BeaconChainInfo, BeaconChainInfoWrite, ChainInfo, ChainInfoWrite};
+use ab_client_api::{
+    BeaconChainInfo, BeaconChainInfoWrite, ChainInfo, ChainInfoWrite, ReadBlockError,
+};
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::segments::{LocalSegmentIndex, SuperSegmentIndex};
 use futures::executor::block_on;
@@ -104,4 +106,31 @@ fn fork_below_best_block_keeps_best_block() {
     assert_eq!(database.best_root(), c6);
     persist_block(&database, 5, a4, 1).unwrap();
     assert_eq!(database.best_root(), c6);
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn pruned_fork_tip_is_unknown() {
+    // genesis - c1 - c2 -+- c3 (best block)
+    //                    +- a3 (oldest fork tip, pruned)
+    //                    +- b3
+    //                    \- d3 (added last, exceeds `max_fork_tips` together with the best block)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=3, 0));
+
+    let a3 = persist_block(&database, 3, chain[2], 1).unwrap();
+    let [b3, d3] = [2, 3].map(|salt| persist_block(&database, 3, chain[2], salt).unwrap());
+
+    assert!(database.header(&a3).is_none());
+    assert!(matches!(
+        block_on(database.block(&a3)),
+        Err(ReadBlockError::UnknownBlockRoot)
+    ));
+    for block_root in [b3, d3] {
+        assert!(database.header(&block_root).is_some());
+        block_on(database.block(&block_root)).unwrap();
+    }
+    assert_eq!(database.best_root(), chain[3]);
 }

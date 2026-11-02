@@ -2103,7 +2103,7 @@ where
                 }
             }
 
-            state.block_roots.get_mut(&block_root_to_prune);
+            state.block_roots.remove(&block_root_to_prune);
             block_root_to_prune = block.header().header().prefix.parent_root;
             fork_blocks.swap_remove(fork_offset);
 
