@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::{ConsensusConstants, PotConsensusConstants};
 use ab_client_api::{BeaconChainInfo, ChainInfo, ShardSegmentRoot, ShardSegmentRootsError};
 use ab_core_primitives::block::header::{

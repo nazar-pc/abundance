@@ -2,6 +2,8 @@
 
 pub mod consensus_parameters;
 pub mod state;
+#[cfg(test)]
+mod test_utils;
 
 use ab_core_primitives::block::{BlockNumber, BlockTimestamp};
 use ab_core_primitives::pot::{SlotDuration, SlotNumber};
