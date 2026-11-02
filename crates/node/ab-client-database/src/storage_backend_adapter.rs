@@ -77,7 +77,10 @@ pub(crate) struct StorageItemHandlerArg<SI> {
 }
 
 /// Storage item handlers are called on every storage item, storage items are read in the same order
-/// they are defined in this data structure
+/// they are defined in this data structure.
+///
+/// Within each kind, storage items are read in sequence number order, which is the order they were
+/// written in.
 #[derive(Debug)]
 pub(crate) struct StorageItemHandlers<P, T> {
     /// Handler for storage items in permanent storage groups

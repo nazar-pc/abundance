@@ -40,6 +40,8 @@ const SOFT_CONFIRMATION_DEPTH: BlockNumber = BlockNumber::from(3);
 #[derive(Clone)]
 pub(crate) struct MemoryStorageBackend {
     pages: Arc<Mutex<Vec<AlignedPage>>>,
+    /// Number of writes that still reach the pages, `None` means unlimited
+    remaining_writes: Arc<Mutex<Option<usize>>>,
 }
 
 impl fmt::Debug for MemoryStorageBackend {
@@ -84,6 +86,15 @@ impl ClientDatabaseStorageBackend for MemoryStorageBackend {
         let (sender, receiver) = oneshot::channel();
         let offset = usize::try_from(offset).unwrap();
 
+        if let Some(remaining_writes) = self.remaining_writes.lock().unwrap().as_mut() {
+            let Some(new_remaining_writes) = remaining_writes.checked_sub(1) else {
+                // Lost as if the process was killed before the write reached the disk
+                sender.send(Ok(buffer)).unwrap();
+                return receiver;
+            };
+            *remaining_writes = new_remaining_writes;
+        }
+
         let result = match self
             .pages
             .lock()
@@ -107,6 +118,7 @@ impl MemoryStorageBackend {
     pub(crate) fn new() -> Self {
         let storage_backend = Self {
             pages: Arc::new(Mutex::new(vec![AlignedPage::default(); NUM_PAGES])),
+            remaining_writes: Arc::default(),
         };
 
         block_on(ClientDatabase::<OwnedBeaconChainBlock, Self>::format(
@@ -119,6 +131,12 @@ impl MemoryStorageBackend {
         .unwrap();
 
         storage_backend
+    }
+
+    /// Only let `num_writes` more writes reach the pages and silently drop the rest, `None` lets
+    /// all writes through again
+    pub(crate) fn limit_writes(&self, num_writes: Option<usize>) {
+        *self.remaining_writes.lock().unwrap() = num_writes;
     }
 }
 

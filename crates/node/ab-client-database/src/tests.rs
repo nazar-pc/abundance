@@ -1,3 +1,4 @@
+use crate::ClientDatabaseBlock;
 use crate::test_utils::{
     Database, MemoryStorageBackend, beacon_chain_block, highest_persisted_number, open_database,
     persist_block, persist_chain, reopen, segment_header, super_segment_header,
@@ -52,6 +53,71 @@ fn assert_best_chain(database: &Database, chain: &[BlockRoot]) {
             Some(*block_root)
         );
     }
+}
+
+/// Check that the best block is at `best_number`, that every block offset holds its ancestor at
+/// fork offset `0`, that only those ancestors are confirmed and that all of them can be read
+fn assert_consistent(database: &Database, best_number: u64) {
+    let mut canonical_roots = Vec::new();
+    {
+        let state = database.inner.state.read_blocking();
+        let blocks = &state.data.blocks;
+        assert_eq!(blocks.len(), usize::try_from(best_number + 1).unwrap());
+
+        let mut expected_root = state.best_tip().root;
+        for (number, block_forks) in (0..=best_number).rev().zip(blocks) {
+            let (canonical_block, other_blocks) = block_forks.split_first().unwrap();
+            let header = canonical_block.header().header();
+            assert_eq!(header.prefix.number, BlockNumber::from(number));
+            assert_eq!(*header.root(), expected_root);
+            for block in other_blocks {
+                assert_eq!(
+                    block.header().header().prefix.number,
+                    BlockNumber::from(number)
+                );
+                #[expect(
+                    clippy::rest_pattern_accessible_field,
+                    reason = "Do not need other fields"
+                )]
+                let confirmed = matches!(block, ClientDatabaseBlock::PersistedConfirmed { .. });
+                assert!(!confirmed);
+            }
+
+            canonical_roots.push(expected_root);
+            expected_root = header.prefix.parent_root;
+        }
+    }
+
+    for block_root in &canonical_roots {
+        let block = block_on(database.block(block_root)).unwrap();
+        assert_eq!(*block.header.header().root(), *block_root);
+    }
+}
+
+/// Extend the best chain with `num_blocks` blocks, then reopen the database and check it with
+/// [`assert_consistent()`]
+fn extend_and_reopen(
+    database: Database,
+    storage_backend: &MemoryStorageBackend,
+    num_blocks: u64,
+    salt: u64,
+) -> Database {
+    let best_header = database.best_header();
+    let best_header = best_header.header();
+    let best_number = u64::from(best_header.prefix.number);
+    let new_best_number = best_number + num_blocks;
+    persist_chain(
+        &database,
+        *best_header.root(),
+        best_number + 1..=new_best_number,
+        salt,
+    );
+    assert_consistent(&database, new_best_number);
+
+    let database = reopen(database, storage_backend);
+    assert_consistent(&database, highest_persisted_number(new_best_number));
+
+    database
 }
 
 #[test]
@@ -303,4 +369,215 @@ fn block_with_unknown_parent_is_rejected() {
         ancestor_root(&database, 0, &database.best_root()),
         Some(genesis_root)
     );
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn reopen_after_fork_at_every_height() {
+    // genesis - c1 .. c(F-1) -+- cF .. c25 (best block)
+    //                         \- aF (written before `cF`)
+    //
+    // For every `F`, reopened, then extended and reopened again
+    for fork_number in 1..=20 {
+        let storage_backend = MemoryStorageBackend::new();
+        let database = open_database(&storage_backend);
+        let mut chain = vec![database.best_root()];
+        chain.extend(persist_chain(&database, chain[0], 1..=fork_number, 0));
+        // Sibling of the best block, persisted together with it, but written before it
+        let parent_root = chain[usize::try_from(fork_number - 1).unwrap()];
+        persist_block(&database, fork_number, parent_root, 1).unwrap();
+        let best_number = 25;
+        persist_chain(
+            &database,
+            *chain.last().unwrap(),
+            fork_number + 1..=best_number,
+            0,
+        );
+
+        let database = reopen(database, &storage_backend);
+        assert_consistent(&database, highest_persisted_number(best_number));
+        extend_and_reopen(database, &storage_backend, 10, 2);
+    }
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn reopen_after_reorg_before_persisting() {
+    // genesis - c1 .. c5 -+- c6
+    //                     \- a6 .. a20 (best block)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=6, 0));
+    // `c6` and `a6` are persisted together after the reorg, `a6` last
+    let a6 = persist_block(&database, 6, chain[5], 1).unwrap();
+    persist_chain(&database, a6, 7..=20, 1);
+
+    let database = reopen(database, &storage_backend);
+    assert_consistent(&database, highest_persisted_number(20));
+    let database = extend_and_reopen(database, &storage_backend, 10, 2);
+    extend_and_reopen(database, &storage_backend, 10, 3);
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn reopen_after_reorg_after_persisting() {
+    // genesis - c1 .. cP -+- c(P+1) .. c20
+    //                     \- a(P+1) .. a21 (reorg, best block)
+    //
+    // `P` is 15 for a fork that is persisted after the original best chain, and 14 for a fork that
+    // is persisted at the same time as the original best chain
+    for fork_persisted_together in [false, true] {
+        let storage_backend = MemoryStorageBackend::new();
+        let database = open_database(&storage_backend);
+        let mut chain = vec![database.best_root()];
+        let fork_root = if fork_persisted_together {
+            chain.extend(persist_chain(&database, chain[0], 1..=14, 0));
+            let mut fork_root = chain[14];
+            for number in 15..=17 {
+                chain.push(persist_block(&database, number, *chain.last().unwrap(), 0).unwrap());
+                fork_root = persist_block(&database, number, fork_root, 1).unwrap();
+            }
+            // The fork briefly leads with `a18` and the original best chain takes over again with
+            // `c19`. So `a15` is written after `c15`, while `c16` and `c17` are written after `a16`
+            // and `a17`.
+            fork_root = persist_block(&database, 18, fork_root, 1).unwrap();
+            chain.push(persist_block(&database, 18, *chain.last().unwrap(), 0).unwrap());
+            for number in 19..=20 {
+                chain.push(persist_block(&database, number, *chain.last().unwrap(), 0).unwrap());
+                fork_root = persist_block(&database, number, fork_root, 1).unwrap();
+            }
+            fork_root
+        } else {
+            chain.extend(persist_chain(&database, chain[0], 1..=20, 0));
+            // `a16` and `a17` are written after `c16` and `c17`, with the reorg below
+            *persist_chain(&database, chain[15], 16..=20, 1)
+                .last()
+                .unwrap()
+        };
+        // Reorg
+        let best_number = 21;
+        persist_block(&database, best_number, fork_root, 1).unwrap();
+
+        let database = reopen(database, &storage_backend);
+        assert_consistent(&database, highest_persisted_number(best_number));
+        let database = extend_and_reopen(database, &storage_backend, 10, 2);
+        extend_and_reopen(database, &storage_backend, 10, 3);
+    }
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn reopen_after_late_fork() {
+    // genesis - c1 .. c5 -+- c6 .. c9 - c10 .. c20 (without `reorg`)
+    //                     \- a6 (written after `c6`) - a7 .. a20 (with `reorg`)
+    for reorg in [false, true] {
+        let storage_backend = MemoryStorageBackend::new();
+        let database = open_database(&storage_backend);
+        let mut chain = vec![database.best_root()];
+        chain.extend(persist_chain(&database, chain[0], 1..=9, 0));
+        // `c6` was already persisted, so `a6` is written after it
+        let a6 = persist_block(&database, 6, chain[5], 1).unwrap();
+        assert_eq!(database.best_root(), chain[9]);
+        let (best_root, best_number) = if reorg {
+            let fork_chain = persist_chain(&database, a6, 7..=10, 1);
+            (*fork_chain.last().unwrap(), 10)
+        } else {
+            (chain[9], 9)
+        };
+        persist_chain(&database, best_root, best_number + 1..=20, 2);
+
+        let database = reopen(database, &storage_backend);
+        assert_consistent(&database, highest_persisted_number(20));
+        extend_and_reopen(database, &storage_backend, 10, 3);
+    }
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn consecutive_reopens_with_shallow_fork() {
+    // genesis - c1 .. c14 -+- c15 .. c20 (best block)
+    //                      \- a15 (written before `c15`)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=15, 0));
+    // `a15` is too close to the top to be confirmed on the first reopen
+    persist_block(&database, 15, chain[14], 1).unwrap();
+    persist_chain(&database, chain[15], 16..=20, 0);
+
+    let database = reopen(database, &storage_backend);
+    assert_consistent(&database, highest_persisted_number(20));
+    let database = extend_and_reopen(database, &storage_backend, 10, 2);
+    extend_and_reopen(database, &storage_backend, 10, 3);
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn reopen_after_fork_at_reopened_top() {
+    // genesis - c1 .. c(P-1) -+- cP -+- c(P+1) .. c20 (lost on the first reopen)
+    //                         |      \- b(P+1) .. b20 (without `reorg`)
+    //                         \- aP (written after `cP` is read) - a(P+1) .. a20 (with `reorg`)
+    //
+    // `P` is the highest persisted block number on the first reopen
+    for reorg in [false, true] {
+        let storage_backend = MemoryStorageBackend::new();
+        let database = open_database(&storage_backend);
+        let mut chain = vec![database.best_root()];
+        chain.extend(persist_chain(&database, chain[0], 1..=20, 0));
+        let persisted_best_number = highest_persisted_number(20);
+        let database = reopen(database, &storage_backend);
+        assert_consistent(&database, persisted_best_number);
+
+        // `aP` is persisted after `cP` was read when reopening
+        let persisted_best_index = usize::try_from(persisted_best_number).unwrap();
+        let parent_root = chain[persisted_best_index - 1];
+        let fork_root = persist_block(&database, persisted_best_number, parent_root, 1).unwrap();
+        if reorg {
+            persist_chain(&database, fork_root, persisted_best_number + 1..=20, 1);
+        } else {
+            let best_root = chain[persisted_best_index];
+            persist_chain(&database, best_root, persisted_best_number + 1..=20, 2);
+        }
+
+        let database = reopen(database, &storage_backend);
+        assert_consistent(&database, highest_persisted_number(20));
+        let database = extend_and_reopen(database, &storage_backend, 10, 3);
+        extend_and_reopen(database, &storage_backend, 10, 4);
+    }
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn reopen_after_interrupted_writes() {
+    // genesis - c1 .. c4 -+- c5 .. c12 -+- c13 .. c16
+    //                     \- a5         \- b13 .. b17 (reorg, writes cut short)
+    //
+    // The reorg to `b17` writes three blocks: `b13`, then `c14` and `b14`
+    for num_writes in 0..=3 {
+        let storage_backend = MemoryStorageBackend::new();
+        let database = open_database(&storage_backend);
+        let mut chain = vec![database.best_root()];
+        chain.extend(persist_chain(&database, chain[0], 1..=5, 0));
+        // `a5` is pruned while reopening, once `c5` is confirmed
+        persist_block(&database, 5, chain[4], 1).unwrap();
+        chain.extend(persist_chain(&database, chain[5], 6..=16, 0));
+        let b16 = *persist_chain(&database, chain[12], 13..=16, 1)
+            .last()
+            .unwrap();
+
+        storage_backend.limit_writes(Some(num_writes));
+        persist_block(&database, 17, b16, 1).unwrap();
+        storage_backend.limit_writes(None);
+
+        // The new highest block number only reaches the disk with the second write
+        let persisted_best_number = if num_writes < 2 {
+            highest_persisted_number(16)
+        } else {
+            highest_persisted_number(17)
+        };
+        let database = reopen(database, &storage_backend);
+        assert_consistent(&database, persisted_best_number);
+        extend_and_reopen(database, &storage_backend, 10, 2);
+    }
 }
