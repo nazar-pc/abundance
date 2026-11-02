@@ -1237,6 +1237,16 @@ where
             return Err(PersistBlockError::OutsideAcceptableRange);
         }
 
+        // The parent may have been pruned after block import checked it and before this write
+        // lock was taken
+        if !state
+            .data
+            .block_roots
+            .contains_key(&header.prefix.parent_root)
+        {
+            return Err(PersistBlockError::MissingParent);
+        }
+
         let state = &mut *state;
 
         let block_forks = state.data.blocks.get_mut(block_offset).ok_or_else(|| {

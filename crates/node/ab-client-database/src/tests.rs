@@ -376,6 +376,31 @@ fn block_with_unknown_parent_is_rejected() {
 
 #[test]
 #[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn fork_with_unknown_parent_is_rejected() {
+    // genesis - c1 - c2 -+- c3 - c4 (best block)
+    //                    +- a3 (oldest fork tip, pruned) - a4 (rejected)
+    //                    +- b3
+    //                    \- d3 (added last, exceeds `max_fork_tips` together with the best block)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=3, 0));
+    let a3 = persist_block(&database, 3, chain[2], 1).unwrap();
+    for salt in [2, 3] {
+        persist_block(&database, 3, chain[2], salt).unwrap();
+    }
+    assert!(database.header(&a3).is_none());
+    chain.push(persist_block(&database, 4, chain[3], 0).unwrap());
+
+    assert!(matches!(
+        persist_block(&database, 4, a3, 1),
+        Err(PersistBlockError::MissingParent)
+    ));
+    assert_best_chain(&database, &chain);
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn reopen_after_fork_at_every_height() {
     // genesis - c1 .. c(F-1) -+- cF .. c25 (best block)
     //                         \- aF (written before `cF`)
