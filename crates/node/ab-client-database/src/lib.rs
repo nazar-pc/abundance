@@ -153,7 +153,38 @@ pub struct GenesisBlockBuilderResult<Block> {
     pub system_contract_states: Arc<[ContractSlotState]>,
 }
 
-/// Options for [`ClientDatabase`]
+/// Options for [`ClientDatabase`].
+///
+/// Lifecycle of a block, by block offset from the best block with block number `n`, with
+/// `block_confirmation_depth = 5` and `soft_confirmation_depth = 2` as an example:
+///
+/// ```text
+/// block   block   fork       written   block details
+/// offset  number  blocks     to disk   in memory
+///         n + 1                                    next best block, being imported
+///      0  n       accepted   no        yes         best block
+///      1  n - 1   accepted   no        yes
+///      2  n - 2   accepted   yes       yes         <- soft_confirmation_depth
+///      3  n - 3   accepted   yes       yes
+///      4  n - 4   rejected   yes       yes         final once n + 1 is imported
+///      5  n - 5   rejected   yes       yes         final <- block_confirmation_depth
+///      6  n - 6   rejected   yes       no          final, confirmed
+///    ...
+/// ```
+///
+/// When block `n` is built, the block at `n - block_confirmation_depth` is final (see
+/// `ConsensusConstants::block_confirmation_depth`). Fork blocks are only accepted above block
+/// offset `block_confirmation_depth - 1`. The block there only becomes final once `n + 1` is
+/// imported, but it already can't change: a fork block next to it would start a reorg of
+/// `block_confirmation_depth` blocks, more than the largest allowed reorg of
+/// `block_confirmation_depth - 1` blocks.
+///
+/// Importing `n + 1` on any fork makes it the best block and shifts all block offsets by one. Then
+/// other blocks at block offset `block_confirmation_depth - 1` are pruned with their descendants,
+/// the block at block offset `block_confirmation_depth + 1` is confirmed, which drops its block
+/// details (MMR and system contract states) from memory, and blocks that reached block offset
+/// `soft_confirmation_depth` are written to disk. Block details of confirmed blocks are only left
+/// on disk, [`ChainInfo::header_with_details()`] doesn't return them.
 #[derive(Debug, Copy, Clone)]
 pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// Write buffer size.
@@ -164,11 +195,14 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     ///
     /// The recommended value is 5.
     pub write_buffer_size: usize = 5,
-    /// Blocks at this depth are considered to be "confirmed" and irreversible from the consensus
-    /// perspective.
+    /// Block confirmation depth, the value of `ConsensusConstants::block_confirmation_depth`.
     ///
-    /// This parameter allows establishing a final canonical order of blocks and eliminating any
-    /// potential forks at a specified depth and beyond.
+    /// Fork blocks are only accepted above block offset `block_confirmation_depth - 1` from the
+    /// best block, other blocks at that block offset are pruned with their descendants, and blocks
+    /// are confirmed at block offset `block_confirmation_depth + 1` (see the block lifecycle in
+    /// [`ClientDatabaseOptions`]).
+    ///
+    /// Must be at least 2.
     pub block_confirmation_depth: BlockNumber,
     /// Soft confirmation depth for blocks.
     ///
@@ -200,12 +234,16 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     pub max_fork_tips: NonZeroUsize = NonZeroUsize::new(3).expect("Not zero; qed"),
     /// Max distance between fork tip and the best block.
     ///
-    /// When forks are this deep, they will be pruned, even without reaching the `max_fork_tips`
-    /// limit. This essentially means the tip was not extended for some time, and while it is
-    /// theoretically possible for the chain to continue from this tip, the probability is so small
-    /// that it is not worth storing it.
+    /// When forks are deeper than this, they will be pruned, even without reaching the
+    /// `max_fork_tips` limit. This essentially means the tip was not extended for some time, and
+    /// while it is theoretically possible for the chain to continue from this tip, the probability
+    /// is so small that it is not worth storing it.
     ///
     /// A larger value results in higher memory usage and higher complexity of pruning algorithms.
+    ///
+    /// Fork blocks at block offset `block_confirmation_depth - 1` and deeper are pruned regardless
+    /// (see the block lifecycle in [`ClientDatabaseOptions`]), so values of
+    /// `block_confirmation_depth - 2` and larger all have the same effect as no limit.
     ///
     /// The recommended value is 5 blocks.
     pub max_fork_tip_distance: BlockNumber = BlockNumber::from(5),
@@ -244,12 +282,15 @@ pub struct ClientDatabaseFormatOptions {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClientDatabaseError {
-    /// Invalid soft confirmation depth, it must be smaller than confirmation depth k
-    #[error("Invalid soft confirmation depth, it must be smaller than confirmation depth k")]
+    /// Invalid block confirmation depth, it must be at least 2.
+    ///
+    /// Fork blocks are only accepted above block offset `block_confirmation_depth - 1`, smaller
+    /// values leave no block offset for them.
+    #[error("Invalid block confirmation depth, it must be at least 2")]
+    InvalidBlockConfirmationDepth,
+    /// Invalid soft confirmation depth, it must be smaller than block confirmation depth
+    #[error("Invalid soft confirmation depth, it must be smaller than block confirmation depth")]
     InvalidSoftConfirmationDepth,
-    /// Invalid max fork tip distance, it must be smaller or equal to confirmation depth k
-    #[error("Invalid max fork tip distance, it must be smaller or equal to confirmation depth k")]
-    InvalidMaxForkTipDistance,
     /// Storage backend has canceled read request
     #[error("Storage backend has canceled read request")]
     ReadRequestCancelled,
@@ -430,9 +471,10 @@ impl BeaconChainBlockDetails {
 /// Client database block contains details about the block state in the database.
 ///
 /// Originally all blocks are stored in memory. Once a block is soft-confirmed (see
-/// [`ClientDatabaseOptions::soft_confirmation_depth`]), it is persisted (likely on disk). Later
-/// when it is "confirmed" fully (see [`ClientDatabaseOptions::block_confirmation_depth`]), it
-/// becomes irreversible.
+/// [`ClientDatabaseOptions::soft_confirmation_depth`]), it is persisted (likely on disk). Later, at
+/// block offset `block_confirmation_depth + 1` (see the block lifecycle in
+/// [`ClientDatabaseOptions`]), it is marked as confirmed and its [`BlockDetails`] are dropped from
+/// memory, they are only left on disk.
 #[derive(Debug)]
 enum ClientDatabaseBlock<Block>
 where
@@ -453,8 +495,7 @@ where
         beacon_chain_block_details: Option<BeaconChainBlockDetails>,
         write_location: WriteLocation,
     },
-    /// Block was persisted (likely on disk) and is irreversibly "confirmed" from the consensus
-    /// perspective
+    /// Block was persisted (likely on disk) and confirmed, its [`BlockDetails`] are only on disk
     PersistedConfirmed {
         header: Block::Header,
         /// Only present for beacon chain blocks
@@ -568,7 +609,8 @@ where
     /// block offset `n + 1` and fork offset `0` is always the parent of the block at block offset
     /// `n` and fork offset `0`. New best blocks establish this with
     /// [`ClientDatabase::adjust_ancestor_block_forks()`], other blocks are only appended at fork
-    /// offset `1` or higher, and pruning never removes the block at fork offset `0`.
+    /// offset `1` or higher, and pruning never removes the block at fork offset `0`. Block offset
+    /// [`ClientDatabaseInnerOptions::fork_pruning_block_offset()`] and deeper ones have no forks.
     ///
     /// A position withing this data structure is called "block offset". This is an ephemeral value
     /// and changes as new best blocks are added. Blocks at the same height are collectively called
@@ -825,6 +867,55 @@ struct ClientDatabaseInnerOptions {
     soft_confirmation_depth: BlockNumber,
     max_fork_tips: NonZeroUsize,
     max_fork_tip_distance: BlockNumber,
+}
+
+impl ClientDatabaseInnerOptions {
+    /// Create options, checking that `block_confirmation_depth` is at least 2 and
+    /// `soft_confirmation_depth` is smaller than `block_confirmation_depth`
+    fn new(
+        block_confirmation_depth: BlockNumber,
+        soft_confirmation_depth: BlockNumber,
+        max_fork_tips: NonZeroUsize,
+        max_fork_tip_distance: BlockNumber,
+    ) -> Result<Self, ClientDatabaseError> {
+        if block_confirmation_depth < BlockNumber::from(2) {
+            return Err(ClientDatabaseError::InvalidBlockConfirmationDepth);
+        }
+
+        if soft_confirmation_depth >= block_confirmation_depth {
+            return Err(ClientDatabaseError::InvalidSoftConfirmationDepth);
+        }
+
+        Ok(Self {
+            block_confirmation_depth,
+            soft_confirmation_depth,
+            max_fork_tips,
+            max_fork_tip_distance,
+        })
+    }
+
+    /// Block offset of the block that the next best block (block number `best_number + 1`) makes
+    /// final, fork blocks are only accepted above it and other blocks there are pruned.
+    ///
+    /// With `block_confirmation_depth = 5` (see the block lifecycle in [`ClientDatabaseOptions`]):
+    ///
+    /// ```text
+    /// block offset  block number  fork blocks
+    ///            0  n             accepted
+    ///            1  n - 1         accepted
+    ///            2  n - 2         accepted
+    ///            3  n - 3         accepted
+    ///            4  n - 4         rejected, other blocks pruned, final once n + 1 is imported
+    /// ```
+    #[inline(always)]
+    fn fork_pruning_block_offset(&self) -> usize {
+        let fork_pruning_block_offset = self
+            .block_confirmation_depth
+            .checked_sub(BlockNumber::ONE)
+            .expect("Block confirmation depth is checked to be at least 2 in `Self::new()`; qed");
+
+        u64::from(fork_pruning_block_offset) as usize
+    }
 }
 
 #[derive(Debug)]
@@ -1233,7 +1324,10 @@ where
                 .ok_or(PersistBlockError::MissingParent)?,
         ) as usize;
 
-        if block_offset >= u64::from(self.inner.options.block_confirmation_depth) as usize {
+        // A fork block at the fork pruning block offset or deeper could only become a part of the
+        // best chain with a reorg of at least `block_confirmation_depth` blocks (see the block
+        // lifecycle in `ClientDatabaseOptions`)
+        if block_offset >= self.inner.options.fork_pruning_block_offset() {
             return Err(PersistBlockError::OutsideAcceptableRange);
         }
 
@@ -1499,10 +1593,12 @@ where
     /// NOTE: The database needs to be formatted with [`Self::format()`] before it can be used.
     ///
     /// Opening replays storage items in the order they were written. Every block read at a new
-    /// highest block number is handled like a new best block: forks are adjusted towards it, then
-    /// the block at confirmation depth is confirmed. The best block after opening is the last block
-    /// written at the highest stored block number. It may be behind or on a different fork than the
-    /// best block before shutdown, the node re-syncs from there.
+    /// highest block number is handled like a new best block: forks are adjusted towards it, other
+    /// blocks at block offset `block_confirmation_depth - 1` are pruned, then the block at block
+    /// offset `block_confirmation_depth + 1` is confirmed (see the block lifecycle in
+    /// [`ClientDatabaseOptions`]). The best block after opening is the last block written at the
+    /// highest stored block number. It may be behind or on a different fork than the best block
+    /// before shutdown, the node re-syncs from there.
     pub async fn open<GBB>(
         options: ClientDatabaseOptions<GBB, StorageBackend>,
     ) -> Result<Self, ClientDatabaseError>
@@ -1518,13 +1614,12 @@ where
             genesis_block_builder,
             storage_backend,
         } = options;
-        if soft_confirmation_depth >= block_confirmation_depth {
-            return Err(ClientDatabaseError::InvalidSoftConfirmationDepth);
-        }
-
-        if max_fork_tip_distance > block_confirmation_depth {
-            return Err(ClientDatabaseError::InvalidMaxForkTipDistance);
-        }
+        let options = ClientDatabaseInnerOptions::new(
+            block_confirmation_depth,
+            soft_confirmation_depth,
+            max_fork_tips,
+            max_fork_tip_distance,
+        )?;
 
         let mut state_data = StateData {
             fork_tips: VecDeque::new(),
@@ -1538,16 +1633,8 @@ where
             super_segment_headers_cache: Vec::new(),
         };
 
-        let options = ClientDatabaseInnerOptions {
-            block_confirmation_depth,
-            soft_confirmation_depth,
-            max_fork_tips,
-            max_fork_tip_distance,
-        };
-        // Block offset of the blocks confirmed by `Self::confirm_canonical_block()`, deeper block
-        // offsets only have a single confirmed block
-        let confirmation_block_offset =
-            u64::from(block_confirmation_depth + BlockNumber::ONE) as usize;
+        // Deeper block offsets only have a single block, so ancestor walks stop there
+        let fork_pruning_block_offset = options.fork_pruning_block_offset();
 
         let storage_item_handlers = StorageItemHandlers {
             permanent: |_arg| {
@@ -1687,32 +1774,39 @@ where
                     },
                 });
 
-                // If a new block was inserted, confirm a new canonical block to prune extra
-                // in-memory information
+                // If a new block was inserted, prune forks and confirm a new canonical block to
+                // prune extra in-memory information, like `Self::insert_new_best_block()` does
+                // (see the block lifecycle in `ClientDatabaseOptions`)
                 if block_offset == 0 && block_forks.len() == 1 {
                     // Block forks are in the order they were written in rather than in canonical
-                    // order here. Any block at a new highest block number descends from the block
-                    // to be confirmed, since it was written after that block was confirmed, so the
-                    // forks are adjusted towards the block just read first.
+                    // order here. Any block at a new highest block number descends from the only
+                    // block that was left at the fork pruning block offset when it was written, so
+                    // the forks are adjusted towards the block just read first.
                     if state_data
                         .blocks
-                        .get(confirmation_block_offset)
+                        .get(fork_pruning_block_offset)
                         .is_some_and(|block_forks| block_forks.len() > 1)
-                        && !Self::adjust_ancestor_block_forks(
+                    {
+                        if !Self::adjust_ancestor_block_forks(
                             &mut state_data.blocks,
                             block_root,
                             AncestorBlockForksWalk::UpToBlockOffset {
-                                max_block_offset: confirmation_block_offset,
+                                max_block_offset: fork_pruning_block_offset,
                             },
-                        )
-                    {
-                        error!(
-                            %page_offset,
-                            %block_number,
-                            "Failed to find ancestors of the block read from the database"
-                        );
+                        ) {
+                            error!(
+                                %page_offset,
+                                %block_number,
+                                "Failed to find ancestors of the block read from the database"
+                            );
 
-                        return Err(ClientDatabaseError::FailedToAdjustAncestorBlockForks);
+                            return Err(ClientDatabaseError::FailedToAdjustAncestorBlockForks);
+                        }
+
+                        Self::prune_non_canonical_blocks(
+                            fork_pruning_block_offset,
+                            &mut state_data,
+                        );
                     }
 
                     Self::confirm_canonical_block(block_number, &mut state_data, &options);
@@ -1726,6 +1820,8 @@ where
             StorageBackendAdapter::open(write_buffer_size, storage_item_handlers, storage_backend)
                 .await?;
 
+        // NOTE: Confirmation is not stored, a deep reorg right after opening may revert blocks that
+        // were confirmed before shutdown, consumers like the archiver then fail loudly, as intended
         if let Some(best_block) = state_data.blocks.front().and_then(|block_forks| {
             // The best block is the last block written at the highest block number, block forks
             // are in the order they were written in
@@ -1737,13 +1833,13 @@ where
             let block_number = header.prefix.number;
             let block_root = *header.root();
 
-            // Block forks are in the order they were written in, so the whole confirmation window
-            // is adjusted
+            // Block forks are in the order they were written in, so all block offsets that may
+            // have forks are adjusted
             if !Self::adjust_ancestor_block_forks(
                 &mut state_data.blocks,
                 block_root,
                 AncestorBlockForksWalk::UpToBlockOffset {
-                    max_block_offset: confirmation_block_offset,
+                    max_block_offset: fork_pruning_block_offset,
                 },
             ) {
                 return Err(ClientDatabaseError::FailedToAdjustAncestorBlockForks);
@@ -1890,6 +1986,11 @@ where
 
         let options = &inner.options;
 
+        // The new best block shifted all block offsets by one, other blocks that reached the fork
+        // pruning block offset could only become a part of the best chain with a reorg of
+        // `block_confirmation_depth` blocks now (see the block lifecycle in
+        // `ClientDatabaseOptions`)
+        Self::prune_non_canonical_blocks(options.fork_pruning_block_offset(), &mut state.data);
         Self::confirm_canonical_block(block_number, &mut state.data, options);
         Self::prune_outdated_fork_tips(block_number, &mut state.data, options);
 
@@ -2013,12 +2114,13 @@ where
         // TODO: Prune blocks that are no longer necessary
         // TODO: Prune unused page groups here or elsewhere? Page groups that contain blocks whose
         //  block number is within `block_confirmation_depth + 1` of the highest stored block
-        //  number must not be freed, `Self::open()` needs them to find the canonical blocks to
-        //  confirm. Once older page groups are freed, block numbers below that window may only
-        //  have forks that are not ancestors of the best block left, `Self::open()` currently
-        //  confirms such a fork and needs to drop it instead. Add a test for this together with
-        //  freeing, it also pins the bound of `AncestorBlockForksWalk::UpToBlockOffset`: an
-        //  unbounded walk fails to find the canonical ancestor at such a block number.
+        //  number must not be freed, `Self::open()` needs them to prune forks and find the
+        //  canonical blocks to confirm. Once older page groups are freed, block numbers below
+        //  that window may only have forks that are not ancestors of the best block left,
+        //  `Self::open()` currently confirms such a fork and needs to drop it instead. Add a test
+        //  for this together with freeing, it also pins the bound of
+        //  `AncestorBlockForksWalk::UpToBlockOffset`: an unbounded walk fails to find the
+        //  canonical ancestor at such a block number.
 
         Ok(())
     }
@@ -2222,19 +2324,30 @@ where
         pruned_tip
     }
 
-    /// Confirm a block at confirmation depth k and prune any other blocks at the same depth with
-    /// their descendants.
+    /// Confirm the block at block offset `block_confirmation_depth + 1`.
     ///
-    /// The block at fork offset `0` at that depth must be an ancestor of the block at
-    /// `best_number` that was just added.
+    /// The block at that block offset must be an ancestor of the block at `best_number` that was
+    /// just added, other blocks at that block offset were pruned by
+    /// [`Self::prune_non_canonical_blocks()`] at
+    /// [`ClientDatabaseInnerOptions::fork_pruning_block_offset()`] already.
     fn confirm_canonical_block(
         best_number: BlockNumber,
         state_data: &mut StateData<Block>,
         options: &ClientDatabaseInnerOptions,
     ) {
-        // `+1` means it effectively confirms parent blocks instead. This is done to keep the parent
-        // of the confirmed block with its MMR in memory due to confirmed blocks not storing their
-        // MMRs, which might be needed for reorgs at the lowest possible depth.
+        // Blocks keep their `BlockDetails` in memory until they are confirmed here, and
+        // `ChainInfo::header_with_details()` only returns them from memory. Block import needs them
+        // for the parent of every block it imports, and since fork blocks are only accepted above
+        // the fork pruning block offset, their parents are at most at it:
+        //
+        // block offset                        block details
+        // 0 ..= block_confirmation_depth - 2  in memory, fork blocks and their parents
+        // block_confirmation_depth - 1        in memory, parents of the deepest fork blocks
+        // block_confirmation_depth            in memory, not needed by any fork block
+        // block_confirmation_depth + 1        dropped from memory here
+        //
+        // So `+1` keeps block details in memory for one block offset more than forks need, a
+        // margin that nothing relies on today.
         let block_offset = u64::from(options.block_confirmation_depth + BlockNumber::ONE) as usize;
 
         let Some(fork_blocks) = state_data.blocks.get_mut(block_offset) else {
@@ -2243,56 +2356,60 @@ where
         };
 
         // Mark the canonical block as confirmed
-        {
-            let Some(canonical_block) = fork_blocks.first_mut() else {
-                error!(
-                    %best_number,
-                    block_offset,
-                    "Have not found a canonical block to confirm, this is an implementation bug"
-                );
-                return;
-            };
+        let Some(canonical_block) = fork_blocks.first_mut() else {
+            error!(
+                %best_number,
+                block_offset,
+                "Have not found a canonical block to confirm, this is an implementation bug"
+            );
+            return;
+        };
 
-            replace_with_or_abort(canonical_block, |block| {
-                #[expect(
-                    clippy::rest_pattern_accessible_field,
-                    reason = "Do not need other fields"
-                )]
-                match block {
-                    ClientDatabaseBlock::InMemory { .. } => {
-                        error!(
-                            %best_number,
-                            block_offset,
-                            header = ?block.header(),
-                            "Block to be confirmed must not be in memory, this is an implementation bug"
-                        );
-                        block
-                    }
-                    ClientDatabaseBlock::Persisted {
-                        header,
-                        block_details: _,
-                        beacon_chain_block_details,
-                        write_location,
-                    } => ClientDatabaseBlock::PersistedConfirmed {
-                        header,
-                        beacon_chain_block_details,
-                        write_location,
-                    },
-                    ClientDatabaseBlock::PersistedConfirmed { .. } => {
-                        error!(
-                            %best_number,
-                            block_offset,
-                            header = ?block.header(),
-                            "Block to be confirmed must not be confirmed yet, this is an \
-                            implementation bug"
-                        );
-                        block
-                    }
+        replace_with_or_abort(canonical_block, |block| {
+            #[expect(
+                clippy::rest_pattern_accessible_field,
+                reason = "Do not need other fields"
+            )]
+            match block {
+                ClientDatabaseBlock::InMemory { .. } => {
+                    error!(
+                        %best_number,
+                        block_offset,
+                        header = ?block.header(),
+                        "Block to be confirmed must not be in memory, this is an implementation bug"
+                    );
+                    block
                 }
-            });
-        }
+                ClientDatabaseBlock::Persisted {
+                    header,
+                    block_details: _,
+                    beacon_chain_block_details,
+                    write_location,
+                } => ClientDatabaseBlock::PersistedConfirmed {
+                    header,
+                    beacon_chain_block_details,
+                    write_location,
+                },
+                ClientDatabaseBlock::PersistedConfirmed { .. } => {
+                    error!(
+                        %best_number,
+                        block_offset,
+                        header = ?block.header(),
+                        "Block to be confirmed must not be confirmed yet, this is an \
+                        implementation bug"
+                    );
+                    block
+                }
+            }
+        });
+    }
 
-        // Prune the rest of the blocks and their descendants
+    /// Prune blocks other than the one at fork offset `0` at `block_offset` with their descendants
+    fn prune_non_canonical_blocks(block_offset: usize, state_data: &mut StateData<Block>) {
+        let Some(fork_blocks) = state_data.blocks.get_mut(block_offset) else {
+            return;
+        };
+
         let mut block_roots_to_prune = fork_blocks
             .drain(1..)
             .map(|block| *block.header().header().root())

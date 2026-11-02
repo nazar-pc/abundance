@@ -181,7 +181,7 @@ pub(crate) fn beacon_chain_block(
         }))
 }
 
-fn genesis_block_builder() -> GenesisBlockBuilderResult<OwnedBeaconChainBlock> {
+pub(crate) fn genesis_block_builder() -> GenesisBlockBuilderResult<OwnedBeaconChainBlock> {
     GenesisBlockBuilderResult {
         block: beacon_chain_block(0, BlockRoot::default(), 0),
         system_contract_states: [].into_iter().collect(),
@@ -238,6 +238,11 @@ pub(crate) fn reopen(database: Database, storage_backend: &MemoryStorageBackend)
         ..database_options(storage_backend)
     })
     .unwrap()
+}
+
+/// Block confirmation depth of `database`
+pub(crate) fn block_confirmation_depth(database: &Database) -> u64 {
+    u64::from(database.inner.options.block_confirmation_depth)
 }
 
 /// Persist a block built by [`beacon_chain_block()`] and return its root
