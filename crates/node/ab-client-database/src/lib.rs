@@ -53,6 +53,10 @@
 mod page_group;
 pub mod storage_backend;
 mod storage_backend_adapter;
+#[cfg(test)]
+mod test_utils;
+#[cfg(test)]
+mod tests;
 
 use crate::page_group::temporary::StorageItemTemporary;
 use crate::page_group::temporary::block::StorageItemTemporaryBlock;

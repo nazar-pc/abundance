@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use ab_core_primitives::segments::SuperSegmentHeader;
 use ab_io_type::trivial_type::TrivialType;
@@ -78,24 +81,19 @@ impl StorageItemTemporarySuperSegmentHeaders {
             .split_off(..Self::prefix_size())
             .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
 
-        let (num_super_segment_headers, mut remainder) = prefix_bytes.split_at(size_of::<u32>());
-
         // Read the number of super segment headers
-        let num_super_segment_headers = u32::from_le_bytes(
-            num_super_segment_headers
-                .try_into()
-                .expect("Correct length; qed"),
-        ) as usize;
+        let num_super_segment_headers =
+            u32::from_le_bytes(prefix_bytes.try_into().expect("Correct length; qed")) as usize;
 
         let mut super_segment_headers = Vec::with_capacity(num_super_segment_headers);
 
         for _ in 0..num_super_segment_headers {
             let buffer_len = buffer.len();
-            let super_segment_header_bytes = remainder
+            let super_segment_header_bytes = buffer
                 .split_off(..size_of::<SuperSegmentHeader>())
-                .ok_or(StorageItemError::NeedMoreBytes(
-                    size_of::<SuperSegmentHeader>() - buffer_len,
-                ))?;
+                .ok_or_else(|| {
+                    StorageItemError::NeedMoreBytes(size_of::<SuperSegmentHeader>() - buffer_len)
+                })?;
             // TODO: Would be nice to have slice API in `TrivialType`
             let super_segment_header = *SuperSegmentHeader::from_bytes_exact(
                 super_segment_header_bytes,
