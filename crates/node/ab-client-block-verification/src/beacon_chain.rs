@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::{BlockVerification, BlockVerificationError, GenericBody, GenericHeader};
 use ab_client_api::{BeaconChainInfo, BlockOrigin, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
@@ -108,6 +111,34 @@ impl From<BeaconChainBlockVerificationError> for BlockVerificationError {
             error: error.into(),
         }
     }
+}
+
+/// Whether a block with `block_number` can't become a part of the best chain anymore.
+///
+/// Importing the next best block (block number `best_number + 1`) confirms the block at
+/// `best_number + 1 - block_confirmation_depth` (see
+/// [`ConsensusConstants::block_confirmation_depth`]). A block being verified at or below that block
+/// number would compete with a block that can't change anymore, the database refuses the same
+/// blocks (see the block lifecycle on `ClientDatabaseOptions` in `ab-client-database`).
+///
+/// With `block_confirmation_depth = 5`:
+///
+/// ```text
+/// block number of the block being verified
+/// best_number + 1                             accepted, the next best block
+/// best_number - 3 ..= best_number             accepted, forks
+/// best_number - 4 and below                   rejected
+/// ```
+fn is_below_archiving_point(
+    block_number: BlockNumber,
+    best_number: BlockNumber,
+    block_confirmation_depth: BlockNumber,
+) -> bool {
+    // The block number of a block being verified is not checked yet, a sum that overflows is
+    // above any best block number
+    block_number
+        .checked_add(block_confirmation_depth)
+        .is_some_and(|sum| sum <= best_number + BlockNumber::ONE)
 }
 
 #[derive(Debug)]
@@ -522,8 +553,11 @@ where
         let best_header = best_header.header();
         let best_number = best_header.prefix.number;
 
-        // Reject block below archiving point
-        if block_number + self.consensus_constants.block_confirmation_depth < best_number {
+        if is_below_archiving_point(
+            block_number,
+            best_number,
+            self.consensus_constants.block_confirmation_depth,
+        ) {
             debug!(
                 ?header,
                 %best_number,
@@ -607,8 +641,11 @@ where
         let best_header = best_header.header();
         let best_number = best_header.prefix.number;
 
-        // Reject block below archiving point
-        if block_number + self.consensus_constants.block_confirmation_depth < best_number {
+        if is_below_archiving_point(
+            block_number,
+            best_number,
+            self.consensus_constants.block_confirmation_depth,
+        ) {
             debug!(
                 ?header,
                 %best_number,

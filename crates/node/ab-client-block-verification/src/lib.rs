@@ -19,7 +19,13 @@ type GenericBody<'a, Block> =
 /// Error for [`BlockVerification`]
 #[derive(Debug, thiserror::Error)]
 pub enum BlockVerificationError {
-    /// Block is below the archiving point
+    /// Block is below the archiving point.
+    ///
+    /// The block being verified is at or below the block number of the block that the next best
+    /// block (the child of the current best block) confirms, so it is a fork that can't become a
+    /// part of the best chain anymore, see [`ConsensusConstants::block_confirmation_depth`].
+    ///
+    /// [`ConsensusConstants::block_confirmation_depth`]: ab_client_consensus_common::ConsensusConstants::block_confirmation_depth
     #[error("Block is below archiving point")]
     BelowArchivingPoint,
     /// Invalid header prefix
