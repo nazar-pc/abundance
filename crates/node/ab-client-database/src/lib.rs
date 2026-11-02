@@ -53,6 +53,10 @@
 mod page_group;
 pub mod storage_backend;
 mod storage_backend_adapter;
+#[cfg(test)]
+mod test_utils;
+#[cfg(test)]
+mod tests;
 
 use crate::page_group::temporary::StorageItemTemporary;
 use crate::page_group::temporary::block::StorageItemTemporaryBlock;
@@ -174,9 +178,12 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// disk. Writing discarded blocks to disk is a waste of resources, so they are retained in
     /// memory before being soft-confirmed and written to disk for longer-term storage.
     ///
+    /// Blocks are persisted as soon as they reach this depth. More recent blocks may be lost if the
+    /// node is not shut down gracefully (crash, killed by the OS, etc.).
+    ///
     /// A smaller number reduces memory usage while increasing the probability of unnecessary disk
-    /// writes. A larger number increases memory usage, while avoiding unnecessary disk writes, but
-    /// also increases the chance of recent blocks not being retained on disk in case of a crash.
+    /// writes. A larger number increases memory usage and the number of blocks that may be lost
+    /// this way, while avoiding unnecessary disk writes.
     ///
     /// The recommended value is 3 blocks.
     pub soft_confirmation_depth: BlockNumber = BlockNumber::from(3),
@@ -348,6 +355,17 @@ struct ForkTip {
     root: BlockRoot,
 }
 
+/// How far [`ClientDatabase::adjust_ancestor_block_forks()`] walks towards older blocks
+#[derive(Debug, Copy, Clone)]
+enum AncestorBlockForksWalk {
+    /// Stop at the first ancestor that is already at fork offset `0`, relies on the invariant
+    /// documented on [`StateData::blocks`]
+    UntilCanonical,
+    /// Walk block offsets up to and including `max_block_offset`, for when the invariant doesn't
+    /// hold (in [`ClientDatabase::open()`])
+    UpToBlockOffset { max_block_offset: usize },
+}
+
 enum FullBlock<'a, Block>
 where
     Block: GenericOwnedBlock,
@@ -413,7 +431,7 @@ impl BeaconChainBlockDetails {
 ///
 /// Originally all blocks are stored in memory. Once a block is soft-confirmed (see
 /// [`ClientDatabaseOptions::soft_confirmation_depth`]), it is persisted (likely on disk). Later
-///  when it is "confirmed" fully (see [`ClientDatabaseOptions::soft_confirmation_depth`]), it
+/// when it is "confirmed" fully (see [`ClientDatabaseOptions::block_confirmation_depth`]), it
 /// becomes irreversible.
 #[derive(Debug)]
 enum ClientDatabaseBlock<Block>
@@ -545,6 +563,12 @@ where
     /// anything more than that will be very rare. The list of forks for a block number is
     /// organized in such a way that the first entry at every block number corresponds to the
     /// canonical version of the blockchain at any point in time.
+    ///
+    /// In other words, except while reading blocks in [`ClientDatabase::open()`], the block at
+    /// block offset `n + 1` and fork offset `0` is always the parent of the block at block offset
+    /// `n` and fork offset `0`. New best blocks establish this with
+    /// [`ClientDatabase::adjust_ancestor_block_forks()`], other blocks are only appended at fork
+    /// offset `1` or higher, and pruning never removes the block at fork offset `0`.
     ///
     /// A position withing this data structure is called "block offset". This is an ephemeral value
     /// and changes as new best blocks are added. Blocks at the same height are collectively called
@@ -838,7 +862,9 @@ where
     Block: GenericOwnedBlock,
 {
     fn drop(&mut self) {
-        // TODO: Persist things that were not persisted yet to reduce the data loss on shutdown
+        // TODO: Persist things that were not persisted yet to reduce the data loss on shutdown.
+        //  Blocks must be written in the same order as in `Self::insert_new_best_block()`,
+        //  `Self::open()` relies on it.
     }
 }
 
@@ -916,8 +942,11 @@ where
         let descendant_header = descendant_block_candidates
             .iter()
             .find(|block| &*block.header().header().root() == descendant_block_root)?
-            .header()
             .header();
+
+        if ancestor_block_number == descendant_block_number {
+            return Some(descendant_header.clone());
+        }
 
         // If there are no forks at this level, then this is the canonical chain and ancestor
         // block number we're looking for is the first block at the corresponding block number.
@@ -930,7 +959,7 @@ where
                 .map(|block| block.header().clone());
         }
 
-        let mut parent_block_root = &descendant_header.prefix.parent_root;
+        let mut parent_block_root = &descendant_header.header().prefix.parent_root;
 
         // Iterate over the blocks following descendant until ancestor is reached
         for (block_offset, parent_candidates) in blocks_range_iter {
@@ -1248,7 +1277,11 @@ where
             beacon_chain_block_details,
         });
 
-        Self::prune_outdated_fork_tips(block_number, &mut state.data, &self.inner.options);
+        // Forks at or below soft confirmation depth are not persisted here, such forks are only
+        // imported as part of a chain that is about to become the best chain and are persisted by
+        // `Self::insert_new_best_block()` once it does
+
+        Self::prune_outdated_fork_tips(best_number, &mut state.data, &self.inner.options);
 
         Ok(())
     }
@@ -1454,6 +1487,12 @@ where
     /// Open the existing database.
     ///
     /// NOTE: The database needs to be formatted with [`Self::format()`] before it can be used.
+    ///
+    /// Opening replays storage items in the order they were written. Every block read at a new
+    /// highest block number is handled like a new best block: forks are adjusted towards it, then
+    /// the block at confirmation depth is confirmed. The best block after opening is the last block
+    /// written at the highest stored block number. It may be behind or on a different fork than the
+    /// best block before shutdown, the node re-syncs from there.
     pub async fn open<GBB>(
         options: ClientDatabaseOptions<GBB, StorageBackend>,
     ) -> Result<Self, ClientDatabaseError>
@@ -1495,6 +1534,10 @@ where
             max_fork_tips,
             max_fork_tip_distance,
         };
+        // Block offset of the blocks confirmed by `Self::confirm_canonical_block()`, deeper block
+        // offsets only have a single confirmed block
+        let confirmation_block_offset =
+            u64::from(block_confirmation_depth + BlockNumber::ONE) as usize;
 
         let storage_item_handlers = StorageItemHandlers {
             permanent: |_arg| {
@@ -1637,6 +1680,31 @@ where
                 // If a new block was inserted, confirm a new canonical block to prune extra
                 // in-memory information
                 if block_offset == 0 && block_forks.len() == 1 {
+                    // Block forks are in the order they were written in rather than in canonical
+                    // order here. Any block at a new highest block number descends from the block
+                    // to be confirmed, since it was written after that block was confirmed, so the
+                    // forks are adjusted towards the block just read first.
+                    if state_data
+                        .blocks
+                        .get(confirmation_block_offset)
+                        .is_some_and(|block_forks| block_forks.len() > 1)
+                        && !Self::adjust_ancestor_block_forks(
+                            &mut state_data.blocks,
+                            block_root,
+                            AncestorBlockForksWalk::UpToBlockOffset {
+                                max_block_offset: confirmation_block_offset,
+                            },
+                        )
+                    {
+                        error!(
+                            %page_offset,
+                            %block_number,
+                            "Failed to find ancestors of the block read from the database"
+                        );
+
+                        return Err(ClientDatabaseError::FailedToAdjustAncestorBlockForks);
+                    }
+
                     Self::confirm_canonical_block(block_number, &mut state_data, &options);
                 }
 
@@ -1649,8 +1717,8 @@ where
                 .await?;
 
         if let Some(best_block) = state_data.blocks.front().and_then(|block_forks| {
-            // The best block is last in the list here because that is how it was inserted while
-            // reading from the database
+            // The best block is the last block written at the highest block number, block forks
+            // are in the order they were written in
             block_forks.last()
         }) {
             // Type inference is not working here for some reason
@@ -1659,7 +1727,15 @@ where
             let block_number = header.prefix.number;
             let block_root = *header.root();
 
-            if !Self::adjust_ancestor_block_forks(&mut state_data.blocks, block_root) {
+            // Block forks are in the order they were written in, so the whole confirmation window
+            // is adjusted
+            if !Self::adjust_ancestor_block_forks(
+                &mut state_data.blocks,
+                block_root,
+                AncestorBlockForksWalk::UpToBlockOffset {
+                    max_block_offset: confirmation_block_offset,
+                },
+            ) {
                 return Err(ClientDatabaseError::FailedToAdjustAncestorBlockForks);
             }
 
@@ -1766,7 +1842,11 @@ where
 
         // Adjust the relative order of forks to ensure the first index always corresponds to
         // ancestors of the new best block
-        if !Self::adjust_ancestor_block_forks(&mut state.data.blocks, parent_root) {
+        if !Self::adjust_ancestor_block_forks(
+            &mut state.data.blocks,
+            parent_root,
+            AncestorBlockForksWalk::UntilCanonical,
+        ) {
             return Err(PersistBlockError::MissingParent);
         }
 
@@ -1849,7 +1929,10 @@ where
             }
         }
 
-        // Persist blocks from older to newer
+        // Persist blocks from older to newer: the deepest block offset first and within each block
+        // offset the canonical block at fork offset `0` last. The scan above stops at the first
+        // block offset without blocks to persist, so a block is never written before its parent.
+        // `Self::open()` relies on this order.
         let mut persisted_blocks = Vec::with_capacity(blocks_to_persist.len());
         {
             let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
@@ -1918,7 +2001,14 @@ where
         }
 
         // TODO: Prune blocks that are no longer necessary
-        // TODO: Prune unused page groups here or elsewhere?
+        // TODO: Prune unused page groups here or elsewhere? Page groups that contain blocks whose
+        //  block number is within `block_confirmation_depth + 1` of the highest stored block
+        //  number must not be freed, `Self::open()` needs them to find the canonical blocks to
+        //  confirm. Once older page groups are freed, block numbers below that window may only
+        //  have forks that are not ancestors of the best block left, `Self::open()` currently
+        //  confirms such a fork and needs to drop it instead. Add a test for this together with
+        //  freeing, it also pins the bound of `AncestorBlockForksWalk::UpToBlockOffset`: an
+        //  unbounded walk fails to find the canonical ancestor at such a block number.
 
         Ok(())
     }
@@ -1931,19 +2021,14 @@ where
     fn adjust_ancestor_block_forks(
         blocks: &mut VecDeque<SmallVec<[ClientDatabaseBlock<Block>; 2]>>,
         mut parent_block_root: BlockRoot,
+        walk: AncestorBlockForksWalk,
     ) -> bool {
-        let mut ancestor_blocks = blocks.iter_mut();
-
-        loop {
-            if ancestor_blocks.len() == 1 {
-                // Nothing left to adjust with a single fork
+        for (block_offset, parent_blocks) in blocks.iter_mut().enumerate() {
+            if let AncestorBlockForksWalk::UpToBlockOffset { max_block_offset } = walk
+                && block_offset > max_block_offset
+            {
                 break;
             }
-
-            let Some(parent_blocks) = ancestor_blocks.next() else {
-                // No more parent headers present
-                break;
-            };
 
             let Some(fork_offset_parent_block_root) =
                 parent_blocks
@@ -1963,6 +2048,11 @@ where
 
             let fork_offset;
             (fork_offset, parent_block_root) = fork_offset_parent_block_root;
+
+            if fork_offset == 0 && matches!(walk, AncestorBlockForksWalk::UntilCanonical) {
+                // All older ancestors are already at fork offset `0` too
+                break;
+            }
 
             parent_blocks.swap(0, fork_offset);
         }
@@ -2077,8 +2167,11 @@ where
                 break;
             };
 
-            // More than one instance means something somewhere is using or depends on this block
-            if block.header().ref_count() > 1 {
+            let header = block.header();
+
+            // More than one instance means something somewhere is using this block, children are
+            // not counted here and are checked separately below
+            if header.ref_count() > 1 {
                 break;
             }
 
@@ -2099,18 +2192,31 @@ where
                 }
             }
 
-            state.block_roots.get_mut(&block_root_to_prune);
-            block_root_to_prune = block.header().header().prefix.parent_root;
+            let parent_root = header.header().prefix.parent_root;
+            state.block_roots.remove(&block_root_to_prune);
             fork_blocks.swap_remove(fork_offset);
 
             pruned_tip = true;
+
+            // The parent is still needed by its other children
+            if fork_blocks
+                .iter()
+                .any(|fork_block| fork_block.header().header().prefix.parent_root == parent_root)
+            {
+                break;
+            }
+
+            block_root_to_prune = parent_root;
         }
 
         pruned_tip
     }
 
     /// Confirm a block at confirmation depth k and prune any other blocks at the same depth with
-    /// their descendants
+    /// their descendants.
+    ///
+    /// The block at fork offset `0` at that depth must be an ancestor of the block at
+    /// `best_number` that was just added.
     fn confirm_canonical_block(
         best_number: BlockNumber,
         state_data: &mut StateData<Block>,

@@ -198,7 +198,12 @@ where
     /// Returns the best block header like [`Self::best_header()`] with additional block details
     fn best_header_with_details(&self) -> (Block::Header, BlockDetails);
 
-    /// Get header of ancestor block number for descendant block root
+    /// Get the header of the block at `ancestor_block_number` on the chain ending at
+    /// `descendant_block_root`.
+    ///
+    /// If `ancestor_block_number` is the descendant's own number, the descendant's header is
+    /// returned. Returns `None` if `ancestor_block_number` is higher than the descendant's number
+    /// or if either block is not available.
     fn ancestor_header(
         &self,
         ancestor_block_number: BlockNumber,

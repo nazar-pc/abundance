@@ -31,5 +31,8 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 triomphe = { workspace = true, features = ["std"] }
 
+[dev-dependencies]
+futures = { workspace = true, features = ["executor"] }
+
 [lints]
 workspace = true
