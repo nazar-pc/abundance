@@ -387,10 +387,10 @@ where
 /// the last shutdown and continue incrementally archiving blockchain history from there.
 ///
 /// Archiving is triggered by block importing notification (`block_importing_notification_receiver`)
-/// and tries to archive the block at [`ConsensusConstants::block_confirmation_depth`] depth from
-/// the block being imported. Block importing will then wait for archiver to acknowledge processing,
-/// which is necessary for ensuring that when the next block is imported, the newly archived segment
-/// is already available deterministically.
+/// and tries to archive the block that the block being imported confirms (see
+/// [`ConsensusConstants::block_confirmation_depth`]). Block importing will then wait for archiver
+/// to acknowledge processing, which is necessary for ensuring that when a child of the block being
+/// imported is imported, the newly archived segment is already available deterministically.
 ///
 /// Once a new segment is archived, a notification (`archived_segment_notification_sender`) will be
 /// sent and archiver will be paused until all receivers have provided an acknowledgement for it (or

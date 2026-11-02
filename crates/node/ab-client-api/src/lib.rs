@@ -175,7 +175,8 @@ pub enum PersistSuperSegmentHeadersError {
 /// However, it is not expected that they will be retained in memory for a long time. Blocks and
 /// headers will not be pruned until their reference count goes down to one. This is imported when
 /// there is an ongoing block import happening and its parent must exist until the import
-/// finishes.
+/// finishes. Forks that can't become a part of the best chain anymore are the exception (see
+/// `ConsensusConstants::block_confirmation_depth`), importing their blocks fails instead.
 /// </div>
 pub trait ChainInfo<Block>: Clone + Send + Sync + 'static
 where
@@ -256,8 +257,9 @@ where
 pub trait BeaconChainInfo: ChainInfo<OwnedBeaconChainBlock> {
     /// Returns intermediate and leaf shard segment roots included in the specified block number.
     ///
-    /// NOTE: Since blocks at this depth are already confirmed, only a block number is needed as a
-    /// reference.
+    /// NOTE: Only meant for confirmed blocks (see `ConsensusConstants::block_confirmation_depth`),
+    /// which are the same on every chain that can still be extended, so only a block number is
+    /// needed as a reference.
     fn shard_segment_roots(
         &self,
         block_number: BlockNumber,

@@ -408,8 +408,9 @@ pub trait DeriveSuperSegmentsForBlockChainInfo: Send + Sync {
 
     /// Returns intermediate and leaf shard segment roots included in the specified block number.
     ///
-    /// NOTE: Since blocks at this depth are already confirmed, only a block number is needed as a
-    /// reference.
+    /// NOTE: Only meant for confirmed blocks (see
+    /// [`ConsensusConstants::block_confirmation_depth`]), which are the same on every chain that
+    /// can still be extended, so only a block number is needed as a reference.
     fn shard_segment_roots(
         &self,
         block_number: BlockNumber,
@@ -459,7 +460,12 @@ where
     }
 }
 
-/// Derive a super segment for a block with a specified parent block number
+/// Derive a super segment for a block with a specified parent block number.
+///
+/// For block `n` shard segment roots of confirmed blocks
+/// `n - block_confirmation_depth - shard_confirmation_depth ..= n - block_confirmation_depth` are
+/// read (see [`ConsensusConstants::block_confirmation_depth`] and
+/// [`ConsensusConstants::shard_confirmation_depth`]).
 pub fn derive_super_segments_for_block<BCI>(
     chain_info: &BCI,
     parent_block_number: BlockNumber,
