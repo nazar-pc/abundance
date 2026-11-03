@@ -583,7 +583,7 @@ where
         // Find shard membership entropy for the slot
         let shard_membership_entropy = shard_membership_entropy_source(
             header.prefix.number,
-            best_header,
+            &parent_block_root,
             self.consensus_constants.shard_rotation_interval,
             self.consensus_constants.shard_rotation_delay,
             beacon_chain_info,

@@ -193,7 +193,7 @@ where
             // rendering the entropy source invalid, but it should not happen often.
             let shard_membership_entropy = match shard_membership_entropy_source(
                 best_beacon_chain_header.prefix.number + BlockNumber::ONE,
-                best_beacon_chain_header,
+                &best_beacon_chain_header.root(),
                 self.consensus_constants.shard_rotation_interval,
                 self.consensus_constants.shard_rotation_delay,
                 &self.beacon_chain_info,

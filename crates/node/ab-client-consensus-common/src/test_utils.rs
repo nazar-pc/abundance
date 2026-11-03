@@ -3,20 +3,72 @@ use ab_client_api::{
     ShardSegmentRootsError,
 };
 use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
+use ab_core_primitives::block::header::{
+    BlockHeaderConsensusInfo, BlockHeaderConsensusParameters, BlockHeaderEd25519Seal,
+    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
+};
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
-use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
+use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pot::{PotOutput, SlotNumber};
 use ab_core_primitives::segments::{
     LocalSegmentIndex, SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
     SuperSegmentRoot,
 };
+use ab_core_primitives::shard::{NumShards, ShardIndex};
+use ab_core_primitives::solutions::{Solution, SolutionRange};
 use std::collections::HashMap;
+use std::num::{NonZeroU16, NonZeroU32};
 use triomphe::Arc;
+
+/// Minimal beacon chain header, `proof_of_time` makes headers with the same number and parent
+/// unique
+fn beacon_chain_header(
+    number: BlockNumber,
+    parent_root: BlockRoot,
+    proof_of_time: PotOutput,
+) -> OwnedBeaconChainHeader {
+    OwnedBeaconChainHeader::from_parts(
+        &BlockHeaderPrefix {
+            number,
+            shard_index: ShardIndex::BEACON_CHAIN,
+            padding_0: [0; _],
+            timestamp: BlockTimestamp::default(),
+            parent_root,
+            mmr_root: Blake3Hash::default(),
+        },
+        &BlockHeaderResult {
+            body_root: Blake3Hash::default(),
+            state_root: Blake3Hash::default(),
+        },
+        &BlockHeaderConsensusInfo {
+            slot: SlotNumber::ZERO,
+            proof_of_time,
+            future_proof_of_time: PotOutput::default(),
+            solution: Solution::genesis_solution(),
+        },
+        &Blake3Hash::default(),
+        &BlockHeaderConsensusParameters {
+            fixed_parameters: BlockHeaderFixedConsensusParameters {
+                solution_range: SolutionRange::MAX,
+                slot_iterations: NonZeroU32::MIN,
+                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap(),
+            },
+            super_segment_root: None,
+            next_solution_range: None,
+            pot_parameters_change: None,
+        },
+    )
+    .with_seal(BlockHeaderSeal::Ed25519(&BlockHeaderEd25519Seal {
+        public_key: Ed25519PublicKey::default(),
+        signature: Ed25519Signature::default(),
+    }))
+}
 
 #[derive(Debug, Clone)]
 struct MockBlock {
-    number: BlockNumber,
-    parent_root: BlockRoot,
+    header: OwnedBeaconChainHeader,
     shard_segment_roots: Arc<[ShardSegmentRoot]>,
 }
 
@@ -24,7 +76,8 @@ struct MockBlock {
 /// block.
 ///
 /// Like the database, it returns shard segment roots of blocks on the best chain by block number.
-/// Methods that are not needed by tests are not implemented.
+/// Every block has a unique proof of time. Methods that are not needed by tests are not
+/// implemented.
 #[derive(Debug, Clone)]
 pub(crate) struct MockBeaconChain {
     blocks: HashMap<BlockRoot, MockBlock>,
@@ -46,10 +99,20 @@ impl ChainInfo<OwnedBeaconChainBlock> for MockBeaconChain {
 
     fn ancestor_header(
         &self,
-        _ancestor_block_number: BlockNumber,
-        _descendant_block_root: &BlockRoot,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
     ) -> Option<OwnedBeaconChainHeader> {
-        unimplemented!()
+        let mut block_root = *descendant_block_root;
+        while let Some(block) = self.blocks.get(&block_root)
+            && block.header.header().prefix.number >= ancestor_block_number
+        {
+            if block.header.header().prefix.number == ancestor_block_number {
+                return Some(block.header.clone());
+            }
+            block_root = block.header.header().prefix.parent_root;
+        }
+
+        None
     }
 
     fn header(&self, _block_root: &BlockRoot) -> Option<OwnedBeaconChainHeader> {
@@ -91,12 +154,12 @@ impl BeaconChainInfo for MockBeaconChain {
     ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
         let mut block_root = self.best_root;
         while let Some(block) = self.blocks.get(&block_root)
-            && block.number >= block_number
+            && block.header.header().prefix.number >= block_number
         {
-            if block.number == block_number {
+            if block.header.header().prefix.number == block_number {
                 return Ok(Arc::clone(&block.shard_segment_roots));
             }
-            block_root = block.parent_root;
+            block_root = block.header.header().prefix.parent_root;
         }
 
         Err(ShardSegmentRootsError::BlockMissing { block_number })
@@ -139,10 +202,14 @@ impl BeaconChainInfo for MockBeaconChain {
 impl MockBeaconChain {
     /// Create a chain with just the genesis block, which is the best block
     pub(crate) fn new() -> Self {
-        let genesis_root = BlockRoot::default();
+        let genesis_header = beacon_chain_header(
+            BlockNumber::ZERO,
+            BlockRoot::default(),
+            PotOutput::default(),
+        );
+        let genesis_root = *genesis_header.header().root();
         let genesis_block = MockBlock {
-            number: BlockNumber::ZERO,
-            parent_root: BlockRoot::default(),
+            header: genesis_header,
             shard_segment_roots: Arc::from(Vec::new()),
         };
 
@@ -163,16 +230,21 @@ impl MockBeaconChain {
             .blocks
             .get(&parent_root)
             .expect("Parent must be added first")
+            .header
+            .header()
+            .prefix
             .number;
-        let mut root_bytes = [0; _];
-        root_bytes[..8].copy_from_slice(&u64::try_from(self.blocks.len()).unwrap().to_le_bytes());
-        let block_root = BlockRoot::new(Blake3Hash::new(root_bytes));
+        let mut proof_of_time = PotOutput::default();
+        proof_of_time[..8]
+            .copy_from_slice(&u64::try_from(self.blocks.len()).unwrap().to_le_bytes());
+        let header =
+            beacon_chain_header(parent_number + BlockNumber::ONE, parent_root, proof_of_time);
+        let block_root = *header.header().root();
 
         self.blocks.insert(
             block_root,
             MockBlock {
-                number: parent_number + BlockNumber::ONE,
-                parent_root,
+                header,
                 shard_segment_roots: Arc::from(shard_segment_roots),
             },
         );
@@ -184,5 +256,16 @@ impl MockBeaconChain {
     pub(crate) fn set_best(&mut self, block_root: BlockRoot) {
         assert!(self.blocks.contains_key(&block_root));
         self.best_root = block_root;
+    }
+
+    /// Proof of time of the block with `block_root`
+    pub(crate) fn proof_of_time(&self, block_root: &BlockRoot) -> PotOutput {
+        self.blocks
+            .get(block_root)
+            .expect("Block must be added first")
+            .header
+            .header()
+            .consensus_info
+            .proof_of_time
     }
 }

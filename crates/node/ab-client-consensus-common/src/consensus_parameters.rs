@@ -4,8 +4,8 @@ mod tests;
 use crate::{ConsensusConstants, PotConsensusConstants};
 use ab_client_api::{BeaconChainInfo, ChainInfo, ShardSegmentRoot, ShardSegmentRootsError};
 use ab_core_primitives::block::header::{
-    BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
-    BlockHeaderFixedConsensusParameters, BlockHeaderPotParametersChange,
+    BlockHeaderConsensusInfo, BlockHeaderConsensusParameters, BlockHeaderFixedConsensusParameters,
+    BlockHeaderPotParametersChange,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
@@ -329,10 +329,13 @@ pub enum ShardMembershipEntropySourceError {
     },
 }
 
-/// Find shard membership entropy for a specified block number
+/// Find shard membership entropy for a block with a specified block number and parent.
+///
+/// The entropy source block is looked up among the ancestors of `parent_block_root`, on the chain
+/// that the block extends.
 pub fn shard_membership_entropy_source<BCI>(
     block_number: BlockNumber,
-    best_beacon_chain_header: &BeaconChainHeader<'_>,
+    parent_block_root: &BlockRoot,
     shard_rotation_interval: BlockNumber,
     shard_rotation_delay: BlockNumber,
     beacon_chain_info: &BCI,
@@ -347,10 +350,7 @@ where
     );
 
     let proof_of_time = beacon_chain_info
-        .ancestor_header_proof_of_time(
-            entropy_source_block_number,
-            &best_beacon_chain_header.root(),
-        )
+        .ancestor_header_proof_of_time(entropy_source_block_number, parent_block_root)
         .ok_or(
             ShardMembershipEntropySourceError::FailedToFindBeaconChainBlock {
                 block_number: entropy_source_block_number,
