@@ -59,8 +59,9 @@ fn assert_best_chain(database: &Database, chain: &[BlockRoot]) {
 }
 
 /// Check that the best block is at `best_number`, that every block offset holds its ancestor at
-/// fork offset `0`, that block offsets from `block_confirmation_depth - 1` have no forks, that only
-/// those ancestors are confirmed and that all of them can be read
+/// fork offset `0`, that block offsets from `block_confirmation_depth - 1` have no forks, that
+/// exactly the ancestors at block offsets from `block_confirmation_depth` are confirmed and that
+/// all of them can be read
 fn assert_consistent(database: &Database, best_number: u64) {
     let block_confirmation_depth = block_confirmation_depth(database);
     let mut canonical_roots = Vec::new();
@@ -79,6 +80,19 @@ fn assert_consistent(database: &Database, best_number: u64) {
                     "Forks at block offset {block_offset}"
                 );
             }
+            #[expect(
+                clippy::rest_pattern_accessible_field,
+                reason = "Do not need other fields"
+            )]
+            let confirmed = matches!(
+                canonical_block,
+                ClientDatabaseBlock::PersistedConfirmed { .. }
+            );
+            assert_eq!(
+                confirmed,
+                block_offset >= block_confirmation_depth,
+                "Confirmation at block offset {block_offset}"
+            );
             let header = canonical_block.header().header();
             assert_eq!(header.prefix.number, BlockNumber::from(number));
             assert_eq!(*header.root(), expected_root);
@@ -763,7 +777,10 @@ fn forks_at_fork_pruning_block_offset_are_pruned_with_descendants() {
 }
 
 #[test]
-fn block_details_are_dropped_from_memory_at_block_confirmation_depth_plus_one() {
+fn block_details_are_dropped_from_memory_at_block_confirmation_depth() {
+    // genesis - c1 .. c4 -+- c5 .. c(3 + block_confirmation_depth) (best block)
+    //                     \- a5 (block offset `block_confirmation_depth - 2`, the deepest accepted
+    //                         fork block, block details of its parent `c4` are still in memory)
     let storage_backend = MemoryStorageBackend::new();
     let database = open_database(&storage_backend);
     let block_confirmation_depth = block_confirmation_depth(&database);
@@ -771,15 +788,36 @@ fn block_details_are_dropped_from_memory_at_block_confirmation_depth_plus_one() 
     let mut chain = vec![database.best_root()];
     chain.extend(persist_chain(&database, chain[0], 1..=best_number, 0));
 
+    {
+        let state = database.inner.state.read_blocking();
+        let block_offset = usize::try_from(block_confirmation_depth).unwrap();
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
+        let confirmed = matches!(
+            state.data.blocks[block_offset].as_slice(),
+            [ClientDatabaseBlock::PersistedConfirmed { .. }]
+        );
+        assert!(confirmed);
+    }
     for (number, block_root) in (0..).zip(&chain) {
         let block_offset = best_number - number;
         assert_eq!(
             database.header_with_details(block_root).is_some(),
-            block_offset <= block_confirmation_depth,
+            block_offset < block_confirmation_depth,
             "{block_offset}"
         );
         assert!(database.header(block_root).is_some(), "{block_offset}");
     }
+
+    // The deepest fork block that is accepted, block import reads block details of its parent
+    let fork_block_offset =
+        u64::try_from(database.inner.options.fork_pruning_block_offset()).unwrap() - 1;
+    let fork_number = best_number - fork_block_offset;
+    let parent_root = chain[usize::try_from(fork_number - 1).unwrap()];
+    assert!(database.header_with_details(&parent_root).is_some());
+    persist_block(&database, fork_number, parent_root, 1).unwrap();
 }
 
 #[test]

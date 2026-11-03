@@ -164,25 +164,25 @@ pub struct GenesisBlockBuilderResult<Block> {
 ///         n + 1                                    next best block, being imported
 ///      0  n       accepted   no        yes         best block
 ///      1  n - 1   accepted   no        yes
-///      2  n - 2   accepted   yes       yes         <- soft_confirmation_depth
-///      3  n - 3   accepted   yes       yes
-///      4  n - 4   rejected   yes       yes         final once n + 1 is imported
-///      5  n - 5   rejected   yes       yes         final <- block_confirmation_depth
-///      6  n - 6   rejected   yes       no          final, confirmed
+///      2  n - 2   accepted   yes       yes         soft-confirmed <- soft_confirmation_depth
+///      3  n - 3   accepted   yes       yes         soft-confirmed
+///      4  n - 4   rejected   yes       yes         confirmed once n + 1 is imported
+///      5  n - 5   rejected   yes       no          confirmed <- block_confirmation_depth
 ///    ...
 /// ```
 ///
-/// When block `n` is built, the block at `n - block_confirmation_depth` is final (see
-/// `ConsensusConstants::block_confirmation_depth`). Fork blocks are only accepted above block
-/// offset `block_confirmation_depth - 1`. The block there only becomes final once `n + 1` is
-/// imported, but it already can't change: a fork block next to it would start a reorg of
-/// `block_confirmation_depth` blocks, more than the largest allowed reorg of
-/// `block_confirmation_depth - 1` blocks.
+/// When block `n` is built, the block at `n - block_confirmation_depth` is confirmed (see
+/// `ConsensusConstants::block_confirmation_depth`), and the database marks the same block as
+/// confirmed. Fork blocks are only accepted above block offset `block_confirmation_depth - 1`. The
+/// block there is only confirmed once `n + 1` is imported, but it already can't change: a fork
+/// block next to it would start a reorg of `block_confirmation_depth` blocks, more than the largest
+/// allowed reorg of `block_confirmation_depth - 1` blocks. Soft-confirmed blocks are only written
+/// to disk early, a reorg can still revert them.
 ///
 /// Importing `n + 1` on any fork makes it the best block and shifts all block offsets by one. Then
 /// other blocks at block offset `block_confirmation_depth - 1` are pruned with their descendants,
-/// the block at block offset `block_confirmation_depth + 1` is confirmed, which drops its block
-/// details (MMR and system contract states) from memory, and blocks that reached block offset
+/// the block at block offset `block_confirmation_depth` is confirmed, which drops its block details
+/// (MMR and system contract states) from memory, and blocks that reached block offset
 /// `soft_confirmation_depth` are written to disk. Block details of confirmed blocks are only left
 /// on disk, [`ChainInfo::header_with_details()`] doesn't return them.
 #[derive(Debug, Copy, Clone)]
@@ -199,7 +199,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     ///
     /// Fork blocks are only accepted above block offset `block_confirmation_depth - 1` from the
     /// best block, other blocks at that block offset are pruned with their descendants, and blocks
-    /// are confirmed at block offset `block_confirmation_depth + 1` (see the block lifecycle in
+    /// are confirmed at block offset `block_confirmation_depth` (see the block lifecycle in
     /// [`ClientDatabaseOptions`]).
     ///
     /// Must be at least 2.
@@ -472,9 +472,9 @@ impl BeaconChainBlockDetails {
 ///
 /// Originally all blocks are stored in memory. Once a block is soft-confirmed (see
 /// [`ClientDatabaseOptions::soft_confirmation_depth`]), it is persisted (likely on disk). Later, at
-/// block offset `block_confirmation_depth + 1` (see the block lifecycle in
-/// [`ClientDatabaseOptions`]), it is marked as confirmed and its [`BlockDetails`] are dropped from
-/// memory, they are only left on disk.
+/// block offset `block_confirmation_depth` (see the block lifecycle in [`ClientDatabaseOptions`]),
+/// it is marked as confirmed and its [`BlockDetails`] are dropped from memory, they are only left
+/// on disk.
 #[derive(Debug)]
 enum ClientDatabaseBlock<Block>
 where
@@ -894,8 +894,8 @@ impl ClientDatabaseInnerOptions {
         })
     }
 
-    /// Block offset of the block that the next best block (block number `best_number + 1`) makes
-    /// final, fork blocks are only accepted above it and other blocks there are pruned.
+    /// Block offset of the block that the next best block (block number `best_number + 1`)
+    /// confirms, fork blocks are only accepted above it and other blocks there are pruned.
     ///
     /// With `block_confirmation_depth = 5` (see the block lifecycle in [`ClientDatabaseOptions`]):
     ///
@@ -905,7 +905,8 @@ impl ClientDatabaseInnerOptions {
     ///            1  n - 1         accepted
     ///            2  n - 2         accepted
     ///            3  n - 3         accepted
-    ///            4  n - 4         rejected, other blocks pruned, final once n + 1 is imported
+    ///            4  n - 4         rejected, other blocks pruned,
+    ///                             confirmed once n + 1 is imported
     /// ```
     #[inline(always)]
     fn fork_pruning_block_offset(&self) -> usize {
@@ -1595,7 +1596,7 @@ where
     /// Opening replays storage items in the order they were written. Every block read at a new
     /// highest block number is handled like a new best block: forks are adjusted towards it, other
     /// blocks at block offset `block_confirmation_depth - 1` are pruned, then the block at block
-    /// offset `block_confirmation_depth + 1` is confirmed (see the block lifecycle in
+    /// offset `block_confirmation_depth` is confirmed (see the block lifecycle in
     /// [`ClientDatabaseOptions`]). The best block after opening is the last block written at the
     /// highest stored block number. It may be behind or on a different fork than the best block
     /// before shutdown, the node re-syncs from there.
@@ -2113,12 +2114,12 @@ where
 
         // TODO: Prune blocks that are no longer necessary
         // TODO: Prune unused page groups here or elsewhere? Page groups that contain blocks whose
-        //  block number is within `block_confirmation_depth + 1` of the highest stored block
-        //  number must not be freed, `Self::open()` needs them to prune forks and find the
-        //  canonical blocks to confirm. Once older page groups are freed, block numbers below
-        //  that window may only have forks that are not ancestors of the best block left,
-        //  `Self::open()` currently confirms such a fork and needs to drop it instead. Add a test
-        //  for this together with freeing, it also pins the bound of
+        //  block number is within `block_confirmation_depth` of the highest stored block number
+        //  must not be freed, `Self::open()` needs them to prune forks and find the canonical
+        //  blocks to confirm. Once older page groups are freed, block numbers below that window
+        //  may only have forks that are not ancestors of the best block left, `Self::open()`
+        //  currently confirms such a fork and needs to drop it instead. Add a test for this
+        //  together with freeing, it also pins the bound of
         //  `AncestorBlockForksWalk::UpToBlockOffset`: an unbounded walk fails to find the
         //  canonical ancestor at such a block number.
 
@@ -2324,7 +2325,7 @@ where
         pruned_tip
     }
 
-    /// Confirm the block at block offset `block_confirmation_depth + 1`.
+    /// Confirm the block at block offset `block_confirmation_depth`.
     ///
     /// The block at that block offset must be an ancestor of the block at `best_number` that was
     /// just added, other blocks at that block offset were pruned by
@@ -2337,18 +2338,15 @@ where
     ) {
         // Blocks keep their `BlockDetails` in memory until they are confirmed here, and
         // `ChainInfo::header_with_details()` only returns them from memory. Block import needs them
-        // for the parent of every block it imports, and since fork blocks are only accepted above
-        // the fork pruning block offset, their parents are at most at it:
+        // for the parent of every block it imports. Fork blocks are only accepted above the fork
+        // pruning block offset, so their parents are at most at it, which is exactly what is left
+        // in memory:
         //
         // block offset                        block details
         // 0 ..= block_confirmation_depth - 2  in memory, fork blocks and their parents
         // block_confirmation_depth - 1        in memory, parents of the deepest fork blocks
-        // block_confirmation_depth            in memory, not needed by any fork block
-        // block_confirmation_depth + 1        dropped from memory here
-        //
-        // So `+1` keeps block details in memory for one block offset more than forks need, a
-        // margin that nothing relies on today.
-        let block_offset = u64::from(options.block_confirmation_depth + BlockNumber::ONE) as usize;
+        // block_confirmation_depth            dropped from memory here
+        let block_offset = u64::from(options.block_confirmation_depth) as usize;
 
         let Some(fork_blocks) = state_data.blocks.get_mut(block_offset) else {
             // Nothing to confirm yet
