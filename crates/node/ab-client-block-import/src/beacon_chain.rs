@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlockImportStatus};
 use crate::{BlockImport, BlockImportError};
 use ab_client_api::{
@@ -70,33 +73,11 @@ where
         ancestor_block_number: BlockNumber,
         descendant_block_root: &BlockRoot,
     ) -> Option<DeriveConsensusParametersConsensusInfo> {
-        if let Some(consensus_info) = self
-            .chain_info
-            .ancestor_header_consensus_info(ancestor_block_number, descendant_block_root)
-        {
-            return Some(consensus_info);
-        }
+        let header = self.ancestor_header(ancestor_block_number, descendant_block_root)?;
 
-        let mut current_block_root = *descendant_block_root;
-        loop {
-            let Some(importing_entry) = self.importing_blocks.get(&current_block_root) else {
-                break;
-            };
-            let header = importing_entry.header().header();
-
-            if header.prefix.number == ancestor_block_number {
-                return Some(DeriveConsensusParametersConsensusInfo::from_consensus_info(
-                    header.consensus_info,
-                ));
-            }
-
-            current_block_root = *header.root();
-        }
-
-        // Query again in case of a race condition where previously importing block was imported in
-        // between iterations in the above loop
-        self.chain_info
-            .ancestor_header_consensus_info(ancestor_block_number, descendant_block_root)
+        Some(DeriveConsensusParametersConsensusInfo::from_consensus_info(
+            header.header().consensus_info,
+        ))
     }
 }
 
@@ -109,31 +90,54 @@ where
         ancestor_block_number: BlockNumber,
         descendant_block_root: &BlockRoot,
     ) -> Option<PotOutput> {
+        let header = self.ancestor_header(ancestor_block_number, descendant_block_root)?;
+
+        Some(header.header().consensus_info.proof_of_time)
+    }
+}
+
+impl<CI> VerificationChainInfo<'_, CI>
+where
+    CI: ChainInfo<OwnedBeaconChainBlock>,
+{
+    /// Like [`ChainInfo::ancestor_header()`], but the chain may end with blocks that are being
+    /// imported.
+    ///
+    /// Block numbers of blocks being imported aren't verified yet. On a chain where one of them is
+    /// invalid, the result may not match the description of [`ChainInfo::ancestor_header()`], which
+    /// only changes the error that verification of that chain fails with.
+    fn ancestor_header(
+        &self,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
+    ) -> Option<OwnedBeaconChainHeader> {
+        // The descendant is usually already in the database, so this is the shortest path to the
+        // ancestor
         if let Some(header) = self
             .chain_info
             .ancestor_header(ancestor_block_number, descendant_block_root)
         {
-            return Some(header.header().consensus_info.proof_of_time);
+            return Some(header);
         }
 
-        let mut current_block_root = *descendant_block_root;
-        loop {
-            let Some(importing_entry) = self.importing_blocks.get(&current_block_root) else {
-                break;
-            };
-            let header = importing_entry.header();
+        // Walk down the blocks that are being imported, it ends because block roots are hashes of
+        // headers, so parent roots can't form a cycle
+        let mut block_root = *descendant_block_root;
+        while let Some(importing_entry) = self.importing_blocks.get(&block_root) {
+            let header = importing_entry.header().header();
 
-            if header.header().prefix.number == ancestor_block_number {
-                return Some(header.header().consensus_info.proof_of_time);
+            if header.prefix.number == ancestor_block_number {
+                return Some(importing_entry.header().clone());
             }
 
-            current_block_root = *header.header().root();
+            block_root = header.prefix.parent_root;
         }
 
-        // Query again in case of a race condition where previously importing block was imported in
-        // between iterations in the above loop
+        // Blocks are removed from importing blocks once they are persisted or their import failed,
+        // so the block where the walk stopped is either in the database or unknown. This finds
+        // ancestors below the blocks being imported and blocks persisted since the first query.
         self.chain_info
-            .ancestor_header_proof_of_time(ancestor_block_number, descendant_block_root)
+            .ancestor_header(ancestor_block_number, &block_root)
     }
 }
 

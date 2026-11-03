@@ -1,5 +1,7 @@
 pub mod beacon_chain;
 mod importing_blocks;
+#[cfg(test)]
+mod test_utils;
 
 use ab_client_api::{BlockOrigin, PersistBlockError};
 use ab_core_primitives::block::BlockRoot;
