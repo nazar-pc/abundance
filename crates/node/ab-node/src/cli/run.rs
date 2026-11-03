@@ -49,7 +49,7 @@ use tokio::runtime::Handle;
 use tracing::{Span, debug, error, info, warn};
 use triomphe::Arc;
 
-// TODO: Get rid of this, make verifier clean up cache based on slots of finalized blocks
+// TODO: Get rid of this, make verifier clean up cache based on slots of confirmed blocks
 /// This is over 15 minutes of slots assuming there are no forks, should be both sufficient and not
 /// too large to handle
 const POT_VERIFIER_CACHE_SIZE: u32 = 30_000;

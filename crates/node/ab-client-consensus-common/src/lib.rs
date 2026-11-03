@@ -2,6 +2,8 @@
 
 pub mod consensus_parameters;
 pub mod state;
+#[cfg(test)]
+mod test_utils;
 
 use ab_core_primitives::block::{BlockNumber, BlockTimestamp};
 use ab_core_primitives::pot::{SlotDuration, SlotNumber};
@@ -22,7 +24,29 @@ pub struct PotConsensusConstants {
 /// Consensus constants
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct ConsensusConstants {
-    /// Depth after which a block enters the recorded history.
+    /// Depth at which a block is confirmed and enters the recorded history.
+    ///
+    /// When block `n` is built, the block at `n - block_confirmation_depth` is confirmed, so the
+    /// largest possible reorg is `block_confirmation_depth - 1` blocks. Importing the next best
+    /// block (block number `best_number + 1`) confirms the block at
+    /// `best_number + 1 - block_confirmation_depth`, so fork blocks must be above it, and blocks
+    /// up to it are the same on every chain that can still be extended. This is why they can
+    /// be referenced by block number alone.
+    ///
+    /// With `block_confirmation_depth = 5` and `shard_confirmation_depth = 2`:
+    ///
+    /// ```text
+    /// block number
+    /// best_number + 1  next best block
+    /// best_number      best block
+    /// best_number - 3  deepest fork blocks
+    /// best_number - 4  confirmed once the next best block is imported  -+ read by the super
+    /// best_number - 5  confirmed                                        | segment derivation of
+    /// best_number - 6  confirmed                                       -+ the next best block
+    /// ```
+    ///
+    /// The block lifecycle in the database is shown on `ClientDatabaseOptions` in
+    /// `ab-client-database`.
     ///
     /// This is from the perspective of the individual shard, with additional confirmation on the
     /// beacon chain required for intermediate and leaf shards (see `shard_confirmation_depth`).
@@ -30,6 +54,11 @@ pub struct ConsensusConstants {
     /// Depth on the beacon chain in addition to `block_confirmation_depth` after intermediate or
     /// leaf shard information on the beacon chain is confirmed and corresponding segment roots
     /// become a part of the super segment.
+    ///
+    /// Segment roots included in the beacon chain block at
+    /// `n - block_confirmation_depth - shard_confirmation_depth` become a part of the super
+    /// segment of block `n` unless later beacon chain blocks up to `n - block_confirmation_depth`
+    /// show that their shard reorged them (see the diagram on `block_confirmation_depth`).
     ///
     /// This is separate from the block confirmation on the corresponding shard itself, which
     /// happens much sooner (see `block_confirmation_depth`), but can't be immediately trusted by
