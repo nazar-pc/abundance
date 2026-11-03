@@ -80,7 +80,12 @@ impl DeriveConsensusParametersConsensusInfo {
 ///
 /// Must have access to enough parent blocks.
 pub trait DeriveConsensusParametersChainInfo: Send + Sync {
-    /// Get header of ancestor block number for descendant block root
+    /// Get consensus info of the block at `ancestor_block_number` on the chain ending at
+    /// `descendant_block_root`.
+    ///
+    /// If `ancestor_block_number` is the descendant's own number, the descendant's consensus info
+    /// is returned. Returns `None` if `ancestor_block_number` is higher than the descendant's
+    /// number or if either block is not available.
     fn ancestor_header_consensus_info(
         &self,
         ancestor_block_number: BlockNumber,
@@ -293,6 +298,12 @@ where
 ///
 /// Must have access to enough parent blocks.
 pub trait ShardMembershipEntropySourceChainInfo: Send + Sync {
+    /// Get proof of time of the block at `ancestor_block_number` on the chain ending at
+    /// `descendant_block_root`.
+    ///
+    /// If `ancestor_block_number` is the descendant's own number, the descendant's proof of time
+    /// is returned. Returns `None` if `ancestor_block_number` is higher than the descendant's
+    /// number or if either block is not available.
     fn ancestor_header_proof_of_time(
         &self,
         ancestor_block_number: BlockNumber,
