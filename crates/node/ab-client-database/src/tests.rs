@@ -14,7 +14,7 @@ use futures::executor::block_on;
 /// Check that blocks up to the highest persisted block number survived reopening the database
 /// after the best block was at `best_number`, and that importing continues from there
 fn assert_persisted_chain(database: &Database, mut chain: Vec<BlockRoot>, best_number: u64) {
-    let persisted_best_number = highest_persisted_number(best_number);
+    let persisted_best_number = highest_persisted_number(database, best_number);
     chain.truncate(usize::try_from(persisted_best_number + 1).unwrap());
     assert_eq!(&database.best_root(), chain.last().unwrap());
     for block_root in &chain {
@@ -115,7 +115,10 @@ fn extend_and_reopen(
     assert_consistent(&database, new_best_number);
 
     let database = reopen(database, storage_backend);
-    assert_consistent(&database, highest_persisted_number(new_best_number));
+    assert_consistent(
+        &database,
+        highest_persisted_number(&database, new_best_number),
+    );
 
     database
 }
@@ -333,7 +336,7 @@ fn reopen_moves_best_chain_to_fork_offset_zero() {
 
     let database = reopen(database, &storage_backend);
 
-    let persisted_best_number = highest_persisted_number(9);
+    let persisted_best_number = highest_persisted_number(&database, 9);
     chain.truncate(usize::try_from(persisted_best_number + 1).unwrap());
     assert_best_chain(&database, &chain);
     assert!(database.header(&a4).is_some());
@@ -395,7 +398,7 @@ fn reopen_after_fork_at_every_height() {
         );
 
         let database = reopen(database, &storage_backend);
-        assert_consistent(&database, highest_persisted_number(best_number));
+        assert_consistent(&database, highest_persisted_number(&database, best_number));
         extend_and_reopen(database, &storage_backend, 10, 2);
     }
 }
@@ -414,7 +417,7 @@ fn reopen_after_reorg_before_persisting() {
     persist_chain(&database, a6, 7..=20, 1);
 
     let database = reopen(database, &storage_backend);
-    assert_consistent(&database, highest_persisted_number(20));
+    assert_consistent(&database, highest_persisted_number(&database, 20));
     let database = extend_and_reopen(database, &storage_backend, 10, 2);
     extend_and_reopen(database, &storage_backend, 10, 3);
 }
@@ -460,7 +463,7 @@ fn reopen_after_reorg_after_persisting() {
         persist_block(&database, best_number, fork_root, 1).unwrap();
 
         let database = reopen(database, &storage_backend);
-        assert_consistent(&database, highest_persisted_number(best_number));
+        assert_consistent(&database, highest_persisted_number(&database, best_number));
         let database = extend_and_reopen(database, &storage_backend, 10, 2);
         extend_and_reopen(database, &storage_backend, 10, 3);
     }
@@ -488,7 +491,7 @@ fn reopen_after_late_fork() {
         persist_chain(&database, best_root, best_number + 1..=20, 2);
 
         let database = reopen(database, &storage_backend);
-        assert_consistent(&database, highest_persisted_number(20));
+        assert_consistent(&database, highest_persisted_number(&database, 20));
         extend_and_reopen(database, &storage_backend, 10, 3);
     }
 }
@@ -507,7 +510,7 @@ fn consecutive_reopens_with_shallow_fork() {
     persist_chain(&database, chain[15], 16..=20, 0);
 
     let database = reopen(database, &storage_backend);
-    assert_consistent(&database, highest_persisted_number(20));
+    assert_consistent(&database, highest_persisted_number(&database, 20));
     let database = extend_and_reopen(database, &storage_backend, 10, 2);
     extend_and_reopen(database, &storage_backend, 10, 3);
 }
@@ -525,7 +528,7 @@ fn reopen_after_fork_at_reopened_top() {
         let database = open_database(&storage_backend);
         let mut chain = vec![database.best_root()];
         chain.extend(persist_chain(&database, chain[0], 1..=20, 0));
-        let persisted_best_number = highest_persisted_number(20);
+        let persisted_best_number = highest_persisted_number(&database, 20);
         let database = reopen(database, &storage_backend);
         assert_consistent(&database, persisted_best_number);
 
@@ -541,7 +544,7 @@ fn reopen_after_fork_at_reopened_top() {
         }
 
         let database = reopen(database, &storage_backend);
-        assert_consistent(&database, highest_persisted_number(20));
+        assert_consistent(&database, highest_persisted_number(&database, 20));
         let database = extend_and_reopen(database, &storage_backend, 10, 3);
         extend_and_reopen(database, &storage_backend, 10, 4);
     }
@@ -572,9 +575,9 @@ fn reopen_after_interrupted_writes() {
 
         // The new highest block number only reaches the disk with the second write
         let persisted_best_number = if num_writes < 2 {
-            highest_persisted_number(16)
+            highest_persisted_number(&database, 16)
         } else {
-            highest_persisted_number(17)
+            highest_persisted_number(&database, 17)
         };
         let database = reopen(database, &storage_backend);
         assert_consistent(&database, persisted_best_number);

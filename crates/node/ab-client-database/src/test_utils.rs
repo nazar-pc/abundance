@@ -1,7 +1,8 @@
 use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::{
-    ClientDatabase, ClientDatabaseFormatOptions, ClientDatabaseOptions, GenesisBlockBuilderResult,
+    ClientDatabase, ClientDatabaseError, ClientDatabaseFormatOptions, ClientDatabaseInnerOptions,
+    ClientDatabaseOptions, GenesisBlockBuilderResult,
 };
 use ab_client_api::{BlockDetails, ChainInfoWrite, PersistBlockError};
 use ab_core_primitives::block::header::{
@@ -31,9 +32,6 @@ use triomphe::Arc;
 
 const NUM_PAGES: usize = 4096;
 const PAGE_GROUP_SIZE: NonZeroU32 = NonZeroU32::new(256).unwrap();
-// Small enough to keep chains in tests short
-const BLOCK_CONFIRMATION_DEPTH: BlockNumber = BlockNumber::from(5);
-const SOFT_CONFIRMATION_DEPTH: BlockNumber = BlockNumber::from(3);
 
 /// In-memory storage backend, clones share the same pages, so a database can be reopened on them
 /// after the previous instance was dropped
@@ -190,24 +188,56 @@ fn genesis_block_builder() -> GenesisBlockBuilderResult<OwnedBeaconChainBlock> {
     }
 }
 
-/// Open the database on `storage_backend` with the test options
-pub(crate) fn open_database(storage_backend: &MemoryStorageBackend) -> Database {
-    block_on(Database::open(ClientDatabaseOptions {
+pub(crate) type DatabaseOptions = ClientDatabaseOptions<
+    fn() -> GenesisBlockBuilderResult<OwnedBeaconChainBlock>,
+    MemoryStorageBackend,
+>;
+
+/// Test options for a database on `storage_backend`
+pub(crate) fn database_options(storage_backend: &MemoryStorageBackend) -> DatabaseOptions {
+    ClientDatabaseOptions {
         write_buffer_size: 0,
-        block_confirmation_depth: BLOCK_CONFIRMATION_DEPTH,
-        soft_confirmation_depth: SOFT_CONFIRMATION_DEPTH,
+        // Small enough to keep chains in tests short
+        block_confirmation_depth: BlockNumber::from(5),
+        soft_confirmation_depth: BlockNumber::from(3),
         max_fork_tips: NonZeroUsize::new(3).unwrap(),
         max_fork_tip_distance: BlockNumber::from(5),
         genesis_block_builder,
         storage_backend: storage_backend.clone(),
-    }))
-    .unwrap()
+    }
 }
 
-/// Drop the database and open it again on the same storage backend
+/// Open the database with `options`
+pub(crate) fn open_database_with_options(
+    options: DatabaseOptions,
+) -> Result<Database, ClientDatabaseError> {
+    block_on(Database::open(options))
+}
+
+/// Open the database on `storage_backend` with the test options
+pub(crate) fn open_database(storage_backend: &MemoryStorageBackend) -> Database {
+    open_database_with_options(database_options(storage_backend)).unwrap()
+}
+
+/// Drop the database and open it again on the same storage backend with the same depths and fork
+/// tip limits
 pub(crate) fn reopen(database: Database, storage_backend: &MemoryStorageBackend) -> Database {
+    let ClientDatabaseInnerOptions {
+        block_confirmation_depth,
+        soft_confirmation_depth,
+        max_fork_tips,
+        max_fork_tip_distance,
+    } = database.inner.options;
     drop(database);
-    open_database(storage_backend)
+
+    open_database_with_options(DatabaseOptions {
+        block_confirmation_depth,
+        soft_confirmation_depth,
+        max_fork_tips,
+        max_fork_tip_distance,
+        ..database_options(storage_backend)
+    })
+    .unwrap()
 }
 
 /// Persist a block built by [`beacon_chain_block()`] and return its root
@@ -244,9 +274,9 @@ pub(crate) fn persist_chain(
         .collect()
 }
 
-/// Highest block number that is persisted while the best block is at `best_number`
-pub(crate) fn highest_persisted_number(best_number: u64) -> u64 {
-    best_number - u64::from(SOFT_CONFIRMATION_DEPTH)
+/// Highest block number of `database` that is persisted while the best block is at `best_number`
+pub(crate) fn highest_persisted_number(database: &Database, best_number: u64) -> u64 {
+    best_number - u64::from(database.inner.options.soft_confirmation_depth)
 }
 
 pub(crate) fn segment_header(local_segment_index: u64) -> SegmentHeader {
