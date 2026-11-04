@@ -188,6 +188,7 @@ struct MockChainState<Block> {
     blocks: HashMap<BlockRoot, Block>,
     best_root: BlockRoot,
     segment_headers: Vec<SegmentHeader>,
+    persisted_segment_indices: Vec<LocalSegmentIndex>,
     unreadable_blocks: HashSet<BlockRoot>,
     read_block_numbers: Vec<BlockNumber>,
 }
@@ -345,12 +346,15 @@ where
         &self,
         segment_headers: Vec<SegmentHeader>,
     ) -> impl Future<Output = Result<(), PersistSegmentHeadersError>> + Send {
-        future::ready(
-            self.state
-                .lock()
-                .unwrap()
-                .add_segment_headers(segment_headers),
-        )
+        let mut state = self.state.lock().unwrap();
+
+        state.persisted_segment_indices.extend(
+            segment_headers
+                .iter()
+                .map(|segment_header| segment_header.index.as_inner()),
+        );
+
+        future::ready(state.add_segment_headers(segment_headers))
     }
 }
 
@@ -368,6 +372,7 @@ where
                 blocks: HashMap::from([(first_block_root, first_block)]),
                 best_root: first_block_root,
                 segment_headers: Vec::new(),
+                persisted_segment_indices: Vec::new(),
                 unreadable_blocks: HashSet::new(),
                 read_block_numbers: Vec::new(),
             })),
@@ -407,6 +412,13 @@ where
 
     pub(crate) fn segment_headers(&self) -> Vec<SegmentHeader> {
         self.state.lock().unwrap().segment_headers.clone()
+    }
+
+    /// Local segment indices of segment headers persisted with
+    /// [`ChainInfoWrite::persist_segment_headers()`] so far, including those that were skipped
+    /// because they were stored already
+    pub(crate) fn persisted_segment_indices(&self) -> Vec<LocalSegmentIndex> {
+        self.state.lock().unwrap().persisted_segment_indices.clone()
     }
 
     /// Numbers of blocks that were read with [`ChainInfo::block()`] so far, which is how the

@@ -78,13 +78,6 @@ where
 {
     let max_local_segment_index = chain_info.last_segment_header()?.index.as_inner();
 
-    if max_local_segment_index == LocalSegmentIndex::ZERO {
-        // Only the first segment is stored, archive from the genesis block again. On the beacon
-        // chain that segment contains just the genesis block, on intermediate and leaf shards it
-        // contains more blocks, which are archived again too.
-        return None;
-    }
-
     for segment_header in (LocalSegmentIndex::ZERO..=max_local_segment_index)
         .rev()
         .filter_map(|segment_index| chain_info.get_segment_header(segment_index))

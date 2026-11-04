@@ -204,9 +204,9 @@ fn missing_block_is_an_error() {
     run(async {
         let block_confirmation_depth = BlockNumber::from(3);
         let block_builder = BeaconChainBlockBuilder::new(0);
-        // `c20` was inserted directly, but the only known segment header is that of segment 0
-        // with the genesis block, so re-initialization starts from the genesis block, which the
-        // chain doesn't have
+        // `c20` was inserted directly, but the only known segment header is that of segment 0,
+        // whose last archived block is the genesis block. The chain doesn't have it, so
+        // re-initialization can't resume from segment 0 and starts from the genesis block.
         let c20 = block_builder.block(BlockNumber::from(20), BlockRoot::default());
         let chain = MockChain::new(c20);
         chain
@@ -388,5 +388,193 @@ fn archives_leaf_shard_from_genesis() {
         assert_eq!(task.archived_segment_indices(), [LocalSegmentIndex::ZERO]);
         assert_eq!(segments(&chain.segment_headers()), [(0, 2)]);
         task.stop().await.unwrap();
+    });
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Archives segments of 128 MiB, too slow under Miri")]
+fn restart_resumes_from_first_segment() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = BeaconChainBlockBuilder::new(LARGE_BODY_SIZE);
+        let genesis_block = block_builder.genesis();
+        let c1 = block_builder.child(&genesis_block);
+        let c2 = block_builder.child(&c1);
+        let c3 = block_builder.child(&c2);
+        let c4 = block_builder.child(&c3);
+        let c5 = block_builder.child(&c4);
+        let c6 = block_builder.child(&c5);
+
+        // Segment 1 ends in `c3`, which is archived when `c6` is about to be imported
+        let reference_chain = MockChain::new(genesis_block.clone());
+        let mut task = ArchiverTask::start(&reference_chain, block_confirmation_depth)
+            .await
+            .unwrap();
+        for block in [&c1, &c2, &c3, &c4, &c5, &c6] {
+            task.import(block.clone()).await;
+        }
+        task.stop().await.unwrap();
+        assert_eq!(
+            segments(&reference_chain.segment_headers()),
+            [(0, 0), (1, 3)]
+        );
+
+        // Only segment 0 is stored when the node restarts. Re-initialization resumes from it
+        // instead of creating it again, and archives `c1` again:
+        //
+        // block being imported  c1  c2  c3  c4  (restart)  c5  c6
+        // block to archive       -   -   -  c1         c1  c2  c3
+        // segment archived                                      1
+        let chain = MockChain::new(genesis_block);
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+        for block in [c1, c2, c3, c4] {
+            task.import(block).await;
+        }
+        task.stop().await.unwrap();
+        assert_eq!(segments(&chain.segment_headers()), [(0, 0)]);
+
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+        for block in [c5, c6] {
+            task.import(block).await;
+        }
+        let archived_segment_indices = task.archived_segment_indices();
+        task.stop().await.unwrap();
+
+        assert_eq!(archived_segment_indices, [LocalSegmentIndex::ONE]);
+        assert_eq!(
+            chain.persisted_segment_indices(),
+            [LocalSegmentIndex::ZERO, LocalSegmentIndex::ONE]
+        );
+        assert_eq!(chain.segment_headers(), reference_chain.segment_headers());
+    });
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Archives segments of 128 MiB, too slow under Miri")]
+fn continues_after_leaf_shard_block_inserted_by_snap_sync() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = LeafShardBlockBuilder::new(LARGE_BODY_SIZE);
+        let genesis_block = block_builder.genesis();
+        let c1 = block_builder.child(&genesis_block);
+        let c2 = block_builder.child(&c1);
+        let c3 = block_builder.child(&c2);
+        let c4 = block_builder.child(&c3);
+        let c5 = block_builder.child(&c4);
+        let c6 = block_builder.child(&c5);
+        let c7 = block_builder.child(&c6);
+        let c8 = block_builder.child(&c7);
+
+        // Segment 0 ends in the middle of `c2` and segment 1 in the middle of `c5`, which are
+        // archived when `c5` and `c8` are about to be imported
+        let reference_chain = MockChain::new(genesis_block.clone());
+        let mut task = ArchiverTask::start(&reference_chain, block_confirmation_depth)
+            .await
+            .unwrap();
+        for block in [&c1, &c2, &c3, &c4, &c5, &c6, &c7, &c8] {
+            task.import(block.clone()).await;
+        }
+        task.stop().await.unwrap();
+        assert_eq!(
+            segments(&reference_chain.segment_headers()),
+            [(0, 2), (1, 5)]
+        );
+
+        let chain = MockChain::new(genesis_block);
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+
+        // Snap sync stores the header of segment 0, which is the only known segment, then inserts
+        // `c2` directly, without its ancestors:
+        //
+        // genesis   (missing)   c2 - c3 - .. - c8
+        chain
+            .persist_segment_headers(vec![
+                reference_chain
+                    .get_segment_header(LocalSegmentIndex::ZERO)
+                    .unwrap(),
+            ])
+            .await
+            .unwrap();
+        chain.add_block(c2);
+
+        // Blocks below `c2` are skipped, segment 0 ends in `c2` and is found by re-initialization
+        // when `c5` is about to be imported. Archiving continues from the part of `c2` that
+        // segment 0 doesn't contain, and segment 1 is the same as without Snap sync:
+        //
+        // block being imported  c3  c4  c5  c6  c7  c8
+        // block to archive       0   1   2   3   4   5
+        //                        \---/   |   \-------/
+        //                       skipped  |    archived
+        //                                found by re-initialization
+        // segment archived                           1
+        for block in [c3, c4, c5, c6, c7, c8] {
+            task.import(block).await;
+        }
+        let archived_segment_indices = task.archived_segment_indices();
+        task.stop().await.unwrap();
+
+        assert_eq!(archived_segment_indices, [LocalSegmentIndex::ONE]);
+        assert_eq!(chain.segment_headers(), reference_chain.segment_headers());
+    });
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Archives segments of 128 MiB, too slow under Miri")]
+fn restart_archives_from_genesis_when_first_segment_ends_above_blocks_to_archive() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = LeafShardBlockBuilder::new(LARGE_BODY_SIZE);
+        let genesis_block = block_builder.genesis();
+        let c1 = block_builder.child(&genesis_block);
+        let c2 = block_builder.child(&c1);
+        let c3 = block_builder.child(&c2);
+        let c4 = block_builder.child(&c3);
+        let c5 = block_builder.child(&c4);
+
+        // Segment 0 ends in the middle of `c2`, which is archived when `c5` is about to be imported
+        let chain = MockChain::new(genesis_block.clone());
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+        for block in [&c1, &c2, &c3, &c4, &c5] {
+            task.import(block.clone()).await;
+        }
+        task.stop().await.unwrap();
+        assert_eq!(segments(&chain.segment_headers()), [(0, 2)]);
+
+        // After a restart `c5` is gone, so `c2` is above the blocks that re-initialization
+        // archives, and it can't resume from segment 0. It archives blocks up to `c1` from the
+        // genesis block instead, and segment 0 is created and announced again when `c5` is
+        // imported again:
+        //
+        // block being imported  c5
+        // block to archive      c2
+        // segment announced      0
+        let chain_after_restart = MockChain::new(genesis_block);
+        for block in [c1, c2, c3, c4] {
+            chain_after_restart.add_block(block);
+        }
+        chain_after_restart
+            .persist_segment_headers(chain.segment_headers())
+            .await
+            .unwrap();
+        let mut task = ArchiverTask::start(&chain_after_restart, block_confirmation_depth)
+            .await
+            .unwrap();
+        task.import(c5).await;
+        let archived_segment_indices = task.archived_segment_indices();
+        task.stop().await.unwrap();
+
+        assert_eq!(archived_segment_indices, [LocalSegmentIndex::ZERO]);
+        assert_eq!(
+            chain_after_restart.segment_headers(),
+            chain.segment_headers()
+        );
     });
 }
