@@ -1024,10 +1024,22 @@ impl<'a> BeaconChainBody<'a> {
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
+        self.root_with_intermediate_shard_blocks_root(
+            &self.intermediate_shard_blocks.headers_root(),
+        )
+    }
+
+    /// The same as [`Self::root()`], but with an already computed
+    /// [`IntermediateShardBlocksInfo::headers_root()`], which is expensive to compute
+    #[inline]
+    pub(crate) fn root_with_intermediate_shard_blocks_root(
+        &self,
+        intermediate_shard_blocks_root: &Blake3Hash,
+    ) -> Blake3Hash {
         let root = BeaconChainBodyMerkleTree::compute_root_only(&[
             *self.own_segments.as_ref().map_or_default(OwnSegments::root),
             *self.intermediate_shard_blocks.segments_root(),
-            *self.intermediate_shard_blocks.headers_root(),
+            **intermediate_shard_blocks_root,
             blake3::hash(PotCheckpoints::bytes_from_slice(self.pot_checkpoints).as_flattened())
                 .into(),
         ]);
@@ -1546,10 +1558,20 @@ impl<'a> IntermediateShardBody<'a> {
     /// Compute block body root
     #[inline]
     pub fn root(&self) -> Blake3Hash {
+        self.root_with_leaf_shard_blocks_root(&self.leaf_shard_blocks.headers_root())
+    }
+
+    /// The same as [`Self::root()`], but with an already computed
+    /// [`LeafShardBlocksInfo::headers_root()`], which is expensive to compute
+    #[inline]
+    pub(crate) fn root_with_leaf_shard_blocks_root(
+        &self,
+        leaf_shard_blocks_root: &Blake3Hash,
+    ) -> Blake3Hash {
         intermediate_shard_body_root(
             self.own_segments.as_ref(),
             &self.leaf_shard_blocks.segments_root(),
-            &self.leaf_shard_blocks.headers_root(),
+            leaf_shard_blocks_root,
         )
     }
 }

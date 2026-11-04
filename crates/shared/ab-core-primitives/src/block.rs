@@ -373,9 +373,14 @@ impl<'a> BeaconChainBlock<'a> {
     /// consistency is checked separately.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        self.body.root() == self.header.result.body_root
-            && *self.header.intermediate_shard_blocks_root()
-                == self.body.intermediate_shard_blocks().headers_root()
+        // Header roots of intermediate shard blocks are expensive to compute, so they are only
+        // computed once for both the header field and the body root
+        let intermediate_shard_blocks_root = self.body.intermediate_shard_blocks().headers_root();
+
+        self.body
+            .root_with_intermediate_shard_blocks_root(&intermediate_shard_blocks_root)
+            == self.header.result.body_root
+            && *self.header.intermediate_shard_blocks_root() == intermediate_shard_blocks_root
             && self
                 .body
                 .intermediate_shard_blocks()
@@ -491,8 +496,14 @@ impl<'a> IntermediateShardBlock<'a> {
     /// consistency is checked separately.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        self.body.root() == self.header.result.body_root
-            && *self.header.leaf_shard_blocks_root() == self.body.leaf_shard_blocks().headers_root()
+        // Header roots of leaf shard blocks are expensive to compute, so they are only computed
+        // once for both the header field and the body root
+        let leaf_shard_blocks_root = self.body.leaf_shard_blocks().headers_root();
+
+        self.body
+            .root_with_leaf_shard_blocks_root(&leaf_shard_blocks_root)
+            == self.header.result.body_root
+            && *self.header.leaf_shard_blocks_root() == leaf_shard_blocks_root
             && self
                 .body
                 .leaf_shard_blocks()
