@@ -33,7 +33,7 @@ use crate::trees::{
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use core::num::{NonZeroU16, NonZeroU32};
 use core::ptr;
-use std::{iter, slice};
+use std::{assert_matches, iter, slice};
 
 fn transaction_header() -> TransactionHeader {
     TransactionHeader {
@@ -832,10 +832,10 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
         own_segments: Some(OwnSegments::new(*first_local_segment_index, segment_roots).unwrap()),
     };
     new_body(vec![block_info(&block.transactions_root)]).unwrap();
-    assert!(matches!(
+    assert_matches!(
         new_body(vec![block_info(&Blake3Hash::new([0xff; _]))]),
         Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
-    ));
+    );
 
     // Blocks of a parsed body, which are in order there
     let bytes = intermediate_shard_body_bytes(Some(&segments(3, 1)), &leaf_shard_blocks);
@@ -844,10 +844,10 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
     new_body(infos.clone()).unwrap();
     // Block numbers of the same shard and then shard indices out of order
     for (first, second) in [(1, 0), (2, 0)] {
-        assert!(matches!(
+        assert_matches!(
             new_body(vec![infos[first].clone(), infos[second].clone()]),
             Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
-        ));
+        );
     }
 }
 
@@ -859,10 +859,10 @@ fn assert_inconsistent_leaf_shard_blocks(leaf_shard_blocks: &[TestLeafShardBlock
 
     let (body, _remainder) =
         IntermediateShardBody::try_from_bytes_unchecked(bytes.as_slice()).unwrap();
-    assert!(matches!(
+    assert_matches!(
         OwnedIntermediateShardBody::new(iter::empty(), body.leaf_shard_blocks().iter()),
         Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
-    ));
+    );
 }
 
 #[test]
@@ -923,17 +923,17 @@ fn owned_beacon_chain_body_with_inconsistent_intermediate_shard_blocks() {
     );
     let mut info = infos[1].clone();
     info.header = header.header().clone();
-    assert!(matches!(
+    assert_matches!(
         new_body(vec![info]),
         Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
-    ));
+    );
 
     // Block numbers of the same shard and then shard indices out of order
     for (first, second) in [(1, 0), (2, 0)] {
-        assert!(matches!(
+        assert_matches!(
             new_body(vec![infos[first].clone(), infos[second].clone()]),
             Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
-        ));
+        );
     }
 }
 
@@ -968,10 +968,10 @@ fn beacon_chain_body_checks_segments_against_the_header_root() {
         assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
         let (body, _remainder) =
             BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).unwrap();
-        assert!(matches!(
+        assert_matches!(
             OwnedBeaconChainBody::new(iter::empty(), body.intermediate_shard_blocks().iter(), &[]),
             Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
-        ));
+        );
     }
 }
 
@@ -1127,10 +1127,10 @@ fn assert_inconsistent_intermediate_shard_block(
     let body = BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice());
     assert_eq!(body.is_some(), structurally_valid);
     if let Some((body, _remainder)) = body {
-        assert!(matches!(
+        assert_matches!(
             OwnedBeaconChainBody::new(iter::empty(), body.intermediate_shard_blocks().iter(), &[]),
             Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
-        ));
+        );
     }
 }
 
@@ -1485,24 +1485,24 @@ fn owned_bodies_with_local_segment_indices_near_u64_max() {
                 &own_segments,
             );
         } else {
-            assert!(matches!(
+            assert_matches!(
                 beacon_chain_body,
                 Err(OwnedBeaconChainBodyError::OwnSegmentIndexOverflow {
                     first_local_segment_index: index,
                 }) if index == first_local_segment_index
-            ));
-            assert!(matches!(
+            );
+            assert_matches!(
                 intermediate_shard_body,
                 Err(OwnedIntermediateShardBodyError::OwnSegmentIndexOverflow {
                     first_local_segment_index: index,
                 }) if index == first_local_segment_index
-            ));
-            assert!(matches!(
+            );
+            assert_matches!(
                 leaf_shard_body,
                 Err(OwnedLeafShardBodyError::OwnSegmentIndexOverflow {
                     first_local_segment_index: index,
                 }) if index == first_local_segment_index
-            ));
+            );
         }
     }
 }
@@ -1546,26 +1546,26 @@ fn owned_bodies_with_non_consecutive_local_segment_indices() {
         };
         let previous = LocalSegmentIndex::from(previous);
         let unexpected = LocalSegmentIndex::from(unexpected);
-        assert!(matches!(
+        assert_matches!(
             beacon_chain_body,
             Err(OwnedBeaconChainBodyError::NonConsecutiveOwnSegmentIndices {
                 previous_local_segment_index,
                 local_segment_index,
             }) if previous_local_segment_index == previous && local_segment_index == unexpected
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             intermediate_shard_body,
             Err(OwnedIntermediateShardBodyError::NonConsecutiveOwnSegmentIndices {
                 previous_local_segment_index,
                 local_segment_index,
             }) if previous_local_segment_index == previous && local_segment_index == unexpected
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             leaf_shard_body,
             Err(OwnedLeafShardBodyError::NonConsecutiveOwnSegmentIndices {
                 previous_local_segment_index,
                 local_segment_index,
             }) if previous_local_segment_index == previous && local_segment_index == unexpected
-        ));
+        );
     }
 }

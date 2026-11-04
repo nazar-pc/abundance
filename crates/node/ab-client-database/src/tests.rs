@@ -12,6 +12,7 @@ use ab_client_api::{
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{LocalSegmentIndex, SuperSegmentIndex};
 use futures::executor::block_on;
+use std::assert_matches;
 use std::num::NonZeroUsize;
 
 /// Check that blocks up to the highest persisted block number survived reopening the database
@@ -243,10 +244,10 @@ fn pruned_fork_tip_is_unknown() {
     let [b3, d3] = [2, 3].map(|salt| persist_block(&database, 3, chain[2], salt).unwrap());
 
     assert!(database.header(&a3).is_none());
-    assert!(matches!(
+    assert_matches!(
         block_on(database.block(&a3)),
         Err(ReadBlockError::UnknownBlockRoot)
-    ));
+    );
     for block_root in [b3, d3] {
         assert!(database.header(&block_root).is_some());
         block_on(database.block(&block_root)).unwrap();
@@ -393,10 +394,10 @@ fn block_with_unknown_parent_is_rejected() {
 
     // With only the genesis block and with more blocks in memory
     for number in 1..=2 {
-        assert!(matches!(
+        assert_matches!(
             persist_block(&database, number, unknown_root, 0),
             Err(PersistBlockError::MissingParent)
-        ));
+        );
         persist_block(&database, number, database.best_root(), 0).unwrap();
     }
     assert_eq!(
@@ -423,10 +424,10 @@ fn fork_with_unknown_parent_is_rejected() {
     assert!(database.header(&a3).is_none());
     chain.push(persist_block(&database, 4, chain[3], 0).unwrap());
 
-    assert!(matches!(
+    assert_matches!(
         persist_block(&database, 4, a3, 1),
         Err(PersistBlockError::MissingParent)
-    ));
+    );
     assert_best_chain(&database, &chain);
 }
 
@@ -722,10 +723,10 @@ fn forks_are_only_accepted_above_fork_pruning_block_offset() {
         0,
     ));
 
-    assert!(matches!(
+    assert_matches!(
         persist_block(&database, 4, chain[3], 1),
         Err(PersistBlockError::OutsideAcceptableRange)
-    ));
+    );
     assert_best_chain(&database, &chain);
 
     let mut fork_chain = chain[..=4].to_vec();
@@ -767,10 +768,10 @@ fn forks_at_fork_pruning_block_offset_are_pruned_with_descendants() {
     for block_root in fork_chain.iter().chain([&d3]) {
         assert!(database.header(block_root).is_none());
     }
-    assert!(matches!(
+    assert_matches!(
         persist_block(&database, 5, fork_chain[2], 1),
         Err(PersistBlockError::MissingParent)
-    ));
+    );
     assert!(database.header(&b5).is_some());
     persist_block(&database, 6, b5, 3).unwrap();
     assert_best_chain(&database, &chain);
@@ -843,11 +844,11 @@ fn reopen_prunes_forks_at_fork_pruning_block_offset() {
     assert_consistent(&database, persisted_best_number);
     chain.truncate(usize::try_from(persisted_best_number + 1).unwrap());
     assert!(database.header(&a5).is_none());
-    assert!(matches!(
+    assert_matches!(
         persist_block(&database, 6, a5, 1),
         Err(PersistBlockError::MissingParent)
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         persist_block(
             &database,
             persisted_best_number + 1 - block_confirmation_depth,
@@ -855,7 +856,7 @@ fn reopen_prunes_forks_at_fork_pruning_block_offset() {
             2
         ),
         Err(PersistBlockError::OutsideAcceptableRange)
-    ));
+    );
 
     let mut fork_chain = chain[..=5].to_vec();
     fork_chain.extend(persist_chain(
@@ -878,11 +879,9 @@ fn block_confirmation_depth_must_be_at_least_two() {
     };
 
     for block_confirmation_depth in [0, 1] {
-        assert!(
-            matches!(
-                open_database_with_options(options_with_depth(block_confirmation_depth)),
-                Err(ClientDatabaseError::InvalidBlockConfirmationDepth)
-            ),
+        assert_matches!(
+            open_database_with_options(options_with_depth(block_confirmation_depth)),
+            Err(ClientDatabaseError::InvalidBlockConfirmationDepth),
             "{block_confirmation_depth}"
         );
     }
@@ -895,13 +894,13 @@ fn soft_confirmation_depth_must_be_smaller_than_block_confirmation_depth() {
     let options = database_options(&storage_backend);
     let block_confirmation_depth = options.block_confirmation_depth;
 
-    assert!(matches!(
+    assert_matches!(
         open_database_with_options(DatabaseOptions {
             soft_confirmation_depth: block_confirmation_depth,
             ..options.clone()
         }),
         Err(ClientDatabaseError::InvalidSoftConfirmationDepth)
-    ));
+    );
     open_database_with_options(DatabaseOptions {
         soft_confirmation_depth: block_confirmation_depth - BlockNumber::ONE,
         ..options
@@ -1030,10 +1029,10 @@ fn fork_beyond_max_fork_tip_distance_is_pruned_before_it_is_written() {
     for block_root in [a4, a5] {
         assert!(database.header(&block_root).is_none());
     }
-    assert!(matches!(
+    assert_matches!(
         persist_block(&database, 6, a5, 1),
         Err(PersistBlockError::MissingParent)
-    ));
+    );
 
     chain.extend(persist_chain(&database, chain[7], 8..=9, 0));
     let database = reopen(database, &storage_backend);

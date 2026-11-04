@@ -8,6 +8,7 @@ use ab_core_primitives::shard::ShardIndex;
 use ab_executor_native::NativeExecutor;
 use ab_system_contract_code::CodeExt;
 use ab_system_contract_native_token::{NativeToken, NativeTokenExt};
+use core::assert_matches;
 
 #[test]
 fn basic() {
@@ -129,9 +130,9 @@ fn basic() {
         }
 
         // Can't transfer from `bob` when transaction is authored by `alice`
-        assert!(matches!(
+        assert_matches!(
             env.fungible_transfer(MethodContext::Keep, token_address, &bob, &alice, &amount),
             Err(ContractError::Forbidden)
-        ));
+        );
     });
 }

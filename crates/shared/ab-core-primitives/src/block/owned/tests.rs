@@ -26,8 +26,8 @@ use crate::transaction::{Gas, TransactionHeader};
 use crate::trees::ChildLeafShardBlocksMerkleTree;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use core::iter::TrustedLen;
-use std::iter;
 use std::num::{NonZeroU16, NonZeroU32};
+use std::{assert_matches, iter};
 
 fn prefix(shard_index: ShardIndex) -> BlockHeaderPrefix {
     BlockHeaderPrefix {
@@ -344,10 +344,10 @@ fn intermediate_shard_blocks_check_leaf_shard_blocks_without_segments() {
 
     init(&transactions_root).unwrap();
     // The root of transactions of a leaf shard block without transactions
-    assert!(matches!(
+    assert_matches!(
         init(&Blake3Hash::default()),
         Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
-    ));
+    );
 }
 
 #[test]

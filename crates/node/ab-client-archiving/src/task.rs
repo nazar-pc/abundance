@@ -13,14 +13,17 @@
 //! need to know what the correct archival history of the blockchain looks like through
 //! [`ChainInfo`]. For example, it is used during node sync and farmer plotting to verify pieces of
 //! archival history received from other network participants. Future segment header might also be
-//! already known in the case of syncing from DSN.
+//! already known in the case of Snap sync.
 //!
 //! [`encode_block`] and [`decode_block`] are symmetric encoding/decoding functions turning
 //! Blocks into bytes and back.
 
+#[cfg(test)]
+mod tests;
+
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, NewArchivedSegment};
-use ab_client_api::{ChainInfo, ChainInfoWrite, PersistSegmentHeadersError};
+use ab_client_api::{ChainInfo, ChainInfoWrite, PersistSegmentHeadersError, ReadBlockError};
 use ab_client_consensus_common::{BlockImportingNotification, ConsensusConstants};
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
@@ -74,11 +77,6 @@ where
     CI: ChainInfo<Block>,
 {
     let max_local_segment_index = chain_info.last_segment_header()?.index.as_inner();
-
-    if max_local_segment_index == LocalSegmentIndex::ZERO {
-        // Just genesis, nothing else to check
-        return None;
-    }
 
     for segment_header in (LocalSegmentIndex::ZERO..=max_local_segment_index)
         .rev()
@@ -202,6 +200,28 @@ pub enum SegmentArchiverTaskError {
         #[from]
         error: PersistSegmentHeadersError,
     },
+    /// Block that must be archived is missing in the chain
+    #[error("Block {block_number} that must be archived is missing in the chain")]
+    BlockMissing {
+        /// Block number
+        block_number: BlockNumber,
+    },
+    /// Failed to read a block that must be archived
+    #[error("Failed to read block {block_number} that must be archived: {error}")]
+    ReadBlock {
+        /// Block number
+        block_number: BlockNumber,
+        /// Low-level error
+        error: ReadBlockError,
+    },
+    /// Encoded block is too large to archive
+    #[error("Encoded block {block_number} is too large to archive: {size} bytes")]
+    BlockTooLarge {
+        /// Block number
+        block_number: BlockNumber,
+        /// Encoded block size in bytes
+        size: usize,
+    },
     /// Attempt to switch to a different fork beyond archiving depth
     #[error(
         "Attempt to switch to a different fork beyond archiving depth: parent block root \
@@ -213,13 +233,11 @@ pub enum SegmentArchiverTaskError {
         /// Best archived block root
         best_archived_block_root: BlockRoot,
     },
-    /// There was a gap in blockchain history, and the last contiguous series of blocks doesn't
-    /// start with the archived segment
+    /// Re-initialization left a gap before the block to archive
     #[error(
-        "There was a gap in blockchain history, and the last contiguous series of blocks doesn't \
-        start with the archived segment (best archived block number {best_archived_block_number}, \
-        block number to archive {block_number_to_archive}), block about to be imported \
-        {importing_block_number})"
+        "Re-initialization left a gap before the block to archive (best archived block number \
+        {best_archived_block_number}, block number to archive {block_number_to_archive}, block \
+        about to be imported {importing_block_number})"
     )]
     BlockGap {
         /// Best archived block number
@@ -257,8 +275,8 @@ where
             .is_none()
     }) {
         // If there are blocks missing headers between best block to archive and best block of the
-        // blockchain it means newer block was inserted in some special way and as such is by
-        // definition valid, so we can simply assume that is our best block to archive instead
+        // blockchain it means newer block was inserted by Snap sync and as such is by definition
+        // valid, so we can simply assume that is our best block to archive instead
         best_block_to_archive = best_block_number;
     }
 
@@ -303,7 +321,8 @@ where
             )
         };
 
-    // Process blocks since last fully archived block up to the current head minus K
+    // Process blocks since last fully archived block up to
+    // `best_block_number - block_confirmation_depth`
     {
         let blocks_to_archive_from = archiver
             .last_archived_block_number()
@@ -327,14 +346,21 @@ where
             );
 
             for block_number_to_archive in blocks_to_archive_from..=blocks_to_archive_to {
+                // Blocks are missing if segment headers don't match the chain, for example when
+                // Snap sync didn't store them first (see `create_segment_archiver_task()`)
                 let header = chain_info
                     .ancestor_header(block_number_to_archive, &best_block_root)
-                    .expect("All blocks since last archived must be present; qed");
+                    .ok_or(SegmentArchiverTaskError::BlockMissing {
+                        block_number: block_number_to_archive,
+                    })?;
 
                 let block = chain_info
                     .block(&header.header().root())
                     .await
-                    .expect("All blocks since last archived must be present; qed");
+                    .map_err(|error| SegmentArchiverTaskError::ReadBlock {
+                        block_number: block_number_to_archive,
+                        error,
+                    })?;
 
                 let encoded_block = encode_block(&block);
 
@@ -344,9 +370,13 @@ where
                     ByteSize::b(encoded_block.len() as u64).display().iec(),
                 );
 
-                let block_outcome = archiver
-                    .add_block(encoded_block, Vec::new())
-                    .expect("Block is never empty and doesn't exceed u32; qed");
+                let encoded_block_size = encoded_block.len();
+                let block_outcome = archiver.add_block(encoded_block, Vec::new()).ok_or(
+                    SegmentArchiverTaskError::BlockTooLarge {
+                        block_number: block_number_to_archive,
+                        size: encoded_block_size,
+                    },
+                )?;
                 let new_segment_headers: Vec<SegmentHeader> = block_outcome
                     .archived_segments
                     .iter()
@@ -376,7 +406,7 @@ where
 // TODO: Public API for re-archiving of blocks with ability to produce object mappings
 /// Create a segment archiver task.
 ///
-/// Archiver task will listen for importing blocks and archive blocks at `K` depth, producing pieces
+/// Archiver task will listen for importing blocks and archive confirmed blocks, producing pieces
 /// and segment headers. It produces local segments initially, which after confirmation by the
 /// beacon chain will be updated with the necessary proof and given a global segment index.
 ///
@@ -394,7 +424,15 @@ where
 ///
 /// Once a new segment is archived, a notification (`archived_segment_notification_sender`) will be
 /// sent and archiver will be paused until all receivers have provided an acknowledgement for it (or
-/// a very generous timeout has passed).
+/// a very generous timeout has passed). After a restart, a segment that was already announced can
+/// be announced again: blocks that the database didn't write to disk yet (above its
+/// `soft_confirmation_depth`) are lost and imported again, and the blocks they confirm are archived
+/// again.
+///
+/// Snap sync must store all known segment headers before any block is imported, and a block that it
+/// inserts directly, without its ancestors, must be the last archived block of one of those
+/// segments. Re-initialization then resumes archiving from the latest of those segments whose last
+/// archived block is in the chain.
 pub async fn create_segment_archiver_task<Block, CI>(
     chain_info: CI,
     mut block_importing_notification_receiver: mpsc::Receiver<BlockImportingNotification>,
@@ -449,28 +487,31 @@ where
                 continue;
             };
 
-            let last_archived_block_number = chain_info
+            // There is no segment header yet when the genesis block doesn't fill a segment, which
+            // is the case on intermediate and leaf shards
+            let maybe_last_archived_block_number = chain_info
                 .last_segment_header()
-                .expect("Exists after archiver initialization; qed")
-                .last_archived_block
-                .number();
+                .map(|last_segment_header| last_segment_header.last_archived_block.number());
             trace!(
                 %importing_block_number,
                 %block_number_to_archive,
                 %best_archived_block_number,
-                %last_archived_block_number,
+                last_archived_block_number = ?maybe_last_archived_block_number,
                 "Checking if block needs to be skipped"
             );
 
             // Skip archived blocks
-            let skip_last_archived_blocks = last_archived_block_number > block_number_to_archive;
+            let skip_last_archived_blocks =
+                maybe_last_archived_block_number.is_some_and(|last_archived_block_number| {
+                    last_archived_block_number > block_number_to_archive
+                });
             if best_archived_block_number >= block_number_to_archive || skip_last_archived_blocks {
                 // This block was already archived, skip
                 debug!(
                     %importing_block_number,
                     %block_number_to_archive,
                     %best_archived_block_number,
-                    %last_archived_block_number,
+                    last_archived_block_number = ?maybe_last_archived_block_number,
                     "Skipping already archived block",
                 );
                 continue;
@@ -478,10 +519,11 @@ where
 
             let best_block_root = chain_info.best_root();
 
-            // In case there was a block gap, re-initialize archiver and continue with the current
-            // block number (rather than block number at some depth) to allow for special sync
-            // modes where pre-verified blocks are inserted at some point in the future comparing to
-            // previously existing blocks
+            // The best archived block is behind the block to archive when Snap sync inserted a
+            // block directly, or when blocks below the last archived block of the last stored
+            // segment were skipped above (after a restart that lost blocks, for example).
+            // Re-initialize the archiver from stored segments and the chain (see
+            // `create_segment_archiver_task()`).
             if best_archived_block_number + BlockNumber::ONE != block_number_to_archive {
                 let initialize_archiver_fut = initialize_archiver(
                     &chain_info,
@@ -496,19 +538,14 @@ where
                 if best_archived_block_number + BlockNumber::ONE == block_number_to_archive {
                     // As expected, can archive this block
                 } else if best_archived_block_number >= block_number_to_archive {
-                    // Special sync mode where verified blocks were inserted into the blockchain
-                    // directly, archiving of this block will naturally happen later
-                    continue;
-                } else if chain_info
-                    .ancestor_header(importing_block_number - BlockNumber::ONE, &best_block_root)
-                    .is_none()
-                {
-                    // We may have imported some block using special sync mode, so the block about
-                    // to be imported is the first one after the gap at which archiver is supposed
-                    // to be initialized, but we are only about to import it, so wait for the next
-                    // block for now
+                    // This block was already archived, skip
                     continue;
                 } else {
+                    // Re-initialization leaves the best archived block at
+                    // `best_block_number - block_confirmation_depth` or higher, and the best block
+                    // it reads is the parent of the block being imported, so there can't be a gap
+                    // here unless there is a logic error elsewhere. A block that Snap sync inserts
+                    // directly is found archived, since its segment header is stored first.
                     return Err(SegmentArchiverTaskError::BlockGap {
                         best_archived_block_number,
                         block_number_to_archive,
@@ -547,7 +584,9 @@ where
 {
     let header = chain_info
         .ancestor_header(block_number_to_archive, best_block_root)
-        .expect("All blocks since last archived must be present; qed");
+        .ok_or(SegmentArchiverTaskError::BlockMissing {
+            block_number: block_number_to_archive,
+        })?;
 
     let parent_block_root = header.header().prefix.parent_root;
     if parent_block_root != best_archived_block_root {
@@ -562,7 +601,10 @@ where
     let block = chain_info
         .block(&block_root_to_archive)
         .await
-        .expect("All blocks since last archived must be present; qed");
+        .map_err(|error| SegmentArchiverTaskError::ReadBlock {
+            block_number: block_number_to_archive,
+            error,
+        })?;
 
     debug!("Archiving block {block_number_to_archive} ({block_root_to_archive})");
 
@@ -572,9 +614,13 @@ where
         ByteSize::b(encoded_block.len() as u64).display().iec(),
     );
 
-    let block_outcome = archiver
-        .add_block(encoded_block, Vec::new())
-        .expect("Block is never empty and doesn't exceed u32; qed");
+    let encoded_block_size = encoded_block.len();
+    let block_outcome = archiver.add_block(encoded_block, Vec::new()).ok_or(
+        SegmentArchiverTaskError::BlockTooLarge {
+            block_number: block_number_to_archive,
+            size: encoded_block_size,
+        },
+    )?;
     for archived_segment in block_outcome.archived_segments {
         let segment_header = archived_segment.segment_header;
 

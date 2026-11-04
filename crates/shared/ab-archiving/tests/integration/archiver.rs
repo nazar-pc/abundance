@@ -500,14 +500,6 @@ fn archiver() {
 fn invalid_usage() {
     let erasure_coding = ErasureCoding::new();
     {
-        assert!(
-            Archiver::new(TEST_SHARD_INDEX, erasure_coding.clone())
-                .add_block(Vec::new(), Vec::new())
-                .is_none(),
-            "Empty block is not allowed"
-        );
-    }
-    {
         let result = Archiver::with_initial_state(
             TEST_SHARD_INDEX,
             erasure_coding.clone(),
