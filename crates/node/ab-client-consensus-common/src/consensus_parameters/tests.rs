@@ -1,4 +1,6 @@
-use crate::consensus_parameters::derive_super_segments_for_block;
+use crate::consensus_parameters::{
+    derive_super_segments_for_block, shard_membership_entropy_source,
+};
 use crate::test_utils::MockBeaconChain;
 use ab_client_api::{ChainInfo, ShardSegmentRoot};
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
@@ -97,4 +99,48 @@ fn super_segment_of_deepest_fork_is_derived_from_own_ancestry() {
         Some([7, 8].as_slice())
     );
     assert_eq!(derived, derived_from_own_ancestry);
+}
+
+#[test]
+fn shard_membership_entropy_is_taken_from_own_ancestry() {
+    // genesis - c1 .. c3 -+- c4 .. c10 (best block)
+    //                     \- a4 .. a9
+    //
+    // With these shard rotation parameters the entropy source of block numbers 10 and 11 is block
+    // number 8, so `a10` on top of `a9` must use `a8` rather than `c8` on the best chain
+    let shard_rotation_interval = BlockNumber::from(4);
+    let shard_rotation_delay = BlockNumber::from(2);
+    let mut chain = MockBeaconChain::new();
+    let genesis_root = chain.best_root();
+    let canonical_chain = add_chain(&mut chain, genesis_root, &[[].as_slice(); 10], 0);
+    let fork_chain = add_chain(&mut chain, canonical_chain[2], &[[].as_slice(); 6], 0);
+    chain.set_best(*canonical_chain.last().unwrap());
+    let c8 = canonical_chain[7];
+    let c10 = canonical_chain[9];
+    let a8 = fork_chain[4];
+    let a9 = fork_chain[5];
+
+    let entropy = |block_number, parent_block_root| {
+        shard_membership_entropy_source(
+            BlockNumber::from(block_number),
+            parent_block_root,
+            shard_rotation_interval,
+            shard_rotation_delay,
+            &chain,
+        )
+        .unwrap()
+    };
+
+    assert_eq!(
+        entropy(10, &a9),
+        chain.proof_of_time(&a8).shard_membership_entropy()
+    );
+    assert_eq!(
+        entropy(11, &c10),
+        chain.proof_of_time(&c8).shard_membership_entropy()
+    );
+    assert_ne!(
+        chain.proof_of_time(&a8).shard_membership_entropy(),
+        chain.proof_of_time(&c8).shard_membership_entropy()
+    );
 }

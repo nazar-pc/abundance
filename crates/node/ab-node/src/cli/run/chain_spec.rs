@@ -44,6 +44,10 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
 
 const {
     assert!(u64::from(CONSENSUS_CONSTANTS.shard_rotation_interval) > 0);
+    // With a delay of zero, the shard membership entropy source block of every block whose block
+    // number is a multiple of the interval is that block itself, which isn't on the chain of its
+    // parent
+    assert!(u64::from(CONSENSUS_CONSTANTS.shard_rotation_delay) > 0);
     // There must be at least two sets of farmers producing shard blocks before confirmation
     assert!(
         u64::from(CONSENSUS_CONSTANTS.shard_confirmation_depth)
