@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::importing_blocks::private::ImportingBlockEntryInner;
 use ab_client_api::ContractSlotState;
 use ab_core_primitives::block::BlockRoot;
@@ -245,7 +248,6 @@ where
         mmr: Arc<BlockMerkleMountainRange>,
     ) -> Option<ImportingBlockHandle<BlockHeader>> {
         let new_entry = ImportingBlockEntry::new(header, mmr);
-        let handle = ImportingBlockHandle::new(new_entry.clone(), self.clone());
 
         let mut list = self.list.lock();
         if list
@@ -254,6 +256,10 @@ where
         {
             return None;
         }
+        // The handle removes the entry by its root on drop, so it is only created for a new entry,
+        // but before the entry becomes visible, such that `ImportingBlockEntry::wait()` waits for
+        // the import to finish
+        let handle = ImportingBlockHandle::new(new_entry.clone(), self.clone());
         list.push_back(new_entry);
 
         Some(handle)
