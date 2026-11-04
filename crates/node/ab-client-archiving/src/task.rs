@@ -424,7 +424,10 @@ where
 ///
 /// Once a new segment is archived, a notification (`archived_segment_notification_sender`) will be
 /// sent and archiver will be paused until all receivers have provided an acknowledgement for it (or
-/// a very generous timeout has passed).
+/// a very generous timeout has passed). After a restart, a segment that was already announced can
+/// be announced again: blocks that the database didn't write to disk yet (above its
+/// `soft_confirmation_depth`) are lost and imported again, and the blocks they confirm are archived
+/// again.
 ///
 /// Snap sync must store all known segment headers before any block is imported, and a block that it
 /// inserts directly, without its ancestors, must be the last archived block of one of those

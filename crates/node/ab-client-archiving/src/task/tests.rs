@@ -578,3 +578,68 @@ fn restart_archives_from_genesis_when_first_segment_ends_above_blocks_to_archive
         );
     });
 }
+
+#[test]
+#[cfg_attr(miri, ignore = "Archives segments of 128 MiB, too slow under Miri")]
+fn restart_announces_recreated_segment_again() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = BeaconChainBlockBuilder::new(LARGE_BODY_SIZE);
+        let genesis_block = block_builder.genesis();
+        let c1 = block_builder.child(&genesis_block);
+        let c2 = block_builder.child(&c1);
+        let c3 = block_builder.child(&c2);
+        let c4 = block_builder.child(&c3);
+        let c5 = block_builder.child(&c4);
+        let c6 = block_builder.child(&c5);
+        let c7 = block_builder.child(&c6);
+        let c8 = block_builder.child(&c7);
+        let c9 = block_builder.child(&c8);
+
+        // Segment 1 ends in `c3`, which is archived when `c6` is about to be imported
+        let chain = MockChain::new(genesis_block.clone());
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+        for block in [&c1, &c2, &c3, &c4, &c5, &c6] {
+            task.import(block.clone()).await;
+        }
+        assert_eq!(
+            task.archived_segment_indices(),
+            [LocalSegmentIndex::from(1)]
+        );
+        task.stop().await.unwrap();
+
+        // After a restart `c6` is gone, for example because the node stopped before it was
+        // persisted, but segment 1 is stored already. When `c6` is imported again, segment 1 is
+        // created and announced again. Segment 2 ends in `c6`, which is archived when `c9` is about
+        // to be imported:
+        //
+        // block being imported  c6  c7  c8  c9
+        // block to archive      c3  c4  c5  c6
+        // segment announced      1           2
+        let chain_after_restart = MockChain::new(genesis_block);
+        for block in [&c1, &c2, &c3, &c4, &c5] {
+            chain_after_restart.add_block(block.clone());
+        }
+        chain_after_restart
+            .persist_segment_headers(chain.segment_headers())
+            .await
+            .unwrap();
+        let mut task = ArchiverTask::start(&chain_after_restart, block_confirmation_depth)
+            .await
+            .unwrap();
+        for block in [c6, c7, c8, c9] {
+            task.import(block).await;
+        }
+        assert_eq!(
+            task.archived_segment_indices(),
+            [LocalSegmentIndex::from(1), LocalSegmentIndex::from(2)]
+        );
+        assert_eq!(
+            segments(&chain_after_restart.segment_headers()),
+            [(0, 0), (1, 3), (2, 6)]
+        );
+        task.stop().await.unwrap();
+    });
+}
