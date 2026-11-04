@@ -1,5 +1,7 @@
 use crate::task::SegmentArchiverTaskError;
-use crate::test_utils::{ArchiverTask, BeaconChainBlockBuilder, MockChain, run};
+use crate::test_utils::{
+    ArchiverTask, BeaconChainBlockBuilder, LeafShardBlockBuilder, MockChain, run,
+};
 use ab_client_api::{ChainInfo, ChainInfoWrite, ReadBlockError};
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::hashes::Blake3Hash;
@@ -345,5 +347,46 @@ fn missing_block_to_archive_is_an_error() {
             Err(SegmentArchiverTaskError::BlockMissing { block_number })
                 if block_number == BlockNumber::from(21)
         );
+    });
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Archives a segment of 128 MiB, too slow under Miri")]
+fn archives_leaf_shard_from_genesis() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = LeafShardBlockBuilder::new(LARGE_BODY_SIZE);
+        let genesis_block = block_builder.genesis();
+        let c1 = block_builder.child(&genesis_block);
+        let c2 = block_builder.child(&c1);
+        let c3 = block_builder.child(&c2);
+        let c4 = block_builder.child(&c3);
+        let c5 = block_builder.child(&c4);
+        let chain = MockChain::new(genesis_block);
+
+        // Unlike that of the beacon chain, the genesis block of a leaf shard is not padded to fill
+        // a segment, so archiving it on start doesn't produce one, and neither does archiving
+        // `c1`. The first segment ends in the middle of `c2`, which is archived when `c5` is about
+        // to be imported, after a restart that archives blocks up to `c1` again:
+        //
+        // block being imported  c1  c2  c3  c4  (restart)  c5
+        // block to archive       -   -   -  c1             c2
+        // segment archived                                  0
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+        for block in [c1, c2, c3, c4] {
+            task.import(block).await;
+        }
+        task.stop().await.unwrap();
+        assert_eq!(segments(&chain.segment_headers()), []);
+
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+        task.import(c5).await;
+        assert_eq!(task.archived_segment_indices(), [LocalSegmentIndex::ZERO]);
+        assert_eq!(segments(&chain.segment_headers()), [(0, 2)]);
+        task.stop().await.unwrap();
     });
 }

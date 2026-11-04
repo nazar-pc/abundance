@@ -79,7 +79,9 @@ where
     let max_local_segment_index = chain_info.last_segment_header()?.index.as_inner();
 
     if max_local_segment_index == LocalSegmentIndex::ZERO {
-        // Just genesis, nothing else to check
+        // Only the first segment is stored, archive from the genesis block again. On the beacon
+        // chain that segment contains just the genesis block, on intermediate and leaf shards it
+        // contains more blocks, which are archived again too.
         return None;
     }
 
@@ -489,28 +491,31 @@ where
                 continue;
             };
 
-            let last_archived_block_number = chain_info
+            // There is no segment header yet when the genesis block doesn't fill a segment, which
+            // is the case on intermediate and leaf shards
+            let maybe_last_archived_block_number = chain_info
                 .last_segment_header()
-                .expect("Exists after archiver initialization; qed")
-                .last_archived_block
-                .number();
+                .map(|last_segment_header| last_segment_header.last_archived_block.number());
             trace!(
                 %importing_block_number,
                 %block_number_to_archive,
                 %best_archived_block_number,
-                %last_archived_block_number,
+                last_archived_block_number = ?maybe_last_archived_block_number,
                 "Checking if block needs to be skipped"
             );
 
             // Skip archived blocks
-            let skip_last_archived_blocks = last_archived_block_number > block_number_to_archive;
+            let skip_last_archived_blocks =
+                maybe_last_archived_block_number.is_some_and(|last_archived_block_number| {
+                    last_archived_block_number > block_number_to_archive
+                });
             if best_archived_block_number >= block_number_to_archive || skip_last_archived_blocks {
                 // This block was already archived, skip
                 debug!(
                     %importing_block_number,
                     %block_number_to_archive,
                     %best_archived_block_number,
-                    %last_archived_block_number,
+                    last_archived_block_number = ?maybe_last_archived_block_number,
                     "Skipping already archived block",
                 );
                 continue;

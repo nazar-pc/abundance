@@ -8,13 +8,16 @@ use ab_client_api::{
 use ab_client_consensus_common::{
     BlockImportingNotification, ConsensusConstants, PotConsensusConstants,
 };
+use ab_core_primitives::address::Address;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::header::{
-    BlockHeaderConsensusInfo, BlockHeaderConsensusParameters, BlockHeaderEd25519Seal,
-    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderSeal, GenericBlockHeader,
+    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
+    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
+    BlockHeaderSeal, GenericBlockHeader,
 };
 use ab_core_primitives::block::owned::{
-    GenericOwnedBlock, OwnedBeaconChainBlock, OwnedBeaconChainBlockBuilder,
+    GenericOwnedBlock, OwnedBeaconChainBlock, OwnedBeaconChainBlockBuilder, OwnedLeafShardBlock,
+    OwnedLeafShardBlockBuilder,
 };
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
@@ -23,6 +26,8 @@ use ab_core_primitives::pot::{PotCheckpoints, PotOutput, SlotDuration, SlotNumbe
 use ab_core_primitives::segments::{HistorySize, LocalSegmentIndex, SegmentHeader};
 use ab_core_primitives::shard::{NumShards, ShardIndex};
 use ab_core_primitives::solutions::{Solution, SolutionRange};
+use ab_core_primitives::transaction::owned::OwnedTransaction;
+use ab_core_primitives::transaction::{Gas, TransactionHeader};
 use ab_erasure_coding::ErasureCoding;
 use futures::channel::mpsc;
 use futures::prelude::*;
@@ -96,6 +101,79 @@ impl BeaconChainBlockBuilder {
                     super_segment_root: None,
                     next_solution_range: None,
                     pot_parameters_change: None,
+                },
+            )
+            .with_seal(BlockHeaderSeal::Ed25519(&BlockHeaderEd25519Seal {
+                public_key: Ed25519PublicKey::default(),
+                signature: Ed25519Signature::default(),
+            }))
+    }
+}
+
+/// Builds leaf shard blocks that all share the same body
+#[derive(Debug)]
+pub(crate) struct LeafShardBlockBuilder {
+    body: OwnedLeafShardBlockBuilder,
+}
+
+impl LeafShardBlockBuilder {
+    /// Blocks with a body of about `body_size` bytes, made of one transaction
+    pub(crate) fn new(body_size: usize) -> Self {
+        let transaction = OwnedTransaction::from_parts(
+            &TransactionHeader {
+                version: TransactionHeader::TRANSACTION_VERSION,
+                block_root: BlockRoot::default(),
+                gas_limit: Gas::default(),
+                contract: Address::SYSTEM_CODE,
+            },
+            &[],
+            &[],
+            &vec![0; body_size / size_of::<u128>()],
+            &[],
+        )
+        .unwrap();
+        let mut body = OwnedLeafShardBlock::init([].into_iter()).unwrap();
+        body.add_transaction(&transaction).unwrap();
+
+        Self { body }
+    }
+
+    pub(crate) fn genesis(&self) -> OwnedLeafShardBlock {
+        self.block(BlockNumber::ZERO, BlockRoot::default())
+    }
+
+    pub(crate) fn child(&self, parent: &OwnedLeafShardBlock) -> OwnedLeafShardBlock {
+        let parent_header = parent.header.header();
+
+        self.block(
+            parent_header.prefix.number + BlockNumber::ONE,
+            *parent_header.root(),
+        )
+    }
+
+    fn block(&self, number: BlockNumber, parent_root: BlockRoot) -> OwnedLeafShardBlock {
+        self.body
+            .clone()
+            .with_header(
+                &BlockHeaderPrefix {
+                    number,
+                    // The first leaf shard of the first intermediate shard
+                    shard_index: ShardIndex::new(1 | (1 << 10)).unwrap(),
+                    padding_0: [0; _],
+                    timestamp: BlockTimestamp::from_millis(0),
+                    parent_root,
+                    mmr_root: Blake3Hash::default(),
+                },
+                Blake3Hash::default(),
+                &BlockHeaderConsensusInfo {
+                    slot: SlotNumber::ZERO,
+                    proof_of_time: PotOutput::default(),
+                    future_proof_of_time: PotOutput::default(),
+                    solution: Solution::genesis_solution(),
+                },
+                &BlockHeaderBeaconChainInfo {
+                    number: BlockNumber::ZERO,
+                    root: BlockRoot::default(),
                 },
             )
             .with_seal(BlockHeaderSeal::Ed25519(&BlockHeaderEd25519Seal {
