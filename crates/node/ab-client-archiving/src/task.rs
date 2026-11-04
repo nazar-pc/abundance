@@ -23,7 +23,7 @@ mod tests;
 
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, NewArchivedSegment};
-use ab_client_api::{ChainInfo, ChainInfoWrite, PersistSegmentHeadersError};
+use ab_client_api::{ChainInfo, ChainInfoWrite, PersistSegmentHeadersError, ReadBlockError};
 use ab_client_consensus_common::{BlockImportingNotification, ConsensusConstants};
 use ab_core_primitives::block::body::owned::GenericOwnedBlockBody;
 use ab_core_primitives::block::header::GenericBlockHeader;
@@ -205,6 +205,28 @@ pub enum SegmentArchiverTaskError {
         #[from]
         error: PersistSegmentHeadersError,
     },
+    /// Block that must be archived is missing in the chain
+    #[error("Block {block_number} that must be archived is missing in the chain")]
+    BlockMissing {
+        /// Block number
+        block_number: BlockNumber,
+    },
+    /// Failed to read a block that must be archived
+    #[error("Failed to read block {block_number} that must be archived: {error}")]
+    ReadBlock {
+        /// Block number
+        block_number: BlockNumber,
+        /// Low-level error
+        error: ReadBlockError,
+    },
+    /// Encoded block is too large to archive
+    #[error("Encoded block {block_number} is too large to archive: {size} bytes")]
+    BlockTooLarge {
+        /// Block number
+        block_number: BlockNumber,
+        /// Encoded block size in bytes
+        size: usize,
+    },
     /// Attempt to switch to a different fork beyond archiving depth
     #[error(
         "Attempt to switch to a different fork beyond archiving depth: parent block root \
@@ -329,14 +351,21 @@ where
             );
 
             for block_number_to_archive in blocks_to_archive_from..=blocks_to_archive_to {
+                // Blocks are missing if segment headers don't match the chain, for example when
+                // Snap sync didn't store them first (see `create_segment_archiver_task()`)
                 let header = chain_info
                     .ancestor_header(block_number_to_archive, &best_block_root)
-                    .expect("All blocks since last archived must be present; qed");
+                    .ok_or(SegmentArchiverTaskError::BlockMissing {
+                        block_number: block_number_to_archive,
+                    })?;
 
                 let block = chain_info
                     .block(&header.header().root())
                     .await
-                    .expect("All blocks since last archived must be present; qed");
+                    .map_err(|error| SegmentArchiverTaskError::ReadBlock {
+                        block_number: block_number_to_archive,
+                        error,
+                    })?;
 
                 let encoded_block = encode_block(&block);
 
@@ -346,9 +375,13 @@ where
                     ByteSize::b(encoded_block.len() as u64).display().iec(),
                 );
 
-                let block_outcome = archiver
-                    .add_block(encoded_block, Vec::new())
-                    .expect("Block is never empty and doesn't exceed u32; qed");
+                let encoded_block_size = encoded_block.len();
+                let block_outcome = archiver.add_block(encoded_block, Vec::new()).ok_or(
+                    SegmentArchiverTaskError::BlockTooLarge {
+                        block_number: block_number_to_archive,
+                        size: encoded_block_size,
+                    },
+                )?;
                 let new_segment_headers: Vec<SegmentHeader> = block_outcome
                     .archived_segments
                     .iter()
@@ -550,7 +583,9 @@ where
 {
     let header = chain_info
         .ancestor_header(block_number_to_archive, best_block_root)
-        .expect("All blocks since last archived must be present; qed");
+        .ok_or(SegmentArchiverTaskError::BlockMissing {
+            block_number: block_number_to_archive,
+        })?;
 
     let parent_block_root = header.header().prefix.parent_root;
     if parent_block_root != best_archived_block_root {
@@ -565,7 +600,10 @@ where
     let block = chain_info
         .block(&block_root_to_archive)
         .await
-        .expect("All blocks since last archived must be present; qed");
+        .map_err(|error| SegmentArchiverTaskError::ReadBlock {
+            block_number: block_number_to_archive,
+            error,
+        })?;
 
     debug!("Archiving block {block_number_to_archive} ({block_root_to_archive})");
 
@@ -575,9 +613,13 @@ where
         ByteSize::b(encoded_block.len() as u64).display().iec(),
     );
 
-    let block_outcome = archiver
-        .add_block(encoded_block, Vec::new())
-        .expect("Block is never empty and doesn't exceed u32; qed");
+    let encoded_block_size = encoded_block.len();
+    let block_outcome = archiver.add_block(encoded_block, Vec::new()).ok_or(
+        SegmentArchiverTaskError::BlockTooLarge {
+            block_number: block_number_to_archive,
+            size: encoded_block_size,
+        },
+    )?;
     for archived_segment in block_outcome.archived_segments {
         let segment_header = archived_segment.segment_header;
 

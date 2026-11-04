@@ -53,9 +53,14 @@ pub enum RecreateSegmentError {
     /// Archiver instantiation error
     #[error("Archiver instantiation error: {0}")]
     ArchiverInstantiationError(#[from] ArchiverInstantiationError),
-    /// Failed to add block to the archiver
-    #[error("Failed to add block to the archiver")]
-    FailedToAddBlock,
+    /// Encoded block is too large to archive
+    #[error("Encoded block {block_number} is too large to archive: {size} bytes")]
+    BlockTooLarge {
+        /// Block number
+        block_number: BlockNumber,
+        /// Encoded block size in bytes
+        size: usize,
+    },
     /// Blocking task join error
     #[error("Blocking task join error: {0}")]
     BlockingTaskJoinError(#[from] JoinError),
@@ -145,9 +150,13 @@ where
         };
 
         let task_fut = spawn_blocking(move || {
-            let maybe_outcome = archiver
-                .add_block(encoded_block, block_objects)
-                .ok_or(RecreateSegmentError::FailedToAddBlock);
+            let encoded_block_size = encoded_block.len();
+            let maybe_outcome = archiver.add_block(encoded_block, block_objects).ok_or(
+                RecreateSegmentError::BlockTooLarge {
+                    block_number,
+                    size: encoded_block_size,
+                },
+            );
 
             (archiver, maybe_outcome)
         });

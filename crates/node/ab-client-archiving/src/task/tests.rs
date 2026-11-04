@@ -1,7 +1,8 @@
 use crate::task::SegmentArchiverTaskError;
 use crate::test_utils::{ArchiverTask, BeaconChainBlockBuilder, MockChain, run};
-use ab_client_api::{ChainInfo, ChainInfoWrite};
+use ab_client_api::{ChainInfo, ChainInfoWrite, ReadBlockError};
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, LastArchivedBlock, LocalSegmentIndex, RecordedHistorySegment,
     SegmentHeader, SegmentRoot,
@@ -32,6 +33,31 @@ fn segments(segment_headers: &[SegmentHeader]) -> Vec<(u64, u64)> {
             )
         })
         .collect()
+}
+
+/// Segment headers that Snap sync stores before it inserts block `last_archived_block_number`
+/// directly: segment 0 with the genesis block and segment 1 that ends with that block
+fn synced_segment_headers(last_archived_block_number: BlockNumber) -> Vec<SegmentHeader> {
+    let segment_header_0 = SegmentHeader {
+        index: LocalSegmentIndex::ZERO.into(),
+        root: SegmentRoot::from([0; _]),
+        prev_segment_header_hash: Blake3Hash::default(),
+        last_archived_block: LastArchivedBlock {
+            number: BlockNumber::ZERO.into(),
+            archived_progress: ArchivedBlockProgress::new_complete(),
+        },
+    };
+    let segment_header_1 = SegmentHeader {
+        index: LocalSegmentIndex::ONE.into(),
+        root: SegmentRoot::from([1; _]),
+        prev_segment_header_hash: segment_header_0.hash(),
+        last_archived_block: LastArchivedBlock {
+            number: last_archived_block_number.into(),
+            archived_progress: ArchivedBlockProgress::new_complete(),
+        },
+    };
+
+    vec![segment_header_0, segment_header_1]
 }
 
 #[test]
@@ -167,6 +193,157 @@ fn gap_after_reinitialization_is_an_error() {
             }) if best_archived_block_number == BlockNumber::from(7)
                 && block_number_to_archive == BlockNumber::from(9)
                 && importing_block_number == BlockNumber::from(12)
+        );
+    });
+}
+
+#[test]
+fn missing_block_is_an_error() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = BeaconChainBlockBuilder::new(0);
+        // `c20` was inserted directly, but the only known segment header is that of segment 0
+        // with the genesis block, so re-initialization starts from the genesis block, which the
+        // chain doesn't have
+        let c20 = block_builder.block(BlockNumber::from(20), BlockRoot::default());
+        let chain = MockChain::new(c20);
+        chain
+            .persist_segment_headers(vec![SegmentHeader {
+                index: LocalSegmentIndex::ZERO.into(),
+                root: SegmentRoot::from([0; _]),
+                prev_segment_header_hash: Blake3Hash::default(),
+                last_archived_block: LastArchivedBlock {
+                    number: BlockNumber::ZERO.into(),
+                    archived_progress: ArchivedBlockProgress::new_complete(),
+                },
+            }])
+            .await
+            .unwrap();
+
+        // Re-initialization happens in the task since a segment header is known already
+        let task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+
+        assert_matches!(
+            task.stop().await,
+            Err(SegmentArchiverTaskError::BlockMissing { block_number })
+                if block_number == BlockNumber::ZERO
+        );
+    });
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Archives a segment of 128 MiB, too slow under Miri")]
+fn unreadable_block_is_an_error() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = BeaconChainBlockBuilder::new(0);
+        let genesis_block = block_builder.genesis();
+        let chain = MockChain::new(genesis_block.clone());
+
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+
+        let c1 = block_builder.child(&genesis_block);
+        let c2 = block_builder.child(&c1);
+        let c3 = block_builder.child(&c2);
+        let c4 = block_builder.child(&c3);
+        let c5 = block_builder.child(&c4);
+        let c6 = block_builder.child(&c5);
+        let c3_root = *c3.header.header().root();
+        for block in [c1, c2, c3, c4, c5] {
+            task.import(block).await;
+        }
+
+        // `c3` is archived when `c6` is about to be imported, but can't be read
+        chain.make_block_unreadable(c3_root);
+        task.import(c6).await;
+
+        assert_matches!(
+            task.stop().await,
+            Err(SegmentArchiverTaskError::ReadBlock {
+                block_number,
+                error: ReadBlockError::FailedToDecode,
+            }) if block_number == BlockNumber::from(3)
+        );
+    });
+}
+
+#[test]
+fn unreadable_block_on_initialization_is_an_error() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = BeaconChainBlockBuilder::new(0);
+        // Snap sync stored segment headers and inserted `c20`, then `c21` to `c25` were imported
+        let c20 = block_builder.block(BlockNumber::from(20), BlockRoot::default());
+        let c21 = block_builder.child(&c20);
+        let c22 = block_builder.child(&c21);
+        let c23 = block_builder.child(&c22);
+        let c24 = block_builder.child(&c23);
+        let c25 = block_builder.child(&c24);
+        let chain = MockChain::new(c20);
+        chain
+            .persist_segment_headers(synced_segment_headers(BlockNumber::from(20)))
+            .await
+            .unwrap();
+        chain.make_block_unreadable(*c22.header.header().root());
+        for block in [c21, c22, c23, c24, c25] {
+            chain.add_block(block);
+        }
+
+        // Re-initialization happens in the task since segment headers are known already. It
+        // resumes after `c20` and archives blocks up to `c22`, which is `block_confirmation_depth`
+        // blocks below `c25`, but `c22` can't be read.
+        let task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+
+        assert_matches!(
+            task.stop().await,
+            Err(SegmentArchiverTaskError::ReadBlock {
+                block_number,
+                error: ReadBlockError::FailedToDecode,
+            }) if block_number == BlockNumber::from(22)
+        );
+    });
+}
+
+#[test]
+fn missing_block_to_archive_is_an_error() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = BeaconChainBlockBuilder::new(0);
+        let c20 = block_builder.block(BlockNumber::from(20), BlockRoot::default());
+        let chain = MockChain::new(c20.clone());
+        chain
+            .persist_segment_headers(synced_segment_headers(BlockNumber::from(20)))
+            .await
+            .unwrap();
+
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+        // Re-initialization resumes after `c20`, and `c21` confirms `c18`, which is skipped
+        let c21 = block_builder.child(&c20);
+        task.import(c21).await;
+
+        // Snap sync inserts `d23` directly without storing a segment header for it, so `c21`,
+        // which is archived when `d24` is about to be imported, is not in the best chain anymore:
+        //
+        // (missing)   c20 - c21
+        //
+        // (missing)               d23 - d24
+        let d23 = block_builder.block(BlockNumber::from(23), BlockRoot::default());
+        let d24 = block_builder.child(&d23);
+        chain.add_block(d23);
+        task.import(d24).await;
+
+        assert_matches!(
+            task.stop().await,
+            Err(SegmentArchiverTaskError::BlockMissing { block_number })
+                if block_number == BlockNumber::from(21)
         );
     });
 }

@@ -26,7 +26,7 @@ use ab_core_primitives::solutions::{Solution, SolutionRange};
 use ab_erasure_coding::ErasureCoding;
 use futures::channel::mpsc;
 use futures::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::num::{NonZeroU16, NonZeroU32, NonZeroU64};
 use std::sync::Mutex;
 use std::{future, panic};
@@ -110,6 +110,7 @@ struct MockChainState<Block> {
     blocks: HashMap<BlockRoot, Block>,
     best_root: BlockRoot,
     segment_headers: Vec<SegmentHeader>,
+    unreadable_blocks: HashSet<BlockRoot>,
     read_block_numbers: Vec<BlockNumber>,
 }
 
@@ -218,6 +219,10 @@ where
     ) -> impl Future<Output = Result<Block, ReadBlockError>> + Send {
         let mut state = self.state.lock().unwrap();
 
+        if state.unreadable_blocks.contains(block_root) {
+            return future::ready(Err(ReadBlockError::FailedToDecode));
+        }
+
         let maybe_block = state.blocks.get(block_root).cloned();
         if let Some(block) = &maybe_block {
             state
@@ -285,6 +290,7 @@ where
                 blocks: HashMap::from([(first_block_root, first_block)]),
                 best_root: first_block_root,
                 segment_headers: Vec::new(),
+                unreadable_blocks: HashSet::new(),
                 read_block_numbers: Vec::new(),
             })),
         }
@@ -309,6 +315,16 @@ where
             state.best_root = block_root;
         }
         state.blocks.insert(block_root, block);
+    }
+
+    /// Make [`ChainInfo::block()`] fail to decode the block with `block_root`, the header is still
+    /// available
+    pub(crate) fn make_block_unreadable(&self, block_root: BlockRoot) {
+        self.state
+            .lock()
+            .unwrap()
+            .unreadable_blocks
+            .insert(block_root);
     }
 
     pub(crate) fn segment_headers(&self) -> Vec<SegmentHeader> {
