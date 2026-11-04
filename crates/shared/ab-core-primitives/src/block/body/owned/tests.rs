@@ -306,14 +306,15 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
         body.intermediate_shard_blocks().headers_root()
     }
 
+    /// `body_root` is the root of `body`, which is the same for all headers it is checked with
     fn is_consistent(
         body: &SharedAlignedBuffer,
+        body_root: Blake3Hash,
         intermediate_shard_blocks_root: &Blake3Hash,
     ) -> bool {
-        let (parsed_body, _remainder) = BeaconChainBody::try_from_bytes(body.as_slice()).unwrap();
         let header = OwnedBeaconChainHeader::from_parts(
             &header_prefix(u32::from(ShardIndex::BEACON_CHAIN), 0),
-            &header_result(parsed_body.root()),
+            &header_result(body_root),
             &consensus_info(),
             intermediate_shard_blocks_root,
             &BlockHeaderConsensusParameters {
@@ -352,8 +353,15 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
     for num_blocks in [1, 3] {
         let intermediate_shard_blocks = &intermediate_shard_blocks[..num_blocks];
         let body = beacon_chain_body_bytes(intermediate_shard_blocks, &[]);
+        // Header roots of intermediate shard blocks are expensive to compute under Miri, so the
+        // body root is computed once rather than for every header
+        let body_root = BeaconChainBody::try_from_bytes(body.as_slice())
+            .unwrap()
+            .0
+            .root();
         assert!(is_consistent(
             &body,
+            body_root,
             &intermediate_shard_blocks_root(intermediate_shard_blocks)
         ));
 
@@ -365,7 +373,7 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
             // The root of the first intermediate shard block
             **intermediate_shard_blocks[0].header.header().root(),
         ] {
-            assert!(!is_consistent(&body, &wrong_root));
+            assert!(!is_consistent(&body, body_root, &wrong_root));
         }
     }
 }
@@ -618,13 +626,16 @@ impl TestIntermediateShardBlock {
                 })
             })
             .collect();
+        // Header roots of leaf shard blocks are expensive to compute under Miri, so they are only
+        // computed once
+        let leaf_shard_blocks_root = body.leaf_shard_blocks().headers_root();
 
         Self {
             header: intermediate_shard_header(
                 shard_index,
                 number,
-                body.root(),
-                &body.leaf_shard_blocks().headers_root(),
+                body.root_with_leaf_shard_blocks_root(&leaf_shard_blocks_root),
+                &leaf_shard_blocks_root,
             ),
             own_segments: body.own_segments().map(|own_segments| {
                 (
@@ -717,8 +728,9 @@ fn check_beacon_chain_body_with_intermediate_shard_blocks(
         .iter()
         .zip(intermediate_shard_blocks)
     {
+        // The parser with checks has already compared `info.body_root()` with the body root in
+        // the header, which is too expensive to compute again under Miri
         assert_eq!(*info.header.root(), *block.header.header().root());
-        assert_eq!(info.body_root(), info.header.result.body_root);
         match (&info.own_segments, &block.own_segments) {
             (Some(info_own_segments), Some(own_segments)) => {
                 assert_segments_eq(info_own_segments, own_segments);
@@ -1048,10 +1060,12 @@ fn beacon_chain_segments_root_commits_to_intermediate_shard_body_nodes() {
                 .map_or_default(OwnSegments::root),
             *intermediate_shard_body.leaf_shard_blocks().segments_root(),
         ]);
+        // The header of the block stores the root of leaf shard blocks, which is expensive to
+        // compute again under Miri
         assert_eq!(
             IntermediateShardBodyMerkleTree::compute_root_only_array(&[
                 segments_node,
-                *intermediate_shard_body.leaf_shard_blocks().headers_root(),
+                **block.header.header().leaf_shard_blocks_root(),
             ]),
             *intermediate_shard_body.root()
         );
