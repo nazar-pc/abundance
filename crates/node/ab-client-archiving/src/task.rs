@@ -18,6 +18,9 @@
 //! [`encode_block`] and [`decode_block`] are symmetric encoding/decoding functions turning
 //! Blocks into bytes and back.
 
+#[cfg(test)]
+mod tests;
+
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, NewArchivedSegment};
 use ab_client_api::{ChainInfo, ChainInfoWrite, PersistSegmentHeadersError};
