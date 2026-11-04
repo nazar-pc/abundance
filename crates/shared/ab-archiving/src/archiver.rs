@@ -253,6 +253,12 @@ pub enum ArchiverInstantiationError {
         /// Already archived portion of the block
         archived_block_bytes: u32,
     },
+    /// Invalid block, its size is larger than [`u32::MAX`] bytes
+    #[error("Invalid block, its size {block_bytes} bytes is larger than `u32::MAX`")]
+    InvalidBlockLargeSize {
+        /// Full block size
+        block_bytes: usize,
+    },
 }
 
 /// Block archiver.
@@ -261,10 +267,6 @@ pub enum ArchiverInstantiationError {
 /// sliced into segments of [`RecordedHistorySegment::SIZE`] size, segments are sliced into source
 /// records of [`Record::SIZE`], records are erasure coded, committed to, then roots with proofs are
 /// appended and records become pieces that are returned alongside the corresponding segment header.
-///
-/// ## Panics
-/// Panics when operating on blocks, whose length doesn't fit into u32 (should never be the case in
-/// blockchain context anyway).
 #[derive(Debug, Clone)]
 pub struct Archiver {
     shard_index: ShardIndex,
@@ -321,8 +323,11 @@ impl Archiver {
             .partial_archived()
         {
             let archived_block_bytes = archived_block_bytes.get();
-            let encoded_block_bytes = u32::try_from(encoded_block.len())
-                .expect("Blocks length is never bigger than u32; qed");
+            let encoded_block_bytes = u32::try_from(encoded_block.len()).map_err(|_error| {
+                ArchiverInstantiationError::InvalidBlockLargeSize {
+                    block_bytes: encoded_block.len(),
+                }
+            })?;
 
             match encoded_block_bytes.cmp(&archived_block_bytes) {
                 Ordering::Less => {
@@ -375,13 +380,13 @@ impl Archiver {
     /// * pieces do not have a segment position and a segment proof filled in because it is not yet
     ///   known at the time of local segment creation
     ///
-    /// Returns `None` if the block is empty or larger than [`u32::MAX`].
+    /// Returns `None` if the block is larger than [`u32::MAX`] bytes.
     pub fn add_block(
         &mut self,
         bytes: Vec<u8>,
         block_objects: Vec<BlockObject>,
     ) -> Option<ArchiveBlockOutcome> {
-        if !(1..u32::MAX as usize).contains(&bytes.len()) {
+        if u32::try_from(bytes.len()).is_err() {
             return None;
         }
 
@@ -423,8 +428,9 @@ impl Archiver {
 
         // TODO: It is possible to simplify this whole loop to `if` in case "in progress" segment
         //  with precomputed size is stored somewhere already
-        // 6 bytes is just large enough to encode a segment item (1 byte for enum variant, 4 bytes
-        // for length and 1 for the actual data, while segment header item is never the last one)
+        // 6 bytes is just large enough to encode a segment item with data (1 byte for enum variant,
+        // 4 bytes for length and 1 for the actual data, while segment header item is never the last
+        // one), so a block that is split always has some of its data before the split point
         while RecordedHistorySegment::SIZE.saturating_sub(segment_size) >= 6 {
             let Some(segment_item) = self.buffer.pop_front() else {
                 // Push all the items back into the buffer, we don't have enough data yet
@@ -501,8 +507,9 @@ impl Archiver {
                             .ok()
                             .and_then(NonZeroU32::new)
                             .expect(
-                                "`::add_block()` method ensures block is not empty and doesn't \
-                                exceed `u32::MAX`; qed",
+                                "The loop condition leaves space for at least one byte of the \
+                                block before the split point, which is below the block size \
+                                that `::add_block()` ensures fits into `u32`; qed",
                             );
                         last_archived_block.set_partial_archived(archived_bytes);
 
@@ -567,8 +574,9 @@ impl Archiver {
                         // Update last archived block to include partial archiving info
                         let archived_bytes = previously_archived_bytes.get()
                             + u32::try_from(split_point).expect(
-                                "`::add_block()` method ensures block length doesn't \
-                                    exceed `u32::MAX`; qed",
+                                "The split point is below the size of the block, which \
+                                `::add_block()` and `::with_initial_state()` ensure fits into \
+                                `u32`; qed",
                             );
                         let archived_bytes = NonZeroU32::new(archived_bytes).expect(
                             "Spillover means non-zero length of the block was archived; qed",

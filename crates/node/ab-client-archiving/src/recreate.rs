@@ -27,7 +27,7 @@ pub fn recreate_genesis_segment(
 
     let block_outcome = Archiver::new(ShardIndex::BEACON_CHAIN, erasure_coding)
         .add_block(encoded_block, Vec::new())
-        .expect("Block is never empty and doesn't exceed u32; qed");
+        .expect("Encoded genesis block is exactly one segment in size, which fits into `u32`; qed");
     let mut archived_segment = block_outcome
         .archived_segments
         .into_iter()
