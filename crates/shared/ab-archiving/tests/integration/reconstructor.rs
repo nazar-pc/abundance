@@ -531,7 +531,7 @@ fn invalid_usage() {
     }
 
     {
-        let (reconstructor, _) = Reconstructor::new(erasure_coding)
+        let (reconstructor, _) = Reconstructor::new(erasure_coding.clone())
             .add_segment(&pieces_to_option_of_pieces(&archived_segments[0].pieces))
             .unwrap();
 
@@ -575,6 +575,44 @@ fn invalid_usage() {
             Some(ReconstructorError::IncorrectSegmentOrder {
                 expected_segment_index: LocalSegmentIndex::from(2),
                 actual_segment_index: LocalSegmentIndex::from(3)
+            })
+        );
+    }
+
+    {
+        let (reconstructor, _) = Reconstructor::new(erasure_coding.clone())
+            .add_segment(&pieces_to_option_of_pieces(&archived_segments[0].pieces))
+            .unwrap();
+
+        // The first segment has no parent segment header, but still can't be added twice
+        let result = reconstructor
+            .add_segment(&pieces_to_option_of_pieces(&archived_segments[0].pieces))
+            .err();
+
+        assert_eq!(
+            result,
+            Some(ReconstructorError::IncorrectSegmentOrder {
+                expected_segment_index: LocalSegmentIndex::ONE,
+                actual_segment_index: LocalSegmentIndex::ZERO
+            })
+        );
+    }
+
+    {
+        let (reconstructor, _) = Reconstructor::new(erasure_coding)
+            .add_segment(&pieces_to_option_of_pieces(&archived_segments[1].pieces))
+            .unwrap();
+
+        // The first segment can't follow other segments either
+        let result = reconstructor
+            .add_segment(&pieces_to_option_of_pieces(&archived_segments[0].pieces))
+            .err();
+
+        assert_eq!(
+            result,
+            Some(ReconstructorError::IncorrectSegmentOrder {
+                expected_segment_index: LocalSegmentIndex::from(2),
+                actual_segment_index: LocalSegmentIndex::ZERO
             })
         );
     }
