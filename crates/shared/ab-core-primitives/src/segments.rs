@@ -450,6 +450,16 @@ impl LocalSegmentIndex {
     /// Local segment index 1
     pub const ONE: Self = Self(1);
 
+    /// Checked addition, returns `None` on overflow
+    #[inline(always)]
+    pub const fn checked_add(self, rhs: Self) -> Option<Self> {
+        if let Some(n) = self.0.checked_add(rhs.0) {
+            Some(Self(n))
+        } else {
+            None
+        }
+    }
+
     /// Checked integer subtraction. Computes `self - rhs`, returning `None` if underflow occurred
     #[inline]
     pub fn checked_sub(self, rhs: Self) -> Option<Self> {
