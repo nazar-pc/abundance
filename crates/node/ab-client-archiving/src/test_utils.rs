@@ -110,6 +110,7 @@ struct MockChainState<Block> {
     blocks: HashMap<BlockRoot, Block>,
     best_root: BlockRoot,
     segment_headers: Vec<SegmentHeader>,
+    read_block_numbers: Vec<BlockNumber>,
 }
 
 impl<Block> MockChainState<Block> {
@@ -215,15 +216,16 @@ where
         &self,
         block_root: &BlockRoot,
     ) -> impl Future<Output = Result<Block, ReadBlockError>> + Send {
-        future::ready(
-            self.state
-                .lock()
-                .unwrap()
-                .blocks
-                .get(block_root)
-                .cloned()
-                .ok_or(ReadBlockError::UnknownBlockRoot),
-        )
+        let mut state = self.state.lock().unwrap();
+
+        let maybe_block = state.blocks.get(block_root).cloned();
+        if let Some(block) = &maybe_block {
+            state
+                .read_block_numbers
+                .push(block.header().header().prefix.number);
+        }
+
+        future::ready(maybe_block.ok_or(ReadBlockError::UnknownBlockRoot))
     }
 
     fn last_segment_header(&self) -> Option<SegmentHeader> {
@@ -283,6 +285,7 @@ where
                 blocks: HashMap::from([(first_block_root, first_block)]),
                 best_root: first_block_root,
                 segment_headers: Vec::new(),
+                read_block_numbers: Vec::new(),
             })),
         }
     }
@@ -310,6 +313,12 @@ where
 
     pub(crate) fn segment_headers(&self) -> Vec<SegmentHeader> {
         self.state.lock().unwrap().segment_headers.clone()
+    }
+
+    /// Numbers of blocks that were read with [`ChainInfo::block()`] so far, which is how the
+    /// archiver reads blocks to archive
+    pub(crate) fn read_block_numbers(&self) -> Vec<BlockNumber> {
+        self.state.lock().unwrap().read_block_numbers.clone()
     }
 }
 

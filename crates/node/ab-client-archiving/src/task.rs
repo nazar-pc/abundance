@@ -13,7 +13,7 @@
 //! need to know what the correct archival history of the blockchain looks like through
 //! [`ChainInfo`]. For example, it is used during node sync and farmer plotting to verify pieces of
 //! archival history received from other network participants. Future segment header might also be
-//! already known in the case of syncing from DSN.
+//! already known in the case of Snap sync.
 //!
 //! [`encode_block`] and [`decode_block`] are symmetric encoding/decoding functions turning
 //! Blocks into bytes and back.
@@ -216,13 +216,11 @@ pub enum SegmentArchiverTaskError {
         /// Best archived block root
         best_archived_block_root: BlockRoot,
     },
-    /// There was a gap in blockchain history, and the last contiguous series of blocks doesn't
-    /// start with the archived segment
+    /// Re-initialization left a gap before the block to archive
     #[error(
-        "There was a gap in blockchain history, and the last contiguous series of blocks doesn't \
-        start with the archived segment (best archived block number {best_archived_block_number}, \
-        block number to archive {block_number_to_archive}), block about to be imported \
-        {importing_block_number})"
+        "Re-initialization left a gap before the block to archive (best archived block number \
+        {best_archived_block_number}, block number to archive {block_number_to_archive}, block \
+        about to be imported {importing_block_number})"
     )]
     BlockGap {
         /// Best archived block number
@@ -260,8 +258,8 @@ where
             .is_none()
     }) {
         // If there are blocks missing headers between best block to archive and best block of the
-        // blockchain it means newer block was inserted in some special way and as such is by
-        // definition valid, so we can simply assume that is our best block to archive instead
+        // blockchain it means newer block was inserted by Snap sync and as such is by definition
+        // valid, so we can simply assume that is our best block to archive instead
         best_block_to_archive = best_block_number;
     }
 
@@ -306,7 +304,8 @@ where
             )
         };
 
-    // Process blocks since last fully archived block up to the current head minus K
+    // Process blocks since last fully archived block up to
+    // `best_block_number - block_confirmation_depth`
     {
         let blocks_to_archive_from = archiver
             .last_archived_block_number()
@@ -379,7 +378,7 @@ where
 // TODO: Public API for re-archiving of blocks with ability to produce object mappings
 /// Create a segment archiver task.
 ///
-/// Archiver task will listen for importing blocks and archive blocks at `K` depth, producing pieces
+/// Archiver task will listen for importing blocks and archive confirmed blocks, producing pieces
 /// and segment headers. It produces local segments initially, which after confirmation by the
 /// beacon chain will be updated with the necessary proof and given a global segment index.
 ///
@@ -398,6 +397,11 @@ where
 /// Once a new segment is archived, a notification (`archived_segment_notification_sender`) will be
 /// sent and archiver will be paused until all receivers have provided an acknowledgement for it (or
 /// a very generous timeout has passed).
+///
+/// Snap sync must store all known segment headers before any block is imported, and a block that it
+/// inserts directly, without its ancestors, must be the last archived block of one of those
+/// segments. Re-initialization then resumes archiving from the latest of those segments whose last
+/// archived block is in the chain.
 pub async fn create_segment_archiver_task<Block, CI>(
     chain_info: CI,
     mut block_importing_notification_receiver: mpsc::Receiver<BlockImportingNotification>,
@@ -481,10 +485,11 @@ where
 
             let best_block_root = chain_info.best_root();
 
-            // In case there was a block gap, re-initialize archiver and continue with the current
-            // block number (rather than block number at some depth) to allow for special sync
-            // modes where pre-verified blocks are inserted at some point in the future comparing to
-            // previously existing blocks
+            // The best archived block is behind the block to archive when Snap sync inserted a
+            // block directly, or when blocks below the last archived block of the last stored
+            // segment were skipped above (after a restart that lost blocks, for example).
+            // Re-initialize the archiver from stored segments and the chain (see
+            // `create_segment_archiver_task()`).
             if best_archived_block_number + BlockNumber::ONE != block_number_to_archive {
                 let initialize_archiver_fut = initialize_archiver(
                     &chain_info,
@@ -499,19 +504,14 @@ where
                 if best_archived_block_number + BlockNumber::ONE == block_number_to_archive {
                     // As expected, can archive this block
                 } else if best_archived_block_number >= block_number_to_archive {
-                    // Special sync mode where verified blocks were inserted into the blockchain
-                    // directly, archiving of this block will naturally happen later
-                    continue;
-                } else if chain_info
-                    .ancestor_header(importing_block_number - BlockNumber::ONE, &best_block_root)
-                    .is_none()
-                {
-                    // We may have imported some block using special sync mode, so the block about
-                    // to be imported is the first one after the gap at which archiver is supposed
-                    // to be initialized, but we are only about to import it, so wait for the next
-                    // block for now
+                    // This block was already archived, skip
                     continue;
                 } else {
+                    // Re-initialization leaves the best archived block at
+                    // `best_block_number - block_confirmation_depth` or higher, and the best block
+                    // it reads is the parent of the block being imported, so there can't be a gap
+                    // here unless there is a logic error elsewhere. A block that Snap sync inserts
+                    // directly is found archived, since its segment header is stored first.
                     return Err(SegmentArchiverTaskError::BlockGap {
                         best_archived_block_number,
                         block_number_to_archive,

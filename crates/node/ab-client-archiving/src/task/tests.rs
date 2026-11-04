@@ -1,6 +1,12 @@
+use crate::task::SegmentArchiverTaskError;
 use crate::test_utils::{ArchiverTask, BeaconChainBlockBuilder, MockChain, run};
-use ab_core_primitives::block::BlockNumber;
-use ab_core_primitives::segments::{LocalSegmentIndex, RecordedHistorySegment, SegmentHeader};
+use ab_client_api::{ChainInfo, ChainInfoWrite};
+use ab_core_primitives::block::{BlockNumber, BlockRoot};
+use ab_core_primitives::segments::{
+    ArchivedBlockProgress, LastArchivedBlock, LocalSegmentIndex, RecordedHistorySegment,
+    SegmentHeader, SegmentRoot,
+};
+use std::assert_matches;
 
 /// Blocks with this body size fill a segment in less than three blocks
 const LARGE_BODY_SIZE: usize = RecordedHistorySegment::SIZE * 3 / 8;
@@ -64,5 +70,103 @@ fn archives_blocks_into_segments() {
         assert_eq!(segments(&chain.segment_headers()), [(0, 0), (1, 3), (2, 6)]);
 
         task.stop().await.unwrap();
+    });
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Archives a segment of 128 MiB, too slow under Miri")]
+fn continues_after_block_inserted_by_snap_sync() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = BeaconChainBlockBuilder::new(0);
+        let chain = MockChain::new(block_builder.genesis());
+
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+
+        // Snap sync stores all known segment headers first, the last one ends with `c20`, then
+        // inserts `c20` directly, without its ancestors:
+        //
+        // genesis   (missing)   c20 - c21 - .. - c26
+        let segment_header_0 = chain.last_segment_header().unwrap();
+        chain
+            .persist_segment_headers(vec![SegmentHeader {
+                index: LocalSegmentIndex::ONE.into(),
+                root: SegmentRoot::from([1; _]),
+                prev_segment_header_hash: segment_header_0.hash(),
+                last_archived_block: LastArchivedBlock {
+                    number: BlockNumber::from(20).into(),
+                    archived_progress: ArchivedBlockProgress::new_complete(),
+                },
+            }])
+            .await
+            .unwrap();
+        let c20 = block_builder.block(BlockNumber::from(20), BlockRoot::default());
+        chain.add_block(c20.clone());
+
+        // Blocks below `c20` are skipped, `c20` is already archived in segment 1, which is found
+        // by re-initialization when `c23` is about to be imported, and archiving continues after
+        // it:
+        //
+        // block being imported  c21  c22  c23  c24  c25  c26
+        // block to archive       18   19   20   21   22   23
+        //                        \-----/   |    \----------/
+        //                        skipped   |      archived
+        //                                  already archived, found by re-initialization
+        let mut parent = c20;
+        for _ in 21..=26 {
+            let block = block_builder.child(&parent);
+            task.import(block.clone()).await;
+            parent = block;
+        }
+
+        task.stop().await.unwrap();
+        // The genesis block was archived on start, `c20` is read to resume archiving after it
+        assert_eq!(
+            chain.read_block_numbers(),
+            [0, 20, 21, 22, 23].map(BlockNumber::from)
+        );
+    });
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Archives a segment of 128 MiB, too slow under Miri")]
+fn gap_after_reinitialization_is_an_error() {
+    run(async {
+        let block_confirmation_depth = BlockNumber::from(3);
+        let block_builder = BeaconChainBlockBuilder::new(0);
+        let genesis_block = block_builder.genesis();
+        let chain = MockChain::new(genesis_block.clone());
+
+        let mut task = ArchiverTask::start(&chain, block_confirmation_depth)
+            .await
+            .unwrap();
+
+        let mut parent = genesis_block;
+        for _ in 1..=10 {
+            let block = block_builder.child(&parent);
+            task.import(block.clone()).await;
+            parent = block;
+        }
+
+        // `c12` is about to be imported while its parent `c11` is not in the chain, which block
+        // import never does:
+        //
+        // genesis - c1 - .. - c10   (c11 missing)   c12
+        let c11 = block_builder.child(&parent);
+        let c12 = block_builder.child(&c11);
+        task.import(c12).await;
+
+        assert_matches!(
+            task.stop().await,
+            Err(SegmentArchiverTaskError::BlockGap {
+                best_archived_block_number,
+                block_number_to_archive,
+                importing_block_number,
+            }) if best_archived_block_number == BlockNumber::from(7)
+                && block_number_to_archive == BlockNumber::from(9)
+                && importing_block_number == BlockNumber::from(12)
+        );
     });
 }
