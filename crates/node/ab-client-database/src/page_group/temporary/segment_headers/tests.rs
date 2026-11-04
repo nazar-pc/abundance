@@ -3,6 +3,7 @@ use crate::storage_backend::AlignedPage;
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::test_utils::{segment_header, write_to_aligned_pages};
 use ab_core_primitives::segments::SegmentHeader;
+use std::assert_matches;
 
 // Exhaustive checks of a large number of headers take too long under Miri
 const NUM_SEGMENT_HEADERS: &[u64] = if cfg!(miri) {
@@ -106,13 +107,10 @@ fn read_of_misaligned_bytes_fails() {
     let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
 
     let result = StorageItemTemporarySegmentHeaders::read(&bytes[1..][..total_bytes]);
-    assert!(
-        matches!(
-            result,
-            Err(StorageItemError::InvalidDataAlignment {
-                data_type: "SegmentHeader"
-            })
-        ),
-        "{result:?}"
+    assert_matches!(
+        result,
+        Err(StorageItemError::InvalidDataAlignment {
+            data_type: "SegmentHeader"
+        })
     );
 }

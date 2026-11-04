@@ -10,6 +10,7 @@ use ab_executor_native::NativeExecutor;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
 use ab_system_contract_code::CodeExt;
+use core::assert_matches;
 
 #[test]
 fn basic() {
@@ -213,10 +214,10 @@ fn basic() {
         }
 
         // Can't transfer from `bob` when transaction is authored by `alice`
-        assert!(matches!(
+        assert_matches!(
             env.fungible_transfer(MethodContext::Keep, playground_token, &bob, &alice, &amount),
             Err(ContractError::Forbidden)
-        ));
+        );
     });
 
     executor.transaction_emulate(Address::NULL, slots, |env| {

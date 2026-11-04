@@ -16,6 +16,7 @@ use ab_core_primitives::transaction::{Gas, TransactionHeader, TransactionSlot};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::metadata::{IoTypeMetadataKind, MAX_METADATA_CAPACITY};
 use ab_io_type::trivial_type::TrivialType;
+use core::assert_matches;
 
 /// Compact metadata of `T`
 fn compact_type<T>() -> Vec<u8>
@@ -272,17 +273,17 @@ fn io_types_nested_too_deep_are_rejected() {
     assert!(compact(&contract_with_method(&state_at_limit, &method_too_deep)).is_none());
 
     decode_first_argument(&contract_at_limit).unwrap();
-    assert!(matches!(
+    assert_matches!(
         decode_first_argument(&contract_with_method(&state_too_deep, &method_at_limit)),
         Err(MetadataDecodingError::InvalidStateIoType)
-    ));
-    assert!(matches!(
+    );
+    assert_matches!(
         decode_first_argument(&contract_with_method(&state_at_limit, &method_too_deep)),
         Err(MetadataDecodingError::InvalidArgumentIoType {
             argument_name: b"value",
             argument_kind: ArgumentKind::Input,
         })
-    ));
+    );
 }
 
 /// Kinds of all arguments, in the order that `#[contract]` generates them in
@@ -432,15 +433,13 @@ fn arguments_out_of_order_are_rejected() {
             if in_order {
                 assert!(result.is_ok(), "Arguments {first:?} and {second:?}");
             } else {
-                assert!(
-                    matches!(
-                        result,
-                        Err((
-                            1,
-                            MetadataDecodingError::ArgumentOutOfOrder { argument_kind: _ }
-                        ))
-                    ),
-                    "Arguments {first:?} and {second:?}: {result:?}"
+                assert_matches!(
+                    result,
+                    Err((
+                        1,
+                        MetadataDecodingError::ArgumentOutOfOrder { argument_kind: _ }
+                    )),
+                    "Arguments {first:?} and {second:?}"
                 );
             }
         }
@@ -457,7 +456,7 @@ fn arguments_out_of_order_are_rejected() {
             ContractMetadataKind::SlotRo,
         ],
     );
-    assert!(matches!(
+    assert_matches!(
         decode_arguments(&method, MethodsContainerKind::Contract),
         Err((
             3,
@@ -465,7 +464,7 @@ fn arguments_out_of_order_are_rejected() {
                 argument_kind: ArgumentKind::SlotRo
             }
         ))
-    ));
+    );
 }
 
 #[test]
@@ -519,19 +518,17 @@ fn trait_methods_have_no_tmp_or_slots() {
                         "{method_kind:?} with {argument_kind:?} in {container_kind:?}: {result:?}"
                     );
                 } else {
-                    assert!(
-                        matches!(
-                            result,
-                            Err((
-                                0,
-                                MetadataDecodingError::UnexpectedArgumentKind {
-                                    argument_kind: _,
-                                    method_kind: _,
-                                    container_kind: _,
-                                }
-                            ))
-                        ),
-                        "{method_kind:?} with {argument_kind:?} in {container_kind:?}: {result:?}"
+                    assert_matches!(
+                        result,
+                        Err((
+                            0,
+                            MetadataDecodingError::UnexpectedArgumentKind {
+                                argument_kind: _,
+                                method_kind: _,
+                                container_kind: _,
+                            }
+                        )),
+                        "{method_kind:?} with {argument_kind:?} in {container_kind:?}"
                     );
                 }
             }
@@ -548,14 +545,14 @@ fn trait_methods_have_no_tmp_or_slots() {
         &update,
     ))
     .unwrap();
-    assert!(matches!(
+    assert_matches!(
         decode_first_argument(&trait_with_method(&update)),
         Err(MetadataDecodingError::UnexpectedArgumentKind {
             argument_kind: ArgumentKind::SlotRw,
             method_kind: MethodKind::UpdateStateless,
             container_kind: MethodsContainerKind::Trait,
         })
-    ));
+    );
 }
 
 /// Metadata of an `#[init]` method with arguments of `argument_kinds` followed by the state
@@ -587,10 +584,10 @@ fn init_must_end_with_state() {
     // Without arguments there is no state
     let init = method_with_arguments(ContractMetadataKind::Init, &[]);
     let mut init = init.as_slice();
-    assert!(matches!(
+    assert_matches!(
         MethodMetadataDecoder::new(&mut init, MethodsContainerKind::Contract).decode_next(),
         Err(MetadataDecodingError::InitWithoutState)
-    ));
+    );
 
     // Any other last argument is not the state, even with a type
     for argument_kinds in [
@@ -607,13 +604,11 @@ fn init_must_end_with_state() {
     ] {
         let init = method_with_arguments(ContractMetadataKind::Init, argument_kinds);
         let result = decode_arguments(&init, MethodsContainerKind::Contract);
-        assert!(
-            matches!(
-                result,
-                Err((index, MetadataDecodingError::InitWithoutState))
-                    if index == argument_kinds.len() - 1
-            ),
-            "Arguments {argument_kinds:?}: {result:?}"
+        assert_matches!(
+            result,
+            Err((index, MetadataDecodingError::InitWithoutState))
+                if index == argument_kinds.len() - 1,
+            "Arguments {argument_kinds:?}"
         );
     }
 }
@@ -635,13 +630,10 @@ fn too_many_arguments_are_rejected() {
         let too_many_arguments = vec![ContractMetadataKind::Input; usize::from(max_arguments) + 1];
         let method = method_with_arguments(method_kind, &too_many_arguments);
         let mut method = method.as_slice();
-        assert!(
-            matches!(
-                MethodMetadataDecoder::new(&mut method, MethodsContainerKind::Contract)
-                    .decode_next(),
-                Err(MetadataDecodingError::TooManyArguments { number_of_arguments })
-                    if number_of_arguments == MAX_TOTAL_METHOD_ARGS + 1
-            ),
+        assert_matches!(
+            MethodMetadataDecoder::new(&mut method, MethodsContainerKind::Contract).decode_next(),
+            Err(MetadataDecodingError::TooManyArguments { number_of_arguments })
+                if number_of_arguments == MAX_TOTAL_METHOD_ARGS + 1,
             "{method_kind:?}"
         );
     }

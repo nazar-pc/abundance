@@ -13,7 +13,7 @@ use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
-use core::ptr;
+use core::{assert_matches, ptr};
 
 #[test]
 fn payload_call_slot_output_size() {
@@ -107,11 +107,9 @@ fn payload_call_output_buffer_too_small() {
         if fits {
             assert!(result.is_ok(), "Capacities {capacities:?}");
         } else {
-            assert!(
-                matches!(
-                    result,
-                    Err(TransactionPayloadDecoderError::OutputBufferTooSmall)
-                ),
+            assert_matches!(
+                result,
+                Err(TransactionPayloadDecoderError::OutputBufferTooSmall),
                 "Capacities {capacities:?}"
             );
         }
@@ -403,7 +401,7 @@ fn payload_call_return_value_reused_by_output() {
     let result = caller.call_next_method_with(&CallWith::new(|_method: PreparedMethod<'_>| {
         unreachable!("The slot is rejected before the method is called")
     }));
-    assert!(matches!(
+    assert_matches!(
         result,
         Err(TransactionPayloadCallError::Decoder(
             TransactionPayloadDecoderError::InvalidSlotOutputIndexSize {
@@ -411,5 +409,5 @@ fn payload_call_return_value_reused_by_output() {
                 size: 3
             }
         ))
-    ));
+    );
 }

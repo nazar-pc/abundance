@@ -6,6 +6,7 @@
 use crate::hart::BasicHart;
 use crate::instructions::Instruction;
 use crate::registers::general_purpose::Reg;
+use core::assert_matches;
 
 #[expect(
     clippy::inline_modules,
@@ -122,15 +123,15 @@ fn nested_path_qualified() {
     type TestNestedInstruction = inner::TestNestedInstruction<BasicHart<Reg<u64>>>;
 
     // Decoding of `foo` is inherited from `TestIgnoredMulInstruction`
-    assert!(matches!(
+    assert_matches!(
         TestNestedInstruction::try_decode(0),
         Some(TestNestedInstruction::Foo { .. })
-    ));
+    );
     // `foo` is present, so `qux` is too
-    assert!(matches!(
+    assert_matches!(
         TestNestedInstruction::try_decode(1),
         Some(TestNestedInstruction::Qux { .. })
-    ));
+    );
     // `mul` is ignored, so `quux` is not present
     assert!(TestNestedInstruction::try_decode(2).is_none());
 }
