@@ -38,6 +38,7 @@ criterion = { workspace = true }
 [features]
 parallel = [
     "ab-core-primitives/parallel",
+    "ab-erasure-coding/parallel",
     "dep:rayon",
 ]
 serde = [

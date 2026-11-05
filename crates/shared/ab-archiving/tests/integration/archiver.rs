@@ -685,3 +685,70 @@ fn object_on_the_edge_of_segment() {
         mapped_bytes
     );
 }
+
+/// Many small blocks with objects, where object mappings are produced for each block as it is added
+#[test]
+#[cfg_attr(miri, ignore)]
+fn many_small_blocks() {
+    // Each block is encoded into exactly 64 KiB segment item (1 byte for enum variant and 4 bytes
+    // for length), such that the first segment is filled with blocks exactly and objects at the
+    // beginning of blocks do not cross record boundaries
+    const BLOCK_SIZE: usize = 64 * 1024 - 1 - size_of::<u32>();
+    const BLOCKS_PER_SEGMENT: usize = RecordedHistorySegment::SIZE / (64 * 1024);
+    const OBJECT_SIZE: u32 = 16;
+
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let erasure_coding = ErasureCoding::new();
+    let mut archiver = Archiver::new(TEST_SHARD_INDEX, erasure_coding);
+
+    let mut archived_segments = Vec::new();
+    // Blocks along with object mappings produced for them
+    let mut blocks = Vec::new();
+
+    // Second segment starts with parent segment header, so the last block doesn't fit into it
+    while archived_segments.len() < 2 {
+        let mut block = vec![0u8; BLOCK_SIZE];
+        rng.fill_bytes(&mut block);
+        block
+            .as_mut_slice()
+            .write_all(&OBJECT_SIZE.encode())
+            .unwrap();
+        let block_objects = vec![BlockObject {
+            hash: Blake3Hash::default(),
+            offset: 0,
+        }];
+
+        let outcome = archiver.add_block(block.clone(), block_objects).unwrap();
+        archived_segments.extend(outcome.archived_segments);
+        // Each block has one object and all of them are at the beginning of the block, so every
+        // block must have exactly one object mapping produced right away
+        assert_eq!(outcome.global_objects.len(), 1);
+        blocks.push((block, outcome.global_objects[0]));
+    }
+
+    assert_eq!(
+        archived_segments[0]
+            .segment_header
+            .last_archived_block
+            .number(),
+        BlockNumber::from(BLOCKS_PER_SEGMENT as u64 - 1)
+    );
+    assert_eq!(
+        archived_segments[0]
+            .segment_header
+            .last_archived_block
+            .partial_archived(),
+        None
+    );
+
+    for (block_index, (block, global_object)) in blocks.iter().enumerate() {
+        let segment = &archived_segments[block_index / BLOCKS_PER_SEGMENT];
+        let piece = Piece::from(&segment.pieces[global_object.piece_position]);
+
+        assert_eq!(
+            extract_data_from_source_record(&piece.record, global_object.offset),
+            extract_data(block, 0u32),
+            "Block {block_index}"
+        );
+    }
+}

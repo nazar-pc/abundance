@@ -194,3 +194,211 @@ fn scattered_shards() {
         assert_eq!(&scattered.bytes, expected);
     }
 }
+
+/// Large shards are split into columns internally, which must produce exactly the same results as
+/// processing whole shards at once
+#[test]
+#[cfg_attr(miri, ignore)]
+fn large_shards() {
+    const NUM_SOURCE: usize = 128;
+    // 128 shards are split into 2 KiB columns, the last one being 96 bytes, which includes a block
+    // shorter than 64 bytes
+    const SHARD_BYTES: usize = 2048 * 4 + 96;
+
+    struct ShardRef<'a>(&'a [u8; SHARD_BYTES]);
+
+    impl AsRef<[u8; SHARD_BYTES]> for ShardRef<'_> {
+        fn as_ref(&self) -> &[u8; SHARD_BYTES] {
+            self.0
+        }
+    }
+
+    struct ShardMut<'a>(&'a mut [u8; SHARD_BYTES]);
+
+    impl AsMut<[u8; SHARD_BYTES]> for ShardMut<'_> {
+        fn as_mut(&mut self) -> &mut [u8; SHARD_BYTES] {
+            self.0
+        }
+    }
+
+    fn boxed_shards() -> Box<[[u8; SHARD_BYTES]; NUM_SOURCE]> {
+        vec![[0u8; SHARD_BYTES]; NUM_SOURCE]
+            .into_boxed_slice()
+            .try_into()
+            .unwrap()
+    }
+
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let ec = ErasureCoding::new();
+
+    let mut source_shards = boxed_shards();
+    for shard in &mut *source_shards {
+        rng.fill_bytes(shard);
+    }
+
+    let expected_parity_shards =
+        reed_solomon_simd::encode(NUM_SOURCE, NUM_SOURCE, source_shards.iter()).unwrap();
+
+    let mut parity_shards = boxed_shards();
+    ec.extend(&source_shards, &mut parity_shards).unwrap();
+    for (shard, expected) in parity_shards.iter().zip(&expected_parity_shards) {
+        assert_eq!(shard.as_slice(), expected.as_slice());
+    }
+
+    let mut scattered_parity_shards = boxed_shards();
+    ec.extend_scattered(
+        source_shards.each_ref().map(ShardRef),
+        scattered_parity_shards.each_mut().map(ShardMut),
+    )
+    .unwrap();
+    assert_eq!(scattered_parity_shards, parity_shards);
+    #[cfg(feature = "parallel")]
+    {
+        let mut par_parity_shards = boxed_shards();
+        ec.par_extend(&source_shards, &mut par_parity_shards)
+            .unwrap();
+        assert_eq!(par_parity_shards, parity_shards);
+    }
+    #[cfg(feature = "parallel")]
+    {
+        let mut par_scattered_parity_shards = boxed_shards();
+        ec.par_extend_scattered(
+            source_shards.each_ref().map(ShardRef),
+            par_scattered_parity_shards.each_mut().map(ShardMut),
+        )
+        .unwrap();
+        assert_eq!(par_scattered_parity_shards, parity_shards);
+    }
+
+    // Half of the shards missing
+    let mut present = ShardsPresent::<NUM_SOURCE>::all();
+    for index in 0..NUM_SOURCE / 2 {
+        present.source.unset(index * 2);
+        present.parity.unset(index * 2 + 1);
+    }
+    let corrupt = |shards: &mut [[u8; SHARD_BYTES]; NUM_SOURCE],
+                   present: &ShardsBitmap<NUM_SOURCE>| {
+        for (index, shard) in shards.iter_mut().enumerate() {
+            if !present.get(index) {
+                shard.fill(index as u8);
+            }
+        }
+    };
+
+    {
+        let mut recovered_source_shards = source_shards.clone();
+        corrupt(&mut recovered_source_shards, &present.source);
+        ec.recover_source(&mut recovered_source_shards, &parity_shards, &present)
+            .unwrap();
+        assert_eq!(recovered_source_shards, source_shards);
+    }
+
+    #[cfg(feature = "parallel")]
+    {
+        let mut recovered_source_shards = source_shards.clone();
+        corrupt(&mut recovered_source_shards, &present.source);
+        ec.par_recover_source(&mut recovered_source_shards, &parity_shards, &present)
+            .unwrap();
+        assert_eq!(recovered_source_shards, source_shards);
+    }
+
+    {
+        let mut recovered_source_shards = source_shards.clone();
+        corrupt(&mut recovered_source_shards, &present.source);
+        let parity_refs: [Option<ShardRef<'_>>; NUM_SOURCE] = array::from_fn(|index| {
+            present
+                .parity
+                .get(index)
+                .then_some(ShardRef(&parity_shards[index]))
+        });
+        ec.recover_source_scattered(
+            recovered_source_shards.each_mut().map(ShardMut),
+            &present.source,
+            parity_refs,
+        )
+        .unwrap();
+        assert_eq!(recovered_source_shards, source_shards);
+    }
+
+    // Missing parity shards have no memory at all
+    #[cfg(feature = "parallel")]
+    {
+        let mut recovered_source_shards = source_shards.clone();
+        corrupt(&mut recovered_source_shards, &present.source);
+        let parity_refs: [Option<ShardRef<'_>>; NUM_SOURCE] = array::from_fn(|index| {
+            present
+                .parity
+                .get(index)
+                .then_some(ShardRef(&parity_shards[index]))
+        });
+        ec.par_recover_source_scattered(
+            recovered_source_shards.each_mut().map(ShardMut),
+            &present.source,
+            parity_refs,
+        )
+        .unwrap();
+        assert_eq!(recovered_source_shards, source_shards);
+    }
+
+    {
+        let mut recovered_source_shards = source_shards.clone();
+        let mut recovered_parity_shards = parity_shards.clone();
+        corrupt(&mut recovered_source_shards, &present.source);
+        corrupt(&mut recovered_parity_shards, &present.parity);
+        ec.recover_all(
+            &mut recovered_source_shards,
+            &mut recovered_parity_shards,
+            &present,
+        )
+        .unwrap();
+        assert_eq!(recovered_source_shards, source_shards);
+        assert_eq!(recovered_parity_shards, parity_shards);
+    }
+
+    #[cfg(feature = "parallel")]
+    {
+        let mut recovered_source_shards = source_shards.clone();
+        let mut recovered_parity_shards = parity_shards.clone();
+        corrupt(&mut recovered_source_shards, &present.source);
+        corrupt(&mut recovered_parity_shards, &present.parity);
+        ec.par_recover_all(
+            &mut recovered_source_shards,
+            &mut recovered_parity_shards,
+            &present,
+        )
+        .unwrap();
+        assert_eq!(recovered_source_shards, source_shards);
+        assert_eq!(recovered_parity_shards, parity_shards);
+    }
+
+    {
+        let mut recovered_source_shards = source_shards.clone();
+        let mut recovered_parity_shards = parity_shards.clone();
+        corrupt(&mut recovered_source_shards, &present.source);
+        corrupt(&mut recovered_parity_shards, &present.parity);
+        ec.recover_all_scattered(
+            recovered_source_shards.each_mut().map(ShardMut),
+            recovered_parity_shards.each_mut().map(ShardMut),
+            &present,
+        )
+        .unwrap();
+        assert_eq!(recovered_source_shards, source_shards);
+        assert_eq!(recovered_parity_shards, parity_shards);
+    }
+
+    #[cfg(feature = "parallel")]
+    {
+        let mut recovered_source_shards = source_shards.clone();
+        let mut recovered_parity_shards = parity_shards.clone();
+        corrupt(&mut recovered_source_shards, &present.source);
+        corrupt(&mut recovered_parity_shards, &present.parity);
+        ec.par_recover_all_scattered(
+            recovered_source_shards.each_mut().map(ShardMut),
+            recovered_parity_shards.each_mut().map(ShardMut),
+            &present,
+        )
+        .unwrap();
+        assert_eq!(recovered_source_shards, source_shards);
+        assert_eq!(recovered_parity_shards, parity_shards);
+    }
+}
