@@ -683,9 +683,17 @@ impl Archiver {
 
             let (source_records, parity_records) = pieces.split_records_mut();
 
-            self.erasure_coding
-                .extend_scattered(source_records.map(|record| &*record), parity_records)
-                .expect("Statically correct parameters; qed");
+            #[cfg(not(feature = "parallel"))]
+            let extend = ErasureCoding::extend_scattered;
+            #[cfg(feature = "parallel")]
+            let extend = ErasureCoding::par_extend_scattered;
+
+            extend(
+                &self.erasure_coding,
+                source_records.map(|record| &*record),
+                parity_records,
+            )
+            .expect("Statically correct parameters; qed");
 
             pieces
         };

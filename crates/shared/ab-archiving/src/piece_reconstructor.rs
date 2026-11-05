@@ -101,8 +101,17 @@ impl PiecesReconstructor {
 
             let (source_records, parity_records) = reconstructed_pieces.split_records_mut();
 
-            self.erasure_coding
-                .recover_all_scattered(source_records, parity_records, &present)?;
+            #[cfg(not(feature = "parallel"))]
+            let recover_all = ErasureCoding::recover_all_scattered;
+            #[cfg(feature = "parallel")]
+            let recover_all = ErasureCoding::par_recover_all_scattered;
+
+            recover_all(
+                &self.erasure_coding,
+                source_records,
+                parity_records,
+                &present,
+            )?;
         }
         let SharedPieceDetails {
             shard_index,

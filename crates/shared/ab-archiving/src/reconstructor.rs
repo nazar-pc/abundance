@@ -121,7 +121,13 @@ impl Reconstructor {
                     .map(|input_piece| &input_piece.record)
             });
 
-            self.erasure_coding.recover_source_scattered(
+            #[cfg(not(feature = "parallel"))]
+            let recover_source = ErasureCoding::recover_source_scattered;
+            #[cfg(feature = "parallel")]
+            let recover_source = ErasureCoding::par_recover_source_scattered;
+
+            recover_source(
+                &self.erasure_coding,
                 {
                     let records: &mut [_; RecordedHistorySegment::NUM_RAW_RECORDS] =
                         segment_data.as_mut();
