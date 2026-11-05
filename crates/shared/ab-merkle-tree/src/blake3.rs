@@ -43,12 +43,7 @@ impl MerkleHasher for Blake3MerkleHasher {
     }
 
     #[inline(always)]
-    // TODO: Unlock on RISC-V, it started failing since https://github.com/nazar-pc/abundance/pull/551
-    //  for unknown reason
-    #[cfg_attr(
-        all(feature = "no-panic", not(target_arch = "riscv64")),
-        no_panic::no_panic
-    )]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn hash_pairs<const NUM_PAIRS: usize>(
         &self,
         pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
