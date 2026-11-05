@@ -1,5 +1,6 @@
 use ab_core_primitives::pieces::{
-    Piece, PieceHeader, PiecePosition, Record, RecordChunksRoot, RecordProof, SegmentProof,
+    InnerPiece, Piece, PieceHeader, PiecePosition, Record, RecordChunksRoot, RecordProof,
+    SegmentProof,
 };
 use ab_core_primitives::segments::{
     ArchivedHistorySegment, LocalSegmentIndex, RecordedHistorySegment, SegmentPosition,
@@ -126,18 +127,12 @@ impl PiecesReconstructor {
 
         let mut record_roots = [[0; _]; ArchivedHistorySegment::NUM_PIECES];
         {
-            #[cfg(not(feature = "parallel"))]
-            let mut iter = reconstructed_pieces
-                .iter_mut()
-                .zip(input_pieces)
-                .zip(&mut record_roots);
-            #[cfg(feature = "parallel")]
-            let iter = reconstructed_pieces
-                .par_iter_mut()
-                .zip_eq(input_pieces)
-                .zip_eq(&mut record_roots);
-
-            iter.try_for_each(|((piece, maybe_input_piece), output_record_root)| {
+            // `parity_chunks` is only used for deriving a root and is fully overwritten by erasure
+            // coding, so it is reused between pieces.
+            let process_piece = |parity_chunks: &mut Record,
+                                 piece: &mut InnerPiece,
+                                 maybe_input_piece: &Option<Piece>,
+                                 output_record_root: &mut [u8; _]| {
                 let (record_root, parity_chunks_root) = if let Some(input_piece) = maybe_input_piece
                 {
                     (
@@ -145,19 +140,10 @@ impl PiecesReconstructor {
                         *input_piece.header.parity_chunks_root,
                     )
                 } else {
-                    // TODO: Reuse allocations between iterations
-                    let [source_chunks_root, parity_chunks_root] = {
-                        let mut parity_chunks = Record::new_boxed();
+                    self.erasure_coding.extend(&piece.record, parity_chunks)?;
 
-                        self.erasure_coding
-                            .extend(&piece.record, &mut parity_chunks)?;
-
-                        let source_chunks_root = *piece.record.source_chunks_root();
-                        let parity_chunks_root =
-                            BalancedMerkleTree::compute_root_only(&parity_chunks);
-
-                        [source_chunks_root, parity_chunks_root]
-                    };
+                    let source_chunks_root = *piece.record.source_chunks_root();
+                    let parity_chunks_root = BalancedMerkleTree::compute_root_only(parity_chunks);
 
                     let record_root =
                         BalancedMerkleTree::new(&[source_chunks_root, parity_chunks_root]).root();
@@ -169,7 +155,35 @@ impl PiecesReconstructor {
                 *output_record_root = record_root;
 
                 Ok::<_, ReconstructorError>(())
-            })?;
+            };
+
+            #[cfg(not(feature = "parallel"))]
+            {
+                let mut parity_chunks = Record::new_boxed();
+                reconstructed_pieces
+                    .iter_mut()
+                    .zip(input_pieces)
+                    .zip(&mut record_roots)
+                    .try_for_each(|((piece, maybe_input_piece), output_record_root)| {
+                        process_piece(
+                            &mut parity_chunks,
+                            piece,
+                            maybe_input_piece,
+                            output_record_root,
+                        )
+                    })?;
+            }
+            #[cfg(feature = "parallel")]
+            reconstructed_pieces
+                .par_iter_mut()
+                .zip_eq(input_pieces)
+                .zip_eq(&mut record_roots)
+                .try_for_each_init(
+                    Record::new_boxed,
+                    |parity_chunks, ((piece, maybe_input_piece), output_record_root)| {
+                        process_piece(parity_chunks, piece, maybe_input_piece, output_record_root)
+                    },
+                )?;
         }
 
         let segment_merkle_tree = BalancedMerkleTree::new_boxed(&record_roots);

@@ -2,7 +2,7 @@ use crate::objects::{BlockObject, GlobalObject};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{
-    PieceHeader, PiecePosition, Record, RecordChunksRoot, RecordProof,
+    InnerPiece, PieceHeader, PiecePosition, Record, RecordChunksRoot, RecordProof,
 };
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
@@ -701,40 +701,51 @@ impl Archiver {
         // Collect hashes to roots from all records
         let mut record_roots = [[0; _]; ArchivedHistorySegment::NUM_PIECES];
         {
-            #[cfg(not(feature = "parallel"))]
-            let iter = pieces.iter_mut().zip(&mut record_roots);
-            #[cfg(feature = "parallel")]
-            let iter = pieces.par_iter_mut().zip_eq(&mut record_roots);
-
             // Here we build a tree of record chunks, with the first half being source chunks as
             // they are originally and the second half being parity chunks. While we build tree
             // threes here (for source chunks, parity chunks and combined for the whole record), it
             // could have been a single tree, and it would end up with the same root. Building them
             // separately requires less RAM and allows capturing parity chunks root more easily.
-            iter.for_each(|(piece, record_root)| {
-                let [source_chunks_root, parity_chunks_root] = {
-                    let mut parity_chunks = Record::new_boxed();
-
+            //
+            // `parity_chunks` is only used for deriving a root and is fully overwritten by erasure
+            // coding, so it is reused between pieces.
+            let process_piece =
+                |parity_chunks: &mut Record, piece: &mut InnerPiece, record_root: &mut [u8; _]| {
                     self.erasure_coding
-                        .extend(&piece.record, &mut parity_chunks)
+                        .extend(&piece.record, parity_chunks)
                         .expect(
                             "Erasure coding instance is deliberately configured to support this \
                             input; qed",
                         );
 
                     let source_chunks_root = *piece.record.source_chunks_root();
-                    let parity_chunks_root = BalancedMerkleTree::compute_root_only(&parity_chunks);
+                    let parity_chunks_root = BalancedMerkleTree::compute_root_only(parity_chunks);
 
-                    [source_chunks_root, parity_chunks_root]
+                    *record_root = BalancedMerkleTree::compute_root_only(&[
+                        source_chunks_root,
+                        parity_chunks_root,
+                    ]);
+
+                    piece.header.parity_chunks_root = RecordChunksRoot::from(parity_chunks_root);
                 };
 
-                *record_root = BalancedMerkleTree::compute_root_only(&[
-                    source_chunks_root,
-                    parity_chunks_root,
-                ]);
-
-                piece.header.parity_chunks_root = RecordChunksRoot::from(parity_chunks_root);
-            });
+            #[cfg(not(feature = "parallel"))]
+            {
+                let mut parity_chunks = Record::new_boxed();
+                pieces
+                    .iter_mut()
+                    .zip(&mut record_roots)
+                    .for_each(|(piece, record_root)| {
+                        process_piece(&mut parity_chunks, piece, record_root);
+                    });
+            }
+            #[cfg(feature = "parallel")]
+            pieces
+                .par_iter_mut()
+                .zip_eq(&mut record_roots)
+                .for_each_init(Record::new_boxed, |parity_chunks, (piece, record_root)| {
+                    process_piece(parity_chunks, piece, record_root);
+                });
         }
 
         let segment_merkle_tree = BalancedMerkleTree::new_boxed(&record_roots);
