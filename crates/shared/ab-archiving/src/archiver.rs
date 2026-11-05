@@ -691,18 +691,19 @@ impl Archiver {
         };
 
         // Collect hashes to roots from all records
-        let record_roots = {
+        let mut record_roots = [[0; _]; ArchivedHistorySegment::NUM_PIECES];
+        {
             #[cfg(not(feature = "parallel"))]
-            let source_pieces = pieces.iter_mut();
+            let iter = pieces.iter_mut().zip(&mut record_roots);
             #[cfg(feature = "parallel")]
-            let source_pieces = pieces.par_iter_mut();
+            let iter = pieces.par_iter_mut().zip_eq(&mut record_roots);
 
             // Here we build a tree of record chunks, with the first half being source chunks as
             // they are originally and the second half being parity chunks. While we build tree
             // threes here (for source chunks, parity chunks and combined for the whole record), it
             // could have been a single tree, and it would end up with the same root. Building them
             // separately requires less RAM and allows capturing parity chunks root more easily.
-            let iter = source_pieces.map(|piece| {
+            iter.for_each(|(piece, record_root)| {
                 let [source_chunks_root, parity_chunks_root] = {
                     let mut parity_chunks = Record::new_boxed();
 
@@ -719,26 +720,16 @@ impl Archiver {
                     [source_chunks_root, parity_chunks_root]
                 };
 
-                let record_root = BalancedMerkleTree::compute_root_only(&[
+                *record_root = BalancedMerkleTree::compute_root_only(&[
                     source_chunks_root,
                     parity_chunks_root,
                 ]);
 
                 piece.header.parity_chunks_root = RecordChunksRoot::from(parity_chunks_root);
-
-                record_root
             });
+        }
 
-            iter.collect::<Vec<_>>()
-        };
-
-        let segment_merkle_tree =
-            BalancedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
-                record_roots
-                    .as_slice()
-                    .try_into()
-                    .expect("Statically guaranteed to have correct length; qed"),
-            );
+        let segment_merkle_tree = BalancedMerkleTree::new_boxed(&record_roots);
 
         let segment_root = SegmentRoot::from(segment_merkle_tree.root());
 

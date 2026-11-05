@@ -8,7 +8,6 @@ use ab_core_primitives::segments::{
 use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, ShardsPresent};
 use ab_merkle_tree::blake3::BalancedMerkleTree;
-use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -116,13 +115,20 @@ impl PiecesReconstructor {
             "Sucessful recovery means there was at least one piece to fill this Option; qed",
         );
 
-        let record_roots = {
+        let mut record_roots = [[0; _]; ArchivedHistorySegment::NUM_PIECES];
+        {
             #[cfg(not(feature = "parallel"))]
-            let iter = reconstructed_pieces.iter_mut().zip(input_pieces);
+            let mut iter = reconstructed_pieces
+                .iter_mut()
+                .zip(input_pieces)
+                .zip(&mut record_roots);
             #[cfg(feature = "parallel")]
-            let iter = reconstructed_pieces.par_iter_mut().zip_eq(input_pieces);
+            let iter = reconstructed_pieces
+                .par_iter_mut()
+                .zip_eq(input_pieces)
+                .zip_eq(&mut record_roots);
 
-            iter.map(|(piece, maybe_input_piece)| {
+            iter.try_for_each(|((piece, maybe_input_piece), output_record_root)| {
                 let (record_root, parity_chunks_root) = if let Some(input_piece) = maybe_input_piece
                 {
                     (
@@ -151,19 +157,13 @@ impl PiecesReconstructor {
                 };
 
                 piece.header.parity_chunks_root = RecordChunksRoot::from(parity_chunks_root);
+                *output_record_root = record_root;
 
-                Ok::<_, ReconstructorError>(record_root)
-            })
-            .collect::<Result<Vec<_>, _>>()?
-        };
+                Ok::<_, ReconstructorError>(())
+            })?;
+        }
 
-        let segment_merkle_tree =
-            BalancedMerkleTree::<{ ArchivedHistorySegment::NUM_PIECES }>::new_boxed(
-                record_roots
-                    .as_slice()
-                    .try_into()
-                    .expect("Statically guaranteed to have correct length; qed"),
-            );
+        let segment_merkle_tree = BalancedMerkleTree::new_boxed(&record_roots);
 
         reconstructed_pieces
             .iter_mut()
