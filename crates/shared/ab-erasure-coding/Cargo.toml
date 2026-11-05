@@ -24,6 +24,7 @@ name = "erasure-coding"
 harness = false
 
 [dependencies]
+rayon = { workspace = true, optional = true }
 reed-solomon-simd = { workspace = true }
 thiserror = { workspace = true, default-features = false }
 
@@ -31,6 +32,11 @@ thiserror = { workspace = true, default-features = false }
 ab-core-primitives = { workspace = true }
 chacha20 = { workspace = true, features = ["rng"] }
 criterion = { workspace = true }
+
+[features]
+parallel = [
+    "dep:rayon",
+]
 
 [lints]
 workspace = true

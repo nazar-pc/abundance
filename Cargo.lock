@@ -383,6 +383,7 @@ dependencies = [
  "ab-core-primitives",
  "chacha20 0.10.2",
  "criterion",
+ "rayon",
  "reed-solomon-simd",
  "thiserror 2.0.21",
 ]

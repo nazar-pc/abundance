@@ -9,10 +9,14 @@ use std::hint::black_box;
 fn criterion_benchmark(c: &mut Criterion) {
     // Many small shards: erasure coding of record chunks, as done during archiving, plotting and
     // farming
-    erasure_coding::<{ Record::NUM_CHUNKS }, { RecordChunk::SIZE }>(c, "record");
+    // Record chunks are too small to be split into columns, so parallel methods use a single thread
+    // and are not benchmarked
+    erasure_coding::<{ Record::NUM_CHUNKS }, { RecordChunk::SIZE }, false>(c, "record");
     // Few large shards: erasure coding of records within a segment, as done when archiving history
     // and reconstructing it back
-    erasure_coding::<{ RecordedHistorySegment::NUM_RAW_RECORDS }, { Record::SIZE }>(c, "segment");
+    erasure_coding::<{ RecordedHistorySegment::NUM_RAW_RECORDS }, { Record::SIZE }, true>(
+        c, "segment",
+    );
 }
 
 fn boxed_shards<const NUM_SHARDS: usize, const SHARD_BYTES: usize>()
@@ -21,7 +25,7 @@ fn boxed_shards<const NUM_SHARDS: usize, const SHARD_BYTES: usize>()
     unsafe { Box::<[[u8; SHARD_BYTES]; NUM_SHARDS]>::new_zeroed().assume_init() }
 }
 
-fn erasure_coding<const NUM_SHARDS: usize, const SHARD_BYTES: usize>(
+fn erasure_coding<const NUM_SHARDS: usize, const SHARD_BYTES: usize, const PARALLEL: bool>(
     c: &mut Criterion,
     name: &str,
 ) {
@@ -42,6 +46,17 @@ fn erasure_coding<const NUM_SHARDS: usize, const SHARD_BYTES: usize>(
                 .unwrap();
         });
     });
+
+    #[cfg(feature = "parallel")]
+    if PARALLEL {
+        c.bench_function(&format!("{name}/par-extend"), |b| {
+            b.iter(|| {
+                erasure_coding
+                    .par_extend(black_box(&*source_shards), black_box(&mut *parity_shards))
+                    .unwrap();
+            });
+        });
+    }
 
     erasure_coding
         .extend(&source_shards, &mut parity_shards)
@@ -75,6 +90,21 @@ fn erasure_coding<const NUM_SHARDS: usize, const SHARD_BYTES: usize>(
         });
     });
 
+    #[cfg(feature = "parallel")]
+    if PARALLEL {
+        c.bench_function(&format!("{name}/par-recover-source"), |b| {
+            b.iter(|| {
+                erasure_coding
+                    .par_recover_source(
+                        black_box(&mut *recovered_source_shards),
+                        black_box(&parity_shards),
+                        black_box(&present),
+                    )
+                    .unwrap();
+            });
+        });
+    }
+
     // Recover both source and parity shards, the way it is done when recovering all record chunks
     // of a piece or reconstructing a whole piece
     c.bench_function(&format!("{name}/recover-all"), |b| {
@@ -88,6 +118,21 @@ fn erasure_coding<const NUM_SHARDS: usize, const SHARD_BYTES: usize>(
                 .unwrap();
         });
     });
+
+    #[cfg(feature = "parallel")]
+    if PARALLEL {
+        c.bench_function(&format!("{name}/par-recover-all"), |b| {
+            b.iter(|| {
+                erasure_coding
+                    .par_recover_all(
+                        black_box(&mut *recovered_source_shards),
+                        black_box(&mut *recovered_parity_shards),
+                        black_box(&present),
+                    )
+                    .unwrap();
+            });
+        });
+    }
 }
 
 criterion_group!(benches, criterion_benchmark);
