@@ -261,6 +261,79 @@ pub enum ArchiverInstantiationError {
     },
 }
 
+/// Size of the smallest segment item with data: 1 byte for enum variant, 4 bytes for length and 1
+/// for the actual data.
+///
+/// A segment is complete when less than this is left in it. Segment header item is never the last
+/// one, so a block that is split always has some of its data before the split point.
+const MIN_DATA_ITEM_SIZE: usize = 6;
+
+/// Buffer of segment items that keeps track of their total encoded size and which items had their
+/// object mappings produced already
+#[derive(Debug, Default, Clone)]
+struct SegmentItemsBuffer {
+    items: VecDeque<SegmentItem>,
+    /// Total encoded size of all items
+    encoded_size: usize,
+    /// Number of items at the beginning of the buffer that had their object mappings produced
+    num_mapped_items: usize,
+    /// Total encoded size of items that had their object mappings produced
+    mapped_encoded_size: usize,
+}
+
+impl SegmentItemsBuffer {
+    fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    fn push_back(&mut self, item: SegmentItem) {
+        self.encoded_size += item.encoded_size();
+        self.items.push_back(item);
+    }
+
+    fn push_front(&mut self, item: SegmentItem) {
+        self.encoded_size += item.encoded_size();
+        self.items.push_front(item);
+        // New item may have object mappings and shifts offsets of all other items, so all items are
+        // considered unmapped (items that were mapped before have no block objects left anyway)
+        self.num_mapped_items = 0;
+        self.mapped_encoded_size = 0;
+    }
+
+    fn pop_front(&mut self) -> Option<SegmentItem> {
+        let item = self.items.pop_front()?;
+        let item_encoded_size = item.encoded_size();
+        self.encoded_size = self
+            .encoded_size
+            .checked_sub(item_encoded_size)
+            .expect("Item size was added to the total when the item was inserted; qed");
+        if self.num_mapped_items > 0 {
+            self.num_mapped_items -= 1;
+            self.mapped_encoded_size = self
+                .mapped_encoded_size
+                .checked_sub(item_encoded_size)
+                .expect("Mapped item size was added to the mapped total; qed");
+        }
+        Some(item)
+    }
+
+    /// Returns items that didn't have their object mappings produced yet along with the offset of
+    /// the first of them from the beginning of the buffer.
+    ///
+    /// Returned items are considered mapped afterwards, so object mappings must be produced for
+    /// them. Only fields that are not encoded (like block objects) may be modified, otherwise the
+    /// total encoded size will be wrong.
+    fn take_unmapped_items(&mut self) -> (usize, impl Iterator<Item = &mut SegmentItem>) {
+        let offset = self.mapped_encoded_size;
+        let first_unmapped_item = self.num_mapped_items;
+
+        self.num_mapped_items = self.items.len();
+        self.mapped_encoded_size = self.encoded_size;
+
+        (offset, self.items.range_mut(first_unmapped_item..))
+    }
+}
+
 /// Block archiver.
 ///
 /// It takes new confirmed (at `K` depth) blocks and concatenates them into a buffer, buffer is
@@ -272,7 +345,7 @@ pub struct Archiver {
     shard_index: ShardIndex,
     /// Buffer containing blocks and other buffered items that are pending to be included into the
     /// next segment
-    buffer: VecDeque<SegmentItem>,
+    buffer: SegmentItemsBuffer,
     /// Erasure coding data structure
     erasure_coding: ErasureCoding,
     /// An index of the current segment
@@ -288,7 +361,7 @@ impl Archiver {
     pub fn new(shard_index: ShardIndex, erasure_coding: ErasureCoding) -> Self {
         Self {
             shard_index,
-            buffer: VecDeque::default(),
+            buffer: SegmentItemsBuffer::default(),
             erasure_coding,
             segment_index: LocalSegmentIndex::ZERO,
             prev_segment_header_hash: Blake3Hash::default(),
@@ -402,7 +475,10 @@ impl Archiver {
         // Add completed segments and their mappings for this block
         while let Some(mut segment) = self.produce_segment() {
             // Produce any segment mappings that haven't already been produced.
-            object_mapping.extend(Self::produce_object_mappings(segment.items.iter_mut()));
+            object_mapping.extend(Self::produce_object_mappings(
+                Segment::default().encoded_size(),
+                segment.items.iter_mut(),
+            ));
             archived_segments.push(self.produce_archived_segment(segment));
         }
 
@@ -418,28 +494,25 @@ impl Archiver {
     /// Try to slice buffer contents into segments if there is enough data, producing one segment at
     /// a time
     fn produce_segment(&mut self) -> Option<Segment> {
+        let mut segment_size = Segment::default().encoded_size();
+
+        // Not enough data for a segment yet
+        if RecordedHistorySegment::SIZE.saturating_sub(segment_size + self.buffer.encoded_size)
+            >= MIN_DATA_ITEM_SIZE
+        {
+            return None;
+        }
+
         let mut segment = Segment {
             items: Vec::with_capacity(self.buffer.len()),
         };
 
         let mut last_archived_block = self.last_archived_block;
 
-        let mut segment_size = segment.encoded_size();
-
-        // TODO: It is possible to simplify this whole loop to `if` in case "in progress" segment
-        //  with precomputed size is stored somewhere already
-        // 6 bytes is just large enough to encode a segment item with data (1 byte for enum variant,
-        // 4 bytes for length and 1 for the actual data, while segment header item is never the last
-        // one), so a block that is split always has some of its data before the split point
-        while RecordedHistorySegment::SIZE.saturating_sub(segment_size) >= 6 {
-            let Some(segment_item) = self.buffer.pop_front() else {
-                // Push all the items back into the buffer, we don't have enough data yet
-                for segment_item in segment.items.into_iter().rev() {
-                    self.buffer.push_front(segment_item);
-                }
-
-                return None;
-            };
+        while RecordedHistorySegment::SIZE.saturating_sub(segment_size) >= MIN_DATA_ITEM_SIZE {
+            let segment_item = self.buffer.pop_front().expect(
+                "Buffered items are large enough to fill a segment, which is checked above; qed",
+            );
 
             let segment_item_encoded_size = segment_item.encoded_size();
             segment_size += segment_item_encoded_size;
@@ -609,18 +682,25 @@ impl Archiver {
     /// Must only be called after all complete segments for a block have been produced. Before
     /// that, the buffer can contain a `BlockContinuation` which spans multiple segments.
     fn produce_next_segment_mappings(&mut self) -> Vec<GlobalObject> {
-        Self::produce_object_mappings(self.buffer.iter_mut())
+        // Usually this is just the block that was just added, avoiding iteration over the whole
+        // buffer is important for performance when there are many small blocks
+        let (offset, unmapped_items) = self.buffer.take_unmapped_items();
+
+        Self::produce_object_mappings(Segment::default().encoded_size() + offset, unmapped_items)
     }
 
-    /// Produce object mappings for `items` in `segment_index`. Then remove the mappings from those
-    /// items.
+    /// Produce object mappings for `items` in `segment_index`, where the first item starts at
+    /// `base_offset_in_segment`. Then remove the mappings from those items.
     ///
     /// This method can be called on a `Segment`’s items, or on the `Archiver`'s internal buffer.
-    fn produce_object_mappings<'a>(
-        items: impl Iterator<Item = &'a mut SegmentItem>,
-    ) -> Vec<GlobalObject> {
+    fn produce_object_mappings<'a, Items>(
+        mut base_offset_in_segment: usize,
+        items: Items,
+    ) -> Vec<GlobalObject>
+    where
+        Items: Iterator<Item = &'a mut SegmentItem>,
+    {
         let mut corrected_object_mapping = Vec::new();
-        let mut base_offset_in_segment = Segment::default().encoded_size();
         for segment_item in items {
             match segment_item {
                 SegmentItem::Padding => {
