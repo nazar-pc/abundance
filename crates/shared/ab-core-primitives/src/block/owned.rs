@@ -16,7 +16,8 @@ use crate::block::header::owned::{
 };
 use crate::block::header::{
     BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
-    BlockHeaderConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
+    BlockHeaderConsensusParameters, BlockHeaderConsistencyError, BlockHeaderPrefix,
+    BlockHeaderResult, BlockHeaderSeal,
 };
 use crate::block::{BeaconChainBlock, Block, GenericBlock, IntermediateShardBlock, LeafShardBlock};
 use crate::hashes::Blake3Hash;
@@ -162,14 +163,17 @@ pub struct OwnedBeaconChainBlockBuilder {
 }
 
 impl OwnedBeaconChainBlockBuilder {
-    /// Add header
+    /// Add header.
+    ///
+    /// Returns an error if the header parts are not consistent with each other or with the shard
+    /// kind.
     pub fn with_header(
         self,
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
-    ) -> OwnedBeaconChainBlockUnsealed {
+    ) -> Result<OwnedBeaconChainBlockUnsealed, BlockHeaderConsistencyError> {
         let body = self.body;
         let header = OwnedBeaconChainHeader::from_parts(
             prefix,
@@ -180,9 +184,9 @@ impl OwnedBeaconChainBlockBuilder {
             consensus_info,
             &body.body().intermediate_shard_blocks().headers_root(),
             consensus_parameters,
-        );
+        )?;
 
-        OwnedBeaconChainBlockUnsealed { body, header }
+        Ok(OwnedBeaconChainBlockUnsealed { body, header })
     }
 }
 
@@ -305,14 +309,17 @@ pub struct OwnedIntermediateShardBlockBuilder {
 }
 
 impl OwnedIntermediateShardBlockBuilder {
-    /// Add header
+    /// Add header.
+    ///
+    /// Returns an error if the header parts are not consistent with each other or with the shard
+    /// kind.
     pub fn with_header(
         self,
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> OwnedIntermediateShardBlockUnsealed {
+    ) -> Result<OwnedIntermediateShardBlockUnsealed, BlockHeaderConsistencyError> {
         let body = self.body;
         let header = OwnedIntermediateShardHeader::from_parts(
             prefix,
@@ -323,9 +330,9 @@ impl OwnedIntermediateShardBlockBuilder {
             consensus_info,
             beacon_chain_info,
             &body.body().leaf_shard_blocks().headers_root(),
-        );
+        )?;
 
-        OwnedIntermediateShardBlockUnsealed { body, header }
+        Ok(OwnedIntermediateShardBlockUnsealed { body, header })
     }
 }
 
@@ -455,14 +462,17 @@ impl OwnedLeafShardBlockBuilder {
         Ok(())
     }
 
-    /// Add header
+    /// Add header.
+    ///
+    /// Returns an error if the header parts are not consistent with each other or with the shard
+    /// kind.
     pub fn with_header(
         self,
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> OwnedLeafShardBlockUnsealed {
+    ) -> Result<OwnedLeafShardBlockUnsealed, BlockHeaderConsistencyError> {
         let body = self.body_builder.finish();
         let header = OwnedLeafShardHeader::from_parts(
             prefix,
@@ -472,8 +482,8 @@ impl OwnedLeafShardBlockBuilder {
             },
             consensus_info,
             beacon_chain_info,
-        );
-        OwnedLeafShardBlockUnsealed { body, header }
+        )?;
+        Ok(OwnedLeafShardBlockUnsealed { body, header })
     }
 }
 

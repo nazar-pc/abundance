@@ -134,7 +134,7 @@ where
             state_root,
             consensus_info,
             &consensus_parameters.as_ref(),
-        );
+        )?;
 
         let seal = seal_block(block_unsealed.pre_seal_hash())
             .await

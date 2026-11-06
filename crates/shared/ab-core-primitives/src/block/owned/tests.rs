@@ -6,8 +6,8 @@ use crate::block::header::owned::{
 };
 use crate::block::header::{
     BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
-    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
-    BlockHeaderSeal,
+    BlockHeaderConsistencyError, BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters,
+    BlockHeaderPrefix, BlockHeaderSeal,
 };
 use crate::block::owned::{
     GenericOwnedBlock, OwnedBeaconChainBlock, OwnedIntermediateShardBlock, OwnedLeafShardBlock,
@@ -86,6 +86,7 @@ fn beacon_chain_block() -> OwnedBeaconChainBlock {
             pot_parameters_change: None,
         },
     )
+    .unwrap()
     .with_seal(BlockHeaderSeal::Ed25519(&seal()))
 }
 
@@ -103,6 +104,7 @@ where
             &consensus_info(),
             &beacon_chain_info(),
         )
+        .unwrap()
         .with_seal(BlockHeaderSeal::Ed25519(&seal()))
 }
 
@@ -144,6 +146,7 @@ fn leaf_shard_block_with(number: BlockNumber, state_root: Blake3Hash) -> OwnedLe
             &consensus_info(),
             &beacon_chain_info(),
         )
+        .unwrap()
         .with_seal(BlockHeaderSeal::Ed25519(&seal()))
 }
 
@@ -280,6 +283,71 @@ fn unchecked_parsers_reject_seals_of_other_public_keys() {
 }
 
 #[test]
+fn block_builders_reject_inconsistent_header_parts() {
+    let seal = seal();
+    let seal = BlockHeaderSeal::Ed25519(&seal);
+    let mut consensus_info = consensus_info();
+    consensus_info.solution.padding = [1, 0, 0, 0];
+
+    // Sealing parses the header, so inconsistent parts must be rejected before it
+    let maybe_block = OwnedBeaconChainBlock::init(
+        iter::empty(),
+        iter::empty::<IntermediateShardBlockInfo<'_>>(),
+        &[],
+    )
+    .unwrap()
+    .with_header(
+        &prefix(ShardIndex::BEACON_CHAIN),
+        Blake3Hash::default(),
+        &consensus_info,
+        &BlockHeaderConsensusParameters {
+            fixed_parameters: BlockHeaderFixedConsensusParameters {
+                solution_range: SolutionRange::MAX,
+                slot_iterations: NonZeroU32::MIN,
+                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap(),
+            },
+            super_segment_root: None,
+            next_solution_range: None,
+            pot_parameters_change: None,
+        },
+    )
+    .map(|block_unsealed| block_unsealed.with_seal(seal));
+    assert_eq!(
+        maybe_block.err(),
+        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+    );
+
+    let maybe_block =
+        OwnedIntermediateShardBlock::init(iter::empty(), iter::empty::<LeafShardBlockInfo<'_>>())
+            .unwrap()
+            .with_header(
+                &prefix(ShardIndex::new(1).unwrap()),
+                Blake3Hash::default(),
+                &consensus_info,
+                &beacon_chain_info(),
+            )
+            .map(|block_unsealed| block_unsealed.with_seal(seal));
+    assert_eq!(
+        maybe_block.err(),
+        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+    );
+
+    let maybe_block = OwnedLeafShardBlock::init(iter::empty())
+        .unwrap()
+        .with_header(
+            &prefix(ShardIndex::new(1 | (1 << 10)).unwrap()),
+            Blake3Hash::default(),
+            &consensus_info,
+            &beacon_chain_info(),
+        )
+        .map(|block_unsealed| block_unsealed.with_seal(seal));
+    assert_eq!(
+        maybe_block.err(),
+        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+    );
+}
+
+#[test]
 fn blocks_round_trip() {
     let leaf_shard_block = leaf_shard_block();
     let bytes = block_bytes(&leaf_shard_block, 0);
@@ -406,6 +474,7 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
             header.beacon_chain_info(),
             &leaf_shard_blocks_root,
         )
+        .unwrap()
         .with_seal(header.seal);
         let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
 
@@ -435,6 +504,7 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
         &Blake3Hash::new([1; _]),
         header.consensus_parameters(),
     )
+    .unwrap()
     .with_seal(header.seal);
     let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
 

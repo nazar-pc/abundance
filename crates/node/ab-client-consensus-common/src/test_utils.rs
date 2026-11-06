@@ -60,6 +60,7 @@ fn beacon_chain_header(
             pot_parameters_change: None,
         },
     )
+    .unwrap()
     .with_seal(BlockHeaderSeal::Ed25519(&BlockHeaderEd25519Seal {
         public_key: Ed25519PublicKey::default(),
         signature: Ed25519Signature::default(),

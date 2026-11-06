@@ -420,8 +420,13 @@ impl OwnedBeaconChainBody {
                     intermediate_shard_block.header.leaf_shard_blocks_root(),
                     &mut buffer,
                 )
-                .map_err(|OwnedIntermediateShardHeaderError::HeaderTooLarge| {
-                    OwnedBeaconChainBodyError::BlockBodyIsTooLarge
+                .map_err(|error| match error {
+                    OwnedIntermediateShardHeaderError::HeaderTooLarge => {
+                        OwnedBeaconChainBodyError::BlockBodyIsTooLarge
+                    }
+                    OwnedIntermediateShardHeaderError::InvalidParts { error: _ } => {
+                        unreachable!("Parts of a parsed header are consistent; qed")
+                    }
                 })?
                 .with_seal(intermediate_shard_block.header.seal);
 
@@ -708,8 +713,9 @@ impl OwnedIntermediateShardBody {
                     &mut buffer,
                 )
                 .expect(
-                    "Bodies with at most `u16::MAX` leaf shard blocks with at most `u8::MAX` \
-                    segment roots each are far smaller than `u32::MAX` bytes; qed",
+                    "Parts of a parsed header are consistent, and bodies with at most `u16::MAX` \
+                    leaf shard blocks with at most `u8::MAX` segment roots each are far smaller \
+                    than `u32::MAX` bytes; qed",
                 )
                 .with_seal(leaf_shard_block.header.seal);
                 let true = align_to_8_with_padding(&mut buffer) else {
