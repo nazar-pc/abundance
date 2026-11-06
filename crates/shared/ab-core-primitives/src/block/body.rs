@@ -356,6 +356,11 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     ///
     /// `bytes` do not need to be aligned.
     ///
+    /// Blocks must be ordered by shard index, and blocks of the same shard by block number and by
+    /// local segment index of own segments. Leaf shards with segments in a block must be children
+    /// of its shard, ordered by shard index, and segments of the same leaf shard by local segment
+    /// index. The body root of each block must match its header.
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
@@ -454,12 +459,9 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         Some((info, remainder))
     }
 
-    /// Check intermediate shard info's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
+    /// Check intermediate shard info's internal consistency, see [`Self::try_from_bytes()`]
     #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
+    fn is_internally_consistent(&self) -> bool {
         let mut last_intermediate_shard_info =
             None::<(ShardIndex, BlockNumber, Option<LocalSegmentIndex>)>;
 
@@ -822,21 +824,7 @@ impl<'a> BeaconChainBody<'a> {
             pot_checkpoints,
         };
 
-        if !body.is_internally_consistent() {
-            return None;
-        }
-
         Some((body, remainder))
-    }
-
-    /// Check block body's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        // Nothing to check here
-        true
     }
 
     /// Create an owned version of this body
@@ -944,6 +932,9 @@ impl<'a> LeafShardBlocksInfo<'a> {
     ///
     /// `bytes` do not need to be aligned.
     ///
+    /// Blocks must be ordered by shard index, and blocks of the same shard by block number and by
+    /// local segment index of own segments. The body root of each block must match its header.
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
@@ -1003,12 +994,9 @@ impl<'a> LeafShardBlocksInfo<'a> {
         Some((info, remainder))
     }
 
-    /// Check leaf shard info's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
+    /// Check leaf shard info's internal consistency, see [`Self::try_from_bytes()`]
     #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
+    fn is_internally_consistent(&self) -> bool {
         let mut last_leaf_shard_info = None::<(ShardIndex, BlockNumber, Option<LocalSegmentIndex>)>;
 
         self.iter().all(|leaf_shard_block| {
@@ -1279,21 +1267,7 @@ impl<'a> IntermediateShardBody<'a> {
             leaf_shard_blocks,
         };
 
-        if !body.is_internally_consistent() {
-            return None;
-        }
-
         Some((body, remainder))
-    }
-
-    /// Check block body's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        // Nothing to check here
-        true
     }
 
     /// Segment roots produced by this shard
@@ -1515,21 +1489,7 @@ impl<'a> LeafShardBody<'a> {
             transactions,
         };
 
-        if !body.is_internally_consistent() {
-            return None;
-        }
-
         Some((body, remainder))
-    }
-
-    /// Check block body's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        // Nothing to check here
-        true
     }
 
     /// Segment roots produced by this shard
@@ -1612,19 +1572,6 @@ impl<'a> BlockBody<'a> {
                 let (body, remainder) = LeafShardBody::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(body), remainder))
             }
-        }
-    }
-
-    /// Check block body's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        match self {
-            Self::BeaconChain(body) => body.is_internally_consistent(),
-            Self::IntermediateShard(body) => body.is_internally_consistent(),
-            Self::LeafShard(body) => body.is_internally_consistent(),
         }
     }
 

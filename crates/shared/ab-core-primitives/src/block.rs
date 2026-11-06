@@ -370,15 +370,11 @@ impl<'a> BeaconChainBlock<'a> {
         Some((block, remainder))
     }
 
-    /// Check block's internal consistency.
+    /// Check that the header corresponds to the body.
     ///
-    /// This is usually not necessary to be called explicitly since full internal consistency is
-    /// checked by [`Self::try_from_bytes()`] internally.
-    ///
-    /// NOTE: This only checks block-level internal consistency, header and block level internal
-    /// consistency is checked separately.
+    /// Internal consistency of the header and body is checked by their parsers.
     #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
+    fn is_internally_consistent(&self) -> bool {
         // Header roots of intermediate shard blocks are expensive to compute, so they are only
         // computed once for both the header field and the body root
         let intermediate_shard_blocks_root = self.body.intermediate_shard_blocks().headers_root();
@@ -466,15 +462,11 @@ impl<'a> IntermediateShardBlock<'a> {
         Some((block, remainder))
     }
 
-    /// Check block's internal consistency.
+    /// Check that the header corresponds to the body.
     ///
-    /// This is usually not necessary to be called explicitly since full internal consistency is
-    /// checked by [`Self::try_from_bytes()`] internally.
-    ///
-    /// NOTE: This only checks block-level internal consistency, header and block level internal
-    /// consistency is checked separately.
+    /// Internal consistency of the header and body is checked by their parsers.
     #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
+    fn is_internally_consistent(&self) -> bool {
         // Header roots of leaf shard blocks are expensive to compute, so they are only computed
         // once for both the header field and the body root
         let leaf_shard_blocks_root = self.body.leaf_shard_blocks().headers_root();
@@ -580,15 +572,11 @@ impl<'a> LeafShardBlock<'a> {
         Some((block, remainder))
     }
 
-    /// Check block's internal consistency.
+    /// Check that the header corresponds to the body.
     ///
-    /// This is usually not necessary to be called explicitly since full internal consistency is
-    /// checked by [`Self::try_from_bytes()`] internally.
-    ///
-    /// NOTE: This only checks block-level internal consistency, header and block level internal
-    /// consistency is checked separately.
+    /// Internal consistency of the header and body is checked by their parsers.
     #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
+    fn is_internally_consistent(&self) -> bool {
         self.body.root() == self.header.result.body_root
     }
 
@@ -664,22 +652,6 @@ impl<'a> Block<'a> {
                 let (block_header, remainder) = LeafShardBlock::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(block_header), remainder))
             }
-        }
-    }
-
-    /// Check block's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since full internal consistency is
-    /// checked by [`Self::try_from_bytes()`] internally.
-    ///
-    /// NOTE: This only checks block-level internal consistency, header and block level internal
-    /// consistency is checked separately.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        match self {
-            Self::BeaconChain(block) => block.is_internally_consistent(),
-            Self::IntermediateShard(block) => block.is_internally_consistent(),
-            Self::LeafShard(block) => block.is_internally_consistent(),
         }
     }
 

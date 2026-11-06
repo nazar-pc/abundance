@@ -763,6 +763,7 @@ impl<'a> BeaconChainHeader<'a> {
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
         let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        BlockHeader::check_seal(&consensus_info.solution.public_key_hash, seal).ok()?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -780,20 +781,7 @@ impl<'a> BeaconChainHeader<'a> {
             cached_block_root: triomphe::Arc::default(),
         };
 
-        if !header.is_internally_consistent() {
-            return None;
-        }
-
         Some((header, remainder))
-    }
-
-    /// Check block header's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -993,6 +981,7 @@ impl<'a> IntermediateShardHeader<'a> {
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
         let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        BlockHeader::check_seal(&consensus_info.solution.public_key_hash, seal).ok()?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -1010,20 +999,7 @@ impl<'a> IntermediateShardHeader<'a> {
             cached_block_root: triomphe::Arc::default(),
         };
 
-        if !header.is_internally_consistent() {
-            return None;
-        }
-
         Some((header, remainder))
-    }
-
-    /// Check block header's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -1219,6 +1195,7 @@ impl<'a> LeafShardHeader<'a> {
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
         let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        BlockHeader::check_seal(&consensus_info.solution.public_key_hash, seal).ok()?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -1235,20 +1212,7 @@ impl<'a> LeafShardHeader<'a> {
             cached_block_root: triomphe::Arc::default(),
         };
 
-        if !header.is_internally_consistent() {
-            return None;
-        }
-
         Some((header, remainder))
-    }
-
-    /// Check block header's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -1407,19 +1371,6 @@ impl<'a> BlockHeader<'a> {
                 let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(header), remainder))
             }
-        }
-    }
-
-    /// Check block header's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        match self {
-            Self::BeaconChain(header) => header.is_internally_consistent(),
-            Self::IntermediateShard(header) => header.is_internally_consistent(),
-            Self::LeafShard(header) => header.is_internally_consistent(),
         }
     }
 

@@ -234,10 +234,10 @@ pub enum OwnedBeaconChainBodyError {
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
     /// Intermediate shard blocks are inconsistent, see
-    /// [`IntermediateShardBlocksInfo::is_internally_consistent()`]
+    /// [`IntermediateShardBlocksInfo::try_from_bytes()`]
     ///
-    /// [`IntermediateShardBlocksInfo::is_internally_consistent()`]:
-    /// crate::block::body::IntermediateShardBlocksInfo::is_internally_consistent
+    /// [`IntermediateShardBlocksInfo::try_from_bytes()`]:
+    /// crate::block::body::IntermediateShardBlocksInfo::try_from_bytes
     #[error("Intermediate shard blocks are inconsistent")]
     InconsistentIntermediateShardBlocks,
 }
@@ -559,10 +559,10 @@ pub enum OwnedIntermediateShardBodyError {
         /// Actual number of leaf shard blocks
         actual: usize,
     },
-    /// Leaf shard blocks are inconsistent, see [`LeafShardBlocksInfo::is_internally_consistent()`]
+    /// Leaf shard blocks are inconsistent, see [`LeafShardBlocksInfo::try_from_bytes()`]
     ///
-    /// [`LeafShardBlocksInfo::is_internally_consistent()`]:
-    /// crate::block::body::LeafShardBlocksInfo::is_internally_consistent
+    /// [`LeafShardBlocksInfo::try_from_bytes()`]:
+    /// crate::block::body::LeafShardBlocksInfo::try_from_bytes
     #[error("Leaf shard blocks are inconsistent")]
     InconsistentLeafShardBlocks,
 }
