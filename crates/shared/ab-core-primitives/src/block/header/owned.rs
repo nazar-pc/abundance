@@ -323,8 +323,6 @@ impl OwnedBeaconChainHeaderUnsealed {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
-        // TODO: Avoid extra parsing here, for this `OwnedBeaconChainHeader::from_parts_into()` must
-        //  return references to parts. Or at least add unchecked version of `from_buffer()`
         OwnedBeaconChainHeader::from_buffer(buffer.into_shared())
             .expect("Known to be created correctly; qed")
     }
@@ -561,9 +559,6 @@ impl OwnedIntermediateShardHeaderUnsealed {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
-        // TODO: Avoid extra parsing here, for this
-        //  `OwnedIntermediateShardHeader::from_parts_into()` must return references to parts. Or
-        //  at least add unchecked version of `from_buffer()`
         OwnedIntermediateShardHeader::from_buffer(buffer.into_shared())
             .expect("Known to be created correctly; qed")
     }
@@ -783,8 +778,6 @@ impl OwnedLeafShardHeaderUnsealed {
         let Self { mut buffer } = self;
         append_seal(&mut buffer, seal);
 
-        // TODO: Avoid extra parsing here, for this `OwnedLeafShardHeader::from_parts_into()` must
-        //  return references to parts. Or at least add unchecked version of `from_buffer()`
         OwnedLeafShardHeader::from_buffer(buffer.into_shared())
             .expect("Known to be created correctly; qed")
     }
