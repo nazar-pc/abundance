@@ -1,4 +1,4 @@
-//! Unsupported numbers of bits are rejected in generic code in crates with `generic_const_args`
+//! Unsupported numbers of bits are rejected in generic code in crates with `gca_const_items`
 //! too, which doesn't have to propagate the bound, the check is evaluated by every method instead
 
 #![expect(incomplete_features, reason = "generic_const_*")]

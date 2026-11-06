@@ -1,4 +1,4 @@
-//! Array limits are checked for generic code in crates with `generic_const_args` too, which doesn't
+//! Array limits are checked for generic code in crates with `gca_const_items` too, which doesn't
 //! have to propagate the bound, the check is evaluated when the impl is used instead
 
 #![expect(incomplete_features, reason = "generic_const_*")]

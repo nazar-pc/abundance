@@ -1,5 +1,5 @@
 //! Capacity of fixed capacity elements, bytes and strings is checked for generic code in crates
-//! with `generic_const_args` too, which doesn't have to propagate the bound, the check is evaluated
+//! with `gca_const_items` too, which doesn't have to propagate the bound, the check is evaluated
 //! for every instance instead. Each case uses a different capacity since an error is only reported
 //! once per capacity.
 

@@ -1,4 +1,4 @@
-//! `MAX_N` below 2 is rejected in generic code in crates with `generic_const_args` too, which
+//! `MAX_N` below 2 is rejected in generic code in crates with `gca_const_items` too, which
 //! doesn't have to propagate the bound, the check is evaluated by constructors and associated
 //! functions instead
 
