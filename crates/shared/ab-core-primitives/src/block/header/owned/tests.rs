@@ -226,7 +226,8 @@ fn max_allocation_is_enough_for_largest_headers() {
             &consensus_parameters,
         )
         .unwrap()
-        .with_seal(BlockHeaderSeal::Ed25519(&seal()));
+        .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+        .unwrap();
         let buffer = into_buffer(header);
         assert_eq!(buffer.capacity(), OwnedBeaconChainHeader::MAX_ALLOCATION);
         assert_eq!(buffer.len() == buffer.capacity(), largest);
@@ -242,7 +243,8 @@ fn max_allocation_is_enough_for_largest_headers() {
         &Blake3Hash::default(),
     )
     .unwrap()
-    .with_seal(BlockHeaderSeal::Ed25519(&seal()));
+    .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap();
     let buffer = into_buffer(header);
     assert_eq!(
         buffer.capacity(),
@@ -258,7 +260,8 @@ fn max_allocation_is_enough_for_largest_headers() {
         &beacon_chain_info(),
     )
     .unwrap()
-    .with_seal(BlockHeaderSeal::Ed25519(&seal()));
+    .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap();
     let buffer = into_buffer(header);
     assert_eq!(buffer.capacity(), OwnedLeafShardHeader::MAX_ALLOCATION);
     assert_eq!(buffer.len(), buffer.capacity());
@@ -279,7 +282,8 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
         &consensus_parameters(),
     )
     .unwrap()
-    .with_seal(seal);
+    .with_seal(seal)
+    .unwrap();
     let header = header.buffer().as_slice();
     let bytes = with_shared_parts(header, &prefix, &consensus_info());
     assert!(BeaconChainHeader::try_from_bytes(bytes.as_slice()).is_some());
@@ -292,7 +296,7 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
             &child_shard_blocks_root,
             &consensus_parameters(),
         )
-        .map(|unsealed| unsealed.with_seal(seal));
+        .and_then(|unsealed| unsealed.with_seal(seal));
         assert_eq!(maybe_header.err(), Some(error));
 
         let bytes = with_shared_parts(header, &prefix, &consensus_info);
@@ -308,7 +312,8 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
         &child_shard_blocks_root,
     )
     .unwrap()
-    .with_seal(seal);
+    .with_seal(seal)
+    .unwrap();
     let header = header.buffer().as_slice();
     let bytes = with_shared_parts(header, &prefix, &consensus_info());
     assert!(IntermediateShardHeader::try_from_bytes(bytes.as_slice()).is_some());
@@ -322,7 +327,7 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
             &beacon_chain_info(),
             &child_shard_blocks_root,
         )
-        .map(|unsealed| unsealed.with_seal(seal));
+        .and_then(|unsealed| unsealed.with_seal(seal));
         assert_eq!(maybe_header.err(), Some(error));
 
         let bytes = with_shared_parts(header, &prefix, &consensus_info);
@@ -337,7 +342,8 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
         &beacon_chain_info(),
     )
     .unwrap()
-    .with_seal(seal);
+    .with_seal(seal)
+    .unwrap();
     let header = header.buffer().as_slice();
     let bytes = with_shared_parts(header, &prefix, &consensus_info());
     assert!(LeafShardHeader::try_from_bytes(bytes.as_slice()).is_some());
@@ -348,12 +354,99 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
             &consensus_info,
             &beacon_chain_info(),
         )
-        .map(|unsealed| unsealed.with_seal(seal));
+        .and_then(|unsealed| unsealed.with_seal(seal));
         assert_eq!(maybe_header.err(), Some(error));
 
         let bytes = with_shared_parts(header, &prefix, &consensus_info);
         assert!(LeafShardHeader::try_from_bytes(bytes.as_slice()).is_none());
     }
+}
+
+#[test]
+fn seals_of_other_public_keys_are_rejected() {
+    let seal = BlockHeaderEd25519Seal {
+        public_key: Ed25519PublicKey::from([1; Ed25519PublicKey::SIZE]),
+        signature: Ed25519Signature::default(),
+    };
+    let error = BlockHeaderConsistencyError::SealPublicKeyHashMismatch {
+        solution_public_key_hash: consensus_info().solution.public_key_hash,
+        seal_public_key_hash: seal.public_key.hash(),
+    };
+    let seal = BlockHeaderSeal::Ed25519(&seal);
+
+    let unsealed = OwnedBeaconChainHeader::from_parts(
+        &prefix(0),
+        &result(),
+        &consensus_info(),
+        &Blake3Hash::default(),
+        &consensus_parameters(),
+    )
+    .unwrap();
+    let mut buffer = OwnedAlignedBuffer::with_capacity(0);
+    let unsealed_ref = OwnedBeaconChainHeader::from_parts_into(
+        &prefix(0),
+        &result(),
+        &consensus_info(),
+        &Blake3Hash::default(),
+        &consensus_parameters(),
+        &mut buffer,
+    )
+    .unwrap();
+    assert_eq!(unsealed_ref.with_seal(seal), Err(error));
+    // The seal is not attached
+    assert!(
+        buffer.as_slice() == unsealed.buffer.as_slice(),
+        "Buffer must end with the unsealed header"
+    );
+    assert_eq!(unsealed.with_seal(seal).err(), Some(error));
+
+    let unsealed = OwnedIntermediateShardHeader::from_parts(
+        &prefix(1),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+        &Blake3Hash::default(),
+    )
+    .unwrap();
+    let mut buffer = OwnedAlignedBuffer::with_capacity(0);
+    let unsealed_ref = OwnedIntermediateShardHeader::from_parts_into(
+        &prefix(1),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+        &Blake3Hash::default(),
+        &mut buffer,
+    )
+    .unwrap();
+    assert_eq!(unsealed_ref.with_seal(seal), Err(error));
+    assert!(
+        buffer.as_slice() == unsealed.buffer.as_slice(),
+        "Buffer must end with the unsealed header"
+    );
+    assert_eq!(unsealed.with_seal(seal).err(), Some(error));
+
+    let unsealed = OwnedLeafShardHeader::from_parts(
+        &prefix(1 | (1 << 10)),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+    )
+    .unwrap();
+    let mut buffer = OwnedAlignedBuffer::with_capacity(0);
+    let unsealed_ref = OwnedLeafShardHeader::from_parts_into(
+        &prefix(1 | (1 << 10)),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+        &mut buffer,
+    )
+    .unwrap();
+    assert_eq!(unsealed_ref.with_seal(seal), Err(error));
+    assert!(
+        buffer.as_slice() == unsealed.buffer.as_slice(),
+        "Buffer must end with the unsealed header"
+    );
+    assert_eq!(unsealed.with_seal(seal).err(), Some(error));
 }
 
 #[test]
@@ -393,8 +486,8 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
     )
     .unwrap();
     assert_eq!(unsealed.pre_seal_hash(), owned_unsealed.pre_seal_hash());
-    unsealed.with_seal(seal);
-    let header = owned_unsealed.with_seal(seal);
+    unsealed.with_seal(seal).unwrap();
+    let header = owned_unsealed.with_seal(seal).unwrap();
     assert_eq!(buffer.as_slice()[..3], bytes_before);
     assert_eq!(buffer.as_slice()[3..], *header.buffer().as_slice());
 
@@ -417,8 +510,8 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
     )
     .unwrap();
     assert_eq!(unsealed.pre_seal_hash(), owned_unsealed.pre_seal_hash());
-    unsealed.with_seal(seal);
-    let header = owned_unsealed.with_seal(seal);
+    unsealed.with_seal(seal).unwrap();
+    let header = owned_unsealed.with_seal(seal).unwrap();
     assert_eq!(buffer.as_slice()[..3], bytes_before);
     assert_eq!(buffer.as_slice()[3..], *header.buffer().as_slice());
 
@@ -439,8 +532,8 @@ fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
     )
     .unwrap();
     assert_eq!(unsealed.pre_seal_hash(), owned_unsealed.pre_seal_hash());
-    unsealed.with_seal(seal);
-    let header = owned_unsealed.with_seal(seal);
+    unsealed.with_seal(seal).unwrap();
+    let header = owned_unsealed.with_seal(seal).unwrap();
     assert_eq!(buffer.as_slice()[..3], bytes_before);
     assert_eq!(buffer.as_slice()[3..], *header.buffer().as_slice());
 }
@@ -539,7 +632,7 @@ fn from_parts_into_writes_headers_that_parse() {
                 &mut buffer,
             )
             .unwrap();
-            unsealed.with_seal(seal);
+            unsealed.with_seal(seal).unwrap();
             let header = OwnedBeaconChainHeader::from_parts(
                 &prefix(0),
                 &result(),
@@ -548,7 +641,8 @@ fn from_parts_into_writes_headers_that_parse() {
                 &consensus_parameters,
             )
             .unwrap()
-            .with_seal(seal);
+            .with_seal(seal)
+            .unwrap();
             check_written_header(&buffer, &bytes_before, &header);
         }
 
@@ -562,7 +656,7 @@ fn from_parts_into_writes_headers_that_parse() {
             &mut buffer,
         )
         .unwrap();
-        unsealed.with_seal(seal);
+        unsealed.with_seal(seal).unwrap();
         let header = OwnedIntermediateShardHeader::from_parts(
             &prefix(1),
             &result(),
@@ -571,7 +665,8 @@ fn from_parts_into_writes_headers_that_parse() {
             &child_shard_blocks_root,
         )
         .unwrap()
-        .with_seal(seal);
+        .with_seal(seal)
+        .unwrap();
         check_written_header(&buffer, &bytes_before, &header);
 
         let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
@@ -583,7 +678,7 @@ fn from_parts_into_writes_headers_that_parse() {
             &mut buffer,
         )
         .unwrap();
-        unsealed.with_seal(seal);
+        unsealed.with_seal(seal).unwrap();
         let header = OwnedLeafShardHeader::from_parts(
             &prefix(1 | (1 << 10)),
             &result(),
@@ -591,7 +686,8 @@ fn from_parts_into_writes_headers_that_parse() {
             &beacon_chain_info(),
         )
         .unwrap()
-        .with_seal(seal);
+        .with_seal(seal)
+        .unwrap();
         check_written_header(&buffer, &bytes_before, &header);
     }
 }
@@ -623,6 +719,7 @@ fn header_roots_commit_to_child_block_roots() {
         )
         .unwrap()
         .with_seal(seal)
+        .unwrap()
     });
     for (header, root) in [&header_a, &header_b]
         .into_iter()
@@ -646,6 +743,7 @@ fn header_roots_commit_to_child_block_roots() {
         )
         .unwrap()
         .with_seal(seal)
+        .unwrap()
     });
     for (header, root) in [&header_a, &header_b]
         .into_iter()

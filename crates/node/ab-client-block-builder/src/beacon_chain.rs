@@ -11,7 +11,7 @@ use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::body::owned::OwnedBeaconChainBodyError;
 use ab_core_primitives::block::header::owned::{GenericOwnedBlockHeader, OwnedBeaconChainHeader};
 use ab_core_primitives::block::header::{
-    BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderPrefix,
+    BeaconChainHeader, BlockHeaderConsensusInfo, BlockHeaderConsistencyError, BlockHeaderPrefix,
     OwnedBlockHeaderConsensusParameters, OwnedBlockHeaderSeal,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
@@ -136,10 +136,22 @@ where
             &consensus_parameters.as_ref(),
         )?;
 
-        let seal = seal_block(block_unsealed.pre_seal_hash())
+        let pre_seal_hash = block_unsealed.pre_seal_hash();
+        let seal = seal_block(pre_seal_hash)
             .await
             .ok_or(BlockBuilderError::FailedToSeal)?;
-        let block = block_unsealed.with_seal(seal.as_ref());
+        let block = block_unsealed
+            .with_seal(seal.as_ref())
+            .map_err(|error| match error {
+                BlockHeaderConsistencyError::SealPublicKeyHashMismatch {
+                    solution_public_key_hash: _,
+                    seal_public_key_hash,
+                } => BlockBuilderError::InvalidSeal {
+                    public_key_hash: seal_public_key_hash,
+                    pre_seal_hash,
+                },
+                error => BlockBuilderError::InvalidHeaderParts { error },
+            })?;
 
         let mut block_mmr = *parent_block_details.mmr_with_block;
 

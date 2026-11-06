@@ -130,5 +130,6 @@ impl ChainSpec {
                 public_key: Ed25519PublicKey::default(),
                 signature: Ed25519Signature::default(),
             }))
+            .expect("Genesis solution is for the default public key used in the seal; qed")
     }
 }

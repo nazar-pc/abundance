@@ -180,6 +180,7 @@ pub(crate) fn beacon_chain_block(
             public_key: Ed25519PublicKey::default(),
             signature: Ed25519Signature::default(),
         }))
+        .unwrap()
 }
 
 pub(crate) fn genesis_block_builder() -> GenesisBlockBuilderResult<OwnedBeaconChainBlock> {

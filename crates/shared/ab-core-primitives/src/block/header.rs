@@ -658,6 +658,17 @@ pub enum BlockHeaderConsistencyError {
     /// Solution padding is not all zeroes
     #[error("Solution padding is not all zeroes")]
     NonZeroSolutionPadding,
+    /// Public key hash of the seal doesn't match the solution
+    #[error(
+        "Seal public key hash {seal_public_key_hash} doesn't match solution public key hash \
+        {solution_public_key_hash}"
+    )]
+    SealPublicKeyHashMismatch {
+        /// Public key hash of the solution
+        solution_public_key_hash: Blake3Hash,
+        /// Public key hash of the seal
+        seal_public_key_hash: Blake3Hash,
+    },
 }
 
 /// Part of the block header, shared for different kinds of shards
@@ -782,10 +793,7 @@ impl<'a> BeaconChainHeader<'a> {
     /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        let public_key_hash = match self.seal {
-            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
-        };
-        public_key_hash == self.shared.consensus_info.solution.public_key_hash
+        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -801,7 +809,9 @@ impl<'a> BeaconChainHeader<'a> {
         )
         .expect("Parts of a parsed header are consistent; qed");
 
-        unsealed.with_seal(self.shared.seal)
+        unsealed
+            .with_seal(self.shared.seal)
+            .expect("Seal of a parsed header matches its solution; qed")
     }
 
     /// Shared block header
@@ -1013,10 +1023,7 @@ impl<'a> IntermediateShardHeader<'a> {
     /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        let public_key_hash = match self.seal {
-            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
-        };
-        public_key_hash == self.shared.consensus_info.solution.public_key_hash
+        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -1032,7 +1039,9 @@ impl<'a> IntermediateShardHeader<'a> {
         )
         .expect("Parts of a parsed header are consistent; qed");
 
-        unsealed.with_seal(self.shared.seal)
+        unsealed
+            .with_seal(self.shared.seal)
+            .expect("Seal of a parsed header matches its solution; qed")
     }
 
     /// Shared block header
@@ -1239,10 +1248,7 @@ impl<'a> LeafShardHeader<'a> {
     /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        let public_key_hash = match self.seal {
-            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
-        };
-        public_key_hash == self.shared.consensus_info.solution.public_key_hash
+        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -1257,7 +1263,9 @@ impl<'a> LeafShardHeader<'a> {
         )
         .expect("Parts of a parsed header are consistent; qed");
 
-        unsealed.with_seal(self.shared.seal)
+        unsealed
+            .with_seal(self.shared.seal)
+            .expect("Seal of a parsed header matches its solution; qed")
     }
 
     /// Shared block header
@@ -1462,6 +1470,26 @@ impl<'a> BlockHeader<'a> {
 
         if consensus_info.solution.padding != [0; _] {
             return Err(BlockHeaderConsistencyError::NonZeroSolutionPadding);
+        }
+
+        Ok(())
+    }
+
+    /// Check that the seal was created by the solution's public key.
+    ///
+    /// Both the parser and headers created from parts use it, so they accept the same seals.
+    #[inline]
+    fn check_seal(
+        solution_public_key_hash: &Blake3Hash,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<(), BlockHeaderConsistencyError> {
+        let seal_public_key_hash = seal.public_key_hash();
+
+        if seal_public_key_hash != *solution_public_key_hash {
+            return Err(BlockHeaderConsistencyError::SealPublicKeyHashMismatch {
+                solution_public_key_hash: *solution_public_key_hash,
+                seal_public_key_hash,
+            });
         }
 
         Ok(())

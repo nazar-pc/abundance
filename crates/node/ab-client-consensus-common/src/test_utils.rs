@@ -65,6 +65,7 @@ fn beacon_chain_header(
         public_key: Ed25519PublicKey::default(),
         signature: Ed25519Signature::default(),
     }))
+    .unwrap()
 }
 
 #[derive(Debug, Clone)]

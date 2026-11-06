@@ -108,6 +108,7 @@ impl BeaconChainBlockBuilder {
                 public_key: Ed25519PublicKey::default(),
                 signature: Ed25519Signature::default(),
             }))
+            .unwrap()
     }
 }
 
@@ -182,6 +183,7 @@ impl LeafShardBlockBuilder {
                 public_key: Ed25519PublicKey::default(),
                 signature: Ed25519Signature::default(),
             }))
+            .unwrap()
     }
 }
 

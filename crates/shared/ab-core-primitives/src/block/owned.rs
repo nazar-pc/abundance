@@ -204,14 +204,19 @@ impl OwnedBeaconChainBlockUnsealed {
         self.header.pre_seal_hash()
     }
 
-    /// Add seal and return [`OwnedBeaconChainBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedBeaconChainBlock {
-        let header = self.header.with_seal(seal);
+    /// Add seal and return [`OwnedBeaconChainBlock`].
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution.
+    pub fn with_seal(
+        self,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<OwnedBeaconChainBlock, BlockHeaderConsistencyError> {
+        let header = self.header.with_seal(seal)?;
 
-        OwnedBeaconChainBlock {
+        Ok(OwnedBeaconChainBlock {
             header,
             body: self.body,
-        }
+        })
     }
 }
 
@@ -350,14 +355,19 @@ impl OwnedIntermediateShardBlockUnsealed {
         self.header.pre_seal_hash()
     }
 
-    /// Add seal and return [`OwnedIntermediateShardBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedIntermediateShardBlock {
-        let header = self.header.with_seal(seal);
+    /// Add seal and return [`OwnedIntermediateShardBlock`].
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution.
+    pub fn with_seal(
+        self,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<OwnedIntermediateShardBlock, BlockHeaderConsistencyError> {
+        let header = self.header.with_seal(seal)?;
 
-        OwnedIntermediateShardBlock {
+        Ok(OwnedIntermediateShardBlock {
             header,
             body: self.body,
-        }
+        })
     }
 }
 
@@ -501,14 +511,19 @@ impl OwnedLeafShardBlockUnsealed {
         self.header.pre_seal_hash()
     }
 
-    /// Add seal and return [`OwnedLeafShardBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedLeafShardBlock {
-        let header = self.header.with_seal(seal);
+    /// Add seal and return [`OwnedLeafShardBlock`].
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution.
+    pub fn with_seal(
+        self,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<OwnedLeafShardBlock, BlockHeaderConsistencyError> {
+        let header = self.header.with_seal(seal)?;
 
-        OwnedLeafShardBlock {
+        Ok(OwnedLeafShardBlock {
             header,
             body: self.body,
-        }
+        })
     }
 }
 

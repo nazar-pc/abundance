@@ -428,7 +428,8 @@ impl OwnedBeaconChainBody {
                         unreachable!("Parts of a parsed header are consistent; qed")
                     }
                 })?
-                .with_seal(intermediate_shard_block.header.seal);
+                .with_seal(intermediate_shard_block.header.seal)
+                .expect("Seal of a parsed header matches its solution; qed");
 
                 if let Some(own_segments) = &intermediate_shard_block.own_segments {
                     if !buffer.append(own_segments.first_local_segment_index.as_bytes()) {
@@ -717,7 +718,8 @@ impl OwnedIntermediateShardBody {
                     leaf shard blocks with at most `u8::MAX` segment roots each are far smaller \
                     than `u32::MAX` bytes; qed",
                 )
-                .with_seal(leaf_shard_block.header.seal);
+                .with_seal(leaf_shard_block.header.seal)
+                .expect("Seal of a parsed header matches its solution; qed");
                 let true = align_to_8_with_padding(&mut buffer) else {
                     unreachable!("Checked size above; qed");
                 };

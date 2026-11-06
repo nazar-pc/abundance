@@ -62,6 +62,7 @@ pub(crate) fn beacon_chain_header(
         public_key: Ed25519PublicKey::default(),
         signature: Ed25519Signature::default(),
     }))
+    .unwrap()
 }
 
 /// Mock of [`ChainInfo`] with headers of persisted blocks.
