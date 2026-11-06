@@ -33,5 +33,6 @@ error: the `repr(u8)` attribute cannot be used on structs
    |
 26 | #[repr(u8)]
    |   ^^^^^^^^
+27 | struct Numeric {
    |
    = help: the `repr(u8)` attribute can only be applied to enums

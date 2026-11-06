@@ -349,7 +349,7 @@ where
     /// [`VRegGroup::vlmax()`], like for `vslidedown`. Returns `false` without writing anything if
     /// either range is out of bounds or the groups have different element widths.
     #[inline(always)]
-    #[must_use]
+    #[must_use = "Check if the copy succeeded"]
     #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn copy_elements(
         &mut self,

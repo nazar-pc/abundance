@@ -6,6 +6,9 @@ error[E0080]: evaluation panicked: Zve* extensions require `ELEN` of 32 or 64 bi
   |
  ::: $OUT_DIR[ab-riscv-primitives]/ZveXxInstruction_decoding_impl.rs
   |
+  |   const  impl<Reg, Hart> Instruction for ZveXxInstruction<Hart>
+...
+  |       const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = {
   | /         assert!(
   | |             matches!(Hart::VECTOR_LENGTHS.elen, Elen::L32 | Elen::L64),
   | |             "Zve* extensions require `ELEN` of 32 or 64 bits",
@@ -63,6 +66,9 @@ error[E0080]: evaluation panicked: Zve* extensions require `ELEN` of 32 or 64 bi
   |
  ::: $OUT_DIR[ab-riscv-primitives]/ZveXxInstruction_decoding_impl.rs
   |
+  |   const  impl<Reg, Hart> Instruction for ZveXxInstruction<Hart>
+...
+  |       const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = {
   | /         assert!(
   | |             matches!(Hart::VECTOR_LENGTHS.elen, Elen::L32 | Elen::L64),
   | |             "Zve* extensions require `ELEN` of 32 or 64 bits",

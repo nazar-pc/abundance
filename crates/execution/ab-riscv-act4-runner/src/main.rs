@@ -7,12 +7,12 @@
     const_try_residual,
     explicit_tail_calls,
     fn_align,
-    generic_const_args,
+    gca_const_items,
+    gca_macroless_args,
+    gca_min_const_items,
     generic_const_items,
     inherent_associated_types,
     iter_array_chunks,
-    macroless_generic_const_args,
-    min_generic_const_args,
     signed_bigint_helpers,
     try_blocks
 )]

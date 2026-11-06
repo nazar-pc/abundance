@@ -3,9 +3,9 @@
     const_default,
     const_trait_impl,
     derive_const,
-    generic_const_args,
-    macroless_generic_const_args,
-    min_generic_const_args
+    gca_const_items,
+    gca_macroless_args,
+    gca_min_const_items
 )]
 
 mod balanced;

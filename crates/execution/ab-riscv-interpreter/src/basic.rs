@@ -51,7 +51,7 @@ const impl From<RegisterOffset> for usize {
 
 impl RegisterOffset {
     /// The number of distinct offsets, the maximum number of general purpose registers
-    pub type const COUNT: usize = 32;
+    pub const COUNT: usize = 32;
 
     /// Create a new instance.
     ///

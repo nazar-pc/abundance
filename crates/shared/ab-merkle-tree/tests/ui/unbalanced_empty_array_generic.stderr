@@ -6,6 +6,7 @@ error[E0080]: evaluation panicked: Number of leaves must be greater than 0
   |
  ::: src/unbalanced.rs
   |
+  | const SUPPORTED_LEAVES_ARRAY_SIZE<const N: usize>: usize = {
   |     assert!(N != 0, "Number of leaves must be greater than 0");
   |     ---------------------------------------------------------- in this macro invocation
 

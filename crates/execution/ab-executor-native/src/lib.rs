@@ -95,7 +95,7 @@ impl NativeExecutorBuilder {
     /// ```
     ///
     /// NOTE: System contracts are already included by default.
-    #[must_use]
+    #[must_use = "Use builder to configure the native executor"]
     pub fn with_contract<C>(mut self) -> Self
     where
         C: Contract,
@@ -120,7 +120,7 @@ impl NativeExecutorBuilder {
     ///         .with_contract_trait::<Token, dyn Fungible>()
     /// # }
     /// ```
-    #[must_use]
+    #[must_use = "Use builder to configure the native executor"]
     pub fn with_contract_trait<C, DynCT>(mut self) -> Self
     where
         C: Contract + ContractTrait<DynCT>,
@@ -282,7 +282,7 @@ impl NativeExecutor {
     }
 
     /// Builder of native executor for specified shard index
-    #[must_use]
+    #[must_use = "Use builder to configure the native executor"]
     pub fn builder(shard_index: ShardIndex) -> NativeExecutorBuilder {
         NativeExecutorBuilder::new(shard_index)
     }
@@ -558,7 +558,7 @@ impl NativeExecutor {
     ///
     /// For stateful methods, execute a transaction using [`Self::transaction_execute()`] or
     /// emulate one with [`Self::transaction_emulate()`].
-    #[must_use]
+    #[must_use = "Use Env instance to make contract calls"]
     pub fn with_env_ro<Callback, T>(&self, slots: &Slots, callback: Callback) -> T
     where
         Callback: FnOnce(&Env<'_>) -> T,

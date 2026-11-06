@@ -5,10 +5,10 @@
 
 #![expect(incomplete_features, reason = "generic_const_*")]
 #![feature(
-    generic_const_args,
-    generic_const_items,
-    macroless_generic_const_args,
-    min_generic_const_args
+    gca_const_items,
+    gca_macroless_args,
+    gca_min_const_items,
+    generic_const_items
 )]
 
 use ab_io_type::fixed_capacity_bytes::FixedCapacityBytes;

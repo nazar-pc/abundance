@@ -2,7 +2,9 @@ error[E0597]: `buffer` does not live long enough
   --> tests/ui/swap_views.rs:11:61
    |
  8 | fn swap_with_local(elements: &mut VariableElements<'_, u8>) {
-   |                    -------- has type `&mut ab_io_type::variable_elements::VariableElements<'1, u8>`
+   |                    --------                        -- lifetime `'1` introduced here
+   |                    |
+   |                    has type `&mut ab_io_type::variable_elements::VariableElements<'1, u8>`
  9 |     let mut buffer = [2u8; 4];
    |         ---------- binding `buffer` declared here
 10 |     let mut size = 4;
@@ -17,7 +19,9 @@ error[E0597]: `size` does not live long enough
   --> tests/ui/swap_views.rs:11:74
    |
  8 | fn swap_with_local(elements: &mut VariableElements<'_, u8>) {
-   |                    -------- has type `&mut ab_io_type::variable_elements::VariableElements<'1, u8>`
+   |                    --------                        -- lifetime `'1` introduced here
+   |                    |
+   |                    has type `&mut ab_io_type::variable_elements::VariableElements<'1, u8>`
  9 |     let mut buffer = [2u8; 4];
 10 |     let mut size = 4;
    |         -------- binding `size` declared here

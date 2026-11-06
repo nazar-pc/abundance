@@ -49,7 +49,6 @@ blake3 = { workspace = true, features = ["rayon"] }
 schnellru = { workspace = true }
 fs4 = { workspace = true }
 futures = { workspace = true, features = ["std", "executor"] }
-libc = { workspace = true }
 parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }
 rayon = { workspace = true }
@@ -58,6 +57,9 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "parking_lot", "rt-multi-thread", "signal", "sync"] }
 tracing = { workspace = true }
 triomphe = { workspace = true, features = ["std"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+libc = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows = { workspace = true }

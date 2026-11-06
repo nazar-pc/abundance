@@ -5,6 +5,7 @@
 //! alignment, and that no truncated metadata decodes.
 
 #![expect(dead_code, reason = "Types are only defined for their metadata")]
+#![recursion_limit = "256"]
 
 use ab_io_type::fixed_capacity_bytes::FixedCapacityBytes;
 use ab_io_type::fixed_capacity_elements::FixedCapacityElements;

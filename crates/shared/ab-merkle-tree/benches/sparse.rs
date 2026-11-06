@@ -1,9 +1,5 @@
 #![expect(incomplete_features, reason = "generic_const_*")]
-#![feature(
-    generic_const_args,
-    macroless_generic_const_args,
-    min_generic_const_args
-)]
+#![feature(gca_const_items, gca_macroless_args, gca_min_const_items)]
 
 use ab_merkle_tree::blake3::{BalancedMerkleTree, SparseMerkleTree};
 use ab_merkle_tree::sparse::{Leaf, PROOF_ELEMENTS};

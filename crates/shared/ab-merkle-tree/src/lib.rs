@@ -43,12 +43,12 @@
     const_convert,
     const_default,
     const_trait_impl,
-    generic_const_args,
+    gca_const_items,
+    gca_macroless_args,
+    gca_min_const_items,
     generic_const_items,
     iter_advance_by,
-    macroless_generic_const_args,
     maybe_uninit_uninit_array_transpose,
-    min_generic_const_args,
     phantom_variance_markers,
     trusted_len
 )]

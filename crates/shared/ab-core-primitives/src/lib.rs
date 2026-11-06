@@ -9,13 +9,12 @@
     const_default,
     const_trait_impl,
     const_try,
-    generic_const_args,
+    gca_const_items,
+    gca_min_const_items,
     inherent_associated_types,
     min_adt_const_params,
-    min_generic_const_args,
     mut_restriction,
     portable_simd,
-    slice_split_once,
     step_trait,
     trusted_len
 )]

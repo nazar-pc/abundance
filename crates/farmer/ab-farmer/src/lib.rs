@@ -1,7 +1,6 @@
 #![feature(
     const_block_items,
     exact_size_is_empty,
-    fmt_helpers_for_derive,
     future_join,
     iter_collect_into,
     try_blocks
