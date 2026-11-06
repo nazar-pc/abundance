@@ -684,6 +684,7 @@ dependencies = [
  "ab-farmer-rpc-primitives",
  "ab-networking",
  "async-lock",
+ "ed25519-dalek",
  "futures",
  "jsonrpsee",
  "parking_lot 0.13.0",

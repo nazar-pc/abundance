@@ -1,5 +1,10 @@
 //! RPC API for the farmer
 
+// TODO: Ed25519 uses SHA-512, whose `sha3` target feature intrinsics (enabled on macOS on aarch64)
+//  are not supported by Miri: https://github.com/rust-lang/miri/issues/3172
+#[cfg(all(test, not(all(miri, target_feature = "sha3"))))]
+mod tests;
+
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_client_api::{BeaconChainInfo, ChainSyncStatus};
 use ab_client_archiving::recreate::{
@@ -76,6 +81,17 @@ pub enum FarmerRpcApiError {
     /// Blocking task join error
     #[error("Blocking task join error: {0}")]
     BlockingTaskJoinError(#[from] JoinError),
+    /// Invalid block seal
+    #[error(
+        "Invalid block seal for pre-seal hash {pre_seal_hash} and public key hash \
+        {public_key_hash}"
+    )]
+    InvalidBlockSeal {
+        /// Pre-seal hash
+        pre_seal_hash: Blake3Hash,
+        /// Public key hash of the seal
+        public_key_hash: Blake3Hash,
+    },
 }
 
 impl From<FarmerRpcApiError> for ErrorObjectOwned {
@@ -89,6 +105,7 @@ impl From<FarmerRpcApiError> for ErrorObjectOwned {
             FarmerRpcApiError::SuperSegmentHeadersLengthExceeded { .. } => 1,
             FarmerRpcApiError::FailedToRecreateSegment(_) => 2,
             FarmerRpcApiError::BlockingTaskJoinError(_) => 3,
+            FarmerRpcApiError::InvalidBlockSeal { .. } => 4,
         };
 
         ErrorObject::owned(code, error.to_string(), None::<()>)
@@ -166,7 +183,55 @@ pub trait FarmerRpcApi {
 #[derive(Debug, Default)]
 struct BlockSignatureSenders {
     current_pre_seal_hash: Blake3Hash,
+    /// Public key hash that seals for the current pre-seal hash must be created with
+    current_public_key_hash: Blake3Hash,
     senders: Vec<oneshot::Sender<OwnedBlockHeaderSeal>>,
+}
+
+impl BlockSignatureSenders {
+    /// Send a seal for the current pre-seal hash to one of the senders.
+    ///
+    /// Seals for other pre-seal hashes are ignored with a warning. A seal of another public key or
+    /// with an invalid signature results in an error, and the senders are kept for a valid seal.
+    fn submit_seal(&mut self, block_seal: BlockSealResponse) -> Result<(), FarmerRpcApiError> {
+        let BlockSealResponse {
+            pre_seal_hash,
+            seal,
+        } = block_seal;
+
+        if self.current_pre_seal_hash != pre_seal_hash {
+            warn!(
+                %pre_seal_hash,
+                current_pre_seal_hash = %self.current_pre_seal_hash,
+                "Received block seal for unexpected pre-seal hash"
+            );
+
+            return Ok(());
+        }
+
+        let public_key_hash = seal.as_ref().public_key_hash();
+        if public_key_hash != self.current_public_key_hash
+            || !seal.as_ref().is_seal_valid(&pre_seal_hash)
+        {
+            warn!(
+                %pre_seal_hash,
+                %public_key_hash,
+                expected_public_key_hash = %self.current_public_key_hash,
+                "Received invalid block seal"
+            );
+
+            return Err(FarmerRpcApiError::InvalidBlockSeal {
+                pre_seal_hash,
+                public_key_hash,
+            });
+        }
+
+        if let Some(sender) = self.senders.pop() {
+            let _: Result<(), _> = sender.send(seal);
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -458,6 +523,7 @@ where
 
             if block_sealing_senders.current_pre_seal_hash != pre_seal_hash {
                 block_sealing_senders.current_pre_seal_hash = pre_seal_hash;
+                block_sealing_senders.current_public_key_hash = public_key_hash;
                 block_sealing_senders.senders.clear();
             }
 
@@ -632,17 +698,7 @@ where
     }
 
     fn submit_block_seal(&self, block_seal: BlockSealResponse) -> Result<(), FarmerRpcApiError> {
-        let block_sealing_senders = Arc::clone(&self.block_sealing_senders);
-
-        let mut block_sealing_senders = block_sealing_senders.lock();
-
-        if block_sealing_senders.current_pre_seal_hash == block_seal.pre_seal_hash
-            && let Some(sender) = block_sealing_senders.senders.pop()
-        {
-            let _: Result<(), _> = sender.send(block_seal.seal);
-        }
-
-        Ok(())
+        self.block_sealing_senders.lock().submit_seal(block_seal)
     }
 
     async fn subscribe_new_super_segment_header(
