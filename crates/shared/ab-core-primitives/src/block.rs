@@ -340,7 +340,7 @@ impl<'a> BeaconChainBlock<'a> {
     /// `bytes` should be 16-bytes aligned.
     ///
     /// Checks internal consistency of header, body, and block, but no consensus verification is
-    /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
+    /// done.
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
@@ -392,22 +392,6 @@ impl<'a> BeaconChainBlock<'a> {
                         .shard_index
                         .is_child_of(self.header.prefix.shard_index)
                 })
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        if !Alignment::MAX.is_slice_aligned(bytes) {
-            return None;
-        }
-
-        // Headers have no expensive consistency checks to skip
-        let (header, remainder) = BeaconChainHeader::try_from_bytes(bytes)?;
-        let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
-        let (body, remainder) = BeaconChainBody::try_from_bytes_unchecked(remainder)?;
-
-        Some((Self { header, body }, remainder))
     }
 
     /// Create an owned version of this block
@@ -463,7 +447,7 @@ impl<'a> IntermediateShardBlock<'a> {
     /// `bytes` should be 16-bytes aligned.
     ///
     /// Checks internal consistency of header, body, and block, but no consensus verification is
-    /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
+    /// done.
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
@@ -515,22 +499,6 @@ impl<'a> IntermediateShardBlock<'a> {
                         .shard_index
                         .is_child_of(self.header.prefix.shard_index)
                 })
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        if !Alignment::MAX.is_slice_aligned(bytes) {
-            return None;
-        }
-
-        // Headers have no expensive consistency checks to skip
-        let (header, remainder) = IntermediateShardHeader::try_from_bytes(bytes)?;
-        let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
-        let (body, remainder) = IntermediateShardBody::try_from_bytes_unchecked(remainder)?;
-
-        Some((Self { header, body }, remainder))
     }
 
     /// Create an owned version of this block
@@ -586,7 +554,7 @@ impl<'a> LeafShardBlock<'a> {
     /// `bytes` should be 16-bytes aligned.
     ///
     /// Checks internal consistency of header, body, and block, but no consensus verification is
-    /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
+    /// done.
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
@@ -620,23 +588,6 @@ impl<'a> LeafShardBlock<'a> {
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
         self.body.root() == self.header.result.body_root
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        if !Alignment::MAX.is_slice_aligned(bytes) {
-            return None;
-        }
-
-        // Headers have no expensive consistency checks to skip
-        let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
-        let remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)?;
-        // Leaf shard bodies have no consistency checks to skip
-        let (body, remainder) = LeafShardBody::try_from_bytes(remainder)?;
-
-        Some((Self { header, body }, remainder))
     }
 
     /// Create an owned version of this block
@@ -695,7 +646,7 @@ impl<'a> Block<'a> {
     /// `bytes` should be 16-byte aligned.
     ///
     /// Checks internal consistency of header, body, and block, but no consensus verification is
-    /// done. For unchecked version use [`Self::try_from_bytes_unchecked()`].
+    /// done.
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
@@ -730,30 +681,6 @@ impl<'a> Block<'a> {
             Self::BeaconChain(block) => block.is_internally_consistent(),
             Self::IntermediateShard(block) => block.is_internally_consistent(),
             Self::LeafShard(block) => block.is_internally_consistent(),
-        }
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(
-        bytes: &'a [u8],
-        shard_kind: RealShardKind,
-    ) -> Option<(Self, &'a [u8])> {
-        match shard_kind {
-            RealShardKind::BeaconChain => {
-                let (block_header, remainder) = BeaconChainBlock::try_from_bytes_unchecked(bytes)?;
-                Some((Self::BeaconChain(block_header), remainder))
-            }
-            RealShardKind::IntermediateShard => {
-                let (block_header, remainder) =
-                    IntermediateShardBlock::try_from_bytes_unchecked(bytes)?;
-                Some((Self::IntermediateShard(block_header), remainder))
-            }
-            RealShardKind::LeafShard => {
-                let (block_header, remainder) = LeafShardBlock::try_from_bytes_unchecked(bytes)?;
-                Some((Self::LeafShard(block_header), remainder))
-            }
         }
     }
 

@@ -454,83 +454,6 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         Some((info, remainder))
     }
 
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout is the same as in `Self::try_from_bytes()`
-
-        let num_blocks = bytes.split_off(..size_of::<u16>())?;
-        let num_blocks = usize::from(u16::from_le_bytes([num_blocks[0], num_blocks[1]]));
-
-        let bytes_start = bytes;
-
-        let mut counts =
-            bytes.split_off(..num_blocks * (size_of::<u8>() + 2 * size_of::<u16>()))?;
-
-        let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
-
-        for _ in 0..num_blocks {
-            let num_own_segment_roots = usize::from(counts[0]);
-            let num_leaf_shard_blocks = u16::from_le_bytes([counts[1], counts[2]]);
-            let num_leaf_shard_blocks_with_segments =
-                usize::from(u16::from_le_bytes([counts[3], counts[4]]));
-            counts = &counts[5..];
-
-            (_, remainder) = IntermediateShardHeader::try_from_bytes(remainder)?;
-
-            if num_own_segment_roots > 0 {
-                let first_local_segment_index;
-                (first_local_segment_index, remainder) =
-                    Unaligned::<LocalSegmentIndex>::from_bytes(remainder)?;
-                // The local segment index after the last segment root must fit into `u64`
-                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index.as_inner(),
-                    num_own_segment_roots,
-                )?;
-                let _own_segment_roots =
-                    remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
-            }
-
-            let leaf_shard_segment_roots_counts =
-                remainder.split_off(..num_leaf_shard_blocks_with_segments * size_of::<u8>())?;
-
-            // Positions of leaf shard blocks with segments must be strictly increasing and smaller
-            // than the number of leaf shard blocks, the root of their segments relies on it
-            let mut next_position = 0;
-            for &num_own_segment_roots in leaf_shard_segment_roots_counts {
-                let num_own_segment_roots = NonZeroU8::new(num_own_segment_roots)?;
-                let position = remainder.split_off(..size_of::<u16>())?;
-                let position = u16::from_le_bytes([position[0], position[1]]);
-                if position < next_position || position >= num_leaf_shard_blocks {
-                    return None;
-                }
-                next_position = position + 1;
-                let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
-                let first_local_segment_index;
-                (first_local_segment_index, remainder) =
-                    Unaligned::<LocalSegmentIndex>::from_bytes(remainder)?;
-                // The local segment index after the last segment root must fit into `u64`
-                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    first_local_segment_index.as_inner(),
-                    usize::from(num_own_segment_roots.get()),
-                )?;
-                let _own_segment_roots = remainder
-                    .split_off(..usize::from(num_own_segment_roots.get()) * SegmentRoot::SIZE)?;
-            }
-
-            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
-        }
-
-        Some((
-            Self {
-                num_blocks,
-                bytes: &bytes_start[..bytes_start.len() - remainder.len()],
-            },
-            remainder,
-        ))
-    }
-
     /// Check intermediate shard info's internal consistency.
     ///
     /// This is usually not necessary to be called explicitly since internal consistency is checked
@@ -916,67 +839,6 @@ impl<'a> BeaconChainBody<'a> {
         true
     }
 
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout is the same as in `Self::try_from_bytes()`
-
-        let num_pot_checkpoints;
-        (num_pot_checkpoints, bytes) = u32::from_bytes(bytes)?;
-        let num_pot_checkpoints = *num_pot_checkpoints as usize;
-
-        let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
-        let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
-
-        let own_segments = if num_own_segment_roots > 0 {
-            let first_local_segment_index;
-            (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
-
-            let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
-            // SAFETY: Valid pointer and size, no alignment requirements
-            let own_segment_roots = unsafe {
-                slice::from_raw_parts(
-                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
-                    num_own_segment_roots,
-                )
-            };
-            let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
-
-            Some(OwnSegments::new(
-                first_local_segment_index.as_inner(),
-                own_segment_roots,
-            )?)
-        } else {
-            None
-        };
-
-        let (intermediate_shard_blocks, mut remainder) =
-            IntermediateShardBlocksInfo::try_from_bytes_unchecked(bytes)?;
-
-        let pot_checkpoints =
-            remainder.split_off(..num_pot_checkpoints.checked_mul(PotCheckpoints::SIZE)?)?;
-        // SAFETY: Valid pointer and size, no alignment requirements
-        let pot_checkpoints = unsafe {
-            slice::from_raw_parts(
-                pot_checkpoints
-                    .as_ptr()
-                    .cast::<[u8; PotCheckpoints::SIZE]>(),
-                num_pot_checkpoints,
-            )
-        };
-        let pot_checkpoints = PotCheckpoints::slice_from_bytes(pot_checkpoints);
-
-        Some((
-            Self {
-                own_segments,
-                intermediate_shard_blocks,
-                pot_checkpoints,
-            },
-            remainder,
-        ))
-    }
-
     /// Create an owned version of this body
     #[cfg(feature = "alloc")]
     #[inline(always)]
@@ -991,14 +853,14 @@ impl<'a> BeaconChainBody<'a> {
                 self.intermediate_shard_blocks.iter(),
                 self.pot_checkpoints,
             )
-            .expect("`self` is always a valid invariant; qed")
+            .expect("`self` was created by the parser with all checks; qed")
         } else {
             OwnedBeaconChainBody::new(
                 iter::empty(),
                 self.intermediate_shard_blocks.iter(),
                 self.pot_checkpoints,
             )
-            .expect("`self` is always a valid invariant; qed")
+            .expect("`self` was created by the parser with all checks; qed")
         }
     }
 
@@ -1139,53 +1001,6 @@ impl<'a> LeafShardBlocksInfo<'a> {
         }
 
         Some((info, remainder))
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout is the same as in `Self::try_from_bytes()`
-
-        let num_blocks = bytes.split_off(..size_of::<u16>())?;
-        let num_blocks = u16::from_le_bytes([num_blocks[0], num_blocks[1]]);
-
-        let bytes_start = bytes;
-
-        let mut counts = bytes.split_off(..usize::from(num_blocks) * size_of::<u8>())?;
-
-        let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
-
-        for _ in 0..num_blocks {
-            let num_own_segment_roots = usize::from(counts[0]);
-            counts = &counts[1..];
-
-            (_, remainder) = LeafShardHeader::try_from_bytes(remainder)?;
-
-            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
-
-            (_, remainder) = Blake3Hash::from_bytes(remainder)?;
-
-            if num_own_segment_roots > 0 {
-                let first_local_segment_index;
-                (first_local_segment_index, remainder) = LocalSegmentIndex::from_bytes(remainder)?;
-                // The local segment index after the last segment root must fit into `u64`
-                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    *first_local_segment_index,
-                    num_own_segment_roots,
-                )?;
-                let _own_segment_roots =
-                    remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
-            }
-        }
-
-        Some((
-            Self {
-                num_blocks,
-                bytes: &bytes_start[..bytes_start.len() - remainder.len()],
-            },
-            remainder,
-        ))
     }
 
     /// Check leaf shard info's internal consistency.
@@ -1481,48 +1296,6 @@ impl<'a> IntermediateShardBody<'a> {
         true
     }
 
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout is the same as in `Self::try_from_bytes()`
-
-        let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
-        let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
-
-        let own_segments = if num_own_segment_roots > 0 {
-            let first_local_segment_index;
-            (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
-
-            let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
-            // SAFETY: Valid pointer and size, no alignment requirements
-            let own_segment_roots = unsafe {
-                slice::from_raw_parts(
-                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
-                    num_own_segment_roots,
-                )
-            };
-            let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
-
-            Some(OwnSegments::new(
-                first_local_segment_index.as_inner(),
-                own_segment_roots,
-            )?)
-        } else {
-            None
-        };
-
-        let (leaf_shard_blocks, remainder) = LeafShardBlocksInfo::try_from_bytes_unchecked(bytes)?;
-
-        Some((
-            Self {
-                own_segments,
-                leaf_shard_blocks,
-            },
-            remainder,
-        ))
-    }
-
     /// Segment roots produced by this shard
     #[inline(always)]
     pub fn own_segments(&self) -> Option<OwnSegments<'a>> {
@@ -1548,10 +1321,10 @@ impl<'a> IntermediateShardBody<'a> {
                     }),
                 self.leaf_shard_blocks.iter(),
             )
-            .expect("`self` is always a valid invariant; qed")
+            .expect("`self` was created by the parser with all checks; qed")
         } else {
             OwnedIntermediateShardBody::new(iter::empty(), self.leaf_shard_blocks.iter())
-                .expect("`self` is always a valid invariant; qed")
+                .expect("`self` was created by the parser with all checks; qed")
         }
     }
 
@@ -1780,15 +1553,16 @@ impl<'a> LeafShardBody<'a> {
                 .iter()
                 .map(|(local_segment_index, &segment_root)| (local_segment_index, segment_root));
 
-            OwnedLeafShardBody::init(own_segments).expect("`self` is always a valid invariant; qed")
+            OwnedLeafShardBody::init(own_segments)
+                .expect("`self` was created by the parser with all checks; qed")
         } else {
             OwnedLeafShardBody::init(iter::empty())
-                .expect("`self` is always a valid invariant; qed")
+                .expect("`self` was created by the parser with all checks; qed")
         };
         for transaction in self.transactions.iter() {
             builder
                 .add_transaction(transaction)
-                .expect("`self` is always a valid invariant; qed");
+                .expect("`self` was created by the parser with all checks; qed");
         }
 
         builder.finish()
@@ -1851,30 +1625,6 @@ impl<'a> BlockBody<'a> {
             Self::BeaconChain(body) => body.is_internally_consistent(),
             Self::IntermediateShard(body) => body.is_internally_consistent(),
             Self::LeafShard(body) => body.is_internally_consistent(),
-        }
-    }
-
-    /// The same as [`Self::try_from_bytes()`], but for trusted input that skips some consistency
-    /// checks
-    #[inline]
-    pub fn try_from_bytes_unchecked(
-        bytes: &'a [u8],
-        shard_kind: RealShardKind,
-    ) -> Option<(Self, &'a [u8])> {
-        match shard_kind {
-            RealShardKind::BeaconChain => {
-                let (body, remainder) = BeaconChainBody::try_from_bytes_unchecked(bytes)?;
-                Some((Self::BeaconChain(body), remainder))
-            }
-            RealShardKind::IntermediateShard => {
-                let (body, remainder) = IntermediateShardBody::try_from_bytes_unchecked(bytes)?;
-                Some((Self::IntermediateShard(body), remainder))
-            }
-            RealShardKind::LeafShard => {
-                // Leaf shard bodies have no consistency checks to skip
-                let (body, remainder) = LeafShardBody::try_from_bytes(bytes)?;
-                Some((Self::LeafShard(body), remainder))
-            }
         }
     }
 

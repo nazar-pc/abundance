@@ -479,7 +479,6 @@ impl OwnedBeaconChainBody {
             return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
         };
 
-        // TODO: Avoid extra parsing here or at least go through unchecked version
         Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
             // Everything else is written the way the parser reads it, only contents of
             // intermediate shard blocks can be rejected
@@ -741,7 +740,6 @@ impl OwnedIntermediateShardBody {
             }
         }
 
-        // TODO: Avoid extra parsing here or at least go through unchecked version
         Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
             // Everything else is written the way the parser reads it, only contents of leaf shard
             // blocks can be rejected
@@ -1017,7 +1015,6 @@ impl OwnedLeafShardBlockBodyBuilder {
 
     /// Finish building block body
     pub fn finish(self) -> OwnedLeafShardBody {
-        // TODO: Avoid extra parsing here or at least go through unchecked version
         OwnedLeafShardBody::from_buffer(self.transaction_builder.finish().into_shared())
             .expect("Known to be created correctly; qed")
     }

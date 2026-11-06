@@ -55,8 +55,6 @@ pub trait GenericOwnedBlock:
     /// Block body
     fn body(&self) -> &Self::Body;
 
-    // TODO: Unchecked versions of methods that create instances from buffers (here and in
-    //  header/block)?
     /// Create owned block from buffers
     fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self>;
 
@@ -139,7 +137,6 @@ impl OwnedBeaconChainBlock {
             body: OwnedBeaconChainBody::from_buffer(body).ok()?,
         };
 
-        // TODO: This duplicates parsing done in above constructors
         if !block.block().is_internally_consistent() {
             return None;
         }
@@ -290,7 +287,6 @@ impl OwnedIntermediateShardBlock {
             body: OwnedIntermediateShardBody::from_buffer(body).ok()?,
         };
 
-        // TODO: This duplicates parsing done in above constructors
         if !block.block().is_internally_consistent() {
             return None;
         }
@@ -437,7 +433,6 @@ impl OwnedLeafShardBlock {
             body: OwnedLeafShardBody::from_buffer(body).ok()?,
         };
 
-        // TODO: This duplicates parsing done in above constructors
         if !block.block().is_internally_consistent() {
             return None;
         }
@@ -584,8 +579,6 @@ impl OwnedBlock {
         }
     }
 
-    // TODO: Unchecked versions of methods that create instances from buffers (here and in
-    //  header/block)?
     /// Create owned block from buffers
     #[inline]
     pub fn from_buffers(
