@@ -30,8 +30,11 @@ use core::fmt;
 use core::iter::TrustedLen;
 use derive_more::From;
 
-/// Generic owned block
-pub trait GenericOwnedBlock:
+/// Generic owned block.
+///
+/// Can't be implemented outside of this module, so that code generic over owned blocks can rely on
+/// the header corresponding to the body, like with concrete owned blocks.
+pub impl(self) trait GenericOwnedBlock:
     Clone + fmt::Debug + Send + Sync + Into<OwnedBlock> + Any + 'static
 {
     /// Shard kind
@@ -66,14 +69,15 @@ pub trait GenericOwnedBlock:
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
+///
+/// Fields can't be modified after creation, so that the header always corresponds to the body,
+/// which constructors ensure.
 #[derive(Debug, Clone)]
-// Prevent creation of potentially broken invariants externally
-#[non_exhaustive]
 pub struct OwnedBeaconChainBlock {
     /// Block header
-    pub header: OwnedBeaconChainHeader,
+    pub mut(self) header: OwnedBeaconChainHeader,
     /// Block body
-    pub body: OwnedBeaconChainBody,
+    pub mut(self) body: OwnedBeaconChainBody,
 }
 
 impl GenericOwnedBlock for OwnedBeaconChainBlock {
@@ -142,6 +146,16 @@ impl OwnedBeaconChainBlock {
         }
 
         Some(block)
+    }
+
+    /// Create an owned version of a borrowed block, whose header corresponds to the body: borrowed
+    /// blocks are only created by the parser with all checks or out of owned blocks
+    #[inline(always)]
+    pub(super) fn from_block(block: BeaconChainBlock<'_>) -> Self {
+        Self {
+            header: block.header.to_owned(),
+            body: block.body.to_owned(),
+        }
     }
 
     /// Get [`BeaconChainBlock`] out of [`OwnedBeaconChainBlock`]
@@ -221,14 +235,15 @@ impl OwnedBeaconChainBlockUnsealed {
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
+///
+/// Fields can't be modified after creation, so that the header always corresponds to the body,
+/// which constructors ensure.
 #[derive(Debug, Clone)]
-// Prevent creation of potentially broken invariants externally
-#[non_exhaustive]
 pub struct OwnedIntermediateShardBlock {
     /// Block header
-    pub header: OwnedIntermediateShardHeader,
+    pub mut(self) header: OwnedIntermediateShardHeader,
     /// Block body
-    pub body: OwnedIntermediateShardBody,
+    pub mut(self) body: OwnedIntermediateShardBody,
 }
 
 impl GenericOwnedBlock for OwnedIntermediateShardBlock {
@@ -292,6 +307,16 @@ impl OwnedIntermediateShardBlock {
         }
 
         Some(block)
+    }
+
+    /// Create an owned version of a borrowed block, whose header corresponds to the body: borrowed
+    /// blocks are only created by the parser with all checks or out of owned blocks
+    #[inline(always)]
+    pub(super) fn from_block(block: IntermediateShardBlock<'_>) -> Self {
+        Self {
+            header: block.header.to_owned(),
+            body: block.body.to_owned(),
+        }
     }
 
     /// Get [`IntermediateShardBlock`] out of [`OwnedIntermediateShardBlock`]
@@ -405,14 +430,15 @@ impl OwnedIntermediateShardBlockUnsealed {
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
+///
+/// Fields can't be modified after creation, so that the header always corresponds to the body,
+/// which constructors ensure.
 #[derive(Debug, Clone)]
-// Prevent creation of potentially broken invariants externally
-#[non_exhaustive]
 pub struct OwnedLeafShardBlock {
     /// Block header
-    pub header: OwnedLeafShardHeader,
+    pub mut(self) header: OwnedLeafShardHeader,
     /// Block body
-    pub body: OwnedLeafShardBody,
+    pub mut(self) body: OwnedLeafShardBody,
 }
 
 impl GenericOwnedBlock for OwnedLeafShardBlock {
@@ -472,6 +498,16 @@ impl OwnedLeafShardBlock {
         }
 
         Some(block)
+    }
+
+    /// Create an owned version of a borrowed block, whose header corresponds to the body: borrowed
+    /// blocks are only created by the parser with all checks or out of owned blocks
+    #[inline(always)]
+    pub(super) fn from_block(block: LeafShardBlock<'_>) -> Self {
+        Self {
+            header: block.header.to_owned(),
+            body: block.body.to_owned(),
+        }
     }
 
     /// Get [`LeafShardBlock`] out of [`OwnedLeafShardBlock`]

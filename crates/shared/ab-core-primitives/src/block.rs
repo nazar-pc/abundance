@@ -296,8 +296,11 @@ impl BlockRoot {
     }
 }
 
-/// Generic block
-pub trait GenericBlock<'a>
+/// Generic block.
+///
+/// Can't be implemented outside of this module, so that code generic over blocks can rely on the
+/// header corresponding to the body, like with concrete blocks.
+pub impl(self) trait GenericBlock<'a>
 where
     Self: Clone + fmt::Debug + Send + Sync,
 {
@@ -325,15 +328,16 @@ where
     fn to_owned(self) -> Self::Owned;
 }
 
-/// Block that corresponds to the beacon chain
+/// Block that corresponds to the beacon chain.
+///
+/// Fields can't be modified after creation, so that the header always corresponds to the body,
+/// which constructors ensure.
 #[derive(Debug, Clone)]
-// Prevent creation of potentially broken invariants externally
-#[non_exhaustive]
 pub struct BeaconChainBlock<'a> {
     /// Block header
-    header: BeaconChainHeader<'a>,
+    pub mut(self) header: BeaconChainHeader<'a>,
     /// Block body
-    body: BeaconChainBody<'a>,
+    pub mut(self) body: BeaconChainBody<'a>,
 }
 
 impl<'a> BeaconChainBlock<'a> {
@@ -391,10 +395,7 @@ impl<'a> BeaconChainBlock<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedBeaconChainBlock {
-        OwnedBeaconChainBlock {
-            header: self.header.to_owned(),
-            body: self.body.to_owned(),
-        }
+        OwnedBeaconChainBlock::from_block(self)
     }
 }
 
@@ -423,15 +424,16 @@ impl<'a> GenericBlock<'a> for BeaconChainBlock<'a> {
     }
 }
 
-/// Block that corresponds to an intermediate shard
+/// Block that corresponds to an intermediate shard.
+///
+/// Fields can't be modified after creation, so that the header always corresponds to the body,
+/// which constructors ensure.
 #[derive(Debug, Clone)]
-// Prevent creation of potentially broken invariants externally
-#[non_exhaustive]
 pub struct IntermediateShardBlock<'a> {
     /// Block header
-    header: IntermediateShardHeader<'a>,
+    pub mut(self) header: IntermediateShardHeader<'a>,
     /// Block body
-    body: IntermediateShardBody<'a>,
+    pub mut(self) body: IntermediateShardBody<'a>,
 }
 
 impl<'a> IntermediateShardBlock<'a> {
@@ -507,10 +509,7 @@ impl<'a> IntermediateShardBlock<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedIntermediateShardBlock {
-        OwnedIntermediateShardBlock {
-            header: self.header.to_owned(),
-            body: self.body.to_owned(),
-        }
+        OwnedIntermediateShardBlock::from_block(self)
     }
 }
 
@@ -539,15 +538,16 @@ impl<'a> GenericBlock<'a> for IntermediateShardBlock<'a> {
     }
 }
 
-/// Block that corresponds to a leaf shard
+/// Block that corresponds to a leaf shard.
+///
+/// Fields can't be modified after creation, so that the header always corresponds to the body,
+/// which constructors ensure.
 #[derive(Debug, Clone)]
-// Prevent creation of potentially broken invariants externally
-#[non_exhaustive]
 pub struct LeafShardBlock<'a> {
     /// Block header
-    header: LeafShardHeader<'a>,
+    pub mut(self) header: LeafShardHeader<'a>,
     /// Block body
-    body: LeafShardBody<'a>,
+    pub mut(self) body: LeafShardBody<'a>,
 }
 
 impl<'a> LeafShardBlock<'a> {
@@ -596,10 +596,7 @@ impl<'a> LeafShardBlock<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardBlock {
-        OwnedLeafShardBlock {
-            header: self.header.to_owned(),
-            body: self.body.to_owned(),
-        }
+        OwnedLeafShardBlock::from_block(self)
     }
 }
 

@@ -11,6 +11,7 @@
     const_try,
     gca_const_items,
     gca_min_const_items,
+    impl_restriction,
     inherent_associated_types,
     min_adt_const_params,
     mut_restriction,
@@ -18,7 +19,7 @@
     step_trait,
     trusted_len
 )]
-#![cfg_attr(feature = "alloc", feature(impl_restriction, maybe_uninit_fill))]
+#![cfg_attr(feature = "alloc", feature(maybe_uninit_fill))]
 #![expect(incomplete_features, reason = "generic_const_*")]
 
 pub mod address;
