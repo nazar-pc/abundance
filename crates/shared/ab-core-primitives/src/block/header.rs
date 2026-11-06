@@ -698,9 +698,9 @@ pub struct BeaconChainHeader<'a> {
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<once_cell::race::OnceBox<BlockRoot>>,
+    cached_block_root: once_cell::race::OnceBox<BlockRoot>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<std::sync::OnceLock<BlockRoot>>,
+    cached_block_root: std::sync::OnceLock<BlockRoot>,
 }
 
 impl<'a> Deref for BeaconChainHeader<'a> {
@@ -777,8 +777,10 @@ impl<'a> BeaconChainHeader<'a> {
             intermediate_shard_blocks_root,
             consensus_parameters,
             pre_seal_bytes,
-            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
-            cached_block_root: triomphe::Arc::default(),
+            #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: once_cell::race::OnceBox::new(),
+            #[cfg(not(any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: std::sync::OnceLock::new(),
         };
 
         Some((header, remainder))
@@ -917,9 +919,9 @@ pub struct IntermediateShardHeader<'a> {
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<once_cell::race::OnceBox<BlockRoot>>,
+    cached_block_root: once_cell::race::OnceBox<BlockRoot>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<std::sync::OnceLock<BlockRoot>>,
+    cached_block_root: std::sync::OnceLock<BlockRoot>,
 }
 
 impl<'a> Deref for IntermediateShardHeader<'a> {
@@ -995,8 +997,10 @@ impl<'a> IntermediateShardHeader<'a> {
             beacon_chain_info,
             leaf_shard_blocks_root,
             pre_seal_bytes,
-            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
-            cached_block_root: triomphe::Arc::default(),
+            #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: once_cell::race::OnceBox::new(),
+            #[cfg(not(any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: std::sync::OnceLock::new(),
         };
 
         Some((header, remainder))
@@ -1134,9 +1138,9 @@ pub struct LeafShardHeader<'a> {
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<once_cell::race::OnceBox<BlockRoot>>,
+    cached_block_root: once_cell::race::OnceBox<BlockRoot>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<std::sync::OnceLock<BlockRoot>>,
+    cached_block_root: std::sync::OnceLock<BlockRoot>,
 }
 
 impl<'a> Deref for LeafShardHeader<'a> {
@@ -1208,8 +1212,10 @@ impl<'a> LeafShardHeader<'a> {
             shared,
             beacon_chain_info,
             pre_seal_bytes,
-            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
-            cached_block_root: triomphe::Arc::default(),
+            #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: once_cell::race::OnceBox::new(),
+            #[cfg(not(any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: std::sync::OnceLock::new(),
         };
 
         Some((header, remainder))
