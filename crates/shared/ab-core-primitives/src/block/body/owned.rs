@@ -134,12 +134,9 @@ impl TransactionBuilder {
     where
         T: WritableBodyTransaction,
     {
-        // Transactions are aligned, but the very first might come after non-transaction fields that
-        // were not aligned
-        if self.inc_transaction_count() == 1 && !align_to_16_bytes_with_padding(&mut self.buffer) {
-            self.dec_transaction_count();
-            return Err(AddTransactionError::BlockBodyIsTooLarge);
-        }
+        // The buffer is already aligned, because padding follows the number of transactions and
+        // each transaction
+        self.inc_transaction_count();
 
         let old_buffer_len = self.buffer.len();
 
@@ -172,9 +169,9 @@ impl TransactionBuilder {
         self.buffer
     }
 
-    /// Increase the number of stored transactions and return the new value
+    /// Increase the number of stored transactions
     #[inline(always)]
-    fn inc_transaction_count(&mut self) -> u32 {
+    fn inc_transaction_count(&mut self) {
         // SAFETY: Constructor ensures the offset is valid and has space for `u32` (but not
         // necessarily aligned)
         unsafe {
@@ -189,7 +186,6 @@ impl TransactionBuilder {
                 which can't be longer than `u32::MAX` bytes; qed",
             );
             num_transactions_ptr.write_unaligned(num_transactions);
-            num_transactions
         }
     }
 
@@ -909,18 +905,22 @@ impl OwnedLeafShardBody {
 
         // Transactions are not known yet, the buffer grows when they are added
         let mut buffer = OwnedAlignedBuffer::with_capacity(
-            // Number of own segment roots
-            u8::SIZE
-                // Local segment index of the first own segment root
-                + if num_own_segment_roots > 0 {
-                    LocalSegmentIndex::SIZE
-                } else {
-                    0
-                }
-                // Own segment roots
-                + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
-                // Number of transactions
-                + u32::SIZE,
+            (
+                // Number of own segment roots
+                u8::SIZE
+                    // Local segment index of the first own segment root
+                    + if num_own_segment_roots > 0 {
+                        LocalSegmentIndex::SIZE
+                    } else {
+                        0
+                    }
+                    // Own segment roots
+                    + u32::from(num_own_segment_roots) * SegmentRoot::SIZE as u32
+                    // Number of transactions
+                    + u32::SIZE
+            )
+                // Padding to 16-bytes boundary
+                .next_multiple_of(u32::from(Alignment::MAX.get())),
         );
 
         let true = buffer.append(&[num_own_segment_roots]) else {
@@ -965,6 +965,10 @@ impl OwnedLeafShardBody {
 
         let num_transactions_offset = buffer.len() as usize;
         let true = buffer.append(&0u32.to_le_bytes()) else {
+            unreachable!("Checked size above; qed");
+        };
+        // The parser expects padding after the number of transactions even if there are none
+        let true = align_to_16_bytes_with_padding(&mut buffer) else {
             unreachable!("Checked size above; qed");
         };
 

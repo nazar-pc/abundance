@@ -220,6 +220,33 @@ fn owned_leaf_shard_body_aligns_transactions_to_max_alignment() {
     }
 }
 
+/// The parser expects padding after the number of transactions also when there are none
+#[test]
+fn owned_leaf_shard_body_without_transactions_is_padded_after_their_number() {
+    let own_segment = (LocalSegmentIndex::from(3), SegmentRoot::from([10; _]));
+    for own_segment in [None, Some(own_segment)] {
+        let mut expected = Vec::new();
+        if let Some((first_local_segment_index, segment_root)) = own_segment {
+            expected.push(1);
+            append_segments(
+                &mut expected,
+                &(first_local_segment_index, vec![segment_root]),
+            );
+        } else {
+            expected.push(0);
+        }
+        // Zero transactions
+        expected.extend_from_slice(&0u32.to_le_bytes());
+        pad_to(&mut expected, 16);
+
+        let body = OwnedLeafShardBody::init(own_segment.into_iter())
+            .unwrap()
+            .finish();
+        assert_eq!(body.buffer().as_slice(), expected.as_slice());
+        assert!(body.body().transactions().is_empty());
+    }
+}
+
 #[test]
 fn beacon_chain_body_bytes_must_be_4_bytes_aligned() {
     for offset in 0..8_usize {
@@ -1347,6 +1374,7 @@ fn own_segments_with_local_segment_indices_near_u64_max() {
         let mut bytes = vec![2];
         append_segments(&mut bytes, &own_segments);
         bytes.extend_from_slice(&0u32.to_le_bytes());
+        pad_to(&mut bytes, 16);
         let bytes = SharedAlignedBuffer::from_bytes(&bytes);
         let body = LeafShardBody::try_from_bytes(bytes.as_slice());
         assert_eq!(body.is_some(), valid);
