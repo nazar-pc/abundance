@@ -1,12 +1,13 @@
 use crate::address::Address;
 use crate::block::body::owned::{
-    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError,
+    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody,
     OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder,
     OwnedLeafShardBody, OwnedLeafShardBodyError,
 };
 use crate::block::body::{
-    BeaconChainBody, BlockBody, IntermediateShardBlockInfo, IntermediateShardBlocksInfo,
-    IntermediateShardBody, LeafShardBlockInfo, LeafShardBlocksInfo, LeafShardBody, OwnSegments,
+    BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBlockInfo,
+    IntermediateShardBlocksInfo, IntermediateShardBody, LeafShardBlockInfo, LeafShardBlocksInfo,
+    LeafShardBody, OwnSegments,
 };
 use crate::block::header::owned::{
     OwnedBeaconChainHeader, OwnedIntermediateShardHeader, OwnedLeafShardHeader,
@@ -220,27 +221,163 @@ fn owned_leaf_shard_body_aligns_transactions_to_max_alignment() {
     }
 }
 
+/// The parser expects padding after the number of transactions also when there are none
 #[test]
-fn beacon_chain_body_bytes_must_be_4_bytes_aligned() {
-    for offset in 0..8_usize {
-        // An empty body at `offset`: zero numbers of PoT checkpoints, own segment roots and
-        // intermediate shard blocks, then zero padding up to the next 8-byte boundary in memory
-        let len = (offset + 7).next_multiple_of(8) - offset;
-        let bytes = bytes_at(&vec![0; len], offset);
-        let bytes = &bytes.as_slice()[offset..];
+fn owned_leaf_shard_body_without_transactions_is_padded_after_their_number() {
+    let own_segment = (LocalSegmentIndex::from(3), SegmentRoot::from([10; _]));
+    for own_segment in [None, Some(own_segment)] {
+        let mut expected = Vec::new();
+        if let Some((first_local_segment_index, segment_root)) = own_segment {
+            expected.push(1);
+            append_segments(
+                &mut expected,
+                &(first_local_segment_index, vec![segment_root]),
+            );
+        } else {
+            expected.push(0);
+        }
+        // Zero transactions
+        expected.extend_from_slice(&0u32.to_le_bytes());
+        pad_to(&mut expected, 16);
 
-        // The number of PoT checkpoints is read as an aligned `u32`, and the padding adapts to
-        // the position of the rest
-        let expected = (offset % 4 == 0).then_some(0);
-        assert_eq!(
-            BeaconChainBody::try_from_bytes(bytes).map(|(_body, remainder)| remainder.len()),
-            expected
-        );
-        assert_eq!(
-            BlockBody::try_from_bytes(bytes, RealShardKind::BeaconChain)
-                .map(|(_body, remainder)| remainder.len()),
-            expected
-        );
+        let body = OwnedLeafShardBody::init(own_segment.into_iter())
+            .unwrap()
+            .finish();
+        assert_eq!(body.buffer().as_slice(), expected.as_slice());
+        assert!(body.body().transactions().is_empty());
+    }
+}
+
+/// Padding in layouts depends on the address, so a body is only accepted at a 16-byte aligned
+/// address, like in owned bodies, rather than with different padding at different addresses
+#[test]
+fn body_bytes_must_be_16_bytes_aligned() {
+    for offset in 0..16_usize {
+        // Empty bodies at `offset`, with zero padding up to the next boundary in memory after the
+        // numbers of PoT checkpoints, own segment roots and child shard blocks or transactions
+        for (shard_kind, unpadded_len, alignment) in [
+            (RealShardKind::BeaconChain, 7, 8),
+            (RealShardKind::IntermediateShard, 3, 8),
+            (RealShardKind::LeafShard, 5, 16),
+        ] {
+            let len = (offset + unpadded_len).next_multiple_of(alignment) - offset;
+            let bytes = bytes_at(&vec![0; len], offset);
+            let bytes = &bytes.as_slice()[offset..];
+
+            let expected = (offset == 0).then_some(0);
+            assert_eq!(
+                BlockBody::try_from_bytes(bytes, shard_kind)
+                    .map(|(_body, remainder)| remainder.len()),
+                expected,
+                "{shard_kind:?} at offset {offset}"
+            );
+        }
+    }
+}
+
+/// A transaction of a size that is 1 more than a multiple of 16 bytes, so 15 bytes of padding
+/// follow it in a body
+fn transaction_with_15_bytes_of_padding() -> OwnedTransaction {
+    let header = transaction_header();
+    let unsealed_len = OwnedTransaction::from_parts(&header, &[], &[], &[], &[])
+        .unwrap()
+        .buffer()
+        .len();
+    let seal_len = (17 - unsealed_len % 16) % 16;
+    let transaction = OwnedTransaction::from_parts(
+        &header,
+        &[],
+        &[],
+        &[],
+        &vec![1; usize::try_from(seal_len).unwrap()],
+    )
+    .unwrap();
+    assert_eq!(transaction.buffer().len() % 16, 1);
+    transaction
+}
+
+/// Padding at the end of bodies was accepted when cut off, which gave the same bodies several
+/// encodings
+#[test]
+fn bodies_with_cut_off_padding_at_the_end_are_rejected() {
+    let mut builder = OwnedLeafShardBody::init(iter::empty()).unwrap();
+    builder
+        .add_transaction(&transaction_with_15_bytes_of_padding())
+        .unwrap();
+    let leaf_shard_body_with_transaction = builder.finish();
+    // Segments of 8 leaf shards, each of them takes 7 bytes more than a multiple of 8 bytes
+    let leaf_shards_segments = (0..8)
+        .map(|position| (position, 1 | ((u32::from(position) + 1) << 10), 1))
+        .collect::<Vec<_>>();
+    let beacon_chain_body_with_intermediate_shard_block = beacon_chain_body_bytes(
+        &[TestIntermediateShardBlock::new(
+            1,
+            0,
+            0,
+            8,
+            &leaf_shards_segments,
+        )],
+        &[],
+    );
+    // A segment root of a leaf shard is the last data and isn't zero, so zeroes after it are
+    // padding
+    let padding_after_intermediate_shard_block = beacon_chain_body_with_intermediate_shard_block
+        .as_slice()
+        .iter()
+        .rev()
+        .take_while(|&&byte| byte == 0)
+        .count();
+    assert_ne!(padding_after_intermediate_shard_block, 0);
+
+    for (shard_kind, bytes, padding_len) in [
+        // Without PoT checkpoints, padded after the number of intermediate shard blocks
+        (
+            RealShardKind::BeaconChain,
+            beacon_chain_body_bytes(&[], &[]),
+            1,
+        ),
+        // Without PoT checkpoints, padded after the only intermediate shard block
+        (
+            RealShardKind::BeaconChain,
+            beacon_chain_body_with_intermediate_shard_block,
+            padding_after_intermediate_shard_block,
+        ),
+        // Padded after the number of leaf shard blocks
+        (
+            RealShardKind::IntermediateShard,
+            intermediate_shard_body_bytes(None, &[]),
+            5,
+        ),
+        // Padded after the number of transactions, cutting all of it gives the encoding the
+        // builder used to write for bodies without transactions
+        (
+            RealShardKind::LeafShard,
+            OwnedLeafShardBody::init(iter::empty())
+                .unwrap()
+                .finish()
+                .buffer()
+                .clone(),
+            11,
+        ),
+        // Padded after the only transaction
+        (
+            RealShardKind::LeafShard,
+            leaf_shard_body_with_transaction.buffer().clone(),
+            15,
+        ),
+    ] {
+        OwnedBlockBody::from_buffer(bytes.clone(), shard_kind).unwrap();
+        let bytes = bytes.as_slice();
+        assert!(bytes.ends_with(&vec![0; padding_len]));
+
+        for cut_len in 1..=padding_len {
+            let cut_bytes = SharedAlignedBuffer::from_bytes(&bytes[..bytes.len() - cut_len]);
+            assert!(
+                BlockBody::try_from_bytes(cut_bytes.as_slice(), shard_kind).is_none(),
+                "{shard_kind:?} with {cut_len} of {padding_len} bytes of padding cut off"
+            );
+            OwnedBlockBody::from_buffer(cut_bytes, shard_kind).unwrap_err();
+        }
     }
 }
 
@@ -388,6 +525,118 @@ fn beacon_chain_body_with_too_many_pot_checkpoints() {
     let bytes = SharedAlignedBuffer::from_bytes(&bytes);
 
     assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
+}
+
+#[test]
+#[cfg(not(miri))]
+#[ignore = "Allocates more than 4 GiB of memory"]
+fn bodies_longer_than_u32_max_bytes_are_rejected() {
+    use crate::transaction::SerializedTransactionLengths;
+    use ab_io_type::trivial_type::TrivialType;
+
+    // Intermediate shard bodies are not here: with at most `u16::MAX` leaf shard blocks with at
+    // most `u8::MAX` segment roots each, they are far smaller than `u32::MAX` bytes, so there is
+    // no body to reject
+    let max_body_len = u64::from(u32::MAX);
+    let to_usize = |len: u64| usize::try_from(len).unwrap();
+
+    // Beacon chain body without own segments and intermediate shard blocks, so its length only
+    // grows with PoT checkpoints after 8 bytes of numbers and padding
+    let beacon_chain_body_len = |num_pot_checkpoints: u64| {
+        8 + num_pot_checkpoints * u64::try_from(PotCheckpoints::SIZE).unwrap()
+    };
+    let max_num_pot_checkpoints =
+        (max_body_len - beacon_chain_body_len(0)) / u64::try_from(PotCheckpoints::SIZE).unwrap();
+
+    // Leaf shard body without own segments and with one transaction after 16 bytes of numbers
+    // and padding
+    let leaf_shard_len_without_transaction = 16;
+    let transaction_header_size =
+        size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>();
+    // The longest body that fits ends 16 bytes before `u32::MAX + 1` bytes, since its length is a
+    // multiple of 16 bytes, and a seal of one byte makes it 16 bytes longer with padding
+    let leaf_shard_body_len = |seal_len: u32| max_body_len + 1 - 16 + u64::from(seal_len) * 16;
+    let payload_len = u32::try_from(
+        leaf_shard_body_len(0)
+            - u64::try_from(leaf_shard_len_without_transaction + transaction_header_size).unwrap(),
+    )
+    .unwrap();
+
+    // One allocation for all cases, so that together they never take more memory than one of them
+    let len = beacon_chain_body_len(max_num_pot_checkpoints + 1).max(leaf_shard_body_len(1));
+    let mut buffer = vec![0u8; to_usize(len) + 15];
+    let offset = buffer.as_ptr().align_offset(16);
+    let bytes = &mut buffer[offset..][..to_usize(len)];
+
+    // The accepted body is within one encoding step of the bound and the rejected one is one step
+    // longer, so the only difference between them is crossing the bound
+    let check_lens = |accepted_len: u64, rejected_len: u64, step: u64| {
+        assert!(accepted_len <= max_body_len);
+        assert!(accepted_len + step > max_body_len);
+        assert_eq!(rejected_len, accepted_len + step);
+        assert!(rejected_len > max_body_len);
+        // All bytes of the rejected body are present
+        assert!(len >= rejected_len);
+    };
+
+    {
+        let accepted_len = beacon_chain_body_len(max_num_pot_checkpoints);
+        let rejected_len = beacon_chain_body_len(max_num_pot_checkpoints + 1);
+        check_lens(
+            accepted_len,
+            rejected_len,
+            u64::try_from(PotCheckpoints::SIZE).unwrap(),
+        );
+
+        for (num_pot_checkpoints, expected_len) in [
+            (max_num_pot_checkpoints, Some(accepted_len)),
+            (max_num_pot_checkpoints + 1, None),
+        ] {
+            bytes[..size_of::<u32>()]
+                .copy_from_slice(&u32::try_from(num_pot_checkpoints).unwrap().to_le_bytes());
+            let input = &*bytes;
+            assert!(input.len() > to_usize(max_body_len));
+
+            assert_eq!(
+                BeaconChainBody::try_from_bytes(input)
+                    .map(|(_body, remainder)| input.len() - remainder.len()),
+                expected_len.map(to_usize),
+                "Beacon chain body with {num_pot_checkpoints} PoT checkpoints"
+            );
+        }
+
+        // The next case expects zero bytes, and only the number of PoT checkpoints was written
+        bytes[..size_of::<u32>()].fill(0);
+    }
+
+    {
+        let accepted_len = leaf_shard_body_len(0);
+        let rejected_len = leaf_shard_body_len(1);
+        check_lens(accepted_len, rejected_len, 16);
+
+        bytes[1..][..size_of::<u32>()].copy_from_slice(&1u32.to_le_bytes());
+        for (seal_len, expected_len) in [(0, Some(accepted_len)), (1, None)] {
+            let lengths = SerializedTransactionLengths {
+                read_slots: 0,
+                write_slots: 0,
+                payload: payload_len,
+                seal: seal_len,
+                padding: [0; _],
+            };
+            bytes[leaf_shard_len_without_transaction + size_of::<TransactionHeader>()..]
+                [..size_of::<SerializedTransactionLengths>()]
+                .copy_from_slice(lengths.as_bytes());
+            let input = &*bytes;
+            assert!(input.len() > to_usize(max_body_len));
+
+            assert_eq!(
+                LeafShardBody::try_from_bytes(input)
+                    .map(|(_body, remainder)| input.len() - remainder.len()),
+                expected_len.map(to_usize),
+                "Leaf shard body with seal length {seal_len}"
+            );
+        }
+    }
 }
 
 /// A leaf shard block inside an intermediate shard body
@@ -1347,6 +1596,7 @@ fn own_segments_with_local_segment_indices_near_u64_max() {
         let mut bytes = vec![2];
         append_segments(&mut bytes, &own_segments);
         bytes.extend_from_slice(&0u32.to_le_bytes());
+        pad_to(&mut bytes, 16);
         let bytes = SharedAlignedBuffer::from_bytes(&bytes);
         let body = LeafShardBody::try_from_bytes(bytes.as_slice());
         assert_eq!(body.is_some(), valid);
@@ -1546,6 +1796,128 @@ fn owned_bodies_with_non_consecutive_local_segment_indices() {
                 previous_local_segment_index,
                 local_segment_index,
             }) if previous_local_segment_index == previous && local_segment_index == unexpected
+        );
+    }
+}
+
+/// `to_owned()` of a parsed body copies the bytes it was parsed from, which are the bytes the
+/// builder wrote
+fn check_to_owned_returns_the_same_bytes<Body>(body: &Body)
+where
+    Body: GenericOwnedBlockBody,
+{
+    let bytes = body.buffer().as_slice();
+    assert!(
+        GenericBlockBody::to_owned(*body.body()).buffer().as_slice() == bytes,
+        "Body in an owned buffer"
+    );
+
+    // Other bytes after the body don't belong to it
+    let extra_bytes = [1; 16];
+    let bytes_with_extra_bytes = SharedAlignedBuffer::from_bytes(&[bytes, &extra_bytes].concat());
+    let (parsed_body, remainder) =
+        BlockBody::try_from_bytes(bytes_with_extra_bytes.as_slice(), Body::SHARD_KIND).unwrap();
+    assert_eq!(remainder, extra_bytes);
+    assert!(
+        parsed_body.to_owned().buffer().as_slice() == bytes,
+        "Body followed by other bytes"
+    );
+}
+
+#[test]
+fn to_owned_of_bodies_returns_the_bytes_written_by_builders() {
+    let own_segments = segments(10, 2);
+    let own_segments = || {
+        let (first_local_segment_index, segment_roots) = &own_segments;
+        segment_roots
+            .iter()
+            .enumerate()
+            .map(|(position, &segment_root)| {
+                let position = LocalSegmentIndex::from(u64::try_from(position).unwrap());
+                (*first_local_segment_index + position, segment_root)
+            })
+    };
+    let beacon_chain_body_bytes = beacon_chain_body_bytes(
+        &[
+            TestIntermediateShardBlock::new(1, 0, 1, 2, &[(1, 1 | (1 << 10), 1)]),
+            TestIntermediateShardBlock::new(2, 0, 0, 0, &[]),
+        ],
+        &[],
+    );
+    let (beacon_chain_body, _remainder) =
+        BeaconChainBody::try_from_bytes(beacon_chain_body_bytes.as_slice()).unwrap();
+    let intermediate_shard_body_bytes = intermediate_shard_body_bytes(
+        None,
+        &[
+            TestLeafShardBlock::new(1 | (1 << 10), 0, 1),
+            TestLeafShardBlock::new(1 | (2 << 10), 0, 0),
+        ],
+    );
+    let (intermediate_shard_body, _remainder) =
+        IntermediateShardBody::try_from_bytes(intermediate_shard_body_bytes.as_slice()).unwrap();
+    // Seals of all lengths up to 16 bytes give transactions with all amounts of padding after them
+    let transactions = (0..=16)
+        .map(|seal_len| {
+            OwnedTransaction::from_parts(&transaction_header(), &[], &[], &[1], &vec![2; seal_len])
+                .unwrap()
+        })
+        .collect::<Vec<_>>();
+
+    for with_own_segments in [false, true] {
+        let own_segments = || own_segments().take(if with_own_segments { 2 } else { 0 });
+
+        for (intermediate_shard_blocks, pot_checkpoints) in [
+            (None, &[][..]),
+            (None, &[PotCheckpoints::default(); 2][..]),
+            (Some(beacon_chain_body.intermediate_shard_blocks()), &[][..]),
+        ] {
+            let body = if let Some(intermediate_shard_blocks) = intermediate_shard_blocks {
+                OwnedBeaconChainBody::new(
+                    own_segments(),
+                    intermediate_shard_blocks.iter(),
+                    pot_checkpoints,
+                )
+            } else {
+                OwnedBeaconChainBody::new(
+                    own_segments(),
+                    iter::empty::<IntermediateShardBlockInfo<'_>>(),
+                    pot_checkpoints,
+                )
+            }
+            .unwrap();
+            check_to_owned_returns_the_same_bytes(&body);
+        }
+
+        let body = OwnedIntermediateShardBody::new(
+            own_segments(),
+            iter::empty::<LeafShardBlockInfo<'_>>(),
+        )
+        .unwrap();
+        check_to_owned_returns_the_same_bytes(&body);
+        let body = OwnedIntermediateShardBody::new(
+            own_segments(),
+            intermediate_shard_body.leaf_shard_blocks().iter(),
+        )
+        .unwrap();
+        check_to_owned_returns_the_same_bytes(&body);
+
+        let body = OwnedLeafShardBody::init(own_segments()).unwrap().finish();
+        check_to_owned_returns_the_same_bytes(&body);
+        let mut builder = OwnedLeafShardBody::init(own_segments()).unwrap();
+        for transaction in &transactions {
+            builder.add_transaction(transaction).unwrap();
+        }
+        let body = builder.finish();
+        check_to_owned_returns_the_same_bytes(&body);
+
+        // Builders write transactions of a parsed body the same way
+        let mut builder = OwnedLeafShardBody::init(own_segments()).unwrap();
+        for transaction in body.body().transactions().iter() {
+            builder.add_transaction(transaction).unwrap();
+        }
+        assert!(
+            builder.finish().buffer().as_slice() == body.buffer().as_slice(),
+            "Body with transactions of a parsed body"
         );
     }
 }

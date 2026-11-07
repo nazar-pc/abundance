@@ -18,6 +18,8 @@ use crate::solutions::{Solution, SolutionRange};
 use crate::trees::{
     BeaconChainHeaderMerkleTree, IntermediateShardHeaderMerkleTree, LeafShardHeaderMerkleTree,
 };
+#[cfg(feature = "alloc")]
+use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_blake3::{BLOCK_LEN, single_block_hash, single_chunk_hash};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
@@ -697,6 +699,9 @@ pub struct BeaconChainHeader<'a> {
     consensus_parameters: BlockHeaderConsensusParameters<'a>,
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
+    /// All bytes of the header, which owned versions are created from
+    #[cfg(feature = "alloc")]
+    bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
     cached_block_root: once_cell::race::OnceBox<BlockRoot>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
@@ -777,6 +782,8 @@ impl<'a> BeaconChainHeader<'a> {
             intermediate_shard_blocks_root,
             consensus_parameters,
             pre_seal_bytes,
+            #[cfg(feature = "alloc")]
+            bytes: &bytes[..bytes.len() - remainder.len()],
             #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
             cached_block_root: once_cell::race::OnceBox::new(),
             #[cfg(not(any(target_os = "none", target_os = "unknown")))]
@@ -790,18 +797,12 @@ impl<'a> BeaconChainHeader<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedBeaconChainHeader {
-        let unsealed = OwnedBeaconChainHeader::from_parts(
-            self.shared.prefix,
-            self.shared.result,
-            self.shared.consensus_info,
-            self.intermediate_shard_blocks_root,
-            &self.consensus_parameters,
+        let buffer = SharedAlignedBuffer::from_bytes(self.bytes);
+        OwnedBeaconChainHeader::from_buffer(buffer).expect(
+            "The same bytes were already parsed with all checks, which only depend on the address \
+            being 8-byte aligned, and owned buffers are 16-byte aligned and hold headers, which \
+            are far smaller than `u32::MAX` bytes; qed",
         )
-        .expect("Parts of a parsed header are consistent; qed");
-
-        unsealed
-            .with_seal(self.shared.seal)
-            .expect("Seal of a parsed header matches its solution; qed")
     }
 
     /// Shared block header
@@ -855,6 +856,8 @@ impl<'a> BeaconChainHeader<'a> {
             intermediate_shard_blocks_root,
             consensus_parameters,
             pre_seal_bytes: _,
+            #[cfg(feature = "alloc")]
+                bytes: _,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root,
         } = self;
@@ -918,6 +921,9 @@ pub struct IntermediateShardHeader<'a> {
     leaf_shard_blocks_root: &'a Blake3Hash,
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
+    /// All bytes of the header, which owned versions are created from
+    #[cfg(feature = "alloc")]
+    bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
     cached_block_root: once_cell::race::OnceBox<BlockRoot>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
@@ -997,6 +1003,8 @@ impl<'a> IntermediateShardHeader<'a> {
             beacon_chain_info,
             leaf_shard_blocks_root,
             pre_seal_bytes,
+            #[cfg(feature = "alloc")]
+            bytes: &bytes[..bytes.len() - remainder.len()],
             #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
             cached_block_root: once_cell::race::OnceBox::new(),
             #[cfg(not(any(target_os = "none", target_os = "unknown")))]
@@ -1010,18 +1018,12 @@ impl<'a> IntermediateShardHeader<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedIntermediateShardHeader {
-        let unsealed = OwnedIntermediateShardHeader::from_parts(
-            self.shared.prefix,
-            self.shared.result,
-            self.shared.consensus_info,
-            self.beacon_chain_info,
-            self.leaf_shard_blocks_root,
+        let buffer = SharedAlignedBuffer::from_bytes(self.bytes);
+        OwnedIntermediateShardHeader::from_buffer(buffer).expect(
+            "The same bytes were already parsed with all checks, which only depend on the address \
+            being 8-byte aligned, and owned buffers are 16-byte aligned and hold headers, which \
+            are far smaller than `u32::MAX` bytes; qed",
         )
-        .expect("Parts of a parsed header are consistent; qed");
-
-        unsealed
-            .with_seal(self.shared.seal)
-            .expect("Seal of a parsed header matches its solution; qed")
     }
 
     /// Shared block header
@@ -1076,6 +1078,8 @@ impl<'a> IntermediateShardHeader<'a> {
             beacon_chain_info,
             leaf_shard_blocks_root,
             pre_seal_bytes: _,
+            #[cfg(feature = "alloc")]
+                bytes: _,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root,
         } = self;
@@ -1137,6 +1141,9 @@ pub struct LeafShardHeader<'a> {
     beacon_chain_info: &'a BlockHeaderBeaconChainInfo,
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
+    /// All bytes of the header, which owned versions are created from
+    #[cfg(feature = "alloc")]
+    bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
     cached_block_root: once_cell::race::OnceBox<BlockRoot>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
@@ -1212,6 +1219,8 @@ impl<'a> LeafShardHeader<'a> {
             shared,
             beacon_chain_info,
             pre_seal_bytes,
+            #[cfg(feature = "alloc")]
+            bytes: &bytes[..bytes.len() - remainder.len()],
             #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
             cached_block_root: once_cell::race::OnceBox::new(),
             #[cfg(not(any(target_os = "none", target_os = "unknown")))]
@@ -1225,17 +1234,12 @@ impl<'a> LeafShardHeader<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardHeader {
-        let unsealed = OwnedLeafShardHeader::from_parts(
-            self.shared.prefix,
-            self.shared.result,
-            self.shared.consensus_info,
-            self.beacon_chain_info,
+        let buffer = SharedAlignedBuffer::from_bytes(self.bytes);
+        OwnedLeafShardHeader::from_buffer(buffer).expect(
+            "The same bytes were already parsed with all checks, which only depend on the address \
+            being 8-byte aligned, and owned buffers are 16-byte aligned and hold headers, which \
+            are far smaller than `u32::MAX` bytes; qed",
         )
-        .expect("Parts of a parsed header are consistent; qed");
-
-        unsealed
-            .with_seal(self.shared.seal)
-            .expect("Seal of a parsed header matches its solution; qed")
     }
 
     /// Shared block header
@@ -1279,6 +1283,8 @@ impl<'a> LeafShardHeader<'a> {
             shared,
             beacon_chain_info,
             pre_seal_bytes: _,
+            #[cfg(feature = "alloc")]
+                bytes: _,
             #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
             cached_block_root,
         } = self;

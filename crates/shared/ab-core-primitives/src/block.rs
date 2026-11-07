@@ -721,13 +721,12 @@ impl BlockWeight {
     }
 }
 
-/// Aligns bytes to `alignment` and ensures that all padding bytes (if any) are zero
+/// Aligns bytes to `alignment` and ensures that all padding bytes (if any) are zero.
+///
+/// Returns `None` if there are fewer bytes than padding or padding is not zero.
 fn align_to_and_ensure_zero_padding(bytes: &[u8], alignment: Alignment) -> Option<&[u8]> {
-    let padding_len = bytes
-        .as_ptr()
-        .align_offset(usize::from(alignment.get()))
-        .min(bytes.len());
-    let (padding, remainder) = bytes.split_at(padding_len);
+    let padding_len = bytes.as_ptr().align_offset(usize::from(alignment.get()));
+    let (padding, remainder) = bytes.split_at_checked(padding_len)?;
 
     // Padding must be zero
     if padding.iter().any(|&byte| byte != 0) {

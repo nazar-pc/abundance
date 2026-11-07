@@ -22,6 +22,8 @@ use crate::trees::{
     OwnSegmentsMerkleTree, SegmentRootsMerkleTree, ShardOwnSegmentsMerkleTree,
     TransactionsMerkleTree,
 };
+#[cfg(feature = "alloc")]
+use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_blake3::{BLOCK_LEN, single_block_hash};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
@@ -354,7 +356,8 @@ pub struct IntermediateShardBlocksInfo<'a> {
 impl<'a> IntermediateShardBlocksInfo<'a> {
     /// Create an instance from provided bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` do not need to be aligned, but padding in the layout depends on their address and
+    /// must be present in full.
     ///
     /// Blocks must be ordered by shard index, and blocks of the same shard by block number and by
     /// local segment index of own segments. Leaf shards with segments in a block must be children
@@ -737,6 +740,9 @@ pub struct BeaconChainBody<'a> {
     /// Proof of time checkpoints from after future proof of time of the parent block to the
     /// current block's future proof of time (inclusive)
     pot_checkpoints: &'a [PotCheckpoints],
+    /// All bytes of the body, which owned versions are created from
+    #[cfg(feature = "alloc")]
+    bytes: &'a [u8],
 }
 
 impl<'a> GenericBlockBody<'a> for BeaconChainBody<'a> {
@@ -760,7 +766,9 @@ impl<'a> GenericBlockBody<'a> for BeaconChainBody<'a> {
 impl<'a> BeaconChainBody<'a> {
     /// Create an instance from provided correctly aligned bytes.
     ///
-    /// `bytes` should be 4-bytes aligned.
+    /// `bytes` must be 16-bytes aligned, as in owned bodies, because padding in the layout depends
+    /// on the address of the bytes. Bodies longer than `u32::MAX` bytes are rejected, since owned
+    /// bodies can't hold them.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -772,6 +780,12 @@ impl<'a> BeaconChainBody<'a> {
         // * concatenated own segment roots
         // * intermediate shard blocks: IntermediateShardBlocksInfo
         // * concatenated PoT checkpoints
+
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
+
+        let bytes_start = bytes;
 
         let num_pot_checkpoints;
         (num_pot_checkpoints, bytes) = u32::from_bytes(bytes)?;
@@ -818,10 +832,19 @@ impl<'a> BeaconChainBody<'a> {
         };
         let pot_checkpoints = PotCheckpoints::slice_from_bytes(pot_checkpoints);
 
+        let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
+        // An owned body can't hold more than `u32::MAX` bytes, which PoT checkpoints alone can
+        // exceed
+        if u32::try_from(bytes.len()).is_err() {
+            return None;
+        }
+
         let body = Self {
             own_segments,
             intermediate_shard_blocks,
             pot_checkpoints,
+            #[cfg(feature = "alloc")]
+            bytes,
         };
 
         Some((body, remainder))
@@ -831,25 +854,10 @@ impl<'a> BeaconChainBody<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedBeaconChainBody {
-        if let Some(own_segments) = self.own_segments {
-            OwnedBeaconChainBody::new(
-                own_segments
-                    .iter()
-                    .map(|(local_segment_index, &segment_root)| {
-                        (local_segment_index, segment_root)
-                    }),
-                self.intermediate_shard_blocks.iter(),
-                self.pot_checkpoints,
-            )
-            .expect("`self` was created by the parser with all checks; qed")
-        } else {
-            OwnedBeaconChainBody::new(
-                iter::empty(),
-                self.intermediate_shard_blocks.iter(),
-                self.pot_checkpoints,
-            )
-            .expect("`self` was created by the parser with all checks; qed")
-        }
+        OwnedBeaconChainBody::from_buffer(SharedAlignedBuffer::from_bytes(self.bytes)).expect(
+            "The parser accepted the same bytes at a 16-byte aligned address, as in the buffer, \
+            and checked that they fit into it; qed",
+        )
     }
 
     /// Segment roots produced by this shard
@@ -930,7 +938,8 @@ pub struct LeafShardBlocksInfo<'a> {
 impl<'a> LeafShardBlocksInfo<'a> {
     /// Create an instance from provided bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` do not need to be aligned, but padding in the layout depends on their address and
+    /// must be present in full.
     ///
     /// Blocks must be ordered by shard index, and blocks of the same shard by block number and by
     /// local segment index of own segments. The body root of each block must match its header.
@@ -1201,6 +1210,9 @@ pub struct IntermediateShardBody<'a> {
     own_segments: Option<OwnSegments<'a>>,
     /// Leaf shard blocks
     leaf_shard_blocks: LeafShardBlocksInfo<'a>,
+    /// All bytes of the body, which owned versions are created from
+    #[cfg(feature = "alloc")]
+    bytes: &'a [u8],
 }
 
 impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
@@ -1222,9 +1234,11 @@ impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
 }
 
 impl<'a> IntermediateShardBody<'a> {
-    /// Create an instance from provided bytes.
+    /// Create an instance from provided correctly aligned bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` must be 16-bytes aligned, as in owned bodies, because padding in the layout depends
+    /// on the address of the bytes. Bodies longer than `u32::MAX` bytes are rejected, since owned
+    /// bodies can't hold them.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -1234,6 +1248,12 @@ impl<'a> IntermediateShardBody<'a> {
         // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
         // * concatenated own segment roots
         // * leaf shard blocks: LeafShardBlocksInfo
+
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
+
+        let bytes_start = bytes;
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -1262,9 +1282,18 @@ impl<'a> IntermediateShardBody<'a> {
 
         let (leaf_shard_blocks, remainder) = LeafShardBlocksInfo::try_from_bytes(bytes)?;
 
+        let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
+        // An owned body can't hold more than `u32::MAX` bytes, which leaf shard blocks don't
+        // exceed with current limits, but might if those change
+        if u32::try_from(bytes.len()).is_err() {
+            return None;
+        }
+
         let body = Self {
             own_segments,
             leaf_shard_blocks,
+            #[cfg(feature = "alloc")]
+            bytes,
         };
 
         Some((body, remainder))
@@ -1286,20 +1315,10 @@ impl<'a> IntermediateShardBody<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedIntermediateShardBody {
-        if let Some(own_segments) = self.own_segments {
-            OwnedIntermediateShardBody::new(
-                own_segments
-                    .iter()
-                    .map(|(local_segment_index, &segment_root)| {
-                        (local_segment_index, segment_root)
-                    }),
-                self.leaf_shard_blocks.iter(),
-            )
-            .expect("`self` was created by the parser with all checks; qed")
-        } else {
-            OwnedIntermediateShardBody::new(iter::empty(), self.leaf_shard_blocks.iter())
-                .expect("`self` was created by the parser with all checks; qed")
-        }
+        OwnedIntermediateShardBody::from_buffer(SharedAlignedBuffer::from_bytes(self.bytes)).expect(
+            "The parser accepted the same bytes at a 16-byte aligned address, as in the buffer, \
+            and checked that they fit into it; qed",
+        )
     }
 
     /// Compute block body root
@@ -1333,7 +1352,8 @@ pub struct Transactions<'a> {
 impl<'a> Transactions<'a> {
     /// Create an instance from provided bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` do not need to be aligned, but padding in the layout depends on their address and
+    /// must be present in full.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -1423,6 +1443,9 @@ pub struct LeafShardBody<'a> {
     own_segments: Option<OwnSegments<'a>>,
     /// User transactions
     transactions: Transactions<'a>,
+    /// All bytes of the body, which owned versions are created from
+    #[cfg(feature = "alloc")]
+    bytes: &'a [u8],
 }
 
 impl<'a> GenericBlockBody<'a> for LeafShardBody<'a> {
@@ -1444,9 +1467,11 @@ impl<'a> GenericBlockBody<'a> for LeafShardBody<'a> {
 }
 
 impl<'a> LeafShardBody<'a> {
-    /// Create an instance from provided bytes.
+    /// Create an instance from provided correctly aligned bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` must be 16-bytes aligned, as in owned bodies, because padding in the layout depends
+    /// on the address of the bytes. Bodies longer than `u32::MAX` bytes are rejected, since owned
+    /// bodies can't hold them.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -1456,6 +1481,12 @@ impl<'a> LeafShardBody<'a> {
         // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
         // * concatenated own segment roots
         // * transactions: Transactions
+
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
+
+        let bytes_start = bytes;
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -1484,9 +1515,18 @@ impl<'a> LeafShardBody<'a> {
 
         let (transactions, remainder) = Transactions::try_from_bytes(bytes)?;
 
+        let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
+        // An owned body can't hold more than `u32::MAX` bytes, which transactions alone can
+        // exceed
+        if u32::try_from(bytes.len()).is_err() {
+            return None;
+        }
+
         let body = Self {
             own_segments,
             transactions,
+            #[cfg(feature = "alloc")]
+            bytes,
         };
 
         Some((body, remainder))
@@ -1508,24 +1548,10 @@ impl<'a> LeafShardBody<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardBody {
-        let mut builder = if let Some(own_segments) = self.own_segments {
-            let own_segments = own_segments
-                .iter()
-                .map(|(local_segment_index, &segment_root)| (local_segment_index, segment_root));
-
-            OwnedLeafShardBody::init(own_segments)
-                .expect("`self` was created by the parser with all checks; qed")
-        } else {
-            OwnedLeafShardBody::init(iter::empty())
-                .expect("`self` was created by the parser with all checks; qed")
-        };
-        for transaction in self.transactions.iter() {
-            builder
-                .add_transaction(transaction)
-                .expect("`self` was created by the parser with all checks; qed");
-        }
-
-        builder.finish()
+        OwnedLeafShardBody::from_buffer(SharedAlignedBuffer::from_bytes(self.bytes)).expect(
+            "The parser accepted the same bytes at a 16-byte aligned address, as in the buffer, \
+            and checked that they fit into it; qed",
+        )
     }
 
     /// Compute block body root
@@ -1552,8 +1578,7 @@ pub enum BlockBody<'a> {
 impl<'a> BlockBody<'a> {
     /// Try to create a new instance from provided bytes for the provided shard index.
     ///
-    /// `bytes` should be 4-bytes aligned for the beacon chain and do not need to be aligned for
-    /// other shard kinds.
+    /// `bytes` must be 16-bytes aligned. Bodies longer than `u32::MAX` bytes are rejected.
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
