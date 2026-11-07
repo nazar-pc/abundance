@@ -123,7 +123,8 @@ fn criterion_benchmark(c: &mut Criterion) {
             write_slots,
             payload.as_u128_slice(),
             nonce,
-        );
+        )
+        .unwrap();
         let transaction = OwnedTransaction::from_parts(
             &header,
             read_slots,
@@ -150,7 +151,8 @@ fn criterion_benchmark(c: &mut Criterion) {
                     write_slots,
                     payload.as_u128_slice(),
                     nonce,
-                );
+                )
+                .unwrap();
                 nonce += 1;
                 OwnedTransaction::from_parts(
                     &header,
@@ -180,7 +182,8 @@ fn criterion_benchmark(c: &mut Criterion) {
                     write_slots,
                     payload.as_u128_slice(),
                     nonce,
-                );
+                )
+                .unwrap();
                 nonce += 1;
                 OwnedTransaction::from_parts(
                     &header,

@@ -127,7 +127,8 @@ fn flip() {
             write_slots,
             payload.as_u128_slice(),
             nonce,
-        );
+        )
+        .unwrap();
         executor
             .transaction_verify(
                 OwnedTransaction::from_parts(
@@ -153,7 +154,8 @@ fn flip() {
             write_slots,
             payload.as_u128_slice(),
             nonce,
-        );
+        )
+        .unwrap();
         let mut seal_with_extra_byte = seal.as_bytes().to_vec();
         seal_with_extra_byte.push(0);
         assert_eq!(
@@ -184,7 +186,8 @@ fn flip() {
             write_slots,
             payload.as_u128_slice(),
             nonce,
-        );
+        )
+        .unwrap();
 
         executor
             .transaction_execute(
@@ -217,7 +220,8 @@ fn flip() {
             write_slots,
             payload.as_u128_slice(),
             nonce,
-        );
+        )
+        .unwrap();
 
         executor
             .transaction_verify_execute(

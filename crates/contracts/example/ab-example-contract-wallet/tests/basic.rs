@@ -125,7 +125,8 @@ fn flip() {
         write_slots,
         payload.as_u128_slice(),
         nonce,
-    );
+    )
+    .unwrap();
 
     executor
         .transaction_verify_execute(

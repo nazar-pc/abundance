@@ -190,7 +190,8 @@ fn return_value_as_slot() {
         write_slots,
         payload.as_u128_slice(),
         0,
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         executor.transaction_execute(
@@ -284,7 +285,8 @@ fn return_value_as_plain_input() {
         write_slots,
         payload.as_u128_slice(),
         0,
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         executor.transaction_execute(
@@ -378,7 +380,8 @@ fn return_value_as_input_of_method_with_return_value() {
         write_slots,
         payload.as_u128_slice(),
         0,
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         executor.transaction_execute(
@@ -459,7 +462,8 @@ fn init_state_as_input() {
         write_slots,
         payload.as_u128_slice(),
         0,
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         executor.transaction_execute(
@@ -569,7 +573,8 @@ fn failed_method_stops_transaction() {
         write_slots,
         payload.as_u128_slice(),
         0,
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         executor.transaction_execute(

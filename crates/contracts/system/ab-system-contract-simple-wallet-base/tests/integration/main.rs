@@ -1,3 +1,4 @@
+pub mod authorize;
 #[cfg(feature = "payload-builder")]
 pub mod basic;
 #[cfg(feature = "payload-builder")]
@@ -6,4 +7,5 @@ pub mod payload_outputs;
 pub mod payload_return_values;
 #[cfg(feature = "payload-builder")]
 pub mod payload_reused_outputs;
+pub mod seal;
 pub mod test_wallet;

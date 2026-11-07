@@ -113,7 +113,8 @@ fn maybe_data_output() {
         write_slots,
         payload.as_u128_slice(),
         0,
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         executor.transaction_execute(

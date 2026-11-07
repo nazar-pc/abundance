@@ -85,12 +85,12 @@ pub const MAX_OUTPUTS: usize = 16;
 
 /// Transaction seal.
 ///
-/// Contains signature and nonce, this is necessary to produce a correctly sealed transaction.
+/// Contains nonce and signature, this is necessary to produce a correctly sealed transaction.
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Seal {
-    pub signature: [u8; 64],
     pub nonce: u64,
+    pub signature: [u8; 64],
 }
 
 /// State of the wallet.
