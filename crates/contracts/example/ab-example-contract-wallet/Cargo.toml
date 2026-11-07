@@ -31,6 +31,7 @@ ab-io-type = { workspace = true }
 ab-system-contract-simple-wallet-base = { workspace = true }
 
 [dev-dependencies]
+ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-executor-native = { workspace = true }
 ab-system-contract-code = { workspace = true }
 ab-system-contract-simple-wallet-base = { workspace = true, features = ["payload-builder"] }

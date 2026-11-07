@@ -6,7 +6,8 @@ use ab_contracts_standards::tx_handler::TxHandler;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::shard::ShardIndex;
-use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
+use ab_core_primitives::transaction::owned::OwnedTransaction;
+use ab_core_primitives::transaction::{Gas, TransactionHeader, TransactionSlot};
 use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
 use ab_io_type::trivial_type::TrivialType;
@@ -123,19 +124,18 @@ fn criterion_benchmark(c: &mut Criterion) {
             payload.as_u128_slice(),
             nonce,
         );
+        let transaction = OwnedTransaction::from_parts(
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            seal.as_bytes(),
+        )
+        .unwrap();
 
         b.iter(|| {
             executor
-                .transaction_verify(
-                    black_box(Transaction {
-                        header: &header,
-                        read_slots,
-                        write_slots,
-                        payload: payload.as_u128_slice(),
-                        seal: seal.as_bytes(),
-                    }),
-                    black_box(slots),
-                )
+                .transaction_verify(black_box(transaction.transaction()), black_box(slots))
                 .unwrap();
         });
     });
@@ -152,20 +152,18 @@ fn criterion_benchmark(c: &mut Criterion) {
                     nonce,
                 );
                 nonce += 1;
-                seal
+                OwnedTransaction::from_parts(
+                    &header,
+                    read_slots,
+                    write_slots,
+                    payload.as_u128_slice(),
+                    seal.as_bytes(),
+                )
+                .unwrap()
             },
-            |seal| {
+            |transaction| {
                 executor
-                    .transaction_execute(
-                        black_box(Transaction {
-                            header: &header,
-                            read_slots,
-                            write_slots,
-                            payload: payload.as_u128_slice(),
-                            seal: seal.as_bytes(),
-                        }),
-                        black_box(slots),
-                    )
+                    .transaction_execute(black_box(transaction.transaction()), black_box(slots))
                     .unwrap();
             },
             BatchSize::SmallInput,
@@ -184,18 +182,19 @@ fn criterion_benchmark(c: &mut Criterion) {
                     nonce,
                 );
                 nonce += 1;
-                seal
+                OwnedTransaction::from_parts(
+                    &header,
+                    read_slots,
+                    write_slots,
+                    payload.as_u128_slice(),
+                    seal.as_bytes(),
+                )
+                .unwrap()
             },
-            |seal| {
+            |transaction| {
                 executor
                     .transaction_verify_execute(
-                        black_box(Transaction {
-                            header: &header,
-                            read_slots,
-                            write_slots,
-                            payload: payload.as_u128_slice(),
-                            seal: seal.as_bytes(),
-                        }),
+                        black_box(transaction.transaction()),
                         black_box(slots),
                     )
                     .unwrap();

@@ -17,7 +17,8 @@ use ab_contracts_standards::tx_handler::TxHandler;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::shard::ShardIndex;
-use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
+use ab_core_primitives::transaction::owned::OwnedTransaction;
+use ab_core_primitives::transaction::{Gas, TransactionHeader, TransactionSlot};
 use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
 use ab_io_type::maybe_data::MaybeData;
@@ -193,13 +194,15 @@ fn return_value_as_slot() {
 
     assert_eq!(
         executor.transaction_execute(
-            Transaction {
-                header: &header,
-                payload: payload.as_u128_slice(),
+            OwnedTransaction::from_parts(
+                &header,
                 read_slots,
                 write_slots,
-                seal: seal.as_bytes(),
-            },
+                payload.as_u128_slice(),
+                seal.as_bytes()
+            )
+            .unwrap()
+            .transaction(),
             slots,
         ),
         Ok(())
@@ -285,13 +288,15 @@ fn return_value_as_plain_input() {
 
     assert_eq!(
         executor.transaction_execute(
-            Transaction {
-                header: &header,
-                payload: payload.as_u128_slice(),
+            OwnedTransaction::from_parts(
+                &header,
                 read_slots,
                 write_slots,
-                seal: seal.as_bytes(),
-            },
+                payload.as_u128_slice(),
+                seal.as_bytes()
+            )
+            .unwrap()
+            .transaction(),
             slots,
         ),
         Ok(())
@@ -377,13 +382,15 @@ fn return_value_as_input_of_method_with_return_value() {
 
     assert_eq!(
         executor.transaction_execute(
-            Transaction {
-                header: &header,
-                payload: payload.as_u128_slice(),
+            OwnedTransaction::from_parts(
+                &header,
                 read_slots,
                 write_slots,
-                seal: seal.as_bytes(),
-            },
+                payload.as_u128_slice(),
+                seal.as_bytes()
+            )
+            .unwrap()
+            .transaction(),
             slots,
         ),
         Ok(())
@@ -456,13 +463,15 @@ fn init_state_as_input() {
 
     assert_eq!(
         executor.transaction_execute(
-            Transaction {
-                header: &header,
-                payload: payload.as_u128_slice(),
+            OwnedTransaction::from_parts(
+                &header,
                 read_slots,
                 write_slots,
-                seal: seal.as_bytes(),
-            },
+                payload.as_u128_slice(),
+                seal.as_bytes()
+            )
+            .unwrap()
+            .transaction(),
             slots,
         ),
         Ok(())
@@ -564,13 +573,15 @@ fn failed_method_stops_transaction() {
 
     assert_eq!(
         executor.transaction_execute(
-            Transaction {
-                header: &header,
-                payload: payload.as_u128_slice(),
+            OwnedTransaction::from_parts(
+                &header,
                 read_slots,
                 write_slots,
-                seal: seal.as_bytes(),
-            },
+                payload.as_u128_slice(),
+                seal.as_bytes()
+            )
+            .unwrap()
+            .transaction(),
             slots,
         ),
         Err(ContractError::Forbidden)

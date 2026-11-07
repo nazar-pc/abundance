@@ -101,13 +101,17 @@ pub struct SerializedTransactionLengths {
     pub padding: [u8; 4],
 }
 
-/// Similar to `Transaction`, but doesn't require `allow` or data ownership.
+/// Similar to `OwnedTransaction`, but doesn't require `alloc` or data ownership.
 ///
-/// Can be created with `Transaction::as_ref()` call.
+/// Can be created with `Transaction::try_from_bytes()` or `OwnedTransaction::transaction()`.
 #[derive(Debug, Copy, Clone)]
+#[expect(
+    clippy::partial_pub_fields,
+    reason = "Intentionally exposing decoded fields and hiding the bytes they were decoded from"
+)]
 pub struct Transaction<'a> {
     /// Transaction header
-    pub header: &'a TransactionHeader,
+    pub mut(self) header: &'a TransactionHeader,
     /// Slots in the form of [`TransactionSlot`] that may be read during transaction processing.
     ///
     /// These are the only slots that can be used in authorization code.
@@ -115,13 +119,15 @@ pub struct Transaction<'a> {
     /// The code slot of the contract that is being executed and balance of native token are
     /// implicitly included and doesn't need to be specified (see [`Transaction::read_slots()`].
     /// Also slots that may also be written to do not need to be repeated in the read slots.
-    pub read_slots: &'a [TransactionSlot],
+    pub mut(self) read_slots: &'a [TransactionSlot],
     /// Slots in the form of [`TransactionSlot`] that may be written during transaction processing
-    pub write_slots: &'a [TransactionSlot],
+    pub mut(self) write_slots: &'a [TransactionSlot],
     /// Transaction payload
-    pub payload: &'a [u128],
+    pub mut(self) payload: &'a [u128],
     /// Transaction seal
-    pub seal: &'a [u8],
+    pub mut(self) seal: &'a [u8],
+    /// Serialized transaction the fields above were parsed from
+    bytes: &'a [u8],
 }
 
 impl<'a> Transaction<'a> {
@@ -193,6 +199,8 @@ impl<'a> Transaction<'a> {
             remainder.split_at_checked(write_slots * size_of::<TransactionSlot>())?;
         let (payload_bytes, remainder) = remainder.split_at_checked(payload)?;
         let (seal, remainder) = remainder.split_at_checked(seal)?;
+        // `remainder` is the end of `bytes`, so the difference doesn't underflow
+        let (bytes, _remainder) = bytes.split_at(bytes.len() - remainder.len());
 
         let transaction = Self {
             header,
@@ -227,6 +235,7 @@ impl<'a> Transaction<'a> {
                 )
             },
             seal,
+            bytes,
         };
 
         Some((transaction, remainder))
@@ -240,13 +249,9 @@ impl<'a> Transaction<'a> {
     }
 
     /// Size of the encoded transaction in bytes
+    #[inline(always)]
     pub const fn encoded_size(&self) -> usize {
-        size_of::<TransactionHeader>()
-            + size_of::<SerializedTransactionLengths>()
-            + size_of_val(self.read_slots)
-            + size_of_val(self.write_slots)
-            + size_of_val(self.payload)
-            + size_of_val(self.seal)
+        self.bytes.len()
     }
 
     /// Compute transaction hash.

@@ -1,34 +1,22 @@
-use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_contracts_common::method::ExternalArgs;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockRoot;
-use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
+use ab_core_primitives::transaction::owned::{OwnedTransaction, OwnedTransactionError};
+use ab_core_primitives::transaction::{Gas, TransactionHeader, TransactionSlot};
 use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
 use ab_system_contract_simple_wallet_base::payload::builder::{
     MethodCallReferences, TransactionPayloadBuilder, TransactionPayloadBuilderError,
 };
-use alloc::vec::Vec;
 
-#[derive(Debug, Clone)]
-pub struct OwnedTransaction {
-    pub header: TransactionHeader,
-    pub read_slots: Vec<TransactionSlot>,
-    pub write_slots: Vec<TransactionSlot>,
-    pub payload: OwnedAlignedBuffer,
-    pub seal: Vec<u8>,
-}
-
-impl OwnedTransaction {
-    /// Get [`Transaction`] out of owned transaction
-    pub fn as_ref(&self) -> Transaction<'_> {
-        Transaction {
-            header: &self.header,
-            read_slots: &self.read_slots,
-            write_slots: &self.write_slots,
-            payload: self.payload.as_u128_slice(),
-            seal: &self.seal,
-        }
-    }
+/// Errors for [`TransactionBuilder::build()`]
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionBuilderError {
+    /// Failed to build the payload
+    #[error("Failed to build the payload: {0}")]
+    Payload(TransactionPayloadBuilderError<'static>),
+    /// Failed to create the transaction
+    #[error("Failed to create the transaction: {0}")]
+    Transaction(OwnedTransactionError),
 }
 
 #[derive(Debug)]
@@ -80,23 +68,31 @@ impl TransactionBuilder {
 
     /// Build the transaction.
     ///
-    /// See [`TransactionPayloadBuilder::into_aligned_bytes()`] for errors.
+    /// See [`TransactionPayloadBuilder::into_aligned_bytes()`] and
+    /// [`OwnedTransaction::from_parts()`] for errors.
     pub fn build(
         self,
-        read_slots: Vec<TransactionSlot>,
-        write_slots: Vec<TransactionSlot>,
-    ) -> Result<OwnedTransaction, TransactionPayloadBuilderError<'static>> {
-        Ok(OwnedTransaction {
-            header: TransactionHeader {
-                version: 0,
-                block_root: BlockRoot::default(),
-                gas_limit: Gas::default(),
-                contract: self.contract,
-            },
+        read_slots: &[TransactionSlot],
+        write_slots: &[TransactionSlot],
+    ) -> Result<OwnedTransaction, TransactionBuilderError> {
+        let header = TransactionHeader {
+            version: 0,
+            block_root: BlockRoot::default(),
+            gas_limit: Gas::default(),
+            contract: self.contract,
+        };
+        let payload = self
+            .transaction_payload_builder
+            .into_aligned_bytes()
+            .map_err(TransactionBuilderError::Payload)?;
+
+        OwnedTransaction::from_parts(
+            &header,
             read_slots,
             write_slots,
-            payload: self.transaction_payload_builder.into_aligned_bytes()?,
-            seal: Vec::new(),
-        })
+            payload.as_u128_slice(),
+            &[],
+        )
+        .map_err(TransactionBuilderError::Transaction)
     }
 }
