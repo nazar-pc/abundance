@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["ffi","fungible_ffi"],"struct":["ExampleFt","Slot"],"trait":["ExampleFtExt"]};
