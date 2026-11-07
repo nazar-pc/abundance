@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::shared::{BlockSlots, derive_block_slots};
 use crate::{BlockVerification, BlockVerificationError, GenericHeader};
 use ab_client_api::{BeaconChainInfo, BlockOrigin, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
@@ -165,7 +166,13 @@ fn check_proof_of_time(
     future_proof_of_time: PotOutput,
     checkpoints: &[PotCheckpoints],
     verify_checkpoints: bool,
-) -> Result<(), BeaconChainBlockVerificationError> {
+) -> Result<(), BlockVerificationError> {
+    let BlockSlots {
+        future_slot,
+        parent_future_slot,
+        slots_between_blocks,
+    } = derive_block_slots(block_authoring_delay, parent_slot, slot)?;
+
     let parent_pot_parameters_change = parent_consensus_parameters
         .pot_parameters_change
         .copied()
@@ -173,29 +180,21 @@ fn check_proof_of_time(
 
     // The last checkpoint must be the future proof of time
     if checkpoints.last().map(PotCheckpoints::output) != Some(future_proof_of_time) {
-        return Err(BeaconChainBlockVerificationError::InvalidPotCheckpoints);
+        return Err(BlockVerificationError::from(
+            BeaconChainBlockVerificationError::InvalidPotCheckpoints,
+        ));
     }
 
-    let future_slot = slot + block_authoring_delay;
-    let parent_future_slot = if parent_slot == SlotNumber::ZERO {
-        parent_slot
-    } else {
-        parent_slot + block_authoring_delay
-    };
-
-    let slots_between_blocks = slot
-        .checked_sub(parent_slot)
-        .ok_or(BeaconChainBlockVerificationError::InvalidPotCheckpoints)?;
     // The number of checkpoints must match the difference between parent's and this block's
-    // future slots. This also implicitly checks that there is a non-zero number of slots
-    // between this and parent block because the list of checkpoints is already known to be not
-    // empty from the check above.
+    // future slots.
     //
     // The first block after genesis is a special case and is handled separately here.
     if !(u64::from(slots_between_blocks) == checkpoints.len() as u64
         || (parent_slot == SlotNumber::ZERO && u64::from(future_slot) == checkpoints.len() as u64))
     {
-        return Err(BeaconChainBlockVerificationError::InvalidPotCheckpoints);
+        return Err(BlockVerificationError::from(
+            BeaconChainBlockVerificationError::InvalidPotCheckpoints,
+        ));
     }
 
     let mut pot_input = if parent_slot == SlotNumber::ZERO {
@@ -265,7 +264,9 @@ fn check_proof_of_time(
             });
 
     if !all_checkpoints_valid {
-        return Err(BeaconChainBlockVerificationError::InvalidPotCheckpoints);
+        return Err(BlockVerificationError::from(
+            BeaconChainBlockVerificationError::InvalidPotCheckpoints,
+        ));
     }
 
     // Make sure proof of time of this block correctly extends proof of time of the parent block
@@ -299,7 +300,9 @@ fn check_proof_of_time(
             proof_of_time,
             parent_pot_parameters_change,
         ) {
-            return Err(BeaconChainBlockVerificationError::InvalidProofOfTime);
+            return Err(BlockVerificationError::from(
+                BeaconChainBlockVerificationError::InvalidProofOfTime,
+            ));
         }
     }
 
