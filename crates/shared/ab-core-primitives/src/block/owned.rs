@@ -23,15 +23,18 @@ use crate::block::{BeaconChainBlock, Block, GenericBlock, IntermediateShardBlock
 use crate::hashes::Blake3Hash;
 use crate::pot::PotCheckpoints;
 use crate::segments::{LocalSegmentIndex, SegmentRoot};
-use crate::shard::RealShardKind;
+use crate::shard::{RealShardKind, ShardIndex};
 use ab_aligned_buffer::SharedAlignedBuffer;
 use core::any::Any;
 use core::fmt;
 use core::iter::TrustedLen;
 use derive_more::From;
 
-/// Generic owned block
-pub trait GenericOwnedBlock:
+/// Generic owned block.
+///
+/// Can't be implemented outside of this module, so that code generic over owned blocks can rely on
+/// the header corresponding to the body, like with concrete owned blocks.
+pub impl(self) trait GenericOwnedBlock:
     Clone + fmt::Debug + Send + Sync + Into<OwnedBlock> + Any + 'static
 {
     /// Shard kind
@@ -55,8 +58,6 @@ pub trait GenericOwnedBlock:
     /// Block body
     fn body(&self) -> &Self::Body;
 
-    // TODO: Unchecked versions of methods that create instances from buffers (here and in
-    //  header/block)?
     /// Create owned block from buffers
     fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self>;
 
@@ -68,14 +69,15 @@ pub trait GenericOwnedBlock:
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
+///
+/// Fields can't be modified after creation, so that the header always corresponds to the body,
+/// which constructors ensure.
 #[derive(Debug, Clone)]
-// Prevent creation of potentially broken invariants externally
-#[non_exhaustive]
 pub struct OwnedBeaconChainBlock {
     /// Block header
-    pub header: OwnedBeaconChainHeader,
+    pub mut(self) header: OwnedBeaconChainHeader,
     /// Block body
-    pub body: OwnedBeaconChainBody,
+    pub mut(self) body: OwnedBeaconChainBody,
 }
 
 impl GenericOwnedBlock for OwnedBeaconChainBlock {
@@ -139,12 +141,21 @@ impl OwnedBeaconChainBlock {
             body: OwnedBeaconChainBody::from_buffer(body).ok()?,
         };
 
-        // TODO: This duplicates parsing done in above constructors
         if !block.block().is_internally_consistent() {
             return None;
         }
 
         Some(block)
+    }
+
+    /// Create an owned version of a borrowed block, whose header corresponds to the body: borrowed
+    /// blocks are only created by the parser with all checks or out of owned blocks
+    #[inline(always)]
+    pub(super) fn from_block(block: BeaconChainBlock<'_>) -> Self {
+        Self {
+            header: block.header.to_owned(),
+            body: block.body.to_owned(),
+        }
     }
 
     /// Get [`BeaconChainBlock`] out of [`OwnedBeaconChainBlock`]
@@ -224,14 +235,15 @@ impl OwnedBeaconChainBlockUnsealed {
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
+///
+/// Fields can't be modified after creation, so that the header always corresponds to the body,
+/// which constructors ensure.
 #[derive(Debug, Clone)]
-// Prevent creation of potentially broken invariants externally
-#[non_exhaustive]
 pub struct OwnedIntermediateShardBlock {
     /// Block header
-    pub header: OwnedIntermediateShardHeader,
+    pub mut(self) header: OwnedIntermediateShardHeader,
     /// Block body
-    pub body: OwnedIntermediateShardBody,
+    pub mut(self) body: OwnedIntermediateShardBody,
 }
 
 impl GenericOwnedBlock for OwnedIntermediateShardBlock {
@@ -290,12 +302,21 @@ impl OwnedIntermediateShardBlock {
             body: OwnedIntermediateShardBody::from_buffer(body).ok()?,
         };
 
-        // TODO: This duplicates parsing done in above constructors
         if !block.block().is_internally_consistent() {
             return None;
         }
 
         Some(block)
+    }
+
+    /// Create an owned version of a borrowed block, whose header corresponds to the body: borrowed
+    /// blocks are only created by the parser with all checks or out of owned blocks
+    #[inline(always)]
+    pub(super) fn from_block(block: IntermediateShardBlock<'_>) -> Self {
+        Self {
+            header: block.header.to_owned(),
+            body: block.body.to_owned(),
+        }
     }
 
     /// Get [`IntermediateShardBlock`] out of [`OwnedIntermediateShardBlock`]
@@ -305,6 +326,26 @@ impl OwnedIntermediateShardBlock {
             body: *self.body.body(),
         }
     }
+}
+
+/// Errors for [`OwnedIntermediateShardBlockBuilder`]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, thiserror::Error)]
+pub enum OwnedIntermediateShardBlockBuilderError {
+    /// Header parts are not consistent with each other or with the shard kind
+    #[error("Invalid header parts: {error}")]
+    InvalidHeaderParts {
+        /// Block header consistency error
+        #[from]
+        error: BlockHeaderConsistencyError,
+    },
+    /// Leaf shard block is not a child of the shard of the header
+    #[error("Leaf shard block of shard {leaf_shard_index} is not a child of shard {shard_index}")]
+    LeafShardBlockOfAnotherShard {
+        /// Shard index of the header
+        shard_index: ShardIndex,
+        /// Shard index of the leaf shard block
+        leaf_shard_index: ShardIndex,
+    },
 }
 
 /// Builder for [`OwnedIntermediateShardBlock`]
@@ -317,14 +358,14 @@ impl OwnedIntermediateShardBlockBuilder {
     /// Add header.
     ///
     /// Returns an error if the header parts are not consistent with each other or with the shard
-    /// kind.
+    /// kind, or if a leaf shard block is not a child of the shard of the header.
     pub fn with_header(
         self,
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> Result<OwnedIntermediateShardBlockUnsealed, BlockHeaderConsistencyError> {
+    ) -> Result<OwnedIntermediateShardBlockUnsealed, OwnedIntermediateShardBlockBuilderError> {
         let body = self.body;
         let header = OwnedIntermediateShardHeader::from_parts(
             prefix,
@@ -336,6 +377,20 @@ impl OwnedIntermediateShardBlockBuilder {
             beacon_chain_info,
             &body.body().leaf_shard_blocks().headers_root(),
         )?;
+
+        if let Some(leaf_shard_index) =
+            IntermediateShardBlock::find_leaf_shard_block_of_another_shard(
+                body.body().leaf_shard_blocks(),
+                prefix.shard_index,
+            )
+        {
+            return Err(
+                OwnedIntermediateShardBlockBuilderError::LeafShardBlockOfAnotherShard {
+                    shard_index: prefix.shard_index,
+                    leaf_shard_index,
+                },
+            );
+        }
 
         Ok(OwnedIntermediateShardBlockUnsealed { body, header })
     }
@@ -375,14 +430,15 @@ impl OwnedIntermediateShardBlockUnsealed {
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
+///
+/// Fields can't be modified after creation, so that the header always corresponds to the body,
+/// which constructors ensure.
 #[derive(Debug, Clone)]
-// Prevent creation of potentially broken invariants externally
-#[non_exhaustive]
 pub struct OwnedLeafShardBlock {
     /// Block header
-    pub header: OwnedLeafShardHeader,
+    pub mut(self) header: OwnedLeafShardHeader,
     /// Block body
-    pub body: OwnedLeafShardBody,
+    pub mut(self) body: OwnedLeafShardBody,
 }
 
 impl GenericOwnedBlock for OwnedLeafShardBlock {
@@ -437,12 +493,21 @@ impl OwnedLeafShardBlock {
             body: OwnedLeafShardBody::from_buffer(body).ok()?,
         };
 
-        // TODO: This duplicates parsing done in above constructors
         if !block.block().is_internally_consistent() {
             return None;
         }
 
         Some(block)
+    }
+
+    /// Create an owned version of a borrowed block, whose header corresponds to the body: borrowed
+    /// blocks are only created by the parser with all checks or out of owned blocks
+    #[inline(always)]
+    pub(super) fn from_block(block: LeafShardBlock<'_>) -> Self {
+        Self {
+            header: block.header.to_owned(),
+            body: block.body.to_owned(),
+        }
     }
 
     /// Get [`LeafShardBlock`] out of [`OwnedLeafShardBlock`]
@@ -584,8 +649,6 @@ impl OwnedBlock {
         }
     }
 
-    // TODO: Unchecked versions of methods that create instances from buffers (here and in
-    //  header/block)?
     /// Create owned block from buffers
     #[inline]
     pub fn from_buffers(

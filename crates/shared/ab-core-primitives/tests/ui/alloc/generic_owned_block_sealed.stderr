@@ -1,0 +1,11 @@
+error: trait cannot be implemented outside `ab_core_primitives`
+  --> tests/ui/alloc/generic_owned_block_sealed.rs:23:1
+   |
+23 | impl GenericOwnedBlock for CustomBlock {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: trait restricted here
+  --> src/block/owned.rs
+   |
+   | pub impl(self) trait GenericOwnedBlock:
+   |     ^^^^^^^^^^

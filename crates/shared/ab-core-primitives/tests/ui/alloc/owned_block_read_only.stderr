@@ -1,0 +1,98 @@
+error: `OwnedBeaconChainBlock` cannot be constructed using a `struct` expression outside `ab_core_primitives`
+  --> tests/ui/alloc/owned_block_read_only.rs:19:5
+   |
+19 |     OwnedBeaconChainBlock { header, body }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block/owned.rs
+   |
+   |     pub mut(self) header: OwnedBeaconChainHeader,
+   |         --------- field restricted here
+
+error: `OwnedIntermediateShardBlock` cannot be constructed using a `struct` expression outside `ab_core_primitives`
+  --> tests/ui/alloc/owned_block_read_only.rs:26:5
+   |
+26 |     OwnedIntermediateShardBlock { header, body }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block/owned.rs
+   |
+   |     pub mut(self) header: OwnedIntermediateShardHeader,
+   |         --------- field restricted here
+
+error: `OwnedLeafShardBlock` cannot be constructed using a `struct` expression outside `ab_core_primitives`
+  --> tests/ui/alloc/owned_block_read_only.rs:33:5
+   |
+33 |     OwnedLeafShardBlock { header, body }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block/owned.rs
+   |
+   |     pub mut(self) header: OwnedLeafShardHeader,
+   |         --------- field restricted here
+
+error: field `header` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/alloc/owned_block_read_only.rs:41:5
+   |
+41 |     block.header = header;
+   |     ^^^^^^^^^^^^
+   |
+  ::: src/block/owned.rs
+   |
+   |     pub mut(self) header: OwnedBeaconChainHeader,
+   |         --------- field restricted here
+
+error: field `body` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/alloc/owned_block_read_only.rs:42:5
+   |
+42 |     block.body = body;
+   |     ^^^^^^^^^^
+   |
+  ::: src/block/owned.rs
+   |
+   |     pub mut(self) body: OwnedBeaconChainBody,
+   |         --------- field restricted here
+
+error: field `header` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/alloc/owned_block_read_only.rs:50:5
+   |
+50 |     block.header = header;
+   |     ^^^^^^^^^^^^
+   |
+  ::: src/block/owned.rs
+   |
+   |     pub mut(self) header: OwnedIntermediateShardHeader,
+   |         --------- field restricted here
+
+error: field `body` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/alloc/owned_block_read_only.rs:51:5
+   |
+51 |     block.body = body;
+   |     ^^^^^^^^^^
+   |
+  ::: src/block/owned.rs
+   |
+   |     pub mut(self) body: OwnedIntermediateShardBody,
+   |         --------- field restricted here
+
+error: field `header` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/alloc/owned_block_read_only.rs:59:5
+   |
+59 |     block.header = header;
+   |     ^^^^^^^^^^^^
+   |
+  ::: src/block/owned.rs
+   |
+   |     pub mut(self) header: OwnedLeafShardHeader,
+   |         --------- field restricted here
+
+error: field `body` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/alloc/owned_block_read_only.rs:60:5
+   |
+60 |     block.body = body;
+   |     ^^^^^^^^^^
+   |
+  ::: src/block/owned.rs
+   |
+   |     pub mut(self) body: OwnedLeafShardBody,
+   |         --------- field restricted here

@@ -698,9 +698,9 @@ pub struct BeaconChainHeader<'a> {
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<once_cell::race::OnceBox<BlockRoot>>,
+    cached_block_root: once_cell::race::OnceBox<BlockRoot>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<std::sync::OnceLock<BlockRoot>>,
+    cached_block_root: std::sync::OnceLock<BlockRoot>,
 }
 
 impl<'a> Deref for BeaconChainHeader<'a> {
@@ -763,6 +763,7 @@ impl<'a> BeaconChainHeader<'a> {
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
         let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        BlockHeader::check_seal(&consensus_info.solution.public_key_hash, seal).ok()?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -776,24 +777,13 @@ impl<'a> BeaconChainHeader<'a> {
             intermediate_shard_blocks_root,
             consensus_parameters,
             pre_seal_bytes,
-            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
-            cached_block_root: triomphe::Arc::default(),
+            #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: once_cell::race::OnceBox::new(),
+            #[cfg(not(any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: std::sync::OnceLock::new(),
         };
 
-        if !header.is_internally_consistent() {
-            return None;
-        }
-
         Some((header, remainder))
-    }
-
-    /// Check block header's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -929,9 +919,9 @@ pub struct IntermediateShardHeader<'a> {
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<once_cell::race::OnceBox<BlockRoot>>,
+    cached_block_root: once_cell::race::OnceBox<BlockRoot>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<std::sync::OnceLock<BlockRoot>>,
+    cached_block_root: std::sync::OnceLock<BlockRoot>,
 }
 
 impl<'a> Deref for IntermediateShardHeader<'a> {
@@ -993,6 +983,7 @@ impl<'a> IntermediateShardHeader<'a> {
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
         let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        BlockHeader::check_seal(&consensus_info.solution.public_key_hash, seal).ok()?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -1006,24 +997,13 @@ impl<'a> IntermediateShardHeader<'a> {
             beacon_chain_info,
             leaf_shard_blocks_root,
             pre_seal_bytes,
-            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
-            cached_block_root: triomphe::Arc::default(),
+            #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: once_cell::race::OnceBox::new(),
+            #[cfg(not(any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: std::sync::OnceLock::new(),
         };
 
-        if !header.is_internally_consistent() {
-            return None;
-        }
-
         Some((header, remainder))
-    }
-
-    /// Check block header's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -1158,9 +1138,9 @@ pub struct LeafShardHeader<'a> {
     /// All bytes of the header except the seal
     pre_seal_bytes: &'a [u8],
     #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<once_cell::race::OnceBox<BlockRoot>>,
+    cached_block_root: once_cell::race::OnceBox<BlockRoot>,
     #[cfg(not(any(target_os = "none", target_os = "unknown")))]
-    cached_block_root: triomphe::Arc<std::sync::OnceLock<BlockRoot>>,
+    cached_block_root: std::sync::OnceLock<BlockRoot>,
 }
 
 impl<'a> Deref for LeafShardHeader<'a> {
@@ -1219,6 +1199,7 @@ impl<'a> LeafShardHeader<'a> {
         let pre_seal_bytes = &bytes[..bytes.len() - remainder.len()];
 
         let (seal, remainder) = BlockHeaderSeal::try_from_bytes(remainder)?;
+        BlockHeader::check_seal(&consensus_info.solution.public_key_hash, seal).ok()?;
 
         let shared = SharedBlockHeader {
             prefix,
@@ -1231,24 +1212,13 @@ impl<'a> LeafShardHeader<'a> {
             shared,
             beacon_chain_info,
             pre_seal_bytes,
-            #[cfg(any(feature = "alloc", not(any(target_os = "none", target_os = "unknown"))))]
-            cached_block_root: triomphe::Arc::default(),
+            #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: once_cell::race::OnceBox::new(),
+            #[cfg(not(any(target_os = "none", target_os = "unknown")))]
+            cached_block_root: std::sync::OnceLock::new(),
         };
 
-        if !header.is_internally_consistent() {
-            return None;
-        }
-
         Some((header, remainder))
-    }
-
-    /// Check block header's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -1407,19 +1377,6 @@ impl<'a> BlockHeader<'a> {
                 let (header, remainder) = LeafShardHeader::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(header), remainder))
             }
-        }
-    }
-
-    /// Check block header's internal consistency.
-    ///
-    /// This is usually not necessary to be called explicitly since internal consistency is checked
-    /// by [`Self::try_from_bytes()`] internally.
-    #[inline]
-    pub fn is_internally_consistent(&self) -> bool {
-        match self {
-            Self::BeaconChain(header) => header.is_internally_consistent(),
-            Self::IntermediateShard(header) => header.is_internally_consistent(),
-            Self::LeafShard(header) => header.is_internally_consistent(),
         }
     }
 

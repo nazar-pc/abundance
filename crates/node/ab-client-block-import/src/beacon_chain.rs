@@ -263,7 +263,6 @@ where
     ) -> Result<(), BlockImportError> {
         let parent_header = parent_header.header();
         let header = block.header.header();
-        let body = block.body.body();
 
         #[expect(
             clippy::rest_pattern_accessible_field,
@@ -281,8 +280,7 @@ where
             .verify_concurrent(
                 parent_header,
                 &parent_block_mmr_root,
-                header,
-                body,
+                &block,
                 &origin,
                 &VerificationChainInfo {
                     chain_info: &self.chain_info,
@@ -301,7 +299,7 @@ where
         //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
         let maybe_super_segment = self
             .block_verification
-            .verify_sequential(parent_header, &parent_block_mmr_root, header, body, &origin)
+            .verify_sequential(parent_header, &parent_block_mmr_root, &block, &origin)
             .send()
             .await
             .map_err(BeaconChainBlockImportError::from)?;

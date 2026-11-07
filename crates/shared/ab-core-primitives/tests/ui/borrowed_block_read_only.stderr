@@ -1,0 +1,98 @@
+error: `BeaconChainBlock` cannot be constructed using a `struct` expression outside `ab_core_primitives`
+  --> tests/ui/borrowed_block_read_only.rs:15:5
+   |
+15 |     BeaconChainBlock { header, body }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block.rs
+   |
+   |     pub mut(self) header: BeaconChainHeader<'a>,
+   |         --------- field restricted here
+
+error: `IntermediateShardBlock` cannot be constructed using a `struct` expression outside `ab_core_primitives`
+  --> tests/ui/borrowed_block_read_only.rs:22:5
+   |
+22 |     IntermediateShardBlock { header, body }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block.rs
+   |
+   |     pub mut(self) header: IntermediateShardHeader<'a>,
+   |         --------- field restricted here
+
+error: `LeafShardBlock` cannot be constructed using a `struct` expression outside `ab_core_primitives`
+  --> tests/ui/borrowed_block_read_only.rs:29:5
+   |
+29 |     LeafShardBlock { header, body }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block.rs
+   |
+   |     pub mut(self) header: LeafShardHeader<'a>,
+   |         --------- field restricted here
+
+error: field `header` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_block_read_only.rs:37:5
+   |
+37 |     block.header = header;
+   |     ^^^^^^^^^^^^
+   |
+  ::: src/block.rs
+   |
+   |     pub mut(self) header: BeaconChainHeader<'a>,
+   |         --------- field restricted here
+
+error: field `body` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_block_read_only.rs:38:5
+   |
+38 |     block.body = body;
+   |     ^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block.rs
+   |
+   |     pub mut(self) body: BeaconChainBody<'a>,
+   |         --------- field restricted here
+
+error: field `header` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_block_read_only.rs:46:5
+   |
+46 |     block.header = header;
+   |     ^^^^^^^^^^^^
+   |
+  ::: src/block.rs
+   |
+   |     pub mut(self) header: IntermediateShardHeader<'a>,
+   |         --------- field restricted here
+
+error: field `body` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_block_read_only.rs:47:5
+   |
+47 |     block.body = body;
+   |     ^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block.rs
+   |
+   |     pub mut(self) body: IntermediateShardBody<'a>,
+   |         --------- field restricted here
+
+error: field `header` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_block_read_only.rs:55:5
+   |
+55 |     block.header = header;
+   |     ^^^^^^^^^^^^
+   |
+  ::: src/block.rs
+   |
+   |     pub mut(self) header: LeafShardHeader<'a>,
+   |         --------- field restricted here
+
+error: field `body` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_block_read_only.rs:56:5
+   |
+56 |     block.body = body;
+   |     ^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block.rs
+   |
+   |     pub mut(self) body: LeafShardBody<'a>,
+   |         --------- field restricted here

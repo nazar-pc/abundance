@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{BlockVerification, BlockVerificationError, GenericBody, GenericHeader};
+use crate::{BlockVerification, BlockVerificationError, GenericHeader};
 use ab_client_api::{BeaconChainInfo, BlockOrigin, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
@@ -11,7 +11,7 @@ use ab_client_consensus_common::consensus_parameters::{
 };
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::verifier::PotVerifier;
-use ab_core_primitives::block::body::{BeaconChainBody, IntermediateShardBlocksInfo, OwnSegments};
+use ab_core_primitives::block::body::{IntermediateShardBlocksInfo, OwnSegments};
 use ab_core_primitives::block::header::{
     BeaconChainHeader, BlockHeaderConsensusParameters, BlockHeaderPrefix,
     OwnedBlockHeaderConsensusParameters,
@@ -162,8 +162,7 @@ where
         &self,
         parent_header: &GenericHeader<'_, OwnedBeaconChainBlock>,
         parent_block_mmr_root: &Blake3Hash,
-        header: &GenericHeader<'_, OwnedBeaconChainBlock>,
-        body: &GenericBody<'_, OwnedBeaconChainBlock>,
+        block: &OwnedBeaconChainBlock,
         origin: &BlockOrigin,
         beacon_chain_info: &BCI,
     ) -> impl Future<Output = Result<(), BlockVerificationError>>
@@ -173,8 +172,7 @@ where
         ready(self.verify_concurrent(
             parent_header,
             parent_block_mmr_root,
-            header,
-            body,
+            block,
             origin,
             beacon_chain_info,
         ))
@@ -185,11 +183,10 @@ where
         &self,
         parent_header: &GenericHeader<'_, OwnedBeaconChainBlock>,
         parent_block_mmr_root: &Blake3Hash,
-        header: &GenericHeader<'_, OwnedBeaconChainBlock>,
-        body: &GenericBody<'_, OwnedBeaconChainBlock>,
+        block: &OwnedBeaconChainBlock,
         origin: &BlockOrigin,
     ) -> impl Future<Output = Result<Option<SuperSegment>, BlockVerificationError>> {
-        ready(self.verify_sequential(parent_header, parent_block_mmr_root, header, body, origin))
+        ready(self.verify_sequential(parent_header, parent_block_mmr_root, block, origin))
     }
 }
 
@@ -532,14 +529,16 @@ where
         &self,
         parent_header: &BeaconChainHeader<'_>,
         parent_block_mmr_root: &Blake3Hash,
-        header: &BeaconChainHeader<'_>,
-        body: &BeaconChainBody<'_>,
+        block: &OwnedBeaconChainBlock,
         _origin: &BlockOrigin,
         beacon_chain_info: &BCI,
     ) -> Result<(), BlockVerificationError>
     where
         BCI: DeriveConsensusParametersChainInfo + ShardMembershipEntropySourceChainInfo,
     {
+        let header = block.header.header();
+        let body = block.body.body();
+
         trace!(header = ?header, "Verify concurrent");
 
         let parent_block_root = parent_header.root();
@@ -628,10 +627,12 @@ where
         parent_header: &BeaconChainHeader<'_>,
         // TODO: Probably remove unused arguments
         _parent_block_mmr_root: &Blake3Hash,
-        header: &BeaconChainHeader<'_>,
-        body: &BeaconChainBody<'_>,
+        block: &OwnedBeaconChainBlock,
         _origin: &BlockOrigin,
     ) -> Result<Option<SuperSegment>, BlockVerificationError> {
+        let header = block.header.header();
+        let body = block.body.body();
+
         trace!(header = ?header, "Verify sequential");
 
         let block_number = header.prefix.number;

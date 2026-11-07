@@ -1,0 +1,11 @@
+error: trait cannot be implemented outside `ab_core_primitives`
+  --> tests/ui/generic_block_sealed.rs:15:1
+   |
+15 | impl<'a> GenericBlock<'a> for CustomBlock<'a> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: trait restricted here
+  --> src/block.rs
+   |
+   | pub impl(self) trait GenericBlock<'a>
+   |     ^^^^^^^^^^
