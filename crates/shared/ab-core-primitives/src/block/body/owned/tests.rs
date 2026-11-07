@@ -526,6 +526,118 @@ fn beacon_chain_body_with_too_many_pot_checkpoints() {
     assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
 }
 
+#[test]
+#[cfg(not(miri))]
+#[ignore = "Allocates more than 4 GiB of memory"]
+fn bodies_longer_than_u32_max_bytes_are_rejected() {
+    use crate::transaction::SerializedTransactionLengths;
+    use ab_io_type::trivial_type::TrivialType;
+
+    // Intermediate shard bodies are not here: with at most `u16::MAX` leaf shard blocks with at
+    // most `u8::MAX` segment roots each, they are far smaller than `u32::MAX` bytes, so there is
+    // no body to reject
+    let max_body_len = u64::from(u32::MAX);
+    let to_usize = |len: u64| usize::try_from(len).unwrap();
+
+    // Beacon chain body without own segments and intermediate shard blocks, so its length only
+    // grows with PoT checkpoints after 8 bytes of numbers and padding
+    let beacon_chain_body_len = |num_pot_checkpoints: u64| {
+        8 + num_pot_checkpoints * u64::try_from(PotCheckpoints::SIZE).unwrap()
+    };
+    let max_num_pot_checkpoints =
+        (max_body_len - beacon_chain_body_len(0)) / u64::try_from(PotCheckpoints::SIZE).unwrap();
+
+    // Leaf shard body without own segments and with one transaction after 16 bytes of numbers
+    // and padding
+    let leaf_shard_len_without_transaction = 16;
+    let transaction_header_size =
+        size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>();
+    // The longest body that fits ends 16 bytes before `u32::MAX + 1` bytes, since its length is a
+    // multiple of 16 bytes, and a seal of one byte makes it 16 bytes longer with padding
+    let leaf_shard_body_len = |seal_len: u32| max_body_len + 1 - 16 + u64::from(seal_len) * 16;
+    let payload_len = u32::try_from(
+        leaf_shard_body_len(0)
+            - u64::try_from(leaf_shard_len_without_transaction + transaction_header_size).unwrap(),
+    )
+    .unwrap();
+
+    // One allocation for all cases, so that together they never take more memory than one of them
+    let len = beacon_chain_body_len(max_num_pot_checkpoints + 1).max(leaf_shard_body_len(1));
+    let mut buffer = vec![0u8; to_usize(len) + 15];
+    let offset = buffer.as_ptr().align_offset(16);
+    let bytes = &mut buffer[offset..][..to_usize(len)];
+
+    // The accepted body is within one encoding step of the bound and the rejected one is one step
+    // longer, so the only difference between them is crossing the bound
+    let check_lens = |accepted_len: u64, rejected_len: u64, step: u64| {
+        assert!(accepted_len <= max_body_len);
+        assert!(accepted_len + step > max_body_len);
+        assert_eq!(rejected_len, accepted_len + step);
+        assert!(rejected_len > max_body_len);
+        // All bytes of the rejected body are present
+        assert!(len >= rejected_len);
+    };
+
+    {
+        let accepted_len = beacon_chain_body_len(max_num_pot_checkpoints);
+        let rejected_len = beacon_chain_body_len(max_num_pot_checkpoints + 1);
+        check_lens(
+            accepted_len,
+            rejected_len,
+            u64::try_from(PotCheckpoints::SIZE).unwrap(),
+        );
+
+        for (num_pot_checkpoints, expected_len) in [
+            (max_num_pot_checkpoints, Some(accepted_len)),
+            (max_num_pot_checkpoints + 1, None),
+        ] {
+            bytes[..size_of::<u32>()]
+                .copy_from_slice(&u32::try_from(num_pot_checkpoints).unwrap().to_le_bytes());
+            let input = &*bytes;
+            assert!(input.len() > to_usize(max_body_len));
+
+            assert_eq!(
+                BeaconChainBody::try_from_bytes(input)
+                    .map(|(_body, remainder)| input.len() - remainder.len()),
+                expected_len.map(to_usize),
+                "Beacon chain body with {num_pot_checkpoints} PoT checkpoints"
+            );
+        }
+
+        // The next case expects zero bytes, and only the number of PoT checkpoints was written
+        bytes[..size_of::<u32>()].fill(0);
+    }
+
+    {
+        let accepted_len = leaf_shard_body_len(0);
+        let rejected_len = leaf_shard_body_len(1);
+        check_lens(accepted_len, rejected_len, 16);
+
+        bytes[1..][..size_of::<u32>()].copy_from_slice(&1u32.to_le_bytes());
+        for (seal_len, expected_len) in [(0, Some(accepted_len)), (1, None)] {
+            let lengths = SerializedTransactionLengths {
+                read_slots: 0,
+                write_slots: 0,
+                payload: payload_len,
+                seal: seal_len,
+                padding: [0; _],
+            };
+            bytes[leaf_shard_len_without_transaction + size_of::<TransactionHeader>()..]
+                [..size_of::<SerializedTransactionLengths>()]
+                .copy_from_slice(lengths.as_bytes());
+            let input = &*bytes;
+            assert!(input.len() > to_usize(max_body_len));
+
+            assert_eq!(
+                LeafShardBody::try_from_bytes(input)
+                    .map(|(_body, remainder)| input.len() - remainder.len()),
+                expected_len.map(to_usize),
+                "Leaf shard body with seal length {seal_len}"
+            );
+        }
+    }
+}
+
 /// A leaf shard block inside an intermediate shard body
 struct TestLeafShardBlock {
     header: OwnedLeafShardHeader,

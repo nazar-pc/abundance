@@ -762,7 +762,8 @@ impl<'a> BeaconChainBody<'a> {
     /// Create an instance from provided correctly aligned bytes.
     ///
     /// `bytes` must be 16-bytes aligned, as in owned bodies, because padding in the layout depends
-    /// on the address of the bytes.
+    /// on the address of the bytes. Bodies longer than `u32::MAX` bytes are rejected, since owned
+    /// bodies can't hold them.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -778,6 +779,8 @@ impl<'a> BeaconChainBody<'a> {
         if !Alignment::MAX.is_slice_aligned(bytes) {
             return None;
         }
+
+        let bytes_start = bytes;
 
         let num_pot_checkpoints;
         (num_pot_checkpoints, bytes) = u32::from_bytes(bytes)?;
@@ -823,6 +826,12 @@ impl<'a> BeaconChainBody<'a> {
             )
         };
         let pot_checkpoints = PotCheckpoints::slice_from_bytes(pot_checkpoints);
+
+        // An owned body can't hold more than `u32::MAX` bytes, which PoT checkpoints alone can
+        // exceed
+        if u32::try_from(bytes_start.len() - remainder.len()).is_err() {
+            return None;
+        }
 
         let body = Self {
             own_segments,
@@ -1232,7 +1241,8 @@ impl<'a> IntermediateShardBody<'a> {
     /// Create an instance from provided correctly aligned bytes.
     ///
     /// `bytes` must be 16-bytes aligned, as in owned bodies, because padding in the layout depends
-    /// on the address of the bytes.
+    /// on the address of the bytes. Bodies longer than `u32::MAX` bytes are rejected, since owned
+    /// bodies can't hold them.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -1246,6 +1256,8 @@ impl<'a> IntermediateShardBody<'a> {
         if !Alignment::MAX.is_slice_aligned(bytes) {
             return None;
         }
+
+        let bytes_start = bytes;
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -1273,6 +1285,12 @@ impl<'a> IntermediateShardBody<'a> {
         };
 
         let (leaf_shard_blocks, remainder) = LeafShardBlocksInfo::try_from_bytes(bytes)?;
+
+        // An owned body can't hold more than `u32::MAX` bytes, which leaf shard blocks don't
+        // exceed with current limits, but might if those change
+        if u32::try_from(bytes_start.len() - remainder.len()).is_err() {
+            return None;
+        }
 
         let body = Self {
             own_segments,
@@ -1460,7 +1478,8 @@ impl<'a> LeafShardBody<'a> {
     /// Create an instance from provided correctly aligned bytes.
     ///
     /// `bytes` must be 16-bytes aligned, as in owned bodies, because padding in the layout depends
-    /// on the address of the bytes.
+    /// on the address of the bytes. Bodies longer than `u32::MAX` bytes are rejected, since owned
+    /// bodies can't hold them.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -1474,6 +1493,8 @@ impl<'a> LeafShardBody<'a> {
         if !Alignment::MAX.is_slice_aligned(bytes) {
             return None;
         }
+
+        let bytes_start = bytes;
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -1501,6 +1522,12 @@ impl<'a> LeafShardBody<'a> {
         };
 
         let (transactions, remainder) = Transactions::try_from_bytes(bytes)?;
+
+        // An owned body can't hold more than `u32::MAX` bytes, which transactions alone can
+        // exceed
+        if u32::try_from(bytes_start.len() - remainder.len()).is_err() {
+            return None;
+        }
 
         let body = Self {
             own_segments,
@@ -1570,7 +1597,7 @@ pub enum BlockBody<'a> {
 impl<'a> BlockBody<'a> {
     /// Try to create a new instance from provided bytes for the provided shard index.
     ///
-    /// `bytes` must be 16-bytes aligned.
+    /// `bytes` must be 16-bytes aligned. Bodies longer than `u32::MAX` bytes are rejected.
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
