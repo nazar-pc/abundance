@@ -354,7 +354,8 @@ pub struct IntermediateShardBlocksInfo<'a> {
 impl<'a> IntermediateShardBlocksInfo<'a> {
     /// Create an instance from provided bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` do not need to be aligned, but padding in the layout depends on their address and
+    /// must be present in full.
     ///
     /// Blocks must be ordered by shard index, and blocks of the same shard by block number and by
     /// local segment index of own segments. Leaf shards with segments in a block must be children
@@ -760,7 +761,8 @@ impl<'a> GenericBlockBody<'a> for BeaconChainBody<'a> {
 impl<'a> BeaconChainBody<'a> {
     /// Create an instance from provided correctly aligned bytes.
     ///
-    /// `bytes` should be 4-bytes aligned.
+    /// `bytes` must be 16-bytes aligned, as in owned bodies, because padding in the layout depends
+    /// on the address of the bytes.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -772,6 +774,10 @@ impl<'a> BeaconChainBody<'a> {
         // * concatenated own segment roots
         // * intermediate shard blocks: IntermediateShardBlocksInfo
         // * concatenated PoT checkpoints
+
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
 
         let num_pot_checkpoints;
         (num_pot_checkpoints, bytes) = u32::from_bytes(bytes)?;
@@ -930,7 +936,8 @@ pub struct LeafShardBlocksInfo<'a> {
 impl<'a> LeafShardBlocksInfo<'a> {
     /// Create an instance from provided bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` do not need to be aligned, but padding in the layout depends on their address and
+    /// must be present in full.
     ///
     /// Blocks must be ordered by shard index, and blocks of the same shard by block number and by
     /// local segment index of own segments. The body root of each block must match its header.
@@ -1222,9 +1229,10 @@ impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
 }
 
 impl<'a> IntermediateShardBody<'a> {
-    /// Create an instance from provided bytes.
+    /// Create an instance from provided correctly aligned bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` must be 16-bytes aligned, as in owned bodies, because padding in the layout depends
+    /// on the address of the bytes.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -1234,6 +1242,10 @@ impl<'a> IntermediateShardBody<'a> {
         // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
         // * concatenated own segment roots
         // * leaf shard blocks: LeafShardBlocksInfo
+
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -1333,7 +1345,8 @@ pub struct Transactions<'a> {
 impl<'a> Transactions<'a> {
     /// Create an instance from provided bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` do not need to be aligned, but padding in the layout depends on their address and
+    /// must be present in full.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -1444,9 +1457,10 @@ impl<'a> GenericBlockBody<'a> for LeafShardBody<'a> {
 }
 
 impl<'a> LeafShardBody<'a> {
-    /// Create an instance from provided bytes.
+    /// Create an instance from provided correctly aligned bytes.
     ///
-    /// `bytes` do not need to be aligned.
+    /// `bytes` must be 16-bytes aligned, as in owned bodies, because padding in the layout depends
+    /// on the address of the bytes.
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
@@ -1456,6 +1470,10 @@ impl<'a> LeafShardBody<'a> {
         // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
         // * concatenated own segment roots
         // * transactions: Transactions
+
+        if !Alignment::MAX.is_slice_aligned(bytes) {
+            return None;
+        }
 
         let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
         let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
@@ -1552,8 +1570,7 @@ pub enum BlockBody<'a> {
 impl<'a> BlockBody<'a> {
     /// Try to create a new instance from provided bytes for the provided shard index.
     ///
-    /// `bytes` should be 4-bytes aligned for the beacon chain and do not need to be aligned for
-    /// other shard kinds.
+    /// `bytes` must be 16-bytes aligned.
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.

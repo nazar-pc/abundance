@@ -1,6 +1,6 @@
 use crate::address::Address;
 use crate::block::body::owned::{
-    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError,
+    GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody,
     OwnedIntermediateShardBody, OwnedIntermediateShardBodyError, OwnedLeafShardBlockBodyBuilder,
     OwnedLeafShardBody, OwnedLeafShardBodyError,
 };
@@ -247,27 +247,136 @@ fn owned_leaf_shard_body_without_transactions_is_padded_after_their_number() {
     }
 }
 
+/// Padding in layouts depends on the address, so a body is only accepted at a 16-byte aligned
+/// address, like in owned bodies, rather than with different padding at different addresses
 #[test]
-fn beacon_chain_body_bytes_must_be_4_bytes_aligned() {
-    for offset in 0..8_usize {
-        // An empty body at `offset`: zero numbers of PoT checkpoints, own segment roots and
-        // intermediate shard blocks, then zero padding up to the next 8-byte boundary in memory
-        let len = (offset + 7).next_multiple_of(8) - offset;
-        let bytes = bytes_at(&vec![0; len], offset);
-        let bytes = &bytes.as_slice()[offset..];
+fn body_bytes_must_be_16_bytes_aligned() {
+    for offset in 0..16_usize {
+        // Empty bodies at `offset`, with zero padding up to the next boundary in memory after the
+        // numbers of PoT checkpoints, own segment roots and child shard blocks or transactions
+        for (shard_kind, unpadded_len, alignment) in [
+            (RealShardKind::BeaconChain, 7, 8),
+            (RealShardKind::IntermediateShard, 3, 8),
+            (RealShardKind::LeafShard, 5, 16),
+        ] {
+            let len = (offset + unpadded_len).next_multiple_of(alignment) - offset;
+            let bytes = bytes_at(&vec![0; len], offset);
+            let bytes = &bytes.as_slice()[offset..];
 
-        // The number of PoT checkpoints is read as an aligned `u32`, and the padding adapts to
-        // the position of the rest
-        let expected = (offset % 4 == 0).then_some(0);
-        assert_eq!(
-            BeaconChainBody::try_from_bytes(bytes).map(|(_body, remainder)| remainder.len()),
-            expected
-        );
-        assert_eq!(
-            BlockBody::try_from_bytes(bytes, RealShardKind::BeaconChain)
-                .map(|(_body, remainder)| remainder.len()),
-            expected
-        );
+            let expected = (offset == 0).then_some(0);
+            assert_eq!(
+                BlockBody::try_from_bytes(bytes, shard_kind)
+                    .map(|(_body, remainder)| remainder.len()),
+                expected,
+                "{shard_kind:?} at offset {offset}"
+            );
+        }
+    }
+}
+
+/// A transaction of a size that is 1 more than a multiple of 16 bytes, so 15 bytes of padding
+/// follow it in a body
+fn transaction_with_15_bytes_of_padding() -> OwnedTransaction {
+    let header = transaction_header();
+    let unsealed_len = OwnedTransaction::from_parts(&header, &[], &[], &[], &[])
+        .unwrap()
+        .buffer()
+        .len();
+    let seal_len = (17 - unsealed_len % 16) % 16;
+    let transaction = OwnedTransaction::from_parts(
+        &header,
+        &[],
+        &[],
+        &[],
+        &vec![1; usize::try_from(seal_len).unwrap()],
+    )
+    .unwrap();
+    assert_eq!(transaction.buffer().len() % 16, 1);
+    transaction
+}
+
+/// Padding at the end of bodies was accepted when cut off, which gave the same bodies several
+/// encodings
+#[test]
+fn bodies_with_cut_off_padding_at_the_end_are_rejected() {
+    let mut builder = OwnedLeafShardBody::init(iter::empty()).unwrap();
+    builder
+        .add_transaction(&transaction_with_15_bytes_of_padding())
+        .unwrap();
+    let leaf_shard_body_with_transaction = builder.finish();
+    // Segments of 8 leaf shards, each of them takes 7 bytes more than a multiple of 8 bytes
+    let leaf_shards_segments = (0..8)
+        .map(|position| (position, 1 | ((u32::from(position) + 1) << 10), 1))
+        .collect::<Vec<_>>();
+    let beacon_chain_body_with_intermediate_shard_block = beacon_chain_body_bytes(
+        &[TestIntermediateShardBlock::new(
+            1,
+            0,
+            0,
+            8,
+            &leaf_shards_segments,
+        )],
+        &[],
+    );
+    // A segment root of a leaf shard is the last data and isn't zero, so zeroes after it are
+    // padding
+    let padding_after_intermediate_shard_block = beacon_chain_body_with_intermediate_shard_block
+        .as_slice()
+        .iter()
+        .rev()
+        .take_while(|&&byte| byte == 0)
+        .count();
+    assert_ne!(padding_after_intermediate_shard_block, 0);
+
+    for (shard_kind, bytes, padding_len) in [
+        // Without PoT checkpoints, padded after the number of intermediate shard blocks
+        (
+            RealShardKind::BeaconChain,
+            beacon_chain_body_bytes(&[], &[]),
+            1,
+        ),
+        // Without PoT checkpoints, padded after the only intermediate shard block
+        (
+            RealShardKind::BeaconChain,
+            beacon_chain_body_with_intermediate_shard_block,
+            padding_after_intermediate_shard_block,
+        ),
+        // Padded after the number of leaf shard blocks
+        (
+            RealShardKind::IntermediateShard,
+            intermediate_shard_body_bytes(None, &[]),
+            5,
+        ),
+        // Padded after the number of transactions, cutting all of it gives the encoding the
+        // builder used to write for bodies without transactions
+        (
+            RealShardKind::LeafShard,
+            OwnedLeafShardBody::init(iter::empty())
+                .unwrap()
+                .finish()
+                .buffer()
+                .clone(),
+            11,
+        ),
+        // Padded after the only transaction
+        (
+            RealShardKind::LeafShard,
+            leaf_shard_body_with_transaction.buffer().clone(),
+            15,
+        ),
+    ] {
+        OwnedBlockBody::from_buffer(bytes.clone(), shard_kind).unwrap();
+        let bytes = bytes.as_slice();
+        assert!(bytes.ends_with(&vec![0; padding_len]));
+
+        for cut_len in 1..=padding_len {
+            let cut_bytes = SharedAlignedBuffer::from_bytes(&bytes[..bytes.len() - cut_len]);
+            assert!(
+                BlockBody::try_from_bytes(cut_bytes.as_slice(), shard_kind).is_none(),
+                "{shard_kind:?} with {cut_len} of {padding_len} bytes of padding cut off"
+            );
+            OwnedBlockBody::from_buffer(cut_bytes, shard_kind).unwrap_err();
+        }
     }
 }
 
