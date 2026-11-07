@@ -783,3 +783,94 @@ fn fixed_consensus_parameters_from_unaligned_bytes() {
         Some((fixed_parameters, &[1][..]))
     );
 }
+
+/// `to_owned()` of a parsed header copies the bytes it was parsed from, which are the bytes
+/// written from its parts
+fn check_to_owned_returns_the_same_bytes<Header>(header: &Header)
+where
+    Header: GenericOwnedBlockHeader,
+{
+    let bytes = header.buffer().as_slice();
+    assert!(
+        GenericBlockHeader::to_owned(header.header().clone())
+            .buffer()
+            .as_slice()
+            == bytes,
+        "Header in an owned buffer"
+    );
+
+    // The parser only requires 8-byte alignment, and bytes after the header don't belong to it
+    let extra_bytes = [1; 16];
+    let bytes_with_extra_bytes =
+        OwnedAlignedBuffer::from_bytes(&[&[0; 8], bytes, &extra_bytes].concat());
+    let (parsed_header, remainder) =
+        BlockHeader::try_from_bytes(&bytes_with_extra_bytes.as_slice()[8..], Header::SHARD_KIND)
+            .unwrap();
+    assert_eq!(remainder, extra_bytes);
+    assert!(
+        parsed_header.to_owned().buffer().as_slice() == bytes,
+        "Header at an address that is not 16-byte aligned, followed by other bytes"
+    );
+}
+
+#[test]
+fn to_owned_of_headers_returns_the_bytes_written_from_parts() {
+    let child_shard_blocks_root = Blake3Hash::new([1; _]);
+    let super_segment_root = SuperSegmentRoot::from([2; _]);
+    let pot_parameters_change = BlockHeaderPotParametersChange::from(PotParametersChange {
+        slot: SlotNumber::from(3),
+        slot_iterations: NonZeroU32::new(4).unwrap(),
+        entropy: Blake3Hash::new([5; _]),
+    });
+    // Ed25519 is the only seal type
+    let seal = seal();
+    let seal = BlockHeaderSeal::Ed25519(&seal);
+
+    // Beacon chain headers with and without each optional consensus parameter
+    for super_segment_root in [None, Some(&super_segment_root)] {
+        for next_solution_range in [None, Some(SolutionRange::from(6))] {
+            for pot_parameters_change in [None, Some(&pot_parameters_change)] {
+                let consensus_parameters = BlockHeaderConsensusParameters {
+                    super_segment_root,
+                    next_solution_range,
+                    pot_parameters_change,
+                    ..consensus_parameters()
+                };
+                let header = OwnedBeaconChainHeader::from_parts(
+                    &prefix(0),
+                    &result(),
+                    &consensus_info(),
+                    &child_shard_blocks_root,
+                    &consensus_parameters,
+                )
+                .unwrap()
+                .with_seal(seal)
+                .unwrap();
+                check_to_owned_returns_the_same_bytes(&header);
+            }
+        }
+    }
+
+    let header = OwnedIntermediateShardHeader::from_parts(
+        &prefix(1),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+        &child_shard_blocks_root,
+    )
+    .unwrap()
+    .with_seal(seal)
+    .unwrap();
+    check_to_owned_returns_the_same_bytes(&header);
+
+    let header = OwnedLeafShardHeader::from_parts(
+        &prefix(1 | (1 << 10)),
+        &result(),
+        &consensus_info(),
+        &beacon_chain_info(),
+    )
+    .unwrap()
+    .with_seal(seal)
+    .unwrap();
+    check_to_owned_returns_the_same_bytes(&header);
+}
