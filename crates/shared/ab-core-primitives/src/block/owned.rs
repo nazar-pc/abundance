@@ -23,7 +23,7 @@ use crate::block::{BeaconChainBlock, Block, GenericBlock, IntermediateShardBlock
 use crate::hashes::Blake3Hash;
 use crate::pot::PotCheckpoints;
 use crate::segments::{LocalSegmentIndex, SegmentRoot};
-use crate::shard::RealShardKind;
+use crate::shard::{RealShardKind, ShardIndex};
 use ab_aligned_buffer::SharedAlignedBuffer;
 use core::any::Any;
 use core::fmt;
@@ -303,6 +303,26 @@ impl OwnedIntermediateShardBlock {
     }
 }
 
+/// Errors for [`OwnedIntermediateShardBlockBuilder`]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, thiserror::Error)]
+pub enum OwnedIntermediateShardBlockBuilderError {
+    /// Header parts are not consistent with each other or with the shard kind
+    #[error("Invalid header parts: {error}")]
+    InvalidHeaderParts {
+        /// Block header consistency error
+        #[from]
+        error: BlockHeaderConsistencyError,
+    },
+    /// Leaf shard block is not a child of the shard of the header
+    #[error("Leaf shard block of shard {leaf_shard_index} is not a child of shard {shard_index}")]
+    LeafShardBlockOfAnotherShard {
+        /// Shard index of the header
+        shard_index: ShardIndex,
+        /// Shard index of the leaf shard block
+        leaf_shard_index: ShardIndex,
+    },
+}
+
 /// Builder for [`OwnedIntermediateShardBlock`]
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardBlockBuilder {
@@ -313,14 +333,14 @@ impl OwnedIntermediateShardBlockBuilder {
     /// Add header.
     ///
     /// Returns an error if the header parts are not consistent with each other or with the shard
-    /// kind.
+    /// kind, or if a leaf shard block is not a child of the shard of the header.
     pub fn with_header(
         self,
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> Result<OwnedIntermediateShardBlockUnsealed, BlockHeaderConsistencyError> {
+    ) -> Result<OwnedIntermediateShardBlockUnsealed, OwnedIntermediateShardBlockBuilderError> {
         let body = self.body;
         let header = OwnedIntermediateShardHeader::from_parts(
             prefix,
@@ -332,6 +352,20 @@ impl OwnedIntermediateShardBlockBuilder {
             beacon_chain_info,
             &body.body().leaf_shard_blocks().headers_root(),
         )?;
+
+        if let Some(leaf_shard_index) =
+            IntermediateShardBlock::find_leaf_shard_block_of_another_shard(
+                body.body().leaf_shard_blocks(),
+                prefix.shard_index,
+            )
+        {
+            return Err(
+                OwnedIntermediateShardBlockBuilderError::LeafShardBlockOfAnotherShard {
+                    shard_index: prefix.shard_index,
+                    leaf_shard_index,
+                },
+            );
+        }
 
         Ok(OwnedIntermediateShardBlockUnsealed { body, header })
     }

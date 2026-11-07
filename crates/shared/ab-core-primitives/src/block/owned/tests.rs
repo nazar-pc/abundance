@@ -10,7 +10,8 @@ use crate::block::header::{
     BlockHeaderPrefix, BlockHeaderSeal,
 };
 use crate::block::owned::{
-    GenericOwnedBlock, OwnedBeaconChainBlock, OwnedIntermediateShardBlock, OwnedLeafShardBlock,
+    GenericOwnedBlock, OwnedBeaconChainBlock, OwnedIntermediateShardBlock,
+    OwnedIntermediateShardBlockBuilderError, OwnedLeafShardBlock,
 };
 use crate::block::{
     BeaconChainBlock, Block, BlockNumber, BlockRoot, BlockTimestamp, GenericBlock,
@@ -312,10 +313,18 @@ fn block_builders_reject_inconsistent_header_parts() {
                 &consensus_info,
                 &beacon_chain_info(),
             )
-            .and_then(|block_unsealed| block_unsealed.with_seal(seal));
+            .and_then(|block_unsealed| {
+                block_unsealed
+                    .with_seal(seal)
+                    .map_err(OwnedIntermediateShardBlockBuilderError::from)
+            });
     assert_eq!(
         maybe_block.err(),
-        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+        Some(
+            OwnedIntermediateShardBlockBuilderError::InvalidHeaderParts {
+                error: BlockHeaderConsistencyError::NonZeroSolutionPadding
+            }
+        )
     );
 
     let maybe_block = OwnedLeafShardBlock::init(iter::empty())
@@ -391,6 +400,41 @@ fn block_builders_reject_seals_of_other_public_keys() {
         )
         .unwrap();
     assert_eq!(block_unsealed.with_seal(seal).err(), Some(error));
+}
+
+#[test]
+fn intermediate_shard_block_builder_rejects_leaf_shard_blocks_of_other_shards() {
+    // Leaf shard block of the intermediate shard 1
+    let leaf_shard_block = leaf_shard_block();
+    let transactions_root = leaf_shard_block.body.body().transactions().root();
+    let builder = OwnedIntermediateShardBlock::init(
+        iter::empty(),
+        iter::once(LeafShardBlockInfo {
+            header: leaf_shard_block.header.header().clone(),
+            transactions_root: &transactions_root,
+            own_segments: None,
+        }),
+    )
+    .unwrap();
+    let with_header = |shard_index| {
+        builder.clone().with_header(
+            &prefix(ShardIndex::new(shard_index).unwrap()),
+            Blake3Hash::default(),
+            &consensus_info(),
+            &beacon_chain_info(),
+        )
+    };
+
+    with_header(1).unwrap();
+    assert_eq!(
+        with_header(2).err(),
+        Some(
+            OwnedIntermediateShardBlockBuilderError::LeafShardBlockOfAnotherShard {
+                shard_index: ShardIndex::new(2).unwrap(),
+                leaf_shard_index: leaf_shard_block.header.header().prefix.shard_index,
+            }
+        )
+    );
 }
 
 #[test]

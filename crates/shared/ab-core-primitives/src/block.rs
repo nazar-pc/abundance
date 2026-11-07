@@ -5,7 +5,9 @@ pub mod header;
 #[cfg(feature = "alloc")]
 pub mod owned;
 
-use crate::block::body::{BeaconChainBody, GenericBlockBody, IntermediateShardBody, LeafShardBody};
+use crate::block::body::{
+    BeaconChainBody, GenericBlockBody, IntermediateShardBody, LeafShardBlocksInfo, LeafShardBody,
+};
 use crate::block::header::{
     BeaconChainHeader, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
 };
@@ -15,7 +17,7 @@ use crate::block::owned::{
     OwnedLeafShardBlock,
 };
 use crate::hashes::Blake3Hash;
-use crate::shard::RealShardKind;
+use crate::shard::{RealShardKind, ShardIndex};
 use crate::solutions::SolutionRange;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
@@ -377,21 +379,12 @@ impl<'a> BeaconChainBlock<'a> {
         // computed once for both the header field and the body root
         let intermediate_shard_blocks_root = self.body.intermediate_shard_blocks().headers_root();
 
+        // Intermediate shard blocks are always children of the beacon chain: header parsing ensures
+        // that their shard indices are those of intermediate shards
         self.body
             .root_with_intermediate_shard_blocks_root(&intermediate_shard_blocks_root)
             == self.header.result.body_root
             && *self.header.intermediate_shard_blocks_root() == intermediate_shard_blocks_root
-            && self
-                .body
-                .intermediate_shard_blocks()
-                .iter()
-                .all(|intermediate_shard_block| {
-                    intermediate_shard_block
-                        .header
-                        .prefix
-                        .shard_index
-                        .is_child_of(self.header.prefix.shard_index)
-                })
     }
 
     /// Create an owned version of this block
@@ -488,17 +481,26 @@ impl<'a> IntermediateShardBlock<'a> {
             .root_with_leaf_shard_blocks_root(&leaf_shard_blocks_root)
             == self.header.result.body_root
             && *self.header.leaf_shard_blocks_root() == leaf_shard_blocks_root
-            && self
-                .body
-                .leaf_shard_blocks()
-                .iter()
-                .all(|leaf_shard_block| {
-                    leaf_shard_block
-                        .header
-                        .prefix
-                        .shard_index
-                        .is_child_of(self.header.prefix.shard_index)
-                })
+            && Self::find_leaf_shard_block_of_another_shard(
+                self.body.leaf_shard_blocks(),
+                self.header.prefix.shard_index,
+            )
+            .is_none()
+    }
+
+    /// Find a leaf shard block that is not a child of the shard with `shard_index`.
+    ///
+    /// Returns the shard index of the first such leaf shard block. The intermediate shard block
+    /// builder uses it too, so it accepts the same leaf shard blocks as the parser.
+    #[inline]
+    fn find_leaf_shard_block_of_another_shard(
+        leaf_shard_blocks: &LeafShardBlocksInfo<'_>,
+        shard_index: ShardIndex,
+    ) -> Option<ShardIndex> {
+        leaf_shard_blocks
+            .iter()
+            .map(|leaf_shard_block| leaf_shard_block.header.prefix.shard_index)
+            .find(|leaf_shard_index| !leaf_shard_index.is_child_of(shard_index))
     }
 
     /// Create an owned version of this block
