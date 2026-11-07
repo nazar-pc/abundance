@@ -1396,10 +1396,9 @@ impl<'a> Transactions<'a> {
         let mut remainder = self.bytes;
 
         iter::repeat_with(move || {
-            // SAFETY: Checked in constructor
-            let transaction = unsafe { Transaction::from_bytes_unchecked(remainder) };
-
-            remainder = &remainder[transaction.encoded_size()..];
+            let transaction;
+            (transaction, remainder) = Transaction::try_from_bytes(remainder)
+                .expect("Already checked in constructor; qed");
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)
                 .expect("Already checked in constructor; qed");
 

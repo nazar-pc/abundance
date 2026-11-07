@@ -265,7 +265,8 @@ impl OwnedTransaction {
 
     /// Get [`Transaction`] out of owned transaction
     pub fn transaction(&self) -> Transaction<'_> {
-        // SAFETY: Size and alignment checked in constructor
-        unsafe { Transaction::from_bytes_unchecked(self.buffer.as_slice()) }
+        let (transaction, _remainder) = Transaction::try_from_bytes(self.buffer.as_slice())
+            .expect("Constructors either write a valid transaction or check it; qed");
+        transaction
     }
 }
