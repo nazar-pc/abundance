@@ -6,8 +6,8 @@ use crate::block::header::owned::{
 };
 use crate::block::header::{
     BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
-    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
-    BlockHeaderSeal,
+    BlockHeaderConsistencyError, BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters,
+    BlockHeaderPrefix, BlockHeaderSeal,
 };
 use crate::block::owned::{
     GenericOwnedBlock, OwnedBeaconChainBlock, OwnedIntermediateShardBlock, OwnedLeafShardBlock,
@@ -86,7 +86,9 @@ fn beacon_chain_block() -> OwnedBeaconChainBlock {
             pot_parameters_change: None,
         },
     )
+    .unwrap()
     .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap()
 }
 
 fn intermediate_shard_block<'a, LeafShardBlocks>(
@@ -103,7 +105,9 @@ where
             &consensus_info(),
             &beacon_chain_info(),
         )
+        .unwrap()
         .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+        .unwrap()
 }
 
 fn transaction() -> OwnedTransaction {
@@ -144,7 +148,9 @@ fn leaf_shard_block_with(number: BlockNumber, state_root: Blake3Hash) -> OwnedLe
             &consensus_info(),
             &beacon_chain_info(),
         )
+        .unwrap()
         .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+        .unwrap()
 }
 
 /// Bytes of a block that starts `offset` bytes after a 16-byte boundary in the returned buffer.
@@ -280,6 +286,131 @@ fn unchecked_parsers_reject_seals_of_other_public_keys() {
 }
 
 #[test]
+fn block_builders_reject_inconsistent_header_parts() {
+    let seal = seal();
+    let seal = BlockHeaderSeal::Ed25519(&seal);
+    let mut consensus_info = consensus_info();
+    consensus_info.solution.padding = [1, 0, 0, 0];
+
+    // Sealing parses the header, so inconsistent parts must be rejected before it
+    let maybe_block = OwnedBeaconChainBlock::init(
+        iter::empty(),
+        iter::empty::<IntermediateShardBlockInfo<'_>>(),
+        &[],
+    )
+    .unwrap()
+    .with_header(
+        &prefix(ShardIndex::BEACON_CHAIN),
+        Blake3Hash::default(),
+        &consensus_info,
+        &BlockHeaderConsensusParameters {
+            fixed_parameters: BlockHeaderFixedConsensusParameters {
+                solution_range: SolutionRange::MAX,
+                slot_iterations: NonZeroU32::MIN,
+                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap(),
+            },
+            super_segment_root: None,
+            next_solution_range: None,
+            pot_parameters_change: None,
+        },
+    )
+    .and_then(|block_unsealed| block_unsealed.with_seal(seal));
+    assert_eq!(
+        maybe_block.err(),
+        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+    );
+
+    let maybe_block =
+        OwnedIntermediateShardBlock::init(iter::empty(), iter::empty::<LeafShardBlockInfo<'_>>())
+            .unwrap()
+            .with_header(
+                &prefix(ShardIndex::new(1).unwrap()),
+                Blake3Hash::default(),
+                &consensus_info,
+                &beacon_chain_info(),
+            )
+            .and_then(|block_unsealed| block_unsealed.with_seal(seal));
+    assert_eq!(
+        maybe_block.err(),
+        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+    );
+
+    let maybe_block = OwnedLeafShardBlock::init(iter::empty())
+        .unwrap()
+        .with_header(
+            &prefix(ShardIndex::new(1 | (1 << 10)).unwrap()),
+            Blake3Hash::default(),
+            &consensus_info,
+            &beacon_chain_info(),
+        )
+        .and_then(|block_unsealed| block_unsealed.with_seal(seal));
+    assert_eq!(
+        maybe_block.err(),
+        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+    );
+}
+
+#[test]
+fn block_builders_reject_seals_of_other_public_keys() {
+    let seal = BlockHeaderEd25519Seal {
+        public_key: Ed25519PublicKey::from([1; Ed25519PublicKey::SIZE]),
+        signature: Ed25519Signature::default(),
+    };
+    let error = BlockHeaderConsistencyError::SealPublicKeyHashMismatch {
+        solution_public_key_hash: consensus_info().solution.public_key_hash,
+        seal_public_key_hash: seal.public_key.hash(),
+    };
+    let seal = BlockHeaderSeal::Ed25519(&seal);
+
+    let block_unsealed = OwnedBeaconChainBlock::init(
+        iter::empty(),
+        iter::empty::<IntermediateShardBlockInfo<'_>>(),
+        &[],
+    )
+    .unwrap()
+    .with_header(
+        &prefix(ShardIndex::BEACON_CHAIN),
+        Blake3Hash::default(),
+        &consensus_info(),
+        &BlockHeaderConsensusParameters {
+            fixed_parameters: BlockHeaderFixedConsensusParameters {
+                solution_range: SolutionRange::MAX,
+                slot_iterations: NonZeroU32::MIN,
+                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap(),
+            },
+            super_segment_root: None,
+            next_solution_range: None,
+            pot_parameters_change: None,
+        },
+    )
+    .unwrap();
+    assert_eq!(block_unsealed.with_seal(seal).err(), Some(error));
+
+    let block_unsealed =
+        OwnedIntermediateShardBlock::init(iter::empty(), iter::empty::<LeafShardBlockInfo<'_>>())
+            .unwrap()
+            .with_header(
+                &prefix(ShardIndex::new(1).unwrap()),
+                Blake3Hash::default(),
+                &consensus_info(),
+                &beacon_chain_info(),
+            )
+            .unwrap();
+    assert_eq!(block_unsealed.with_seal(seal).err(), Some(error));
+
+    let block_unsealed = OwnedLeafShardBlock::init(iter::empty())
+        .unwrap()
+        .with_header(
+            &prefix(ShardIndex::new(1 | (1 << 10)).unwrap()),
+            Blake3Hash::default(),
+            &consensus_info(),
+            &beacon_chain_info(),
+        )
+        .unwrap();
+    assert_eq!(block_unsealed.with_seal(seal).err(), Some(error));
+}
+
+#[test]
 fn blocks_round_trip() {
     let leaf_shard_block = leaf_shard_block();
     let bytes = block_bytes(&leaf_shard_block, 0);
@@ -406,7 +537,9 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
             header.beacon_chain_info(),
             &leaf_shard_blocks_root,
         )
-        .with_seal(header.seal);
+        .unwrap()
+        .with_seal(header.seal)
+        .unwrap();
         let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
 
         assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_none());
@@ -435,7 +568,9 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
         &Blake3Hash::new([1; _]),
         header.consensus_parameters(),
     )
-    .with_seal(header.seal);
+    .unwrap()
+    .with_seal(header.seal)
+    .unwrap();
     let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
 
     assert!(BeaconChainBlock::try_from_bytes(bytes.as_slice()).is_none());

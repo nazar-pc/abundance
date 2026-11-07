@@ -125,9 +125,11 @@ impl ChainSpec {
                     pot_parameters_change: None,
                 },
             )
+            .expect("Genesis header has beacon chain shard index and zero paddings; qed")
             .with_seal(BlockHeaderSeal::Ed25519(&BlockHeaderEd25519Seal {
                 public_key: Ed25519PublicKey::default(),
                 signature: Ed25519Signature::default(),
             }))
+            .expect("Genesis solution is for the default public key used in the seal; qed")
     }
 }

@@ -16,7 +16,8 @@ use crate::block::header::owned::{
 };
 use crate::block::header::{
     BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
-    BlockHeaderConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
+    BlockHeaderConsensusParameters, BlockHeaderConsistencyError, BlockHeaderPrefix,
+    BlockHeaderResult, BlockHeaderSeal,
 };
 use crate::block::{BeaconChainBlock, Block, GenericBlock, IntermediateShardBlock, LeafShardBlock};
 use crate::hashes::Blake3Hash;
@@ -162,14 +163,17 @@ pub struct OwnedBeaconChainBlockBuilder {
 }
 
 impl OwnedBeaconChainBlockBuilder {
-    /// Add header
+    /// Add header.
+    ///
+    /// Returns an error if the header parts are not consistent with each other or with the shard
+    /// kind.
     pub fn with_header(
         self,
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
-    ) -> OwnedBeaconChainBlockUnsealed {
+    ) -> Result<OwnedBeaconChainBlockUnsealed, BlockHeaderConsistencyError> {
         let body = self.body;
         let header = OwnedBeaconChainHeader::from_parts(
             prefix,
@@ -180,9 +184,9 @@ impl OwnedBeaconChainBlockBuilder {
             consensus_info,
             &body.body().intermediate_shard_blocks().headers_root(),
             consensus_parameters,
-        );
+        )?;
 
-        OwnedBeaconChainBlockUnsealed { body, header }
+        Ok(OwnedBeaconChainBlockUnsealed { body, header })
     }
 }
 
@@ -200,14 +204,19 @@ impl OwnedBeaconChainBlockUnsealed {
         self.header.pre_seal_hash()
     }
 
-    /// Add seal and return [`OwnedBeaconChainBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedBeaconChainBlock {
-        let header = self.header.with_seal(seal);
+    /// Add seal and return [`OwnedBeaconChainBlock`].
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution.
+    pub fn with_seal(
+        self,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<OwnedBeaconChainBlock, BlockHeaderConsistencyError> {
+        let header = self.header.with_seal(seal)?;
 
-        OwnedBeaconChainBlock {
+        Ok(OwnedBeaconChainBlock {
             header,
             body: self.body,
-        }
+        })
     }
 }
 
@@ -305,14 +314,17 @@ pub struct OwnedIntermediateShardBlockBuilder {
 }
 
 impl OwnedIntermediateShardBlockBuilder {
-    /// Add header
+    /// Add header.
+    ///
+    /// Returns an error if the header parts are not consistent with each other or with the shard
+    /// kind.
     pub fn with_header(
         self,
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> OwnedIntermediateShardBlockUnsealed {
+    ) -> Result<OwnedIntermediateShardBlockUnsealed, BlockHeaderConsistencyError> {
         let body = self.body;
         let header = OwnedIntermediateShardHeader::from_parts(
             prefix,
@@ -323,9 +335,9 @@ impl OwnedIntermediateShardBlockBuilder {
             consensus_info,
             beacon_chain_info,
             &body.body().leaf_shard_blocks().headers_root(),
-        );
+        )?;
 
-        OwnedIntermediateShardBlockUnsealed { body, header }
+        Ok(OwnedIntermediateShardBlockUnsealed { body, header })
     }
 }
 
@@ -343,14 +355,19 @@ impl OwnedIntermediateShardBlockUnsealed {
         self.header.pre_seal_hash()
     }
 
-    /// Add seal and return [`OwnedIntermediateShardBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedIntermediateShardBlock {
-        let header = self.header.with_seal(seal);
+    /// Add seal and return [`OwnedIntermediateShardBlock`].
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution.
+    pub fn with_seal(
+        self,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<OwnedIntermediateShardBlock, BlockHeaderConsistencyError> {
+        let header = self.header.with_seal(seal)?;
 
-        OwnedIntermediateShardBlock {
+        Ok(OwnedIntermediateShardBlock {
             header,
             body: self.body,
-        }
+        })
     }
 }
 
@@ -455,14 +472,17 @@ impl OwnedLeafShardBlockBuilder {
         Ok(())
     }
 
-    /// Add header
+    /// Add header.
+    ///
+    /// Returns an error if the header parts are not consistent with each other or with the shard
+    /// kind.
     pub fn with_header(
         self,
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> OwnedLeafShardBlockUnsealed {
+    ) -> Result<OwnedLeafShardBlockUnsealed, BlockHeaderConsistencyError> {
         let body = self.body_builder.finish();
         let header = OwnedLeafShardHeader::from_parts(
             prefix,
@@ -472,8 +492,8 @@ impl OwnedLeafShardBlockBuilder {
             },
             consensus_info,
             beacon_chain_info,
-        );
-        OwnedLeafShardBlockUnsealed { body, header }
+        )?;
+        Ok(OwnedLeafShardBlockUnsealed { body, header })
     }
 }
 
@@ -491,14 +511,19 @@ impl OwnedLeafShardBlockUnsealed {
         self.header.pre_seal_hash()
     }
 
-    /// Add seal and return [`OwnedLeafShardBlock`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedLeafShardBlock {
-        let header = self.header.with_seal(seal);
+    /// Add seal and return [`OwnedLeafShardBlock`].
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution.
+    pub fn with_seal(
+        self,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<OwnedLeafShardBlock, BlockHeaderConsistencyError> {
+        let header = self.header.with_seal(seal)?;
 
-        OwnedLeafShardBlock {
+        Ok(OwnedLeafShardBlock {
             header,
             body: self.body,
-        }
+        })
     }
 }
 

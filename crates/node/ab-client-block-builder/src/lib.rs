@@ -7,7 +7,9 @@ pub mod beacon_chain;
 use ab_client_api::BlockDetails;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
-use ab_core_primitives::block::header::{BlockHeaderConsensusInfo, OwnedBlockHeaderSeal};
+use ab_core_primitives::block::header::{
+    BlockHeaderConsensusInfo, BlockHeaderConsistencyError, OwnedBlockHeaderSeal,
+};
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::PotCheckpoints;
@@ -24,6 +26,13 @@ pub enum BlockBuilderError {
         // Custom block builder error
         #[from]
         error: anyhow::Error,
+    },
+    /// Invalid block header parts
+    #[error("Invalid block header parts: {error}")]
+    InvalidHeaderParts {
+        /// Block header consistency error
+        #[from]
+        error: BlockHeaderConsistencyError,
     },
     /// Failed to seal the block
     #[error("Failed to seal the block")]

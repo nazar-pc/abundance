@@ -637,6 +637,40 @@ impl<'a> BlockHeaderSeal<'a> {
     }
 }
 
+/// Error for block header parts that are not consistent with each other or with the shard kind of
+/// the header.
+///
+/// Headers with such parts are rejected by parsing, and can't be created from parts, whether as
+/// owned headers or written into a buffer.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, thiserror::Error)]
+pub enum BlockHeaderConsistencyError {
+    /// Prefix padding is not all zeroes
+    #[error("Prefix padding is not all zeroes")]
+    NonZeroPrefixPadding,
+    /// Shard index is out of range or doesn't correspond to the shard kind of the header
+    #[error("Shard index {shard_index} is not a valid {shard_kind:?} shard index")]
+    InvalidShardIndex {
+        /// Shard index
+        shard_index: ShardIndex,
+        /// Shard kind of the header
+        shard_kind: RealShardKind,
+    },
+    /// Solution padding is not all zeroes
+    #[error("Solution padding is not all zeroes")]
+    NonZeroSolutionPadding,
+    /// Public key hash of the seal doesn't match the solution
+    #[error(
+        "Seal public key hash {seal_public_key_hash} doesn't match solution public key hash \
+        {solution_public_key_hash}"
+    )]
+    SealPublicKeyHashMismatch {
+        /// Public key hash of the solution
+        solution_public_key_hash: Blake3Hash,
+        /// Public key hash of the seal
+        seal_public_key_hash: Blake3Hash,
+    },
+}
+
 /// Part of the block header, shared for different kinds of shards
 #[derive(Debug, Copy, Clone)]
 pub struct SharedBlockHeader<'a> {
@@ -719,11 +753,7 @@ impl<'a> BeaconChainHeader<'a> {
         // * block header seal: BlockHeaderSeal
 
         let (prefix, consensus_info, result, remainder) =
-            BlockHeader::try_from_bytes_shared(bytes)?;
-
-        if prefix.shard_index.shard_kind() != Some(ShardKind::BeaconChain) {
-            return None;
-        }
+            BlockHeader::try_from_bytes_shared(bytes, RealShardKind::BeaconChain)?;
 
         let (intermediate_shard_blocks_root, remainder) = Blake3Hash::from_bytes(remainder)?;
 
@@ -763,10 +793,7 @@ impl<'a> BeaconChainHeader<'a> {
     /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        let public_key_hash = match self.seal {
-            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
-        };
-        public_key_hash == self.shared.consensus_info.solution.public_key_hash
+        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -779,9 +806,12 @@ impl<'a> BeaconChainHeader<'a> {
             self.shared.consensus_info,
             self.intermediate_shard_blocks_root,
             &self.consensus_parameters,
-        );
+        )
+        .expect("Parts of a parsed header are consistent; qed");
 
-        unsealed.with_seal(self.shared.seal)
+        unsealed
+            .with_seal(self.shared.seal)
+            .expect("Seal of a parsed header matches its solution; qed")
     }
 
     /// Shared block header
@@ -954,11 +984,7 @@ impl<'a> IntermediateShardHeader<'a> {
         // * block header seal: BlockHeaderSeal
 
         let (prefix, consensus_info, result, remainder) =
-            BlockHeader::try_from_bytes_shared(bytes)?;
-
-        if prefix.shard_index.shard_kind() != Some(ShardKind::IntermediateShard) {
-            return None;
-        }
+            BlockHeader::try_from_bytes_shared(bytes, RealShardKind::IntermediateShard)?;
 
         let (beacon_chain_info, remainder) = BlockHeaderBeaconChainInfo::from_bytes(remainder)?;
 
@@ -997,10 +1023,7 @@ impl<'a> IntermediateShardHeader<'a> {
     /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        let public_key_hash = match self.seal {
-            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
-        };
-        public_key_hash == self.shared.consensus_info.solution.public_key_hash
+        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -1013,9 +1036,12 @@ impl<'a> IntermediateShardHeader<'a> {
             self.shared.consensus_info,
             self.beacon_chain_info,
             self.leaf_shard_blocks_root,
-        );
+        )
+        .expect("Parts of a parsed header are consistent; qed");
 
-        unsealed.with_seal(self.shared.seal)
+        unsealed
+            .with_seal(self.shared.seal)
+            .expect("Seal of a parsed header matches its solution; qed")
     }
 
     /// Shared block header
@@ -1186,11 +1212,7 @@ impl<'a> LeafShardHeader<'a> {
         // * block header seal: BlockHeaderSeal
 
         let (prefix, consensus_info, result, remainder) =
-            BlockHeader::try_from_bytes_shared(bytes)?;
-
-        if prefix.shard_index.shard_kind() != Some(ShardKind::LeafShard) {
-            return None;
-        }
+            BlockHeader::try_from_bytes_shared(bytes, RealShardKind::LeafShard)?;
 
         let (beacon_chain_info, remainder) = BlockHeaderBeaconChainInfo::from_bytes(remainder)?;
 
@@ -1226,10 +1248,7 @@ impl<'a> LeafShardHeader<'a> {
     /// by [`Self::try_from_bytes()`] internally.
     #[inline]
     pub fn is_internally_consistent(&self) -> bool {
-        let public_key_hash = match self.seal {
-            BlockHeaderSeal::Ed25519(seal) => seal.public_key.hash(),
-        };
-        public_key_hash == self.shared.consensus_info.solution.public_key_hash
+        BlockHeader::check_seal(&self.consensus_info.solution.public_key_hash, self.seal).is_ok()
     }
 
     /// Create an owned version of this header
@@ -1241,9 +1260,12 @@ impl<'a> LeafShardHeader<'a> {
             self.shared.result,
             self.shared.consensus_info,
             self.beacon_chain_info,
-        );
+        )
+        .expect("Parts of a parsed header are consistent; qed");
 
-        unsealed.with_seal(self.shared.seal)
+        unsealed
+            .with_seal(self.shared.seal)
+            .expect("Seal of a parsed header matches its solution; qed")
     }
 
     /// Shared block header
@@ -1404,6 +1426,7 @@ impl<'a> BlockHeader<'a> {
     #[inline]
     fn try_from_bytes_shared(
         mut bytes: &'a [u8],
+        shard_kind: RealShardKind,
     ) -> Option<(
         &'a BlockHeaderPrefix,
         &'a BlockHeaderConsensusInfo,
@@ -1413,23 +1436,63 @@ impl<'a> BlockHeader<'a> {
         let prefix;
         (prefix, bytes) = BlockHeaderPrefix::from_bytes(bytes)?;
 
-        if !(prefix.padding_0 == [0; _]
-            && u32::from(prefix.shard_index) <= ShardIndex::MAX_SHARD_INDEX)
-        {
-            return None;
-        }
-
         let result;
         (result, bytes) = BlockHeaderResult::from_bytes(bytes)?;
 
         let consensus_info;
         (consensus_info, bytes) = BlockHeaderConsensusInfo::from_bytes(bytes)?;
 
-        if consensus_info.solution.padding != [0; _] {
-            return None;
-        }
+        Self::check_shared_parts(prefix, consensus_info, shard_kind).ok()?;
 
         Some((prefix, consensus_info, result, bytes))
+    }
+
+    /// Check the parts shared by headers of all shard kinds.
+    ///
+    /// Both the parser and headers created from parts use it, so they accept the same parts.
+    #[inline]
+    fn check_shared_parts(
+        prefix: &BlockHeaderPrefix,
+        consensus_info: &BlockHeaderConsensusInfo,
+        shard_kind: RealShardKind,
+    ) -> Result<(), BlockHeaderConsistencyError> {
+        if prefix.padding_0 != [0; _] {
+            return Err(BlockHeaderConsistencyError::NonZeroPrefixPadding);
+        }
+
+        // Shard indices that are out of range have no shard kind
+        if prefix.shard_index.shard_kind() != Some(ShardKind::from(shard_kind)) {
+            return Err(BlockHeaderConsistencyError::InvalidShardIndex {
+                shard_index: prefix.shard_index,
+                shard_kind,
+            });
+        }
+
+        if consensus_info.solution.padding != [0; _] {
+            return Err(BlockHeaderConsistencyError::NonZeroSolutionPadding);
+        }
+
+        Ok(())
+    }
+
+    /// Check that the seal was created by the solution's public key.
+    ///
+    /// Both the parser and headers created from parts use it, so they accept the same seals.
+    #[inline]
+    fn check_seal(
+        solution_public_key_hash: &Blake3Hash,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<(), BlockHeaderConsistencyError> {
+        let seal_public_key_hash = seal.public_key_hash();
+
+        if seal_public_key_hash != *solution_public_key_hash {
+            return Err(BlockHeaderConsistencyError::SealPublicKeyHashMismatch {
+                solution_public_key_hash: *solution_public_key_hash,
+                seal_public_key_hash,
+            });
+        }
+
+        Ok(())
     }
 
     /// Create an owned version of this header

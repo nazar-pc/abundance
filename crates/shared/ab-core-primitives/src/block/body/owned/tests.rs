@@ -111,7 +111,9 @@ fn leaf_shard_header(shard_index: u32, number: u64, body_root: Blake3Hash) -> Ow
         &consensus_info(),
         &beacon_chain_info(),
     )
+    .unwrap()
     .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap()
 }
 
 fn intermediate_shard_header(
@@ -127,7 +129,9 @@ fn intermediate_shard_header(
         &beacon_chain_info(),
         leaf_shard_blocks_root,
     )
+    .unwrap()
     .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap()
 }
 
 fn pad_to(bytes: &mut Vec<u8>, alignment: usize) {
@@ -328,7 +332,9 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
                 pot_parameters_change: None,
             },
         )
-        .with_seal(BlockHeaderSeal::Ed25519(&seal()));
+        .unwrap()
+        .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+        .unwrap();
         let mut bytes = header.buffer().as_slice().to_vec();
         // The body starts at a 16-byte boundary
         pad_to(&mut bytes, 16);

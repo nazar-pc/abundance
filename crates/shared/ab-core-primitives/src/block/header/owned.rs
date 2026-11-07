@@ -5,9 +5,9 @@ mod tests;
 
 use crate::block::header::{
     BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
-    BlockHeaderConsensusParameters, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
-    BlockHeaderResult, BlockHeaderSeal, BlockHeaderSealType, GenericBlockHeader,
-    IntermediateShardHeader, LeafShardHeader,
+    BlockHeaderConsensusParameters, BlockHeaderConsistencyError,
+    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
+    BlockHeaderSealType, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
 };
 use crate::hashes::Blake3Hash;
 use crate::shard::{NumShardsUnchecked, RealShardKind};
@@ -63,6 +63,13 @@ pub enum OwnedBeaconChainHeaderError {
     /// after the bytes already there
     #[error("The header is too large")]
     HeaderTooLarge,
+    /// Header parts are not consistent with each other or with the shard kind
+    #[error("Invalid header parts: {error}")]
+    InvalidParts {
+        /// Block header consistency error
+        #[from]
+        error: BlockHeaderConsistencyError,
+    },
 }
 
 /// An owned version of [`BeaconChainHeader`].
@@ -109,14 +116,18 @@ impl OwnedBeaconChainHeader {
         + BlockHeaderConsensusParameters::MAX_SIZE
         + BlockHeaderSeal::MAX_SIZE;
 
-    /// Create a new [`OwnedBeaconChainHeader`] from its parts
+    /// Create a new [`OwnedBeaconChainHeader`] from its parts.
+    ///
+    /// Returns an error if the parts are not consistent with each other or with the shard kind.
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         intermediate_shard_blocks_root: &Blake3Hash,
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
-    ) -> OwnedBeaconChainHeaderUnsealed {
+    ) -> Result<OwnedBeaconChainHeaderUnsealed, BlockHeaderConsistencyError> {
+        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::BeaconChain)?;
+
         let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
         Self::append_unsealed(
@@ -129,11 +140,16 @@ impl OwnedBeaconChainHeader {
         )
         .expect("The header with the largest seal fits into an empty buffer; qed");
 
-        OwnedBeaconChainHeaderUnsealed { buffer }
+        Ok(OwnedBeaconChainHeaderUnsealed {
+            buffer,
+            public_key_hash: consensus_info.solution.public_key_hash,
+        })
     }
 
     /// Write a header from its parts into the provided buffer, after the bytes already there.
     ///
+    /// The length of the buffer must be a multiple of 8 for the header to parse.
+    /// Returns an error if the parts are not consistent with each other or with the shard kind.
     /// The seal is not attached, the header in the buffer is complete only after
     /// [`OwnedBeaconChainHeaderUnsealedRef::with_seal()`] attaches it. Nothing is written when an
     /// error is returned, otherwise the seal is guaranteed to fit.
@@ -145,6 +161,8 @@ impl OwnedBeaconChainHeader {
         consensus_parameters: &BlockHeaderConsensusParameters<'_>,
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedBeaconChainHeaderUnsealedRef<'a>, OwnedBeaconChainHeaderError> {
+        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::BeaconChain)?;
+
         let header_offset = buffer.len();
 
         Self::append_unsealed(
@@ -159,6 +177,7 @@ impl OwnedBeaconChainHeader {
         Ok(OwnedBeaconChainHeaderUnsealedRef {
             buffer,
             header_offset,
+            public_key_hash: consensus_info.solution.public_key_hash,
         })
     }
 
@@ -308,6 +327,8 @@ impl OwnedBeaconChainHeader {
 #[derive(Debug, Clone)]
 pub struct OwnedBeaconChainHeaderUnsealed {
     buffer: OwnedAlignedBuffer,
+    /// Public key hash of the solution, the seal must correspond to it
+    public_key_hash: Blake3Hash,
 }
 
 impl OwnedBeaconChainHeaderUnsealed {
@@ -318,15 +339,24 @@ impl OwnedBeaconChainHeaderUnsealed {
         Blake3Hash::from(blake3::hash(self.buffer.as_slice()))
     }
 
-    /// Add seal and return [`OwnedBeaconChainHeader`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedBeaconChainHeader {
-        let Self { mut buffer } = self;
+    /// Add seal and return [`OwnedBeaconChainHeader`].
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution.
+    pub fn with_seal(
+        self,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<OwnedBeaconChainHeader, BlockHeaderConsistencyError> {
+        let Self {
+            mut buffer,
+            public_key_hash,
+        } = self;
+        BlockHeader::check_seal(&public_key_hash, seal)?;
         append_seal(&mut buffer, seal);
 
-        // TODO: Avoid extra parsing here, for this `OwnedBeaconChainHeader::from_parts_into()` must
-        //  return references to parts. Or at least add unchecked version of `from_buffer()`
-        OwnedBeaconChainHeader::from_buffer(buffer.into_shared())
-            .expect("Known to be created correctly; qed")
+        let header = OwnedBeaconChainHeader::from_buffer(buffer.into_shared())
+            .expect("`from_parts()` checked the parts it wrote, the seal is checked above; qed");
+
+        Ok(header)
     }
 }
 
@@ -339,6 +369,8 @@ impl OwnedBeaconChainHeaderUnsealed {
 pub struct OwnedBeaconChainHeaderUnsealedRef<'a> {
     buffer: &'a mut OwnedAlignedBuffer,
     header_offset: u32,
+    /// Public key hash of the solution, the seal must correspond to it
+    public_key_hash: Blake3Hash,
 }
 
 impl OwnedBeaconChainHeaderUnsealedRef<'_> {
@@ -354,10 +386,22 @@ impl OwnedBeaconChainHeaderUnsealedRef<'_> {
         Blake3Hash::from(blake3::hash(header_bytes))
     }
 
-    /// Attach the seal after the header in the buffer, which completes the header
+    /// Attach the seal after the header in the buffer, which completes the header.
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution. The
+    /// seal is not attached then, and the buffer ends with the unsealed header, which must not be
+    /// treated as a complete header.
     #[inline(always)]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) {
-        append_seal(self.buffer, seal);
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> Result<(), BlockHeaderConsistencyError> {
+        let Self {
+            buffer,
+            header_offset: _,
+            public_key_hash,
+        } = self;
+        BlockHeader::check_seal(&public_key_hash, seal)?;
+        append_seal(buffer, seal);
+
+        Ok(())
     }
 }
 
@@ -367,6 +411,13 @@ pub enum OwnedIntermediateShardHeaderError {
     /// Header doesn't fit into the buffer after the bytes already there
     #[error("The header is too large")]
     HeaderTooLarge,
+    /// Header parts are not consistent with each other or with the shard kind
+    #[error("Invalid header parts: {error}")]
+    InvalidParts {
+        /// Block header consistency error
+        #[from]
+        error: BlockHeaderConsistencyError,
+    },
 }
 
 /// An owned version of [`IntermediateShardHeader`].
@@ -413,14 +464,18 @@ impl OwnedIntermediateShardHeader {
         + <Blake3Hash as TrivialType>::SIZE
         + BlockHeaderSeal::MAX_SIZE;
 
-    /// Create a new [`OwnedIntermediateShardHeader`] from its parts
+    /// Create a new [`OwnedIntermediateShardHeader`] from its parts.
+    ///
+    /// Returns an error if the parts are not consistent with each other or with the shard kind.
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
         leaf_shard_blocks_root: &Blake3Hash,
-    ) -> OwnedIntermediateShardHeaderUnsealed {
+    ) -> Result<OwnedIntermediateShardHeaderUnsealed, BlockHeaderConsistencyError> {
+        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::IntermediateShard)?;
+
         let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
         Self::append_unsealed(
@@ -433,11 +488,16 @@ impl OwnedIntermediateShardHeader {
         )
         .expect("The header with the largest seal fits into an empty buffer; qed");
 
-        OwnedIntermediateShardHeaderUnsealed { buffer }
+        Ok(OwnedIntermediateShardHeaderUnsealed {
+            buffer,
+            public_key_hash: consensus_info.solution.public_key_hash,
+        })
     }
 
     /// Write a header from its parts into the provided buffer, after the bytes already there.
     ///
+    /// The length of the buffer must be a multiple of 8 for the header to parse.
+    /// Returns an error if the parts are not consistent with each other or with the shard kind.
     /// The seal is not attached, the header in the buffer is complete only after
     /// [`OwnedIntermediateShardHeaderUnsealedRef::with_seal()`] attaches it. Nothing is written
     /// when an error is returned, otherwise the seal is guaranteed to fit.
@@ -450,6 +510,8 @@ impl OwnedIntermediateShardHeader {
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedIntermediateShardHeaderUnsealedRef<'a>, OwnedIntermediateShardHeaderError>
     {
+        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::IntermediateShard)?;
+
         let header_offset = buffer.len();
 
         Self::append_unsealed(
@@ -464,6 +526,7 @@ impl OwnedIntermediateShardHeader {
         Ok(OwnedIntermediateShardHeaderUnsealedRef {
             buffer,
             header_offset,
+            public_key_hash: consensus_info.solution.public_key_hash,
         })
     }
 
@@ -546,6 +609,8 @@ impl OwnedIntermediateShardHeader {
 #[derive(Debug, Clone)]
 pub struct OwnedIntermediateShardHeaderUnsealed {
     buffer: OwnedAlignedBuffer,
+    /// Public key hash of the solution, the seal must correspond to it
+    public_key_hash: Blake3Hash,
 }
 
 impl OwnedIntermediateShardHeaderUnsealed {
@@ -556,16 +621,24 @@ impl OwnedIntermediateShardHeaderUnsealed {
         Blake3Hash::from(blake3::hash(self.buffer.as_slice()))
     }
 
-    /// Add seal and return [`OwnedIntermediateShardHeader`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedIntermediateShardHeader {
-        let Self { mut buffer } = self;
+    /// Add seal and return [`OwnedIntermediateShardHeader`].
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution.
+    pub fn with_seal(
+        self,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<OwnedIntermediateShardHeader, BlockHeaderConsistencyError> {
+        let Self {
+            mut buffer,
+            public_key_hash,
+        } = self;
+        BlockHeader::check_seal(&public_key_hash, seal)?;
         append_seal(&mut buffer, seal);
 
-        // TODO: Avoid extra parsing here, for this
-        //  `OwnedIntermediateShardHeader::from_parts_into()` must return references to parts. Or
-        //  at least add unchecked version of `from_buffer()`
-        OwnedIntermediateShardHeader::from_buffer(buffer.into_shared())
-            .expect("Known to be created correctly; qed")
+        let header = OwnedIntermediateShardHeader::from_buffer(buffer.into_shared())
+            .expect("`from_parts()` checked the parts it wrote, the seal is checked above; qed");
+
+        Ok(header)
     }
 }
 
@@ -578,6 +651,8 @@ impl OwnedIntermediateShardHeaderUnsealed {
 pub struct OwnedIntermediateShardHeaderUnsealedRef<'a> {
     buffer: &'a mut OwnedAlignedBuffer,
     header_offset: u32,
+    /// Public key hash of the solution, the seal must correspond to it
+    public_key_hash: Blake3Hash,
 }
 
 impl OwnedIntermediateShardHeaderUnsealedRef<'_> {
@@ -593,10 +668,22 @@ impl OwnedIntermediateShardHeaderUnsealedRef<'_> {
         Blake3Hash::from(blake3::hash(header_bytes))
     }
 
-    /// Attach the seal after the header in the buffer, which completes the header
+    /// Attach the seal after the header in the buffer, which completes the header.
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution. The
+    /// seal is not attached then, and the buffer ends with the unsealed header, which must not be
+    /// treated as a complete header.
     #[inline(always)]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) {
-        append_seal(self.buffer, seal);
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> Result<(), BlockHeaderConsistencyError> {
+        let Self {
+            buffer,
+            header_offset: _,
+            public_key_hash,
+        } = self;
+        BlockHeader::check_seal(&public_key_hash, seal)?;
+        append_seal(buffer, seal);
+
+        Ok(())
     }
 }
 
@@ -606,6 +693,13 @@ pub enum OwnedLeafShardHeaderError {
     /// Header doesn't fit into the buffer after the bytes already there
     #[error("The header is too large")]
     HeaderTooLarge,
+    /// Header parts are not consistent with each other or with the shard kind
+    #[error("Invalid header parts: {error}")]
+    InvalidParts {
+        /// Block header consistency error
+        #[from]
+        error: BlockHeaderConsistencyError,
+    },
 }
 
 /// An owned version of [`LeafShardHeader`].
@@ -651,13 +745,17 @@ impl OwnedLeafShardHeader {
         + BlockHeaderBeaconChainInfo::SIZE
         + BlockHeaderSeal::MAX_SIZE;
 
-    /// Create a new [`OwnedLeafShardHeader`] from its parts
+    /// Create a new [`OwnedLeafShardHeader`] from its parts.
+    ///
+    /// Returns an error if the parts are not consistent with each other or with the shard kind.
     pub fn from_parts(
         prefix: &BlockHeaderPrefix,
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
-    ) -> OwnedLeafShardHeaderUnsealed {
+    ) -> Result<OwnedLeafShardHeaderUnsealed, BlockHeaderConsistencyError> {
+        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::LeafShard)?;
+
         let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
         Self::append_unsealed(
@@ -669,11 +767,16 @@ impl OwnedLeafShardHeader {
         )
         .expect("The header with the largest seal fits into an empty buffer; qed");
 
-        OwnedLeafShardHeaderUnsealed { buffer }
+        Ok(OwnedLeafShardHeaderUnsealed {
+            buffer,
+            public_key_hash: consensus_info.solution.public_key_hash,
+        })
     }
 
     /// Write a header from its parts into the provided buffer, after the bytes already there.
     ///
+    /// The length of the buffer must be a multiple of 8 for the header to parse.
+    /// Returns an error if the parts are not consistent with each other or with the shard kind.
     /// The seal is not attached, the header in the buffer is complete only after
     /// [`OwnedLeafShardHeaderUnsealedRef::with_seal()`] attaches it. Nothing is written when an
     /// error is returned, otherwise the seal is guaranteed to fit.
@@ -684,6 +787,8 @@ impl OwnedLeafShardHeader {
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedLeafShardHeaderUnsealedRef<'a>, OwnedLeafShardHeaderError> {
+        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::LeafShard)?;
+
         let header_offset = buffer.len();
 
         Self::append_unsealed(prefix, result, consensus_info, beacon_chain_info, buffer)?;
@@ -691,6 +796,7 @@ impl OwnedLeafShardHeader {
         Ok(OwnedLeafShardHeaderUnsealedRef {
             buffer,
             header_offset,
+            public_key_hash: consensus_info.solution.public_key_hash,
         })
     }
 
@@ -768,6 +874,8 @@ impl OwnedLeafShardHeader {
 #[derive(Debug, Clone)]
 pub struct OwnedLeafShardHeaderUnsealed {
     buffer: OwnedAlignedBuffer,
+    /// Public key hash of the solution, the seal must correspond to it
+    public_key_hash: Blake3Hash,
 }
 
 impl OwnedLeafShardHeaderUnsealed {
@@ -778,15 +886,24 @@ impl OwnedLeafShardHeaderUnsealed {
         Blake3Hash::from(blake3::hash(self.buffer.as_slice()))
     }
 
-    /// Add seal and return [`OwnedLeafShardHeader`]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> OwnedLeafShardHeader {
-        let Self { mut buffer } = self;
+    /// Add seal and return [`OwnedLeafShardHeader`].
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution.
+    pub fn with_seal(
+        self,
+        seal: BlockHeaderSeal<'_>,
+    ) -> Result<OwnedLeafShardHeader, BlockHeaderConsistencyError> {
+        let Self {
+            mut buffer,
+            public_key_hash,
+        } = self;
+        BlockHeader::check_seal(&public_key_hash, seal)?;
         append_seal(&mut buffer, seal);
 
-        // TODO: Avoid extra parsing here, for this `OwnedLeafShardHeader::from_parts_into()` must
-        //  return references to parts. Or at least add unchecked version of `from_buffer()`
-        OwnedLeafShardHeader::from_buffer(buffer.into_shared())
-            .expect("Known to be created correctly; qed")
+        let header = OwnedLeafShardHeader::from_buffer(buffer.into_shared())
+            .expect("`from_parts()` checked the parts it wrote, the seal is checked above; qed");
+
+        Ok(header)
     }
 }
 
@@ -799,6 +916,8 @@ impl OwnedLeafShardHeaderUnsealed {
 pub struct OwnedLeafShardHeaderUnsealedRef<'a> {
     buffer: &'a mut OwnedAlignedBuffer,
     header_offset: u32,
+    /// Public key hash of the solution, the seal must correspond to it
+    public_key_hash: Blake3Hash,
 }
 
 impl OwnedLeafShardHeaderUnsealedRef<'_> {
@@ -814,10 +933,22 @@ impl OwnedLeafShardHeaderUnsealedRef<'_> {
         Blake3Hash::from(blake3::hash(header_bytes))
     }
 
-    /// Attach the seal after the header in the buffer, which completes the header
+    /// Attach the seal after the header in the buffer, which completes the header.
+    ///
+    /// Returns an error if the seal doesn't correspond to the public key hash of the solution. The
+    /// seal is not attached then, and the buffer ends with the unsealed header, which must not be
+    /// treated as a complete header.
     #[inline(always)]
-    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) {
-        append_seal(self.buffer, seal);
+    pub fn with_seal(self, seal: BlockHeaderSeal<'_>) -> Result<(), BlockHeaderConsistencyError> {
+        let Self {
+            buffer,
+            header_offset: _,
+            public_key_hash,
+        } = self;
+        BlockHeader::check_seal(&public_key_hash, seal)?;
+        append_seal(buffer, seal);
+
+        Ok(())
     }
 }
 
