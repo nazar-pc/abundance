@@ -22,6 +22,8 @@ use crate::trees::{
     OwnSegmentsMerkleTree, SegmentRootsMerkleTree, ShardOwnSegmentsMerkleTree,
     TransactionsMerkleTree,
 };
+#[cfg(feature = "alloc")]
+use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_blake3::{BLOCK_LEN, single_block_hash};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
@@ -738,6 +740,9 @@ pub struct BeaconChainBody<'a> {
     /// Proof of time checkpoints from after future proof of time of the parent block to the
     /// current block's future proof of time (inclusive)
     pot_checkpoints: &'a [PotCheckpoints],
+    /// All bytes of the body, which owned versions are created from
+    #[cfg(feature = "alloc")]
+    bytes: &'a [u8],
 }
 
 impl<'a> GenericBlockBody<'a> for BeaconChainBody<'a> {
@@ -827,9 +832,10 @@ impl<'a> BeaconChainBody<'a> {
         };
         let pot_checkpoints = PotCheckpoints::slice_from_bytes(pot_checkpoints);
 
+        let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
         // An owned body can't hold more than `u32::MAX` bytes, which PoT checkpoints alone can
         // exceed
-        if u32::try_from(bytes_start.len() - remainder.len()).is_err() {
+        if u32::try_from(bytes.len()).is_err() {
             return None;
         }
 
@@ -837,6 +843,8 @@ impl<'a> BeaconChainBody<'a> {
             own_segments,
             intermediate_shard_blocks,
             pot_checkpoints,
+            #[cfg(feature = "alloc")]
+            bytes,
         };
 
         Some((body, remainder))
@@ -846,25 +854,10 @@ impl<'a> BeaconChainBody<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedBeaconChainBody {
-        if let Some(own_segments) = self.own_segments {
-            OwnedBeaconChainBody::new(
-                own_segments
-                    .iter()
-                    .map(|(local_segment_index, &segment_root)| {
-                        (local_segment_index, segment_root)
-                    }),
-                self.intermediate_shard_blocks.iter(),
-                self.pot_checkpoints,
-            )
-            .expect("`self` was created by the parser with all checks; qed")
-        } else {
-            OwnedBeaconChainBody::new(
-                iter::empty(),
-                self.intermediate_shard_blocks.iter(),
-                self.pot_checkpoints,
-            )
-            .expect("`self` was created by the parser with all checks; qed")
-        }
+        OwnedBeaconChainBody::from_buffer(SharedAlignedBuffer::from_bytes(self.bytes)).expect(
+            "The parser accepted the same bytes at a 16-byte aligned address, as in the buffer, \
+            and checked that they fit into it; qed",
+        )
     }
 
     /// Segment roots produced by this shard
@@ -1217,6 +1210,9 @@ pub struct IntermediateShardBody<'a> {
     own_segments: Option<OwnSegments<'a>>,
     /// Leaf shard blocks
     leaf_shard_blocks: LeafShardBlocksInfo<'a>,
+    /// All bytes of the body, which owned versions are created from
+    #[cfg(feature = "alloc")]
+    bytes: &'a [u8],
 }
 
 impl<'a> GenericBlockBody<'a> for IntermediateShardBody<'a> {
@@ -1286,15 +1282,18 @@ impl<'a> IntermediateShardBody<'a> {
 
         let (leaf_shard_blocks, remainder) = LeafShardBlocksInfo::try_from_bytes(bytes)?;
 
+        let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
         // An owned body can't hold more than `u32::MAX` bytes, which leaf shard blocks don't
         // exceed with current limits, but might if those change
-        if u32::try_from(bytes_start.len() - remainder.len()).is_err() {
+        if u32::try_from(bytes.len()).is_err() {
             return None;
         }
 
         let body = Self {
             own_segments,
             leaf_shard_blocks,
+            #[cfg(feature = "alloc")]
+            bytes,
         };
 
         Some((body, remainder))
@@ -1316,20 +1315,10 @@ impl<'a> IntermediateShardBody<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedIntermediateShardBody {
-        if let Some(own_segments) = self.own_segments {
-            OwnedIntermediateShardBody::new(
-                own_segments
-                    .iter()
-                    .map(|(local_segment_index, &segment_root)| {
-                        (local_segment_index, segment_root)
-                    }),
-                self.leaf_shard_blocks.iter(),
-            )
-            .expect("`self` was created by the parser with all checks; qed")
-        } else {
-            OwnedIntermediateShardBody::new(iter::empty(), self.leaf_shard_blocks.iter())
-                .expect("`self` was created by the parser with all checks; qed")
-        }
+        OwnedIntermediateShardBody::from_buffer(SharedAlignedBuffer::from_bytes(self.bytes)).expect(
+            "The parser accepted the same bytes at a 16-byte aligned address, as in the buffer, \
+            and checked that they fit into it; qed",
+        )
     }
 
     /// Compute block body root
@@ -1454,6 +1443,9 @@ pub struct LeafShardBody<'a> {
     own_segments: Option<OwnSegments<'a>>,
     /// User transactions
     transactions: Transactions<'a>,
+    /// All bytes of the body, which owned versions are created from
+    #[cfg(feature = "alloc")]
+    bytes: &'a [u8],
 }
 
 impl<'a> GenericBlockBody<'a> for LeafShardBody<'a> {
@@ -1523,15 +1515,18 @@ impl<'a> LeafShardBody<'a> {
 
         let (transactions, remainder) = Transactions::try_from_bytes(bytes)?;
 
+        let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
         // An owned body can't hold more than `u32::MAX` bytes, which transactions alone can
         // exceed
-        if u32::try_from(bytes_start.len() - remainder.len()).is_err() {
+        if u32::try_from(bytes.len()).is_err() {
             return None;
         }
 
         let body = Self {
             own_segments,
             transactions,
+            #[cfg(feature = "alloc")]
+            bytes,
         };
 
         Some((body, remainder))
@@ -1553,24 +1548,10 @@ impl<'a> LeafShardBody<'a> {
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardBody {
-        let mut builder = if let Some(own_segments) = self.own_segments {
-            let own_segments = own_segments
-                .iter()
-                .map(|(local_segment_index, &segment_root)| (local_segment_index, segment_root));
-
-            OwnedLeafShardBody::init(own_segments)
-                .expect("`self` was created by the parser with all checks; qed")
-        } else {
-            OwnedLeafShardBody::init(iter::empty())
-                .expect("`self` was created by the parser with all checks; qed")
-        };
-        for transaction in self.transactions.iter() {
-            builder
-                .add_transaction(transaction)
-                .expect("`self` was created by the parser with all checks; qed");
-        }
-
-        builder.finish()
+        OwnedLeafShardBody::from_buffer(SharedAlignedBuffer::from_bytes(self.bytes)).expect(
+            "The parser accepted the same bytes at a 16-byte aligned address, as in the buffer, \
+            and checked that they fit into it; qed",
+        )
     }
 
     /// Compute block body root
