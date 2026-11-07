@@ -1,6 +1,25 @@
 //! Data structures related to the owned version of [`BlockBody`]
 
-#[cfg(test)]
+// Slow under Miri and these features don't change what the tests exercise, so under Miri they only
+// run with just `alloc` or with all features (like when testing the whole workspace)
+#[cfg(all(
+    test,
+    any(
+        not(miri),
+        not(any(
+            feature = "ed25519",
+            feature = "parallel",
+            feature = "scale-codec",
+            feature = "serde"
+        )),
+        all(
+            feature = "ed25519",
+            feature = "parallel",
+            feature = "scale-codec",
+            feature = "serde"
+        ),
+    ),
+))]
 mod tests;
 
 use crate::block::body::{
