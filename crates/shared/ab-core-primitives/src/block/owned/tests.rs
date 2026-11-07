@@ -10,7 +10,8 @@ use crate::block::header::{
     BlockHeaderPrefix, BlockHeaderSeal,
 };
 use crate::block::owned::{
-    GenericOwnedBlock, OwnedBeaconChainBlock, OwnedIntermediateShardBlock, OwnedLeafShardBlock,
+    GenericOwnedBlock, OwnedBeaconChainBlock, OwnedIntermediateShardBlock,
+    OwnedIntermediateShardBlockBuilderError, OwnedLeafShardBlock,
 };
 use crate::block::{
     BeaconChainBlock, Block, BlockNumber, BlockRoot, BlockTimestamp, GenericBlock,
@@ -183,21 +184,16 @@ fn beacon_chain_block_bytes_must_be_16_bytes_aligned() {
     let block = beacon_chain_block();
 
     let aligned = block_bytes(&block, 0);
-    for (parsed, remainder) in [
-        BeaconChainBlock::try_from_bytes(aligned.as_slice()).unwrap(),
-        BeaconChainBlock::try_from_bytes_unchecked(aligned.as_slice()).unwrap(),
-    ] {
-        assert!(remainder.is_empty());
-        assert_eq!(*parsed.header().root(), *block.header.header().root());
-        assert_eq!(parsed.body().root(), block.body.body().root());
-    }
+    let (parsed, remainder) = BeaconChainBlock::try_from_bytes(aligned.as_slice()).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(*parsed.header().root(), *block.header.header().root());
+    assert_eq!(parsed.body().root(), block.body.body().root());
 
     // 8 bytes after a 16-byte boundary, which is enough for the header, and padding after it
     // puts the body at a 16-byte boundary again
     let misaligned = block_bytes(&block, 8);
     let misaligned = &misaligned.as_slice()[8..];
     assert!(BeaconChainBlock::try_from_bytes(misaligned).is_none());
-    assert!(BeaconChainBlock::try_from_bytes_unchecked(misaligned).is_none());
     assert!(Block::try_from_bytes(misaligned, RealShardKind::BeaconChain).is_none());
 }
 
@@ -206,21 +202,16 @@ fn intermediate_shard_block_bytes_must_be_16_bytes_aligned() {
     let block = intermediate_shard_block(iter::empty());
 
     let aligned = block_bytes(&block, 0);
-    for (parsed, remainder) in [
-        IntermediateShardBlock::try_from_bytes(aligned.as_slice()).unwrap(),
-        IntermediateShardBlock::try_from_bytes_unchecked(aligned.as_slice()).unwrap(),
-    ] {
-        assert!(remainder.is_empty());
-        assert_eq!(*parsed.header().root(), *block.header.header().root());
-        assert_eq!(parsed.body().root(), block.body.body().root());
-    }
+    let (parsed, remainder) = IntermediateShardBlock::try_from_bytes(aligned.as_slice()).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(*parsed.header().root(), *block.header.header().root());
+    assert_eq!(parsed.body().root(), block.body.body().root());
 
     // 8 bytes after a 16-byte boundary, which is enough for the header, and padding after it
     // puts the body at a 16-byte boundary again
     let misaligned = block_bytes(&block, 8);
     let misaligned = &misaligned.as_slice()[8..];
     assert!(IntermediateShardBlock::try_from_bytes(misaligned).is_none());
-    assert!(IntermediateShardBlock::try_from_bytes_unchecked(misaligned).is_none());
     assert!(Block::try_from_bytes(misaligned, RealShardKind::IntermediateShard).is_none());
 }
 
@@ -229,26 +220,21 @@ fn leaf_shard_block_bytes_must_be_16_bytes_aligned() {
     let block = leaf_shard_block();
 
     let aligned = block_bytes(&block, 0);
-    for (parsed, remainder) in [
-        LeafShardBlock::try_from_bytes(aligned.as_slice()).unwrap(),
-        LeafShardBlock::try_from_bytes_unchecked(aligned.as_slice()).unwrap(),
-    ] {
-        assert!(remainder.is_empty());
-        assert_eq!(*parsed.header().root(), *block.header.header().root());
-        assert_eq!(parsed.body().root(), block.body.body().root());
-    }
+    let (parsed, remainder) = LeafShardBlock::try_from_bytes(aligned.as_slice()).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(*parsed.header().root(), *block.header.header().root());
+    assert_eq!(parsed.body().root(), block.body.body().root());
 
     // 8 bytes after a 16-byte boundary, which is enough for the header, and padding after it
     // puts the body at a 16-byte boundary again
     let misaligned = block_bytes(&block, 8);
     let misaligned = &misaligned.as_slice()[8..];
     assert!(LeafShardBlock::try_from_bytes(misaligned).is_none());
-    assert!(LeafShardBlock::try_from_bytes_unchecked(misaligned).is_none());
     assert!(Block::try_from_bytes(misaligned, RealShardKind::LeafShard).is_none());
 }
 
 #[test]
-fn unchecked_parsers_reject_seals_of_other_public_keys() {
+fn block_parsers_reject_seals_of_other_public_keys() {
     let beacon_chain_block = beacon_chain_block();
     let intermediate_shard_block = intermediate_shard_block(iter::empty());
     let leaf_shard_block = leaf_shard_block();
@@ -270,7 +256,7 @@ fn unchecked_parsers_reject_seals_of_other_public_keys() {
             leaf_shard_block.header().buffer().len(),
         ),
     ] {
-        assert!(Block::try_from_bytes_unchecked(bytes.as_slice(), shard_kind).is_some());
+        assert!(Block::try_from_bytes(bytes.as_slice(), shard_kind).is_some());
 
         // The header ends with the seal, which ends with the public key and the signature
         let mut bytes = bytes.as_slice().to_vec();
@@ -280,8 +266,6 @@ fn unchecked_parsers_reject_seals_of_other_public_keys() {
         let bytes = SharedAlignedBuffer::from_bytes(&bytes);
 
         assert!(Block::try_from_bytes(bytes.as_slice(), shard_kind).is_none());
-        // `to_owned()` of such a block would panic
-        assert!(Block::try_from_bytes_unchecked(bytes.as_slice(), shard_kind).is_none());
     }
 }
 
@@ -329,10 +313,18 @@ fn block_builders_reject_inconsistent_header_parts() {
                 &consensus_info,
                 &beacon_chain_info(),
             )
-            .and_then(|block_unsealed| block_unsealed.with_seal(seal));
+            .and_then(|block_unsealed| {
+                block_unsealed
+                    .with_seal(seal)
+                    .map_err(OwnedIntermediateShardBlockBuilderError::from)
+            });
     assert_eq!(
         maybe_block.err(),
-        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+        Some(
+            OwnedIntermediateShardBlockBuilderError::InvalidHeaderParts {
+                error: BlockHeaderConsistencyError::NonZeroSolutionPadding
+            }
+        )
     );
 
     let maybe_block = OwnedLeafShardBlock::init(iter::empty())
@@ -408,6 +400,41 @@ fn block_builders_reject_seals_of_other_public_keys() {
         )
         .unwrap();
     assert_eq!(block_unsealed.with_seal(seal).err(), Some(error));
+}
+
+#[test]
+fn intermediate_shard_block_builder_rejects_leaf_shard_blocks_of_other_shards() {
+    // Leaf shard block of the intermediate shard 1
+    let leaf_shard_block = leaf_shard_block();
+    let transactions_root = leaf_shard_block.body.body().transactions().root();
+    let builder = OwnedIntermediateShardBlock::init(
+        iter::empty(),
+        iter::once(LeafShardBlockInfo {
+            header: leaf_shard_block.header.header().clone(),
+            transactions_root: &transactions_root,
+            own_segments: None,
+        }),
+    )
+    .unwrap();
+    let with_header = |shard_index| {
+        builder.clone().with_header(
+            &prefix(ShardIndex::new(shard_index).unwrap()),
+            Blake3Hash::default(),
+            &consensus_info(),
+            &beacon_chain_info(),
+        )
+    };
+
+    with_header(1).unwrap();
+    assert_eq!(
+        with_header(2).err(),
+        Some(
+            OwnedIntermediateShardBlockBuilderError::LeafShardBlockOfAnotherShard {
+                shard_index: ShardIndex::new(2).unwrap(),
+                leaf_shard_index: leaf_shard_block.header.header().prefix.shard_index,
+            }
+        )
+    );
 }
 
 #[test]
@@ -550,8 +577,6 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
             )
             .is_none()
         );
-        // Child block roots are checked at the block level only
-        assert!(IntermediateShardBlock::try_from_bytes_unchecked(bytes.as_slice()).is_some());
     }
 
     // A beacon chain block without intermediate shard blocks, which claims to have some
@@ -581,7 +606,6 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
         )
         .is_none()
     );
-    assert!(BeaconChainBlock::try_from_bytes_unchecked(bytes.as_slice()).is_some());
 }
 
 #[test]

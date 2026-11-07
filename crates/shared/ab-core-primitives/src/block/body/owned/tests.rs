@@ -237,11 +237,6 @@ fn beacon_chain_body_bytes_must_be_4_bytes_aligned() {
             expected
         );
         assert_eq!(
-            BeaconChainBody::try_from_bytes_unchecked(bytes)
-                .map(|(_body, remainder)| remainder.len()),
-            expected
-        );
-        assert_eq!(
             BlockBody::try_from_bytes(bytes, RealShardKind::BeaconChain)
                 .map(|(_body, remainder)| remainder.len()),
             expected
@@ -341,8 +336,6 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
         bytes.extend_from_slice(body.as_slice());
         let bytes = SharedAlignedBuffer::from_bytes(&bytes);
 
-        // Child block roots are checked at the block level only
-        assert!(BeaconChainBlock::try_from_bytes_unchecked(bytes.as_slice()).is_some());
         let consistent = BeaconChainBlock::try_from_bytes(bytes.as_slice()).is_some();
         assert_eq!(
             OwnedBeaconChainBlock::from_buffers(header.buffer().clone(), body.clone()).is_some(),
@@ -395,7 +388,6 @@ fn beacon_chain_body_with_too_many_pot_checkpoints() {
     let bytes = SharedAlignedBuffer::from_bytes(&bytes);
 
     assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
-    assert!(BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).is_none());
 }
 
 /// A leaf shard block inside an intermediate shard body
@@ -655,6 +647,22 @@ impl TestIntermediateShardBlock {
     }
 }
 
+/// Bytes of segments of leaf shards of an intermediate shard block inside a beacon chain body
+fn leaf_shards_segments_bytes(block: &TestIntermediateShardBlock) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for (_position, _leaf_shard_index, (_first_local_segment_index, segment_roots)) in
+        &block.leaf_shards_segments
+    {
+        bytes.push(u8::try_from(segment_roots.len()).unwrap());
+    }
+    for (position, leaf_shard_index, segments) in &block.leaf_shards_segments {
+        bytes.extend_from_slice(&position.to_le_bytes());
+        bytes.extend_from_slice(&u32::from(*leaf_shard_index).to_le_bytes());
+        append_segments(&mut bytes, segments);
+    }
+    bytes
+}
+
 /// Bytes of a beacon chain body with intermediate shard blocks, following the layout described in
 /// `IntermediateShardBlocksInfo::try_from_bytes()`
 fn beacon_chain_body_bytes(
@@ -691,16 +699,7 @@ fn beacon_chain_body_bytes(
         if let Some(own_segments) = &block.own_segments {
             append_segments(&mut bytes, own_segments);
         }
-        for (_position, _leaf_shard_index, (_first_local_segment_index, segment_roots)) in
-            &block.leaf_shards_segments
-        {
-            bytes.push(u8::try_from(segment_roots.len()).unwrap());
-        }
-        for (position, leaf_shard_index, segments) in &block.leaf_shards_segments {
-            bytes.extend_from_slice(&position.to_le_bytes());
-            bytes.extend_from_slice(&u32::from(*leaf_shard_index).to_le_bytes());
-            append_segments(&mut bytes, segments);
-        }
+        bytes.extend_from_slice(&leaf_shards_segments_bytes(block));
         pad_to(&mut bytes, 8);
     }
 
@@ -857,16 +856,24 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
     }
 }
 
-/// Check that the intermediate shard body with `leaf_shard_blocks` is rejected by the parser with
-/// checks, and by the builder with leaf shard blocks from the parser without checks
+/// Check that the intermediate shard body with `leaf_shard_blocks` is rejected by the parser, and
+/// by the builder with the same leaf shard blocks
 fn assert_inconsistent_leaf_shard_blocks(leaf_shard_blocks: &[TestLeafShardBlock]) {
     let bytes = intermediate_shard_body_bytes(None, leaf_shard_blocks);
     assert!(IntermediateShardBody::try_from_bytes(bytes.as_slice()).is_none());
 
-    let (body, _remainder) =
-        IntermediateShardBody::try_from_bytes_unchecked(bytes.as_slice()).unwrap();
+    let infos = leaf_shard_blocks.iter().map(|block| LeafShardBlockInfo {
+        header: block.header.header().clone(),
+        transactions_root: &block.transactions_root,
+        own_segments: block
+            .segments
+            .as_ref()
+            .map(|(first_local_segment_index, segment_roots)| {
+                OwnSegments::new(*first_local_segment_index, segment_roots).unwrap()
+            }),
+    });
     assert_matches!(
-        OwnedIntermediateShardBody::new(iter::empty(), body.leaf_shard_blocks().iter()),
+        OwnedIntermediateShardBody::new(iter::empty(), infos),
         Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
     );
 }
@@ -970,14 +977,7 @@ fn beacon_chain_body_checks_segments_against_the_header_root() {
             block.header.header().result.body_root,
             &Blake3Hash::new([0xff; _]),
         );
-        let bytes = beacon_chain_body_bytes(slice::from_ref(&block), &[]);
-        assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
-        let (body, _remainder) =
-            BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).unwrap();
-        assert_matches!(
-            OwnedBeaconChainBody::new(iter::empty(), body.intermediate_shard_blocks().iter(), &[]),
-            Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
-        );
+        assert_inconsistent_intermediate_shard_block(&block, true);
     }
 }
 
@@ -1120,9 +1120,10 @@ fn intermediate_shard_block_roots_are_tree_roots_of_header_roots() {
     }
 }
 
-/// Check that the beacon chain body with `block` is rejected by the parser with checks, and by
-/// the builder if the parser without checks accepts it, which it does for `structurally_valid`
-/// blocks
+/// Check that the beacon chain body with `block` is rejected by the parser, and by the builder
+/// with the same block if it is `structurally_valid`: its positions of leaf shard blocks with
+/// segments are increasing and smaller than the number of leaf shard blocks, which the info
+/// relies on
 fn assert_inconsistent_intermediate_shard_block(
     block: &TestIntermediateShardBlock,
     structurally_valid: bool,
@@ -1130,11 +1131,22 @@ fn assert_inconsistent_intermediate_shard_block(
     let bytes = beacon_chain_body_bytes(slice::from_ref(block), &[]);
     assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
 
-    let body = BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice());
-    assert_eq!(body.is_some(), structurally_valid);
-    if let Some((body, _remainder)) = body {
+    if structurally_valid {
+        let leaf_shards_segments_bytes = leaf_shards_segments_bytes(block);
+        let info = IntermediateShardBlockInfo {
+            header: block.header.header().clone(),
+            own_segments: block.own_segments.as_ref().map(
+                |(first_local_segment_index, segment_roots)| {
+                    OwnSegments::new(*first_local_segment_index, segment_roots).unwrap()
+                },
+            ),
+            num_leaf_shard_blocks: block.num_leaf_shard_blocks,
+            num_leaf_shard_blocks_with_segments: u16::try_from(block.leaf_shards_segments.len())
+                .unwrap(),
+            leaf_shards_segments_bytes: &leaf_shards_segments_bytes,
+        };
         assert_matches!(
-            OwnedBeaconChainBody::new(iter::empty(), body.intermediate_shard_blocks().iter(), &[]),
+            OwnedBeaconChainBody::new(iter::empty(), iter::once(info), &[]),
             Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
         );
     }
@@ -1262,10 +1274,6 @@ fn beacon_chain_body_with_leaf_shard_segments_without_segment_roots() {
             BeaconChainBody::try_from_bytes(bytes.as_slice()).is_some(),
             valid
         );
-        assert_eq!(
-            BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
-            valid
-        );
     }
 }
 
@@ -1313,7 +1321,7 @@ fn own_segments_constructor_checks_invariants() {
 
 #[test]
 fn own_segments_with_local_segment_indices_near_u64_max() {
-    // Parsers without checks reject the same own segments, `OwnSegments::iter()` relies on it
+    // `OwnSegments::iter()` relies on parsers rejecting own segments that go past `u64::MAX`
     for (own_segments, valid) in segments_near_u64_max() {
         // No PoT checkpoints and no intermediate shard blocks
         let mut bytes = 0u32.to_le_bytes().to_vec();
@@ -1327,10 +1335,6 @@ fn own_segments_with_local_segment_indices_near_u64_max() {
         if let Some((body, _remainder)) = body {
             assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
         }
-        assert_eq!(
-            BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
-            valid
-        );
 
         let bytes = intermediate_shard_body_bytes(Some(&own_segments), &[]);
         let body = IntermediateShardBody::try_from_bytes(bytes.as_slice());
@@ -1338,10 +1342,6 @@ fn own_segments_with_local_segment_indices_near_u64_max() {
         if let Some((body, _remainder)) = body {
             assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
         }
-        assert_eq!(
-            IntermediateShardBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
-            valid
-        );
 
         // No transactions
         let mut bytes = vec![2];
@@ -1353,11 +1353,6 @@ fn own_segments_with_local_segment_indices_near_u64_max() {
         if let Some((body, _remainder)) = body {
             assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
         }
-        assert_eq!(
-            BlockBody::try_from_bytes_unchecked(bytes.as_slice(), RealShardKind::LeafShard)
-                .is_some(),
-            valid
-        );
     }
 }
 
@@ -1372,11 +1367,6 @@ fn leaf_shard_blocks_with_local_segment_indices_near_u64_max() {
         if let Some((body, _remainder)) = body {
             assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
         }
-        // Parsers without checks reject the same blocks, `OwnSegments::iter()` relies on it
-        assert_eq!(
-            IntermediateShardBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
-            valid
-        );
 
         // Leaf shard blocks follow the number of own segment roots, the local segment index of the
         // first one and the only root
@@ -1384,10 +1374,6 @@ fn leaf_shard_blocks_with_local_segment_indices_near_u64_max() {
             [size_of::<u8>() + size_of::<LocalSegmentIndex>() + SegmentRoot::SIZE..];
         assert_eq!(
             LeafShardBlocksInfo::try_from_bytes(leaf_shard_blocks_bytes).is_some(),
-            valid
-        );
-        assert_eq!(
-            LeafShardBlocksInfo::try_from_bytes_unchecked(leaf_shard_blocks_bytes).is_some(),
             valid
         );
     }
@@ -1420,11 +1406,6 @@ fn intermediate_shard_blocks_with_local_segment_indices_near_u64_max() {
             if let Some((body, _remainder)) = body {
                 assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
             }
-            // Parsers without checks reject the same blocks, `OwnSegments::iter()` relies on it
-            assert_eq!(
-                BeaconChainBody::try_from_bytes_unchecked(bytes.as_slice()).is_some(),
-                valid
-            );
 
             // Intermediate shard blocks follow the number of PoT checkpoints and the zero number
             // of own segment roots
@@ -1433,13 +1414,6 @@ fn intermediate_shard_blocks_with_local_segment_indices_near_u64_max() {
             assert_eq!(
                 IntermediateShardBlocksInfo::try_from_bytes(intermediate_shard_blocks_bytes)
                     .is_some(),
-                valid
-            );
-            assert_eq!(
-                IntermediateShardBlocksInfo::try_from_bytes_unchecked(
-                    intermediate_shard_blocks_bytes
-                )
-                .is_some(),
                 valid
             );
         }

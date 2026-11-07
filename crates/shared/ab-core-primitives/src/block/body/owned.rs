@@ -234,10 +234,10 @@ pub enum OwnedBeaconChainBodyError {
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
     /// Intermediate shard blocks are inconsistent, see
-    /// [`IntermediateShardBlocksInfo::is_internally_consistent()`]
+    /// [`IntermediateShardBlocksInfo::try_from_bytes()`]
     ///
-    /// [`IntermediateShardBlocksInfo::is_internally_consistent()`]:
-    /// crate::block::body::IntermediateShardBlocksInfo::is_internally_consistent
+    /// [`IntermediateShardBlocksInfo::try_from_bytes()`]:
+    /// crate::block::body::IntermediateShardBlocksInfo::try_from_bytes
     #[error("Intermediate shard blocks are inconsistent")]
     InconsistentIntermediateShardBlocks,
 }
@@ -479,7 +479,6 @@ impl OwnedBeaconChainBody {
             return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
         };
 
-        // TODO: Avoid extra parsing here or at least go through unchecked version
         Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
             // Everything else is written the way the parser reads it, only contents of
             // intermediate shard blocks can be rejected
@@ -560,10 +559,10 @@ pub enum OwnedIntermediateShardBodyError {
         /// Actual number of leaf shard blocks
         actual: usize,
     },
-    /// Leaf shard blocks are inconsistent, see [`LeafShardBlocksInfo::is_internally_consistent()`]
+    /// Leaf shard blocks are inconsistent, see [`LeafShardBlocksInfo::try_from_bytes()`]
     ///
-    /// [`LeafShardBlocksInfo::is_internally_consistent()`]:
-    /// crate::block::body::LeafShardBlocksInfo::is_internally_consistent
+    /// [`LeafShardBlocksInfo::try_from_bytes()`]:
+    /// crate::block::body::LeafShardBlocksInfo::try_from_bytes
     #[error("Leaf shard blocks are inconsistent")]
     InconsistentLeafShardBlocks,
 }
@@ -741,7 +740,6 @@ impl OwnedIntermediateShardBody {
             }
         }
 
-        // TODO: Avoid extra parsing here or at least go through unchecked version
         Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
             // Everything else is written the way the parser reads it, only contents of leaf shard
             // blocks can be rejected
@@ -1017,7 +1015,6 @@ impl OwnedLeafShardBlockBodyBuilder {
 
     /// Finish building block body
     pub fn finish(self) -> OwnedLeafShardBody {
-        // TODO: Avoid extra parsing here or at least go through unchecked version
         OwnedLeafShardBody::from_buffer(self.transaction_builder.finish().into_shared())
             .expect("Known to be created correctly; qed")
     }

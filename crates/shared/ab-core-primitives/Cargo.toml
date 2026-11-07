@@ -40,9 +40,6 @@ yoke = { workspace = true, features = ["derive"] }
 [target.'cfg(any(target_os = "none", target_os = "unknown"))'.dependencies]
 once_cell = { workspace = true, features = ["alloc"], optional = true }
 
-[target.'cfg(not(any(target_os = "none", target_os = "unknown")))'.dependencies]
-triomphe = { workspace = true, features = ["std"] }
-
 [dev-dependencies]
 chacha20 = { workspace = true, features = ["rng"] }
 trybuild = { workspace = true }
