@@ -10,7 +10,6 @@ use crate::hashes::Blake3Hash;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
-use blake3::Hasher;
 use core::slice;
 use derive_more::{Deref, DerefMut, Display, From, Into};
 
@@ -258,34 +257,9 @@ impl<'a> Transaction<'a> {
     ///
     /// Note: this computes transaction hash on every call, so worth caching if it is expected to be
     /// called often.
+    #[inline]
     pub fn hash(&self) -> TransactionHash {
-        let mut hasher = Hasher::new();
-
-        hasher.update(self.header.as_bytes());
-        // SAFETY: `TransactionSlot` is `TrivialType` and can be treated as bytes
-        hasher.update(unsafe {
-            slice::from_raw_parts(
-                self.read_slots.as_ptr().cast::<u8>(),
-                size_of_val(self.read_slots),
-            )
-        });
-        // SAFETY: `TransactionSlot` is `TrivialType` and can be treated as bytes
-        hasher.update(unsafe {
-            slice::from_raw_parts(
-                self.write_slots.as_ptr().cast::<u8>(),
-                size_of_val(self.write_slots),
-            )
-        });
-        // SAFETY: `u128` and can be treated as bytes
-        hasher.update(unsafe {
-            slice::from_raw_parts(
-                self.payload.as_ptr().cast::<u8>(),
-                size_of_val(self.payload),
-            )
-        });
-        hasher.update(self.seal);
-
-        TransactionHash(Blake3Hash::from(hasher.finalize()))
+        TransactionHash(Blake3Hash::from(blake3::hash(self.bytes)))
     }
 
     /// Read slots touched by the transaction.
