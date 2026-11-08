@@ -695,11 +695,11 @@ fn payload_too_many_outputs() {
         with_get_method_call(&mut builder, output_index).unwrap();
     }
     assert_eq!(declared_capacities(&builder), [u8::SIZE; MAX_OUTPUTS]);
-    assert_matches!(
-        with_get_method_call(&mut builder, max_outputs),
-        Err(TransactionPayloadBuilderError::InvalidOutputIndex(output_index))
-            if output_index == max_outputs
-    );
+    let result = with_get_method_call(&mut builder, max_outputs);
+    let Err(TransactionPayloadBuilderError::InvalidOutputIndex(output_index)) = result else {
+        panic!("Unexpected result {result:?}");
+    };
+    assert_eq!(output_index, max_outputs);
     let payload = builder.into_aligned_bytes().unwrap();
     assert_eq!(decode_all(payload.as_u128_slice()), Ok(MAX_OUTPUTS));
 
@@ -746,22 +746,23 @@ fn payload_method_call_references_mismatch() {
 
     // `get()` has one output
     for outputs in [&[][..], &[0, 1]] {
-        assert_matches!(
-            builder.with_method_call(
-                &Address::SYSTEM_SIMPLE_WALLET_BASE,
-                &DemoContractGetArgs::new(&mut maybe_data),
-                TransactionMethodContext::Null,
-                MethodCallReferences {
-                    outputs,
-                    ..MethodCallReferences::default()
-                },
-            ),
-            Err(TransactionPayloadBuilderError::NumberOfOutputsMismatch {
-                expected: 1,
-                actual
-            }) if actual == outputs.len(),
-            "Outputs {outputs:?}"
+        let result = builder.with_method_call(
+            &Address::SYSTEM_SIMPLE_WALLET_BASE,
+            &DemoContractGetArgs::new(&mut maybe_data),
+            TransactionMethodContext::Null,
+            MethodCallReferences {
+                outputs,
+                ..MethodCallReferences::default()
+            },
         );
+        let Err(TransactionPayloadBuilderError::NumberOfOutputsMismatch {
+            expected: 1,
+            actual,
+        }) = result
+        else {
+            panic!("Outputs {outputs:?}: {result:?}");
+        };
+        assert_eq!(actual, outputs.len(), "Outputs {outputs:?}");
     }
 
     // `set()` has one input and no slots
@@ -874,22 +875,31 @@ fn payload_invalid_output_index() {
     let mut builder = TransactionPayloadBuilder::new(1024, 1).unwrap();
     with_get_method_call(&mut builder, 0).unwrap();
     for output_index in [u8::try_from(MAX_OUTPUTS).unwrap(), u8::MAX] {
-        assert_matches!(
-            with_stored_method_call(&mut builder, Some(output_index), 0),
-            Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index))
-                if invalid_output_index == output_index,
+        let result = with_stored_method_call(&mut builder, Some(output_index), 0);
+        let Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index)) = result
+        else {
+            panic!("Output index {output_index}: {result:?}");
+        };
+        assert_eq!(
+            invalid_output_index, output_index,
             "Output index {output_index}"
         );
-        assert_matches!(
-            with_set_method_call(&mut builder, Some(output_index)),
-            Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index))
-                if invalid_output_index == output_index,
+        let result = with_set_method_call(&mut builder, Some(output_index));
+        let Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index)) = result
+        else {
+            panic!("Output index {output_index}: {result:?}");
+        };
+        assert_eq!(
+            invalid_output_index, output_index,
             "Output index {output_index}"
         );
-        assert_matches!(
-            with_get_method_call(&mut builder, output_index),
-            Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index))
-                if invalid_output_index == output_index,
+        let result = with_get_method_call(&mut builder, output_index);
+        let Err(TransactionPayloadBuilderError::InvalidOutputIndex(invalid_output_index)) = result
+        else {
+            panic!("Output index {output_index}: {result:?}");
+        };
+        assert_eq!(
+            invalid_output_index, output_index,
             "Output index {output_index}"
         );
     }

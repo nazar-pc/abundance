@@ -184,14 +184,16 @@ fn method_at_end_of_code() {
     file[ContractFileHeader::SIZE as usize..][..ContractFileMethodMetadata::SIZE as usize]
         .copy_from_slice(method_metadata.as_bytes());
 
-    assert_matches!(
-        ContractFile::parse(&file, |_| Ok(())),
-        Err(ContractFileParseError::MethodOutOfRange {
-            offset,
-            code_section_offset: _,
-            file_size: _
-        }) if offset == file_size
-    );
+    let result = ContractFile::parse(&file, |_| Ok(()));
+    let Err(ContractFileParseError::MethodOutOfRange {
+        offset,
+        code_section_offset: _,
+        file_size: _,
+    }) = result
+    else {
+        panic!("Unexpected result {result:?}");
+    };
+    assert_eq!(offset, file_size);
 }
 
 #[test]
@@ -228,14 +230,16 @@ fn truncated_host_call_fn() {
     file[offset_of!(ContractFileHeader, host_call_fn_offset)..][..size_of::<u32>()]
         .copy_from_slice(&host_call_fn_offset.to_le_bytes());
 
-    assert_matches!(
-        ContractFile::parse(&file, |_| Ok(())),
-        Err(ContractFileParseError::HostCallFnOutOfRange {
-            offset,
-            code_section_offset: _,
-            file_size: _
-        }) if offset == host_call_fn_offset
-    );
+    let result = ContractFile::parse(&file, |_| Ok(()));
+    let Err(ContractFileParseError::HostCallFnOutOfRange {
+        offset,
+        code_section_offset: _,
+        file_size: _,
+    }) = result
+    else {
+        panic!("Unexpected result {result:?}");
+    };
+    assert_eq!(offset, host_call_fn_offset);
 }
 
 #[test]

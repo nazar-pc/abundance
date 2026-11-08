@@ -11,7 +11,6 @@ use ab_farmer_components::sector::{FoundProofs, SectorContentsMap, SectorMetadat
 use ab_proof_of_space::shim::ShimTable;
 use ab_proof_of_space::{PosProofs, Table, TableGenerator};
 use futures::executor::block_on;
-use std::assert_matches;
 use std::num::NonZeroU64;
 
 const PIECES_IN_SECTOR: u16 = 1;
@@ -96,12 +95,10 @@ fn reading_rejects_map_that_does_not_match_proofs() {
 
         let error =
             read_test_record_chunks(PieceOffset::ZERO, &record_chunks_used, &pos_proofs).err();
-        assert_matches!(
-            error,
-            Some(ReadingError::PosProofsMismatch { piece_offset })
-                if piece_offset == PieceOffset::ZERO,
-            "{s_bucket}: {error:?}"
-        );
+        let Some(ReadingError::PosProofsMismatch { piece_offset }) = error else {
+            panic!("{s_bucket}: {error:?}");
+        };
+        assert_eq!(piece_offset, PieceOffset::ZERO, "{s_bucket}");
     }
 }
 
@@ -111,11 +108,11 @@ fn reading_rejects_piece_offset_outside_of_sector() {
     let piece_offset = PieceOffset::from(PIECES_IN_SECTOR);
 
     let error = read_test_record_chunks(piece_offset, &pos_proofs.found_proofs, &pos_proofs).err();
-    assert_matches!(
-        error,
-        Some(ReadingError::PosProofsMismatch {
-            piece_offset: actual_piece_offset
-        }) if actual_piece_offset == piece_offset,
-        "{error:?}"
-    );
+    let Some(ReadingError::PosProofsMismatch {
+        piece_offset: actual_piece_offset,
+    }) = error
+    else {
+        panic!("Unexpected error {error:?}");
+    };
+    assert_eq!(actual_piece_offset, piece_offset);
 }

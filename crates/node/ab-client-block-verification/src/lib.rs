@@ -1,4 +1,5 @@
 pub mod beacon_chain;
+mod shared;
 
 use ab_client_api::BlockOrigin;
 use ab_client_consensus_common::consensus_parameters::{
@@ -8,6 +9,7 @@ use ab_client_consensus_common::consensus_parameters::{
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::segments::{LocalSegmentIndex, SegmentRoot};
 
 type GenericHeader<'a, Block> =
@@ -31,6 +33,17 @@ pub enum BlockVerificationError {
     /// Timestamp too far in the future
     #[error("Timestamp too far in the future")]
     TimestampTooFarInTheFuture,
+    /// Invalid slot.
+    ///
+    /// The slot must be above the parent block's slot, and adding the block authoring delay to it
+    /// must not overflow.
+    #[error("Invalid slot {slot} (parent slot {parent_slot})")]
+    InvalidSlot {
+        /// Block's slot
+        slot: SlotNumber,
+        /// Parent block's slot
+        parent_slot: SlotNumber,
+    },
     /// Invalid seal
     #[error("Invalid seal")]
     InvalidSeal,

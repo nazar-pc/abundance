@@ -1715,24 +1715,27 @@ fn owned_bodies_with_local_segment_indices_near_u64_max() {
                 &own_segments,
             );
         } else {
-            assert_matches!(
-                beacon_chain_body,
-                Err(OwnedBeaconChainBodyError::OwnSegmentIndexOverflow {
-                    first_local_segment_index: index,
-                }) if index == first_local_segment_index
-            );
-            assert_matches!(
-                intermediate_shard_body,
-                Err(OwnedIntermediateShardBodyError::OwnSegmentIndexOverflow {
-                    first_local_segment_index: index,
-                }) if index == first_local_segment_index
-            );
-            assert_matches!(
-                leaf_shard_body,
-                Err(OwnedLeafShardBodyError::OwnSegmentIndexOverflow {
-                    first_local_segment_index: index,
-                }) if index == first_local_segment_index
-            );
+            let Err(OwnedBeaconChainBodyError::OwnSegmentIndexOverflow {
+                first_local_segment_index: index,
+            }) = beacon_chain_body
+            else {
+                panic!("Unexpected beacon chain body {beacon_chain_body:?}");
+            };
+            assert_eq!(index, first_local_segment_index);
+            let Err(OwnedIntermediateShardBodyError::OwnSegmentIndexOverflow {
+                first_local_segment_index: index,
+            }) = intermediate_shard_body
+            else {
+                panic!("Unexpected intermediate shard body {intermediate_shard_body:?}");
+            };
+            assert_eq!(index, first_local_segment_index);
+            let Err(OwnedLeafShardBodyError::OwnSegmentIndexOverflow {
+                first_local_segment_index: index,
+            }) = leaf_shard_body
+            else {
+                panic!("Unexpected leaf shard body {leaf_shard_body:?}");
+            };
+            assert_eq!(index, first_local_segment_index);
         }
     }
 }
@@ -1776,26 +1779,38 @@ fn owned_bodies_with_non_consecutive_local_segment_indices() {
         };
         let previous = LocalSegmentIndex::from(previous);
         let unexpected = LocalSegmentIndex::from(unexpected);
-        assert_matches!(
-            beacon_chain_body,
-            Err(OwnedBeaconChainBodyError::NonConsecutiveOwnSegmentIndices {
-                previous_local_segment_index,
-                local_segment_index,
-            }) if previous_local_segment_index == previous && local_segment_index == unexpected
+        let Err(OwnedBeaconChainBodyError::NonConsecutiveOwnSegmentIndices {
+            previous_local_segment_index,
+            local_segment_index,
+        }) = beacon_chain_body
+        else {
+            panic!("Unexpected beacon chain body {beacon_chain_body:?}");
+        };
+        assert_eq!(
+            (previous_local_segment_index, local_segment_index),
+            (previous, unexpected)
         );
-        assert_matches!(
-            intermediate_shard_body,
-            Err(OwnedIntermediateShardBodyError::NonConsecutiveOwnSegmentIndices {
-                previous_local_segment_index,
-                local_segment_index,
-            }) if previous_local_segment_index == previous && local_segment_index == unexpected
+        let Err(OwnedIntermediateShardBodyError::NonConsecutiveOwnSegmentIndices {
+            previous_local_segment_index,
+            local_segment_index,
+        }) = intermediate_shard_body
+        else {
+            panic!("Unexpected intermediate shard body {intermediate_shard_body:?}");
+        };
+        assert_eq!(
+            (previous_local_segment_index, local_segment_index),
+            (previous, unexpected)
         );
-        assert_matches!(
-            leaf_shard_body,
-            Err(OwnedLeafShardBodyError::NonConsecutiveOwnSegmentIndices {
-                previous_local_segment_index,
-                local_segment_index,
-            }) if previous_local_segment_index == previous && local_segment_index == unexpected
+        let Err(OwnedLeafShardBodyError::NonConsecutiveOwnSegmentIndices {
+            previous_local_segment_index,
+            local_segment_index,
+        }) = leaf_shard_body
+        else {
+            panic!("Unexpected leaf shard body {leaf_shard_body:?}");
+        };
+        assert_eq!(
+            (previous_local_segment_index, local_segment_index),
+            (previous, unexpected)
         );
     }
 }

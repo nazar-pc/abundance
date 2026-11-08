@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::shared::{BlockSlots, derive_block_slots};
 use crate::{BlockVerification, BlockVerificationError, GenericHeader};
 use ab_client_api::{BeaconChainInfo, BlockOrigin, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
@@ -139,6 +140,173 @@ fn is_below_archiving_point(
     block_number
         .checked_add(block_confirmation_depth)
         .is_some_and(|sum| sum <= best_number + BlockNumber::ONE)
+}
+
+// TODO: This is a blocking function, but ideally wouldn't be block an executor
+/// Checks current/future proof of time in the consensus info for the slot and corresponding
+/// checkpoints.
+///
+/// `consensus_parameters` is assumed to be correct and needs to be verified separately.
+///
+/// When `verify_checkpoints == false` checkpoints are assumed to be correct and verification
+/// for them is skipped.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Explicit minimal input for better testability"
+)]
+fn check_proof_of_time(
+    pot_verifier: &PotVerifier,
+    block_authoring_delay: SlotNumber,
+    parent_slot: SlotNumber,
+    parent_proof_of_time: PotOutput,
+    parent_future_proof_of_time: PotOutput,
+    parent_consensus_parameters: &BlockHeaderConsensusParameters<'_>,
+    slot: SlotNumber,
+    proof_of_time: PotOutput,
+    future_proof_of_time: PotOutput,
+    checkpoints: &[PotCheckpoints],
+    verify_checkpoints: bool,
+) -> Result<(), BlockVerificationError> {
+    let BlockSlots {
+        future_slot,
+        parent_future_slot,
+        slots_between_blocks,
+    } = derive_block_slots(block_authoring_delay, parent_slot, slot)?;
+
+    let parent_pot_parameters_change = parent_consensus_parameters
+        .pot_parameters_change
+        .copied()
+        .map(PotParametersChange::from);
+
+    // The last checkpoint must be the future proof of time
+    if checkpoints.last().map(PotCheckpoints::output) != Some(future_proof_of_time) {
+        return Err(BlockVerificationError::from(
+            BeaconChainBlockVerificationError::InvalidPotCheckpoints,
+        ));
+    }
+
+    // The number of checkpoints must match the difference between parent's and this block's
+    // future slots.
+    //
+    // The first block after genesis is a special case and is handled separately here.
+    if !(u64::from(slots_between_blocks) == checkpoints.len() as u64
+        || (parent_slot == SlotNumber::ZERO && u64::from(future_slot) == checkpoints.len() as u64))
+    {
+        return Err(BlockVerificationError::from(
+            BeaconChainBlockVerificationError::InvalidPotCheckpoints,
+        ));
+    }
+
+    let mut pot_input = if parent_slot == SlotNumber::ZERO {
+        PotNextSlotInput {
+            slot: parent_slot + SlotNumber::ONE,
+            slot_iterations: parent_consensus_parameters.fixed_parameters.slot_iterations,
+            seed: pot_verifier.genesis_seed(),
+        }
+    } else {
+        // Calculate slot iterations as of parent future slot
+        let slot_iterations = parent_pot_parameters_change
+            .and_then(|parameters_change| {
+                (parameters_change.slot <= parent_future_slot)
+                    .then_some(parameters_change.slot_iterations)
+            })
+            .unwrap_or(parent_consensus_parameters.fixed_parameters.slot_iterations);
+        // Derive inputs to the slot, which follows the parent future slot
+        PotNextSlotInput::derive(
+            slot_iterations,
+            parent_future_slot,
+            parent_future_proof_of_time,
+            &parent_pot_parameters_change,
+        )
+    };
+
+    // Collect all the data we will use for verification so we can process it in parallel
+    let checkpoints_verification_input = iter::once((
+        pot_input,
+        *checkpoints
+            .first()
+            .expect("Not empty, contents was checked above; qed"),
+    ));
+    let checkpoints_verification_input = checkpoints_verification_input
+        .chain(checkpoints.array_windows::<2>().map(|[left, right]| {
+            pot_input = PotNextSlotInput::derive(
+                pot_input.slot_iterations,
+                pot_input.slot,
+                left.output(),
+                &parent_pot_parameters_change,
+            );
+
+            (pot_input, *right)
+        }))
+        // TODO: Would be nice to avoid extra allocation here
+        .collect::<Vec<_>>();
+
+    // All checkpoints must be valid, search for the first verification failure
+    let all_checkpoints_valid =
+        checkpoints_verification_input
+            .into_par_iter()
+            .all(|(pot_input, checkpoints)| {
+                if verify_checkpoints {
+                    pot_verifier.verify_checkpoints(
+                        pot_input.seed,
+                        pot_input.slot_iterations,
+                        &checkpoints,
+                    )
+                } else {
+                    // Store checkpoints as verified when verification is skipped
+                    pot_verifier.inject_verified_checkpoints(
+                        pot_input.seed,
+                        pot_input.slot_iterations,
+                        checkpoints,
+                    );
+                    true
+                }
+            });
+
+    if !all_checkpoints_valid {
+        return Err(BlockVerificationError::from(
+            BeaconChainBlockVerificationError::InvalidPotCheckpoints,
+        ));
+    }
+
+    // Make sure proof of time of this block correctly extends proof of time of the parent block
+    {
+        let pot_input = if parent_slot == SlotNumber::ZERO {
+            PotNextSlotInput {
+                slot: parent_slot + SlotNumber::ONE,
+                slot_iterations: parent_consensus_parameters.fixed_parameters.slot_iterations,
+                seed: pot_verifier.genesis_seed(),
+            }
+        } else {
+            // Calculate slot iterations as of the parent slot
+            let slot_iterations = parent_pot_parameters_change
+                .and_then(|parameters_change| {
+                    (parameters_change.slot <= parent_slot)
+                        .then_some(parameters_change.slot_iterations)
+                })
+                .unwrap_or(parent_consensus_parameters.fixed_parameters.slot_iterations);
+            // Derive inputs to the slot, which follows the parent slot
+            PotNextSlotInput::derive(
+                slot_iterations,
+                parent_slot,
+                parent_proof_of_time,
+                &parent_pot_parameters_change,
+            )
+        };
+
+        if !pot_verifier.is_output_valid(
+            pot_input,
+            slots_between_blocks,
+            proof_of_time,
+            parent_pot_parameters_change,
+        ) {
+            return Err(BlockVerificationError::from(
+                BeaconChainBlockVerificationError::InvalidProofOfTime,
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -318,172 +486,6 @@ where
         Ok(())
     }
 
-    // TODO: This is a blocking function, but ideally wouldn't be block an executor
-    /// Checks current/future proof of time in the consensus info for the slot and corresponding
-    /// checkpoints.
-    ///
-    /// `consensus_parameters` is assumed to be correct and needs to be verified separately.
-    ///
-    /// When `verify_checkpoints == false` checkpoints are assumed to be correct and verification
-    /// for them is skipped.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "Explicit minimal input for better testability"
-    )]
-    fn check_proof_of_time(
-        pot_verifier: &PotVerifier,
-        block_authoring_delay: SlotNumber,
-        parent_slot: SlotNumber,
-        parent_proof_of_time: PotOutput,
-        parent_future_proof_of_time: PotOutput,
-        parent_consensus_parameters: &BlockHeaderConsensusParameters<'_>,
-        slot: SlotNumber,
-        proof_of_time: PotOutput,
-        future_proof_of_time: PotOutput,
-        checkpoints: &[PotCheckpoints],
-        verify_checkpoints: bool,
-    ) -> Result<(), BeaconChainBlockVerificationError> {
-        let parent_pot_parameters_change = parent_consensus_parameters
-            .pot_parameters_change
-            .copied()
-            .map(PotParametersChange::from);
-
-        // The last checkpoint must be the future proof of time
-        if checkpoints.last().map(PotCheckpoints::output) != Some(future_proof_of_time) {
-            return Err(BeaconChainBlockVerificationError::InvalidPotCheckpoints);
-        }
-
-        let future_slot = slot + block_authoring_delay;
-        let parent_future_slot = if parent_slot == SlotNumber::ZERO {
-            parent_slot
-        } else {
-            parent_slot + block_authoring_delay
-        };
-
-        let slots_between_blocks = slot
-            .checked_sub(parent_slot)
-            .ok_or(BeaconChainBlockVerificationError::InvalidPotCheckpoints)?;
-        // The number of checkpoints must match the difference between parent's and this block's
-        // future slots. This also implicitly checks that there is a non-zero number of slots
-        // between this and parent block because the list of checkpoints is already known to be not
-        // empty from the check above.
-        //
-        // The first block after genesis is a special case and is handled separately here.
-        if !(u64::from(slots_between_blocks) == checkpoints.len() as u64
-            || (parent_slot == SlotNumber::ZERO
-                && u64::from(future_slot) == checkpoints.len() as u64))
-        {
-            return Err(BeaconChainBlockVerificationError::InvalidPotCheckpoints);
-        }
-
-        let mut pot_input = if parent_slot == SlotNumber::ZERO {
-            PotNextSlotInput {
-                slot: parent_slot + SlotNumber::ONE,
-                slot_iterations: parent_consensus_parameters.fixed_parameters.slot_iterations,
-                seed: pot_verifier.genesis_seed(),
-            }
-        } else {
-            // Calculate slot iterations as of parent future slot
-            let slot_iterations = parent_pot_parameters_change
-                .and_then(|parameters_change| {
-                    (parameters_change.slot <= parent_future_slot)
-                        .then_some(parameters_change.slot_iterations)
-                })
-                .unwrap_or(parent_consensus_parameters.fixed_parameters.slot_iterations);
-            // Derive inputs to the slot, which follows the parent future slot
-            PotNextSlotInput::derive(
-                slot_iterations,
-                parent_future_slot,
-                parent_future_proof_of_time,
-                &parent_pot_parameters_change,
-            )
-        };
-
-        // Collect all the data we will use for verification so we can process it in parallel
-        let checkpoints_verification_input = iter::once((
-            pot_input,
-            *checkpoints
-                .first()
-                .expect("Not empty, contents was checked above; qed"),
-        ));
-        let checkpoints_verification_input = checkpoints_verification_input
-            .chain(checkpoints.array_windows::<2>().map(|[left, right]| {
-                pot_input = PotNextSlotInput::derive(
-                    pot_input.slot_iterations,
-                    pot_input.slot,
-                    left.output(),
-                    &parent_pot_parameters_change,
-                );
-
-                (pot_input, *right)
-            }))
-            // TODO: Would be nice to avoid extra allocation here
-            .collect::<Vec<_>>();
-
-        // All checkpoints must be valid, search for the first verification failure
-        let all_checkpoints_valid =
-            checkpoints_verification_input
-                .into_par_iter()
-                .all(|(pot_input, checkpoints)| {
-                    if verify_checkpoints {
-                        pot_verifier.verify_checkpoints(
-                            pot_input.seed,
-                            pot_input.slot_iterations,
-                            &checkpoints,
-                        )
-                    } else {
-                        // Store checkpoints as verified when verification is skipped
-                        pot_verifier.inject_verified_checkpoints(
-                            pot_input.seed,
-                            pot_input.slot_iterations,
-                            checkpoints,
-                        );
-                        true
-                    }
-                });
-
-        if !all_checkpoints_valid {
-            return Err(BeaconChainBlockVerificationError::InvalidPotCheckpoints);
-        }
-
-        // Make sure proof of time of this block correctly extends proof of time of the parent block
-        {
-            let pot_input = if parent_slot == SlotNumber::ZERO {
-                PotNextSlotInput {
-                    slot: parent_slot + SlotNumber::ONE,
-                    slot_iterations: parent_consensus_parameters.fixed_parameters.slot_iterations,
-                    seed: pot_verifier.genesis_seed(),
-                }
-            } else {
-                // Calculate slot iterations as of the parent slot
-                let slot_iterations = parent_pot_parameters_change
-                    .and_then(|parameters_change| {
-                        (parameters_change.slot <= parent_slot)
-                            .then_some(parameters_change.slot_iterations)
-                    })
-                    .unwrap_or(parent_consensus_parameters.fixed_parameters.slot_iterations);
-                // Derive inputs to the slot, which follows the parent slot
-                PotNextSlotInput::derive(
-                    slot_iterations,
-                    parent_slot,
-                    parent_proof_of_time,
-                    &parent_pot_parameters_change,
-                )
-            };
-
-            if !pot_verifier.is_output_valid(
-                pot_input,
-                slots_between_blocks,
-                proof_of_time,
-                parent_pot_parameters_change,
-            ) {
-                return Err(BeaconChainBlockVerificationError::InvalidProofOfTime);
-            }
-        }
-
-        Ok(())
-    }
-
     fn check_body(
         &self,
         block_number: BlockNumber,
@@ -603,7 +605,7 @@ where
             )
             .map_err(BeaconChainBlockVerificationError::from)?;
 
-        Self::check_proof_of_time(
+        check_proof_of_time(
             &self.pot_verifier,
             self.consensus_constants.block_authoring_delay,
             parent_header.consensus_info.slot,

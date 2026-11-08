@@ -64,15 +64,20 @@ fn seal_of_another_public_key_is_rejected() {
     let other_signing_key = SigningKey::from([3; _]);
     let other_public_key_hash = Ed25519PublicKey::from(other_signing_key.verifying_key()).hash();
 
-    assert_matches!(
-        senders.submit_seal(BlockSealResponse {
-            pre_seal_hash,
-            seal: seal(&other_signing_key, &pre_seal_hash),
-        }),
-        Err(FarmerRpcApiError::InvalidBlockSeal {
-            pre_seal_hash: error_pre_seal_hash,
-            public_key_hash,
-        }) if error_pre_seal_hash == pre_seal_hash && public_key_hash == other_public_key_hash
+    let result = senders.submit_seal(BlockSealResponse {
+        pre_seal_hash,
+        seal: seal(&other_signing_key, &pre_seal_hash),
+    });
+    let Err(FarmerRpcApiError::InvalidBlockSeal {
+        pre_seal_hash: error_pre_seal_hash,
+        public_key_hash,
+    }) = result
+    else {
+        panic!("Unexpected result {result:?}");
+    };
+    assert_eq!(
+        (error_pre_seal_hash, public_key_hash),
+        (pre_seal_hash, other_public_key_hash)
     );
     assert_eq!(senders.senders.len(), 1);
 
@@ -93,16 +98,20 @@ fn seal_with_invalid_signature_is_rejected() {
     let (mut senders, mut seal_receiver) = waiting_senders(&signing_key, pre_seal_hash);
 
     // The expected public key, but signature of another pre-seal hash
-    assert_matches!(
-        senders.submit_seal(BlockSealResponse {
-            pre_seal_hash,
-            seal: seal(&signing_key, &Blake3Hash::new([3; _])),
-        }),
-        Err(FarmerRpcApiError::InvalidBlockSeal {
-            pre_seal_hash: error_pre_seal_hash,
-            public_key_hash,
-        }) if error_pre_seal_hash == pre_seal_hash
-            && public_key_hash == senders.current_public_key_hash
+    let result = senders.submit_seal(BlockSealResponse {
+        pre_seal_hash,
+        seal: seal(&signing_key, &Blake3Hash::new([3; _])),
+    });
+    let Err(FarmerRpcApiError::InvalidBlockSeal {
+        pre_seal_hash: error_pre_seal_hash,
+        public_key_hash,
+    }) = result
+    else {
+        panic!("Unexpected result {result:?}");
+    };
+    assert_eq!(
+        (error_pre_seal_hash, public_key_hash),
+        (pre_seal_hash, senders.current_public_key_hash)
     );
     assert_eq!(senders.senders.len(), 1);
 
