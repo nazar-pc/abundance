@@ -19,7 +19,6 @@ use crate::shard::{NumShards, NumShardsUnchecked, RealShardKind, ShardIndex, Sha
 use crate::solutions::{Solution, SolutionRange};
 use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_io_type::trivial_type::TrivialType;
-use std::assert_matches;
 use std::num::{NonZeroU16, NonZeroU32};
 
 fn prefix(shard_index: u32) -> BlockHeaderPrefix {
@@ -547,17 +546,18 @@ fn from_parts_into_rejects_inconsistent_parts() {
     for (prefix, consensus_info, error) in inconsistent_parts(prefix(0), RealShardKind::BeaconChain)
     {
         let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
-        assert_matches!(
-            OwnedBeaconChainHeader::from_parts_into(
-                &prefix,
-                &result(),
-                &consensus_info,
-                &child_shard_blocks_root,
-                &consensus_parameters(),
-                &mut buffer,
-            ),
-            Err(OwnedBeaconChainHeaderError::InvalidParts { error: actual }) if actual == error
+        let header = OwnedBeaconChainHeader::from_parts_into(
+            &prefix,
+            &result(),
+            &consensus_info,
+            &child_shard_blocks_root,
+            &consensus_parameters(),
+            &mut buffer,
         );
+        let Err(OwnedBeaconChainHeaderError::InvalidParts { error: actual }) = header else {
+            panic!("Unexpected header {header:?}");
+        };
+        assert_eq!(actual, error);
         assert_eq!(buffer.as_slice(), bytes_before);
     }
 
@@ -565,18 +565,18 @@ fn from_parts_into_rejects_inconsistent_parts() {
         inconsistent_parts(prefix(1), RealShardKind::IntermediateShard)
     {
         let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
-        assert_matches!(
-            OwnedIntermediateShardHeader::from_parts_into(
-                &prefix,
-                &result(),
-                &consensus_info,
-                &beacon_chain_info(),
-                &child_shard_blocks_root,
-                &mut buffer,
-            ),
-            Err(OwnedIntermediateShardHeaderError::InvalidParts { error: actual })
-                if actual == error
+        let header = OwnedIntermediateShardHeader::from_parts_into(
+            &prefix,
+            &result(),
+            &consensus_info,
+            &beacon_chain_info(),
+            &child_shard_blocks_root,
+            &mut buffer,
         );
+        let Err(OwnedIntermediateShardHeaderError::InvalidParts { error: actual }) = header else {
+            panic!("Unexpected header {header:?}");
+        };
+        assert_eq!(actual, error);
         assert_eq!(buffer.as_slice(), bytes_before);
     }
 
@@ -584,16 +584,17 @@ fn from_parts_into_rejects_inconsistent_parts() {
         inconsistent_parts(prefix(1 | (1 << 10)), RealShardKind::LeafShard)
     {
         let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
-        assert_matches!(
-            OwnedLeafShardHeader::from_parts_into(
-                &prefix,
-                &result(),
-                &consensus_info,
-                &beacon_chain_info(),
-                &mut buffer,
-            ),
-            Err(OwnedLeafShardHeaderError::InvalidParts { error: actual }) if actual == error
+        let header = OwnedLeafShardHeader::from_parts_into(
+            &prefix,
+            &result(),
+            &consensus_info,
+            &beacon_chain_info(),
+            &mut buffer,
         );
+        let Err(OwnedLeafShardHeaderError::InvalidParts { error: actual }) = header else {
+            panic!("Unexpected header {header:?}");
+        };
+        assert_eq!(actual, error);
         assert_eq!(buffer.as_slice(), bytes_before);
     }
 }

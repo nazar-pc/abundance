@@ -23,8 +23,8 @@ use ab_proof_of_space::{Table, TableGenerator};
 use async_lock::Mutex as AsyncMutex;
 use futures::executor::block_on;
 use std::num::{NonZeroU16, NonZeroU64};
+use std::slice;
 use std::sync::atomic::AtomicBool;
-use std::{assert_matches, slice};
 
 const PIECES_IN_SECTOR: u16 = 1;
 const PUBLIC_KEY_HASH: Blake3Hash = Blake3Hash::new([0; _]);
@@ -182,15 +182,17 @@ fn proving_rejects_s_bucket_size_mismatch() {
     })
     .err();
     let expected_size = sector_metadata.s_bucket_sizes[usize::from(s_bucket)];
-    assert_matches!(
-        result,
-        Some(ProvingError::SBucketSizeMismatch {
-            s_bucket: actual_s_bucket,
-            expected,
-            actual,
-        }) if actual_s_bucket == s_bucket
-            && expected == expected_size + 1
-            && actual == usize::from(expected_size)
+    let Some(ProvingError::SBucketSizeMismatch {
+        s_bucket: actual_s_bucket,
+        expected,
+        actual,
+    }) = result
+    else {
+        panic!("Unexpected result {result:?}");
+    };
+    assert_eq!(
+        (actual_s_bucket, expected, actual),
+        (s_bucket, expected_size + 1, usize::from(expected_size))
     );
 }
 
@@ -224,10 +226,10 @@ fn proving_rejects_proofs_that_do_not_match_sector_contents_map() {
     .unwrap()
     .next()
     .unwrap();
-    assert_matches!(
-        result,
-        Err(ProvingError::RecordReadingError(
-            ReadingError::PosProofsMismatch { piece_offset }
-        )) if piece_offset == PieceOffset::ZERO
-    );
+    let Err(ProvingError::RecordReadingError(ReadingError::PosProofsMismatch { piece_offset })) =
+        result
+    else {
+        panic!("Unexpected result {result:?}");
+    };
+    assert_eq!(piece_offset, PieceOffset::ZERO);
 }

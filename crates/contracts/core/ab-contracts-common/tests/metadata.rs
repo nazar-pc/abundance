@@ -604,10 +604,12 @@ fn init_must_end_with_state() {
     ] {
         let init = method_with_arguments(ContractMetadataKind::Init, argument_kinds);
         let result = decode_arguments(&init, MethodsContainerKind::Contract);
-        assert_matches!(
-            result,
-            Err((index, MetadataDecodingError::InitWithoutState))
-                if index == argument_kinds.len() - 1,
+        let Err((index, MetadataDecodingError::InitWithoutState)) = result else {
+            panic!("Arguments {argument_kinds:?}: {result:?}");
+        };
+        assert_eq!(
+            index,
+            argument_kinds.len() - 1,
             "Arguments {argument_kinds:?}"
         );
     }
@@ -630,10 +632,17 @@ fn too_many_arguments_are_rejected() {
         let too_many_arguments = vec![ContractMetadataKind::Input; usize::from(max_arguments) + 1];
         let method = method_with_arguments(method_kind, &too_many_arguments);
         let mut method = method.as_slice();
-        assert_matches!(
-            MethodMetadataDecoder::new(&mut method, MethodsContainerKind::Contract).decode_next(),
-            Err(MetadataDecodingError::TooManyArguments { number_of_arguments })
-                if number_of_arguments == MAX_TOTAL_METHOD_ARGS + 1,
+        let result =
+            MethodMetadataDecoder::new(&mut method, MethodsContainerKind::Contract).decode_next();
+        let Err(MetadataDecodingError::TooManyArguments {
+            number_of_arguments,
+        }) = result
+        else {
+            panic!("{method_kind:?}: {result:?}");
+        };
+        assert_eq!(
+            number_of_arguments,
+            MAX_TOTAL_METHOD_ARGS + 1,
             "{method_kind:?}"
         );
     }

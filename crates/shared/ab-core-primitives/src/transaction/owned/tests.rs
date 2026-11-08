@@ -101,11 +101,11 @@ fn owned_transaction_from_buffer() {
     let mut extended = bytes.to_vec();
     extended.extend_from_slice(&[0; 16]);
     let extended = SharedAlignedBuffer::from_bytes(&extended);
-    assert_matches!(
-        OwnedTransaction::from_buffer(extended),
-        Err(OwnedTransactionError::UnexpectedNumberOfBytes { actual, expected })
-            if actual == size + 16 && expected == size
-    );
+    let result = OwnedTransaction::from_buffer(extended);
+    let Err(OwnedTransactionError::UnexpectedNumberOfBytes { actual, expected }) = result else {
+        panic!("Unexpected result {result:?}");
+    };
+    assert_eq!((actual, expected), (size + 16, size));
 
     // Lengths after the header with padding that is not zero, then with a payload length that is
     // not a multiple of `u128` size

@@ -577,11 +577,10 @@ fn branch_past_the_end_of_the_stream_is_out_of_bounds() {
     let mut fetcher = new_fetcher(&instructions);
 
     let error = branch(&mut fetcher, 1024).unwrap_err();
-    assert_matches!(
-        error,
-        ExecutionError::OutOfBoundsRead { address } if address.get() == BASE_ADDR + 4 + 1024,
-        "Unexpected error {error:?}"
-    );
+    let ExecutionError::OutOfBoundsRead { address } = error else {
+        panic!("Unexpected error {error:?}");
+    };
+    assert_eq!(address.get(), BASE_ADDR + 4 + 1024);
 }
 
 #[test]
@@ -591,11 +590,10 @@ fn branch_off_the_start_of_the_stream_is_out_of_bounds() {
 
     // Lands below `BASE_ADDR`, which underflows the stream rather than wrapping into it
     let error = branch(&mut fetcher, -1024).unwrap_err();
-    assert_matches!(
-        error,
-        ExecutionError::OutOfBoundsRead { address } if address.get() == BASE_ADDR + 4 - 1024,
-        "Unexpected error {error:?}"
-    );
+    let ExecutionError::OutOfBoundsRead { address } = error else {
+        panic!("Unexpected error {error:?}");
+    };
+    assert_eq!(address.get(), BASE_ADDR + 4 - 1024);
 }
 
 #[test]
@@ -608,11 +606,10 @@ fn branch_to_an_unaligned_target_is_rejected() {
     let mut fetcher = new_fetcher(&instructions);
 
     let error = branch(&mut fetcher, 3).unwrap_err();
-    assert_matches!(
-        error,
-        ExecutionError::UnalignedInstruction { address } if address.get() == BASE_ADDR + 7,
-        "Unexpected error {error:?}"
-    );
+    let ExecutionError::UnalignedInstruction { address } = error else {
+        panic!("Unexpected error {error:?}");
+    };
+    assert_eq!(address.get(), BASE_ADDR + 7);
 }
 
 #[test]
@@ -625,11 +622,10 @@ fn branch_into_the_middle_of_an_instruction_is_rejected() {
     let mut fetcher = new_fetcher(&instructions);
 
     let error = branch(&mut fetcher, 2).unwrap_err();
-    assert_matches!(
-        error,
-        ExecutionError::UnalignedInstruction { address } if address.get() == BASE_ADDR + 6,
-        "Unexpected error {error:?}"
-    );
+    let ExecutionError::UnalignedInstruction { address } = error else {
+        panic!("Unexpected error {error:?}");
+    };
+    assert_eq!(address.get(), BASE_ADDR + 6);
 }
 
 #[test]
@@ -642,11 +638,13 @@ fn jump_far_past_the_end_of_the_stream_is_out_of_bounds() {
     // offset
     let address = BASE_ADDR + (1 << 32);
     let error = fetcher.set_pc(&memory, address).unwrap_err();
-    assert_matches!(
-        error,
-        ExecutionError::OutOfBoundsRead { address: error_address } if error_address.get() == address,
-        "Unexpected error {error:?}"
-    );
+    let ExecutionError::OutOfBoundsRead {
+        address: error_address,
+    } = error
+    else {
+        panic!("Unexpected error {error:?}");
+    };
+    assert_eq!(error_address.get(), address);
 }
 
 #[test]
@@ -932,11 +930,10 @@ fn instruction_whose_size_is_not_a_multiple_of_the_alignment_is_not_decoded() {
         instruction_fetcher: fetcher,
     };
     let outcome = state.execute::<HalfSizeInstruction>();
-    assert_matches!(
-        outcome,
-        Err(ExecutionError::IllegalInstruction { address }) if address.get() == BASE_ADDR,
-        "Unexpected outcome {outcome:?}"
-    );
+    let Err(ExecutionError::IllegalInstruction { address }) = outcome else {
+        panic!("Unexpected outcome {outcome:?}");
+    };
+    assert_eq!(address.get(), BASE_ADDR);
 
     // Threaded dispatch can't run on an x86-64 CPU without AVX
     if OpaqueThreadedExecutionResult::<HalfSizeInstruction>::platform_supported() {
@@ -947,11 +944,10 @@ fn instruction_whose_size_is_not_a_multiple_of_the_alignment_is_not_decoded() {
             &mut Memory::default(),
         )
         .outcome;
-        assert_matches!(
-            outcome,
-            Err(ExecutionError::IllegalInstruction { address }) if address.get() == BASE_ADDR,
-            "Unexpected outcome {outcome:?}"
-        );
+        let Err(ExecutionError::IllegalInstruction { address }) = outcome else {
+            panic!("Unexpected outcome {outcome:?}");
+        };
+        assert_eq!(address.get(), BASE_ADDR);
     }
 }
 
@@ -1048,11 +1044,10 @@ fn execution_after_a_branch_past_the_end_of_the_stream_fails_right_away() {
     assert_matches!(branch(&mut fetcher, 1024), Err(_), "Expected an error");
     // Nothing is fetched from where the refused branch left the program counter, and it stays there
     for (outcome, pc) in execute_again(fetcher) {
-        assert_matches!(
-            outcome,
-            Err(ExecutionError::OutOfBoundsRead { address }) if address.get() == target,
-            "Unexpected outcome {outcome:?}"
-        );
+        let Err(ExecutionError::OutOfBoundsRead { address }) = outcome else {
+            panic!("Unexpected outcome {outcome:?}");
+        };
+        assert_eq!(address.get(), target);
         assert_eq!(pc, target);
     }
 }
@@ -1065,11 +1060,10 @@ fn execution_after_a_branch_off_the_start_of_the_stream_fails_right_away() {
 
     assert_matches!(branch(&mut fetcher, -1024), Err(_), "Expected an error");
     for (outcome, pc) in execute_again(fetcher) {
-        assert_matches!(
-            outcome,
-            Err(ExecutionError::OutOfBoundsRead { address }) if address.get() == target,
-            "Unexpected outcome {outcome:?}"
-        );
+        let Err(ExecutionError::OutOfBoundsRead { address }) = outcome else {
+            panic!("Unexpected outcome {outcome:?}");
+        };
+        assert_eq!(address.get(), target);
         assert_eq!(pc, target);
     }
 }
@@ -1083,11 +1077,10 @@ fn execution_after_a_branch_into_the_middle_of_an_instruction_fails_right_away()
     // The position is in the middle of a decoded instruction, which is not one to fetch either
     assert_matches!(branch(&mut fetcher, 2), Err(_), "Expected an error");
     for (outcome, pc) in execute_again(fetcher) {
-        assert_matches!(
-            outcome,
-            Err(ExecutionError::UnalignedInstruction { address }) if address.get() == target,
-            "Unexpected outcome {outcome:?}"
-        );
+        let Err(ExecutionError::UnalignedInstruction { address }) = outcome else {
+            panic!("Unexpected outcome {outcome:?}");
+        };
+        assert_eq!(address.get(), target);
         assert_eq!(pc, target);
     }
 }
@@ -1148,20 +1141,18 @@ fn execution_that_starts_again_past_the_fallback_fails_right_away() {
         instruction_fetcher: fetcher,
     };
     let outcome = state.execute::<I>();
-    assert_matches!(
-        outcome,
-        Err(ExecutionError::IllegalInstruction { address }) if address.get() == BASE_ADDR + 4,
-        "Unexpected outcome {outcome:?}"
-    );
+    let Err(ExecutionError::IllegalInstruction { address }) = outcome else {
+        panic!("Unexpected outcome {outcome:?}");
+    };
+    assert_eq!(address.get(), BASE_ADDR + 4);
 
     // Fetching the fallback instruction moved the program counter past it, out of the decoded
     // stream
     for (outcome, pc) in execute_again(state.instruction_fetcher) {
-        assert_matches!(
-            outcome,
-            Err(ExecutionError::OutOfBoundsRead { address }) if address.get() == BASE_ADDR + 8,
-            "Unexpected outcome {outcome:?}"
-        );
+        let Err(ExecutionError::OutOfBoundsRead { address }) = outcome else {
+            panic!("Unexpected outcome {outcome:?}");
+        };
+        assert_eq!(address.get(), BASE_ADDR + 8);
         assert_eq!(pc, BASE_ADDR + 8);
     }
 }
@@ -1181,11 +1172,10 @@ fn falling_through_to_a_trap_right_after_the_code_runs_the_fallback() {
 
     // Only jumps and branches stop at the trap, falling through runs the fallback instruction
     for (outcome, _pc) in execute_again(fetcher) {
-        assert_matches!(
-            outcome,
-            Err(ExecutionError::IllegalInstruction { address }) if address.get() == BASE_ADDR + 4,
-            "Unexpected outcome {outcome:?}"
-        );
+        let Err(ExecutionError::IllegalInstruction { address }) = outcome else {
+            panic!("Unexpected outcome {outcome:?}");
+        };
+        assert_eq!(address.get(), BASE_ADDR + 4);
     }
 }
 
@@ -1250,10 +1240,9 @@ fn execution_fails_when_the_ecall_handler_jumps_out_of_the_stream() {
     let target = BASE_ADDR + 1024;
 
     for (outcome, _pc) in ecall_with(JumpingEcallHandler { target }) {
-        assert_matches!(
-            outcome,
-            Err(ExecutionError::OutOfBoundsRead { address }) if address.get() == target,
-            "Unexpected outcome {outcome:?}"
-        );
+        let Err(ExecutionError::OutOfBoundsRead { address }) = outcome else {
+            panic!("Unexpected outcome {outcome:?}");
+        };
+        assert_eq!(address.get(), target);
     }
 }

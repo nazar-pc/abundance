@@ -9,7 +9,6 @@ use ab_core_primitives::segments::{
     ArchivedBlockProgress, LastArchivedBlock, LocalSegmentIndex, RecordedHistorySegment,
     SegmentHeader, SegmentRoot,
 };
-use std::assert_matches;
 
 /// Blocks with this body size fill a segment in less than three blocks
 const LARGE_BODY_SIZE: usize = RecordedHistorySegment::SIZE * 3 / 8;
@@ -186,16 +185,18 @@ fn gap_after_reinitialization_is_an_error() {
         let c12 = block_builder.child(&c11);
         task.import(c12).await;
 
-        assert_matches!(
-            task.stop().await,
-            Err(SegmentArchiverTaskError::BlockGap {
-                best_archived_block_number,
-                block_number_to_archive,
-                importing_block_number,
-            }) if best_archived_block_number == BlockNumber::from(7)
-                && block_number_to_archive == BlockNumber::from(9)
-                && importing_block_number == BlockNumber::from(12)
-        );
+        let result = task.stop().await;
+        let Err(SegmentArchiverTaskError::BlockGap {
+            best_archived_block_number,
+            block_number_to_archive,
+            importing_block_number,
+        }) = result
+        else {
+            panic!("Unexpected result {result:?}");
+        };
+        assert_eq!(best_archived_block_number, BlockNumber::from(7));
+        assert_eq!(block_number_to_archive, BlockNumber::from(9));
+        assert_eq!(importing_block_number, BlockNumber::from(12));
     });
 }
 
@@ -227,11 +228,11 @@ fn missing_block_is_an_error() {
             .await
             .unwrap();
 
-        assert_matches!(
-            task.stop().await,
-            Err(SegmentArchiverTaskError::BlockMissing { block_number })
-                if block_number == BlockNumber::ZERO
-        );
+        let result = task.stop().await;
+        let Err(SegmentArchiverTaskError::BlockMissing { block_number }) = result else {
+            panic!("Unexpected result {result:?}");
+        };
+        assert_eq!(block_number, BlockNumber::ZERO);
     });
 }
 
@@ -263,13 +264,15 @@ fn unreadable_block_is_an_error() {
         chain.make_block_unreadable(c3_root);
         task.import(c6).await;
 
-        assert_matches!(
-            task.stop().await,
-            Err(SegmentArchiverTaskError::ReadBlock {
-                block_number,
-                error: ReadBlockError::FailedToDecode,
-            }) if block_number == BlockNumber::from(3)
-        );
+        let result = task.stop().await;
+        let Err(SegmentArchiverTaskError::ReadBlock {
+            block_number,
+            error: ReadBlockError::FailedToDecode,
+        }) = result
+        else {
+            panic!("Unexpected result {result:?}");
+        };
+        assert_eq!(block_number, BlockNumber::from(3));
     });
 }
 
@@ -302,13 +305,15 @@ fn unreadable_block_on_initialization_is_an_error() {
             .await
             .unwrap();
 
-        assert_matches!(
-            task.stop().await,
-            Err(SegmentArchiverTaskError::ReadBlock {
-                block_number,
-                error: ReadBlockError::FailedToDecode,
-            }) if block_number == BlockNumber::from(22)
-        );
+        let result = task.stop().await;
+        let Err(SegmentArchiverTaskError::ReadBlock {
+            block_number,
+            error: ReadBlockError::FailedToDecode,
+        }) = result
+        else {
+            panic!("Unexpected result {result:?}");
+        };
+        assert_eq!(block_number, BlockNumber::from(22));
     });
 }
 
@@ -342,11 +347,11 @@ fn missing_block_to_archive_is_an_error() {
         chain.add_block(d23);
         task.import(d24).await;
 
-        assert_matches!(
-            task.stop().await,
-            Err(SegmentArchiverTaskError::BlockMissing { block_number })
-                if block_number == BlockNumber::from(21)
-        );
+        let result = task.stop().await;
+        let Err(SegmentArchiverTaskError::BlockMissing { block_number }) = result else {
+            panic!("Unexpected result {result:?}");
+        };
+        assert_eq!(block_number, BlockNumber::from(21));
     });
 }
 

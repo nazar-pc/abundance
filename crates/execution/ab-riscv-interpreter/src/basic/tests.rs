@@ -307,11 +307,10 @@ fn execution_that_starts_unaligned_fails_right_away() {
 
     // Nothing is fetched from the middle of the first `ret`
     for (outcome, stopped_at) in execute_from(BasicInstructionFetcher::new(0, pc)) {
-        assert_matches!(
-            outcome,
-            Err(ExecutionError::UnalignedInstruction { address }) if address.get() == pc,
-            "Unexpected outcome {outcome:?}"
-        );
+        let Err(ExecutionError::UnalignedInstruction { address }) = outcome else {
+            panic!("Unexpected outcome {outcome:?}");
+        };
+        assert_eq!(address.get(), pc);
         assert_eq!(stopped_at, pc);
     }
 }

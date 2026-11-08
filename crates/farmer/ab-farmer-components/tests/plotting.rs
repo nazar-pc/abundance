@@ -126,12 +126,13 @@ fn encode_sector_rejects_wrong_number_of_records() {
 
     for pieces_in_sector in [PIECES_IN_SECTOR - 1, PIECES_IN_SECTOR + 1] {
         let result = encode_test_sector(erasure_coding, valid_map(pieces_in_sector), false);
-        assert_matches!(
-            result,
-            Err(PlottingError::BadSectorContentsMapSize { provided, expected })
-                if provided == usize::from(pieces_in_sector)
-                    && expected == usize::from(PIECES_IN_SECTOR),
-            "{pieces_in_sector}: {result:?}"
+        let Err(PlottingError::BadSectorContentsMapSize { provided, expected }) = result else {
+            panic!("{pieces_in_sector}: {result:?}");
+        };
+        assert_eq!(
+            (provided, expected),
+            (usize::from(pieces_in_sector), usize::from(PIECES_IN_SECTOR)),
+            "{pieces_in_sector}"
         );
     }
 }
@@ -157,15 +158,18 @@ fn encode_sector_rejects_wrong_number_of_chunks_used() {
         (balanced, PieceOffset::ZERO, Record::NUM_CHUNKS + 1),
     ] {
         let result = encode_test_sector(erasure_coding, sector_contents_map, false);
-        assert_matches!(
-            result,
-            Err(PlottingError::BadRecordChunksUsed {
-                piece_offset,
-                provided,
-                expected: Record::NUM_CHUNKS,
-            }) if piece_offset == expected_piece_offset
-                && usize::try_from(provided).unwrap() == expected_provided,
-            "{expected_piece_offset}: {result:?}"
+        let Err(PlottingError::BadRecordChunksUsed {
+            piece_offset,
+            provided,
+            expected: Record::NUM_CHUNKS,
+        }) = result
+        else {
+            panic!("{expected_piece_offset}: {result:?}");
+        };
+        assert_eq!(
+            (piece_offset, usize::try_from(provided).unwrap()),
+            (expected_piece_offset, expected_provided),
+            "{expected_piece_offset}"
         );
     }
 }
