@@ -697,6 +697,16 @@ fn any_bit_pattern_byte_writes() {
     assert_eq!(value, 7);
 }
 
+#[test]
+fn slice_as_bytes() {
+    let values = [0x0102_u16, 0x0304];
+    assert_eq!(
+        u16::slice_as_bytes(&values),
+        [0x0102_u16.to_ne_bytes(), 0x0304_u16.to_ne_bytes()].as_flattened()
+    );
+    assert_eq!(u16::slice_as_bytes(&[]), &[]);
+}
+
 /// Every parsing method rejects bytes that are not a valid value
 #[test]
 fn invalid_values_are_rejected() {

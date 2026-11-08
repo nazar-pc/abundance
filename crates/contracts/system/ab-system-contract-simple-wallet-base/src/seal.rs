@@ -5,7 +5,6 @@ use ab_contracts_common::ContractError;
 use ab_core_primitives::transaction::{TransactionHeader, TransactionSlot};
 use ab_io_type::trivial_type::TrivialType;
 use blake3::{Hasher, OUT_LEN};
-use core::slice;
 use schnorrkel::context::SigningContext;
 use schnorrkel::{Keypair, PublicKey, Signature};
 
@@ -22,16 +21,9 @@ pub fn hash_transaction(
 ) -> [u8; OUT_LEN] {
     let mut hasher = Hasher::new();
     hasher.update(header.as_bytes());
-    for slot in read_slots {
-        hasher.update(slot.as_bytes());
-    }
-    for slot in write_slots {
-        hasher.update(slot.as_bytes());
-    }
-    // SAFETY: Valid memory of correct size
-    let payload_bytes =
-        unsafe { slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload)) };
-    hasher.update(payload_bytes);
+    hasher.update(TransactionSlot::slice_as_bytes(read_slots));
+    hasher.update(TransactionSlot::slice_as_bytes(write_slots));
+    hasher.update(u128::slice_as_bytes(payload));
     hasher.update(&nonce.to_le_bytes());
     hasher.finalize().into()
 }

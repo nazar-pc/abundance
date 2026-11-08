@@ -9,7 +9,6 @@ use crate::transaction::{
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
-use core::slice;
 
 /// Errors for [`OwnedTransaction`]
 #[derive(Debug, thiserror::Error)]
@@ -134,21 +133,15 @@ impl OwnedTransaction {
                     .is_multiple_of(align_of::<TransactionSlot>())
             );
         }
-        if transaction_lengths.read_slots > 0 {
-            // SAFETY: `TransactionSlot` implements `TrivialType` and is safe to copy as bytes
-            if !buffer.append(unsafe {
-                slice::from_raw_parts(read_slots.as_ptr().cast::<u8>(), size_of_val(read_slots))
-            }) {
-                return Err(OwnedTransactionError::TransactionTooLarge);
-            }
+        if transaction_lengths.read_slots > 0
+            && !buffer.append(TransactionSlot::slice_as_bytes(read_slots))
+        {
+            return Err(OwnedTransactionError::TransactionTooLarge);
         }
-        if transaction_lengths.write_slots > 0 {
-            // SAFETY: `TransactionSlot` implements `TrivialType` and is safe to copy as bytes
-            if !buffer.append(unsafe {
-                slice::from_raw_parts(write_slots.as_ptr().cast::<u8>(), size_of_val(write_slots))
-            }) {
-                return Err(OwnedTransactionError::TransactionTooLarge);
-            }
+        if transaction_lengths.write_slots > 0
+            && !buffer.append(TransactionSlot::slice_as_bytes(write_slots))
+        {
+            return Err(OwnedTransactionError::TransactionTooLarge);
         }
 
         const {
@@ -170,10 +163,7 @@ impl OwnedTransaction {
                 return Err(OwnedTransactionError::PayloadIsNotMultipleOfU128);
             }
 
-            // SAFETY: `u128` is safe to copy as bytes
-            if !buffer.append(unsafe {
-                slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload))
-            }) {
+            if !buffer.append(u128::slice_as_bytes(payload)) {
                 return Err(OwnedTransactionError::TransactionTooLarge);
             }
         }

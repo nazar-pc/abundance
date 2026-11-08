@@ -898,8 +898,7 @@ impl<'a> BeaconChainBody<'a> {
             *self.own_segments.as_ref().map_or_default(OwnSegments::root),
             *self.intermediate_shard_blocks.segments_root(),
             **intermediate_shard_blocks_root,
-            blake3::hash(PotCheckpoints::bytes_from_slice(self.pot_checkpoints).as_flattened())
-                .into(),
+            blake3::hash(PotCheckpoints::slice_as_bytes(self.pot_checkpoints)).into(),
         ]);
 
         Blake3Hash::new(root)

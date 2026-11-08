@@ -450,9 +450,7 @@ impl OwnedBeaconChainBody {
                     if !buffer.append(own_segments.first_local_segment_index.as_bytes()) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }
-                    if !buffer.append(
-                        SegmentRoot::repr_from_slice(own_segments.segment_roots).as_flattened(),
-                    ) {
+                    if !buffer.append(SegmentRoot::slice_as_bytes(own_segments.segment_roots)) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }
                 }
@@ -476,9 +474,7 @@ impl OwnedBeaconChainBody {
                     if !buffer.append(own_segments.first_local_segment_index.as_bytes()) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }
-                    if !buffer.append(
-                        SegmentRoot::repr_from_slice(own_segments.segment_roots).as_flattened(),
-                    ) {
+                    if !buffer.append(SegmentRoot::slice_as_bytes(own_segments.segment_roots)) {
                         return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
                     }
                 }
@@ -489,8 +485,7 @@ impl OwnedBeaconChainBody {
             }
         }
 
-        let true = buffer.append(PotCheckpoints::bytes_from_slice(pot_checkpoints).as_flattened())
-        else {
+        let true = buffer.append(PotCheckpoints::slice_as_bytes(pot_checkpoints)) else {
             return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
         };
 
@@ -746,9 +741,9 @@ impl OwnedIntermediateShardBody {
                     else {
                         unreachable!("Checked size above; qed");
                     };
-                    let true = buffer.append(
-                        SegmentRoot::repr_from_slice(own_segments.segment_roots).as_flattened(),
-                    ) else {
+                    let true =
+                        buffer.append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
+                    else {
                         unreachable!("Checked size above; qed");
                     };
                 }
