@@ -52,7 +52,8 @@ pub(crate) unsafe trait CallPrepared {
 // `ExecutorContext` requires, and with the `guest` feature the host is trusted to do the same
 unsafe impl CallPrepared for Env<'_> {
     #[inline(always)]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    // TODO: `no_panic` can't prove lack of panics in methods of the executor called through `Env`
+    // #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     fn call_prepared(&self, method: PreparedMethod<'_>) -> Result<(), ContractError> {
         Env::call_prepared(self, method)
     }
@@ -391,7 +392,8 @@ impl<'a> TransactionPayloadCaller<'a> {
     /// are no more methods in the payload. The caller is consumed when decoding or the method
     /// fails, since later methods might refer to return values that the failed method didn't
     /// write.
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    // TODO: `no_panic` can't prove lack of panics in methods of the executor called through `Env`
+    // #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn call_next_method(
         self,
         env: &Env<'_>,
@@ -400,8 +402,7 @@ impl<'a> TransactionPayloadCaller<'a> {
     }
 
     /// The same as [`Self::call_next_method()`], but with `env` that can stand in for [`Env`]
-    // Not annotated with `no_panic`, since tests call it with stand-ins for `Env` that panic. Its
-    // instance for `Env` is checked through `Self::call_next_method()`.
+    // Not annotated with `no_panic`, since tests call it with stand-ins for `Env` that panic
     #[inline(always)]
     pub(crate) fn call_next_method_with<Environment>(
         mut self,
