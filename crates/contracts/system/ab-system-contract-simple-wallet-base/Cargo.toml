@@ -28,6 +28,10 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 ab-aligned-buffer = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
+ab-executor-native = { workspace = true }
+ab-system-contract-code = { workspace = true }
+schnorrkel = { workspace = true, features = ["getrandom"] }
 
 [[example]]
 name = "build-payload"

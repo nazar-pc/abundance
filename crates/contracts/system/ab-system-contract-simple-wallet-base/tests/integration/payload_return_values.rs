@@ -4,12 +4,13 @@
 // Auto-generated constants will conflict with the main crate when `guest` feature is enabled
 #![cfg(not(feature = "guest"))]
 
-use crate::ffi::address::ReturnValuesAddressArgs;
-use crate::ffi::expect_empty::ReturnValuesExpectEmptyArgs;
-use crate::ffi::fail::ReturnValuesFailArgs;
-use crate::ffi::increment::ReturnValuesIncrementArgs;
-use crate::ffi::new::ReturnValuesNewArgs;
-use crate::ffi::store::ReturnValuesStoreArgs;
+use crate::payload_return_values::ffi::address::ReturnValuesAddressArgs;
+use crate::payload_return_values::ffi::expect_empty::ReturnValuesExpectEmptyArgs;
+use crate::payload_return_values::ffi::fail::ReturnValuesFailArgs;
+use crate::payload_return_values::ffi::increment::ReturnValuesIncrementArgs;
+use crate::payload_return_values::ffi::new::ReturnValuesNewArgs;
+use crate::payload_return_values::ffi::store::ReturnValuesStoreArgs;
+use crate::test_wallet::{TestWallet, TestWalletExt};
 use ab_contracts_common::env::{Env, MethodContext};
 use ab_contracts_common::{Contract, ContractError};
 use ab_contracts_macros::contract;
@@ -19,7 +20,6 @@ use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::transaction::owned::OwnedTransaction;
 use ab_core_primitives::transaction::{Gas, TransactionHeader, TransactionSlot};
-use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
@@ -103,8 +103,8 @@ impl ReturnValues {
 /// Executor with the wallet and `ReturnValues`
 fn new_executor() -> NativeExecutor {
     NativeExecutor::builder(ShardIndex::new(1).unwrap())
-        .with_contract::<ExampleWallet>()
-        .with_contract_trait::<ExampleWallet, dyn TxHandler>()
+        .with_contract::<TestWallet>()
+        .with_contract_trait::<TestWallet, dyn TxHandler>()
         .with_contract::<ReturnValues>()
         .build()
         .unwrap()
@@ -116,10 +116,10 @@ fn deploy(env: &mut Env<'_>, keypair: &Keypair) -> (Address, Address) {
         .code_deploy(
             MethodContext::Keep,
             Address::SYSTEM_CODE,
-            &ExampleWallet::code(),
+            &TestWallet::code(),
         )
         .unwrap();
-    env.example_wallet_initialize(
+    env.test_wallet_initialize(
         MethodContext::Keep,
         wallet_address,
         &keypair.public.to_bytes(),

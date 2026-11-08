@@ -4,7 +4,8 @@
 // Auto-generated constants will conflict with the main crate when `guest` feature is enabled
 #![cfg(not(feature = "guest"))]
 
-use crate::ffi::maybe_data_output::OutputsMaybeDataOutputArgs;
+use crate::payload_outputs::ffi::maybe_data_output::OutputsMaybeDataOutputArgs;
+use crate::test_wallet::{TestWallet, TestWalletExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Contract, ContractError};
 use ab_contracts_macros::contract;
@@ -14,7 +15,6 @@ use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::transaction::owned::OwnedTransaction;
 use ab_core_primitives::transaction::{Gas, TransactionHeader};
-use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
@@ -48,8 +48,8 @@ impl Outputs {
 #[test]
 fn maybe_data_output() {
     let executor = NativeExecutor::builder(ShardIndex::new(1).unwrap())
-        .with_contract::<ExampleWallet>()
-        .with_contract_trait::<ExampleWallet, dyn TxHandler>()
+        .with_contract::<TestWallet>()
+        .with_contract_trait::<TestWallet, dyn TxHandler>()
         .with_contract::<Outputs>()
         .build()
         .unwrap();
@@ -62,10 +62,10 @@ fn maybe_data_output() {
                 .code_deploy(
                     MethodContext::Keep,
                     Address::SYSTEM_CODE,
-                    &ExampleWallet::code(),
+                    &TestWallet::code(),
                 )
                 .unwrap();
-            env.example_wallet_initialize(
+            env.test_wallet_initialize(
                 MethodContext::Keep,
                 wallet_address,
                 &keypair.public.to_bytes(),
