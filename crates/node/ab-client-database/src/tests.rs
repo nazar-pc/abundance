@@ -1,10 +1,14 @@
+use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
 use crate::test_utils::{
-    Database, DatabaseOptions, MemoryStorageBackend, beacon_chain_block, block_confirmation_depth,
-    database_options, genesis_block_builder, highest_persisted_number, open_database,
-    open_database_with_options, persist_block, persist_chain, reopen, segment_header,
-    super_segment_header,
+    Database, DatabaseOptions, MemoryStorageBackend, PAGE_GROUP_SIZE, beacon_chain_block,
+    block_confirmation_depth, database_options, genesis_block_builder, highest_persisted_number,
+    open_database, open_database_with_options, persist_block, persist_chain, reopen,
+    segment_header, super_segment_header,
 };
-use crate::{ClientDatabaseBlock, ClientDatabaseError};
+use crate::{
+    ClientDatabaseBlock, ClientDatabaseError, ClientDatabaseFormatError,
+    ClientDatabaseFormatOptions,
+};
 use ab_client_api::{
     BeaconChainInfo, BeaconChainInfoWrite, ChainInfo, ChainInfoWrite, PersistBlockError,
     ReadBlockError,
@@ -1104,4 +1108,30 @@ fn persisted_fork_beyond_max_fork_tip_distance_is_kept_until_fork_pruning_block_
     chain.push(persist_block(&database, 7, chain[6], 0).unwrap());
     assert!(database.header(&a3).is_none());
     assert_best_chain(&database, &chain);
+}
+
+#[test]
+fn format_without_force_only_formats_unformatted_storage() {
+    let storage_backend = MemoryStorageBackend::new();
+    let options = ClientDatabaseFormatOptions {
+        page_group_size: PAGE_GROUP_SIZE,
+        force: false,
+    };
+
+    assert_matches!(
+        block_on(Database::format(&storage_backend, options)),
+        Err(ClientDatabaseFormatError::AlreadyFormatted)
+    );
+
+    // Erase the page group header, as if the storage was never formatted
+    block_on(storage_backend.write(vec![AlignedPage::default()], 0))
+        .unwrap()
+        .unwrap();
+    block_on(Database::format(&storage_backend, options)).unwrap();
+    open_database(&storage_backend);
+
+    assert_matches!(
+        block_on(Database::format(&storage_backend, options)),
+        Err(ClientDatabaseFormatError::AlreadyFormatted)
+    );
 }
