@@ -337,7 +337,22 @@ pub fn aes64ks1i(rs1: u64, rnum: Rv64ZkndKsRnum) -> u64 {
     cfg_select! {
         all(not(miri), target_arch = "riscv64", target_feature = "zknd") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv64::aes64ks1i(rs1, rnum as u8) }
+            unsafe {
+                // The intrinsic takes the round number as a const generic
+                match rnum {
+                    Rv64ZkndKsRnum::R0 => core::arch::riscv64::aes64ks1i::<0x0>(rs1),
+                    Rv64ZkndKsRnum::R1 => core::arch::riscv64::aes64ks1i::<0x1>(rs1),
+                    Rv64ZkndKsRnum::R2 => core::arch::riscv64::aes64ks1i::<0x2>(rs1),
+                    Rv64ZkndKsRnum::R3 => core::arch::riscv64::aes64ks1i::<0x3>(rs1),
+                    Rv64ZkndKsRnum::R4 => core::arch::riscv64::aes64ks1i::<0x4>(rs1),
+                    Rv64ZkndKsRnum::R5 => core::arch::riscv64::aes64ks1i::<0x5>(rs1),
+                    Rv64ZkndKsRnum::R6 => core::arch::riscv64::aes64ks1i::<0x6>(rs1),
+                    Rv64ZkndKsRnum::R7 => core::arch::riscv64::aes64ks1i::<0x7>(rs1),
+                    Rv64ZkndKsRnum::R8 => core::arch::riscv64::aes64ks1i::<0x8>(rs1),
+                    Rv64ZkndKsRnum::R9 => core::arch::riscv64::aes64ks1i::<0x9>(rs1),
+                    Rv64ZkndKsRnum::Final => core::arch::riscv64::aes64ks1i::<0xA>(rs1),
+                }
+            }
         }
         _ => ks::aes64ks1i(rs1, rnum),
     }

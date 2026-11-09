@@ -1,6 +1,7 @@
 //! Macros for RISC-V primitives
 
 #![cfg_attr(feature = "build", feature(map_try_insert, try_blocks))]
+#![cfg_attr(not(feature = "build"), no_std)]
 
 #[cfg(feature = "build")]
 mod build;

@@ -10,9 +10,10 @@ use const_fn_specialization::const_fn_specialization;
 pub fn xperm4(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
-        all(not(miri), target_arch = "riscv64", target_feature = "zbkx") => unsafe {
-            core::arch::riscv64::xperm4(rs1 as usize, rs2 as usize) as u64
-        },
+        all(not(miri), target_arch = "riscv64", target_feature = "zbkx") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv64::xperm4(rs1 as usize, rs2 as usize) as u64 }
+        }
         _ => {
             use core::simd::num::SimdUint;
             use core::simd::{simd_swizzle, u64x16};
@@ -59,9 +60,10 @@ pub const fn xperm4(rs1: u64, rs2: u64) -> u64 {
 pub fn xperm8(rs1: u64, rs2: u64) -> u64 {
     // TODO: Miri is excluded because corresponding intrinsic is not implemented there
     cfg_select! {
-        all(not(miri), target_arch = "riscv64", target_feature = "zbkx") => unsafe {
-            core::arch::riscv64::xperm8(rs1 as usize, rs2 as usize) as u64
-        },
+        all(not(miri), target_arch = "riscv64", target_feature = "zbkx") => {
+            // SAFETY: Compile-time checked for supported feature
+            unsafe { core::arch::riscv64::xperm8(rs1 as usize, rs2 as usize) as u64 }
+        }
         _ => {
             use core::simd::u8x8;
 

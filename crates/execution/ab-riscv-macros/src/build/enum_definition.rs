@@ -389,13 +389,15 @@ fn output_processed_enum_definition(
             "cargo::metadata={enum_name}{ORIGINAL_ENUM_DEFINITION_ENV_VAR_SUFFIX}={}",
             original_enum_file_path.display()
         );
+        let mut ignored_instructions_strings = ignored_instructions
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        // Sorted to make the output deterministic
+        ignored_instructions_strings.sort_unstable();
         println!(
             "cargo::metadata={enum_name}{ENUM_IGNORED_INSTRUCTIONS_ENV_VAR_SUFFIX}={}",
-            ignored_instructions
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join(","),
+            ignored_instructions_strings.join(","),
         );
         println!(
             "cargo::metadata={enum_name}{ENUM_DEPENDENCIES_ENV_VAR_SUFFIX}={}",
@@ -407,19 +409,21 @@ fn output_processed_enum_definition(
         );
     }
 
+    let mut dependencies_for_enablement_strings = dependencies_for_enablement
+        .iter()
+        .map(|idents| {
+            idents
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("+")
+        })
+        .collect::<Vec<_>>();
+    // Sorted to make the output deterministic
+    dependencies_for_enablement_strings.sort_unstable();
     println!(
         "cargo::metadata={enum_name}{ENUM_DEPENDENCIES_FOR_ENABLEMENT_ENV_VAR_SUFFIX}={}",
-        dependencies_for_enablement
-            .iter()
-            .map(|idents| {
-                idents
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join("+")
-            })
-            .collect::<Vec<_>>()
-            .join(","),
+        dependencies_for_enablement_strings.join(","),
     );
 
     state.insert_known_enum_definition(
