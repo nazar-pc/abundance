@@ -222,8 +222,9 @@ impl OwnedBeaconChainHeader {
         } = fixed_parameters;
 
         // The header with the largest seal must fit after the bytes already in the buffer, so
-        // that neither the appends below nor the seal appended later can fail
-        if buffer.len().checked_add(Self::MAX_ALLOCATION).is_none() {
+        // that neither the appends below nor the seal appended later can fail. The length of a
+        // buffer is never larger than its maximum capacity.
+        if OwnedAlignedBuffer::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
             return Err(OwnedBeaconChainHeaderError::HeaderTooLarge);
         }
         let true = buffer.append(prefix.as_bytes()) else {
@@ -559,8 +560,9 @@ impl OwnedIntermediateShardHeader {
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedIntermediateShardHeaderError> {
         // The header with the largest seal must fit after the bytes already in the buffer, so
-        // that neither the appends below nor the seal appended later can fail
-        if buffer.len().checked_add(Self::MAX_ALLOCATION).is_none() {
+        // that neither the appends below nor the seal appended later can fail. The length of a
+        // buffer is never larger than its maximum capacity.
+        if OwnedAlignedBuffer::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
             return Err(OwnedIntermediateShardHeaderError::HeaderTooLarge);
         }
         let true = buffer.append(prefix.as_bytes()) else {
@@ -828,8 +830,9 @@ impl OwnedLeafShardHeader {
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedLeafShardHeaderError> {
         // The header with the largest seal must fit after the bytes already in the buffer, so
-        // that neither the appends below nor the seal appended later can fail
-        if buffer.len().checked_add(Self::MAX_ALLOCATION).is_none() {
+        // that neither the appends below nor the seal appended later can fail. The length of a
+        // buffer is never larger than its maximum capacity.
+        if OwnedAlignedBuffer::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
             return Err(OwnedLeafShardHeaderError::HeaderTooLarge);
         }
         let true = buffer.append(prefix.as_bytes()) else {

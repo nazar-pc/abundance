@@ -43,6 +43,28 @@ const _: () = {
     assert!(align_of::<Chunk>() >= align_of::<AtomicUsize>());
 };
 
+const _: () = {
+    // The size of an allocation for the largest capacity, computed like in `resize()`, is valid
+    let Ok(_) = Layout::from_size_align(
+        size_of::<Chunk>()
+            + (OwnedAlignedBuffer::MAX_CAPACITY as usize).next_multiple_of(size_of::<Chunk>()),
+        align_of::<Chunk>(),
+    ) else {
+        panic!("The largest capacity can't be allocated");
+    };
+    // A larger capacity either doesn't fit into `u32` or its allocation is too large
+    assert!(
+        OwnedAlignedBuffer::MAX_CAPACITY == u32::MAX
+            || Layout::from_size_align(
+                size_of::<Chunk>()
+                    + (OwnedAlignedBuffer::MAX_CAPACITY as usize + 1)
+                        .next_multiple_of(size_of::<Chunk>()),
+                align_of::<Chunk>(),
+            )
+            .is_err()
+    );
+};
+
 #[repr(C, align(16))]
 struct ConstInnerBuffer {
     strong_count: AtomicUsize,
@@ -303,12 +325,24 @@ impl Clone for OwnedAlignedBuffer {
 }
 
 impl OwnedAlignedBuffer {
+    /// The largest capacity of a buffer.
+    ///
+    /// It is `u32::MAX` where `usize` is 64-bit, and smaller where `usize` is 32-bit, since an
+    /// allocation can't be larger than `isize::MAX` bytes. The allocator may still fail to allocate
+    /// a buffer that large.
+    pub const MAX_CAPACITY: u32 = if usize::BITS < u64::BITS {
+        // The first chunk is used for `strong_count`
+        ((isize::MAX.cast_unsigned() / size_of::<Chunk>() - 1) * size_of::<Chunk>()) as u32
+    } else {
+        u32::MAX
+    };
+
     /// Create a new instance with at least specified capacity.
     ///
     /// NOTE: Actual capacity might be larger due to alignment requirements.
     ///
     /// # Panics
-    /// If the allocation would be larger than `isize::MAX` bytes
+    /// If `capacity` is larger than [`Self::MAX_CAPACITY`]
     #[inline(always)]
     pub fn with_capacity(capacity: u32) -> Self {
         Self {
@@ -319,8 +353,7 @@ impl OwnedAlignedBuffer {
     /// Create a new instance from provided bytes.
     ///
     /// # Panics
-    /// If `bytes.len()` doesn't fit into `u32`, or if the allocation would be larger than
-    /// `isize::MAX` bytes
+    /// If `bytes.len()` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
     #[inline(always)]
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let mut instance = Self::with_capacity(0);
@@ -367,7 +400,7 @@ impl OwnedAlignedBuffer {
     /// Will re-allocate if necessary.
     ///
     /// # Panics
-    /// If the allocation would be larger than `isize::MAX` bytes
+    /// If `capacity` is larger than [`Self::MAX_CAPACITY`]
     #[inline(always)]
     pub fn ensure_capacity(&mut self, capacity: u32) {
         if capacity > self.capacity() {
@@ -378,17 +411,24 @@ impl OwnedAlignedBuffer {
     /// Will re-allocate if capacity is not enough to store provided bytes.
     ///
     /// # Panics
-    /// If `bytes.len()` doesn't fit into `u32`, or if the allocation would be larger than
-    /// `isize::MAX` bytes
+    /// If `bytes.len()` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
     #[inline(always)]
+    #[cfg_attr(
+        target_pointer_width = "64",
+        expect(
+            clippy::unnecessary_min_or_max,
+            reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+        )
+    )]
     pub fn copy_from_slice(&mut self, bytes: &[u8]) {
         let Ok(len) = u32::try_from(bytes.len()) else {
             panic!("Too many bytes {}", bytes.len());
         };
 
         if len > self.capacity() {
+            // Doubling the capacity is capped by the largest one `Layout` allows
             self.inner
-                .resize(len.max(self.capacity().saturating_mul(2)));
+                .resize(len.max(self.capacity().saturating_mul(2).min(Self::MAX_CAPACITY)));
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
@@ -404,12 +444,21 @@ impl OwnedAlignedBuffer {
 
     /// Will re-allocate if capacity is not enough to store provided bytes.
     ///
-    /// Returns `false` if `self.len() + bytes.len()` doesn't fit into `u32`.
+    /// Returns `false` and leaves the buffer unchanged if `self.len() + bytes.len()` is larger than
+    /// [`Self::MAX_CAPACITY`].
     ///
     /// # Panics
-    /// If the allocation would be larger than `isize::MAX` bytes
+    /// If memory re-allocation fails
     #[inline(always)]
     #[must_use = "Check for overflow"]
+    #[cfg_attr(
+        target_pointer_width = "64",
+        expect(
+            clippy::absurd_extreme_comparisons,
+            clippy::unnecessary_min_or_max,
+            reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+        )
+    )]
     pub fn append(&mut self, bytes: &[u8]) -> bool {
         let Ok(len) = u32::try_from(bytes.len()) else {
             return false;
@@ -418,10 +467,14 @@ impl OwnedAlignedBuffer {
         let Some(new_len) = self.len().checked_add(len) else {
             return false;
         };
+        if new_len > Self::MAX_CAPACITY {
+            return false;
+        }
 
         if new_len > self.capacity() {
+            // Doubling the capacity is capped by the largest one `Layout` allows
             self.inner
-                .resize(new_len.max(self.capacity().saturating_mul(2)));
+                .resize(new_len.max(self.capacity().saturating_mul(2).min(Self::MAX_CAPACITY)));
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
@@ -503,8 +556,7 @@ impl SharedAlignedBuffer {
     /// Create a new instance from provided bytes.
     ///
     /// # Panics
-    /// If `bytes.len()` doesn't fit into `u32`, or if the allocation would be larger than
-    /// `isize::MAX` bytes
+    /// If `bytes.len()` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
     #[inline(always)]
     pub fn from_bytes(bytes: &[u8]) -> Self {
         OwnedAlignedBuffer::from_bytes(bytes).into_shared()
