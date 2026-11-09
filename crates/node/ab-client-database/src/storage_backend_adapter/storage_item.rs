@@ -90,7 +90,7 @@ pub(crate) trait StorageItem: fmt::Debug + Send + Sync + Sized + 'static {
         buffer: &'a mut [MaybeUninit<u8>],
     ) -> Result<StorageItemWriteResult<'a>, StorageItemError>;
 
-    /// The inverse of [`Self::write_to_pages()`]
+    /// The inverse of [`Self::write()`]
     fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError>;
 }
 
