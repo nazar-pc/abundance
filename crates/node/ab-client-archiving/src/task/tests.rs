@@ -1,8 +1,9 @@
-use crate::task::SegmentArchiverTaskError;
+use crate::task::{SegmentArchiverTaskError, decode_block, encode_block};
 use crate::test_utils::{
     ArchiverTask, BeaconChainBlockBuilder, LeafShardBlockBuilder, MockChain, run,
 };
 use ab_client_api::{ChainInfo, ChainInfoWrite, ReadBlockError};
+use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::segments::{
@@ -59,6 +60,27 @@ fn synced_segment_headers(last_archived_block_number: BlockNumber) -> Vec<Segmen
     };
 
     vec![segment_header_0, segment_header_1]
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Encodes blocks of 128 MiB, too slow under Miri")]
+fn beacon_chain_genesis_block_is_padded_to_segment_size_only_when_smaller() {
+    for body_size in [0, RecordedHistorySegment::SIZE] {
+        let genesis_block = BeaconChainBlockBuilder::new(body_size).genesis();
+        let block_length = size_of::<u32>() * 2
+            + genesis_block.header.buffer().len() as usize
+            + genesis_block.body.buffer().len() as usize;
+
+        let encoded_block = encode_block(&genesis_block);
+        assert_eq!(
+            encoded_block.len(),
+            block_length.max(RecordedHistorySegment::SIZE),
+            "{body_size}"
+        );
+
+        let decoded_block = decode_block::<OwnedBeaconChainBlock>(&encoded_block).unwrap();
+        assert!(encode_block(&decoded_block) == encoded_block, "{body_size}");
+    }
 }
 
 #[test]
