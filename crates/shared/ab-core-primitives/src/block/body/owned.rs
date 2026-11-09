@@ -724,8 +724,8 @@ impl OwnedIntermediateShardBody {
                 )
                 .expect(
                     "Parts of a parsed header are consistent, and bodies with at most `u16::MAX` \
-                    leaf shard blocks with at most `u8::MAX` segment roots each are far smaller \
-                    than `u32::MAX` bytes; qed",
+                    leaf shard blocks with at most `u8::MAX` segment roots each are smaller than \
+                    1 GiB, which fits into a buffer even where `usize` is 32-bit; qed",
                 )
                 .with_seal(leaf_shard_block.header.seal)
                 .expect("Seal of a parsed header matches its solution; qed");

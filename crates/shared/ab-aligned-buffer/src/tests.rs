@@ -328,6 +328,27 @@ fn capacity_above_isize_max_panics() {
     OwnedAlignedBuffer::with_capacity(1).ensure_capacity(1 << 31);
 }
 
+// The largest capacity is only below `u32::MAX` where `usize` is 32-bit
+#[cfg(target_pointer_width = "32")]
+#[test]
+#[should_panic(expected = "has failed: too large")]
+fn capacity_above_max_capacity_panics() {
+    OwnedAlignedBuffer::with_capacity(1).ensure_capacity(OwnedAlignedBuffer::MAX_CAPACITY + 1);
+}
+
+// The largest capacity is only below `u32::MAX` where `usize` is 32-bit, and gigabytes of memory
+// are too much for Miri
+#[cfg(all(target_pointer_width = "32", not(miri)))]
+#[test]
+fn append_beyond_max_capacity() {
+    let mut owned = OwnedAlignedBuffer::from_bytes(&[1, 2, 3]);
+    // Zeroed allocation is not backed by memory until written to
+    let bytes = vec![0; OwnedAlignedBuffer::MAX_CAPACITY as usize - 2];
+
+    assert!(!owned.append(&bytes));
+    assert_eq!(owned.as_slice(), [1, 2, 3]);
+}
+
 // Only a counter narrower than 64 bits can get close to wrapping around
 #[cfg(target_pointer_width = "32")]
 #[test]
