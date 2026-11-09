@@ -8,8 +8,8 @@ build-dir = "build"
 create-missing = false
 
 [preprocessor.d2]
-dark-theme-id = "200"
-layout = "elk"
+dark-theme-id = "201"
+layout = "tala"
 theme-id = "1"
 
 [rust]
