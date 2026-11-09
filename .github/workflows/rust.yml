@@ -68,6 +68,10 @@ jobs:
           # 32-bit target, see `skip_crates` below for the crates that it doesn't check
           # TODO: Uncomment when https://github.com/rust-lang/miri/issues/5572 is fixed
           #- { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu }
+          # Target without OS, see `crate_paths` below for the crates that it checks
+          - name: riscv64-abundance
+            runner: ubuntu-26.04-arm
+            target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
         type:
           - together
           - individually
@@ -79,14 +83,27 @@ jobs:
       command: >-
         cargo -Zgitoxide -Zgit clippy
         ${{ matrix.platform.target != '' && format('-Zjson-target-spec --target {0}', matrix.platform.target) || '' }}
-      # Regex of names of crates that are not checked or tested on 32-bit targets. Node and farmer
+      # Tests, benchmarks and examples need `std`, which targets without OS (`none` in the name) don't have
+      target_selection: ${{ contains(matrix.platform.target, '-none') && '--lib' || '--all-targets' }}
+      # Regex of paths of crates that are checked and tested with default features (empty matches all crates). On
+      # targets without OS, only shared crates, which are meant to work without `std` (not all of them, see
+      # `skip_crates` below).
+      crate_paths: &crate-paths ${{ contains(matrix.platform.target, '-none') && '/crates/shared/' || '' }}
+      # Regex of names of crates that are not checked or tested on some targets. On 32-bit targets, node and farmer
       # crates expect a 64-bit platform. `ab-networking` enables the `parking_lot` feature of
       # `tokio`, and `parking_lot_core` 0.9 doesn't compile for RV32 Linux. With feature
       # unification, that would break the build of all crates together. RISC-V benchmarks and the
       # Coremark runner need the eager instruction fetcher, which is only available on 64-bit
       # hosts. A crate that depends on one of these crates needs its own entry.
+      # On targets without OS, CLI utilities, data retrieval, direct I/O and networking need `std`.
       skip_crates: &skip-crates >-
-        ${{ contains(matrix.platform.target, 'riscv32') && '^(ab-client-.*|ab-farmer.*|ab-networking|ab-node.*|ab-proof-of-space-gpu|ab-riscv-benchmarks|ab-riscv-coremark-runner)$' || '' }}
+        ${{
+          contains(matrix.platform.target, 'riscv32') &&
+            '^(ab-client-.*|ab-farmer.*|ab-networking|ab-node.*|ab-proof-of-space-gpu|ab-riscv-benchmarks|ab-riscv-coremark-runner)$' ||
+          contains(matrix.platform.target, '-none') &&
+            '^(ab-cli-utils|ab-data-retrieval|ab-direct-io-file|ab-networking)$' ||
+          ''
+        }}
     # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
     needs: act4
 
@@ -182,7 +199,18 @@ jobs:
           if rustup target list | tr -d '\r' | cut -d' ' -f1 | grep -qxF "$target"; then
             rustup target add "$target"
           else
-            echo "command=${command} -Zbuild-std" >> $GITHUB_ENV
+            target_args="-Zbuild-std"
+            if [[ "$target" == *-none* ]]; then
+              # Targets without OS have no `std`
+              target_args="-Zbuild-std=core,alloc"
+              # Code is generated for all items of workspace crates, including unused and `#[inline]` ones, to catch
+              #  post-monomorphization errors in them. `package."*"` matches every package that isn't a workspace
+              #  member (dependencies and the standard library), which aren't ours to check (`core` doesn't even
+              #  compile this way)
+              target_args+=" -Zprofile-rustflags --config 'profile.dev.rustflags=[\"-Clink-dead-code\"]'"
+              target_args+=" --config 'profile.dev.package.\"*\".rustflags=[]'"
+            fi
+            echo "command=${command} ${target_args}" >> $GITHUB_ENV
           fi
         if: matrix.platform.target != ''
 
@@ -190,24 +218,26 @@ jobs:
         shell: bash
         run: |
           excluded=$(cargo metadata --no-deps --format-version 1 \
-            | jq -r --arg skip "$skip_crates" '.packages[] | select(
-                $skip != "" and (.name | test($skip))
+            | jq -r --arg paths "$crate_paths" --arg skip "$skip_crates" '.packages[] | select(
+                (.manifest_path | gsub("\\\\"; "/") | test($paths) | not) or
+                ($skip != "" and (.name | test($skip)))
               ) | "--exclude \(.name)"' \
             | tr -d '\r')
-          ${{ env.command }} --locked --all-targets ${excluded:+--workspace $excluded}
+          ${{ env.command }} --locked $target_selection ${excluded:+--workspace $excluded}
         if: matrix.type == 'together'
 
       - name: cargo clippy (each crate individually)
         shell: bash
         run: |
           cargo metadata --no-deps --format-version 1 \
-            | jq -r --arg skip "$skip_crates" '.packages[] | select(
-                $skip == "" or (.name | test($skip) | not)
+            | jq -r --arg paths "$crate_paths" --arg skip "$skip_crates" '.packages[] | select(
+                (.manifest_path | gsub("\\\\"; "/") | test($paths)) and
+                ($skip == "" or (.name | test($skip) | not))
               ) | .name' \
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --all-targets --package \"${crate}\"" >> "${{ runner.temp }}/queue"
+                echo "$command $target_selection --package \"${crate}\"" >> "${{ runner.temp }}/queue"
               done
         if: matrix.type == 'individually'
 
@@ -217,6 +247,11 @@ jobs:
           metadata=$(cargo metadata --no-deps --format-version 1)
 
           for feature in alloc parallel scale-codec serde; do
+            # `parallel` needs `std`, which targets without OS don't have
+            if [[ "$feature" == parallel && "${{ matrix.platform.target }}" == *-none* ]]; then
+              continue
+            fi
+
             printf '%s' "$metadata" \
               | jq -r --arg feature "$feature" --arg skip "$skip_crates" '.packages[] | select(
                   (.features | has($feature)) and
@@ -226,7 +261,7 @@ jobs:
               | tr -d '\r' \
               | while IFS= read -r crate; do
                   echo "Checking \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                  echo "$command --all-targets --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
+                  echo "$command $target_selection --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
                 done
           done
 
@@ -236,7 +271,7 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                echo "$command $target_selection --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
               done
 
           printf '%s' "$metadata" \
@@ -247,14 +282,14 @@ jobs:
             | tr -d '\r' \
             | while IFS= read -r crate; do
                 echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --all-targets --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
+                echo "$command $target_selection --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
               done
 
           echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
-          echo "$command --all-targets --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
+          echo "$command $target_selection --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
 
           echo "Checking \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
-          echo "$command --all-targets --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
+          echo "$command $target_selection --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
         if: matrix.type == 'features'
 
       - parallel:
@@ -298,7 +333,8 @@ jobs:
     strategy:
       matrix:
         # Each entry is a complete configuration, with or without Miri. Miri can run on any runner of the same OS since
-        # it interprets the code instead of running it natively, so foreign targets only run under Miri.
+        # it interprets the code instead of running it natively, so foreign targets only run under Miri (a target
+        # without OS is only built, see below).
         platform: &test-platforms
           - &linux-x86_64-test
             { name: linux-x86_64, runner: ubuntu-26.04, target: '', miri: false }
@@ -319,6 +355,12 @@ jobs:
           # TODO: Uncomment when https://github.com/rust-lang/miri/issues/5572 is fixed
           #- &linux-riscv32gc-test-miri
           #  { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu, miri: true }
+          # Target without OS, crates are only built, see `command` and `crate_paths` below
+          - &riscv64-abundance-test
+            name: riscv64-abundance
+            runner: ubuntu-26.04-arm
+            target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
+            miri: false
         type:
           # `together` variant is running in a separate job, see `cargo-test-slow`
           # - together
@@ -331,14 +373,7 @@ jobs:
           - { platform: *linux-riscv64a23-test-miri, type: guest-feature }
           # TODO: Uncomment when https://github.com/rust-lang/miri/issues/5572 is fixed
           #- { platform: *linux-riscv32gc-test-miri, type: guest-feature }
-
-          # TODO: Tests will need custom allocator to work under this target
-          # - platform:
-          #     name: riscv64-abundance
-          #     runner: ubuntu-26.04-arm
-          #     target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
-          #     miri: true
-          #   type: guest-feature
+          - { platform: *riscv64-abundance-test, type: guest-feature }
       fail-fast: false
 
     runs-on: ${{ matrix.platform.runner }}
@@ -347,13 +382,21 @@ jobs:
     env: &test-env
       # NOTE: Running tests under Miri with nextest is SLOWER than without it:
       #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
+      # Targets without OS (`none` in the name) can't run tests, so crates are only built (not checked, to catch
+      #  post-monomorphization errors), nothing is linked
       command: >-
-        ${{ matrix.platform.miri == true && 'miri test' || 'nextest run --no-tests pass' }}
+        ${{
+          contains(matrix.platform.target, '-none') && 'build' ||
+          matrix.platform.miri == true && 'miri test' ||
+          'nextest run --no-tests pass'
+        }}
         ${{ matrix.platform.target != '' && format('-Zjson-target-spec --target {0}', matrix.platform.target) || '' }}
-      # `cargo nextest` doesn't support doc tests, so they are run with regular `cargo test` separately (not under Miri)
+      # `cargo nextest` doesn't support doc tests, so they are run with regular `cargo test` separately (only natively,
+      #  not under Miri or for other targets)
       doc_test_command: >-
-        ${{ matrix.platform.miri == false && format('test --doc{0}', matrix.platform.target != '' && format(' -Zjson-target-spec --target {0}', matrix.platform.target) || '') || '' }}
+        ${{ matrix.platform.miri == false && matrix.platform.target == '' && 'test --doc' || '' }}
       # The same crates as in `cargo-clippy` job
+      crate_paths: *crate-paths
       skip_crates: *skip-crates
 
     steps: &test-steps
@@ -370,7 +413,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes mesa-vulkan-drivers
-        if: matrix.platform.miri == false && runner.os == 'Linux' && matrix.type == 'together'
+        if: matrix.platform.miri == false && matrix.platform.target == '' && runner.os == 'Linux' && matrix.type == 'together'
 
       - name: Install Vulkan runtime (Windows)
         run: |
@@ -445,14 +488,21 @@ jobs:
         if: matrix.platform.miri == false && runner.os == 'Windows' && matrix.type == 'together'
 
       - name: cargo ${{ env.command }} (together)
-        run: |
-          cargo -Zgitoxide -Zgit ${{ env.command }} --locked
+        shell: bash
+        run: &cargo-together |
+          excluded=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r --arg paths "$crate_paths" --arg skip "$skip_crates" '.packages[] | select(
+                (.manifest_path | gsub("\\\\"; "/") | test($paths) | not) or
+                ($skip != "" and (.name | test($skip)))
+              ) | "--exclude \(.name)"' \
+            | tr -d '\r')
+          cargo -Zgitoxide -Zgit ${{ env.command }} --locked ${excluded:+--workspace $excluded}
         if: matrix.platform.miri == false && matrix.type == 'together'
 
       - name: cargo ${{ env.doc_test_command }} (together)
         run: |
           cargo -Zgitoxide -Zgit ${{ env.doc_test_command }} --locked
-        if: matrix.platform.miri == false && matrix.type == 'together'
+        if: matrix.platform.miri == false && env.doc_test_command != '' && matrix.type == 'together'
 
       # The whole app is only needed on Windows since it doesn't support shebang
       - name: Install Miri capture wrapper
@@ -603,21 +653,24 @@ jobs:
           MIRI_INVOCATIONS_DIR: ${{ runner.temp }}/miri_invocations
           MIRI_QUEUE_PATH: ${{ runner.temp }}/queue
           MIRI_TEST_PARTITIONING: ${{ github.workspace }}/.github/miri-test-partitioning.txt
-        run: |
-          excluded=$(cargo metadata --no-deps --format-version 1 \
-            | jq -r --arg skip "$skip_crates" '.packages[] | select(
-                $skip != "" and (.name | test($skip))
-              ) | "--exclude \(.name)"' \
-            | tr -d '\r')
-          cargo -Zgitoxide -Zgit ${{ env.command }} --locked ${excluded:+--workspace $excluded}
+        run: *cargo-together
         if: matrix.platform.miri == true && matrix.type == 'together'
 
-      - name: cargo test (various features)
+      - name: >-
+          cargo ${{ contains(matrix.platform.target, '-none') && 'build' || 'test' }}
+          (various features)
         shell: bash
         run: |
           metadata=$(cargo metadata --no-deps --format-version 1)
+          # Crates are only built for targets without OS, see `command` above
+          action="${{ contains(matrix.platform.target, '-none') && 'Building' || 'Testing' }}"
 
           for feature in alloc parallel scale-codec serde; do
+            # `parallel` needs `std`, which targets without OS don't have
+            if [[ "$feature" == parallel && "${{ matrix.platform.target }}" == *-none* ]]; then
+              continue
+            fi
+
             printf '%s' "$metadata" \
               | jq -r --arg feature "$feature" --arg skip "$skip_crates" '.packages[] | select(
                   (.features | has($feature)) and
@@ -626,7 +679,7 @@ jobs:
                 ) | .name' \
               | tr -d '\r' \
               | while IFS= read -r crate; do
-                  echo "Testing \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
+                  echo "${action} \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
                   echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/${feature}\"" >> "${{ runner.temp }}/queue"
                   if [[ -n "$doc_test_command" ]]; then
                     echo "Testing doc tests of \`${feature}\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
@@ -635,14 +688,14 @@ jobs:
                 done
           done
 
-          echo "Checking \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
+          echo "${action} \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
           echo "cargo -Zgitoxide -Zgit $command --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
           if [[ -n "$doc_test_command" ]]; then
-            echo "Checking doc tests of \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
+            echo "Testing doc tests of \`executor\` in \`ab-contracts-common\`" >> "${{ runner.temp }}/queue"
             echo "cargo -Zgitoxide -Zgit $doc_test_command --package ab-contracts-common --features ab-contracts-common/executor" >> "${{ runner.temp }}/queue"
           fi
 
-          echo "Testing \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
+          echo "${action} \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
           echo "cargo -Zgitoxide -Zgit $command --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
           if [[ -n "$doc_test_command" ]]; then
             echo "Testing doc tests of \`payload-builder\` in \`ab-system-contract-simple-wallet-base\`" >> "${{ runner.temp }}/queue"
@@ -654,13 +707,15 @@ jobs:
         shell: bash
         run: |
           metadata=$(cargo metadata --no-deps --format-version 1)
+          # Crates are only built for targets without OS, see `command` above
+          action="${{ contains(matrix.platform.target, '-none') && 'Building' || 'Testing' }}"
 
           # Ensure tests pass with `guest` feature
           printf '%s' "$metadata" \
             | jq -r '.packages[] | select(.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/(example|system)/")) | .name' \
             | tr -d '\r' \
             | while IFS= read -r crate; do
-                echo "Testing \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
+                echo "${action} \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
                 echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
                 if [[ -n "$doc_test_command" ]]; then
                   echo "Testing doc tests of \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
@@ -675,7 +730,7 @@ jobs:
               ) | .name' \
             | tr -d '\r' \
             | while IFS= read -r crate; do
-                echo "Testing \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
+                echo "${action} \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
                 echo "cargo -Zgitoxide -Zgit $command --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
                 if [[ -n "$doc_test_command" ]]; then
                   echo "Testing doc tests of \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
@@ -759,15 +814,6 @@ jobs:
         type:
           - default
           - features
-          # Only one platform is explicitly included with `guest-feature` below
-          # - guest-feature
-        # TODO: Tests will need custom allocator to work under this target
-        # include:
-        #   - platform:
-        #       name: riscv64-abundance
-        #       runner: ubuntu-26.04-arm
-        #       target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
-        #     type: guest-feature
       fail-fast: false
 
     runs-on: ${{ matrix.platform.runner }}
@@ -824,37 +870,6 @@ jobs:
           echo "$command --release --all-targets --features no-panic --package ab-system-contract-simple-wallet-base --features ab-system-contract-simple-wallet-base/payload-builder" >> "${{ runner.temp }}/queue"
         if: matrix.type == 'features'
 
-      - name: Ensure no panics in annotated code (guest feature)
-        shell: bash
-        run: |
-          metadata=$(cargo metadata --no-deps --format-version 1)
-
-          # Not all example/system contracts have the `no-panic` feature yet
-          printf '%s' "$metadata" \
-            | jq -r '.packages[] | select(
-                (.features | has("no-panic")) and
-                (.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/(example|system)/"))
-              ) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-              done
-
-          # Not all core contracts have both `no-panic` and `guest` features yet
-          printf '%s' "$metadata" \
-            | jq -r '.packages[] | select(
-                (.features | has("no-panic")) and
-                (.features | has("guest")) and
-                (.manifest_path | gsub("\\\\"; "/") | test("/crates/contracts/core/"))
-              ) | .name' \
-            | tr -d '\r' \
-            | while IFS= read -r crate; do
-                echo "Checking \`guest\` in \`${crate}\`" >> "${{ runner.temp }}/queue"
-                echo "$command --release --all-targets --features no-panic --package \"${crate}\" --features \"${crate}/guest\"" >> "${{ runner.temp }}/queue"
-              done
-        if: matrix.type == 'guest-feature' && runner.os == 'Linux'
-
       - &parallel-workers
         parallel:
           - shell: bash
@@ -887,7 +902,6 @@ jobs:
       - *cache-restore-step
       - *install-kache-step
 
-      # TODO: Run clippy and `no-panic` on custom target for contracts too
       - name: Ensure contracts compile for a custom target
         shell: bash
         run: |
