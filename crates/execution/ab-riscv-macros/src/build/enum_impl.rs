@@ -604,12 +604,10 @@ pub(super) fn process_enum_display_impl(
 
     let mut variants_from_dependencies = HashMap::new();
 
-    for (dependency_enum_name, dependency_enum_definition) in all_dependencies {
-        let dependency_enum_name = Rc::new(dependency_enum_name);
-
+    for (dependency_enum_name, dependency_enum_definition) in &all_dependencies {
         for instruction in &dependency_enum_definition.instructions {
             variants_from_dependencies
-                .insert(Rc::clone(instruction), Rc::clone(&dependency_enum_name));
+                .insert(&instruction.ident, (instruction, dependency_enum_name));
         }
     }
 
@@ -701,63 +699,59 @@ pub(super) fn process_enum_display_impl(
         true
     });
 
-    // The order of variants is not identical to the enum definition for simplicity. It should not
-    // be performance-sensitive to justify the complexity.
-    expr_match
-        .arms
-        .extend(
-            variants_from_dependencies
-                .into_iter()
-                .filter_map(|(variant, source_enum)| {
-                    let variant_name = &variant.ident;
-                    if !allowed_instruction.contains(variant_name) {
-                        return None;
-                    }
+    // Arms of inherited instructions are added in the order of the enum definition
+    expr_match.arms.extend(
+        enum_definition
+            .instructions
+            .iter()
+            .filter_map(|instruction| {
+                let (variant, source_enum) = variants_from_dependencies.get(&instruction.ident)?;
+                let variant_name = &variant.ident;
 
-                    Some(match &variant.fields {
-                        Fields::Named(fields_named) => {
-                            let field_names = fields_named
-                                .named
-                                .iter()
-                                .map(|field| &field.ident)
-                                .collect::<Vec<_>>();
+                Some(match &variant.fields {
+                    Fields::Named(fields_named) => {
+                        let field_names = fields_named
+                            .named
+                            .iter()
+                            .map(|field| &field.ident)
+                            .collect::<Vec<_>>();
 
-                            parse_quote! {
-                                Self::#variant_name {
-                                    #( #field_names, )*
-                                } => ::core::fmt::Display::fmt(
-                                    &#source_enum::<Hart>::#variant_name {
-                                        #( #field_names: *#field_names, )*
-                                    },
-                                    #formatter_arg,
-                                )
-                            }
-                        }
-                        Fields::Unnamed(fields_unnamed) => {
-                            let fields = (0..fields_unnamed.unnamed.len())
-                                .map(|index| format_ident!("field_{}", index))
-                                .collect::<Vec<_>>();
-
-                            parse_quote! {
-                                Self::#variant_name(
-                                    #( #fields, )*
-                                ) => ::core::fmt::Display::fmt(
-                                    &#source_enum::<Hart>::#variant_name(
-                                        #( *#fields, )*
-                                    ),
-                                    #formatter_arg,
-                                )
-                            }
-                        }
-                        Fields::Unit => parse_quote! {
-                            Self::#variant_name => ::core::fmt::Display::fmt(
-                                &#source_enum::<Hart>::#variant_name,
+                        parse_quote! {
+                            Self::#variant_name {
+                                #( #field_names, )*
+                            } => ::core::fmt::Display::fmt(
+                                &#source_enum::<Hart>::#variant_name {
+                                    #( #field_names: *#field_names, )*
+                                },
                                 #formatter_arg,
                             )
-                        },
-                    })
-                }),
-        );
+                        }
+                    }
+                    Fields::Unnamed(fields_unnamed) => {
+                        let fields = (0..fields_unnamed.unnamed.len())
+                            .map(|index| format_ident!("field_{}", index))
+                            .collect::<Vec<_>>();
+
+                        parse_quote! {
+                            Self::#variant_name(
+                                #( #fields, )*
+                            ) => ::core::fmt::Display::fmt(
+                                &#source_enum::<Hart>::#variant_name(
+                                    #( *#fields, )*
+                                ),
+                                #formatter_arg,
+                            )
+                        }
+                    }
+                    Fields::Unit => parse_quote! {
+                        Self::#variant_name => ::core::fmt::Display::fmt(
+                            &#source_enum::<Hart>::#variant_name,
+                            #formatter_arg,
+                        )
+                    },
+                })
+            }),
+    );
 
     output_processed_enum_display_impl(enum_name, item_impl, out_dir)
 }

@@ -23,6 +23,8 @@ Fixes:
   attributes on items in inline modules instead of silently skipping them
 * Standard library is no longer required unless `build` feature is enabled, so `ab-riscv-primitives` and
   `ab-riscv-interpreter` can be built for targets without one
+* Generated code is identical for identical source, previously the order of arms in `Display` implementations and of
+  metadata exported to dependent crates changed from one build to another
 
 # 0.1.1
 
