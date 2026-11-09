@@ -156,6 +156,7 @@
     impl_restriction,
     inherent_associated_types,
     integer_widen_truncate,
+    portable_simd,
     signed_bigint_helpers,
     try_trait_v2,
     widening_mul
@@ -165,13 +166,6 @@
 #![cfg_attr(
     all(test, feature = "alloc", target_pointer_width = "64"),
     feature(const_try_residual)
-)]
-#![cfg_attr(
-    not(any(
-        all(target_arch = "riscv32", target_feature = "zbkx"),
-        all(target_arch = "riscv64", target_feature = "zbkx")
-    )),
-    feature(portable_simd)
 )]
 #![cfg_attr(
     any(
