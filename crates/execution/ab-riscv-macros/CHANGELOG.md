@@ -21,6 +21,8 @@ Fixes:
 * Ignored instructions no longer satisfy `if` conditions of inherited instructions
 * `process_instruction_macros()` recognizes path-qualified attributes (like `#[ab_riscv_macros::instruction]`) and
   attributes on items in inline modules instead of silently skipping them
+* Standard library is no longer required unless `build` feature is enabled, so `ab-riscv-primitives` and
+  `ab-riscv-interpreter` can be built for targets without one
 
 # 0.1.1
 
