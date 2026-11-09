@@ -158,7 +158,15 @@ pub fn aes32dsi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zknd") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::aes32dsi(rs1, rs2, u8::from(bs)) }
+            unsafe {
+                // The intrinsic takes the byte select as a const generic
+                match bs {
+                    Rv32AesBs::B0 => core::arch::riscv32::aes32dsi::<0>(rs1, rs2),
+                    Rv32AesBs::B1 => core::arch::riscv32::aes32dsi::<1>(rs1, rs2),
+                    Rv32AesBs::B2 => core::arch::riscv32::aes32dsi::<2>(rs1, rs2),
+                    Rv32AesBs::B3 => core::arch::riscv32::aes32dsi::<3>(rs1, rs2),
+                }
+            }
         }
         _ => soft::aes32dsi(rs1, rs2, u8::from(bs)),
     }
@@ -173,7 +181,15 @@ pub fn aes32dsmi(rs1: u32, rs2: u32, bs: Rv32AesBs) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zknd") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::aes32dsmi(rs1, rs2, u8::from(bs)) }
+            unsafe {
+                // The intrinsic takes the byte select as a const generic
+                match bs {
+                    Rv32AesBs::B0 => core::arch::riscv32::aes32dsmi::<0>(rs1, rs2),
+                    Rv32AesBs::B1 => core::arch::riscv32::aes32dsmi::<1>(rs1, rs2),
+                    Rv32AesBs::B2 => core::arch::riscv32::aes32dsmi::<2>(rs1, rs2),
+                    Rv32AesBs::B3 => core::arch::riscv32::aes32dsmi::<3>(rs1, rs2),
+                }
+            }
         }
         _ => soft::aes32dsmi(rs1, rs2, u8::from(bs)),
     }

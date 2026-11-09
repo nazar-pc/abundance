@@ -62,7 +62,7 @@ Fixes:
   widening instructions with `ELEN` above 64
 * Shift instructions with an immediate shift amount not below `XLEN` (32 for W versions) constructed manually rather
   than decoded panicked in debug builds and produced wrong results in release builds
-* Failed to compile for RV32 and RV64 targets with Zbkx enabled
+* Failed to compile for RV32 and RV64 targets with Zbkx or Zknd enabled, and for RV32 targets with Zkne enabled
 * Ssstrict fixes (all matching Sail):
     * Vector memory addresses wrap around modulo `2^XLEN` (previously modulo `2^64`, which is wrong on RV32)
     * `vsetvl{i}` saturates AVL instead of truncating it to 32 bits
