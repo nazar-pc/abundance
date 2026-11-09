@@ -197,6 +197,7 @@ fn owned_leaf_shard_body_multiple_transactions() {
         );
         assert_eq!(body_transaction.payload, transaction.transaction().payload);
         assert_eq!(body_transaction.seal, transaction.transaction().seal);
+        assert_eq!(body_transaction.hash(), transaction.transaction().hash());
     }
 }
 
@@ -219,6 +220,26 @@ fn owned_leaf_shard_body_aligns_transactions_to_max_alignment() {
         assert_eq!(body_transaction.payload, [1]);
         assert_eq!(body_transaction.seal, [2, 3, 4]);
     }
+}
+
+#[test]
+fn leaf_shard_body_root_commits_to_transaction_field_boundaries() {
+    let header = transaction_header();
+    let slot = TransactionSlot {
+        owner: Address::from(100),
+        contract: Address::SYSTEM_CODE,
+    };
+    let [root_read, root_write] = [
+        OwnedTransaction::from_parts(&header, &[slot], &[], &[], &[]).unwrap(),
+        OwnedTransaction::from_parts(&header, &[], &[slot], &[], &[]).unwrap(),
+    ]
+    .map(|transaction| {
+        let mut builder = OwnedLeafShardBody::init(iter::empty()).unwrap();
+        builder.add_transaction(&transaction).unwrap();
+        builder.finish().body().root()
+    });
+
+    assert_ne!(root_read, root_write);
 }
 
 /// The parser expects padding after the number of transactions also when there are none

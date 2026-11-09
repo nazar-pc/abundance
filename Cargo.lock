@@ -292,13 +292,13 @@ dependencies = [
 name = "ab-contracts-test-utils"
 version = "0.0.1"
 dependencies = [
- "ab-aligned-buffer",
  "ab-contracts-common",
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-core-primitives",
  "ab-io-type",
  "ab-system-contract-simple-wallet-base",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -904,7 +904,9 @@ dependencies = [
  "ab-contracts-macros",
  "ab-contracts-standards",
  "ab-core-primitives",
+ "ab-executor-native",
  "ab-io-type",
+ "ab-system-contract-code",
  "ab-system-contract-state",
  "blake3",
  "no-panic-const",

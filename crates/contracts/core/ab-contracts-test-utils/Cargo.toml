@@ -14,13 +14,13 @@ include = [
 all-features = true
 
 [dependencies]
-ab-aligned-buffer = { workspace = true }
 ab-contracts-common = { workspace = true }
 ab-contracts-macros = { workspace = true }
 ab-contracts-standards = { workspace = true }
-ab-core-primitives = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
 ab-io-type = { workspace = true }
 ab-system-contract-simple-wallet-base = { workspace = true, features = ["payload-builder"] }
+thiserror = { workspace = true }
 
 [lints]
 workspace = true

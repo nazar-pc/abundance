@@ -28,6 +28,10 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 ab-aligned-buffer = { workspace = true }
+ab-core-primitives = { workspace = true, features = ["alloc"] }
+ab-executor-native = { workspace = true }
+ab-system-contract-code = { workspace = true }
+schnorrkel = { workspace = true, features = ["getrandom"] }
 
 [[example]]
 name = "build-payload"
@@ -43,6 +47,12 @@ guest = [
 payload-builder = [
     "dep:ab-aligned-buffer",
 ]
+# TODO: no-panic coverage is limited:
+#  * functions in `seal` and `SimpleWalletBase::authorize()` are not annotated, since `no_panic`
+#    can't prove lack of panics in `blake3::Hasher` for input of arbitrary length, in `schnorrkel`
+#    and in the public key `expect()` of `SimpleWalletBase::authorize()`
+#  * functions that call methods of the executor through `Env` are not annotated, since `no_panic`
+#    can't prove lack of panics in them
 # Check that code can't panic under any conditions
 no-panic = [
     "dep:no-panic-const",

@@ -271,6 +271,13 @@ where
         unsafe { ptr::from_ref(self).cast::<[u8; _]>().as_ref_unchecked() }
     }
 
+    /// Access the underlying byte representation of a slice of values
+    #[inline(always)]
+    final fn slice_as_bytes(values: &[Self]) -> &[u8] {
+        // SAFETY: All bits are valid for reading as bytes, see `TrivialType` description
+        unsafe { slice::from_raw_parts(values.as_ptr().cast::<u8>(), size_of_val(values)) }
+    }
+
     /// Access the underlying mutable byte representation of a data structure
     #[inline(always)]
     final fn as_bytes_mut(&mut self) -> &mut [u8; SIZE_OF::<Self>]

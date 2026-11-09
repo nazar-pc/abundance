@@ -2,14 +2,15 @@
 #![cfg(not(feature = "guest"))]
 
 use crate::ffi::flip::FlipperFlipArgs;
+use ab_contracts_common::Contract;
 use ab_contracts_common::env::MethodContext;
-use ab_contracts_common::{Contract, ContractError};
 use ab_contracts_macros::contract;
 use ab_contracts_standards::tx_handler::TxHandler;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::shard::ShardIndex;
-use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader, TransactionSlot};
+use ab_core_primitives::transaction::owned::OwnedTransaction;
+use ab_core_primitives::transaction::{Gas, TransactionHeader, TransactionSlot};
 use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
 use ab_executor_native::NativeExecutor;
 use ab_io_type::trivial_type::TrivialType;
@@ -117,147 +118,33 @@ fn flip() {
         contract: Address::SYSTEM_STATE,
     }];
     let nonce = 0;
+    let seal = hash_and_sign(
+        &keypair,
+        &header,
+        read_slots,
+        write_slots,
+        payload.as_u128_slice(),
+        nonce,
+    )
+    .unwrap();
 
-    {
-        let seal = hash_and_sign(
-            &keypair,
-            &header,
-            read_slots,
-            write_slots,
-            payload.as_u128_slice(),
-            nonce,
-        );
-        executor
-            .transaction_verify(
-                Transaction {
-                    header: &header,
-                    payload: payload.as_u128_slice(),
-                    read_slots,
-                    write_slots,
-                    seal: seal.as_bytes(),
-                },
-                slots,
+    executor
+        .transaction_verify_execute(
+            OwnedTransaction::from_parts(
+                &header,
+                read_slots,
+                write_slots,
+                payload.as_u128_slice(),
+                seal.as_bytes(),
             )
-            .unwrap();
-    }
+            .unwrap()
+            .transaction(),
+            slots,
+        )
+        .unwrap();
 
-    // Bytes after the seal are rejected
-    {
-        let seal = hash_and_sign(
-            &keypair,
-            &header,
-            read_slots,
-            write_slots,
-            payload.as_u128_slice(),
-            nonce,
-        );
-        let mut seal_with_extra_byte = seal.as_bytes().to_vec();
-        seal_with_extra_byte.push(0);
-        assert_eq!(
-            executor.transaction_verify(
-                Transaction {
-                    header: &header,
-                    payload: payload.as_u128_slice(),
-                    read_slots,
-                    write_slots,
-                    seal: &seal_with_extra_byte,
-                },
-                slots,
-            ),
-            Err(ContractError::BadInput)
-        );
-    }
-
-    // `VariableBytes` are only aligned for bytes, a seal at an odd address is accepted too
-    {
-        let seal = hash_and_sign(
-            &keypair,
-            &header,
-            read_slots,
-            write_slots,
-            payload.as_u128_slice(),
-            nonce,
-        );
-        let seal = seal.as_bytes();
-        let mut buffer = vec![0; seal.len() + 1];
-        let offset = usize::from(buffer.as_ptr().addr().is_multiple_of(2));
-        let misaligned_seal = &mut buffer[offset..][..seal.len()];
-        misaligned_seal.copy_from_slice(seal);
-        executor
-            .transaction_verify(
-                Transaction {
-                    header: &header,
-                    payload: payload.as_u128_slice(),
-                    read_slots,
-                    write_slots,
-                    seal: misaligned_seal,
-                },
-                slots,
-            )
-            .unwrap();
-    }
-
-    // Each transaction flips the value
-    let mut expected_value = true;
-
-    for nonce in (nonce..).take(2) {
-        let seal = hash_and_sign(
-            &keypair,
-            &header,
-            read_slots,
-            write_slots,
-            payload.as_u128_slice(),
-            nonce,
-        );
-
-        executor
-            .transaction_execute(
-                Transaction {
-                    header: &header,
-                    payload: payload.as_u128_slice(),
-                    read_slots,
-                    write_slots,
-                    seal: seal.as_bytes(),
-                },
-                slots,
-            )
-            .unwrap();
-
-        expected_value = !expected_value;
-        assert_eq!(
-            executor.with_env_ro(slots, |env| env.flipper_value(flipper_address)),
-            Ok(expected_value)
-        );
-    }
-
-    {
-        let nonce = 2;
-        let seal = hash_and_sign(
-            &keypair,
-            &header,
-            read_slots,
-            write_slots,
-            payload.as_u128_slice(),
-            nonce,
-        );
-
-        executor
-            .transaction_verify_execute(
-                Transaction {
-                    header: &header,
-                    payload: payload.as_u128_slice(),
-                    read_slots,
-                    write_slots,
-                    seal: seal.as_bytes(),
-                },
-                slots,
-            )
-            .unwrap();
-
-        expected_value = !expected_value;
-        assert_eq!(
-            executor.with_env_ro(slots, |env| env.flipper_value(flipper_address)),
-            Ok(expected_value)
-        );
-    }
+    assert_eq!(
+        executor.with_env_ro(slots, |env| env.flipper_value(flipper_address)),
+        Ok(false)
+    );
 }

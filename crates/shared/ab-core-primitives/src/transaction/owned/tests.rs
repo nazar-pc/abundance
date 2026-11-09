@@ -1,5 +1,6 @@
 use crate::address::Address;
 use crate::block::BlockRoot;
+use crate::hashes::Blake3Hash;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use crate::transaction::{
     Gas, SerializedTransactionLengths, Transaction, TransactionHeader, TransactionSlot,
@@ -147,4 +148,70 @@ fn transaction_bytes_must_be_aligned_to_max_alignment() {
     let mut misaligned = OwnedAlignedBuffer::from_bytes(&[0; 8]);
     assert!(misaligned.append(bytes));
     assert!(Transaction::try_from_bytes(&misaligned.as_slice()[8..]).is_none());
+}
+
+#[test]
+fn transaction_hash_is_hash_of_serialized_transaction() {
+    let transactions = [
+        OwnedTransaction::from_parts(&header(), &[], &[], &[], &[]).unwrap(),
+        OwnedTransaction::from_parts(&header(), &slots(2, 100), &slots(1, 200), &[1, 2], &[3; 5])
+            .unwrap(),
+    ];
+
+    for owned_transaction in transactions {
+        assert_eq!(
+            *owned_transaction.transaction().hash(),
+            Blake3Hash::from(blake3::hash(owned_transaction.buffer().as_slice()))
+        );
+    }
+}
+
+#[test]
+fn transaction_hash_commits_to_field_boundaries() {
+    let header = header();
+    let slot = TransactionSlot {
+        owner: Address::from(100),
+        contract: Address::SYSTEM_CODE,
+    };
+    let mut payload_and_seal = 1u128.to_ne_bytes().to_vec();
+    payload_and_seal.extend_from_slice(&[2, 3, 4]);
+    let slot_as_payload = [u128::from(slot.owner), u128::from(slot.contract)];
+    let pairs = [
+        // Payload and seal
+        (
+            OwnedTransaction::from_parts(&header, &[], &[], &[1], &[2, 3, 4]).unwrap(),
+            OwnedTransaction::from_parts(&header, &[], &[], &[], &payload_and_seal).unwrap(),
+        ),
+        // Read and write slots
+        (
+            OwnedTransaction::from_parts(&header, &[slot], &[], &[], &[]).unwrap(),
+            OwnedTransaction::from_parts(&header, &[], &[slot], &[], &[]).unwrap(),
+        ),
+        // Write slots and payload
+        (
+            OwnedTransaction::from_parts(&header, &[], &[slot], &[], &[]).unwrap(),
+            OwnedTransaction::from_parts(&header, &[], &[], &slot_as_payload, &[]).unwrap(),
+        ),
+    ];
+    let fields_offset = size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>();
+
+    for (transaction_a, transaction_b) in pairs {
+        let bytes_a = transaction_a.buffer().as_slice();
+        let bytes_b = transaction_b.buffer().as_slice();
+        assert_eq!(bytes_a[fields_offset..], bytes_b[fields_offset..]);
+        assert_ne!(bytes_a, bytes_b);
+
+        assert_eq!(
+            *transaction_a.transaction().hash(),
+            Blake3Hash::from(blake3::hash(bytes_a))
+        );
+        assert_eq!(
+            *transaction_b.transaction().hash(),
+            Blake3Hash::from(blake3::hash(bytes_b))
+        );
+        assert_ne!(
+            transaction_a.transaction().hash(),
+            transaction_b.transaction().hash()
+        );
+    }
 }

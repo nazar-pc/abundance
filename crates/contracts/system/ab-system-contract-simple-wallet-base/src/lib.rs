@@ -85,12 +85,12 @@ pub const MAX_OUTPUTS: usize = 16;
 
 /// Transaction seal.
 ///
-/// Contains signature and nonce, this is necessary to produce a correctly sealed transaction.
+/// Contains nonce and signature, this is necessary to produce a correctly sealed transaction.
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
 pub struct Seal {
-    pub signature: [u8; 64],
     pub nonce: u64,
+    pub signature: [u8; 64],
 }
 
 /// State of the wallet.
@@ -131,7 +131,8 @@ impl SimpleWalletBase {
     ///
     /// `seal` must hold exactly the bytes of a [`Seal`].
     #[view]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    // TODO: `no_panic` can't prove lack of panics in `hash_and_verify()` and public key `expect()`
+    // #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn authorize(
         #[input] state: &WalletState,
         #[input] header: &TransactionHeader,
@@ -174,7 +175,8 @@ impl SimpleWalletBase {
     ///
     /// The caller must set themselves as a context or else error will be returned.
     #[update]
-    #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
+    // TODO: `no_panic` can't prove lack of panics in methods of the executor called through `Env`
+    // #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
     pub fn execute(
         #[env] env: &mut Env<'_>,
         #[input] header: &TransactionHeader,

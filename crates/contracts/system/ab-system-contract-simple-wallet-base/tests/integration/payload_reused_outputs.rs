@@ -5,10 +5,11 @@
 // Auto-generated constants will conflict with the main crate when `guest` feature is enabled
 #![cfg(not(feature = "guest"))]
 
-use crate::ffi::check_address::ReusedOutputsCheckAddressArgs;
-use crate::ffi::check_byte::ReusedOutputsCheckByteArgs;
-use crate::ffi::fill::ReusedOutputsFillArgs;
-use crate::ffi::small::ReusedOutputsSmallArgs;
+use crate::payload_reused_outputs::ffi::check_address::ReusedOutputsCheckAddressArgs;
+use crate::payload_reused_outputs::ffi::check_byte::ReusedOutputsCheckByteArgs;
+use crate::payload_reused_outputs::ffi::fill::ReusedOutputsFillArgs;
+use crate::payload_reused_outputs::ffi::small::ReusedOutputsSmallArgs;
+use crate::test_wallet::{TestWallet, TestWalletExt};
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_common::{Contract, ContractError};
 use ab_contracts_macros::contract;
@@ -16,8 +17,8 @@ use ab_contracts_standards::tx_handler::TxHandler;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::shard::ShardIndex;
-use ab_core_primitives::transaction::{Gas, Transaction, TransactionHeader};
-use ab_example_contract_wallet::{ExampleWallet, ExampleWalletExt};
+use ab_core_primitives::transaction::owned::OwnedTransaction;
+use ab_core_primitives::transaction::{Gas, TransactionHeader};
 use ab_executor_native::NativeExecutor;
 use ab_io_type::maybe_data::MaybeData;
 use ab_io_type::trivial_type::TrivialType;
@@ -142,8 +143,8 @@ fn add_check_byte(builder: &mut TransactionPayloadBuilder, contract: &Address, o
 #[test]
 fn reused_output() {
     let executor = NativeExecutor::builder(ShardIndex::new(1).unwrap())
-        .with_contract::<ExampleWallet>()
-        .with_contract_trait::<ExampleWallet, dyn TxHandler>()
+        .with_contract::<TestWallet>()
+        .with_contract_trait::<TestWallet, dyn TxHandler>()
         .with_contract::<ReusedOutputs>()
         .build()
         .unwrap();
@@ -156,10 +157,10 @@ fn reused_output() {
                 .code_deploy(
                     MethodContext::Keep,
                     Address::SYSTEM_CODE,
-                    &ExampleWallet::code(),
+                    &TestWallet::code(),
                 )
                 .unwrap();
-            env.example_wallet_initialize(
+            env.test_wallet_initialize(
                 MethodContext::Keep,
                 wallet_address,
                 &keypair.public.to_bytes(),
@@ -209,17 +210,20 @@ fn reused_output() {
         write_slots,
         payload.as_u128_slice(),
         0,
-    );
+    )
+    .unwrap();
 
     assert_eq!(
         executor.transaction_execute(
-            Transaction {
-                header: &header,
-                payload: payload.as_u128_slice(),
+            OwnedTransaction::from_parts(
+                &header,
                 read_slots,
                 write_slots,
-                seal: seal.as_bytes(),
-            },
+                payload.as_u128_slice(),
+                seal.as_bytes()
+            )
+            .unwrap()
+            .transaction(),
             slots,
         ),
         Ok(())

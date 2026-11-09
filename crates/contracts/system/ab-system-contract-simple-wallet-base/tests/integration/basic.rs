@@ -1,0 +1,247 @@
+// Auto-generated constants will conflict with the main crate when `guest` feature is enabled
+#![cfg(not(feature = "guest"))]
+
+use crate::basic::ffi::flip::FlipperFlipArgs;
+use crate::test_wallet::{TestWallet, TestWalletExt};
+use ab_contracts_common::env::MethodContext;
+use ab_contracts_common::{Contract, ContractError};
+use ab_contracts_macros::contract;
+use ab_contracts_standards::tx_handler::TxHandler;
+use ab_core_primitives::address::Address;
+use ab_core_primitives::block::BlockRoot;
+use ab_core_primitives::shard::ShardIndex;
+use ab_core_primitives::transaction::owned::OwnedTransaction;
+use ab_core_primitives::transaction::{Gas, TransactionHeader, TransactionSlot};
+use ab_executor_native::NativeExecutor;
+use ab_io_type::trivial_type::TrivialType;
+use ab_system_contract_code::CodeExt;
+use ab_system_contract_simple_wallet_base::payload::TransactionMethodContext;
+use ab_system_contract_simple_wallet_base::payload::builder::{
+    MethodCallReferences, TransactionPayloadBuilder,
+};
+use ab_system_contract_simple_wallet_base::seal::hash_and_sign;
+use schnorrkel::Keypair;
+
+#[derive(Debug, Copy, Clone, TrivialType)]
+#[repr(C)]
+pub struct Flipper {
+    pub value: bool,
+}
+
+#[contract]
+impl Flipper {
+    #[init]
+    pub fn new(#[input] &init_value: &bool) -> Self {
+        Self { value: init_value }
+    }
+
+    #[update]
+    pub fn flip(&mut self) {
+        self.value = !self.value;
+    }
+
+    #[view]
+    pub fn value(&self) -> bool {
+        self.value
+    }
+}
+
+#[test]
+fn flip() {
+    let shard_index = ShardIndex::new(1).unwrap();
+    let executor = NativeExecutor::builder(shard_index)
+        .with_contract::<TestWallet>()
+        .with_contract_trait::<TestWallet, dyn TxHandler>()
+        .with_contract::<Flipper>()
+        .build()
+        .unwrap();
+
+    let slots = &mut executor.new_storage_slots().unwrap();
+
+    let keypair = Keypair::generate();
+
+    let wallet_address = executor.transaction_emulate(Address::NULL, slots, |env| {
+        // Deploy
+        let wallet_address = env
+            .code_deploy(
+                MethodContext::Keep,
+                Address::SYSTEM_CODE,
+                &TestWallet::code(),
+            )
+            .unwrap();
+
+        // Initialize state
+        env.test_wallet_initialize(
+            MethodContext::Keep,
+            wallet_address,
+            &keypair.public.to_bytes(),
+        )
+        .unwrap();
+
+        wallet_address
+    });
+
+    let flipper_address = executor.transaction_emulate(Address::NULL, slots, |env| {
+        // Deploy
+        let flipper_address = env
+            .code_deploy(MethodContext::Keep, Address::SYSTEM_CODE, &Flipper::code())
+            .unwrap();
+
+        // Initialize state
+        env.flipper_new(MethodContext::Keep, flipper_address, &true)
+            .unwrap();
+
+        flipper_address
+    });
+
+    let header = TransactionHeader {
+        version: 0,
+        block_root: BlockRoot::default(),
+        gas_limit: Gas::default(),
+        contract: wallet_address,
+    };
+    let payload = {
+        let mut builder = TransactionPayloadBuilder::new(1024, 0).unwrap();
+        builder
+            .with_method_call(
+                &flipper_address,
+                &FlipperFlipArgs::new(),
+                TransactionMethodContext::Null,
+                MethodCallReferences::default(),
+            )
+            .unwrap();
+        builder.into_aligned_bytes().unwrap()
+    };
+    let read_slots = &[];
+    let write_slots = &[TransactionSlot {
+        owner: flipper_address,
+        contract: Address::SYSTEM_STATE,
+    }];
+    let nonce = 0;
+
+    {
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        )
+        .unwrap();
+        executor
+            .transaction_verify(
+                OwnedTransaction::from_parts(
+                    &header,
+                    read_slots,
+                    write_slots,
+                    payload.as_u128_slice(),
+                    seal.as_bytes(),
+                )
+                .unwrap()
+                .transaction(),
+                slots,
+            )
+            .unwrap();
+    }
+
+    // Bytes after the seal are rejected
+    {
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        )
+        .unwrap();
+        let mut seal_with_extra_byte = seal.as_bytes().to_vec();
+        seal_with_extra_byte.push(0);
+        assert_eq!(
+            executor.transaction_verify(
+                OwnedTransaction::from_parts(
+                    &header,
+                    read_slots,
+                    write_slots,
+                    payload.as_u128_slice(),
+                    &seal_with_extra_byte
+                )
+                .unwrap()
+                .transaction(),
+                slots,
+            ),
+            Err(ContractError::BadInput)
+        );
+    }
+
+    // Each transaction flips the value
+    let mut expected_value = true;
+
+    for nonce in (nonce..).take(2) {
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        )
+        .unwrap();
+
+        executor
+            .transaction_execute(
+                OwnedTransaction::from_parts(
+                    &header,
+                    read_slots,
+                    write_slots,
+                    payload.as_u128_slice(),
+                    seal.as_bytes(),
+                )
+                .unwrap()
+                .transaction(),
+                slots,
+            )
+            .unwrap();
+
+        expected_value = !expected_value;
+        assert_eq!(
+            executor.with_env_ro(slots, |env| env.flipper_value(flipper_address)),
+            Ok(expected_value)
+        );
+    }
+
+    {
+        let nonce = 2;
+        let seal = hash_and_sign(
+            &keypair,
+            &header,
+            read_slots,
+            write_slots,
+            payload.as_u128_slice(),
+            nonce,
+        )
+        .unwrap();
+
+        executor
+            .transaction_verify_execute(
+                OwnedTransaction::from_parts(
+                    &header,
+                    read_slots,
+                    write_slots,
+                    payload.as_u128_slice(),
+                    seal.as_bytes(),
+                )
+                .unwrap()
+                .transaction(),
+                slots,
+            )
+            .unwrap();
+
+        expected_value = !expected_value;
+        assert_eq!(
+            executor.with_env_ro(slots, |env| env.flipper_value(flipper_address)),
+            Ok(expected_value)
+        );
+    }
+}

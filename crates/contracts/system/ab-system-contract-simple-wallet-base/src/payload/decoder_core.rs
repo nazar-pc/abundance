@@ -83,11 +83,9 @@ impl<'payload> PayloadReader<'payload> {
             return Err(TransactionPayloadDecoderError::PayloadMisaligned);
         }
 
-        // SAFETY: Memory is valid and bound by an argument's lifetime
-        let payload =
-            unsafe { slice::from_raw_parts(payload.as_ptr().cast::<u8>(), size_of_val(payload)) };
-
-        Ok(Self { payload })
+        Ok(Self {
+            payload: u128::slice_as_bytes(payload),
+        })
     }
 
     /// Number of bytes that weren't read yet

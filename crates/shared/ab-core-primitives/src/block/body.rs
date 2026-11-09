@@ -898,8 +898,7 @@ impl<'a> BeaconChainBody<'a> {
             *self.own_segments.as_ref().map_or_default(OwnSegments::root),
             *self.intermediate_shard_blocks.segments_root(),
             **intermediate_shard_blocks_root,
-            blake3::hash(PotCheckpoints::bytes_from_slice(self.pot_checkpoints).as_flattened())
-                .into(),
+            blake3::hash(PotCheckpoints::slice_as_bytes(self.pot_checkpoints)).into(),
         ]);
 
         Blake3Hash::new(root)
@@ -1396,10 +1395,9 @@ impl<'a> Transactions<'a> {
         let mut remainder = self.bytes;
 
         iter::repeat_with(move || {
-            // SAFETY: Checked in constructor
-            let transaction = unsafe { Transaction::from_bytes_unchecked(remainder) };
-
-            remainder = &remainder[transaction.encoded_size()..];
+            let transaction;
+            (transaction, remainder) = Transaction::try_from_bytes(remainder)
+                .expect("Already checked in constructor; qed");
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::MAX)
                 .expect("Already checked in constructor; qed");
 
