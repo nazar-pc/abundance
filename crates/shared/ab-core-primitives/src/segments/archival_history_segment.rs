@@ -2,8 +2,8 @@ use crate::pieces::{FlatPieces, InnerPiece, Piece, PiecePosition, Record};
 use crate::segments::RecordedHistorySegment;
 use alloc::boxed::Box;
 use array_reshape::Unflatten;
-use std::array;
-use std::ops::{Deref, DerefMut, Index, IndexMut};
+use core::array;
+use core::ops::{Deref, DerefMut, Index, IndexMut};
 
 /// Archived history segment after archiving is applied.
 ///
