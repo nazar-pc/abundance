@@ -31,7 +31,7 @@ use std::{fmt, io};
 use triomphe::Arc;
 
 const NUM_PAGES: usize = 4096;
-const PAGE_GROUP_SIZE: NonZeroU32 = NonZeroU32::new(256).unwrap();
+pub(crate) const PAGE_GROUP_SIZE: NonZeroU32 = NonZeroU32::new(256).unwrap();
 
 /// In-memory storage backend, clones share the same pages, so a database can be reopened on them
 /// after the previous instance was dropped

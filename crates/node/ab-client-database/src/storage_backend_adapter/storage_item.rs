@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::storage_backend::AlignedPage;
 use crate::storage_backend_adapter::PageGroupKind;
 use ab_blake3::single_block_hash;
@@ -87,7 +90,7 @@ pub(crate) trait StorageItem: fmt::Debug + Send + Sync + Sized + 'static {
         buffer: &'a mut [MaybeUninit<u8>],
     ) -> Result<StorageItemWriteResult<'a>, StorageItemError>;
 
-    /// The inverse of [`Self::write_to_pages()`]
+    /// The inverse of [`Self::write()`]
     fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError>;
 }
 
@@ -228,9 +231,10 @@ where
         );
 
         let buffer_len = buffer.len();
-        let storage_item_bytes = buffer.split_off(..storage_item_size as usize).ok_or(
-            StorageItemError::NeedMoreBytes(buffer_len - storage_item_size as usize),
-        )?;
+        let storage_item_size = storage_item_size as usize;
+        let storage_item_bytes = buffer
+            .split_off(..storage_item_size)
+            .ok_or_else(|| StorageItemError::NeedMoreBytes(storage_item_size - buffer_len))?;
 
         let buffer_len = buffer.len();
         let suffix_bytes = buffer

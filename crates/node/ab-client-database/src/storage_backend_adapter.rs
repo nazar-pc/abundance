@@ -299,12 +299,13 @@ where
                 .await
                 .map_err(|_error| ClientDatabaseFormatError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseFormatError::ReadError { error })?;
-            buffer.clear();
 
             if StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer).is_ok()
             {
                 return Err(ClientDatabaseFormatError::AlreadyFormatted);
             }
+
+            buffer.clear();
         }
 
         let container = StorageItemContainer {

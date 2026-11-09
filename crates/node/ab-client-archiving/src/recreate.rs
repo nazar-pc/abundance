@@ -27,12 +27,12 @@ pub fn recreate_genesis_segment(
 
     let block_outcome = Archiver::new(ShardIndex::BEACON_CHAIN, erasure_coding)
         .add_block(encoded_block, Vec::new())
-        .expect("Encoded genesis block is exactly one segment in size, which fits into `u32`; qed");
+        .expect("Genesis block is much smaller than `u32::MAX` bytes; qed");
     let mut archived_segment = block_outcome
         .archived_segments
         .into_iter()
         .next()
-        .expect("Genesis block always results in exactly one archived segment; qed");
+        .expect("Genesis block fills at least one segment; qed");
 
     for piece in archived_segment.pieces.iter_mut() {
         piece.header.super_segment_index = SuperSegmentIndex::ZERO.into();

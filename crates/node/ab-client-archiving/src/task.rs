@@ -134,9 +134,8 @@ where
     encoded_block.extend_from_slice(header_buffer);
     encoded_block.extend_from_slice(body_buffer);
 
-    if is_beacon_chain_genesis_block {
-        let encoded_block_length = encoded_block.len();
-
+    let encoded_block_length = encoded_block.len();
+    if is_beacon_chain_genesis_block && encoded_block_length < RecordedHistorySegment::SIZE {
         // Encoding of the genesis block is extended with extra data such that the very first
         // archived segment can be produced right away, bootstrapping the farming process.
         //
