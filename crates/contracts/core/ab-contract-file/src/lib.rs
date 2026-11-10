@@ -615,9 +615,10 @@ impl<'a> ContractFile<'a> {
     /// Must be a valid input, for example, previously verified using [`ContractFile::parse()`].
     pub unsafe fn parse_unchecked(file_bytes: &'a [u8]) -> Self {
         // SAFETY: `Unaligned` has alignment 1, and valid input starts with a header (function
-        // contract)
-        let header =
-            unsafe { Unaligned::<ContractFileHeader>::from_bytes_unchecked(file_bytes) }.as_inner();
+        // contract), so `from_bytes()` returns `Some`
+        let (header, _remainder) =
+            unsafe { Unaligned::<ContractFileHeader>::from_bytes(file_bytes).unwrap_unchecked() };
+        let header = header.as_inner();
 
         Self {
             read_only_section_file_size: header.read_only_section_file_size,
@@ -631,8 +632,10 @@ impl<'a> ContractFile<'a> {
     #[inline(always)]
     pub fn header(&self) -> ContractFileHeader {
         // SAFETY: `Unaligned` has alignment 1, and `self.bytes` start with a header (internal
-        // invariant checked in the constructor)
-        unsafe { Unaligned::<ContractFileHeader>::from_bytes_unchecked(self.bytes) }.as_inner()
+        // invariant checked in the constructor), so `from_bytes()` returns `Some`
+        let (header, _remainder) =
+            unsafe { Unaligned::<ContractFileHeader>::from_bytes(self.bytes).unwrap_unchecked() };
+        header.as_inner()
     }
 
     /// Metadata stored in the file
