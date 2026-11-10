@@ -1,4 +1,5 @@
-use crate::pieces::Piece;
+use crate::pieces::{Piece, PieceHeader, Record};
+use crate::segments::SegmentRoot;
 use serde::de::Visitor;
 use serde::de::value::{BytesDeserializer, Error, StrDeserializer};
 use serde::{Deserialize, Deserializer};
@@ -52,4 +53,21 @@ fn piece_deserialize_human_readable_checks_length() {
     let deserializer = StrDeserializer::<Error>::new(&hex);
     let piece = Piece::deserialize(deserializer).unwrap();
     assert_eq!(piece.as_ref().len(), Piece::SIZE);
+}
+
+#[test]
+fn piece_from_parts() {
+    let header = PieceHeader {
+        segment_root: SegmentRoot::from([1; SegmentRoot::SIZE]),
+        ..PieceHeader::default()
+    };
+    let mut record = Record::new_boxed();
+    for (index, chunk) in record.iter_mut().enumerate() {
+        chunk.fill(index as u8);
+    }
+
+    let piece = Piece::from_parts(&header, &record);
+
+    assert_eq!(piece.header, header);
+    assert_eq!(piece.record, *record);
 }

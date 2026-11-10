@@ -1086,6 +1086,8 @@ pub struct InnerPiece {
 const {
     // Must have minimal alignment for various conversions to/from bytes
     assert!(align_of::<InnerPiece>() == 1);
+    // No padding, which `Piece::from_parts()` relies on
+    assert!(size_of::<InnerPiece>() == size_of::<PieceHeader>() + size_of::<Record>());
 }
 
 impl InnerPiece {

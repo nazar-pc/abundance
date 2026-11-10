@@ -1,8 +1,8 @@
 #[cfg(all(test, feature = "serde"))]
 mod tests;
 
-use crate::pieces::InnerPiece;
 use crate::pieces::cow_bytes::CowBytes;
+use crate::pieces::{InnerPiece, PieceHeader, Record};
 use ab_io_type::trivial_type::TrivialType;
 #[cfg(any(feature = "scale-codec", feature = "serde"))]
 use alloc::format;
@@ -233,6 +233,24 @@ impl AsMut<[u8]> for Piece {
 impl Piece {
     /// Size of a piece (in bytes)
     pub const SIZE: usize = InnerPiece::SIZE;
+
+    /// Create a piece from its header and record.
+    ///
+    /// Contents are written into a new allocation directly, without zeroing it first or going
+    /// through the stack.
+    pub fn from_parts(header: &PieceHeader, record: &Record) -> Self {
+        let mut bytes = BytesMut::with_capacity(Self::SIZE);
+        let inner_piece = bytes.spare_capacity_mut().as_mut_ptr().cast::<InnerPiece>();
+        // SAFETY: Capacity is sufficient for `InnerPiece`, whose alignment is `1`. Both fields are
+        // written, which initializes the whole `InnerPiece` since it has no padding.
+        unsafe {
+            (&raw mut (*inner_piece).header).write(*header);
+            (&raw mut (*inner_piece).record).copy_from_nonoverlapping(record, 1);
+            bytes.set_len(Self::SIZE);
+        }
+
+        Self(CowBytes::Shared(bytes.freeze()))
+    }
 
     /// Ensure piece contains cheaply cloneable shared data.
     ///
