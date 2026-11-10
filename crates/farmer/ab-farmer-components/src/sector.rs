@@ -14,6 +14,7 @@ use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_io_type::trivial_type::TrivialType;
 use parity_scale_codec::{Decode, Encode};
 use rayon::prelude::*;
+use std::mem::MaybeUninit;
 use std::ops::{Deref, DerefMut};
 use thiserror::Error;
 use tracing::debug;
@@ -291,8 +292,13 @@ impl SectorContentsMap {
         size_of::<FoundProofs>() * pieces_in_sector as usize + Blake3Hash::SIZE
     }
 
-    /// Encode internal contents into `output`
-    pub fn encode_into(&self, output: &mut [u8]) -> Result<(), SectorContentsMapEncodeIntoError> {
+    /// Encode internal contents into `output`, which doesn't need to be initialized.
+    ///
+    /// Returns `output` that is now fully initialized.
+    pub fn encode_into<'a>(
+        &self,
+        output: &'a mut [MaybeUninit<u8>],
+    ) -> Result<&'a mut [u8], SectorContentsMapEncodeIntoError> {
         if output.len() != Self::encoded_size(self.record_chunks_used.len() as u16) {
             return Err(SectorContentsMapEncodeIntoError::InvalidBytesLength {
                 expected: Self::encoded_size(self.record_chunks_used.len() as u16),
@@ -302,10 +308,12 @@ impl SectorContentsMap {
 
         let slice = self.record_chunks_used.as_flattened();
         // Write data and checksum
-        output[..slice.len()].copy_from_slice(slice);
-        output[slice.len()..].copy_from_slice(blake3::hash(slice).as_bytes());
+        let (data_output, checksum_output) = output.split_at_mut(slice.len());
+        data_output.write_copy_of_slice(slice);
+        checksum_output.write_copy_of_slice(blake3::hash(slice).as_bytes());
 
-        Ok(())
+        // SAFETY: Data and checksum together cover the whole `output`, both were initialized above
+        Ok(unsafe { output.assume_init_mut() })
     }
 
     /// Iterate over individual record chunks (s-buckets) that were used
