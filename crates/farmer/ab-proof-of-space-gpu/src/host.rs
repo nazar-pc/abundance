@@ -236,7 +236,9 @@ impl Device {
 
 pub struct GpuRecordsEncoder {
     id: u32,
-    instances: Vec<Mutex<GpuRecordsEncoderInstance>>,
+    /// Encoder instances with a buffer for parity chunks of the record they are encoding, which is
+    /// allocated just once since every record overwrites all parity chunks
+    instances: Vec<Mutex<(GpuRecordsEncoderInstance, Box<Record>)>>,
     thread_pool: ThreadPool,
     adapter_info: AdapterInfo,
     erasure_coding: ErasureCoding,
@@ -278,12 +280,16 @@ impl RecordsEncoder for GpuRecordsEncoder {
                     // Take mutex briefly to make sure encoding is allowed right now
                     self.global_mutex.lock_blocking();
 
-                    let mut parity_record_chunks = Record::new_boxed();
+                    let thread_index = rayon::current_thread_index().unwrap_or_default();
+                    let mut instance = self.instances[thread_index]
+                        .try_lock()
+                        .expect("1:1 mapping between threads and devices; qed");
+                    let (encoder_instance, parity_record_chunks) = &mut *instance;
 
                     // TODO: Do erasure coding on the GPU
                     // Erasure code source record chunks
                     self.erasure_coding
-                        .extend(record, &mut parity_record_chunks)
+                        .extend(record, parity_record_chunks)
                         .expect("Statically guaranteed valid inputs; qed");
 
                     if abort_early.load(Ordering::Relaxed) {
@@ -291,10 +297,6 @@ impl RecordsEncoder for GpuRecordsEncoder {
                     }
                     let seed =
                         sector_id.derive_evaluation_seed(PieceOffset::from(piece_offset as u16));
-                    let thread_index = rayon::current_thread_index().unwrap_or_default();
-                    let mut encoder_instance = self.instances[thread_index]
-                        .try_lock()
-                        .expect("1:1 mapping between threads and devices; qed");
                     let proofs = match encoder_instance.create_proofs(&seed) {
                         Ok(proofs) => proofs,
                         Err(error) => {
@@ -363,7 +365,10 @@ impl GpuRecordsEncoder {
             instances: devices
                 .into_iter()
                 .map(|(device, queue, module)| {
-                    Mutex::new(GpuRecordsEncoderInstance::new(device, queue, module))
+                    Mutex::new((
+                        GpuRecordsEncoderInstance::new(device, queue, module),
+                        Record::new_boxed(),
+                    ))
                 })
                 .collect(),
             thread_pool,

@@ -404,6 +404,9 @@ where
             rayon::scope(|scope| {
                 for table_generator in self.table_generators {
                     scope.spawn(|_scope| {
+                        // Every record overwrites all parity chunks, so it is allocated just once
+                        let mut parity_record_chunks = Record::new_boxed();
+
                         loop {
                             // Take mutex briefly to make sure encoding is allowed right now
                             global_mutex.lock_blocking();
@@ -420,6 +423,7 @@ where
                             record_encoding::<PosTable>(
                                 &pos_seed,
                                 record,
+                                &mut parity_record_chunks,
                                 record_chunks_used,
                                 table_generator,
                                 erasure_coding,
@@ -690,6 +694,7 @@ pub fn write_sector(
 fn record_encoding<PosTable>(
     pos_seed: &PosSeed,
     record: &mut Record,
+    parity_record_chunks: &mut Record,
     record_chunks_used: &mut FoundProofs,
     table_generator: &PosTable::Generator,
     erasure_coding: &ErasureCoding,
@@ -698,11 +703,9 @@ fn record_encoding<PosTable>(
 {
     let pos_proofs = table_generator.create_proofs_parallel(pos_seed);
 
-    let mut parity_record_chunks = Record::new_boxed();
-
     // Erasure code source record chunks
     erasure_coding
-        .extend(record, &mut parity_record_chunks)
+        .extend(record, parity_record_chunks)
         .expect("Statically guaranteed valid inputs; qed");
 
     *record_chunks_used = pos_proofs.found_proofs;
