@@ -134,6 +134,21 @@ fn owned_transaction_from_buffer() {
 }
 
 #[test]
+fn transaction_to_owned_copies_only_transaction_bytes() {
+    let owned_transaction =
+        OwnedTransaction::from_parts(&header(), &slots(1, 100), &slots(2, 200), &[1, 2], &[3; 5])
+            .unwrap();
+    let bytes = owned_transaction.buffer().as_slice();
+    let mut extended = OwnedAlignedBuffer::from_bytes(bytes);
+    assert!(extended.append(&[4; 16]));
+
+    let (transaction, remainder) = Transaction::try_from_bytes(extended.as_slice()).unwrap();
+    assert_eq!(remainder, [4; 16]);
+
+    assert_eq!(transaction.to_owned().unwrap().buffer().as_slice(), bytes);
+}
+
+#[test]
 fn transaction_bytes_must_be_aligned_to_max_alignment() {
     let owned_transaction =
         OwnedTransaction::from_parts(&header(), &slots(1, 100), &[], &[1, 2], &[3; 5]).unwrap();

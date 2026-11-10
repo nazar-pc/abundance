@@ -164,15 +164,17 @@ impl OwnedTransaction {
     }
 
     /// Create owned transaction from a reference
-    #[inline(always)]
+    #[inline]
     pub fn from_transaction(transaction: Transaction<'_>) -> Result<Self, OwnedTransactionError> {
-        Self::from_parts(
-            transaction.header,
-            transaction.read_slots,
-            transaction.write_slots,
-            transaction.payload,
-            transaction.seal,
-        )
+        // Appending to an empty buffer allocates exactly the necessary capacity
+        let mut buffer = OwnedAlignedBuffer::with_capacity(0);
+        if !buffer.append(transaction.bytes) {
+            return Err(OwnedTransactionError::TransactionTooLarge);
+        }
+
+        Ok(Self {
+            buffer: buffer.into_shared(),
+        })
     }
 
     /// Create owned transaction from a buffer.
@@ -204,7 +206,7 @@ impl OwnedTransaction {
     /// Get [`Transaction`] out of owned transaction
     pub fn transaction(&self) -> Transaction<'_> {
         let (transaction, _remainder) = Transaction::try_from_bytes(self.buffer.as_slice())
-            .expect("Constructors either write a valid transaction or check it; qed");
+            .expect("Constructors either write or copy a valid transaction, or check it; qed");
         transaction
     }
 }
