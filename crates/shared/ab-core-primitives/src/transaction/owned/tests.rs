@@ -78,6 +78,70 @@ fn owned_transaction_payload_and_seal() {
     assert_eq!(decoded.seal, seal);
 }
 
+/// A transaction that doesn't fit into a buffer is rejected before anything is allocated or
+/// copied, in particular without trying to allocate a buffer larger than the largest capacity,
+/// which panics where `usize` is 32-bit. Where `usize` is 64-bit, a payload or a seal can be longer
+/// than `u32::MAX` bytes, which makes the transaction too large for a buffer, while writing it into
+/// a buffer reports the part that is too large before anything is written.
+///
+/// Payloads and seals are views of the same zeroed allocation that is never written to, so none of
+/// it is backed by memory, which makes the test cheap enough to run everywhere, including under
+/// Miri. The cases share one allocation instead of each test making its own, which matters where
+/// allocated memory is committed upfront, like on Windows.
+#[test]
+fn owned_transaction_larger_than_max_capacity_is_rejected() {
+    let max_capacity = usize::try_from(OwnedAlignedBuffer::MAX_CAPACITY).unwrap();
+    #[cfg(target_pointer_width = "64")]
+    let allocation_size = usize::try_from(u32::MAX).unwrap() + 1;
+    #[cfg(not(target_pointer_width = "64"))]
+    let allocation_size = max_capacity / 2;
+    let allocation = vec![0u128; allocation_size / size_of::<u128>()];
+
+    {
+        let payload = &allocation[..max_capacity / 2 / size_of::<u128>()];
+        let seal = u128::slice_as_bytes(payload);
+        assert!(
+            size_of::<TransactionHeader>()
+                + size_of::<SerializedTransactionLengths>()
+                + size_of_val(payload)
+                + size_of_val(seal)
+                > max_capacity
+        );
+
+        assert_matches!(
+            OwnedTransaction::from_parts(&header(), &[], &[], payload, seal),
+            Err(OwnedTransactionError::TransactionTooLarge)
+        );
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    {
+        let payload = allocation.as_slice();
+        let seal = u128::slice_as_bytes(payload);
+        assert_eq!(seal.len(), usize::try_from(u32::MAX).unwrap() + 1);
+
+        assert_matches!(
+            OwnedTransaction::from_parts(&header(), &[], &[], payload, &[]),
+            Err(OwnedTransactionError::TransactionTooLarge)
+        );
+        assert_matches!(
+            OwnedTransaction::from_parts(&header(), &[], &[], &[], seal),
+            Err(OwnedTransactionError::TransactionTooLarge)
+        );
+
+        let mut buffer = OwnedAlignedBuffer::with_capacity(0);
+        assert_matches!(
+            OwnedTransaction::from_parts_into(&header(), &[], &[], payload, &[], &mut buffer),
+            Err(OwnedTransactionError::PayloadTooLarge)
+        );
+        assert_matches!(
+            OwnedTransaction::from_parts_into(&header(), &[], &[], &[], seal, &mut buffer),
+            Err(OwnedTransactionError::SealTooLarge)
+        );
+        assert!(buffer.is_empty());
+    }
+}
+
 #[test]
 fn owned_transaction_from_buffer() {
     let header = header();

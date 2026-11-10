@@ -66,13 +66,24 @@ impl OwnedTransaction {
         payload: &[u128],
         seal: &[u8],
     ) -> Result<Self, OwnedTransactionError> {
-        let mut buffer = OwnedAlignedBuffer::with_capacity(
-            (TransactionHeader::SIZE + SerializedTransactionLengths::SIZE)
-                .saturating_add(size_of_val(read_slots) as u32)
-                .saturating_add(size_of_val(write_slots) as u32)
-                .saturating_add(size_of_val(payload) as u32)
-                .saturating_add(size_of_val(seal) as u32),
-        );
+        // The size of the transaction is known upfront, so a transaction that doesn't fit into a
+        // buffer is rejected before anything is allocated or copied
+        #[cfg_attr(
+            target_pointer_width = "64",
+            expect(
+                clippy::absurd_extreme_comparisons,
+                reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+            )
+        )]
+        let size = (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
+            .checked_add(size_of_val(read_slots))
+            .and_then(|size| size.checked_add(size_of_val(write_slots)))
+            .and_then(|size| size.checked_add(size_of_val(payload)))
+            .and_then(|size| size.checked_add(size_of_val(seal)))
+            .and_then(|size| u32::try_from(size).ok())
+            .filter(|&size| size <= OwnedAlignedBuffer::MAX_CAPACITY)
+            .ok_or(OwnedTransactionError::TransactionTooLarge)?;
+        let mut buffer = OwnedAlignedBuffer::with_capacity(size);
 
         Self::from_parts_into(header, read_slots, write_slots, payload, seal, &mut buffer)?;
 
