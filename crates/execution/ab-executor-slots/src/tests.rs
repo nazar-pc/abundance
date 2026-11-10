@@ -1,6 +1,7 @@
 use crate::{NestedSlots, Slot, SlotKey, Slots};
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_core_primitives::address::Address;
+use alloc::vec::Vec;
 
 const CONTRACT: Address = Address::SYSTEM_CODE;
 const NEW_CONTRACT: Address = Address::SYSTEM_SIMPLE_WALLET_BASE;
@@ -435,5 +436,52 @@ fn read_only_slots_are_iterated_as_unmodified() {
             .into_slots()
             .any(|(slot_key, buffer)| slot_key == slot_key_for(OWNERS[0])
                 && buffer.as_slice() == [1])
+    );
+}
+
+#[test]
+fn into_slots_compacts_modified_slots() {
+    const LARGE_CAPACITY: u32 = 1024 * 1024;
+    const SMALL_CAPACITY: u32 = 1024;
+
+    let mut slots = new_slots();
+
+    {
+        let mut nested = slots.new_nested_rw();
+        let (_slot_index, buffer) = nested
+            .use_rw(slot_key_for(OWNERS[0]), LARGE_CAPACITY)
+            .unwrap();
+        buffer.copy_from_slice(&[10]);
+        let (_slot_index, buffer) = nested
+            .use_rw(slot_key_for(OWNERS[1]), SMALL_CAPACITY)
+            .unwrap();
+        buffer.copy_from_slice(&[20]);
+        nested.commit();
+    }
+
+    let modified_capacities = slots
+        .iter_modified()
+        .map(|(slot_key, buffer)| (slot_key.owner, buffer.capacity()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        modified_capacities,
+        [(OWNERS[0], LARGE_CAPACITY), (OWNERS[1], SMALL_CAPACITY)]
+    );
+
+    let slots = slots
+        .into_slots()
+        .map(|(slot_key, buffer)| (slot_key.owner, buffer))
+        .collect::<Vec<_>>();
+    // Contents stay the same, but only the slot with a lot of unused capacity is compacted
+    assert_eq!(
+        slots
+            .iter()
+            .map(|(owner, buffer)| (*owner, buffer.as_slice(), buffer.capacity()))
+            .collect::<Vec<_>>(),
+        [
+            (OWNERS[0], [10].as_slice(), 1),
+            (OWNERS[1], [20].as_slice(), SMALL_CAPACITY),
+            (OWNERS[2], [3].as_slice(), 1),
+        ]
     );
 }

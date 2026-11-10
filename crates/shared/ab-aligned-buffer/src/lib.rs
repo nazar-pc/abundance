@@ -594,4 +594,9 @@ impl SharedAlignedBuffer {
     pub const fn len(&self) -> u32 {
         self.inner.len()
     }
+
+    #[inline(always)]
+    pub const fn capacity(&self) -> u32 {
+        self.inner.capacity()
+    }
 }

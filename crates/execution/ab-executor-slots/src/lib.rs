@@ -24,6 +24,12 @@ use tracing::debug;
 const INLINE_SIZE: usize = 8;
 /// It should be rare that more than 2 contracts are created in the same transaction
 const NEW_CONTRACTS_INLINE: usize = 2;
+/// Modified slots with at least this much unused capacity are copied into buffers of the exact
+/// size when extracted with [`Slots::into_slots()`].
+///
+/// Slot buffers are allocated with the recommended capacity of their type for contracts to write
+/// into, which may be much larger than what was actually written.
+const COMPACTION_THRESHOLD: u32 = 4096;
 
 /// Key of the slot in [`Slots`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -291,7 +297,15 @@ impl Slots {
             SlotState::OriginalReadOnly(_) => {
                 unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
             }
-            SlotState::Modified(buffer) => (slot_key, buffer),
+            SlotState::Modified(buffer) => {
+                if buffer.capacity() - buffer.len() >= COMPACTION_THRESHOLD {
+                    // Modified slots with a lot of unused capacity are copied into buffers of the
+                    // exact size to reduce peak memory usage
+                    (slot_key, SharedAlignedBuffer::from_bytes(buffer.as_slice()))
+                } else {
+                    (slot_key, buffer)
+                }
+            }
             SlotState::ModifiedReadOnly(_) => {
                 unreachable!("Only original and modified slots can exist at the `Slots` level; qed")
             }
