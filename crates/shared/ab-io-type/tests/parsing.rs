@@ -698,6 +698,74 @@ fn any_bit_pattern_byte_writes() {
 }
 
 #[test]
+fn any_bit_pattern_slices() {
+    let aligned = Aligned([1, 0, 2, 0, 3]);
+    let Aligned(bytes) = &aligned;
+    let values = [u16::from_le_bytes([1, 0]), u16::from_le_bytes([2, 0])];
+    assert_eq!(
+        u16::slice_from_bytes(bytes, 2),
+        Some((&values[..], &[3][..]))
+    );
+    assert_eq!(
+        u16::slice_from_bytes(&bytes[..4], 2),
+        Some((&values[..], &[][..]))
+    );
+    assert_eq!(u16::slice_from_bytes(bytes, 0), Some((&[][..], &bytes[..])));
+    assert_eq!(u16::slice_from_bytes(&bytes[..3], 2), None);
+    // The size of the values overflows `usize` and would wrap around to 2 bytes
+    assert_eq!(u16::slice_from_bytes(bytes, usize::MAX / 2 + 2), None);
+
+    // Misaligned bytes are rejected, even for no values
+    let (_first, misaligned) = bytes.split_first().unwrap();
+    assert_eq!(u16::slice_from_bytes(misaligned, 1), None);
+    assert_eq!(u16::slice_from_bytes(misaligned, 0), None);
+
+    // Types with alignment 1 are never misaligned
+    assert_eq!(
+        <[u8; 2]>::slice_from_bytes(misaligned, 2),
+        Some((&[[0, 2], [0, 3]][..], &[][..]))
+    );
+
+    // Any number of zero-sized values with alignment 1 is created from any bytes, which all remain
+    let (values, remainder) = <()>::slice_from_bytes(misaligned, usize::MAX).unwrap();
+    assert_eq!(values.len(), usize::MAX);
+    assert_eq!(remainder, misaligned);
+    // Zero-sized types with a larger alignment are only created from aligned bytes
+    assert_eq!(
+        <[u64; 0]>::slice_from_bytes(bytes, 2),
+        Some((&[[], []][..], &bytes[..]))
+    );
+    assert_eq!(<[u64; 0]>::slice_from_bytes(misaligned, 2), None);
+}
+
+#[test]
+fn any_bit_pattern_exclusive_slices() {
+    let mut aligned = Aligned([0; 5]);
+    let Aligned(bytes) = &mut aligned;
+    let (values, remainder) = u16::slice_from_bytes_mut(bytes, 2).unwrap();
+    values[1] = 0x0102;
+    // Both parts stay usable, interleaved writes don't invalidate each other
+    remainder.fill(7);
+    values[0] = 0x0304;
+    assert_eq!(
+        u16::slice_from_bytes(bytes, 2),
+        Some((&[0x0304, 0x0102][..], &[7][..]))
+    );
+
+    // Short bytes, sizes that overflow `usize` (and would wrap around to 2 bytes) and misaligned
+    // bytes are rejected
+    assert!(u16::slice_from_bytes_mut(&mut bytes[..3], 2).is_none());
+    assert!(u16::slice_from_bytes_mut(bytes, usize::MAX / 2 + 2).is_none());
+    let (_first, misaligned) = bytes.split_first_mut().unwrap();
+    assert!(u16::slice_from_bytes_mut(misaligned, 1).is_none());
+    assert!(u16::slice_from_bytes_mut(misaligned, 0).is_none());
+
+    let (values, remainder) = <()>::slice_from_bytes_mut(misaligned, 3).unwrap();
+    assert_eq!(values.len(), 3);
+    assert_eq!(remainder.len(), 4);
+}
+
+#[test]
 fn slice_as_bytes() {
     let values = [0x0102_u16, 0x0304];
     assert_eq!(

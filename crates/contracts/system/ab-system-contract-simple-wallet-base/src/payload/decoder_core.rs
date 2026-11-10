@@ -25,7 +25,6 @@ use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
 use core::mem::MaybeUninit;
-use core::slice;
 
 /// Contract, fingerprint and context of a decoded method
 #[derive(Debug, Copy, Clone)]
@@ -103,15 +102,11 @@ impl<'payload> PayloadReader<'payload> {
         T: AnyBitPattern,
     {
         self.ensure_alignment(Alignment::of::<T>())?;
-        let bytes = self.read_unaligned_bytes(size_of::<T>())?;
+        let value;
+        (value, self.payload) =
+            T::from_bytes(self.payload).ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
 
-        // SAFETY: `bytes` are aligned for `T`, initialized and have the size of `T` as ensured
-        // above, so they are a valid value of `T`, which accepts every bit pattern
-        // (`AnyBitPattern`), and the shared reference to them doesn't allow writing to the payload,
-        // since `T` has no interior mutability (`TrivialType`)
-        let value_ref = unsafe { bytes.as_ptr().cast::<T>().as_ref().expect("Not null; qed") };
-
-        Ok(value_ref)
+        Ok(value)
     }
 
     /// Read `len` [`AnyBitPattern`] values in place
@@ -125,13 +120,9 @@ impl<'payload> PayloadReader<'payload> {
         T: AnyBitPattern,
     {
         self.ensure_alignment(Alignment::of::<T>())?;
-        let bytes = self.read_unaligned_bytes(usize::from(len) * size_of::<T>())?;
-
-        // SAFETY: `bytes` are aligned for `T`, initialized and have the size of `len` values of
-        // `T` as ensured above, so they are valid values of `T`, which accepts every bit pattern
-        // (`AnyBitPattern`), and the shared reference to them doesn't allow writing to the payload,
-        // since `T` has no interior mutability (`TrivialType`)
-        let values = unsafe { slice::from_raw_parts(bytes.as_ptr().cast::<T>(), usize::from(len)) };
+        let values;
+        (values, self.payload) = T::slice_from_bytes(self.payload, usize::from(len))
+            .ok_or(TransactionPayloadDecoderError::PayloadTooSmall)?;
 
         Ok(values)
     }

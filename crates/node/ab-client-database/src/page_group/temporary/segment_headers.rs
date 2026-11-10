@@ -88,26 +88,22 @@ impl StorageItemTemporarySegmentHeaders {
         let num_segment_headers =
             u32::from_le_bytes(prefix_bytes.try_into().expect("Correct length; qed")) as usize;
 
-        let mut segment_headers = Vec::with_capacity(num_segment_headers);
-
-        for _ in 0..num_segment_headers {
-            let buffer_len = buffer.len();
-            let segment_header_bytes =
-                buffer
-                    .split_off(..size_of::<SegmentHeader>())
-                    .ok_or_else(|| {
-                        StorageItemError::NeedMoreBytes(size_of::<SegmentHeader>() - buffer_len)
-                    })?;
-            // TODO: Would be nice to have slice API in `TrivialType`
-            let segment_header = *SegmentHeader::from_bytes_exact(segment_header_bytes).ok_or(
-                StorageItemError::InvalidDataAlignment {
+        let Some((segment_headers, _remainder)) =
+            SegmentHeader::slice_from_bytes(buffer, num_segment_headers)
+        else {
+            if !buffer.as_ptr().cast::<SegmentHeader>().is_aligned() {
+                return Err(StorageItemError::InvalidDataAlignment {
                     data_type: "SegmentHeader",
-                },
-            )?;
+                });
+            }
+            // Missing bytes of the first segment header that doesn't fit
+            return Err(StorageItemError::NeedMoreBytes(
+                size_of::<SegmentHeader>() - buffer.len() % size_of::<SegmentHeader>(),
+            ));
+        };
 
-            segment_headers.push(segment_header);
-        }
-
-        Ok(Self { segment_headers })
+        Ok(Self {
+            segment_headers: segment_headers.to_vec(),
+        })
     }
 }

@@ -6,7 +6,6 @@ use ab_io_type::fixed_capacity_string::FixedCapacityString;
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 use core::any::type_name;
-use core::slice;
 
 /// Aligns its contents to 16 bytes
 #[repr(C, align(16))]
@@ -113,9 +112,9 @@ fn is_slice_aligned() {
     assert!(Alignment::MAX.is_slice_aligned(&words.0));
     // A misaligned slice of `u128`s only exists where `u128` is aligned to 8 bytes
     if align_of::<u128>() < usize::from(Alignment::MAX.get()) {
-        // SAFETY: `words` has 48 initialized bytes, so the 32 bytes at offset 8 are in bounds and
-        // initialized. They are aligned for `u128`, which is aligned to 8 bytes here.
-        let misaligned = unsafe { slice::from_raw_parts(words.0.as_ptr().byte_add(8), 2) };
+        // The bytes at offset 8 are aligned for `u128`, which is aligned to 8 bytes here
+        let (misaligned, _remainder) =
+            u128::slice_from_bytes(&u128::slice_as_bytes(&words.0)[size_of::<u64>()..], 2).unwrap();
         assert!(!Alignment::MAX.is_slice_aligned(misaligned));
         assert!(u64_alignment.is_slice_aligned(misaligned));
     }

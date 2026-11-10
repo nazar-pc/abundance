@@ -96,21 +96,46 @@ fn read_of_truncated_bytes_needs_more_bytes() {
     }
 }
 
+/// The number of segment headers isn't trusted before the bytes are checked to hold that many, a
+/// corrupted one doesn't allocate memory for them
 #[test]
-fn read_of_misaligned_bytes_fails() {
-    let storage_item = storage_item(1);
-    let total_bytes = storage_item.total_bytes().unwrap() as usize;
-    let (result, pages) = write_to_aligned_pages(1 + total_bytes, |buffer| {
-        storage_item.write(&mut buffer[1..])
+fn read_of_more_segment_headers_than_bytes_needs_more_bytes() {
+    let (result, pages) = write_to_aligned_pages(size_of::<u32>(), |buffer| {
+        buffer.write_copy_of_slice(&u32::MAX.to_le_bytes());
+        Ok(buffer.len())
     });
     result.unwrap();
     let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
 
-    let result = StorageItemTemporarySegmentHeaders::read(&bytes[1..][..total_bytes]);
-    assert_matches!(
-        result,
-        Err(StorageItemError::InvalidDataAlignment {
-            data_type: "SegmentHeader"
-        })
-    );
+    let result = StorageItemTemporarySegmentHeaders::read(&bytes[..size_of::<u32>()]);
+    let Err(StorageItemError::NeedMoreBytes(missing_bytes)) = result else {
+        panic!("Unexpected result: {result:?}");
+    };
+    assert_eq!(missing_bytes, size_of::<SegmentHeader>());
+}
+
+/// Alignment is checked before the length, so misaligned bytes are rejected even when they are
+/// truncated or hold no segment headers
+#[test]
+fn read_of_misaligned_bytes_fails() {
+    for &num_segment_headers in NUM_SEGMENT_HEADERS {
+        let storage_item = storage_item(num_segment_headers);
+        let total_bytes = storage_item.total_bytes().unwrap() as usize;
+        let (result, pages) = write_to_aligned_pages(1 + total_bytes, |buffer| {
+            storage_item.write(&mut buffer[1..])
+        });
+        result.unwrap();
+        let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
+
+        for read_len in size_of::<u32>()..=total_bytes {
+            let result = StorageItemTemporarySegmentHeaders::read(&bytes[1..][..read_len]);
+            assert_matches!(
+                result,
+                Err(StorageItemError::InvalidDataAlignment {
+                    data_type: "SegmentHeader"
+                }),
+                "Unexpected result for read length {read_len}"
+            );
+        }
+    }
 }

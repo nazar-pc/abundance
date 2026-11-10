@@ -89,28 +89,22 @@ impl StorageItemTemporarySuperSegmentHeaders {
         let num_super_segment_headers =
             u32::from_le_bytes(prefix_bytes.try_into().expect("Correct length; qed")) as usize;
 
-        let mut super_segment_headers = Vec::with_capacity(num_super_segment_headers);
-
-        for _ in 0..num_super_segment_headers {
-            let buffer_len = buffer.len();
-            let super_segment_header_bytes = buffer
-                .split_off(..size_of::<SuperSegmentHeader>())
-                .ok_or_else(|| {
-                    StorageItemError::NeedMoreBytes(size_of::<SuperSegmentHeader>() - buffer_len)
-                })?;
-            // TODO: Would be nice to have slice API in `TrivialType`
-            let super_segment_header = *SuperSegmentHeader::from_bytes_exact(
-                super_segment_header_bytes,
-            )
-            .ok_or(StorageItemError::InvalidDataAlignment {
-                data_type: "SuperSegmentHeader",
-            })?;
-
-            super_segment_headers.push(super_segment_header);
-        }
+        let Some((super_segment_headers, _remainder)) =
+            SuperSegmentHeader::slice_from_bytes(buffer, num_super_segment_headers)
+        else {
+            if !buffer.as_ptr().cast::<SuperSegmentHeader>().is_aligned() {
+                return Err(StorageItemError::InvalidDataAlignment {
+                    data_type: "SuperSegmentHeader",
+                });
+            }
+            // Missing bytes of the first super segment header that doesn't fit
+            return Err(StorageItemError::NeedMoreBytes(
+                size_of::<SuperSegmentHeader>() - buffer.len() % size_of::<SuperSegmentHeader>(),
+            ));
+        };
 
         Ok(Self {
-            super_segment_headers,
+            super_segment_headers: super_segment_headers.to_vec(),
         })
     }
 }

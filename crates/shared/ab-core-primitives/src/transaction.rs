@@ -11,7 +11,6 @@ use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::ops::Deref;
-use core::slice;
 use derive_more::{Deref, DerefMut, Display, From, Into};
 
 /// A measure of compute resources, 1 Gas == 1 ns of compute on reference hardware
@@ -153,10 +152,6 @@ impl<'a> Transaction<'a> {
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
-    #[expect(
-        clippy::cast_ptr_alignment,
-        reason = "Alignment of `bytes` is checked and offsets within them are multiples of it"
-    )]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         const {
             // Slots after `SerializedTransactionLengths` and payload after slots must be aligned
@@ -165,8 +160,6 @@ impl<'a> Transaction<'a> {
                     .is_multiple_of(usize::from(Alignment::MAX.get()))
             );
             assert!(size_of::<TransactionSlot>().is_multiple_of(usize::from(Alignment::MAX.get())));
-            assert!(align_of::<TransactionSlot>() <= usize::from(Alignment::MAX.get()));
-            assert!(align_of::<u128>() <= usize::from(Alignment::MAX.get()));
         }
 
         if !Alignment::MAX.is_slice_aligned(bytes) {
@@ -191,54 +184,25 @@ impl<'a> Transaction<'a> {
             return None;
         }
 
-        let read_slots = usize::from(read_slots);
-        let write_slots = usize::from(write_slots);
         // Lossless, the crate only compiles for targets where `usize` is at least 32 bits (see the
         // assertion in the crate root)
         let payload = payload as usize;
         let seal = seal as usize;
 
-        let (read_slots_bytes, remainder) =
-            remainder.split_at_checked(read_slots * size_of::<TransactionSlot>())?;
-        let (write_slots_bytes, remainder) =
-            remainder.split_at_checked(write_slots * size_of::<TransactionSlot>())?;
-        let (payload_bytes, remainder) = remainder.split_at_checked(payload)?;
+        let (read_slots, remainder) =
+            TransactionSlot::slice_from_bytes(remainder, usize::from(read_slots))?;
+        let (write_slots, remainder) =
+            TransactionSlot::slice_from_bytes(remainder, usize::from(write_slots))?;
+        let (payload, remainder) = u128::slice_from_bytes(remainder, payload / size_of::<u128>())?;
         let (seal, remainder) = remainder.split_at_checked(seal)?;
         // `remainder` is the end of `bytes`, so the difference doesn't underflow
         let (bytes, _remainder) = bytes.split_at(bytes.len() - remainder.len());
 
         let transaction = Self {
             header,
-            // SAFETY: Any bytes are valid for `TransactionSlot`, there are enough of them as
-            // checked above, and they are correctly aligned since `bytes` are aligned to
-            // `Alignment::MAX` and everything before them is a multiple of it (see the assertions
-            // above)
-            read_slots: unsafe {
-                slice::from_raw_parts(
-                    read_slots_bytes.as_ptr().cast::<TransactionSlot>(),
-                    read_slots,
-                )
-            },
-            // SAFETY: Any bytes are valid for `TransactionSlot`, there are enough of them as
-            // checked above, and they are correctly aligned since `bytes` are aligned to
-            // `Alignment::MAX` and everything before them is a multiple of it (see the assertions
-            // above)
-            write_slots: unsafe {
-                slice::from_raw_parts(
-                    write_slots_bytes.as_ptr().cast::<TransactionSlot>(),
-                    write_slots,
-                )
-            },
-            // SAFETY: Any bytes are valid for `u128`, there are enough of them as checked above
-            // (the length is a multiple of `u128` size), and they are correctly aligned since
-            // `bytes` are aligned to `Alignment::MAX` and everything before them is a multiple of
-            // it (see the assertions above)
-            payload: unsafe {
-                slice::from_raw_parts(
-                    payload_bytes.as_ptr().cast::<u128>(),
-                    payload / size_of::<u128>(),
-                )
-            },
+            read_slots,
+            write_slots,
+            payload,
             seal,
             bytes,
             #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]

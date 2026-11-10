@@ -30,7 +30,7 @@ use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
 use core::iter::{Step, TrustedLen};
 use core::num::NonZeroU8;
-use core::{cmp, fmt, iter, slice};
+use core::{cmp, fmt, iter};
 use derive_more::From;
 use yoke::Yokeable;
 
@@ -305,17 +305,9 @@ impl<'a> IntermediateShardBlockInfo<'a> {
                     .as_inner();
 
             let own_segment_roots;
-            // SAFETY: Checked in constructor
             (own_segment_roots, remainder) =
-                unsafe { remainder.split_at_unchecked(num_own_segment_roots * SegmentRoot::SIZE) };
-            // SAFETY: Valid pointer and size, no alignment requirements
-            let own_segment_roots = unsafe {
-                slice::from_raw_parts(
-                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
-                    num_own_segment_roots,
-                )
-            };
-            let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
+                SegmentRoot::slice_from_bytes(remainder, num_own_segment_roots)
+                    .expect("Already checked in constructor; qed");
 
             (
                 position,
@@ -416,8 +408,7 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                     first_local_segment_index.as_inner(),
                     num_own_segment_roots,
                 )?;
-                let _own_segment_roots =
-                    remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
+                (_, remainder) = SegmentRoot::slice_from_bytes(remainder, num_own_segment_roots)?;
             }
 
             let leaf_shard_segment_roots_counts =
@@ -443,8 +434,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                     first_local_segment_index.as_inner(),
                     usize::from(num_own_segment_roots.get()),
                 )?;
-                let _own_segment_roots = remainder
-                    .split_off(..usize::from(num_own_segment_roots.get()) * SegmentRoot::SIZE)?;
+                (_, remainder) = SegmentRoot::slice_from_bytes(
+                    remainder,
+                    usize::from(num_own_segment_roots.get()),
+                )?;
             }
 
             remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
@@ -612,18 +605,9 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                         .as_inner();
 
                 let own_segment_roots;
-                // SAFETY: Checked in constructor
-                (own_segment_roots, remainder) = unsafe {
-                    remainder.split_at_unchecked(num_own_segment_roots * SegmentRoot::SIZE)
-                };
-                // SAFETY: Valid pointer and size, no alignment requirements
-                let own_segment_roots = unsafe {
-                    slice::from_raw_parts(
-                        own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
-                        num_own_segment_roots,
-                    )
-                };
-                let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
+                (own_segment_roots, remainder) =
+                    SegmentRoot::slice_from_bytes(remainder, num_own_segment_roots)
+                        .expect("Already checked in constructor; qed");
 
                 Some(OwnSegments::new_unchecked(
                     first_local_segment_index,
@@ -798,15 +782,9 @@ impl<'a> BeaconChainBody<'a> {
             let first_local_segment_index;
             (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
 
-            let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
-            // SAFETY: Valid pointer and size, no alignment requirements
-            let own_segment_roots = unsafe {
-                slice::from_raw_parts(
-                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
-                    num_own_segment_roots,
-                )
-            };
-            let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
+            let own_segment_roots;
+            (own_segment_roots, bytes) =
+                SegmentRoot::slice_from_bytes(bytes, num_own_segment_roots)?;
 
             Some(OwnSegments::new(
                 first_local_segment_index.as_inner(),
@@ -816,21 +794,11 @@ impl<'a> BeaconChainBody<'a> {
             None
         };
 
-        let (intermediate_shard_blocks, mut remainder) =
+        let (intermediate_shard_blocks, remainder) =
             IntermediateShardBlocksInfo::try_from_bytes(bytes)?;
 
-        let pot_checkpoints =
-            remainder.split_off(..num_pot_checkpoints.checked_mul(PotCheckpoints::SIZE)?)?;
-        // SAFETY: Valid pointer and size, no alignment requirements
-        let pot_checkpoints = unsafe {
-            slice::from_raw_parts(
-                pot_checkpoints
-                    .as_ptr()
-                    .cast::<[u8; PotCheckpoints::SIZE]>(),
-                num_pot_checkpoints,
-            )
-        };
-        let pot_checkpoints = PotCheckpoints::slice_from_repr(pot_checkpoints);
+        let (pot_checkpoints, remainder) =
+            PotCheckpoints::slice_from_bytes(remainder, num_pot_checkpoints)?;
 
         let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
         // An owned body can't hold more than `u32::MAX` bytes, which PoT checkpoints alone can
@@ -985,8 +953,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
                     *first_local_segment_index,
                     num_own_segment_roots,
                 )?;
-                let _own_segment_roots =
-                    remainder.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
+                (_, remainder) = SegmentRoot::slice_from_bytes(remainder, num_own_segment_roots)?;
             }
         }
 
@@ -1119,18 +1086,9 @@ impl<'a> LeafShardBlocksInfo<'a> {
                         .expect("Already checked in constructor; qed");
 
                 let own_segment_roots;
-                // SAFETY: Checked in constructor
-                (own_segment_roots, remainder) = unsafe {
-                    remainder.split_at_unchecked(num_own_segment_roots * SegmentRoot::SIZE)
-                };
-                // SAFETY: Valid pointer and size, no alignment requirements
-                let own_segment_roots = unsafe {
-                    slice::from_raw_parts(
-                        own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
-                        num_own_segment_roots,
-                    )
-                };
-                let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
+                (own_segment_roots, remainder) =
+                    SegmentRoot::slice_from_bytes(remainder, num_own_segment_roots)
+                        .expect("Already checked in constructor; qed");
 
                 Some(OwnSegments::new_unchecked(
                     first_local_segment_index,
@@ -1261,15 +1219,9 @@ impl<'a> IntermediateShardBody<'a> {
             let first_local_segment_index;
             (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
 
-            let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
-            // SAFETY: Valid pointer and size, no alignment requirements
-            let own_segment_roots = unsafe {
-                slice::from_raw_parts(
-                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
-                    num_own_segment_roots,
-                )
-            };
-            let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
+            let own_segment_roots;
+            (own_segment_roots, bytes) =
+                SegmentRoot::slice_from_bytes(bytes, num_own_segment_roots)?;
 
             Some(OwnSegments::new(
                 first_local_segment_index.as_inner(),
@@ -1493,15 +1445,9 @@ impl<'a> LeafShardBody<'a> {
             let first_local_segment_index;
             (first_local_segment_index, bytes) = Unaligned::<LocalSegmentIndex>::from_bytes(bytes)?;
 
-            let own_segment_roots = bytes.split_off(..num_own_segment_roots * SegmentRoot::SIZE)?;
-            // SAFETY: Valid pointer and size, no alignment requirements
-            let own_segment_roots = unsafe {
-                slice::from_raw_parts(
-                    own_segment_roots.as_ptr().cast::<[u8; SegmentRoot::SIZE]>(),
-                    num_own_segment_roots,
-                )
-            };
-            let own_segment_roots = SegmentRoot::slice_from_repr(own_segment_roots);
+            let own_segment_roots;
+            (own_segment_roots, bytes) =
+                SegmentRoot::slice_from_bytes(bytes, num_own_segment_roots)?;
 
             Some(OwnSegments::new(
                 first_local_segment_index.as_inner(),
