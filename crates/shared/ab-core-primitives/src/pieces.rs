@@ -30,10 +30,6 @@ use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::hash::Hash;
 use core::iter::Step;
-#[cfg(feature = "alloc")]
-use core::mem::MaybeUninit;
-#[cfg(feature = "alloc")]
-use core::slice;
 use core::{fmt, mem};
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul,
@@ -488,30 +484,8 @@ impl Record {
     pub fn new_zero_vec(length: usize) -> Vec<Self> {
         // TODO: Should have been just `vec![Self::default(); length]`, but
         //  https://github.com/rust-lang/rust/issues/53827
-        let mut records = Vec::with_capacity(length);
-        {
-            let slice = records.spare_capacity_mut();
-            // SAFETY: Same memory layout due to `#[repr(C)]` on `Record` and
-            // `MaybeUninit<[[T; M]; N]>` is guaranteed to have the same layout as
-            // `[[MaybeUninit<T>; M]; N]`
-            let slice = unsafe {
-                slice::from_raw_parts_mut(
-                    slice
-                        .as_mut_ptr()
-                        .cast::<[[MaybeUninit<u8>; RecordChunk::SIZE]; Record::NUM_CHUNKS]>(),
-                    length,
-                )
-            };
-            for byte in slice.as_flattened_mut().as_flattened_mut() {
-                byte.write(0);
-            }
-        }
-        // SAFETY: All values are initialized above.
-        unsafe {
-            records.set_len(records.capacity());
-        }
-
-        records
+        // SAFETY: Data structure filled with zeroes is a valid invariant
+        unsafe { Box::<[Self]>::new_zeroed_slice(length).assume_init() }.into_vec()
     }
 
     /// Convenient conversion from slice of record to underlying representation for efficiency
