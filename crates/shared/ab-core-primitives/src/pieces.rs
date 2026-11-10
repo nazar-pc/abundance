@@ -6,11 +6,14 @@ mod cow_bytes;
 mod flat_pieces;
 #[cfg(feature = "alloc")]
 mod piece;
+#[cfg(all(test, feature = "alloc"))]
+mod tests;
 
 #[cfg(feature = "alloc")]
 pub use crate::pieces::flat_pieces::FlatPieces;
 #[cfg(feature = "alloc")]
 pub use crate::pieces::piece::Piece;
+use crate::sectors::SBucket;
 use crate::segments::{
     LocalSegmentIndex, RecordedHistorySegment, SegmentIndex, SegmentPosition, SegmentRoot,
     SuperSegmentIndex, SuperSegmentRoot,
@@ -30,6 +33,7 @@ use blake3::OUT_LEN;
 use core::array::TryFromSliceError;
 use core::hash::Hash;
 use core::iter::Step;
+use core::ops::{Index, IndexMut};
 use core::{fmt, mem};
 use derive_more::{
     Add, AddAssign, AsMut, AsRef, Deref, DerefMut, Display, Div, DivAssign, From, Into, Mul,
@@ -383,6 +387,44 @@ impl RecordChunk {
     pub fn slice_mut_from_repr(value: &mut [[u8; Self::SIZE]]) -> &mut [Self] {
         Self::wrap_slice_mut(value)
     }
+
+    /// Convenient conversion from an array to underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn array_to_repr<const N: usize>(value: &[Self; N]) -> &[[u8; Self::SIZE]; N] {
+        // SAFETY: `RecordChunk` is `#[repr(C)]` with a single field, so it has the same memory
+        // layout as its inner value, and arrays of them have the same memory layout too
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from an array of underlying representation for efficiency purposes
+    #[inline(always)]
+    pub const fn array_from_repr<const N: usize>(value: &[[u8; Self::SIZE]; N]) -> &[Self; N] {
+        // SAFETY: `RecordChunk` is `#[repr(C)]` with a single field, so it has the same memory
+        // layout as its inner value, and arrays of them have the same memory layout too
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from a mutable array to underlying representation for efficiency
+    /// purposes
+    #[inline(always)]
+    pub const fn array_mut_to_repr<const N: usize>(
+        value: &mut [Self; N],
+    ) -> &mut [[u8; Self::SIZE]; N] {
+        // SAFETY: `RecordChunk` is `#[repr(C)]` with a single field, so it has the same memory
+        // layout as its inner value, and arrays of them have the same memory layout too
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from a mutable array of underlying representation for efficiency
+    /// purposes
+    #[inline(always)]
+    pub const fn array_mut_from_repr<const N: usize>(
+        value: &mut [[u8; Self::SIZE]; N],
+    ) -> &mut [Self; N] {
+        // SAFETY: `RecordChunk` is `#[repr(C)]` with a single field, so it has the same memory
+        // layout as its inner value, and arrays of them have the same memory layout too
+        unsafe { mem::transmute(value) }
+    }
 }
 
 /// Record contained within a piece.
@@ -520,10 +562,136 @@ impl Record {
         Self::wrap_slice_mut(value)
     }
 
+    /// Convenient conversion from an array of records to underlying representation for efficiency
+    /// purposes.
+    #[inline(always)]
+    pub const fn array_to_repr<const N: usize>(
+        value: &[Self; N],
+    ) -> &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]; N] {
+        // SAFETY: `Record` is `#[repr(C)]` with a single field, so it has the same memory layout as
+        // its inner value, and arrays of them have the same memory layout too
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from an array of underlying representation to records for efficiency
+    /// purposes.
+    #[inline(always)]
+    pub const fn array_from_repr<const N: usize>(
+        value: &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]; N],
+    ) -> &[Self; N] {
+        // SAFETY: `Record` is `#[repr(C)]` with a single field, so it has the same memory layout as
+        // its inner value, and arrays of them have the same memory layout too
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from a mutable array of records to underlying representation for
+    /// efficiency purposes.
+    #[inline(always)]
+    pub const fn array_mut_to_repr<const N: usize>(
+        value: &mut [Self; N],
+    ) -> &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]; N] {
+        // SAFETY: `Record` is `#[repr(C)]` with a single field, so it has the same memory layout as
+        // its inner value, and arrays of them have the same memory layout too
+        unsafe { mem::transmute(value) }
+    }
+
+    /// Convenient conversion from a mutable array of underlying representation to records for
+    /// efficiency purposes.
+    #[inline(always)]
+    pub const fn array_mut_from_repr<const N: usize>(
+        value: &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]; N],
+    ) -> &mut [Self; N] {
+        // SAFETY: `Record` is `#[repr(C)]` with a single field, so it has the same memory layout as
+        // its inner value, and arrays of them have the same memory layout too
+        unsafe { mem::transmute(value) }
+    }
+
     /// Derive source chunks root on-demand
     #[inline(always)]
     pub fn source_chunks_root(&self) -> RecordChunksRoot {
         RecordChunksRoot(BalancedMerkleTree::compute_root_only(self))
+    }
+}
+
+/// Source record together with parity chunks produced from it by erasure coding, which together
+/// are all s-buckets of a record.
+///
+/// NOTE: This is a stack-allocated data structure and can cause stack overflow!
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
+pub struct ExtendedRecord {
+    /// Source chunks
+    pub source: Record,
+    /// Parity chunks
+    pub parity: Record,
+}
+
+const {
+    // Conversions to and from `[Record; 2]` rely on this
+    assert!(size_of::<ExtendedRecord>() == size_of::<[Record; 2]>());
+    assert!(align_of::<ExtendedRecord>() == align_of::<[Record; 2]>());
+    // The last s-bucket is the last chunk of an extended record, which indexing relies on
+    assert!(usize::from(u16::from(SBucket::MAX)) == Record::NUM_S_BUCKETS - 1);
+}
+
+impl Index<SBucket> for ExtendedRecord {
+    type Output = RecordChunk;
+
+    #[inline(always)]
+    fn index(&self, index: SBucket) -> &Self::Output {
+        self.as_s_buckets()
+            .get(usize::from(index))
+            .expect("S-bucket is at most `SBucket::MAX`, which is within range, checked above; qed")
+    }
+}
+
+impl IndexMut<SBucket> for ExtendedRecord {
+    #[inline(always)]
+    fn index_mut(&mut self, index: SBucket) -> &mut Self::Output {
+        self.as_s_buckets_mut()
+            .get_mut(usize::from(index))
+            .expect("S-bucket is at most `SBucket::MAX`, which is within range, checked above; qed")
+    }
+}
+
+impl ExtendedRecord {
+    /// Create boxed value without hitting stack overflow
+    #[inline]
+    #[cfg(feature = "alloc")]
+    pub fn new_boxed() -> Box<Self> {
+        // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
+        // SAFETY: Data structure filled with zeroes is a valid invariant
+        unsafe { Box::new_zeroed().assume_init() }
+    }
+
+    /// Source and parity records as an array
+    #[inline(always)]
+    pub const fn as_records(&self) -> &[Record; 2] {
+        // SAFETY: `#[repr(C)]` struct with two fields of the same type, which has the same size and
+        // alignment as an array of two elements of that type (checked above), hence no padding
+        unsafe { mem::transmute(self) }
+    }
+
+    /// Source and parity records as a mutable array
+    #[inline(always)]
+    pub const fn as_records_mut(&mut self) -> &mut [Record; 2] {
+        // SAFETY: `#[repr(C)]` struct with two fields of the same type, which has the same size and
+        // alignment as an array of two elements of that type (checked above), hence no padding
+        unsafe { mem::transmute(self) }
+    }
+
+    /// Chunks of all s-buckets, source chunks followed by parity chunks
+    #[inline(always)]
+    pub fn as_s_buckets(&self) -> &[RecordChunk; Record::NUM_S_BUCKETS] {
+        RecordChunk::array_from_repr(Record::array_to_repr(self.as_records()).flatten_ref())
+    }
+
+    /// Mutable chunks of all s-buckets, source chunks followed by parity chunks
+    #[inline(always)]
+    pub fn as_s_buckets_mut(&mut self) -> &mut [RecordChunk; Record::NUM_S_BUCKETS] {
+        RecordChunk::array_mut_from_repr(
+            Record::array_mut_to_repr(self.as_records_mut()).flatten_mut(),
+        )
     }
 }
 
