@@ -374,12 +374,7 @@ where
         piece_checksum,
     } = read_record_metadata(piece_offset, pieces_in_sector, sector).await?;
 
-    let mut piece = Piece::default();
-
-    piece.header = piece_header;
-    // Fancy way to insert value to avoid going through stack (if naive dereferencing is used)
-    // and potentially causing stack overflow as the result
-    piece.record.copy_from_slice(&**record);
+    let piece = Piece::from_parts(&piece_header, &record);
 
     // Verify checksum
     let actual_checksum = Blake3Hash::from(blake3::hash(piece.as_ref()));
@@ -395,5 +390,5 @@ where
         return Err(ReadingError::ChecksumMismatch);
     }
 
-    Ok(piece.to_shared())
+    Ok(piece)
 }
