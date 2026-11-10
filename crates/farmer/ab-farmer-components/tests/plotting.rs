@@ -8,10 +8,10 @@ use ab_core_primitives::segments::HistorySize;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::{
-    DownloadSectorOptions, DownloadedSector, EncodeSectorOptions, PlottingError, RecordsEncoder,
-    download_sector, encode_sector, write_sector,
+    DownloadSectorOptions, DownloadedSector, EncodeSectorOptions, EncodedSector, PlottingError,
+    RecordsEncoder, download_sector, encode_sector, write_sector,
 };
-use ab_farmer_components::sector::SectorContentsMap;
+use ab_farmer_components::sector::{SectorContentsMap, sector_size};
 use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
 use futures::executor::block_on;
 use std::assert_matches;
@@ -96,19 +96,27 @@ fn valid_map(pieces_in_sector: u16) -> SectorContentsMap {
     sector_contents_map
 }
 
-fn encode_test_sector(
+fn encode_test_sector_only(
     erasure_coding: &ErasureCoding,
     sector_contents_map: SectorContentsMap,
     abort_early: bool,
-) -> Result<(), PlottingError> {
-    let encoded_sector = encode_sector(
+) -> Result<EncodedSector, PlottingError> {
+    encode_sector(
         download_test_sector(erasure_coding),
         EncodeSectorOptions {
             sector_index: SectorIndex::ZERO,
             records_encoder: &mut MapRecordsEncoder(sector_contents_map),
             abort_early: &AtomicBool::new(abort_early),
         },
-    )?;
+    )
+}
+
+fn encode_test_sector(
+    erasure_coding: &ErasureCoding,
+    sector_contents_map: SectorContentsMap,
+    abort_early: bool,
+) -> Result<(), PlottingError> {
+    let encoded_sector = encode_test_sector_only(erasure_coding, sector_contents_map, abort_early)?;
 
     write_sector(&encoded_sector, &mut Vec::new())
 }
@@ -185,4 +193,31 @@ fn encode_sector_aborts_early_with_incomplete_map() {
         true,
     );
     assert_matches!(result, Err(PlottingError::AbortEarly), "{result:?}");
+}
+
+#[test]
+fn write_sector_writes_whole_output() {
+    let erasure_coding = &ErasureCoding::new();
+    let sector_contents_map = valid_map(PIECES_IN_SECTOR);
+    let encoded_sector =
+        encode_test_sector_only(erasure_coding, sector_contents_map.clone(), false).unwrap();
+
+    let mut sector = Vec::new();
+    write_sector(&encoded_sector, &mut sector).unwrap();
+    assert_eq!(sector.len(), sector_size(PIECES_IN_SECTOR));
+
+    // Output of the correct size is overwritten completely
+    let mut reused_sector = vec![u8::MAX; sector.len()];
+    write_sector(&encoded_sector, &mut reused_sector).unwrap();
+    assert_eq!(reused_sector, sector);
+
+    let (sector_contents, sector_checksum) = sector.split_at(sector.len() - Blake3Hash::SIZE);
+    assert_eq!(sector_checksum, blake3::hash(sector_contents).as_bytes());
+
+    let (sector_contents_map_bytes, _) =
+        sector.split_at(SectorContentsMap::encoded_size(PIECES_IN_SECTOR));
+    assert_eq!(
+        SectorContentsMap::from_bytes(sector_contents_map_bytes, PIECES_IN_SECTOR).unwrap(),
+        sector_contents_map
+    );
 }
