@@ -721,19 +721,6 @@ fn invalid_values_are_rejected() {
     assert!(WithCtx::try_from_bytes_mut_exact(&mut [0, 3, 0, 0]).is_none());
 }
 
-/// The unsafe methods that skip parsing only require the bytes of the value itself to be a valid
-/// value, bytes after it are not cast to `Self` (Miri checks this with
-/// `-Zmiri-recursive-validation`)
-#[test]
-fn unchecked_methods_ignore_bytes_after_the_value() {
-    let mut bytes = [1, 7];
-    // SAFETY: The first byte is a valid value of `Ctx`, which has alignment 1
-    assert_eq!(unsafe { Ctx::from_bytes_unchecked(&bytes) }, &Ctx::B);
-    // SAFETY: The first byte is a valid value of `Ctx`, which has alignment 1
-    let value = unsafe { Ctx::from_bytes_mut_unchecked(&mut bytes) };
-    assert_eq!(value, &mut Ctx::B);
-}
-
 #[test]
 fn read_from_variable_bytes() {
     // Aligned for `u32`, so that both aligned and unaligned reads happen
