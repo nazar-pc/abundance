@@ -23,6 +23,8 @@ env:
   RUST_BACKTRACE: full
   # TODO: Short-term workaround for https://github.com/rust-lang/miri/issues/5234
   __CARGO_TEMPORARY_BUILD_DIR_NEW_LAYOUT_OPT_OUT: 1
+  # Custom target without OS, anchored here so that matrix entries can reference it
+  ABUNDANCE_RISCV64_TARGET: &abundance-riscv64-target crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
 
 jobs:
   cargo-fmt:
@@ -57,21 +59,18 @@ jobs:
     strategy:
       matrix:
         platform:
-          - { name: linux-x86_64, runner: ubuntu-26.04, target: '' }
           - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '' }
+          - { name: linux-x86_64, runner: ubuntu-26.04, target: '' }
           - { name: macos-aarch64, runner: macos-26, target: '' }
           - { name: windows-aarch64, runner: windows-11-arm, target: '' }
           # Cross-compiled on a faster `aarch64` runner
-          - { name: linux-riscv64gc, runner: ubuntu-26.04-arm, target: riscv64gc-unknown-linux-gnu }
           - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu }
+          - { name: linux-riscv64gc, runner: ubuntu-26.04-arm, target: riscv64gc-unknown-linux-gnu }
           - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc }
           # 32-bit target, see `skip_crates` below for the crates that it doesn't check
-          # TODO: Uncomment when https://github.com/rust-lang/miri/issues/5572 is fixed
-          #- { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu }
+          - { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu }
           # Target without OS, see `crate_paths` below for the crates that it checks
-          - name: riscv64-abundance
-            runner: ubuntu-26.04-arm
-            target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
+          - { name: abundance-riscv64, runner: ubuntu-26.04-arm, target: *abundance-riscv64-target }
         type:
           - together
           - individually
@@ -336,31 +335,27 @@ jobs:
         # it interprets the code instead of running it natively, so foreign targets only run under Miri (a target
         # without OS is only built, see below).
         platform: &test-platforms
+          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '', miri: false }
+          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '', miri: true }
           - &linux-x86_64-test
             { name: linux-x86_64, runner: ubuntu-26.04, target: '', miri: false }
           - &linux-x86_64-test-miri
             { name: linux-x86_64, runner: ubuntu-26.04, target: '', miri: true }
-          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '', miri: false }
-          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '', miri: true }
           - { name: macos-aarch64, runner: macos-26, target: '', miri: false }
           - { name: macos-aarch64, runner: macos-26, target: '', miri: true }
           - { name: windows-aarch64, runner: windows-11-arm, target: '', miri: false }
           - { name: windows-aarch64, runner: windows-11-arm, target: '', miri: true }
           - { name: windows-x86_64, runner: windows-2025, target: '', miri: false }
           # Miri runs on a faster `aarch64` runner
-          - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc, miri: true }
           - &linux-riscv64a23-test-miri
             { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu, miri: true }
+          - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc, miri: true }
           # 32-bit target, see `skip_crates` below for the crates that it doesn't test
-          # TODO: Uncomment when https://github.com/rust-lang/miri/issues/5572 is fixed
-          #- &linux-riscv32gc-test-miri
-          #  { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu, miri: true }
+          - &linux-riscv32gc-test-miri
+            { name: linux-riscv32gc, runner: ubuntu-26.04-arm, target: riscv32gc-unknown-linux-gnu, miri: true }
           # Target without OS, crates are only built, see `command` and `crate_paths` below
-          - &riscv64-abundance-test
-            name: riscv64-abundance
-            runner: ubuntu-26.04-arm
-            target: crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
-            miri: false
+          - &abundance-riscv64-test
+            { name: abundance-riscv64, runner: ubuntu-26.04-arm, target: *abundance-riscv64-target, miri: false }
         type:
           # `together` variant is running in a separate job, see `cargo-test-slow`
           # - together
@@ -368,12 +363,11 @@ jobs:
           # Only a few select platforms are explicitly included with `guest-feature` below
           # - guest-feature
         include:
+          - { platform: *abundance-riscv64-test, type: guest-feature }
+          - { platform: *linux-riscv32gc-test-miri, type: guest-feature }
+          - { platform: *linux-riscv64a23-test-miri, type: guest-feature }
           - { platform: *linux-x86_64-test, type: guest-feature }
           - { platform: *linux-x86_64-test-miri, type: guest-feature }
-          - { platform: *linux-riscv64a23-test-miri, type: guest-feature }
-          # TODO: Uncomment when https://github.com/rust-lang/miri/issues/5572 is fixed
-          #- { platform: *linux-riscv32gc-test-miri, type: guest-feature }
-          - { platform: *riscv64-abundance-test, type: guest-feature }
       fail-fast: false
 
     runs-on: ${{ matrix.platform.runner }}
@@ -804,8 +798,8 @@ jobs:
     strategy:
       matrix:
         platform:
-          - { name: linux-x86_64, runner: ubuntu-26.04, target: '' }
           - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '' }
+          - { name: linux-x86_64, runner: ubuntu-26.04, target: '' }
           - { name: macos-aarch64, runner: macos-26, target: '' }
           - { name: windows-aarch64, runner: windows-11-arm, target: '' }
           - { name: windows-x86_64, runner: windows-2025, target: '' }
