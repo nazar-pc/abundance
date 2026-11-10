@@ -5,6 +5,7 @@ New features:
 * `OwnedAlignedBuffer::as_u128_slice()` returns the contents as whole `u128`s
 * `OwnedAlignedBuffer::MAX_CAPACITY` is the largest capacity of a buffer, which is smaller than `u32::MAX` on 32-bit
   targets
+* `SharedAlignedBuffer::capacity()` returns the capacity of the buffer, just like `OwnedAlignedBuffer::capacity()`
 
 Improvements:
 

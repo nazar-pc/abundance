@@ -184,8 +184,10 @@ fn basic() {
         }
 
         // Create a shared instance
+        let owned_capacity = owned.capacity();
         let shared = owned.into_shared();
         assert_eq!(shared.as_slice(), shared.deref(), "Capacity {capacity}");
+        assert_eq!(shared.capacity(), owned_capacity, "Capacity {capacity}");
         let ptr_before = shared.as_ptr();
         // Turn back into owned and confirm that it points to the same memory (meaning no additional
         // allocation)
