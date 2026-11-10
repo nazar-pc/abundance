@@ -1336,6 +1336,13 @@ where
         let header = block.header().header();
 
         let block_number = header.prefix.number;
+        let block_root = *header.root();
+
+        // A known block would be stored again as a separate fork block, pruning of which would
+        // also remove the original block
+        if state.data.block_roots.contains_key(&block_root) {
+            return Err(PersistBlockError::AlreadyKnown);
+        }
 
         if best_number == BlockNumber::ZERO && block_number != BlockNumber::ONE {
             // Special case when syncing on top of the fresh database
@@ -1392,7 +1399,6 @@ where
             }
         }
 
-        let block_root = *header.root();
         // Insert at position 1, which means the most recent tip, which doesn't correspond to
         // the best block
         state.data.fork_tips.insert(
