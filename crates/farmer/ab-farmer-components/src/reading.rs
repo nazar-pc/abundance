@@ -10,8 +10,8 @@ use crate::sector::{
 };
 use crate::{ReadAt, ReadAtAsync, ReadAtSync};
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{Piece, PieceOffset, Record, RecordChunk};
-use ab_core_primitives::sectors::{SBucket, SectorId};
+use ab_core_primitives::pieces::{ExtendedRecord, Piece, PieceOffset, Record, RecordChunk};
+use ab_core_primitives::sectors::SectorId;
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, ShardsPresent};
 use ab_proof_of_space::{PosProofs, Table, TableGenerator};
 use futures::StreamExt;
@@ -97,36 +97,13 @@ impl ReadingError {
 
 /// Record chunks read from a sector.
 ///
-/// Source and parity chunks are separate allocations so that a caller which only needs the source
-/// record can drop the parity one as soon as recovery is done. Contents of chunks that are not
-/// present are unspecified.
+/// Contents of chunks that are not present are unspecified.
 #[derive(Debug)]
 pub struct SectorRecordChunks {
-    /// Source chunks
-    pub source: Box<Record>,
-    /// Parity chunks
-    pub parity: Box<Record>,
+    /// Source and parity chunks
+    pub extended_record: Box<ExtendedRecord>,
     /// Which chunks are present
     pub present: ShardsPresent<{ Record::NUM_CHUNKS }>,
-}
-
-impl SectorRecordChunks {
-    /// Returns the chunk at the given s-bucket
-    #[inline]
-    pub fn get_chunk(&self, s_bucket: SBucket) -> RecordChunk {
-        let s_bucket = usize::from(s_bucket);
-        RecordChunk::from(
-            *if let Some(parity_index) = s_bucket.checked_sub(Record::NUM_CHUNKS) {
-                self.parity
-                    .get(parity_index)
-                    .expect("Within correct range; qed")
-            } else {
-                self.source
-                    .get(s_bucket)
-                    .expect("Within correct range; qed")
-            },
-        )
-    }
 }
 
 /// Read sector record chunks, only plotted s-buckets are marked as present (in decoded form).
@@ -160,13 +137,12 @@ where
         return Err(ReadingError::PosProofsMismatch { piece_offset });
     }
 
-    let mut source = Record::new_boxed();
-    let mut parity = Record::new_boxed();
+    let mut extended_record = ExtendedRecord::new_boxed();
     let mut present = ShardsPresent::none();
 
-    let read_chunks_inputs = source
+    let read_chunks_inputs = extended_record
+        .as_s_buckets_mut()
         .par_iter_mut()
-        .chain(parity.par_iter_mut())
         .zip(sector_contents_map.par_iter_record_chunk_to_plot(piece_offset))
         .zip(s_bucket_offsets.par_iter())
         .enumerate()
@@ -212,7 +188,7 @@ where
                     record_chunk =
                         Simd::to_array(Simd::from(record_chunk) ^ Simd::from(*pos_proof.hash()));
 
-                    *output_chunk = record_chunk;
+                    *output_chunk = RecordChunk::from(record_chunk);
 
                     Ok::<_, ReadingError>(())
                 })?;
@@ -243,7 +219,7 @@ where
                             Simd::from(record_chunk) ^ Simd::from(*pos_proof.hash()),
                         );
 
-                        *output_chunk = record_chunk;
+                        *output_chunk = RecordChunk::from(record_chunk);
 
                         Ok::<_, ReadingError>(())
                     },
@@ -259,33 +235,29 @@ where
     }
 
     Ok(SectorRecordChunks {
-        source,
-        parity,
+        extended_record,
         present,
     })
 }
 
-/// Given sector record chunks recover the source record
-pub fn recover_source_record(
-    sector_record_chunks: SectorRecordChunks,
+/// Given sector record chunks recover the source record in place
+pub fn recover_source_record<'a>(
+    sector_record_chunks: &'a mut SectorRecordChunks,
     piece_offset: PieceOffset,
     erasure_coding: &ErasureCoding,
-) -> Result<Box<Record>, ReadingError> {
+) -> Result<&'a Record, ReadingError> {
     let SectorRecordChunks {
-        mut source,
-        parity,
+        extended_record,
         present,
     } = sector_record_chunks;
+    let ExtendedRecord { source, parity } = &mut **extended_record;
 
     erasure_coding
-        .recover_source(&mut source, &parity, &present)
+        .recover_source(source, parity, present)
         .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
             piece_offset,
             error,
         })?;
-
-    // Parity chunks are no longer needed, dropping them here keeps peak memory usage down
-    drop(parity);
 
     Ok(source)
 }
@@ -357,7 +329,7 @@ where
         SectorContentsMap::from_bytes(&sector_contents_map_bytes, pieces_in_sector)?
     };
 
-    let sector_record_chunks = read_sector_record_chunks(
+    let mut sector_record_chunks = read_sector_record_chunks(
         piece_offset,
         pieces_in_sector,
         &sector_metadata.s_bucket_offsets(),
@@ -367,14 +339,14 @@ where
     )
     .await?;
     // Restore source record scalars
-    let record = recover_source_record(sector_record_chunks, piece_offset, erasure_coding)?;
+    let record = recover_source_record(&mut sector_record_chunks, piece_offset, erasure_coding)?;
 
     let RecordMetadata {
         piece_header,
         piece_checksum,
     } = read_record_metadata(piece_offset, pieces_in_sector, sector).await?;
 
-    let piece = Piece::from_parts(&piece_header, &record);
+    let piece = Piece::from_parts(&piece_header, record);
 
     // Verify checksum
     let actual_checksum = Blake3Hash::from(blake3::hash(piece.as_ref()));

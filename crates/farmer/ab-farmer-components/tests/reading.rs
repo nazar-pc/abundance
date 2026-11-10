@@ -67,7 +67,7 @@ fn reading_accepts_map_that_matches_proofs() {
     });
     for (s_bucket, pos_proof) in s_buckets_with_proofs {
         assert_eq!(
-            sector_record_chunks.get_chunk(s_bucket),
+            sector_record_chunks.extended_record[s_bucket],
             RecordChunk::from(*pos_proof.hash()),
             "{s_bucket}"
         );
