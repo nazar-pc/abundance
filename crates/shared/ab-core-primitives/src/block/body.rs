@@ -1424,7 +1424,7 @@ impl<'a> Transactions<'a> {
     #[inline]
     pub fn root(&self) -> Blake3Hash {
         let root = TransactionsMerkleTree::compute_root_only::<{ u64::from(u32::MAX) }, _, _>(
-            self.iter().map(|transaction| **transaction.hash()),
+            self.iter().map(|transaction| ***transaction.hash()),
         )
         .unwrap_or_default();
 

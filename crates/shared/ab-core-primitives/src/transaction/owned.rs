@@ -4,11 +4,13 @@
 mod tests;
 
 use crate::transaction::{
-    SerializedTransactionLengths, Transaction, TransactionHeader, TransactionSlot,
+    SerializedTransactionLengths, Transaction, TransactionHash, TransactionHeader, TransactionSlot,
 };
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
+use triomphe::Arc;
+use yoke::{Yoke, Yokeable};
 
 /// Errors for [`OwnedTransaction`]
 #[derive(Debug, thiserror::Error)]
@@ -41,13 +43,18 @@ pub enum OwnedTransactionError {
     },
 }
 
+// TODO: Derive `Yokeable` for `Transaction` directly once `syn` can parse `mut` restrictions of its
+//  fields: https://github.com/dtolnay/syn/issues/1987
+#[derive(Debug, Yokeable)]
+struct YokeableTransaction<'a>(Transaction<'a>);
+
 /// An owned version of [`Transaction`].
 ///
 /// It is correctly aligned in memory and well suited for sending and receiving over the network
 /// efficiently or storing in memory or on disk.
 #[derive(Debug, Clone)]
 pub struct OwnedTransaction {
-    buffer: SharedAlignedBuffer,
+    inner: Arc<Yoke<YokeableTransaction<'static>, SharedAlignedBuffer>>,
 }
 
 impl OwnedTransaction {
@@ -69,9 +76,10 @@ impl OwnedTransaction {
 
         Self::from_parts_into(header, read_slots, write_slots, payload, seal, &mut buffer)?;
 
-        Ok(Self {
-            buffer: buffer.into_shared(),
-        })
+        let transaction = Self::from_buffer(buffer.into_shared())
+            .expect("`from_parts_into()` wrote a valid transaction into an empty buffer; qed");
+
+        Ok(transaction)
     }
 
     /// Create owned transaction from its parts and write it into provided buffer.
@@ -172,9 +180,12 @@ impl OwnedTransaction {
             return Err(OwnedTransactionError::TransactionTooLarge);
         }
 
-        Ok(Self {
-            buffer: buffer.into_shared(),
-        })
+        let transaction = Self::from_buffer(buffer.into_shared()).expect(
+            "The same bytes were already parsed with all checks, which only depend on the address \
+            being 16-byte aligned, and owned buffers are 16-byte aligned; qed",
+        );
+
+        Ok(transaction)
     }
 
     /// Create owned transaction from a buffer.
@@ -183,30 +194,45 @@ impl OwnedTransaction {
     /// valid transaction, and [`OwnedTransactionError::UnexpectedNumberOfBytes`] if it is longer
     /// than the transaction it encodes.
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, OwnedTransactionError> {
-        // Alignment is guaranteed by `SharedAlignedBuffer`, so this only fails due to the contents
-        let (transaction, remainder) = Transaction::try_from_bytes(buffer.as_slice())
-            .ok_or(OwnedTransactionError::InvalidTransaction)?;
+        let buffer_len = buffer.len();
+        let inner = Yoke::try_attach_to_cart(buffer, |bytes| {
+            // Alignment is guaranteed by `SharedAlignedBuffer`, so this only fails due to the
+            // contents
+            let (transaction, remainder) = Transaction::try_from_bytes(bytes)
+                .ok_or(OwnedTransactionError::InvalidTransaction)?;
 
-        if !remainder.is_empty() {
-            return Err(OwnedTransactionError::UnexpectedNumberOfBytes {
-                actual: buffer.len(),
-                expected: u32::try_from(transaction.encoded_size())
-                    .expect("Smaller than the buffer, whose length is `u32`; qed"),
-            });
-        }
+            if !remainder.is_empty() {
+                return Err(OwnedTransactionError::UnexpectedNumberOfBytes {
+                    actual: buffer_len,
+                    expected: u32::try_from(transaction.encoded_size())
+                        .expect("Smaller than the buffer, whose length is `u32`; qed"),
+                });
+            }
 
-        Ok(Self { buffer })
+            Ok(YokeableTransaction(transaction))
+        })?;
+
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Inner buffer with owned transaction contents
+    #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
-        &self.buffer
+        self.inner.backing_cart()
     }
 
-    /// Get [`Transaction`] out of owned transaction
-    pub fn transaction(&self) -> Transaction<'_> {
-        let (transaction, _remainder) = Transaction::try_from_bytes(self.buffer.as_slice())
-            .expect("Constructors either write or copy a valid transaction, or check it; qed");
+    /// Transaction hash, the same as [`Transaction::hash()`], computed once and shared by clones
+    #[inline(always)]
+    pub fn hash(&self) -> TransactionHash {
+        *self.transaction().hash()
+    }
+
+    /// Get [`Transaction`] out of [`OwnedTransaction`]
+    #[inline(always)]
+    pub fn transaction(&self) -> &Transaction<'_> {
+        let YokeableTransaction(transaction) = self.inner.get();
         transaction
     }
 }

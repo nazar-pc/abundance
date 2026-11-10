@@ -294,7 +294,7 @@ impl NativeExecutor {
     /// a single call, primarily for testing purposes.
     pub fn transaction_verify(
         &self,
-        transaction: Transaction<'_>,
+        transaction: &Transaction<'_>,
         slots: &Slots,
     ) -> Result<(), ContractError> {
         if transaction.header.version != TransactionHeader::TRANSACTION_VERSION {
@@ -357,7 +357,7 @@ impl NativeExecutor {
     /// a single call, primarily for testing purposes.
     pub fn transaction_execute(
         &self,
-        transaction: Transaction<'_>,
+        transaction: &Transaction<'_>,
         slots: &mut Slots,
     ) -> Result<(), ContractError> {
         if transaction.header.version != TransactionHeader::TRANSACTION_VERSION {
@@ -426,7 +426,7 @@ impl NativeExecutor {
     /// [`Self::transaction_execute()`] compared to calling them separately.
     pub fn transaction_verify_execute(
         &self,
-        transaction: Transaction<'_>,
+        transaction: &Transaction<'_>,
         slots: &mut Slots,
     ) -> Result<(), ContractError> {
         if transaction.header.version != TransactionHeader::TRANSACTION_VERSION {

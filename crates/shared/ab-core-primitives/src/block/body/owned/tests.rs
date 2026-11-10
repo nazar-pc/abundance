@@ -197,7 +197,7 @@ fn owned_leaf_shard_body_multiple_transactions() {
         );
         assert_eq!(body_transaction.payload, transaction.transaction().payload);
         assert_eq!(body_transaction.seal, transaction.transaction().seal);
-        assert_eq!(body_transaction.hash(), transaction.transaction().hash());
+        assert_eq!(*body_transaction.hash(), *transaction.transaction().hash());
     }
 }
 

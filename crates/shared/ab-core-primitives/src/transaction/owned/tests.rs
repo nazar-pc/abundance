@@ -3,10 +3,12 @@ use crate::block::BlockRoot;
 use crate::hashes::Blake3Hash;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use crate::transaction::{
-    Gas, SerializedTransactionLengths, Transaction, TransactionHeader, TransactionSlot,
+    Gas, SerializedTransactionLengths, Transaction, TransactionHash, TransactionHeader,
+    TransactionSlot,
 };
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
+use core::ptr;
 use std::assert_matches;
 
 fn header() -> TransactionHeader {
@@ -175,9 +177,52 @@ fn transaction_hash_is_hash_of_serialized_transaction() {
 
     for owned_transaction in transactions {
         assert_eq!(
-            *owned_transaction.transaction().hash(),
+            **owned_transaction.transaction().hash(),
             Blake3Hash::from(blake3::hash(owned_transaction.buffer().as_slice()))
         );
+    }
+}
+
+#[test]
+fn owned_transaction_constructors_cache_hash() {
+    let read_slots = slots(2, 100);
+    let write_slots = slots(1, 200);
+    let from_parts =
+        OwnedTransaction::from_parts(&header(), &read_slots, &write_slots, &[1, 2], &[3; 5])
+            .unwrap();
+    let bytes = from_parts.buffer().as_slice();
+    let mut extended = OwnedAlignedBuffer::from_bytes(bytes);
+    assert!(extended.append(&[4; 16]));
+    let (transaction, _remainder) = Transaction::try_from_bytes(extended.as_slice()).unwrap();
+    let expected_hash = TransactionHash::from(Blake3Hash::from(blake3::hash(bytes)));
+
+    let owned_transactions = [
+        OwnedTransaction::from_buffer(SharedAlignedBuffer::from_bytes(bytes)).unwrap(),
+        transaction.to_owned().unwrap(),
+        from_parts.clone(),
+    ];
+
+    for owned_transaction in owned_transactions {
+        let transaction = owned_transaction.transaction();
+        assert_eq!(owned_transaction.buffer().as_slice(), bytes);
+        assert_eq!(transaction.read_slots, read_slots);
+        assert_eq!(transaction.write_slots, write_slots);
+        assert_eq!(transaction.payload, [1, 2]);
+        assert_eq!(transaction.seal, [3; 5]);
+
+        assert_eq!(owned_transaction.hash(), expected_hash);
+        assert_eq!(*transaction.hash(), expected_hash);
+
+        // The hash is computed once and shared by clones
+        let clone = owned_transaction.clone();
+        assert!(ptr::eq(
+            &raw const *clone.transaction().hash(),
+            &raw const *transaction.hash()
+        ));
+        assert!(ptr::eq(
+            &raw const *transaction.hash(),
+            &raw const *transaction.hash()
+        ));
     }
 }
 
@@ -217,16 +262,13 @@ fn transaction_hash_commits_to_field_boundaries() {
         assert_ne!(bytes_a, bytes_b);
 
         assert_eq!(
-            *transaction_a.transaction().hash(),
+            **transaction_a.transaction().hash(),
             Blake3Hash::from(blake3::hash(bytes_a))
         );
         assert_eq!(
-            *transaction_b.transaction().hash(),
+            **transaction_b.transaction().hash(),
             Blake3Hash::from(blake3::hash(bytes_b))
         );
-        assert_ne!(
-            transaction_a.transaction().hash(),
-            transaction_b.transaction().hash()
-        );
+        assert_ne!(transaction_a.hash(), transaction_b.hash());
     }
 }
