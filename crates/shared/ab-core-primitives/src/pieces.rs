@@ -21,7 +21,7 @@ use crate::segments::{
 use crate::shard::ShardIndex;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
-use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::trivial_type::{AnyBitPattern, TrivialType};
 use ab_io_type::unaligned::Unaligned;
 use ab_merkle_tree::blake3::BalancedMerkleTree;
 #[cfg(feature = "alloc")]
@@ -1252,10 +1252,18 @@ pub struct InnerPiece {
 }
 
 const {
+    const fn assert_any_bit_pattern<T>()
+    where
+        T: AnyBitPattern,
+    {
+    }
+
     // Must have minimal alignment for various conversions to/from bytes
     assert!(align_of::<InnerPiece>() == 1);
     // No padding, which `Piece::from_parts()` relies on
     assert!(size_of::<InnerPiece>() == size_of::<PieceHeader>() + size_of::<Record>());
+    // Any bit pattern must be a valid value for various conversions from bytes
+    assert_any_bit_pattern::<InnerPiece>();
 }
 
 impl InnerPiece {
@@ -1312,8 +1320,8 @@ impl InnerPiece {
     /// purposes.
     #[inline]
     pub fn slice_to_repr(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
-        // integers and byte arrays only, so it has no padding and any bit pattern is valid
+        // SAFETY: `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both
+        // checked above), it is `TrivialType`, so it has no padding
         unsafe { mem::transmute(value) }
     }
 
@@ -1321,8 +1329,8 @@ impl InnerPiece {
     /// purposes.
     #[inline]
     pub fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
-        // integers and byte arrays only, so it has no padding and any bit pattern is valid
+        // SAFETY: `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both
+        // checked above), it is `TrivialType`, so it has no padding
         unsafe { mem::transmute(value) }
     }
 
@@ -1330,8 +1338,8 @@ impl InnerPiece {
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; Self::SIZE]] {
-        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
-        // integers and byte arrays only, so it has no padding and any bit pattern is valid
+        // SAFETY: `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both
+        // checked above), it is `TrivialType`, so it has no padding
         unsafe { mem::transmute(value) }
     }
 
@@ -1339,8 +1347,8 @@ impl InnerPiece {
     /// efficiency purposes.
     #[inline]
     pub fn slice_mut_from_repr(value: &mut [[u8; Self::SIZE]]) -> &mut [Self] {
-        // SAFETY: `InnerPiece` is `#[repr(C)]` with alignment of 1 (checked above), it consists of
-        // integers and byte arrays only, so it has no padding and any bit pattern is valid
+        // SAFETY: `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both
+        // checked above), it is `TrivialType`, so it has no padding
         unsafe { mem::transmute(value) }
     }
 }

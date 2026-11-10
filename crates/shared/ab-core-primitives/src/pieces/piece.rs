@@ -203,7 +203,9 @@ impl Deref for Piece {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        // SAFETY: Correct size and alignment
+        // SAFETY: Piece bytes are always `InnerPiece::SIZE` long (checked in constructors),
+        // `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both checked
+        // next to its definition)
         unsafe { InnerPiece::from_bytes_unchecked(self.as_ref()) }
     }
 }
@@ -211,7 +213,9 @@ impl Deref for Piece {
 impl DerefMut for Piece {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        // SAFETY: Correct size and alignment
+        // SAFETY: Piece bytes are always `InnerPiece::SIZE` long (checked in constructors),
+        // `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both checked
+        // next to its definition)
         unsafe { InnerPiece::from_bytes_mut_unchecked(self.as_mut()) }
     }
 }
