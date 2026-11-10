@@ -26,7 +26,7 @@ pub enum OwnedTransactionError {
     #[error("The payload is not a multiple of `u128`")]
     PayloadIsNotMultipleOfU128,
     /// Seal too large
-    #[error("The leal too large")]
+    #[error("The seal is too large")]
     SealTooLarge,
     /// Transaction too large
     #[error("The transaction is too large")]
@@ -158,30 +158,10 @@ impl OwnedTransaction {
                 .is_multiple_of(usize::from(Alignment::MAX.get()))
             );
         }
-        if transaction_lengths.payload > 0 {
-            if !transaction_lengths.payload.is_multiple_of(u128::SIZE) {
-                return Err(OwnedTransactionError::PayloadIsNotMultipleOfU128);
-            }
-
-            if !buffer.append(u128::slice_as_bytes(payload)) {
-                return Err(OwnedTransactionError::TransactionTooLarge);
-            }
+        if transaction_lengths.payload > 0 && !buffer.append(u128::slice_as_bytes(payload)) {
+            return Err(OwnedTransactionError::TransactionTooLarge);
         }
 
-        const {
-            // Writing after `OwnedTransactionLengths`, `TransactionHeader` and (optionally)
-            // `TransactionSlot` must be aligned to `Alignment::MAX`
-            assert!(
-                (size_of::<TransactionHeader>() + size_of::<SerializedTransactionLengths>())
-                    .is_multiple_of(usize::from(Alignment::MAX.get()))
-            );
-            assert!(
-                (size_of::<TransactionHeader>()
-                    + size_of::<SerializedTransactionLengths>()
-                    + size_of::<TransactionSlot>())
-                .is_multiple_of(usize::from(Alignment::MAX.get()))
-            );
-        }
         if transaction_lengths.seal > 0 && !buffer.append(seal) {
             return Err(OwnedTransactionError::TransactionTooLarge);
         }

@@ -116,8 +116,8 @@ pub struct Transaction<'a> {
     /// These are the only slots that can be used in authorization code.
     ///
     /// The code slot of the contract that is being executed and balance of native token are
-    /// implicitly included and doesn't need to be specified (see [`Transaction::read_slots()`].
-    /// Also slots that may also be written to do not need to be repeated in the read slots.
+    /// implicitly included and don't need to be specified (see [`Transaction::read_slots()`]).
+    /// Slots that may also be written to do not need to be repeated in the read slots.
     pub mut(self) read_slots: &'a [TransactionSlot],
     /// Slots in the form of [`TransactionSlot`] that may be written during transaction processing
     pub mut(self) write_slots: &'a [TransactionSlot],
