@@ -12,6 +12,10 @@ Improvements:
 * The reference counter of `SharedAlignedBuffer` is pointer-sized, and cloning panics before a 32-bit counter would wrap
   around
 * 32-bit RISC-V and Arm targets are supported
+* `OwnedAlignedBuffer::from_bytes()` allocates once with exactly the necessary capacity instead of reallocating an empty
+  buffer, which also applies to `SharedAlignedBuffer::from_bytes()` and `SharedAlignedBuffer::into_owned()` of a buffer
+  that is still shared
+* Cloning `OwnedAlignedBuffer` allocates as much as its length rather than its capacity
 
 Fixes:
 

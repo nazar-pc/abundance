@@ -318,9 +318,7 @@ unsafe impl StableDeref for OwnedAlignedBuffer {}
 impl Clone for OwnedAlignedBuffer {
     #[inline(always)]
     fn clone(&self) -> Self {
-        let mut new_instance = Self::with_capacity(self.capacity());
-        new_instance.copy_from_slice(self.as_slice());
-        new_instance
+        Self::from_bytes(self.as_slice())
     }
 }
 
@@ -356,7 +354,11 @@ impl OwnedAlignedBuffer {
     /// If `bytes.len()` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
     #[inline(always)]
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        let mut instance = Self::with_capacity(0);
+        let Ok(len) = u32::try_from(bytes.len()) else {
+            panic!("Too many bytes {}", bytes.len());
+        };
+
+        let mut instance = Self::with_capacity(len);
         instance.copy_from_slice(bytes);
         instance
     }

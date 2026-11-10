@@ -13,7 +13,7 @@ use futures::{SinkExt, Stream, StreamExt};
 use libp2p::gossipsub::{Sha256Topic, SubscriptionError};
 use libp2p::kad::{PeerRecord, RecordKey};
 use libp2p::{Multiaddr, PeerId};
-use parity_scale_codec::Decode;
+use parity_scale_codec::decode_from_bytes;
 use std::pin::Pin;
 use std::sync::{Arc, Weak};
 use std::task::{Context, Poll};
@@ -401,7 +401,7 @@ impl Node {
 
         let result = result_receiver.await??;
 
-        Request::Response::decode(&mut result.as_slice()).map_err(Into::into)
+        decode_from_bytes::<Request::Response>(Bytes::from(result)).map_err(Into::into)
     }
 
     /// Sends the generic request to the peer and awaits the result.
