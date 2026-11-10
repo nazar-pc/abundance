@@ -1106,17 +1106,17 @@ impl<'a> LeafShardBlocksInfo<'a> {
             // SAFETY: Checked in constructor
             (transactions_root, remainder) =
                 unsafe { remainder.split_at_unchecked(Blake3Hash::SIZE) };
-            // SAFETY: Correct alignment and size
-            let transactions_root = unsafe { Blake3Hash::from_bytes_unchecked(transactions_root) };
+            let transactions_root = Blake3Hash::from_bytes_exact(transactions_root)
+                .expect("Already checked in constructor; qed");
 
             let own_segments = if num_own_segment_roots > 0 {
                 let first_local_segment_index;
                 // SAFETY: Checked in constructor
                 (first_local_segment_index, remainder) =
                     unsafe { remainder.split_at_unchecked(LocalSegmentIndex::SIZE as usize) };
-                // SAFETY: Correct alignment and size
                 let first_local_segment_index =
-                    *unsafe { LocalSegmentIndex::from_bytes_unchecked(first_local_segment_index) };
+                    *LocalSegmentIndex::from_bytes_exact(first_local_segment_index)
+                        .expect("Already checked in constructor; qed");
 
                 let own_segment_roots;
                 // SAFETY: Checked in constructor
