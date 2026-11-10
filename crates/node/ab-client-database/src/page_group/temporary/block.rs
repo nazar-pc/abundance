@@ -34,23 +34,34 @@ pub(crate) struct StorageItemTemporaryBlock {
 }
 
 impl StorageItemTemporaryBlock {
-    pub(super) fn total_bytes(&self) -> usize {
+    pub(super) fn total_bytes(&self) -> Result<u32, StorageItemError> {
+        let mmr_len = u32::try_from(self.mmr_with_block.as_bytes().len())
+            .map_err(|_error| StorageItemError::StorageItemTooLarge)?;
+
         // Account for alignment
-        let mut total_bytes = Self::prefix_size()
-            + (self.header.len() as usize).next_multiple_of(size_of::<u128>())
-            + self.body.len() as usize
-            + self.mmr_with_block.as_bytes().len();
-        total_bytes = total_bytes.next_multiple_of(size_of::<u64>());
+        let mut total_bytes = self
+            .header
+            .len()
+            .checked_next_multiple_of(u128::SIZE)
+            .and_then(|header_len| header_len.checked_add(Self::prefix_size() as u32))
+            .and_then(|total_bytes| total_bytes.checked_add(self.body.len()))
+            .and_then(|total_bytes| total_bytes.checked_add(mmr_len))
+            .and_then(|total_bytes| total_bytes.checked_next_multiple_of(u64::SIZE))
+            .ok_or(StorageItemError::StorageItemTooLarge)?;
 
         // Padding of system contract states depends on the offset they are written at
         for system_contract_state in self.system_contract_states.as_ref() {
-            total_bytes = total_bytes.next_multiple_of(size_of::<u64>())
-                + size_of::<SystemContractStatePrefix>();
-            total_bytes = total_bytes.next_multiple_of(size_of::<u128>())
-                + system_contract_state.contents.len() as usize;
+            total_bytes = total_bytes
+                .checked_next_multiple_of(u64::SIZE)
+                .and_then(|total_bytes| total_bytes.checked_add(SystemContractStatePrefix::SIZE))
+                .and_then(|total_bytes| total_bytes.checked_next_multiple_of(u128::SIZE))
+                .and_then(|total_bytes| {
+                    total_bytes.checked_add(system_contract_state.contents.len())
+                })
+                .ok_or(StorageItemError::StorageItemTooLarge)?;
         }
 
-        total_bytes
+        Ok(total_bytes)
     }
 
     const fn prefix_size() -> usize {
@@ -83,7 +94,7 @@ impl StorageItemTemporaryBlock {
         //   * contents: slot contents bytes
 
         let buffer_len = buffer.len();
-        let total_bytes = self.total_bytes();
+        let total_bytes = self.total_bytes()? as usize;
 
         if buffer_len < total_bytes {
             return Err(StorageItemError::BufferTooSmall {
@@ -107,11 +118,21 @@ impl StorageItemTemporaryBlock {
             let (body_len, remainder) = remainder.split_at_mut(size_of::<u32>());
             let (mmr_len, num_system_contract_states) = remainder.split_at_mut(size_of::<u32>());
 
-            header_len.write_copy_of_slice(&(header.len() as u32).to_le_bytes());
-            body_len.write_copy_of_slice(&(body.len() as u32).to_le_bytes());
-            mmr_len.write_copy_of_slice(&(mmr_with_block.len() as u32).to_le_bytes());
-            num_system_contract_states
-                .write_copy_of_slice(&(system_contract_states.len() as u32).to_le_bytes());
+            header_len.write_copy_of_slice(&self.header.len().to_le_bytes());
+            body_len.write_copy_of_slice(&self.body.len().to_le_bytes());
+            mmr_len.write_copy_of_slice(
+                &u32::try_from(mmr_with_block.len())
+                    .expect("Checked in `Self::total_bytes()` above; qed")
+                    .to_le_bytes(),
+            );
+            num_system_contract_states.write_copy_of_slice(
+                &u32::try_from(system_contract_states.len())
+                    .expect(
+                        "Each system contract state takes at least the size of its prefix out of \
+                        `Self::total_bytes()`, which is `u32`; qed",
+                    )
+                    .to_le_bytes(),
+            );
 
             written_len += prefix_bytes.len();
         }

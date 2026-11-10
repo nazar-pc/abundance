@@ -274,6 +274,9 @@ pub struct ClientDatabaseFormatOptions {
     ///
     /// The recommended size is 256 MiB unless a tiny database is used for testing purposes, where
     /// a smaller value might work too.
+    ///
+    /// A storage item must fit into a single page group together with the page group header, so
+    /// this also bounds the size of the largest block that can be stored.
     pub page_group_size: NonZeroU32,
     /// By default, formatting will be aborted if the database appears to be already formatted.
     ///

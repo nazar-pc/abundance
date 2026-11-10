@@ -12,8 +12,13 @@ pub(crate) struct StorageItemTemporarySegmentHeaders {
 }
 
 impl StorageItemTemporarySegmentHeaders {
-    pub(super) fn total_bytes(&self) -> usize {
-        Self::prefix_size() + size_of_val(self.segment_headers.as_slice())
+    pub(super) fn total_bytes(&self) -> Result<u32, StorageItemError> {
+        u32::try_from(size_of_val(self.segment_headers.as_slice()))
+            .ok()
+            .and_then(|segment_headers_len| {
+                segment_headers_len.checked_add(Self::prefix_size() as u32)
+            })
+            .ok_or(StorageItemError::StorageItemTooLarge)
     }
 
     const fn prefix_size() -> usize {
@@ -35,7 +40,7 @@ impl StorageItemTemporarySegmentHeaders {
         // * segment headers bytes concatenated
 
         let buffer_len = buffer.len();
-        let total_bytes = self.total_bytes();
+        let total_bytes = self.total_bytes()? as usize;
 
         if buffer_len < total_bytes {
             return Err(StorageItemError::BufferTooSmall {
@@ -50,8 +55,14 @@ impl StorageItemTemporarySegmentHeaders {
                 .split_off_mut(..Self::prefix_size())
                 .expect("Total length checked above; qed");
 
-            num_segment_headers
-                .write_copy_of_slice(&(self.segment_headers.len() as u32).to_le_bytes());
+            num_segment_headers.write_copy_of_slice(
+                &u32::try_from(self.segment_headers.len())
+                    .expect(
+                        "Each segment header takes at least one byte out of \
+                        `Self::total_bytes()`, which is `u32`; qed",
+                    )
+                    .to_le_bytes(),
+            );
         }
 
         // Write content bytes

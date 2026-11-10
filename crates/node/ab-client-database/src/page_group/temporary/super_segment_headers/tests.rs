@@ -24,7 +24,7 @@ fn storage_item(num_super_segment_headers: u64) -> StorageItemTemporarySuperSegm
 fn write_needs_total_bytes() {
     for &num_super_segment_headers in NUM_SUPER_SEGMENT_HEADERS {
         let storage_item = storage_item(num_super_segment_headers);
-        let total_bytes = storage_item.total_bytes();
+        let total_bytes = storage_item.total_bytes().unwrap() as usize;
 
         for buffer_len in [
             total_bytes,
@@ -51,7 +51,7 @@ fn write_needs_total_bytes() {
 fn read_returns_written_super_segment_headers() {
     for &num_super_segment_headers in NUM_SUPER_SEGMENT_HEADERS {
         let storage_item = storage_item(num_super_segment_headers);
-        let total_bytes = storage_item.total_bytes();
+        let total_bytes = storage_item.total_bytes().unwrap() as usize;
         let buffer_len = total_bytes + size_of::<SuperSegmentHeader>() + 1;
         let (result, pages) =
             write_to_aligned_pages(buffer_len, |buffer| storage_item.write(buffer));
@@ -74,7 +74,7 @@ fn read_returns_written_super_segment_headers() {
 fn read_of_truncated_bytes_needs_more_bytes() {
     for &num_super_segment_headers in NUM_SUPER_SEGMENT_HEADERS {
         let storage_item = storage_item(num_super_segment_headers);
-        let total_bytes = storage_item.total_bytes();
+        let total_bytes = storage_item.total_bytes().unwrap() as usize;
         let (result, pages) =
             write_to_aligned_pages(total_bytes, |buffer| storage_item.write(buffer));
         result.unwrap();
@@ -101,7 +101,7 @@ fn read_of_truncated_bytes_needs_more_bytes() {
 #[test]
 fn read_of_misaligned_bytes_fails() {
     let storage_item = storage_item(1);
-    let total_bytes = storage_item.total_bytes();
+    let total_bytes = storage_item.total_bytes().unwrap() as usize;
     let (result, pages) = write_to_aligned_pages(1 + total_bytes, |buffer| {
         storage_item.write(&mut buffer[1..])
     });

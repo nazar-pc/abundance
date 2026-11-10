@@ -9,7 +9,7 @@ pub(crate) enum StorageItemPermanent {
 }
 
 impl StorageItem for StorageItemPermanent {
-    fn total_bytes(&self) -> usize {
+    fn total_bytes(&self) -> Result<u32, StorageItemError> {
         unreachable!()
     }
 
