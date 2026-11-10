@@ -830,7 +830,7 @@ impl<'a> BeaconChainBody<'a> {
                 num_pot_checkpoints,
             )
         };
-        let pot_checkpoints = PotCheckpoints::slice_from_bytes(pot_checkpoints);
+        let pot_checkpoints = PotCheckpoints::slice_from_repr(pot_checkpoints);
 
         let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
         // An owned body can't hold more than `u32::MAX` bytes, which PoT checkpoints alone can
