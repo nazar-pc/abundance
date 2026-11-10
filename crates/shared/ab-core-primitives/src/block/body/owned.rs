@@ -310,7 +310,7 @@ impl OwnedBeaconChainBody {
         let pot_checkpoints_size = num_pot_checkpoints
             .checked_mul(PotCheckpoints::SIZE as u32)
             .ok_or(OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
-        let capacity = (
+        let fixed_size = (
             // Number of PoT checkpoints
             u32::SIZE
                 // Number of own segment roots
@@ -325,14 +325,38 @@ impl OwnedBeaconChainBody {
                 // segments of each block
                 + u32::from(num_blocks) * (u8::SIZE + 2 * u16::SIZE)
         )
-        // Padding to 8-bytes boundary
-        .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
-            // This is only an estimate of intermediate shard blocks to get in the ballpark where
-            // reallocation should not be necessary in many cases
-            + u32::from(num_blocks) * OwnedIntermediateShardHeader::MAX_ALLOCATION * 2;
-        // PoT checkpoints, the estimate above can make the capacity larger than any body can be
-        let mut buffer =
-            OwnedAlignedBuffer::with_capacity(capacity.saturating_add(pot_checkpoints_size));
+            // Padding to 8-bytes boundary
+            .next_multiple_of(u32::from(Alignment::of::<u64>().get()));
+        // Everything except intermediate shard blocks is known upfront, so a body that doesn't fit
+        // into a buffer even without them is rejected before anything is allocated or copied
+        #[cfg_attr(
+            target_pointer_width = "64",
+            expect(
+                clippy::absurd_extreme_comparisons,
+                reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+            )
+        )]
+        let min_size = fixed_size
+            .checked_add(pot_checkpoints_size)
+            .filter(|&size| size <= OwnedAlignedBuffer::MAX_CAPACITY)
+            .ok_or(OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+        // This is only an estimate of intermediate shard blocks to get in the ballpark where
+        // reallocation should not be necessary in many cases
+        let intermediate_shard_blocks_size =
+            u32::from(num_blocks) * OwnedIntermediateShardHeader::MAX_ALLOCATION * 2;
+        // The estimate can make the capacity larger than any body can be
+        #[cfg_attr(
+            target_pointer_width = "64",
+            expect(
+                clippy::unnecessary_min_or_max,
+                reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+            )
+        )]
+        let mut buffer = OwnedAlignedBuffer::with_capacity(
+            min_size
+                .saturating_add(intermediate_shard_blocks_size)
+                .min(OwnedAlignedBuffer::MAX_CAPACITY),
+        );
 
         let true = buffer.append(&num_pot_checkpoints.to_le_bytes()) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");

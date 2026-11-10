@@ -660,20 +660,28 @@ fn bodies_longer_than_u32_max_bytes_are_rejected() {
     }
 }
 
-/// A transaction that is not too large on its own, but makes the body too large, is rejected as
-/// `BlockBodyIsTooLarge` and leaves the body unchanged.
+/// Bodies that would be larger than the largest buffer are rejected:
+/// * a transaction that is not too large on its own, but makes a leaf shard body too large, is
+///   rejected as `BlockBodyIsTooLarge` and leaves the body unchanged
+/// * a beacon chain body whose own segment roots and PoT checkpoints alone don't fit into a buffer
+///   is rejected before anything is allocated or copied, in particular without trying to allocate a
+///   buffer larger than the largest capacity, which panics where `usize` is 32-bit
 ///
-/// Cheap enough to run everywhere, including under Miri: only the beginning of the zeroed
-/// transaction allocation is written, so the rest of it is never backed by memory, and the body
-/// rejects the transaction before growing its buffer.
+/// The transaction and PoT checkpoints are views of the same zeroed allocation, of which only the
+/// beginning is written, so the rest of it is never backed by memory, which makes the test cheap
+/// enough to run everywhere, including under Miri. The cases share one allocation instead of each
+/// test making its own, which matters where allocated memory is committed upfront, like on
+/// Windows, and under Miri on 32-bit targets, where separate allocations run out of addresses,
+/// since Miri doesn't always reuse addresses of freed allocations.
 #[test]
-fn transaction_that_makes_body_too_large_is_rejected() {
+fn bodies_larger_than_max_capacity_are_rejected() {
     use crate::transaction::{SerializedTransactionLengths, Transaction};
     use ab_io_type::trivial_type::TrivialType;
 
+    let max_capacity = usize::try_from(OwnedAlignedBuffer::MAX_CAPACITY).unwrap();
     // A leaf shard body without own segments takes 16 bytes before its first transaction, so it
     // becomes one byte longer than the largest buffer
-    let transaction_len = usize::try_from(OwnedAlignedBuffer::MAX_CAPACITY - 15).unwrap();
+    let transaction_len = max_capacity - 15;
     let lengths = SerializedTransactionLengths {
         read_slots: 0,
         write_slots: 0,
@@ -693,23 +701,49 @@ fn transaction_that_makes_body_too_large_is_rejected() {
     bytes[..size_of::<TransactionHeader>()].copy_from_slice(transaction_header().as_bytes());
     bytes[size_of::<TransactionHeader>()..][..size_of::<SerializedTransactionLengths>()]
         .copy_from_slice(lengths.as_bytes());
-    let (large_transaction, remainder) = Transaction::try_from_bytes(bytes).unwrap();
-    assert!(remainder.is_empty());
+    let bytes = &*bytes;
 
-    let mut builder = OwnedLeafShardBody::init(iter::empty()).unwrap();
-    assert_matches!(
-        builder.add_transaction(large_transaction),
-        Err(OwnedLeafShardBodyError::BlockBodyIsTooLarge)
-    );
+    {
+        let (large_transaction, remainder) = Transaction::try_from_bytes(bytes).unwrap();
+        assert!(remainder.is_empty());
 
-    builder.add_transaction(&transaction()).unwrap();
-    let body = builder.finish();
-    let mut expected = OwnedLeafShardBody::init(iter::empty()).unwrap();
-    expected.add_transaction(&transaction()).unwrap();
-    assert_eq!(
-        body.buffer().as_slice(),
-        expected.finish().buffer().as_slice()
-    );
+        let mut builder = OwnedLeafShardBody::init(iter::empty()).unwrap();
+        assert_matches!(
+            builder.add_transaction(large_transaction),
+            Err(OwnedLeafShardBodyError::BlockBodyIsTooLarge)
+        );
+
+        builder.add_transaction(&transaction()).unwrap();
+        let body = builder.finish();
+        let mut expected = OwnedLeafShardBody::init(iter::empty()).unwrap();
+        expected.add_transaction(&transaction()).unwrap();
+        assert_eq!(
+            body.buffer().as_slice(),
+            expected.finish().buffer().as_slice()
+        );
+    }
+
+    {
+        let (pot_checkpoints, _remainder) = bytes.as_chunks::<{ PotCheckpoints::SIZE }>();
+        let pot_checkpoints = PotCheckpoints::slice_from_bytes(pot_checkpoints);
+        // Numbers of PoT checkpoints, own segment roots and intermediate shard blocks, local
+        // segment index of the first own segment root and padding take 16 bytes
+        let num_own_segment_roots = 4;
+        assert!(
+            16 + num_own_segment_roots * SegmentRoot::SIZE + size_of_val(pot_checkpoints)
+                > max_capacity
+        );
+
+        assert_matches!(
+            OwnedBeaconChainBody::new(
+                (0..u64::try_from(num_own_segment_roots).unwrap())
+                    .map(|index| (LocalSegmentIndex::from(index), SegmentRoot::default())),
+                iter::empty::<IntermediateShardBlockInfo<'_>>(),
+                pot_checkpoints,
+            ),
+            Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge)
+        );
+    }
 }
 
 /// A leaf shard block inside an intermediate shard body
