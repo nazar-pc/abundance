@@ -1,7 +1,7 @@
 error: trait cannot be implemented outside `ab_core_primitives`
-  --> tests/ui/alloc/writable_body_transaction_sealed.rs:11:1
+  --> tests/ui/alloc/writable_body_transaction_sealed.rs:10:1
    |
-11 | impl WritableBodyTransaction for CustomTransaction {
+10 | impl WritableBodyTransaction for CustomTransaction {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: trait restricted here

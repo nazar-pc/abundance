@@ -253,6 +253,13 @@ impl<'a> Transaction<'a> {
         self.bytes.len()
     }
 
+    /// Serialized transaction
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    pub(crate) const fn bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
+
     /// Compute transaction hash.
     ///
     /// Note: this computes transaction hash on every call, so worth caching if it is expected to be

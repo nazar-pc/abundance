@@ -660,6 +660,58 @@ fn bodies_longer_than_u32_max_bytes_are_rejected() {
     }
 }
 
+/// A transaction that is not too large on its own, but makes the body too large, is rejected as
+/// `BlockBodyIsTooLarge` and leaves the body unchanged.
+///
+/// Cheap enough to run everywhere, including under Miri: only the beginning of the zeroed
+/// transaction allocation is written, so the rest of it is never backed by memory, and the body
+/// rejects the transaction before growing its buffer.
+#[test]
+fn transaction_that_makes_body_too_large_is_rejected() {
+    use crate::transaction::{SerializedTransactionLengths, Transaction};
+    use ab_io_type::trivial_type::TrivialType;
+
+    // A leaf shard body without own segments takes 16 bytes before its first transaction, so it
+    // becomes one byte longer than the largest buffer
+    let transaction_len = usize::try_from(OwnedAlignedBuffer::MAX_CAPACITY - 15).unwrap();
+    let lengths = SerializedTransactionLengths {
+        read_slots: 0,
+        write_slots: 0,
+        payload: 0,
+        seal: u32::try_from(
+            transaction_len
+                - size_of::<TransactionHeader>()
+                - size_of::<SerializedTransactionLengths>(),
+        )
+        .unwrap(),
+        padding: [0; _],
+    };
+    // Zeroed allocation is not backed by memory until written to
+    let mut buffer = vec![0u8; transaction_len + 15];
+    let offset = buffer.as_ptr().align_offset(16);
+    let bytes = &mut buffer[offset..][..transaction_len];
+    bytes[..size_of::<TransactionHeader>()].copy_from_slice(transaction_header().as_bytes());
+    bytes[size_of::<TransactionHeader>()..][..size_of::<SerializedTransactionLengths>()]
+        .copy_from_slice(lengths.as_bytes());
+    let (large_transaction, remainder) = Transaction::try_from_bytes(bytes).unwrap();
+    assert!(remainder.is_empty());
+
+    let mut builder = OwnedLeafShardBody::init(iter::empty()).unwrap();
+    assert_matches!(
+        builder.add_transaction(large_transaction),
+        Err(OwnedLeafShardBodyError::BlockBodyIsTooLarge)
+    );
+
+    builder.add_transaction(&transaction()).unwrap();
+    let body = builder.finish();
+    let mut expected = OwnedLeafShardBody::init(iter::empty()).unwrap();
+    expected.add_transaction(&transaction()).unwrap();
+    assert_eq!(
+        body.buffer().as_slice(),
+        expected.finish().buffer().as_slice()
+    );
+}
+
 /// A leaf shard block inside an intermediate shard body
 struct TestLeafShardBlock {
     header: OwnedLeafShardHeader,
