@@ -96,7 +96,7 @@ fn owned_transaction_from_buffer() {
     let truncated = SharedAlignedBuffer::from_bytes(&bytes[..bytes.len() - 16]);
     assert_matches!(
         OwnedTransaction::from_buffer(truncated),
-        Err(OwnedTransactionError::NotEnoughBytes)
+        Err(OwnedTransactionError::InvalidTransaction)
     );
 
     let mut extended = bytes.to_vec();
@@ -118,7 +118,7 @@ fn owned_transaction_from_buffer() {
     lengths.padding = [0, 0, 0, 1];
     assert_matches!(
         OwnedTransaction::from_buffer(invalid_padding.into_shared()),
-        Err(OwnedTransactionError::InvalidPadding)
+        Err(OwnedTransactionError::InvalidTransaction)
     );
 
     let mut invalid_payload = OwnedAlignedBuffer::from_bytes(bytes);
@@ -129,7 +129,7 @@ fn owned_transaction_from_buffer() {
     lengths.payload += 1;
     assert_matches!(
         OwnedTransaction::from_buffer(invalid_payload.into_shared()),
-        Err(OwnedTransactionError::PayloadIsNotMultipleOfU128)
+        Err(OwnedTransactionError::InvalidTransaction)
     );
 }
 

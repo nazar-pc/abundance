@@ -22,21 +22,15 @@ pub enum OwnedTransactionError {
     /// Payload too large
     #[error("The payload is too large")]
     PayloadTooLarge,
-    /// Payload is not a multiple of `u128`
-    #[error("The payload is not a multiple of `u128`")]
-    PayloadIsNotMultipleOfU128,
     /// Seal too large
     #[error("The seal is too large")]
     SealTooLarge,
     /// Transaction too large
     #[error("The transaction is too large")]
     TransactionTooLarge,
-    /// Not enough bytes
-    #[error("Not enough bytes")]
-    NotEnoughBytes,
-    /// Invalid padding
-    #[error("Invalid padding")]
-    InvalidPadding,
+    /// Invalid transaction, see [`Transaction::try_from_bytes()`]
+    #[error("Invalid transaction")]
+    InvalidTransaction,
     /// Expected number of bytes
     #[error("Expected number of bytes: {actual} != {expected}")]
     UnexpectedNumberOfBytes {
@@ -183,39 +177,13 @@ impl OwnedTransaction {
 
     /// Create owned transaction from a buffer.
     ///
-    /// Returns [`OwnedTransactionError::NotEnoughBytes`] if the buffer is shorter than the
-    /// transaction it encodes, and [`OwnedTransactionError::UnexpectedNumberOfBytes`] if it is
-    /// longer.
+    /// Returns [`OwnedTransactionError::InvalidTransaction`] if the buffer doesn't start with a
+    /// valid transaction, and [`OwnedTransactionError::UnexpectedNumberOfBytes`] if it is longer
+    /// than the transaction it encodes.
     pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, OwnedTransactionError> {
-        // Alignment is guaranteed by `SharedAlignedBuffer`, so only too few bytes are rejected
-        let (lengths, _remainder) = buffer
-            .as_slice()
-            .get(size_of::<TransactionHeader>()..)
-            .and_then(SerializedTransactionLengths::from_bytes)
-            .ok_or(OwnedTransactionError::NotEnoughBytes)?;
-        let SerializedTransactionLengths {
-            read_slots: _,
-            write_slots: _,
-            payload,
-            seal: _,
-            padding,
-        } = *lengths;
-
-        // `Transaction::try_from_bytes()` below checks these too, they are checked here first to
-        // return a more specific error
-        if padding != [0; _] {
-            return Err(OwnedTransactionError::InvalidPadding);
-        }
-
-        if !payload.is_multiple_of(u128::SIZE) {
-            return Err(OwnedTransactionError::PayloadIsNotMultipleOfU128);
-        }
-
-        let Some((transaction, remainder)) = Transaction::try_from_bytes(buffer.as_slice()) else {
-            // Alignment is guaranteed by `SharedAlignedBuffer`, padding and payload length are
-            // checked above, so insufficient size is the only remaining reason
-            return Err(OwnedTransactionError::NotEnoughBytes);
-        };
+        // Alignment is guaranteed by `SharedAlignedBuffer`, so this only fails due to the contents
+        let (transaction, remainder) = Transaction::try_from_bytes(buffer.as_slice())
+            .ok_or(OwnedTransactionError::InvalidTransaction)?;
 
         if !remainder.is_empty() {
             return Err(OwnedTransactionError::UnexpectedNumberOfBytes {
