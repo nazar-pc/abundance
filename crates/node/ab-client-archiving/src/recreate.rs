@@ -181,6 +181,8 @@ where
                     .copy_from_slice(super_segment_details.segment_proof.as_slice());
             }
 
+            archived_segment.pieces = archived_segment.pieces.to_shared();
+
             return Ok(Some(archived_segment));
         }
     }
