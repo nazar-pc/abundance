@@ -7,7 +7,9 @@
 //! <https://learn.microsoft.com/en-us/windows/win32/fileio/file-buffering#alignment-and-file-access-requirements>
 //! <https://man7.org/linux/man-pages/man2/open.2.html>
 
-#![feature(core_io_borrowed_buf, maybe_uninit_as_bytes, read_buf_at)]
+#![feature(core_io_borrowed_buf, maybe_uninit_as_bytes)]
+#![cfg_attr(unix, feature(read_buf_at))]
+#![cfg_attr(windows, feature(seek_read_exact_seek_write_all))]
 // TODO: Remove once https://github.com/rust-lang/rust-clippy/issues/17498 is resolved
 #![cfg_attr(
     any(unix, windows),
@@ -388,35 +390,7 @@ impl DirectIoFile {
             windows => {
                 use std::os::windows::fs::FileExt;
 
-                // TODO: Switch to exact read API from
-                //  https://github.com/rust-lang/rust/issues/162868 once it lands in nightly
-                let mut bytes = bytes.unfilled();
-                let mut offset = offset;
-                while bytes.capacity() > 0 {
-                    let written_before = bytes.written();
-                    match self.file.seek_read_buf(bytes.reborrow(), offset) {
-                        Ok(()) => {
-                            let n = bytes.written() - written_before;
-                            if n == 0 {
-                                break;
-                            }
-                            offset += n as u64;
-                        }
-                        Err(e) if e.kind() == io::ErrorKind::Interrupted => {
-                            // Try again
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    }
-                }
-
-                if bytes.capacity() > 0 {
-                    return Err(io::Error::new(
-                        io::ErrorKind::UnexpectedEof,
-                        "failed to fill the whole buffer",
-                    ));
-                }
+                self.file.seek_read_buf_exact(bytes.unfilled(), offset)?;
             }
             _ => {
                 compile_error!("Unsupported platform (consider contributing)");
@@ -448,32 +422,7 @@ impl DirectIoFile {
             windows => {
                 use std::os::windows::fs::FileExt;
 
-                // TODO: Switch to `seek_write_all()` once
-                //  https://github.com/rust-lang/rust/issues/162868 lands in nightly
-                let mut buf = buf;
-                let mut offset = offset;
-                while !buf.is_empty() {
-                    match self.file.seek_write(buf, offset) {
-                        Ok(0) => {
-                            return Err(io::Error::new(
-                                io::ErrorKind::WriteZero,
-                                "failed to write the whole buffer",
-                            ));
-                        }
-                        Ok(n) => {
-                            buf = &buf[n..];
-                            offset += n as u64;
-                        }
-                        Err(e) if e.kind() == io::ErrorKind::Interrupted => {
-                            // Try again
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    }
-                }
-
-                Ok(())
+                self.file.seek_write_all(buf, offset)
             }
             _ => {
                 compile_error!("Unsupported platform (consider contributing)");
