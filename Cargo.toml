@@ -58,12 +58,12 @@ ab-system-contract-code = { version = "0.0.1", path = "crates/contracts/system/a
 ab-system-contract-native-token = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-native-token" }
 ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-simple-wallet-base" }
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
-aes = "0.9.3"
+aes = "0.9.4"
 anyhow = { version = "1.0.104", default-features = false }
 array-reshape = { version = "0.1.1", features = ["const-trait"] }
 arrayvec = { version = "0.7.8", default-features = false }
-async-lock = { version = "3.4.2", default-features = false }
-async-nats = { version = "0.51.0", default-features = false, features = ["ring"] }
+async-lock = { version = "3.5.0", default-features = false }
+async-nats = { version = "0.52.0", default-features = false, features = ["ring"] }
 async-trait = "0.1.92"
 backon = { version = "1.6.0", default-features = false }
 bech32 = { version = "0.12.0", default-features = false }
@@ -106,7 +106,7 @@ nohash-hasher = "0.2.0"
 no-panic = "0.1.37"
 no-panic-const = "0.1.37-const-0"
 num_cpus = "1.17.0"
-object = { version = "0.40.0", default-features = false }
+object = { version = "0.41.0", default-features = false }
 once_cell = { version = "1.21.4", default-features = false }
 ouroboros = "0.18.5"
 parity-scale-codec = { version = "3.7.5", default-features = false }
@@ -129,10 +129,10 @@ serde = { version = "1.0.229", default-features = false }
 serde_json = "1.0.154"
 serde-big-array = "0.5.1"
 sha2 = { version = "0.11.1", default-features = false }
-smallvec = { version = "1.16.4", features = ["union"] }
+smallvec = { version = "1.16.5", features = ["union"] }
 spirv-std-nightly = "0.11.1"
 stable_deref_trait = { version = "1.2.1", default-features = false }
-syn = "3.0.9"
+syn = "3.0.10"
 tempfile = "3.27.0"
 thiserror = { version = "2.0.21", default-features = false }
 tokio = { version = "1.54.1", default-features = false }
@@ -174,6 +174,14 @@ lto = "fat"
 [profile.production]
 inherits = "release"
 lto = "fat"
+
+[workspace.lints.cargo]
+# Enable very conservative/invasive lints by default, see https://billylevin.dev/posts/clippy-config/
+pedantic = "warn"
+restriction = "warn"
+# Allow those that are undesirable
+non_snake_case_features = "allow"
+non_snake_case_packages = "allow"
 
 [workspace.lints.rust]
 rust_2018_idioms = "warn"
