@@ -175,6 +175,14 @@ lto = "fat"
 inherits = "release"
 lto = "fat"
 
+[workspace.lints.cargo]
+# Enable very conservative/invasive lints by default, see https://billylevin.dev/posts/clippy-config/
+pedantic = "warn"
+restriction = "warn"
+# Allow those that are undesirable
+non_snake_case_features = "allow"
+non_snake_case_packages = "allow"
+
 [workspace.lints.rust]
 rust_2018_idioms = "warn"
 missing_debug_implementations = "warn"
