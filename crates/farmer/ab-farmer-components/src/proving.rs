@@ -11,7 +11,7 @@ use crate::sector::{
 use crate::shard_commitment::{ShardCommitmentsRootsCache, derive_solution_shard_commitment};
 use crate::{ReadAt, ReadAtSync};
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{PieceOffset, Record, RecordChunk, RecordRoot};
+use ab_core_primitives::pieces::{ExtendedRecord, PieceOffset, Record, RecordChunk, RecordRoot};
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_core_primitives::shard::NumShards;
@@ -262,38 +262,20 @@ where
                 .expect("Sync reader; qed")
                 .map_err(ProvingError::RecordReadingError)?;
 
-            let chunk = sector_record_chunks.get_chunk(self.s_bucket);
+            let chunk = sector_record_chunks.extended_record[self.s_bucket];
 
+            let ExtendedRecord { source, parity } = &mut *sector_record_chunks.extended_record;
             self.erasure_coding
-                .recover_all(
-                    &mut sector_record_chunks.source,
-                    &mut sector_record_chunks.parity,
-                    &sector_record_chunks.present,
-                )
+                .recover_all(source, parity, &sector_record_chunks.present)
                 .map_err(|error| ReadingError::FailedToErasureDecodeRecord {
                     piece_offset,
                     error,
                 })
                 .map_err(ProvingError::RecordReadingError)?;
 
-            // TODO: Remove this extra allocation
-            // SAFETY: Data structure filled with zeroes is a valid invariant
-            let mut record_chunks = unsafe {
-                Box::<[[u8; RecordChunk::SIZE]; Record::NUM_S_BUCKETS]>::new_zeroed().assume_init()
-            };
-
-            for (target, source) in record_chunks.iter_mut().zip(
-                sector_record_chunks
-                    .source
-                    .iter()
-                    .chain(sector_record_chunks.parity.iter()),
-            ) {
-                *target = *source;
-            }
-
-            let record_merkle_tree =
-                BalancedMerkleTree::<{ Record::NUM_S_BUCKETS }>::new_boxed(&record_chunks);
-            drop(sector_record_chunks);
+            let record_merkle_tree = BalancedMerkleTree::<{ Record::NUM_S_BUCKETS }>::new_boxed(
+                RecordChunk::array_to_repr(sector_record_chunks.extended_record.as_s_buckets()),
+            );
 
             // NOTE: We do not check plot consistency using checksum because it is more
             // expensive and consensus will verify validity of the proof anyway

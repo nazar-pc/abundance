@@ -8,7 +8,7 @@ use ab_farmer_components::sector::SectorMetadataChecksummed;
 use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
 use async_lock::RwLock as AsyncRwLock;
 use async_trait::async_trait;
-use futures::{Stream, stream};
+use futures::{Stream, StreamExt, stream};
 use std::sync::Arc;
 
 /// Getter for single disk plotted sectors
@@ -29,10 +29,14 @@ impl PlottedSectors for SingleDiskPlottedSectors {
         Box<dyn Stream<Item = Result<PlottedSector, FarmError>> + Unpin + Send + '_>,
         FarmError,
     > {
-        let sectors_metadata = self.sectors_metadata.read().await.clone();
-        Ok(Box::new(stream::iter(
-            (SectorIndex::ZERO..).zip(sectors_metadata).map(
-                move |(sector_index, sector_metadata)| {
+        let num_sectors = self.sectors_metadata.read().await.len();
+        // Sector metadata is cloned one at a time as the stream is consumed rather than all of it
+        // upfront, sectors are never removed, so all of them up to `num_sectors` will be found
+        Ok(Box::new(Box::pin(
+            stream::iter((SectorIndex::ZERO..).zip(0..num_sectors)).filter_map(
+                move |(sector_index, index)| async move {
+                    let sector_metadata = self.sectors_metadata.read().await.get(index)?.clone();
+
                     let sector_id = SectorId::new(
                         &self.public_key_hash,
                         &self
@@ -56,12 +60,12 @@ impl PlottedSectors for SingleDiskPlottedSectors {
                         })
                         .collect_into(&mut piece_indexes);
 
-                    Ok(PlottedSector {
+                    Some(Ok(PlottedSector {
                         sector_id,
                         sector_index,
                         sector_metadata,
                         piece_indexes,
-                    })
+                    }))
                 },
             ),
         )))

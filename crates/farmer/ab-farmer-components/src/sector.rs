@@ -277,11 +277,8 @@ impl SectorContentsMap {
             return Err(SectorContentsMapFromBytesError::ChecksumMismatch);
         }
 
-        let mut record_chunks_used = vec![[0; _]; pieces_in_sector.into()];
-
-        record_chunks_used
-            .as_flattened_mut()
-            .copy_from_slice(single_records_bit_arrays);
+        // Length was checked above, so there is no remainder
+        let record_chunks_used = single_records_bit_arrays.as_chunks().0.to_vec();
 
         Ok(Self { record_chunks_used })
     }
