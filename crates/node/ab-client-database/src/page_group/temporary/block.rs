@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::ContractSlotState;
@@ -306,9 +309,11 @@ impl StorageItemTemporaryBlock {
             if !read_len.is_multiple_of(size_of::<u64>()) {
                 let new_read_len = read_len.next_multiple_of(size_of::<u64>());
                 let buffer_len = buffer.len();
-                buffer.split_off(..(new_read_len - read_len)).ok_or(
-                    StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len),
-                )?;
+                buffer
+                    .split_off(..(new_read_len - read_len))
+                    .ok_or_else(|| {
+                        StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len)
+                    })?;
                 read_len = new_read_len;
             }
 
@@ -334,17 +339,24 @@ impl StorageItemTemporaryBlock {
             if !read_len.is_multiple_of(size_of::<u128>()) {
                 let new_read_len = read_len.next_multiple_of(size_of::<u128>());
                 let buffer_len = buffer.len();
-                buffer.split_off(..(new_read_len - read_len)).ok_or(
-                    StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len),
-                )?;
+                buffer
+                    .split_off(..(new_read_len - read_len))
+                    .ok_or_else(|| {
+                        StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len)
+                    })?;
                 read_len = new_read_len;
             }
 
             let contents = {
                 let buffer_len = buffer.len();
-                let contents_bytes = buffer.split_off(..prefix.content_len as usize).ok_or(
-                    StorageItemError::NeedMoreBytes(prefix.content_len as usize - buffer_len),
-                )?;
+                let contents_bytes =
+                    buffer
+                        .split_off(..prefix.content_len as usize)
+                        .ok_or_else(|| {
+                            StorageItemError::NeedMoreBytes(
+                                prefix.content_len as usize - buffer_len,
+                            )
+                        })?;
                 let contents = SharedAlignedBuffer::from_bytes(contents_bytes);
                 read_len += contents_bytes.len();
                 contents
