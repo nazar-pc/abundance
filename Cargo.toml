@@ -145,7 +145,7 @@ trybuild = "1.0.122"
 ulid = "3.0.0"
 unsigned-varint = "0.8.0"
 void = "1.0.2"
-wgpu = { version = "30.0.1", default-features = false, features = ["metal", "parking_lot", "spirv", "std", "vulkan"] }
+wgpu = { version = "30.0.2", default-features = false, features = ["metal", "parking_lot", "spirv", "std", "vulkan"] }
 windows = { version = "0.62.2", features = ["Win32_Storage_FileSystem"] }
 yoke = { version = "0.8.4", default-features = false }
 zeroize = "1.9.1"
