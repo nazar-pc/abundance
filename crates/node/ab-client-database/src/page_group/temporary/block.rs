@@ -35,33 +35,22 @@ pub(crate) struct StorageItemTemporaryBlock {
 
 impl StorageItemTemporaryBlock {
     pub(super) fn total_bytes(&self) -> usize {
-        Self::total_bytes_inner(
-            self.header.len(),
-            self.body.len(),
-            self.mmr_with_block.as_bytes().len() as u32,
-            self.system_contract_states_len(),
-        )
-    }
+        // Account for alignment
+        let mut total_bytes = Self::prefix_size()
+            + (self.header.len() as usize).next_multiple_of(size_of::<u128>())
+            + self.body.len() as usize
+            + self.mmr_with_block.as_bytes().len();
+        total_bytes = total_bytes.next_multiple_of(size_of::<u64>());
 
-    fn system_contract_states_len(&self) -> u32 {
-        let mut len = 0u32;
+        // Padding of system contract states depends on the offset they are written at
         for system_contract_state in self.system_contract_states.as_ref() {
-            len = len.next_multiple_of(size_of::<u64>() as u32);
-            len += SystemContractStatePrefix::SIZE;
-            len = len.next_multiple_of(size_of::<u128>() as u32);
-            len += system_contract_state.contents.len();
+            total_bytes = total_bytes.next_multiple_of(size_of::<u64>())
+                + size_of::<SystemContractStatePrefix>();
+            total_bytes = total_bytes.next_multiple_of(size_of::<u128>())
+                + system_contract_state.contents.len() as usize;
         }
-        len
-    }
 
-    const fn total_bytes_inner(
-        header_len: u32,
-        body_len: u32,
-        mmr_len: u32,
-        system_contract_states_len: u32,
-    ) -> usize {
-        Self::prefix_size()
-            + Self::block_content_size(header_len, body_len, mmr_len, system_contract_states_len)
+        total_bytes
     }
 
     const fn prefix_size() -> usize {
@@ -72,19 +61,6 @@ impl StorageItemTemporaryBlock {
             assert!(PREFIX_SIZE == size_of::<u128>());
         }
         PREFIX_SIZE
-    }
-
-    const fn block_content_size(
-        header_len: u32,
-        body_len: u32,
-        mmr_len: u32,
-        system_contract_states_len: u32,
-    ) -> usize {
-        // Account for alignment
-        let len = (header_len as usize).next_multiple_of(size_of::<u128>())
-            + body_len as usize
-            + mmr_len as usize;
-        len.next_multiple_of(size_of::<u64>()) + system_contract_states_len as usize
     }
 
     pub(super) fn write(
@@ -224,7 +200,12 @@ impl StorageItemTemporaryBlock {
             }
         }
 
-        Ok(total_bytes)
+        debug_assert_eq!(
+            written_len, total_bytes,
+            "Total bytes must match bytes written"
+        );
+
+        Ok(written_len)
     }
 
     pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
