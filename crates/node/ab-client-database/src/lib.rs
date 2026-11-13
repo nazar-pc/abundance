@@ -313,6 +313,17 @@ pub enum ClientDatabaseError {
         /// Page group size in pages
         page_group_size: u32,
     },
+    /// Page group size is larger than the storage backend
+    #[error(
+        "Page group size is too large ({page_group_size}), storage backend only has {num_pages} \
+        pages"
+    )]
+    PageGroupSizeTooLarge {
+        /// Page group size in pages
+        page_group_size: u32,
+        /// Number of pages in the storage backend
+        num_pages: u32,
+    },
     /// Unexpected sequence number
     #[error(
         "Unexpected sequence number {actual} at page offset {page_offset} (expected \
@@ -375,6 +386,23 @@ pub enum ClientDatabaseFormatError {
         /// Low-level error
         #[from]
         error: SysError,
+    },
+    /// Page group size is too small, must be at least two pages
+    #[error("Page group size is too small ({page_group_size}), must be at least two pages")]
+    PageGroupSizeTooSmall {
+        /// Page group size in pages
+        page_group_size: u32,
+    },
+    /// Page group size is larger than the storage backend
+    #[error(
+        "Page group size is too large ({page_group_size}), storage backend only has {num_pages} \
+        pages"
+    )]
+    PageGroupSizeTooLarge {
+        /// Page group size in pages
+        page_group_size: u32,
+        /// Number of pages in the storage backend
+        num_pages: u32,
     },
     /// Database is already formatted yet
     #[error("Database is already formatted yet")]
