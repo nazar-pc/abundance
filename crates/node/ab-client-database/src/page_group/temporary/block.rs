@@ -9,7 +9,7 @@ use ab_core_primitives::trees::BlockMerkleMountainRange;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::mmr::MerkleMountainRangeBytes;
 use std::mem::MaybeUninit;
-use triomphe::{Arc, UniqueArc};
+use triomphe::Arc;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -299,12 +299,14 @@ impl StorageItemTemporaryBlock {
             *mmr
         };
 
-        let mut system_contract_states =
-            UniqueArc::<[MaybeUninit<ContractSlotState>]>::new_uninit_slice(
-                num_system_contract_states as usize,
-            );
+        // Every system contract state takes at least the size of the prefix, which prevents large
+        // allocations due to corrupted number of system contract states
+        let mut system_contract_states = Vec::with_capacity(
+            (num_system_contract_states as usize)
+                .min(buffer.len() / size_of::<SystemContractStatePrefix>()),
+        );
 
-        for system_contract_state in system_contract_states.iter_mut() {
+        for _ in 0..num_system_contract_states {
             // Alignment padding (if needed)
             if !read_len.is_multiple_of(size_of::<u64>()) {
                 let new_read_len = read_len.next_multiple_of(size_of::<u64>());
@@ -362,22 +364,18 @@ impl StorageItemTemporaryBlock {
                 contents
             };
 
-            system_contract_state.write(ContractSlotState {
+            system_contract_states.push(ContractSlotState {
                 owner: prefix.owner,
                 contract: prefix.contract,
                 contents,
             });
         }
 
-        // SAFETY: Just initialized all entries
-        let system_contract_states =
-            unsafe { UniqueArc::assume_init_slice(system_contract_states) }.shareable();
-
         Ok(Self {
             header,
             body,
             mmr_with_block: Arc::new(mmr),
-            system_contract_states,
+            system_contract_states: Arc::from(system_contract_states),
         })
     }
 }
