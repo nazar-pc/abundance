@@ -145,7 +145,8 @@ where
         let prefix_bytes = buffer
             .split_off_mut(..Self::prefix_size().next_multiple_of(size_of::<u128>()))
             .expect("Always fits one page; qed");
-        let prefix_bytes = &mut prefix_bytes[..Self::prefix_size()];
+        let (prefix_bytes, prefix_padding_bytes) = prefix_bytes.split_at_mut(Self::prefix_size());
+        prefix_padding_bytes.write_filled(0);
 
         let StorageItemWriteResult {
             storage_item_variant,
