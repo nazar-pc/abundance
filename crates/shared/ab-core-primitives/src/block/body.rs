@@ -813,7 +813,9 @@ impl<'a> BeaconChainBody<'a> {
 
         let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
         // An owned body can't hold more than `u32::MAX` bytes, which PoT checkpoints alone can
-        // exceed
+        // exceed. Where `usize` is 32-bit, it can't hold more than
+        // `OwnedAlignedBuffer::MAX_CAPACITY` bytes either, which is not checked here,
+        // `Self::to_owned()` panics on such bodies instead
         if u32::try_from(bytes.len()).is_err() {
             return None;
         }
@@ -834,8 +836,7 @@ impl<'a> BeaconChainBody<'a> {
     #[inline(always)]
     pub fn to_owned(self) -> OwnedBeaconChainBody {
         OwnedBeaconChainBody::from_buffer(SharedAlignedBuffer::from_bytes(self.bytes)).expect(
-            "The parser accepted the same bytes at a 16-byte aligned address, as in the buffer, \
-            and checked that they fit into it; qed",
+            "The parser accepted these bytes at a 16-byte aligned address, as in the buffer; qed",
         )
     }
 
@@ -1236,7 +1237,9 @@ impl<'a> IntermediateShardBody<'a> {
 
         let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
         // An owned body can't hold more than `u32::MAX` bytes, which leaf shard blocks don't
-        // exceed with current limits, but might if those change
+        // exceed with current limits, but might if those change. Where `usize` is 32-bit, it can't
+        // hold more than `OwnedAlignedBuffer::MAX_CAPACITY` bytes either, which is not checked
+        // here, `Self::to_owned()` panics on such bodies instead
         if u32::try_from(bytes.len()).is_err() {
             return None;
         }
@@ -1268,8 +1271,7 @@ impl<'a> IntermediateShardBody<'a> {
     #[inline(always)]
     pub fn to_owned(self) -> OwnedIntermediateShardBody {
         OwnedIntermediateShardBody::from_buffer(SharedAlignedBuffer::from_bytes(self.bytes)).expect(
-            "The parser accepted the same bytes at a 16-byte aligned address, as in the buffer, \
-            and checked that they fit into it; qed",
+            "The parser accepted these bytes at a 16-byte aligned address, as in the buffer; qed",
         )
     }
 
@@ -1457,7 +1459,9 @@ impl<'a> LeafShardBody<'a> {
 
         let bytes = &bytes_start[..bytes_start.len() - remainder.len()];
         // An owned body can't hold more than `u32::MAX` bytes, which transactions alone can
-        // exceed
+        // exceed. Where `usize` is 32-bit, it can't hold more than
+        // `OwnedAlignedBuffer::MAX_CAPACITY` bytes either, which is not checked here,
+        // `Self::to_owned()` panics on such bodies instead
         if u32::try_from(bytes.len()).is_err() {
             return None;
         }
@@ -1489,8 +1493,7 @@ impl<'a> LeafShardBody<'a> {
     #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardBody {
         OwnedLeafShardBody::from_buffer(SharedAlignedBuffer::from_bytes(self.bytes)).expect(
-            "The parser accepted the same bytes at a 16-byte aligned address, as in the buffer, \
-            and checked that they fit into it; qed",
+            "The parser accepted these bytes at a 16-byte aligned address, as in the buffer; qed",
         )
     }
 
