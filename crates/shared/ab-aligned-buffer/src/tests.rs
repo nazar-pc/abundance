@@ -838,6 +838,67 @@ fn last_reference_synchronizes_with_other_threads() {
 }
 
 #[test]
+fn mutable_access_to_shared_buffer() {
+    let mut empty = SharedAlignedBuffer::<Align16>::EMPTY;
+    assert_eq!(empty.get_mut(), Some(&mut [][..]));
+    assert!(empty.make_mut().is_empty());
+
+    let mut shared = SharedAlignedBuffer::<Align16>::from_bytes(&[1; 64]);
+    let ptr = shared.as_byte_ptr();
+    shared.get_mut().unwrap().fill(2);
+    assert_eq!(shared.as_slice(), [2; 64]);
+    // The last reference is modified in place
+    shared.make_mut()[0] = 3;
+    assert_eq!(shared.as_byte_ptr(), ptr);
+    assert_eq!(shared.as_slice()[..2], [3, 2]);
+
+    // Not the last reference while cloned
+    let mut cloned = shared.clone();
+    assert!(cloned.get_mut().is_none());
+    assert!(shared.get_mut().is_none());
+    // Contents are copied into a new allocation, the original one is not modified
+    cloned.make_mut().fill(4);
+    assert_ne!(cloned.as_byte_ptr(), ptr);
+    assert!(is_aligned_to(cloned.as_byte_ptr(), Align16::ALIGN));
+    assert_eq!(cloned.as_slice(), [4; 64]);
+    assert_eq!(shared.as_slice()[..2], [3, 2]);
+    // The copy is the last reference to its allocation, and so is the original buffer
+    assert!(cloned.get_mut().is_some());
+    assert!(shared.get_mut().is_some());
+
+    // Slices reference the same allocation
+    let mut slice = shared.get_slice(16..32).unwrap();
+    assert!(slice.get_mut().is_none());
+    assert!(shared.get_mut().is_none());
+    drop(shared);
+    // Only the contents of the slice are accessible
+    let slice_ptr = slice.as_byte_ptr();
+    slice.get_mut().unwrap().fill(5);
+    assert_eq!(slice.as_byte_ptr(), slice_ptr);
+    assert_eq!(slice.as_slice(), [5; 16]);
+}
+
+#[test]
+fn mutable_access_to_last_reference_synchronizes_with_other_threads() {
+    extern crate std;
+
+    use std::thread;
+
+    let mut shared = SharedAlignedBuffer::<Align16>::from_bytes(&[1; 64]);
+    let slice = shared.get_slice(16..32).unwrap();
+    // Not joined, so synchronization comes from the reference counter alone
+    let _handle = thread::spawn(move || {
+        assert_eq!(slice.as_slice(), [1; 16]);
+    });
+
+    while shared.get_mut().is_none() {
+        thread::yield_now();
+    }
+    shared.get_mut().unwrap().fill(2);
+    assert_eq!(shared.as_slice(), [2; 64]);
+}
+
+#[test]
 fn zeroed() {
     for len in [0, 1, 15, 16, 17, 1000] {
         let owned = OwnedAlignedBuffer::<Align16>::zeroed(len);
@@ -999,4 +1060,20 @@ fn too_many_clones_panic() {
     // Only the two instances that are alive remain, so dropping them frees the buffer
     strong_count.store(2, Ordering::Relaxed);
     drop(clone);
+}
+
+#[test]
+fn generic_alignment_is_at_least_one_byte() {
+    fn into_unaligned<A>(shared: SharedAlignedBuffer<A>) -> SharedAlignedBuffer<Align1>
+    where
+        A: Alignment,
+    {
+        shared.into_start_align()
+    }
+
+    let shared = SharedAlignedBuffer::<Align4096>::from_bytes(b"abc");
+    let ptr = shared.as_byte_ptr();
+    let shared = into_unaligned(shared);
+    assert_eq!(shared.as_byte_ptr(), ptr);
+    assert_eq!(shared.as_slice(), b"abc");
 }

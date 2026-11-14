@@ -1,5 +1,6 @@
-use crate::pieces::{ExtendedRecord, Record, RecordChunk};
+use crate::pieces::{ExtendedRecord, FlatPieces, Piece, Record, RecordChunk};
 use crate::sectors::SBucket;
+use ab_io_type::trivial_type::TrivialType;
 use core::ptr;
 
 #[test]
@@ -42,5 +43,45 @@ fn extended_record_s_buckets() {
     assert!(ptr::eq(
         RecordChunk::array_from_repr(RecordChunk::array_to_repr(s_buckets)),
         s_buckets
+    ));
+}
+
+#[test]
+fn flat_pieces() {
+    let mut flat_pieces = FlatPieces::new(3);
+    assert_eq!(flat_pieces.len(), 3);
+    for (index, piece) in flat_pieces.iter_mut().enumerate() {
+        piece.record[0] = [index as u8 + 1; _];
+    }
+
+    // Owned pieces are copied
+    for (index, piece) in flat_pieces.pieces().enumerate() {
+        assert_eq!(piece.record[0], [index as u8 + 1; _]);
+        assert!(!ptr::eq(
+            piece.as_ref().as_ptr(),
+            flat_pieces[index].as_bytes().as_ptr()
+        ));
+    }
+
+    // Shared pieces reference the same allocation
+    let mut flat_pieces = flat_pieces.to_shared();
+    let pieces = flat_pieces.pieces().collect::<Vec<Piece>>();
+    assert_eq!(pieces.len(), 3);
+    for (index, piece) in pieces.iter().enumerate() {
+        assert_eq!(piece.record[0], [index as u8 + 1; _]);
+        assert!(ptr::eq(
+            piece.as_ref().as_ptr(),
+            flat_pieces[index].as_bytes().as_ptr()
+        ));
+    }
+    assert_eq!(flat_pieces.clone(), flat_pieces);
+
+    // Modification copies shared pieces first, pieces that were already created are not modified
+    flat_pieces[0].record[0] = [4; _];
+    assert_eq!(flat_pieces[0].record[0], [4; _]);
+    assert_eq!(pieces[0].record[0], [1; _]);
+    assert!(!ptr::eq(
+        pieces[0].as_ref().as_ptr(),
+        flat_pieces[0].as_bytes().as_ptr()
     ));
 }

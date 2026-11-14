@@ -36,6 +36,8 @@ New features:
   * `OwnedAlignedBuffer::realign()` converts a buffer into one with a different alignment of the contents, moving them
     within the allocation if possible
 * `truncate()` on both buffers
+* `SharedAlignedBuffer::get_mut()` gives mutable access to the contents of the last reference to the allocation,
+  `SharedAlignedBuffer::make_mut()` copies the contents into a new allocation first if it is still shared
 * `OwnedAlignedBuffer::zeroed()` creates a buffer filled with zeroes, allocating zeroed memory directly,
   `OwnedAlignedBuffer::zeroed_aligned()` does the same with a specified alignment of the allocation
 * `OwnedAlignedBuffer::spare_capacity_mut()` returns capacity after the contents for writing into it

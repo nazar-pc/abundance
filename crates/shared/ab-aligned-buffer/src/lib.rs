@@ -1329,6 +1329,15 @@ where
         }
     }
 
+    /// Whether this is the last reference to the allocation of a non-empty buffer
+    #[inline(always)]
+    fn is_last_reference(&self) -> bool {
+        // Synchronizes with decrements in other instances, such that their accesses to the
+        // contents happen before modifications through this instance or an owned buffer it is
+        // converted into
+        self.inner.strong_count_ref().load(Ordering::Acquire) == 1
+    }
+
     /// Convert into owned buffer if this is the last reference to the allocation, which is reused
     /// with the same offset of the contents.
     ///
@@ -1339,14 +1348,50 @@ where
             return Ok(OwnedAlignedBuffer::EMPTY);
         }
 
-        // Synchronizes with decrements in other instances, such that their accesses to the
-        // contents happen before modifications through the owned buffer
-        if self.inner.strong_count_ref().load(Ordering::Acquire) == 1 {
+        if self.is_last_reference() {
             // This was the last reference, so owned buffer is not shared
             Ok(OwnedAlignedBuffer::from_inner(self.into_inner()))
         } else {
             Err(self)
         }
+    }
+
+    /// Mutable access to the contents if this is the last reference to the allocation, similarly
+    /// to [`Arc::get_mut()`](alloc::sync::Arc::get_mut).
+    ///
+    /// Returns `None` if the allocation is still shared.
+    #[inline(always)]
+    pub fn get_mut(&mut self) -> Option<&mut [u8]> {
+        if self.is_empty() {
+            return Some(&mut []);
+        }
+
+        if self.is_last_reference() {
+            // This is the last reference to the allocation, and it is borrowed mutably
+            Some(self.inner.as_mut_slice())
+        } else {
+            None
+        }
+    }
+
+    /// Mutable access to the contents, similarly to
+    /// [`Arc::make_mut()`](alloc::sync::Arc::make_mut).
+    ///
+    /// If the allocation is still shared, contents are copied into a new allocation with the same
+    /// alignment first, see [`Self::into_owned()`].
+    #[inline]
+    pub fn make_mut(&mut self) -> &mut [u8] {
+        if self.is_empty() {
+            return &mut [];
+        }
+
+        if !self.is_last_reference() {
+            *self = Self::from_inner(self.inner.copy(self.inner.alignment().max(A::ALIGN)));
+        }
+
+        // This is the last reference to the allocation (either checked above or just allocated),
+        // and it is borrowed mutably
+        self.inner.as_mut_slice()
     }
 
     /// Make sure the buffer doesn't keep a larger allocation alive than its contents need.

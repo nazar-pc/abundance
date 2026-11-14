@@ -1,8 +1,6 @@
 //! Pieces-related data structures.
 
 #[cfg(feature = "alloc")]
-mod cow_bytes;
-#[cfg(feature = "alloc")]
 mod flat_pieces;
 #[cfg(feature = "alloc")]
 mod piece;

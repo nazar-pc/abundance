@@ -11,12 +11,13 @@ use crate::farm;
 use crate::farm::{FarmError, PieceCacheId, PieceCacheOffset};
 use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::utils::AsyncJoinOnDrop;
+use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_direct_io_file::AlignedPage;
 use ab_farmer_components::file_ext::FileExt;
 use async_trait::async_trait;
-use bytes::BytesMut;
 use futures::channel::mpsc;
 use futures::{SinkExt, Stream, StreamExt, stream};
 use parking_lot::Mutex;
@@ -441,12 +442,13 @@ impl DiskPieceCache {
         if let Some(metrics) = &self.inner.metrics {
             metrics.read_piece.inc();
         }
-        let mut element = BytesMut::zeroed(ELEMENT_SIZE);
-        if let Some(piece_index) = self.read_piece_internal(offset, &mut element)? {
-            let element = element.freeze();
-            let piece =
-                Piece::try_from(element.slice_ref(&element[PieceIndex::SIZE..][..Piece::SIZE]))
-                    .expect("Correct length; qed");
+        let mut element = OwnedAlignedBuffer::<Align16>::zeroed(ELEMENT_SIZE as u32);
+        if let Some(piece_index) = self.read_piece_internal(offset, element.as_mut_slice())? {
+            let piece = element
+                .into_shared()
+                .get_slice(PieceIndex::SIZE as u32..(PieceIndex::SIZE + Piece::SIZE) as u32)
+                .and_then(|piece| Piece::try_from(piece).ok())
+                .expect("Piece is within the element and has correct length; qed");
             Ok(Some((piece_index, piece)))
         } else {
             Ok(None)
