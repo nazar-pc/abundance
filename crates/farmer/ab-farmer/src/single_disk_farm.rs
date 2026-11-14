@@ -46,7 +46,7 @@ use ab_core_primitives::address::Address;
 use ab_core_primitives::block::BlockRoot;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::Record;
+use ab_core_primitives::pieces::{Piece, PieceIndex, Record};
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_direct_io_file::AlignedPage;
@@ -2364,8 +2364,10 @@ impl SingleDiskFarm {
                     return Ok(());
                 }
 
-                let (index_and_piece_bytes, expected_checksum) =
-                    element.split_at(element_size as usize - Blake3Hash::SIZE);
+                let (index_and_piece_bytes, remaining_bytes) =
+                    element.split_at(PieceIndex::SIZE + Piece::SIZE);
+                // The rest of the element after the checksum is zero padding
+                let (expected_checksum, _padding) = remaining_bytes.split_at(Blake3Hash::SIZE);
                 let actual_checksum = *blake3::hash(index_and_piece_bytes).as_bytes();
                 if actual_checksum != expected_checksum && element != &dummy_element {
                     warn!(
