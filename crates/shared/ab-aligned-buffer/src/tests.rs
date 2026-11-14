@@ -1061,3 +1061,19 @@ fn too_many_clones_panic() {
     strong_count.store(2, Ordering::Relaxed);
     drop(clone);
 }
+
+#[test]
+fn generic_alignment_is_at_least_one_byte() {
+    fn into_unaligned<A>(shared: SharedAlignedBuffer<A>) -> SharedAlignedBuffer<Align1>
+    where
+        A: Alignment,
+    {
+        shared.into_start_align()
+    }
+
+    let shared = SharedAlignedBuffer::<Align4096>::from_bytes(b"abc");
+    let ptr = shared.as_byte_ptr();
+    let shared = into_unaligned(shared);
+    assert_eq!(shared.as_byte_ptr(), ptr);
+    assert_eq!(shared.as_slice(), b"abc");
+}

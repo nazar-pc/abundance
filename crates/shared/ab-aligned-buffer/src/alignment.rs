@@ -55,8 +55,13 @@ define_alignments!(
     Align4096 = 4096,
 );
 
+/// Every alignment is at least 1 byte, which generic code can rely on with just an `Alignment`
+/// bound
+impl<A> AtLeast<Align1> for A where A: Alignment {}
+
 /// Implements `AtLeast` for every alignment and every alignment that is not stricter than it,
-/// alignments must be listed from the strictest one
+/// alignments must be listed from the strictest one, `Align1` is covered by the implementation
+/// above
 macro_rules! impl_at_least {
     () => {};
     ($strictest:ident $(, $rest:ident)*) => {
@@ -70,5 +75,5 @@ macro_rules! impl_at_least {
 
 impl_at_least!(
     Align4096, Align2048, Align1024, Align512, Align256, Align128, Align64, Align32, Align16,
-    Align8, Align4, Align2, Align1
+    Align8, Align4, Align2
 );
