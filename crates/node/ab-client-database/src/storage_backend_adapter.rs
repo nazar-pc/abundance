@@ -1,5 +1,7 @@
 pub(crate) mod page_group_header;
 pub(crate) mod storage_item;
+#[cfg(test)]
+mod tests;
 
 use crate::page_group::permanent::StorageItemPermanent;
 use crate::page_group::temporary::StorageItemTemporary;
@@ -171,7 +173,14 @@ where
             if page_group_size < 2 {
                 return Err(ClientDatabaseError::PageGroupSizeTooSmall { page_group_size });
             }
-            num_page_groups = storage_backend.num_pages() / page_group_size;
+            let num_pages = storage_backend.num_pages();
+            if page_group_size > num_pages {
+                return Err(ClientDatabaseError::PageGroupSizeTooLarge {
+                    page_group_size,
+                    num_pages,
+                });
+            }
+            num_page_groups = num_pages / page_group_size;
 
             match page_group_header.page_group_kind {
                 PageGroupKind::Permanent => {
@@ -291,6 +300,18 @@ where
         storage_backend: &StorageBackend,
         options: ClientDatabaseFormatOptions,
     ) -> Result<(), ClientDatabaseFormatError> {
+        let page_group_size = options.page_group_size.get();
+        if page_group_size < 2 {
+            return Err(ClientDatabaseFormatError::PageGroupSizeTooSmall { page_group_size });
+        }
+        let num_pages = storage_backend.num_pages();
+        if page_group_size > num_pages {
+            return Err(ClientDatabaseFormatError::PageGroupSizeTooLarge {
+                page_group_size,
+                num_pages,
+            });
+        }
+
         let mut buffer = Vec::with_capacity(1);
 
         if !options.force {
@@ -319,7 +340,7 @@ where
                 database_version: Self::VERSION,
                 page_group_kind: PageGroupKind::Permanent,
                 padding: [0; _],
-                page_group_size: options.page_group_size.get(),
+                page_group_size,
             },
         };
         Self::write_pages_to_buffer(&container, None, &mut buffer, 0)?;

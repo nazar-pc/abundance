@@ -7,6 +7,7 @@ use crate::storage_backend_adapter::storage_item::{
 };
 use crate::test_utils::{MemoryStorageBackend, segment_header};
 use ab_core_primitives::segments::SegmentHeader;
+use std::mem::MaybeUninit;
 
 #[test]
 fn read_of_truncated_storage_item_needs_more_bytes() {
@@ -38,4 +39,27 @@ fn read_of_truncated_storage_item_needs_more_bytes() {
         missing_bytes,
         container.storage_item.total_bytes() - storage_item_bytes_in_first_page
     );
+}
+
+#[test]
+fn write_zeroes_prefix_padding() {
+    let container = StorageItemContainer {
+        sequence_number: 0,
+        storage_item: StorageItemTemporary::SegmentHeaders(StorageItemTemporarySegmentHeaders {
+            segment_headers: vec![segment_header(0)],
+        }),
+    };
+    // Pages with garbage in them, so that bytes that are not written can be detected
+    let mut pages = vec![MaybeUninit::new(AlignedPage::default()); 1];
+    pages.as_bytes_mut().write_filled(u8::MAX);
+
+    container.write_to_pages(&mut pages).unwrap();
+
+    // SAFETY: All pages were initialized above
+    let pages = unsafe { pages.assume_init_ref() };
+    let bytes = AlignedPage::slice_to_repr(pages).as_flattened();
+    let prefix_size = StorageItemContainer::<StorageItemTemporary>::prefix_size();
+    let prefix_padding = &bytes[prefix_size..prefix_size.next_multiple_of(size_of::<u128>())];
+    assert!(!prefix_padding.is_empty());
+    assert!(prefix_padding.iter().all(|&byte| byte == 0));
 }

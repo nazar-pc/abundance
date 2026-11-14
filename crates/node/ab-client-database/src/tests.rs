@@ -17,7 +17,7 @@ use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{LocalSegmentIndex, SuperSegmentIndex};
 use futures::executor::block_on;
 use std::assert_matches;
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 
 /// Check that blocks up to the highest persisted block number survived reopening the database
 /// after the best block was at `best_number`, and that importing continues from there
@@ -1134,4 +1134,44 @@ fn format_without_force_only_formats_unformatted_storage() {
         block_on(Database::format(&storage_backend, options)),
         Err(ClientDatabaseFormatError::AlreadyFormatted)
     );
+}
+
+#[test]
+fn format_rejects_invalid_page_group_size() {
+    let storage_backend = MemoryStorageBackend::new();
+    let num_pages = storage_backend.num_pages();
+
+    assert_matches!(
+        block_on(Database::format(
+            &storage_backend,
+            ClientDatabaseFormatOptions {
+                page_group_size: NonZeroU32::MIN,
+                force: true,
+            },
+        )),
+        Err(ClientDatabaseFormatError::PageGroupSizeTooSmall { page_group_size: 1 })
+    );
+
+    let page_group_size = num_pages + 1;
+    let result = block_on(Database::format(
+        &storage_backend,
+        ClientDatabaseFormatOptions {
+            page_group_size: NonZeroU32::new(page_group_size).unwrap(),
+            force: true,
+        },
+    ));
+    let Err(ClientDatabaseFormatError::PageGroupSizeTooLarge {
+        page_group_size: error_page_group_size,
+        num_pages: error_num_pages,
+    }) = result
+    else {
+        panic!("Unexpected result: {result:?}");
+    };
+    assert_eq!(
+        (error_page_group_size, error_num_pages),
+        (page_group_size, num_pages)
+    );
+
+    // The previously formatted database is left intact
+    open_database(&storage_backend);
 }

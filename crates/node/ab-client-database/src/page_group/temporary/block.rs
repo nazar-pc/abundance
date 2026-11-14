@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::ContractSlotState;
@@ -6,7 +9,7 @@ use ab_core_primitives::trees::BlockMerkleMountainRange;
 use ab_io_type::trivial_type::TrivialType;
 use ab_merkle_tree::mmr::MerkleMountainRangeBytes;
 use std::mem::MaybeUninit;
-use triomphe::{Arc, UniqueArc};
+use triomphe::Arc;
 
 #[derive(Debug, Copy, Clone, TrivialType)]
 #[repr(C)]
@@ -32,33 +35,22 @@ pub(crate) struct StorageItemTemporaryBlock {
 
 impl StorageItemTemporaryBlock {
     pub(super) fn total_bytes(&self) -> usize {
-        Self::total_bytes_inner(
-            self.header.len(),
-            self.body.len(),
-            self.mmr_with_block.as_bytes().len() as u32,
-            self.system_contract_states_len(),
-        )
-    }
+        // Account for alignment
+        let mut total_bytes = Self::prefix_size()
+            + (self.header.len() as usize).next_multiple_of(size_of::<u128>())
+            + self.body.len() as usize
+            + self.mmr_with_block.as_bytes().len();
+        total_bytes = total_bytes.next_multiple_of(size_of::<u64>());
 
-    fn system_contract_states_len(&self) -> u32 {
-        let mut len = 0u32;
+        // Padding of system contract states depends on the offset they are written at
         for system_contract_state in self.system_contract_states.as_ref() {
-            len = len.next_multiple_of(size_of::<u64>() as u32);
-            len += SystemContractStatePrefix::SIZE;
-            len = len.next_multiple_of(size_of::<u128>() as u32);
-            len += system_contract_state.contents.len();
+            total_bytes = total_bytes.next_multiple_of(size_of::<u64>())
+                + size_of::<SystemContractStatePrefix>();
+            total_bytes = total_bytes.next_multiple_of(size_of::<u128>())
+                + system_contract_state.contents.len() as usize;
         }
-        len
-    }
 
-    const fn total_bytes_inner(
-        header_len: u32,
-        body_len: u32,
-        mmr_len: u32,
-        system_contract_states_len: u32,
-    ) -> usize {
-        Self::prefix_size()
-            + Self::block_content_size(header_len, body_len, mmr_len, system_contract_states_len)
+        total_bytes
     }
 
     const fn prefix_size() -> usize {
@@ -69,19 +61,6 @@ impl StorageItemTemporaryBlock {
             assert!(PREFIX_SIZE == size_of::<u128>());
         }
         PREFIX_SIZE
-    }
-
-    const fn block_content_size(
-        header_len: u32,
-        body_len: u32,
-        mmr_len: u32,
-        system_contract_states_len: u32,
-    ) -> usize {
-        // Account for alignment
-        let len = (header_len as usize).next_multiple_of(size_of::<u128>())
-            + body_len as usize
-            + mmr_len as usize;
-        len.next_multiple_of(size_of::<u64>()) + system_contract_states_len as usize
     }
 
     pub(super) fn write(
@@ -221,7 +200,12 @@ impl StorageItemTemporaryBlock {
             }
         }
 
-        Ok(total_bytes)
+        debug_assert_eq!(
+            written_len, total_bytes,
+            "Total bytes must match bytes written"
+        );
+
+        Ok(written_len)
     }
 
     pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
@@ -296,19 +280,23 @@ impl StorageItemTemporaryBlock {
             *mmr
         };
 
-        let mut system_contract_states =
-            UniqueArc::<[MaybeUninit<ContractSlotState>]>::new_uninit_slice(
-                num_system_contract_states as usize,
-            );
+        // Every system contract state takes at least the size of the prefix, which prevents large
+        // allocations due to corrupted number of system contract states
+        let mut system_contract_states = Vec::with_capacity(
+            (num_system_contract_states as usize)
+                .min(buffer.len() / size_of::<SystemContractStatePrefix>()),
+        );
 
-        for system_contract_state in system_contract_states.iter_mut() {
+        for _ in 0..num_system_contract_states {
             // Alignment padding (if needed)
             if !read_len.is_multiple_of(size_of::<u64>()) {
                 let new_read_len = read_len.next_multiple_of(size_of::<u64>());
                 let buffer_len = buffer.len();
-                buffer.split_off(..(new_read_len - read_len)).ok_or(
-                    StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len),
-                )?;
+                buffer
+                    .split_off(..(new_read_len - read_len))
+                    .ok_or_else(|| {
+                        StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len)
+                    })?;
                 read_len = new_read_len;
             }
 
@@ -334,38 +322,41 @@ impl StorageItemTemporaryBlock {
             if !read_len.is_multiple_of(size_of::<u128>()) {
                 let new_read_len = read_len.next_multiple_of(size_of::<u128>());
                 let buffer_len = buffer.len();
-                buffer.split_off(..(new_read_len - read_len)).ok_or(
-                    StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len),
-                )?;
+                buffer
+                    .split_off(..(new_read_len - read_len))
+                    .ok_or_else(|| {
+                        StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len)
+                    })?;
                 read_len = new_read_len;
             }
 
             let contents = {
                 let buffer_len = buffer.len();
-                let contents_bytes = buffer.split_off(..prefix.content_len as usize).ok_or(
-                    StorageItemError::NeedMoreBytes(prefix.content_len as usize - buffer_len),
-                )?;
+                let contents_bytes =
+                    buffer
+                        .split_off(..prefix.content_len as usize)
+                        .ok_or_else(|| {
+                            StorageItemError::NeedMoreBytes(
+                                prefix.content_len as usize - buffer_len,
+                            )
+                        })?;
                 let contents = SharedAlignedBuffer::from_bytes(contents_bytes);
                 read_len += contents_bytes.len();
                 contents
             };
 
-            system_contract_state.write(ContractSlotState {
+            system_contract_states.push(ContractSlotState {
                 owner: prefix.owner,
                 contract: prefix.contract,
                 contents,
             });
         }
 
-        // SAFETY: Just initialized all entries
-        let system_contract_states =
-            unsafe { UniqueArc::assume_init_slice(system_contract_states) }.shareable();
-
         Ok(Self {
             header,
             body,
             mmr_with_block: Arc::new(mmr),
-            system_contract_states,
+            system_contract_states: Arc::from(system_contract_states),
         })
     }
 }
