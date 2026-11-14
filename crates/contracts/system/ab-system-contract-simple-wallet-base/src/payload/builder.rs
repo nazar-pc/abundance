@@ -711,11 +711,8 @@ impl TransactionPayloadBuilder {
             }
         }
 
-        // SAFETY: Constructor guarantees that capacity is a multiple of `Alignment::MAX` and is
-        // never exceeded
-        unsafe {
-            self.ensure_alignment(Alignment::MAX).unwrap_unchecked();
-        }
+        // Always fits, since the capacity is a multiple of `Alignment::MAX`, see `Self::new()`
+        self.ensure_alignment(Alignment::MAX)?;
 
         Ok(self.payload)
     }
