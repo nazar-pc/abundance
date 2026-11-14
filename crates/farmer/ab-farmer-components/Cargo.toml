@@ -35,6 +35,7 @@ name = "proving"
 harness = false
 
 [dependencies]
+ab-aligned-buffer = { workspace = true }
 ab-archiving = { workspace = true, features = ["parallel"] }
 ab-core-primitives = { workspace = true, features = ["parallel", "scale-codec", "serde"] }
 ab-data-retrieval = { workspace = true }

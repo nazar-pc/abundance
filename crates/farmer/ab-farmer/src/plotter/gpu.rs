@@ -7,6 +7,7 @@ use crate::plotter::gpu::gpu_encoders_manager::GpuRecordsEncoderManager;
 use crate::plotter::gpu::metrics::GpuPlotterMetrics;
 use crate::plotter::{Plotter, SectorPlottingProgress};
 use crate::utils::AsyncJoinOnDrop;
+use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::solutions::ShardCommitmentHash;
@@ -20,7 +21,6 @@ use ab_farmer_components::plotting::{
 use ab_proof_of_space_gpu::GpuRecordsEncoder;
 use async_lock::{Mutex as AsyncMutex, Semaphore, SemaphoreGuardArc};
 use async_trait::async_trait;
-use bytes::Bytes;
 use event_listener_primitives::{Bag, HandlerId};
 use futures::channel::mpsc;
 use futures::stream::FuturesUnordered;
@@ -351,7 +351,7 @@ where
 
                         drop(records_encoder);
 
-                        let mut sector = Vec::new();
+                        let mut sector = OwnedAlignedBuffer::EMPTY;
 
                         write_sector(&encoded_sector, &mut sector)?;
 
@@ -401,7 +401,7 @@ where
                             plotted_sector,
                             time: start.elapsed(),
                             sector: Box::pin({
-                                let mut sector = Some(Ok(Bytes::from(sector)));
+                                let mut sector = Some(Ok(sector.into_shared()));
 
                                 stream::poll_fn(move |_cx| {
                                     // Just so that permit is dropped with stream itself

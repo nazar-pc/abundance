@@ -6,9 +6,14 @@
 //! implementation designed to work with cluster plotter and a service function to drive the backend
 //! part of the plotter.
 
+#[cfg(test)]
+mod tests;
+
 use crate::cluster::nats_client::{GenericRequest, GenericStreamRequest, NatsClient};
 use crate::plotter::{Plotter, SectorPlottingProgress};
 use crate::utils::AsyncJoinOnDrop;
+use ab_aligned_buffer::alignment::Align4096;
+use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::solutions::ShardCommitmentHash;
@@ -20,14 +25,13 @@ use anyhow::anyhow;
 use async_nats::RequestErrorKind;
 use async_trait::async_trait;
 use backon::{BackoffBuilder, ExponentialBackoff, ExponentialBuilder};
-use bytes::Bytes;
 use derive_more::Display;
 use event_listener_primitives::{Bag, HandlerId};
 use futures::channel::mpsc;
 use futures::future::FusedFuture;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, Sink, SinkExt, StreamExt, select, stream};
-use parity_scale_codec::{Decode, Encode};
+use parity_scale_codec::{Compact, CompactLen, Decode, Encode, Input, Output};
 use std::error::Error;
 use std::future::pending;
 use std::num::NonZeroUsize;
@@ -79,6 +83,52 @@ impl GenericRequest for ClusterPlotterFreeInstanceRequest {
     type Response = Option<String>;
 }
 
+/// Chunk of a plotted sector, whose contents are aligned to the page size.
+///
+/// Encoded the same way as bytes with SCALE codec, decoding copies the contents into a new buffer
+/// that is aligned to the page size.
+#[derive(Debug)]
+struct SectorChunk(SharedAlignedBuffer<Align4096>);
+
+impl Encode for SectorChunk {
+    #[inline]
+    fn size_hint(&self) -> usize {
+        Compact::<u32>::compact_len(&self.0.len()) + self.0.len() as usize
+    }
+
+    #[inline]
+    fn encode_to<O>(&self, dest: &mut O)
+    where
+        O: Output + ?Sized,
+    {
+        Compact(self.0.len()).encode_to(dest);
+        dest.write(&self.0);
+    }
+}
+
+impl Decode for SectorChunk {
+    fn decode<I>(input: &mut I) -> Result<Self, parity_scale_codec::Error>
+    where
+        I: Input,
+    {
+        let Compact(length) = Compact::<u32>::decode(input)?;
+
+        // The length comes from a remote plotter, check it before allocating memory
+        if let Some(remaining) = input.remaining_len()?
+            && remaining < length as usize
+        {
+            return Err("Not enough bytes for a sector chunk".into());
+        }
+        input.on_before_alloc_mem(length as usize)?;
+
+        let mut buffer = OwnedAlignedBuffer::<Align4096>::try_zeroed(length)
+            .map_err(|_error| "Failed to allocate sector chunk")?;
+        input.read(buffer.as_mut_slice())?;
+
+        Ok(Self(buffer.into_shared()))
+    }
+}
+
 #[derive(Debug, Encode, Decode)]
 enum ClusterSectorPlottingProgress {
     /// Plotter is already fully occupied with other work
@@ -101,7 +151,7 @@ enum ClusterSectorPlottingProgress {
         time: Duration,
     },
     /// Sector chunk after finished plotting
-    SectorChunk(Result<Bytes, String>),
+    SectorChunk(Result<SectorChunk, String>),
     /// Plotting failed
     Error {
         /// Error message
@@ -128,8 +178,10 @@ impl GenericStreamRequest for ClusterPlotterPlotSectorRequest {
 ///
 /// It is a multiple of disk page size, such that farmer can write chunks to disk without
 /// read-modify-write.
-fn sector_chunk_size(nats_client: &NatsClient) -> usize {
-    nats_client.approximate_max_message_size() / AlignedPage::SIZE * AlignedPage::SIZE
+fn sector_chunk_size(nats_client: &NatsClient) -> u32 {
+    let sector_chunk_size =
+        nats_client.approximate_max_message_size() / AlignedPage::SIZE * AlignedPage::SIZE;
+    u32::try_from(sector_chunk_size).expect("NATS messages are much smaller than 4 GiB; qed")
 }
 
 #[derive(Default, Debug)]
@@ -403,7 +455,8 @@ impl ClusterPlotter {
                 // Allow to buffer up to the whole sector in memory to not block plotter on the
                 // other side
                 let (mut sector_sender, sector_receiver) = mpsc::channel(
-                    sector_size(pieces_in_sector).div_ceil(sector_chunk_size(&nats_client)),
+                    sector_size(pieces_in_sector)
+                        .div_ceil(sector_chunk_size(&nats_client) as usize),
                 );
                 let mut maybe_sector_receiver = Some(sector_receiver);
                 loop {
@@ -577,8 +630,10 @@ async fn process_response_notification<PS>(
     progress_sender: &mut PS,
     retry_backoff_policy: &mut ExponentialBackoff,
     response: ClusterSectorPlottingProgress,
-    sector_sender: &mut mpsc::Sender<Result<Bytes, String>>,
-    maybe_sector_receiver: &mut Option<mpsc::Receiver<Result<Bytes, String>>>,
+    sector_sender: &mut mpsc::Sender<Result<SharedAlignedBuffer<Align4096>, String>>,
+    maybe_sector_receiver: &mut Option<
+        mpsc::Receiver<Result<SharedAlignedBuffer<Align4096>, String>>,
+    >,
 ) -> ResponseProcessingResult
 where
     PS: Sink<SectorPlottingProgress, Error: Error> + Unpin + Send + 'static,
@@ -677,6 +732,8 @@ where
         }
         // This variant must be sent after Finished and it handled above
         ClusterSectorPlottingProgress::SectorChunk(maybe_sector_chunk) => {
+            let maybe_sector_chunk =
+                maybe_sector_chunk.map(|SectorChunk(sector_chunk)| sector_chunk);
             if let Err(error) = sector_sender.send(maybe_sector_chunk).await {
                 warn!(%error, "Failed to send sector chunk");
                 return ResponseProcessingResult::Abort;
@@ -935,7 +992,7 @@ async fn process_plot_sector_request<P>(
 async fn send_publish_progress(
     response_sender: &mut mpsc::Sender<ClusterSectorPlottingProgress>,
     progress: SectorPlottingProgress,
-    sector_chunk_size: usize,
+    sector_chunk_size: u32,
 ) {
     // Finished response is large and needs special care
     let cluster_progress = match progress {
@@ -963,11 +1020,25 @@ async fn send_publish_progress(
                 match maybe_sector_chunk {
                     Ok(sector_chunk) => {
                         // Slice large chunks into smaller ones before publishing
-                        for small_sector_chunk in sector_chunk.chunks(sector_chunk_size) {
+                        let mut start = 0;
+                        while start < sector_chunk.len() {
+                            let end = start
+                                .saturating_add(sector_chunk_size)
+                                .min(sector_chunk.len());
+                            let small_sector_chunk = sector_chunk
+                                .get_slice(start..end)
+                                .expect("Within the sector chunk; qed")
+                                .try_into_start_align::<Align4096>()
+                                .expect(
+                                    "Sector chunk is aligned to the page size, and the chunk size \
+                                    is a multiple of it; qed",
+                                );
+                            start = end;
+
                             if let Err(error) = response_sender
-                                .send(ClusterSectorPlottingProgress::SectorChunk(Ok(
-                                    sector_chunk.slice_ref(small_sector_chunk)
-                                )))
+                                .send(ClusterSectorPlottingProgress::SectorChunk(Ok(SectorChunk(
+                                    small_sector_chunk,
+                                ))))
                                 .await
                             {
                                 warn!(%error, "Failed to send plotting progress");

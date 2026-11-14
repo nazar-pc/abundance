@@ -523,6 +523,7 @@ dependencies = [
 name = "ab-farmer-components"
 version = "0.1.0"
 dependencies = [
+ "ab-aligned-buffer",
  "ab-archiving",
  "ab-core-primitives",
  "ab-data-retrieval",
