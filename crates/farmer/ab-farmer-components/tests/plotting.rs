@@ -11,7 +11,7 @@ use ab_farmer_components::plotting::{
     DownloadSectorOptions, DownloadedSector, EncodeSectorOptions, EncodedSector, PlottingError,
     RecordsEncoder, download_sector, encode_sector, write_sector,
 };
-use ab_farmer_components::sector::{SectorContentsMap, sector_size};
+use ab_farmer_components::sector::{SectorContentsMap, sector_padding_size, sector_size};
 use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
 use futures::executor::block_on;
 use std::assert_matches;
@@ -211,8 +211,12 @@ fn write_sector_writes_whole_output() {
     write_sector(&encoded_sector, &mut reused_sector).unwrap();
     assert_eq!(reused_sector, sector);
 
+    // Checksum covers everything before it, including zero padding
     let (sector_contents, sector_checksum) = sector.split_at(sector.len() - Blake3Hash::SIZE);
     assert_eq!(sector_checksum, blake3::hash(sector_contents).as_bytes());
+    let padding = &sector_contents[sector_contents.len() - sector_padding_size(PIECES_IN_SECTOR)..];
+    assert!(!padding.is_empty());
+    assert!(padding.iter().all(|&byte| byte == 0));
 
     let (sector_contents_map_bytes, _) =
         sector.split_at(SectorContentsMap::encoded_size(PIECES_IN_SECTOR));

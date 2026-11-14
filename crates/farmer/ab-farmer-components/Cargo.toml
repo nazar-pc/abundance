@@ -38,6 +38,7 @@ harness = false
 ab-archiving = { workspace = true, features = ["parallel"] }
 ab-core-primitives = { workspace = true, features = ["parallel", "scale-codec", "serde"] }
 ab-data-retrieval = { workspace = true }
+ab-direct-io-file = { workspace = true }
 ab-erasure-coding = { workspace = true }
 ab-io-type = { workspace = true }
 ab-merkle-tree = { workspace = true, features = ["alloc", "blake3"] }

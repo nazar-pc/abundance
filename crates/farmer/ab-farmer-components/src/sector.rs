@@ -6,11 +6,15 @@
 //! It is typically not needed to construct these data structures explicitly outside of this crate,
 //! instead they will be returned as a result of certain operations (like plotting).
 
+#[cfg(test)]
+mod tests;
+
 use ab_core_primitives::checksum::Blake3Checksummed;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{PieceHeader, PieceOffset, Record};
 use ab_core_primitives::sectors::{SBucket, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
+use ab_direct_io_file::AlignedPage;
 use ab_io_type::trivial_type::TrivialType;
 use parity_scale_codec::{Decode, Encode};
 use rayon::prelude::*;
@@ -35,18 +39,33 @@ pub const fn sector_record_metadata_size(pieces_in_sector: u16) -> usize {
     pieces_in_sector as usize * RecordMetadata::encoded_size()
 }
 
-/// Exact sector plot size (sector contents map, record chunks, record metadata).
+/// Size of the zero padding between record metadata and sector checksum.
+///
+/// Padding makes [`sector_size()`] a multiple of [`AlignedPage::SIZE`].
+#[inline]
+pub const fn sector_padding_size(pieces_in_sector: u16) -> usize {
+    let unpadded_size = sector_record_chunks_size(pieces_in_sector)
+        + sector_record_metadata_size(pieces_in_sector)
+        + SectorContentsMap::encoded_size(pieces_in_sector)
+        + Blake3Hash::SIZE;
+
+    unpadded_size.next_multiple_of(AlignedPage::SIZE) - unpadded_size
+}
+
+/// Exact sector plot size (sector contents map, record chunks, record metadata, padding and
+/// checksum).
 ///
 /// NOTE: Each sector also has corresponding fixed size metadata whose size can be obtained with
 /// [`SectorMetadataChecksummed::encoded_size()`], size of the record chunks (s-buckets) with
-/// [`sector_record_chunks_size()`] and size of record roots and proofs with
-/// [`sector_record_metadata_size()`]. This function just combines those three together for
-/// convenience.
+/// [`sector_record_chunks_size()`], size of record roots and proofs with
+/// [`sector_record_metadata_size()`] and size of padding with [`sector_padding_size()`]. This
+/// function just combines those together for convenience.
 #[inline]
 pub const fn sector_size(pieces_in_sector: u16) -> usize {
     sector_record_chunks_size(pieces_in_sector)
         + sector_record_metadata_size(pieces_in_sector)
         + SectorContentsMap::encoded_size(pieces_in_sector)
+        + sector_padding_size(pieces_in_sector)
         + Blake3Hash::SIZE
 }
 

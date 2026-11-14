@@ -526,6 +526,7 @@ dependencies = [
  "ab-archiving",
  "ab-core-primitives",
  "ab-data-retrieval",
+ "ab-direct-io-file",
  "ab-erasure-coding",
  "ab-io-type",
  "ab-merkle-tree",
