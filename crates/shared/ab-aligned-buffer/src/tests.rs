@@ -1,5 +1,5 @@
 use crate::alignment::{Align1, Align16, Align32, Align4096, Alignment, AtLeast};
-use crate::{EMPTY_ALLOCATION, OwnedAlignedBuffer, SharedAlignedBuffer};
+use crate::{AlignedBuffer, EMPTY_ALLOCATION, OwnedAlignedBuffer, SharedAlignedBuffer};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::iter;
@@ -870,6 +870,35 @@ fn spare_capacity() {
 
     let mut empty = OwnedAlignedBuffer::<Align1>::EMPTY;
     assert!(empty.spare_capacity_mut().is_empty());
+}
+
+fn check_aligned_buffer<B>(buffer: B, expected: &[u8], offset: u32)
+where
+    B: AlignedBuffer<Alignment = Align1>,
+{
+    assert_eq!(&*buffer, expected);
+    assert_eq!(AlignedBuffer::len(&buffer) as usize, expected.len());
+    assert_eq!(AlignedBuffer::is_empty(&buffer), expected.is_empty());
+    assert_eq!(AlignedBuffer::offset(&buffer), offset);
+    assert_eq!(
+        AlignedBuffer::allocation_alignment(&buffer),
+        Align4096::ALIGN
+    );
+    let ptr = buffer.as_ptr();
+    let shared = AlignedBuffer::into_shared(buffer);
+    assert_eq!(shared.as_byte_ptr(), ptr);
+    assert_eq!(shared.as_slice(), expected);
+}
+
+#[test]
+fn aligned_buffer() {
+    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<Align4096>(100);
+    assert!(owned.relocate::<Align4096>(10, 0));
+    assert!(owned.append(b"abc"));
+    check_aligned_buffer(owned.clone(), b"abc", 0);
+    let shared = owned.into_shared();
+    check_aligned_buffer(shared.clone(), b"abc", 10);
+    check_aligned_buffer(shared.get_slice(1..).unwrap(), b"bc", 11);
 }
 
 // A `u32` capacity can only exceed `isize::MAX` bytes where `usize` is 32-bit

@@ -30,7 +30,7 @@ use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ops::{Bound, Deref, DerefMut, RangeBounds};
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicUsize, Ordering, fence};
-use core::{hint, ptr, slice};
+use core::{fmt, hint, ptr, slice};
 use stable_deref_trait::{CloneStableDeref, StableDeref};
 use yoke::CloneableCart;
 
@@ -614,6 +614,40 @@ where
 
 // SAFETY: Heap-allocated data structure, points to the same memory if moved
 unsafe impl<A> StableDeref for OwnedAlignedBuffer<A> where A: Alignment {}
+
+impl<A> sealed::Sealed for OwnedAlignedBuffer<A> where A: Alignment {}
+
+impl<A> AlignedBuffer for OwnedAlignedBuffer<A>
+where
+    A: Alignment,
+{
+    type Alignment = A;
+
+    #[inline(always)]
+    fn len(&self) -> u32 {
+        self.len()
+    }
+
+    #[inline(always)]
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+
+    #[inline(always)]
+    fn offset(&self) -> u32 {
+        self.offset()
+    }
+
+    #[inline(always)]
+    fn allocation_alignment(&self) -> usize {
+        self.allocation_alignment()
+    }
+
+    #[inline(always)]
+    fn into_shared(self) -> SharedAlignedBuffer<Self::Alignment> {
+        self.into_shared()
+    }
+}
 
 impl<A> Default for OwnedAlignedBuffer<A>
 where
@@ -1206,6 +1240,40 @@ unsafe impl<A> CloneStableDeref for SharedAlignedBuffer<A> where A: Alignment {}
 // SAFETY: Inner buffer is exactly the same and points to the same memory after clone
 unsafe impl<A> CloneableCart for SharedAlignedBuffer<A> where A: Alignment {}
 
+impl<A> sealed::Sealed for SharedAlignedBuffer<A> where A: Alignment {}
+
+impl<A> AlignedBuffer for SharedAlignedBuffer<A>
+where
+    A: Alignment,
+{
+    type Alignment = A;
+
+    #[inline(always)]
+    fn len(&self) -> u32 {
+        self.len()
+    }
+
+    #[inline(always)]
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+
+    #[inline(always)]
+    fn offset(&self) -> u32 {
+        self.offset()
+    }
+
+    #[inline(always)]
+    fn allocation_alignment(&self) -> usize {
+        self.allocation_alignment()
+    }
+
+    #[inline(always)]
+    fn into_shared(self) -> SharedAlignedBuffer<Self::Alignment> {
+        self
+    }
+}
+
 impl<A> SharedAlignedBuffer<A>
 where
     A: Alignment,
@@ -1430,4 +1498,30 @@ where
     pub const fn as_ptr(&self) -> *const u128 {
         self.as_byte_ptr().cast::<u128>()
     }
+}
+
+/// Common interface of [`OwnedAlignedBuffer`] and [`SharedAlignedBuffer`].
+///
+/// Contents don't move when the buffer is moved, so a buffer can be moved into an operation that
+/// accesses its memory, like asynchronous I/O, which then returns it back.
+pub trait AlignedBuffer:
+    sealed::Sealed + Deref<Target = [u8]> + StableDeref + fmt::Debug + Send + Sync + 'static
+{
+    /// Alignment of the contents
+    type Alignment: Alignment;
+
+    /// Length of the contents
+    fn len(&self) -> u32;
+
+    /// Whether the contents are empty
+    fn is_empty(&self) -> bool;
+
+    /// Offset of the contents from the beginning of the data region of the allocation
+    fn offset(&self) -> u32;
+
+    /// Alignment of the allocation in bytes, see [`OwnedAlignedBuffer::allocation_alignment()`]
+    fn allocation_alignment(&self) -> usize;
+
+    /// Convert into shared buffer, which reuses the allocation
+    fn into_shared(self) -> SharedAlignedBuffer<Self::Alignment>;
 }
