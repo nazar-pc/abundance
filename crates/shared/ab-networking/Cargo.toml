@@ -49,6 +49,7 @@ libp2p = { workspace = true, features = ["autonat", "dns", "gossipsub", "identif
 triomphe = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
+futures = { workspace = true, features = ["executor"] }
 rand = { workspace = true }
 libp2p-swarm-test = { workspace = true }
 

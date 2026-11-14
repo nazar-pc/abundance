@@ -159,7 +159,7 @@ where
         payload: Vec<u8>,
     ) -> Result<ResponsePayload, RequestHandlerError> {
         trace!(%peer, protocol=Request::LOG_TARGET, "Handling request...");
-        let request = Request::decode(&mut payload.as_slice())
+        let request = Request::decode_all(&mut payload.as_slice())
             .map_err(|_error| RequestHandlerError::InvalidRequestFormat)?;
         let response = (self.request_handler)(peer, request)
             .await
