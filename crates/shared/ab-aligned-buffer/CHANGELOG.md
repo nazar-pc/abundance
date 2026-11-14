@@ -1,5 +1,11 @@
 # 0.2.0
 
+Buffers are no longer limited to contents aligned to 16 bytes at the beginning of an allocation. Alignment of the
+contents is a type parameter of buffers, allocations can be aligned to up to 4096 bytes (for direct I/O, for example),
+contents can start at an offset within the allocation, and shared buffers can be sliced without copying. Buffers are
+still 16 bytes in size. Empty buffers are not backed by an allocation, and owned buffers don't use atomic operations.
+Existing code works with the default `Align16` alignment, but some call sites need type annotations.
+
 Breaking changes:
 
 * Rust 1.89 or newer is required
