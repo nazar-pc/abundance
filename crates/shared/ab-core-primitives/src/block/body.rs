@@ -273,36 +273,31 @@ impl<'a> IntermediateShardBlockInfo<'a> {
         &self,
     ) -> impl ExactSizeIterator<Item = (u16, ShardIndex, OwnSegments<'a>)> + TrustedLen + use<'a>
     {
-        // SAFETY: Checked in constructor
-        let (counts, mut remainder) = unsafe {
-            self.leaf_shards_segments_bytes.split_at_unchecked(
+        let (counts, mut remainder) = self
+            .leaf_shards_segments_bytes
+            .split_at_checked(
                 usize::from(self.num_leaf_shard_blocks_with_segments) * size_of::<u8>(),
             )
-        };
+            .expect("Already checked in constructor; qed");
         counts.iter().map(move |&num_own_segment_roots| {
             let num_own_segment_roots = usize::from(num_own_segment_roots);
 
             let position;
-            // SAFETY: Checked in constructor
-            (position, remainder) = unsafe { remainder.split_at_unchecked(size_of::<u16>()) };
-            let position = u16::from_le_bytes([position[0], position[1]]);
+            (position, remainder) = remainder
+                .split_first_chunk::<{ size_of::<u16>() }>()
+                .expect("Already checked in constructor; qed");
+            let position = u16::from_le_bytes(*position);
 
             let shard_index;
-            // SAFETY: Checked in constructor
-            (shard_index, remainder) =
-                unsafe { remainder.split_at_unchecked(ShardIndex::SIZE as usize) };
-            let shard_index = Unaligned::<ShardIndex>::from_bytes_exact(shard_index)
-                .expect("Correct size; qed")
-                .as_inner();
+            (shard_index, remainder) = Unaligned::<ShardIndex>::from_bytes(remainder)
+                .expect("Already checked in constructor; qed");
+            let shard_index = shard_index.as_inner();
 
             let first_local_segment_index;
-            // SAFETY: Checked in constructor
             (first_local_segment_index, remainder) =
-                unsafe { remainder.split_at_unchecked(LocalSegmentIndex::SIZE as usize) };
-            let first_local_segment_index =
-                Unaligned::<LocalSegmentIndex>::from_bytes_exact(first_local_segment_index)
-                    .expect("Correct size; qed")
-                    .as_inner();
+                Unaligned::<LocalSegmentIndex>::from_bytes(remainder)
+                    .expect("Already checked in constructor; qed");
+            let first_local_segment_index = first_local_segment_index.as_inner();
 
             let own_segment_roots;
             (own_segment_roots, remainder) =
@@ -380,22 +375,32 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         //     * concatenated own segment roots
         //   * padding to 8-bytes boundary with zeroes
 
-        let num_blocks = bytes.split_off(..size_of::<u16>())?;
-        let num_blocks = usize::from(u16::from_le_bytes([num_blocks[0], num_blocks[1]]));
+        let num_blocks;
+        (num_blocks, bytes) = bytes.split_first_chunk::<{ size_of::<u16>() }>()?;
+        let num_blocks = usize::from(u16::from_le_bytes(*num_blocks));
 
         let bytes_start = bytes;
 
-        let mut counts =
-            bytes.split_off(..num_blocks * (size_of::<u8>() + 2 * size_of::<u16>()))?;
+        let counts = bytes.split_off(..num_blocks * (size_of::<u8>() + 2 * size_of::<u16>()))?;
+        let (counts, _) = counts.as_chunks::<{ size_of::<u8>() + 2 * size_of::<u16>() }>();
 
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
-        for _ in 0..num_blocks {
-            let num_own_segment_roots = usize::from(counts[0]);
-            let num_leaf_shard_blocks = u16::from_le_bytes([counts[1], counts[2]]);
-            let num_leaf_shard_blocks_with_segments =
-                usize::from(u16::from_le_bytes([counts[3], counts[4]]));
-            counts = &counts[5..];
+        for block_counts in counts {
+            let &[
+                num_own_segment_roots,
+                num_leaf_shard_blocks_0,
+                num_leaf_shard_blocks_1,
+                num_leaf_shard_blocks_with_segments_0,
+                num_leaf_shard_blocks_with_segments_1,
+            ] = block_counts;
+            let num_own_segment_roots = usize::from(num_own_segment_roots);
+            let num_leaf_shard_blocks =
+                u16::from_le_bytes([num_leaf_shard_blocks_0, num_leaf_shard_blocks_1]);
+            let num_leaf_shard_blocks_with_segments = usize::from(u16::from_le_bytes([
+                num_leaf_shard_blocks_with_segments_0,
+                num_leaf_shard_blocks_with_segments_1,
+            ]));
 
             (_, remainder) = IntermediateShardHeader::try_from_bytes(remainder)?;
 
@@ -419,13 +424,14 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
             let mut next_position = 0;
             for &num_own_segment_roots in leaf_shard_segment_roots_counts {
                 let num_own_segment_roots = NonZeroU8::new(num_own_segment_roots)?;
-                let position = remainder.split_off(..size_of::<u16>())?;
-                let position = u16::from_le_bytes([position[0], position[1]]);
+                let position;
+                (position, remainder) = remainder.split_first_chunk::<{ size_of::<u16>() }>()?;
+                let position = u16::from_le_bytes(*position);
                 if position < next_position || position >= num_leaf_shard_blocks {
                     return None;
                 }
                 next_position = position + 1;
-                let _shard_index = remainder.split_off(..ShardIndex::SIZE as usize)?;
+                (_, remainder) = Unaligned::<ShardIndex>::from_bytes(remainder)?;
                 let first_local_segment_index;
                 (first_local_segment_index, remainder) =
                     Unaligned::<LocalSegmentIndex>::from_bytes(remainder)?;
@@ -576,18 +582,29 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
         &self,
     ) -> impl ExactSizeIterator<Item = IntermediateShardBlockInfo<'a>> + TrustedLen + use<'a> {
         // SAFETY: Checked in constructor
-        let (mut counts, remainder) = unsafe {
+        let (counts, remainder) = unsafe {
             self.bytes
                 .split_at_unchecked(self.num_blocks * (size_of::<u8>() + 2 * size_of::<u16>()))
         };
+        let (counts, _) = counts.as_chunks::<{ size_of::<u8>() + 2 * size_of::<u16>() }>();
         let mut remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
             .expect("Already checked in constructor; qed");
 
-        iter::repeat_with(move || {
-            let num_own_segment_roots = usize::from(counts[0]);
-            let num_leaf_shard_blocks = u16::from_le_bytes([counts[1], counts[2]]);
-            let num_leaf_shard_blocks_with_segments = u16::from_le_bytes([counts[3], counts[4]]);
-            counts = &counts[5..];
+        counts.iter().map(move |block_counts| {
+            let &[
+                num_own_segment_roots,
+                num_leaf_shard_blocks_0,
+                num_leaf_shard_blocks_1,
+                num_leaf_shard_blocks_with_segments_0,
+                num_leaf_shard_blocks_with_segments_1,
+            ] = block_counts;
+            let num_own_segment_roots = usize::from(num_own_segment_roots);
+            let num_leaf_shard_blocks =
+                u16::from_le_bytes([num_leaf_shard_blocks_0, num_leaf_shard_blocks_1]);
+            let num_leaf_shard_blocks_with_segments = u16::from_le_bytes([
+                num_leaf_shard_blocks_with_segments_0,
+                num_leaf_shard_blocks_with_segments_1,
+            ]);
 
             // TODO: Unchecked method would have been helpful here
             let header;
@@ -596,13 +613,10 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
 
             let own_segments = if num_own_segment_roots > 0 {
                 let first_local_segment_index;
-                // SAFETY: Checked in constructor
                 (first_local_segment_index, remainder) =
-                    unsafe { remainder.split_at_unchecked(size_of::<LocalSegmentIndex>()) };
-                let first_local_segment_index =
-                    Unaligned::<LocalSegmentIndex>::from_bytes_exact(first_local_segment_index)
-                        .expect("Correct size; qed")
-                        .as_inner();
+                    Unaligned::<LocalSegmentIndex>::from_bytes(remainder)
+                        .expect("Already checked in constructor; qed");
+                let first_local_segment_index = first_local_segment_index.as_inner();
 
                 let own_segment_roots;
                 (own_segment_roots, remainder) =
@@ -652,7 +666,6 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 leaf_shards_segments_bytes,
             }
         })
-        .take(self.num_blocks)
     }
 
     /// Number of intermediate shard blocks
@@ -775,8 +788,7 @@ impl<'a> BeaconChainBody<'a> {
         (num_pot_checkpoints, bytes) = u32::from_bytes(bytes)?;
         let num_pot_checkpoints = *num_pot_checkpoints as usize;
 
-        let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
-        let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
+        let num_own_segment_roots = usize::from(*bytes.split_off_first()?);
 
         let own_segments = if num_own_segment_roots > 0 {
             let first_local_segment_index;
@@ -926,18 +938,18 @@ impl<'a> LeafShardBlocksInfo<'a> {
         //   * local segment index of the first segment root (if any): `LocalSegmentIndex`
         //   * concatenated own segment roots
 
-        let num_blocks = bytes.split_off(..size_of::<u16>())?;
-        let num_blocks = u16::from_le_bytes([num_blocks[0], num_blocks[1]]);
+        let num_blocks;
+        (num_blocks, bytes) = bytes.split_first_chunk::<{ size_of::<u16>() }>()?;
+        let num_blocks = u16::from_le_bytes(*num_blocks);
 
         let bytes_start = bytes;
 
-        let mut counts = bytes.split_off(..usize::from(num_blocks) * size_of::<u8>())?;
+        let counts = bytes.split_off(..usize::from(num_blocks) * size_of::<u8>())?;
 
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
-        for _ in 0..num_blocks {
-            let num_own_segment_roots = usize::from(counts[0]);
-            counts = &counts[1..];
+        for &num_own_segment_roots in counts {
+            let num_own_segment_roots = usize::from(num_own_segment_roots);
 
             (_, remainder) = LeafShardHeader::try_from_bytes(remainder)?;
 
@@ -1050,16 +1062,15 @@ impl<'a> LeafShardBlocksInfo<'a> {
         &self,
     ) -> impl ExactSizeIterator<Item = LeafShardBlockInfo<'a>> + TrustedLen + use<'a> {
         // SAFETY: Checked in constructor
-        let (mut counts, remainder) = unsafe {
+        let (counts, remainder) = unsafe {
             self.bytes
                 .split_at_unchecked(usize::from(self.num_blocks) * size_of::<u8>())
         };
         let mut remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
             .expect("Already checked in constructor; qed");
 
-        iter::repeat_with(move || {
-            let num_own_segment_roots = usize::from(counts[0]);
-            counts = &counts[1..];
+        counts.iter().map(move |&num_own_segment_roots| {
+            let num_own_segment_roots = usize::from(num_own_segment_roots);
 
             // TODO: Unchecked method would have been helpful here
             let header;
@@ -1070,20 +1081,14 @@ impl<'a> LeafShardBlocksInfo<'a> {
                 .expect("Already checked in constructor; qed");
 
             let transactions_root;
-            // SAFETY: Checked in constructor
             (transactions_root, remainder) =
-                unsafe { remainder.split_at_unchecked(Blake3Hash::SIZE) };
-            let transactions_root = Blake3Hash::from_bytes_exact(transactions_root)
-                .expect("Already checked in constructor; qed");
+                Blake3Hash::from_bytes(remainder).expect("Already checked in constructor; qed");
 
             let own_segments = if num_own_segment_roots > 0 {
                 let first_local_segment_index;
-                // SAFETY: Checked in constructor
-                (first_local_segment_index, remainder) =
-                    unsafe { remainder.split_at_unchecked(LocalSegmentIndex::SIZE as usize) };
-                let first_local_segment_index =
-                    *LocalSegmentIndex::from_bytes_exact(first_local_segment_index)
-                        .expect("Already checked in constructor; qed");
+                (first_local_segment_index, remainder) = LocalSegmentIndex::from_bytes(remainder)
+                    .expect("Already checked in constructor; qed");
+                let first_local_segment_index = *first_local_segment_index;
 
                 let own_segment_roots;
                 (own_segment_roots, remainder) =
@@ -1104,7 +1109,6 @@ impl<'a> LeafShardBlocksInfo<'a> {
                 own_segments,
             }
         })
-        .take(usize::from(self.num_blocks))
     }
 
     /// Number of leaf shard blocks
@@ -1212,8 +1216,7 @@ impl<'a> IntermediateShardBody<'a> {
 
         let bytes_start = bytes;
 
-        let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
-        let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
+        let num_own_segment_roots = usize::from(*bytes.split_off_first()?);
 
         let own_segments = if num_own_segment_roots > 0 {
             let first_local_segment_index;
@@ -1316,13 +1319,9 @@ impl<'a> Transactions<'a> {
         //   * transaction: Transaction
         //   * padding to 16-bytes boundary with zeroes
 
-        let num_transactions = bytes.split_off(..size_of::<u32>())?;
-        let num_transactions = u32::from_le_bytes([
-            num_transactions[0],
-            num_transactions[1],
-            num_transactions[2],
-            num_transactions[3],
-        ]) as usize;
+        let num_transactions;
+        (num_transactions, bytes) = bytes.split_first_chunk::<{ size_of::<u32>() }>()?;
+        let num_transactions = u32::from_le_bytes(*num_transactions) as usize;
 
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::MAX)?;
         let bytes_start = remainder;
@@ -1438,8 +1437,7 @@ impl<'a> LeafShardBody<'a> {
 
         let bytes_start = bytes;
 
-        let num_own_segment_roots = bytes.split_off(..size_of::<u8>())?;
-        let num_own_segment_roots = usize::from(num_own_segment_roots[0]);
+        let num_own_segment_roots = usize::from(*bytes.split_off_first()?);
 
         let own_segments = if num_own_segment_roots > 0 {
             let first_local_segment_index;
