@@ -8,6 +8,12 @@ use core::sync::atomic::Ordering;
 
 const EXPECTED_ALIGNMENT: usize = 16;
 
+// TODO: Replace with `<*const T>::is_aligned_to()` once stabilized:
+//  https://github.com/rust-lang/rust/issues/96284
+fn is_aligned_to<T>(ptr: *const T, alignment: usize) -> bool {
+    ptr.addr().is_multiple_of(alignment)
+}
+
 #[test]
 #[expect(
     clippy::explicit_deref_methods,
@@ -29,7 +35,7 @@ fn basic() {
         assert!(owned.as_mut_slice().is_empty(), "Capacity {capacity}");
         assert_eq!(owned.as_ptr(), owned.as_mut_ptr(), "Capacity {capacity}");
         assert!(
-            owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+            is_aligned_to(owned.as_ptr(), EXPECTED_ALIGNMENT),
             "Capacity {capacity}"
         );
 
@@ -58,7 +64,7 @@ fn basic() {
             assert_eq!(owned.as_ptr(), owned.as_mut_ptr(), "Capacity {capacity}");
             assert_eq!(owned.as_ptr(), ptr_before, "Capacity {capacity}");
             assert!(
-                owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+                is_aligned_to(owned.as_ptr(), EXPECTED_ALIGNMENT),
                 "Capacity {capacity}"
             );
 
@@ -106,7 +112,7 @@ fn basic() {
             assert_eq!(owned.as_ptr(), owned.as_mut_ptr(), "Capacity {capacity}");
             assert_eq!(owned.as_ptr(), ptr_before, "Capacity {capacity}");
             assert!(
-                owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+                is_aligned_to(owned.as_ptr(), EXPECTED_ALIGNMENT),
                 "Capacity {capacity}"
             );
 
@@ -153,7 +159,7 @@ fn basic() {
             assert!(!owned.is_empty(), "Capacity {capacity}");
             assert_eq!(owned.as_ptr(), owned.as_mut_ptr(), "Capacity {capacity}");
             assert!(
-                owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+                is_aligned_to(owned.as_ptr(), EXPECTED_ALIGNMENT),
                 "Capacity {capacity}"
             );
 
@@ -267,7 +273,7 @@ fn resize_through_unaligned_capacities() {
         owned.ensure_capacity(capacity);
         assert!(owned.capacity() >= capacity, "Capacity {capacity}");
         assert!(
-            owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+            is_aligned_to(owned.as_ptr(), EXPECTED_ALIGNMENT),
             "Capacity {capacity}"
         );
         assert_eq!(owned.as_slice(), &bytes[..1], "Capacity {capacity}");
@@ -277,7 +283,7 @@ fn resize_through_unaligned_capacities() {
     for len in [3, 17, 33, 3, 17, 100] {
         owned.copy_from_slice(&bytes[..len]);
         assert!(
-            owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+            is_aligned_to(owned.as_ptr(), EXPECTED_ALIGNMENT),
             "Length {len}"
         );
         assert_eq!(owned.as_slice(), &bytes[..len], "Length {len}");
@@ -286,7 +292,7 @@ fn resize_through_unaligned_capacities() {
     let shared = owned.into_shared();
     let shared2 = shared.clone();
     drop(shared);
-    assert!(shared2.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT));
+    assert!(is_aligned_to(shared2.as_ptr(), EXPECTED_ALIGNMENT));
     assert_eq!(shared2.as_slice(), &bytes[..100]);
 }
 
@@ -345,11 +351,10 @@ fn empty_buffers_are_not_backed_by_allocation() {
         0
     );
     assert_eq!(SharedAlignedBuffer::<Align16>::default().capacity(), 0);
-    assert!(
-        OwnedAlignedBuffer::<Align16>::with_capacity(0)
-            .as_ptr()
-            .is_aligned_to(EXPECTED_ALIGNMENT)
-    );
+    assert!(is_aligned_to(
+        OwnedAlignedBuffer::<Align16>::with_capacity(0).as_ptr(),
+        EXPECTED_ALIGNMENT
+    ));
 
     // Empty shared buffer doesn't keep the allocation of an owned buffer with capacity
     let shared = OwnedAlignedBuffer::<Align16>::with_capacity(10).into_shared();
@@ -403,27 +408,30 @@ where
     let mut owned = OwnedAlignedBuffer::<A>::with_capacity_aligned::<AA>(10);
     assert!(owned.capacity() >= 10);
     assert_eq!(owned.allocation_alignment(), AA::ALIGN);
-    assert!(owned.as_byte_ptr().is_aligned_to(AA::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), AA::ALIGN));
 
     // Growing preserves the alignment of the allocation
     for len in [1, 10, 11, 100, 1000] {
         owned.copy_from_slice(&bytes[..len]);
         assert!(owned.append(&bytes[..len]));
         assert_eq!(owned.allocation_alignment(), AA::ALIGN, "Length {len}");
-        assert!(owned.as_byte_ptr().is_aligned_to(AA::ALIGN), "Length {len}");
+        assert!(
+            is_aligned_to(owned.as_byte_ptr(), AA::ALIGN),
+            "Length {len}"
+        );
         assert_eq!(owned.len() as usize, len * 2, "Length {len}");
         assert_eq!(&owned[..len], &bytes[..len], "Length {len}");
         assert_eq!(&owned[len..], &bytes[..len], "Length {len}");
     }
     owned.ensure_capacity(5000);
     assert_eq!(owned.allocation_alignment(), AA::ALIGN);
-    assert!(owned.as_byte_ptr().is_aligned_to(AA::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), AA::ALIGN));
     assert_eq!(&owned[..1000], &bytes[..1000]);
 
     // Copies have the same alignment
     let cloned = owned.clone();
     assert_eq!(cloned.allocation_alignment(), AA::ALIGN);
-    assert!(cloned.as_byte_ptr().is_aligned_to(AA::ALIGN));
+    assert!(is_aligned_to(cloned.as_byte_ptr(), AA::ALIGN));
     assert_eq!(cloned.as_slice(), owned.as_slice());
 
     let ptr = owned.as_byte_ptr();
@@ -433,7 +441,7 @@ where
     let copy = shared.into_owned();
     assert_ne!(copy.as_byte_ptr(), ptr);
     assert_eq!(copy.allocation_alignment(), AA::ALIGN);
-    assert!(copy.as_byte_ptr().is_aligned_to(AA::ALIGN));
+    assert!(is_aligned_to(copy.as_byte_ptr(), AA::ALIGN));
     assert_eq!(copy.as_slice(), shared_clone.as_slice());
     // The last reference reuses the allocation
     assert_eq!(shared_clone.into_owned().as_byte_ptr(), ptr);
@@ -458,11 +466,11 @@ fn empty_buffer_grows_to_alignment_of_contents() {
     assert_eq!(owned.allocation_alignment(), Align16::ALIGN);
 
     let mut owned = OwnedAlignedBuffer::<Align4096>::EMPTY;
-    assert!(owned.as_byte_ptr().is_aligned_to(Align4096::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
     assert_eq!(owned.allocation_alignment(), Align4096::ALIGN);
     assert!(owned.append(b"abc"));
     assert_eq!(owned.allocation_alignment(), Align4096::ALIGN);
-    assert!(owned.as_byte_ptr().is_aligned_to(Align4096::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
     assert_eq!(owned.as_slice(), b"abc");
 
     // Zero capacity doesn't keep the alignment of the allocation
@@ -484,11 +492,11 @@ fn start_alignment_conversions() {
         .unwrap()
         .into_start_align::<Align1>();
     let owned = owned.try_into_start_align::<Align32>().unwrap();
-    assert!(owned.as_byte_ptr().is_aligned_to(Align32::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align32::ALIGN));
 
     let shared = SharedAlignedBuffer::<Align16>::from_bytes(b"abc").into_start_align::<Align1>();
     let shared = shared.try_into_start_align::<Align16>().unwrap();
-    assert!(shared.as_ptr().is_aligned_to(Align16::ALIGN));
+    assert!(is_aligned_to(shared.as_ptr(), Align16::ALIGN));
     assert_eq!(shared.as_slice(), b"abc");
 
     // Allocations aligned to 16 bytes are rarely aligned to 4096 bytes
@@ -496,7 +504,7 @@ fn start_alignment_conversions() {
         .take(10)
         .collect::<Vec<_>>();
     for owned in buffers {
-        let aligned = owned.as_byte_ptr().is_aligned_to(Align4096::ALIGN);
+        let aligned = is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN);
         match owned.try_into_start_align::<Align4096>() {
             Ok(owned) => {
                 assert!(aligned);
@@ -514,11 +522,11 @@ fn start_alignment_conversions() {
 fn constructors_with_alignment_of_contents() {
     let owned = OwnedAlignedBuffer::<Align4096>::with_capacity(10);
     assert_eq!(owned.allocation_alignment(), Align4096::ALIGN);
-    assert!(owned.as_byte_ptr().is_aligned_to(Align4096::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
 
     let owned = OwnedAlignedBuffer::<Align32>::from_bytes(b"abc");
     assert_eq!(owned.allocation_alignment(), Align32::ALIGN);
-    assert!(owned.as_byte_ptr().is_aligned_to(Align32::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align32::ALIGN));
     assert_eq!(owned.as_slice(), b"abc");
 
     let shared = SharedAlignedBuffer::<Align1>::from_bytes(b"abc");
@@ -534,11 +542,11 @@ fn growth_preserves_alignment_of_contents() {
     assert!(owned.append(b"abc"));
     let mut owned = owned.realign::<Align32>();
     assert_eq!(owned.allocation_alignment(), Align16::ALIGN);
-    assert!(owned.as_byte_ptr().is_aligned_to(Align32::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align32::ALIGN));
 
     owned.ensure_capacity(1000);
     assert_eq!(owned.allocation_alignment(), Align32::ALIGN);
-    assert!(owned.as_byte_ptr().is_aligned_to(Align32::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align32::ALIGN));
     assert_eq!(owned.as_slice(), b"abc");
 }
 
@@ -625,7 +633,7 @@ fn owned_slices() {
     assert_eq!(owned.len(), 32 + 50 + 100);
     assert_eq!(&owned[..32], &bytes[16..48]);
     assert_eq!(&owned[82..], &bytes);
-    assert!(owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT));
+    assert!(is_aligned_to(owned.as_ptr(), EXPECTED_ALIGNMENT));
 
     // Truncated to empty slice doesn't hold a reference anymore
     let shared = owned.into_shared();
@@ -658,7 +666,7 @@ fn standalone() {
     assert_eq!(slice.offset(), 0);
     assert_eq!(slice.capacity(), 16);
     assert_eq!(slice.as_slice(), &bytes[32..48]);
-    assert!(slice.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT));
+    assert!(is_aligned_to(slice.as_ptr(), EXPECTED_ALIGNMENT));
     // The original allocation is not referenced anymore
     let owned = shared.try_into_owned().unwrap();
     assert_eq!(owned.as_byte_ptr(), ptr);
@@ -719,7 +727,7 @@ fn relocate() {
     assert_eq!(owned.as_byte_ptr(), ptr);
     assert_eq!(owned.as_slice(), bytes);
     assert!(owned.relocate::<Align16>(16, 0));
-    assert!(owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT));
+    assert!(is_aligned_to(owned.as_ptr(), EXPECTED_ALIGNMENT));
     assert_eq!(owned.as_slice(), bytes);
 
     // No capacity after the offset, but still backed by an allocation that must be freed
@@ -772,7 +780,7 @@ fn realign() {
     let mut misaligned_buffers = iter::from_fn(|| {
         let index = buffers
             .iter()
-            .position(|owned| !owned.as_byte_ptr().is_aligned_to(Align32::ALIGN))?;
+            .position(|owned| !is_aligned_to(owned.as_byte_ptr(), Align32::ALIGN))?;
         Some(buffers.swap_remove(index))
     });
 
@@ -793,11 +801,11 @@ fn realign() {
     let owned = owned.realign::<Align32>();
     assert_ne!(owned.as_byte_ptr(), ptr);
     assert_eq!(owned.offset(), 0);
-    assert!(owned.as_byte_ptr().is_aligned_to(Align32::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align32::ALIGN));
     assert_eq!(owned.as_slice(), &bytes[..90]);
 
     let owned = owned.into_start_align::<Align1>().realign::<Align4096>();
-    assert!(owned.as_byte_ptr().is_aligned_to(Align4096::ALIGN));
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
     assert_eq!(owned.as_slice(), &bytes[..90]);
 }
 
@@ -837,7 +845,7 @@ fn zeroed() {
         assert!(owned.capacity() >= len, "Length {len}");
         assert!(owned.iter().all(|&byte| byte == 0), "Length {len}");
         assert!(
-            owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+            is_aligned_to(owned.as_ptr(), EXPECTED_ALIGNMENT),
             "Length {len}"
         );
 
@@ -861,7 +869,10 @@ fn spare_capacity() {
     let capacity = owned.capacity();
     let spare_capacity = owned.spare_capacity_mut();
     assert_eq!(spare_capacity.len() as u32, capacity - 3);
-    spare_capacity[..4].write_copy_of_slice(b"defg");
+    // TODO: Use `write_copy_of_slice()` once `rust-version` allows it
+    for (dst, &src) in spare_capacity[..4].iter_mut().zip(b"defg") {
+        dst.write(src);
+    }
     // SAFETY: Initialized 4 more bytes above
     unsafe {
         owned.set_len(7);

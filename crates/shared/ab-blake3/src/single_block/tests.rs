@@ -78,8 +78,10 @@ fn test_compare_with_upstream() {
 
 fn test_compare_with_upstream_exact<const NUM_BLOCKS: usize>(input_buf: &[u8]) {
     assert!(input_buf.len() >= BLOCK_LEN * NUM_BLOCKS);
-    let inputs = input_buf.as_chunks::<BLOCK_LEN>().0[..NUM_BLOCKS]
-        .as_array::<NUM_BLOCKS>()
+    let inputs = input_buf
+        .as_chunks::<BLOCK_LEN>()
+        .0
+        .first_chunk::<NUM_BLOCKS>()
         .unwrap();
 
     // Regular hash

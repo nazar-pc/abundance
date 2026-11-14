@@ -2,6 +2,7 @@
 
 Breaking changes:
 
+* Rust 1.89 or newer is required
 * `OwnedAlignedBuffer` and `SharedAlignedBuffer` have a type parameter for alignment of the contents, which is `Align16`
   by default, the same alignment as before
 * `as_ptr()`, `as_mut_ptr()` and `as_u128_slice()` that return `u128`s are only available for alignment of the

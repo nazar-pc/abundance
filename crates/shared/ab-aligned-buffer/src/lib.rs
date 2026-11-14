@@ -12,7 +12,6 @@
 //!
 //! Does not require a standard library (`no_std`) but does require allocator and atomics.
 
-#![cfg_attr(test, feature(pointer_is_aligned_to))]
 #![no_std]
 
 pub mod alignment;
