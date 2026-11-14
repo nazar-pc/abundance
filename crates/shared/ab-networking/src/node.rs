@@ -6,14 +6,13 @@ use crate::protocols::request_response::request_response_factory;
 use crate::shared::{Command, CreatedSubscription, PeerDiscovered, Shared};
 use crate::utils::HandlerFn;
 use crate::utils::multihash::Multihash;
-use bytes::Bytes;
+use ab_aligned_buffer::SharedAlignedBuffer;
 use event_listener_primitives::HandlerId;
 use futures::channel::{mpsc, oneshot};
 use futures::{SinkExt, Stream, StreamExt};
 use libp2p::gossipsub::{Sha256Topic, SubscriptionError};
 use libp2p::kad::{PeerRecord, RecordKey};
 use libp2p::{Multiaddr, PeerId};
-use parity_scale_codec::decode_from_bytes;
 use std::pin::Pin;
 use std::sync::{Arc, Weak};
 use std::task::{Context, Poll};
@@ -29,12 +28,12 @@ pub struct TopicSubscription {
     subscription_id: usize,
     command_sender: Option<mpsc::Sender<Command>>,
     #[pin]
-    receiver: mpsc::UnboundedReceiver<Bytes>,
+    receiver: mpsc::UnboundedReceiver<SharedAlignedBuffer>,
     _permit: OwnedSemaphorePermit,
 }
 
 impl Stream for TopicSubscription {
-    type Item = Bytes;
+    type Item = SharedAlignedBuffer;
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.project().receiver.poll_next(cx)
     }
@@ -401,7 +400,7 @@ impl Node {
 
         let result = result_receiver.await??;
 
-        decode_from_bytes::<Request::Response>(Bytes::from(result)).map_err(Into::into)
+        Request::decode_response(result).map_err(Into::into)
     }
 
     /// Sends the generic request to the peer and awaits the result.

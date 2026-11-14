@@ -37,6 +37,8 @@
 #[cfg(all(test, not(miri)))]
 mod tests;
 
+use ab_aligned_buffer::alignment::{Align1, Alignment};
+use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use async_trait::async_trait;
 use futures::channel::{mpsc, oneshot};
 use futures::prelude::*;
@@ -169,13 +171,86 @@ pub struct IncomingRequest {
     pub pending_response: oneshot::Sender<OutgoingResponse>,
 }
 
+/// Payload of a response that consists of buffers, which are sent one after another.
+///
+/// This allows sending large buffers as a part of the response without copying them into a single
+/// buffer first.
+#[derive(Debug, Default, Clone)]
+pub struct ResponsePayload {
+    buffers: Vec<SharedAlignedBuffer<Align1>>,
+}
+
+impl<A> From<SharedAlignedBuffer<A>> for ResponsePayload
+where
+    A: Alignment,
+{
+    #[inline]
+    fn from(buffer: SharedAlignedBuffer<A>) -> Self {
+        let mut payload = Self::default();
+        payload.push(buffer);
+        payload
+    }
+}
+
+impl ResponsePayload {
+    /// Append a buffer to the payload
+    #[inline]
+    pub fn push<A>(&mut self, buffer: SharedAlignedBuffer<A>)
+    where
+        A: Alignment,
+    {
+        if !buffer.is_empty() {
+            self.buffers.push(buffer.into_start_align());
+        }
+    }
+
+    /// Total length of the payload in bytes
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.buffers
+            .iter()
+            .map(|buffer| buffer.len() as usize)
+            .sum()
+    }
+
+    /// Whether the payload is empty
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.buffers.is_empty()
+    }
+
+    /// Buffers of the payload in order
+    #[inline]
+    pub fn buffers(&self) -> &[SharedAlignedBuffer<Align1>] {
+        &self.buffers
+    }
+
+    /// Convert into a single buffer, which copies the contents of the payload unless it consists
+    /// of a single buffer.
+    ///
+    /// # Panics
+    /// If the payload is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    pub fn into_buffer(mut self) -> SharedAlignedBuffer<Align1> {
+        if self.buffers.len() <= 1 {
+            return self.buffers.pop().unwrap_or_default();
+        }
+
+        let capacity = u32::try_from(self.len()).unwrap_or(u32::MAX);
+        let mut buffer = OwnedAlignedBuffer::<Align1>::with_capacity(capacity);
+        for part in &self.buffers {
+            assert!(buffer.append(part), "Payload is too large");
+        }
+        buffer.into_shared()
+    }
+}
+
 /// Response for an incoming request to be send by a request protocol handler.
 #[derive(Debug)]
 pub struct OutgoingResponse {
     /// The payload of the response.
     ///
     /// `Err(())` if none is available e.g. due an error while handling the request.
-    pub result: Result<Vec<u8>, ()>,
+    pub result: Result<ResponsePayload, ()>,
 
     /// If provided, the `oneshot::Sender` will be notified when the request has been sent to the
     /// peer.
@@ -285,8 +360,13 @@ pub struct RequestResponseFactoryBehaviour {
     >,
 
     /// Pending requests, passed down to a [`RequestResponse`] behaviour, awaiting a reply.
-    pending_requests:
-        HashMap<ProtocolRequestId, (Instant, oneshot::Sender<Result<Vec<u8>, RequestFailure>>)>,
+    pending_requests: HashMap<
+        ProtocolRequestId,
+        (
+            Instant,
+            oneshot::Sender<Result<SharedAlignedBuffer<Align1>, RequestFailure>>,
+        ),
+    >,
 
     /// Whenever an incoming request arrives, a `Future` is added to this list and will yield the
     /// start time and the response to send back to the remote.
@@ -315,7 +395,7 @@ struct MessageRequest {
     peer: PeerId,
     request_id: InboundRequestId,
     request: Vec<u8>,
-    channel: ResponseChannel<Result<Vec<u8>, ()>>,
+    channel: ResponseChannel<Result<ResponsePayload, ()>>,
     protocol: String,
     response_builder: Option<mpsc::Sender<IncomingRequest>>,
 }
@@ -324,7 +404,7 @@ struct MessageRequest {
 struct RequestProcessingOutcome {
     request_id: InboundRequestId,
     protocol: Cow<'static, str>,
-    inner_channel: ResponseChannel<Result<Vec<u8>, ()>>,
+    inner_channel: ResponseChannel<Result<ResponsePayload, ()>>,
     response: OutgoingResponse,
 }
 
@@ -390,7 +470,7 @@ impl RequestResponseFactoryBehaviour {
         target: &PeerId,
         protocol_name: &str,
         request: Vec<u8>,
-        pending_response: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
+        pending_response: oneshot::Sender<Result<SharedAlignedBuffer<Align1>, RequestFailure>>,
         connect: IfDisconnected,
         addresses: Vec<Multiaddr>,
     ) {
@@ -815,7 +895,11 @@ impl NetworkBehaviour for RequestResponseFactoryBehaviour {
                                     .remove(&(protocol.clone(), request_id).into())
                             {
                                 let delivered = pending_response
-                                    .send(response.map_err(|()| RequestFailure::Refused))
+                                    .send(
+                                        response
+                                            .map(ResponsePayload::into_buffer)
+                                            .map_err(|()| RequestFailure::Refused),
+                                    )
                                     .map_err(|_error_result| RequestFailure::Obsolete.to_string());
                                 (started, delivered)
                             } else {
@@ -966,7 +1050,7 @@ pub struct GenericCodec {
 impl RequestResponseCodec for GenericCodec {
     type Protocol = StreamProtocol;
     type Request = Vec<u8>;
-    type Response = Result<Vec<u8>, ()>;
+    type Response = Result<ResponsePayload, ()>;
 
     async fn read_request<T>(&mut self, _: &Self::Protocol, io: &mut T) -> io::Result<Self::Request>
     where
@@ -1027,9 +1111,25 @@ impl RequestResponseCodec for GenericCodec {
         }
 
         // Read the payload.
-        let mut buffer = vec![0; length];
-        io.read_exact(&mut buffer).await?;
-        Ok(Ok(buffer))
+        #[cfg_attr(
+            target_pointer_width = "64",
+            expect(
+                clippy::absurd_extreme_comparisons,
+                reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+            )
+        )]
+        let length = u32::try_from(length)
+            .ok()
+            .filter(|&length| length <= OwnedAlignedBuffer::<Align1>::MAX_CAPACITY)
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("Response size {length} is too large for a buffer"),
+                )
+            })?;
+        let mut buffer = OwnedAlignedBuffer::<Align1>::zeroed(length);
+        io.read_exact(buffer.as_mut_slice()).await?;
+        Ok(Ok(ResponsePayload::from(buffer.into_shared())))
     }
 
     async fn write_request<T>(
@@ -1073,8 +1173,10 @@ impl RequestResponseCodec for GenericCodec {
                     .await?;
             }
 
-            // Write the payload.
-            io.write_all(&res).await?;
+            // Write the payload, one buffer at a time
+            for buffer in res.buffers() {
+                io.write_all(buffer).await?;
+            }
         }
 
         io.close().await?;

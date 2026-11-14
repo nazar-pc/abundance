@@ -14,13 +14,13 @@ include = [
 ]
 
 [dependencies]
+ab-aligned-buffer = { workspace = true }
 ab-cli-utils = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc", "scale-codec"] }
 async-lock = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 backon = { workspace = true, features = ["tokio-sleep"] }
 blake3 = { workspace = true }
-bytes = { workspace = true }
 clap = { workspace = true }
 derive_more = { workspace = true, features = ["full"] }
 event-listener-primitives = { workspace = true }
@@ -31,7 +31,7 @@ hex = { workspace = true }
 memmap2 = { workspace = true }
 multihash = { workspace = true, features = ["scale-codec"] }
 nohash-hasher = { workspace = true }
-parity-scale-codec = { workspace = true, features = ["bytes", "std"] }
+parity-scale-codec = { workspace = true, features = ["std"] }
 parking_lot = { workspace = true }
 pin-project = { workspace = true }
 prometheus-client = { workspace = true }

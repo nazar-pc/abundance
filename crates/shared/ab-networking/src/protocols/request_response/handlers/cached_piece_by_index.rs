@@ -6,15 +6,21 @@
 mod tests;
 
 use crate::protocols::request_response::handlers::generic_request_handler::{
-    GenericRequest, GenericRequestHandler,
+    GenericRequest, GenericRequestHandler, encode_to_buffer,
 };
+use crate::protocols::request_response::handlers::{decode_piece, encode_piece};
+use crate::protocols::request_response::request_response_factory::ResponsePayload;
+use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align1;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use derive_more::{Deref, DerefMut, From, Into};
 use libp2p::kad::K_VALUE;
 use libp2p::multiaddr::Protocol;
 use libp2p::{Multiaddr, PeerId};
 use multihash::Multihash;
-use parity_scale_codec::{Compact, CompactLen, Decode, Encode, EncodeLike, Input, Output};
+use parity_scale_codec::{
+    Compact, CompactLen, Decode, DecodeAll, Encode, EncodeLike, Input, Output,
+};
 use std::sync::Arc;
 
 /// Cached-piece-by-index request.
@@ -34,6 +40,49 @@ impl GenericRequest for CachedPieceByIndexRequest {
     const PROTOCOL_NAME: &'static str = "/subspace/cached-piece-by-index/0.1.0";
     const LOG_TARGET: &'static str = "cached-piece-by-index-request-response-handler";
     type Response = CachedPieceByIndexResponse;
+
+    /// Piece is not copied into the payload
+    fn encode_response(response: &Self::Response) -> Option<ResponsePayload> {
+        let CachedPieceByIndexResponse {
+            result,
+            cached_pieces,
+        } = response;
+
+        let mut payload = ResponsePayload::default();
+        match result {
+            PieceResult::Piece(piece) => {
+                // `PieceResult::Piece` variant
+                encode_piece(&mut payload, &0u8, piece)?;
+            }
+            PieceResult::ClosestPeers(_closest_peers) => {
+                payload.push(encode_to_buffer(result)?);
+            }
+        }
+        payload.push(encode_to_buffer(cached_pieces)?);
+
+        Some(payload)
+    }
+
+    /// Piece references the payload without copying it
+    fn decode_response(
+        payload: SharedAlignedBuffer<Align1>,
+    ) -> Result<Self::Response, parity_scale_codec::Error> {
+        let mut input = payload.as_slice();
+        let result = match u8::decode(&mut input)? {
+            0 => PieceResult::Piece(decode_piece(&payload, &mut input)?),
+            1 => PieceResult::ClosestPeers(ClosestPeers::decode(&mut input)?),
+            _ => {
+                return Err("Invalid `PieceResult` variant".into());
+            }
+        };
+        // This is the last field, so it must consume the rest of the payload
+        let cached_pieces = Vec::decode_all(&mut input)?;
+
+        Ok(CachedPieceByIndexResponse {
+            result,
+            cached_pieces,
+        })
+    }
 }
 
 impl CachedPieceByIndexRequest {
