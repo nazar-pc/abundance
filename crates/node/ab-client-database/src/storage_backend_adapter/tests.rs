@@ -28,6 +28,7 @@ fn open_rejects_page_group_size_larger_than_storage_backend() {
         &container,
         None,
         &mut buffer,
+        container.num_pages().unwrap(),
         0,
     )
     .unwrap();

@@ -536,13 +536,13 @@ impl PotCheckpoints {
 
     /// Convenient conversion from slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn slice_from_bytes(value: &[[u8; Self::SIZE]]) -> &[Self] {
+    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
         Self::wrap_slice(<[PotOutput; _]>::wrap_slice(value.unflatten_each_ref()))
     }
 
     /// Convenient conversion to slice of underlying representation for efficiency purposes
     #[inline(always)]
-    pub const fn bytes_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
+    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
         <[PotOutput; _]>::peel_slice(Self::peel_slice(value)).flatten_each_ref()
     }
 }

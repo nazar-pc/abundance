@@ -15,7 +15,6 @@ use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::mem::MaybeUninit;
-use core::slice;
 
 #[test]
 fn payload_decode_empty() {
@@ -226,10 +225,10 @@ fn payload_decode_misaligned() {
         for word in payload {
             assert!(buffer.append(&word.to_ne_bytes()));
         }
-        // SAFETY: The buffer holds the initialized bytes of the payload 8 bytes after its 16-byte
-        // aligned start, so they are aligned for `u128` here
-        let misaligned =
-            unsafe { slice::from_raw_parts(buffer.as_ptr().byte_add(8), payload.len()) };
+        // The buffer holds the payload 8 bytes after its 16-byte aligned start, which is aligned
+        // for `u128` here
+        let (misaligned, _remainder) =
+            u128::slice_from_bytes(&buffer[size_of::<u64>()..], payload.len()).unwrap();
         assert_eq!(
             decode_and_call(misaligned),
             Err(TransactionPayloadDecoderError::PayloadMisaligned)

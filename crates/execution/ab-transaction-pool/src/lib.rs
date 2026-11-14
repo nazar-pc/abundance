@@ -105,11 +105,8 @@ impl TransactionPool {
     }
 
     /// Add new transaction to the pool
-    pub fn add(
-        &mut self,
-        tx_hash: TransactionHash,
-        tx: OwnedTransaction,
-    ) -> Result<(), TransactionAddError> {
+    pub fn add(&mut self, tx: OwnedTransaction) -> Result<(), TransactionAddError> {
+        let tx_hash = tx.hash();
         if self.contains(&tx_hash) {
             return Err(TransactionAddError::AlreadyExists);
         }

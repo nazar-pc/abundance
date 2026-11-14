@@ -264,6 +264,48 @@ where
         unsafe { bytes.as_mut_ptr().cast::<Self>().as_mut_unchecked() }
     }
 
+    /// Create a slice of `count` values at the beginning of aligned `bytes`, returns the values and
+    /// the remaining bytes.
+    ///
+    /// Returns `None` if `bytes` are not aligned for `Self` or are too short. Like
+    /// [`Self::from_bytes()`] it doesn't parse the bytes, since any bytes are a valid value.
+    #[inline(always)]
+    final fn slice_from_bytes(bytes: &[u8], count: usize) -> Option<(&[Self], &[u8])>
+    where
+        Self: AnyBitPattern,
+    {
+        if !bytes.as_ptr().cast::<Self>().is_aligned() {
+            return None;
+        }
+        let (values, remainder) = bytes.split_at_checked(count.checked_mul(size_of::<Self>())?)?;
+        // SAFETY: `values` are `count` times `size_of::<Self>()` initialized bytes, aligned as
+        // checked above, and any of them are valid values of `Self` (`AnyBitPatternMarker`)
+        let values = unsafe { slice::from_raw_parts(values.as_ptr().cast::<Self>(), count) };
+        Some((values, remainder))
+    }
+
+    /// Like [`Self::slice_from_bytes()`], but returns an exclusive reference
+    #[inline(always)]
+    final fn slice_from_bytes_mut(
+        bytes: &mut [u8],
+        count: usize,
+    ) -> Option<(&mut [Self], &mut [u8])>
+    where
+        Self: AnyBitPattern,
+    {
+        if !bytes.as_ptr().cast::<Self>().is_aligned() {
+            return None;
+        }
+        let (values, remainder) =
+            bytes.split_at_mut_checked(count.checked_mul(size_of::<Self>())?)?;
+        // SAFETY: `values` are `count` times `size_of::<Self>()` initialized bytes, aligned as
+        // checked above, and any of them are valid values of `Self` (`AnyBitPatternMarker`),
+        // values written through the reference have no padding, so the bytes stay initialized
+        let values =
+            unsafe { slice::from_raw_parts_mut(values.as_mut_ptr().cast::<Self>(), count) };
+        Some((values, remainder))
+    }
+
     /// Access the underlying byte representation of a data structure
     #[inline(always)]
     final fn as_bytes(&self) -> &[u8; SIZE_OF::<Self>] {

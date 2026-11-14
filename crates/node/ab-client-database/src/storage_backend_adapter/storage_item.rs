@@ -64,6 +64,9 @@ pub(crate) enum StorageItemError {
     /// Invalid buffer contents
     #[error("Invalid buffer contents")]
     InvalidBufferContents,
+    /// Storage item is too large
+    #[error("Storage item is too large")]
+    StorageItemTooLarge,
 }
 
 /// The result of [`StorageItem::write()`] call
@@ -78,7 +81,7 @@ pub(crate) struct StorageItemWriteResult<'a> {
 
 pub(crate) trait StorageItem: fmt::Debug + Send + Sync + Sized + 'static {
     /// Total number of bytes
-    fn total_bytes(&self) -> usize;
+    fn total_bytes(&self) -> Result<u32, StorageItemError>;
 
     /// Write a storage item to the provided buffer.
     ///
@@ -123,13 +126,17 @@ where
     SI: StorageItem,
 {
     /// Returns the number of pages necessary to write this storage item
-    pub(super) fn num_pages(&self) -> u32 {
-        let storage_item_size = self.storage_item.total_bytes();
+    pub(super) fn num_pages(&self) -> Result<u32, StorageItemError> {
+        let storage_item_size = self.storage_item.total_bytes()?;
 
         // Align buffer used by storage item to 128 bytes
         let prefix_size = Self::prefix_size().next_multiple_of(size_of::<u128>());
 
-        (prefix_size + storage_item_size + Self::suffix_size()).div_ceil(AlignedPage::SIZE) as u32
+        let num_bytes = storage_item_size
+            .checked_add((prefix_size + Self::suffix_size()) as u32)
+            .ok_or(StorageItemError::StorageItemTooLarge)?;
+
+        Ok(num_bytes.div_ceil(AlignedPage::SIZE as u32))
     }
 
     /// Write a storage item to the provided buffer of aligned pages.
@@ -168,7 +175,8 @@ where
         // Write prefix
         sequence_number_bytes.write_copy_of_slice(&self.sequence_number.to_le_bytes());
         storage_item_variant_bytes[0].write(storage_item_variant);
-        let storage_item_size = storage_item_bytes.len() as u32;
+        let storage_item_size = u32::try_from(storage_item_bytes.len())
+            .map_err(|_error| StorageItemError::StorageItemTooLarge)?;
         storage_item_size_bytes.write_copy_of_slice(&storage_item_size.to_le_bytes());
         // SAFETY: Wrote to all components of `before_checksum` above
         let checksum = single_block_hash(unsafe { before_checksum.assume_init_ref() })
@@ -194,9 +202,12 @@ where
         Ok(())
     }
 
-    /// The inverse of [`Self::write_to_pages()`]
-    pub(super) fn read_from_pages(pages: &[AlignedPage]) -> Result<Self, StorageItemError> {
-        let mut buffer = AlignedPage::slice_to_repr(pages).as_flattened();
+    /// The inverse of [`Self::write_to_pages()`].
+    ///
+    /// Returns the storage item container and the number of pages it occupies.
+    pub(super) fn read_from_pages(pages: &[AlignedPage]) -> Result<(Self, u32), StorageItemError> {
+        let pages_bytes = AlignedPage::slice_to_repr(pages).as_flattened();
+        let mut buffer = pages_bytes;
 
         // Align buffer used by storage item to 128 bytes
         let prefix_bytes = buffer
@@ -268,10 +279,18 @@ where
         }
 
         let storage_item = SI::read(storage_item_variant, storage_item_bytes)?;
+        let num_pages =
+            u32::try_from((pages_bytes.len() - buffer.len()).div_ceil(AlignedPage::SIZE)).expect(
+                "Read bytes are the prefix, storage item of `u32` size and suffix, which take far \
+                fewer than `u32::MAX` pages; qed",
+            );
 
-        Ok(Self {
-            sequence_number,
-            storage_item,
-        })
+        Ok((
+            Self {
+                sequence_number,
+                storage_item,
+            },
+            num_pages,
+        ))
     }
 }

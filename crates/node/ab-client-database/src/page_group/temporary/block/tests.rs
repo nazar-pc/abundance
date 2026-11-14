@@ -1,4 +1,4 @@
-use crate::page_group::temporary::block::StorageItemTemporaryBlock;
+use crate::page_group::temporary::block::{StorageItemTemporaryBlock, SystemContractStatePrefix};
 use crate::storage_backend::AlignedPage;
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::test_utils::write_to_aligned_pages;
@@ -6,6 +6,8 @@ use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::ContractSlotState;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::trees::BlockMerkleMountainRange;
+use ab_io_type::trivial_type::TrivialType;
+use std::{assert_matches, iter};
 use triomphe::Arc;
 
 // Lengths around alignment boundaries, a smaller set under Miri, where exhaustive checks take too
@@ -35,6 +37,13 @@ const CONTENTS_LENS: &[&[u32]] = if cfg!(miri) {
         &[40, 8, 1],
     ]
 };
+
+/// Bytes taken by a system contract state in addition to its contents when it starts at a multiple
+/// of 16 bytes
+const STATE_OVERHEAD: u32 = SystemContractStatePrefix::SIZE.next_multiple_of(16);
+/// Contents length of all but the last system contract state of a large storage item, a multiple
+/// of 16
+const LARGE_CONTENTS_LEN: u32 = 1024 * 1024;
 
 fn storage_item(
     header_len: u32,
@@ -73,6 +82,42 @@ fn storage_items() -> impl Iterator<Item = StorageItemTemporaryBlock> {
     })
 }
 
+/// Storage item that takes `u32::MAX + extra_bytes` bytes, all system contract states except the
+/// last one share the same contents to keep memory usage low
+fn large_storage_item(extra_bytes: u32) -> StorageItemTemporaryBlock {
+    let mut storage_item = storage_item(0, 0, &[]);
+    // System contract states start where the storage item without them ends, a multiple of 8
+    // bytes. Make it a multiple of 16 bytes for `STATE_OVERHEAD` to apply to every state.
+    if !storage_item.total_bytes().unwrap().is_multiple_of(16) {
+        storage_item.body = SharedAlignedBuffer::from_bytes(&[0; 8]);
+    }
+
+    let states_len = u64::from(u32::MAX) + u64::from(extra_bytes)
+        - u64::from(storage_item.total_bytes().unwrap());
+    let state_len = u64::from(STATE_OVERHEAD + LARGE_CONTENTS_LEN);
+    let num_states = (states_len - u64::from(STATE_OVERHEAD)) / state_len;
+    let last_contents_len = states_len - num_states * state_len - u64::from(STATE_OVERHEAD);
+
+    let state = ContractSlotState {
+        owner: Address::NULL,
+        contract: Address::SYSTEM_STATE,
+        contents: SharedAlignedBuffer::from_bytes(&vec![0; LARGE_CONTENTS_LEN as usize]),
+    };
+    let last_state = ContractSlotState {
+        contents: SharedAlignedBuffer::from_bytes(&vec![
+            0;
+            usize::try_from(last_contents_len).unwrap()
+        ]),
+        ..state.clone()
+    };
+    storage_item.system_contract_states =
+        iter::repeat_n(state, usize::try_from(num_states).unwrap())
+            .chain([last_state])
+            .collect();
+
+    storage_item
+}
+
 fn assert_same_block(
     read_storage_item: &StorageItemTemporaryBlock,
     storage_item: &StorageItemTemporaryBlock,
@@ -107,7 +152,7 @@ fn assert_same_block(
 #[test]
 fn read_returns_written_block() {
     for storage_item in storage_items() {
-        let total_bytes = storage_item.total_bytes();
+        let total_bytes = storage_item.total_bytes().unwrap() as usize;
         let buffer_len = total_bytes + 17;
         let (result, pages) =
             write_to_aligned_pages(buffer_len, |buffer| storage_item.write(buffer));
@@ -125,7 +170,7 @@ fn read_returns_written_block() {
 #[test]
 fn read_of_truncated_bytes_needs_more_bytes() {
     for storage_item in storage_items() {
-        let total_bytes = storage_item.total_bytes();
+        let total_bytes = storage_item.total_bytes().unwrap() as usize;
         let (result, pages) =
             write_to_aligned_pages(total_bytes, |buffer| storage_item.write(buffer));
         result.unwrap();
@@ -151,4 +196,23 @@ fn read_of_truncated_bytes_needs_more_bytes() {
             );
         }
     }
+}
+
+#[test]
+fn block_of_u32_max_bytes_fits() {
+    let storage_item = large_storage_item(0);
+
+    assert_eq!(storage_item.total_bytes().unwrap(), u32::MAX);
+}
+
+#[test]
+fn block_over_u32_max_bytes_is_too_large() {
+    let storage_item = large_storage_item(1);
+
+    assert_matches!(
+        storage_item.total_bytes(),
+        Err(StorageItemError::StorageItemTooLarge)
+    );
+    let (result, _pages) = write_to_aligned_pages(0, |buffer| storage_item.write(buffer));
+    assert_matches!(result, Err(StorageItemError::StorageItemTooLarge));
 }

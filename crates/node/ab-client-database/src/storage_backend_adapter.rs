@@ -151,9 +151,9 @@ where
                 .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseError::ReadError { error })?;
 
-            let container =
+            let (container, header_pages) =
                 match StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
-                    Ok(container) => container,
+                    Ok(result) => result,
                     Err(_error) => {
                         // Page group header fit the first page, so any deciding error indicates it
                         // is not a valid page group header
@@ -188,7 +188,7 @@ where
                         .list
                         .push_front(PageGroup {
                             first_sequence_number: container.sequence_number,
-                            inner_next_page_offset: container.num_pages(),
+                            inner_next_page_offset: header_pages,
                             first_page_offset: 0,
                         });
                 }
@@ -208,9 +208,9 @@ where
                 .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
                 .map_err(|error| ClientDatabaseError::ReadError { error })?;
 
-            let container =
+            let (container, header_pages) =
                 match StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
-                    Ok(container) => container,
+                    Ok(result) => result,
                     Err(_error) => {
                         free_page_groups.push_back(first_page_offset);
                         continue;
@@ -228,7 +228,7 @@ where
 
             let page_group = PageGroup {
                 first_sequence_number: container.sequence_number,
-                inner_next_page_offset: container.num_pages(),
+                inner_next_page_offset: header_pages,
                 first_page_offset,
             };
             page_groups[page_group_header.page_group_kind]
@@ -250,15 +250,7 @@ where
             page_group_size,
             &storage_backend,
             buffer,
-            |container, page_offset| {
-                let num_pages = container.num_pages();
-
-                (storage_item_handlers.permanent)(StorageItemHandlerArg {
-                    storage_item: container.storage_item,
-                    page_offset,
-                    num_pages,
-                })
-            },
+            &mut storage_item_handlers.permanent,
         )
         .instrument(info_span!("", page_group_kind = ?PageGroupKind::Permanent))
         .await?;
@@ -269,15 +261,7 @@ where
             page_group_size,
             &storage_backend,
             buffer,
-            |container, page_offset| {
-                let num_pages = container.num_pages();
-
-                (storage_item_handlers.temporary)(StorageItemHandlerArg {
-                    storage_item: container.storage_item,
-                    page_offset,
-                    num_pages,
-                })
-            },
+            &mut storage_item_handlers.temporary,
         )
         .instrument(info_span!("", page_group_kind = ?PageGroupKind::Temporary))
         .await?;
@@ -343,7 +327,9 @@ where
                 page_group_size,
             },
         };
-        Self::write_pages_to_buffer(&container, None, &mut buffer, 0)?;
+        // Page group header always takes a single page, just like when it is written in front of
+        // another storage item
+        Self::write_pages_to_buffer(&container, None, &mut buffer, 1, 0)?;
 
         let _buffer: Vec<AlignedPage> = storage_backend
             .write(buffer, 0)
@@ -364,7 +350,7 @@ where
     ) -> Result<Vec<AlignedPage>, ClientDatabaseError>
     where
         SI: StorageItem,
-        SIH: FnMut(StorageItemContainer<SI>, u32) -> Result<(), ClientDatabaseError>,
+        SIH: FnMut(StorageItemHandlerArg<SI>) -> Result<(), ClientDatabaseError>,
     {
         let mut next_sequence_number = 0;
 
@@ -406,8 +392,8 @@ where
 
             while !pages.is_empty() {
                 let page_offset = page_group.first_page_offset + page_group.inner_next_page_offset;
-                let container = match StorageItemContainer::read_from_pages(pages) {
-                    Ok(container) => container,
+                let (container, num_pages) = match StorageItemContainer::read_from_pages(pages) {
+                    Ok(result) => result,
                     Err(error) => {
                         debug!(
                             page_offset,
@@ -420,7 +406,6 @@ where
                 };
 
                 let sequence_number = container.sequence_number;
-                let num_pages = container.num_pages();
 
                 if sequence_number == next_sequence_number {
                     next_sequence_number += 1;
@@ -438,7 +423,11 @@ where
                     });
                 }
 
-                storage_item_handler(container, page_offset)?;
+                storage_item_handler(StorageItemHandlerArg {
+                    storage_item: container.storage_item,
+                    page_offset,
+                    num_pages,
+                })?;
 
                 pages = &pages[num_pages as usize..];
                 page_group.inner_next_page_offset += num_pages;
@@ -474,7 +463,7 @@ where
             })
             .flatten()?;
 
-        let container = StorageItemContainer::read_from_pages(&pages)
+        let (container, _num_pages) = StorageItemContainer::read_from_pages(&pages)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
 
         Ok(container.storage_item)
@@ -516,7 +505,10 @@ where
             storage_item,
         };
 
-        let mut num_pages_to_write = container.num_pages();
+        let num_pages = container
+            .num_pages()
+            .map_err(|error| io::Error::new(io::ErrorKind::QuotaExceeded, error))?;
+        let mut num_pages_to_write = num_pages;
         // Ensure a storage item doesn't exceed page group size. `-1` accounts for the page group
         // header.
         if num_pages_to_write > (self.page_group_size - 1) {
@@ -588,6 +580,7 @@ where
                 &container,
                 maybe_page_group_header.as_ref(),
                 &mut buffer,
+                num_pages,
                 write_page_offset,
             )?;
 
@@ -605,7 +598,7 @@ where
 
             return Ok(WriteLocation {
                 page_offset,
-                num_pages: container.num_pages(),
+                num_pages,
             });
         }
 
@@ -658,6 +651,7 @@ where
                         &container,
                         maybe_page_group_header.as_ref(),
                         &mut buffer,
+                        num_pages,
                         write_page_offset,
                     ) {
                         Ok(page_offset) => page_offset,
@@ -674,7 +668,7 @@ where
                     (
                         Some(Ok(WriteLocation {
                             page_offset,
-                            num_pages: container.num_pages(),
+                            num_pages,
                         })),
                         WriteBufferEntry::Occupied(receiver),
                     )
@@ -690,7 +684,8 @@ where
         write_fut.await
     }
 
-    /// Write (append) a storage item with an optional page group header in front of it.
+    /// Write (append) a storage item that takes `num_pages` pages with an optional page group
+    /// header in front of it.
     ///
     /// Returns page offset at which an item is written based on `preliminary_page_offset`.
     #[inline(always)]
@@ -698,13 +693,14 @@ where
         container: &StorageItemContainer<SI>,
         maybe_page_group_header: Option<&StorageItemContainer<StorageItemPageGroupHeader>>,
         buffer: &mut Vec<AlignedPage>,
+        num_pages: u32,
         preliminary_page_offset: u32,
     ) -> io::Result<u32>
     where
         SI: StorageItem,
     {
         if let Some(page_group_header) = maybe_page_group_header {
-            let length = container.num_pages() as usize + 1;
+            let length = num_pages as usize + 1;
             buffer.reserve(length);
 
             {
@@ -722,7 +718,7 @@ where
             // +1 because the page header was written in front of the storage item
             Ok(preliminary_page_offset + 1)
         } else {
-            let length = container.num_pages() as usize;
+            let length = num_pages as usize;
             buffer.reserve(length);
 
             container

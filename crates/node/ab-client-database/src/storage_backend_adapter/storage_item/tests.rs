@@ -24,7 +24,11 @@ fn read_of_truncated_storage_item_needs_more_bytes() {
     };
     let mut pages = Vec::new();
     StorageBackendAdapter::<MemoryStorageBackend>::write_pages_to_buffer(
-        &container, None, &mut pages, 0,
+        &container,
+        None,
+        &mut pages,
+        container.num_pages().unwrap(),
+        0,
     )
     .unwrap();
     let storage_item_bytes_in_first_page = AlignedPage::SIZE
@@ -37,7 +41,7 @@ fn read_of_truncated_storage_item_needs_more_bytes() {
     };
     assert_eq!(
         missing_bytes,
-        container.storage_item.total_bytes() - storage_item_bytes_in_first_page
+        container.storage_item.total_bytes().unwrap() as usize - storage_item_bytes_in_first_page
     );
 }
 

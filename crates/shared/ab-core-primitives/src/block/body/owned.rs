@@ -33,7 +33,7 @@ use crate::pot::PotCheckpoints;
 use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
 use crate::transaction::Transaction;
-use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
+use crate::transaction::owned::OwnedTransaction;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
@@ -68,49 +68,36 @@ pub trait GenericOwnedBlockBody:
     fn body(&self) -> &Self::Body<'_>;
 }
 
-/// Transaction addition error
-#[derive(Debug, thiserror::Error)]
-enum AddTransactionError {
-    /// Block body is too large
-    #[error("Block body is too large")]
-    BlockBodyIsTooLarge,
-    /// Failed to add transaction
-    #[error("Failed to add transaction: {error}")]
-    FailedToAddTransaction {
-        /// Inner error
-        #[from]
-        error: OwnedTransactionError,
-    },
-}
-
 /// Transaction that can be written into the body.
 ///
 /// Can't be implemented outside of this module, because block body builders rely on it appending
-/// exactly one correctly encoded transaction to the buffer.
+/// exactly one correctly encoded transaction to the buffer or leaving it unchanged.
 pub impl(self) trait WritableBodyTransaction {
-    /// Write this transaction into the body
-    fn write_into(&self, buffer: &mut OwnedAlignedBuffer) -> Result<(), OwnedTransactionError>;
+    /// Write this transaction into the body.
+    ///
+    /// Returns [`OwnedLeafShardBodyError::BlockBodyIsTooLarge`] and leaves the buffer unchanged if
+    /// the body becomes too large.
+    fn write_into(&self, buffer: &mut OwnedAlignedBuffer) -> Result<(), OwnedLeafShardBodyError>;
 }
 
 impl WritableBodyTransaction for Transaction<'_> {
-    fn write_into(&self, buffer: &mut OwnedAlignedBuffer) -> Result<(), OwnedTransactionError> {
-        OwnedTransaction::from_parts_into(
-            self.header,
-            self.read_slots,
-            self.write_slots,
-            self.payload,
-            self.seal,
-            buffer,
-        )
+    #[inline(always)]
+    fn write_into(&self, buffer: &mut OwnedAlignedBuffer) -> Result<(), OwnedLeafShardBodyError> {
+        if buffer.append(self.bytes()) {
+            Ok(())
+        } else {
+            Err(OwnedLeafShardBodyError::BlockBodyIsTooLarge)
+        }
     }
 }
 
 impl WritableBodyTransaction for &OwnedTransaction {
-    fn write_into(&self, buffer: &mut OwnedAlignedBuffer) -> Result<(), OwnedTransactionError> {
+    #[inline(always)]
+    fn write_into(&self, buffer: &mut OwnedAlignedBuffer) -> Result<(), OwnedLeafShardBodyError> {
         if buffer.append(self.buffer().as_slice()) {
             Ok(())
         } else {
-            Err(OwnedTransactionError::TransactionTooLarge)
+            Err(OwnedLeafShardBodyError::BlockBodyIsTooLarge)
         }
     }
 }
@@ -129,8 +116,11 @@ impl TransactionBuilder {
         }
     }
 
-    /// Add transaction to the body
-    fn add_transaction<T>(&mut self, transaction: T) -> Result<(), AddTransactionError>
+    /// Add transaction to the body.
+    ///
+    /// Returns [`OwnedLeafShardBodyError::BlockBodyIsTooLarge`] and leaves the body unchanged if it
+    /// becomes too large.
+    fn add_transaction<T>(&mut self, transaction: T) -> Result<(), OwnedLeafShardBodyError>
     where
         T: WritableBodyTransaction,
     {
@@ -142,13 +132,7 @@ impl TransactionBuilder {
 
         if let Err(error) = transaction.write_into(&mut self.buffer) {
             self.dec_transaction_count();
-            // SAFETY: `WritableBodyTransaction` can only be implemented in this module and all
-            // implementations only append to the buffer (possibly a part of the transaction before
-            // failing), so the first `old_buffer_len` bytes are still initialized
-            unsafe {
-                self.buffer.set_len(old_buffer_len);
-            }
-            return Err(error.into());
+            return Err(error);
         }
 
         if !align_to_16_bytes_with_padding(&mut self.buffer) {
@@ -157,7 +141,7 @@ impl TransactionBuilder {
             unsafe {
                 self.buffer.set_len(old_buffer_len);
             }
-            return Err(AddTransactionError::BlockBodyIsTooLarge);
+            return Err(OwnedLeafShardBodyError::BlockBodyIsTooLarge);
         }
 
         Ok(())
@@ -326,7 +310,7 @@ impl OwnedBeaconChainBody {
         let pot_checkpoints_size = num_pot_checkpoints
             .checked_mul(PotCheckpoints::SIZE as u32)
             .ok_or(OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
-        let capacity = (
+        let fixed_size = (
             // Number of PoT checkpoints
             u32::SIZE
                 // Number of own segment roots
@@ -341,14 +325,38 @@ impl OwnedBeaconChainBody {
                 // segments of each block
                 + u32::from(num_blocks) * (u8::SIZE + 2 * u16::SIZE)
         )
-        // Padding to 8-bytes boundary
-        .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
-            // This is only an estimate of intermediate shard blocks to get in the ballpark where
-            // reallocation should not be necessary in many cases
-            + u32::from(num_blocks) * OwnedIntermediateShardHeader::MAX_ALLOCATION * 2;
-        // PoT checkpoints, the estimate above can make the capacity larger than any body can be
-        let mut buffer =
-            OwnedAlignedBuffer::with_capacity(capacity.saturating_add(pot_checkpoints_size));
+            // Padding to 8-bytes boundary
+            .next_multiple_of(u32::from(Alignment::of::<u64>().get()));
+        // Everything except intermediate shard blocks is known upfront, so a body that doesn't fit
+        // into a buffer even without them is rejected before anything is allocated or copied
+        #[cfg_attr(
+            target_pointer_width = "64",
+            expect(
+                clippy::absurd_extreme_comparisons,
+                reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+            )
+        )]
+        let min_size = fixed_size
+            .checked_add(pot_checkpoints_size)
+            .filter(|&size| size <= OwnedAlignedBuffer::MAX_CAPACITY)
+            .ok_or(OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+        // This is only an estimate of intermediate shard blocks to get in the ballpark where
+        // reallocation should not be necessary in many cases
+        let intermediate_shard_blocks_size =
+            u32::from(num_blocks) * OwnedIntermediateShardHeader::MAX_ALLOCATION * 2;
+        // The estimate can make the capacity larger than any body can be
+        #[cfg_attr(
+            target_pointer_width = "64",
+            expect(
+                clippy::unnecessary_min_or_max,
+                reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+            )
+        )]
+        let mut buffer = OwnedAlignedBuffer::with_capacity(
+            min_size
+                .saturating_add(intermediate_shard_blocks_size)
+                .min(OwnedAlignedBuffer::MAX_CAPACITY),
+        );
 
         let true = buffer.append(&num_pot_checkpoints.to_le_bytes()) else {
             unreachable!("Fixed size data structures that are guaranteed to fit; qed");
@@ -827,25 +835,6 @@ pub enum OwnedLeafShardBodyError {
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
-    /// Failed to add transaction
-    #[error("Failed to add transaction: {error}")]
-    FailedToAddTransaction {
-        /// Inner error
-        error: OwnedTransactionError,
-    },
-}
-
-impl From<AddTransactionError> for OwnedLeafShardBodyError {
-    fn from(value: AddTransactionError) -> Self {
-        match value {
-            AddTransactionError::BlockBodyIsTooLarge => {
-                OwnedLeafShardBodyError::BlockBodyIsTooLarge
-            }
-            AddTransactionError::FailedToAddTransaction { error } => {
-                OwnedLeafShardBodyError::FailedToAddTransaction { error }
-            }
-        }
-    }
 }
 
 /// An owned version of [`LeafShardBody`].

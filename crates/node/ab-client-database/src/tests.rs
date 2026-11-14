@@ -1,4 +1,5 @@
 use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
+use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::test_utils::{
     Database, DatabaseOptions, MemoryStorageBackend, PAGE_GROUP_SIZE, beacon_chain_block,
     block_confirmation_depth, database_options, genesis_block_builder, highest_persisted_number,
@@ -9,15 +10,19 @@ use crate::{
     ClientDatabaseBlock, ClientDatabaseError, ClientDatabaseFormatError,
     ClientDatabaseFormatOptions,
 };
+use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::{
-    BeaconChainInfo, BeaconChainInfoWrite, ChainInfo, ChainInfoWrite, PersistBlockError,
-    ReadBlockError,
+    BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, ChainInfo, ChainInfoWrite,
+    ContractSlotState, PersistBlockError, ReadBlockError,
 };
+use ab_core_primitives::address::Address;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{LocalSegmentIndex, SuperSegmentIndex};
+use ab_core_primitives::trees::BlockMerkleMountainRange;
 use futures::executor::block_on;
-use std::assert_matches;
 use std::num::{NonZeroU32, NonZeroUsize};
+use std::{assert_matches, io, iter};
+use triomphe::Arc;
 
 /// Check that blocks up to the highest persisted block number survived reopening the database
 /// after the best block was at `best_number`, and that importing continues from there
@@ -433,6 +438,68 @@ fn fork_with_unknown_parent_is_rejected() {
         Err(PersistBlockError::MissingParent)
     );
     assert_best_chain(&database, &chain);
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn known_block_is_rejected() {
+    // genesis - c1 .. c10 (best block), then `c(10 - B)` is persisted again
+    //
+    // `B` goes up to `block_confirmation_depth - 2`, the deepest block offset where fork blocks are
+    // accepted. A copy at a block offset up to `soft_confirmation_depth` would be written to disk,
+    // a deeper copy would only be kept in memory.
+    let block_confirmation_depth = 8;
+    for block_offset in 0..=block_confirmation_depth - 2 {
+        let storage_backend = MemoryStorageBackend::new();
+        let database = open_database_with_options(DatabaseOptions {
+            block_confirmation_depth: BlockNumber::from(block_confirmation_depth),
+            ..database_options(&storage_backend)
+        })
+        .unwrap();
+        let mut chain = vec![database.best_root()];
+        chain.extend(persist_chain(&database, chain[0], 1..=10, 0));
+
+        let number = 10 - block_offset;
+        let parent_root = chain[usize::try_from(number - 1).unwrap()];
+        let roots_before = block_and_fork_tip_roots(&database);
+        assert_matches!(
+            persist_block(&database, number, parent_root, 0),
+            Err(PersistBlockError::AlreadyKnown),
+            "{block_offset}"
+        );
+        assert_eq!(block_and_fork_tip_roots(&database), roots_before);
+        assert!(
+            database
+                .header(&chain[usize::try_from(number).unwrap()])
+                .is_some()
+        );
+        assert_best_chain(&database, &chain);
+        assert_consistent(&database, 10);
+
+        // Past the block offset where the copy would have been pruned together with the original
+        // block
+        extend_and_reopen(database, &storage_backend, block_confirmation_depth, 1);
+    }
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn known_genesis_block_is_rejected() {
+    // The genesis block on a fresh database takes the same path as the first block synced on top
+    // of it, which replaces the whole state
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let genesis_root = database.best_root();
+    let roots_before = block_and_fork_tip_roots(&database);
+
+    assert_matches!(
+        persist_block(&database, 0, BlockRoot::default(), 0),
+        Err(PersistBlockError::AlreadyKnown)
+    );
+    assert_eq!(block_and_fork_tip_roots(&database), roots_before);
+    assert!(database.header(&genesis_root).is_some());
+    assert_best_chain(&database, &[genesis_root]);
+    persist_block(&database, 1, genesis_root, 0).unwrap();
 }
 
 #[test]
@@ -1174,4 +1241,40 @@ fn format_rejects_invalid_page_group_size() {
 
     // The previously formatted database is left intact
     open_database(&storage_backend);
+}
+
+#[test]
+fn block_with_too_large_system_contract_states_is_not_written() {
+    // genesis - c1 (system contract states over `u32::MAX` bytes) - c2 .. c4 (`c1` is written
+    // when `c4` is imported)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let c1 = beacon_chain_block(1, database.best_root(), 0);
+    let c1_root = *c1.header.header().root();
+    let block_details = BlockDetails {
+        mmr_with_block: Arc::new(BlockMerkleMountainRange::new()),
+        // All states share the same contents to keep memory usage low
+        system_contract_states: iter::repeat_n(
+            ContractSlotState {
+                owner: Address::NULL,
+                contract: Address::SYSTEM_STATE,
+                contents: SharedAlignedBuffer::from_bytes(&vec![0; 1024 * 1024]),
+            },
+            4096,
+        )
+        .collect(),
+    };
+    block_on(database.persist_block(c1, block_details)).unwrap();
+    let chain = persist_chain(&database, c1_root, 2..=3, 0);
+    assert_eq!(highest_persisted_number(&database, 4), 1);
+
+    let result = persist_block(&database, 4, chain[1], 0);
+    let Err(PersistBlockError::StorageItemWriteError { error }) = result else {
+        panic!("Unexpected result: {result:?}");
+    };
+    assert_eq!(error.kind(), io::ErrorKind::QuotaExceeded);
+    assert_matches!(
+        *error.into_inner().unwrap().downcast().unwrap(),
+        StorageItemError::StorageItemTooLarge
+    );
 }

@@ -12,8 +12,13 @@ pub(crate) struct StorageItemTemporarySegmentHeaders {
 }
 
 impl StorageItemTemporarySegmentHeaders {
-    pub(super) fn total_bytes(&self) -> usize {
-        Self::prefix_size() + size_of_val(self.segment_headers.as_slice())
+    pub(super) fn total_bytes(&self) -> Result<u32, StorageItemError> {
+        u32::try_from(size_of_val(self.segment_headers.as_slice()))
+            .ok()
+            .and_then(|segment_headers_len| {
+                segment_headers_len.checked_add(Self::prefix_size() as u32)
+            })
+            .ok_or(StorageItemError::StorageItemTooLarge)
     }
 
     const fn prefix_size() -> usize {
@@ -35,7 +40,7 @@ impl StorageItemTemporarySegmentHeaders {
         // * segment headers bytes concatenated
 
         let buffer_len = buffer.len();
-        let total_bytes = self.total_bytes();
+        let total_bytes = self.total_bytes()? as usize;
 
         if buffer_len < total_bytes {
             return Err(StorageItemError::BufferTooSmall {
@@ -50,8 +55,14 @@ impl StorageItemTemporarySegmentHeaders {
                 .split_off_mut(..Self::prefix_size())
                 .expect("Total length checked above; qed");
 
-            num_segment_headers
-                .write_copy_of_slice(&(self.segment_headers.len() as u32).to_le_bytes());
+            num_segment_headers.write_copy_of_slice(
+                &u32::try_from(self.segment_headers.len())
+                    .expect(
+                        "Each segment header takes at least one byte out of \
+                        `Self::total_bytes()`, which is `u32`; qed",
+                    )
+                    .to_le_bytes(),
+            );
         }
 
         // Write content bytes
@@ -77,26 +88,22 @@ impl StorageItemTemporarySegmentHeaders {
         let num_segment_headers =
             u32::from_le_bytes(prefix_bytes.try_into().expect("Correct length; qed")) as usize;
 
-        let mut segment_headers = Vec::with_capacity(num_segment_headers);
-
-        for _ in 0..num_segment_headers {
-            let buffer_len = buffer.len();
-            let segment_header_bytes =
-                buffer
-                    .split_off(..size_of::<SegmentHeader>())
-                    .ok_or_else(|| {
-                        StorageItemError::NeedMoreBytes(size_of::<SegmentHeader>() - buffer_len)
-                    })?;
-            // TODO: Would be nice to have slice API in `TrivialType`
-            let segment_header = *SegmentHeader::from_bytes_exact(segment_header_bytes).ok_or(
-                StorageItemError::InvalidDataAlignment {
+        let Some((segment_headers, _remainder)) =
+            SegmentHeader::slice_from_bytes(buffer, num_segment_headers)
+        else {
+            if !buffer.as_ptr().cast::<SegmentHeader>().is_aligned() {
+                return Err(StorageItemError::InvalidDataAlignment {
                     data_type: "SegmentHeader",
-                },
-            )?;
+                });
+            }
+            // Missing bytes of the first segment header that doesn't fit
+            return Err(StorageItemError::NeedMoreBytes(
+                size_of::<SegmentHeader>() - buffer.len() % size_of::<SegmentHeader>(),
+            ));
+        };
 
-            segment_headers.push(segment_header);
-        }
-
-        Ok(Self { segment_headers })
+        Ok(Self {
+            segment_headers: segment_headers.to_vec(),
+        })
     }
 }

@@ -81,6 +81,9 @@ pub enum ReadBlockError {
 /// Error for [`ChainInfoWrite::persist_block()`]
 #[derive(Debug, thiserror::Error)]
 pub enum PersistBlockError {
+    /// Block is already known
+    #[error("Block is already known")]
+    AlreadyKnown,
     /// Missing parent
     #[error("Missing parent")]
     MissingParent,

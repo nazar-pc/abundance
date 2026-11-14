@@ -10,7 +10,7 @@ use crate::hashes::Blake3Hash;
 use crate::transaction::owned::{OwnedTransaction, OwnedTransactionError};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
-use core::slice;
+use core::ops::Deref;
 use derive_more::{Deref, DerefMut, Display, From, Into};
 
 /// A measure of compute resources, 1 Gas == 1 ns of compute on reference hardware
@@ -102,8 +102,9 @@ pub struct SerializedTransactionLengths {
 
 /// Similar to `OwnedTransaction`, but doesn't require `alloc` or data ownership.
 ///
-/// Can be created with `Transaction::try_from_bytes()` or `OwnedTransaction::transaction()`.
-#[derive(Debug, Copy, Clone)]
+/// Can be created with `Transaction::try_from_bytes()` or borrowed from
+/// `OwnedTransaction::transaction()`.
+#[derive(Debug, Clone)]
 #[expect(
     clippy::partial_pub_fields,
     reason = "Intentionally exposing decoded fields and hiding the bytes they were decoded from"
@@ -116,8 +117,8 @@ pub struct Transaction<'a> {
     /// These are the only slots that can be used in authorization code.
     ///
     /// The code slot of the contract that is being executed and balance of native token are
-    /// implicitly included and doesn't need to be specified (see [`Transaction::read_slots()`].
-    /// Also slots that may also be written to do not need to be repeated in the read slots.
+    /// implicitly included and don't need to be specified (see [`Transaction::read_slots()`]).
+    /// Slots that may also be written to do not need to be repeated in the read slots.
     pub mut(self) read_slots: &'a [TransactionSlot],
     /// Slots in the form of [`TransactionSlot`] that may be written during transaction processing
     pub mut(self) write_slots: &'a [TransactionSlot],
@@ -127,6 +128,10 @@ pub struct Transaction<'a> {
     pub mut(self) seal: &'a [u8],
     /// Serialized transaction the fields above were parsed from
     bytes: &'a [u8],
+    #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
+    cached_hash: once_cell::race::OnceBox<TransactionHash>,
+    #[cfg(not(any(target_os = "none", target_os = "unknown")))]
+    cached_hash: std::sync::OnceLock<TransactionHash>,
 }
 
 impl<'a> Transaction<'a> {
@@ -147,10 +152,6 @@ impl<'a> Transaction<'a> {
     ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
-    #[expect(
-        clippy::cast_ptr_alignment,
-        reason = "Alignment of `bytes` is checked and offsets within them are multiples of it"
-    )]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
         const {
             // Slots after `SerializedTransactionLengths` and payload after slots must be aligned
@@ -159,8 +160,6 @@ impl<'a> Transaction<'a> {
                     .is_multiple_of(usize::from(Alignment::MAX.get()))
             );
             assert!(size_of::<TransactionSlot>().is_multiple_of(usize::from(Alignment::MAX.get())));
-            assert!(align_of::<TransactionSlot>() <= usize::from(Alignment::MAX.get()));
-            assert!(align_of::<u128>() <= usize::from(Alignment::MAX.get()));
         }
 
         if !Alignment::MAX.is_slice_aligned(bytes) {
@@ -185,56 +184,31 @@ impl<'a> Transaction<'a> {
             return None;
         }
 
-        let read_slots = usize::from(read_slots);
-        let write_slots = usize::from(write_slots);
         // Lossless, the crate only compiles for targets where `usize` is at least 32 bits (see the
         // assertion in the crate root)
         let payload = payload as usize;
         let seal = seal as usize;
 
-        let (read_slots_bytes, remainder) =
-            remainder.split_at_checked(read_slots * size_of::<TransactionSlot>())?;
-        let (write_slots_bytes, remainder) =
-            remainder.split_at_checked(write_slots * size_of::<TransactionSlot>())?;
-        let (payload_bytes, remainder) = remainder.split_at_checked(payload)?;
+        let (read_slots, remainder) =
+            TransactionSlot::slice_from_bytes(remainder, usize::from(read_slots))?;
+        let (write_slots, remainder) =
+            TransactionSlot::slice_from_bytes(remainder, usize::from(write_slots))?;
+        let (payload, remainder) = u128::slice_from_bytes(remainder, payload / size_of::<u128>())?;
         let (seal, remainder) = remainder.split_at_checked(seal)?;
         // `remainder` is the end of `bytes`, so the difference doesn't underflow
         let (bytes, _remainder) = bytes.split_at(bytes.len() - remainder.len());
 
         let transaction = Self {
             header,
-            // SAFETY: Any bytes are valid for `TransactionSlot`, there are enough of them as
-            // checked above, and they are correctly aligned since `bytes` are aligned to
-            // `Alignment::MAX` and everything before them is a multiple of it (see the assertions
-            // above)
-            read_slots: unsafe {
-                slice::from_raw_parts(
-                    read_slots_bytes.as_ptr().cast::<TransactionSlot>(),
-                    read_slots,
-                )
-            },
-            // SAFETY: Any bytes are valid for `TransactionSlot`, there are enough of them as
-            // checked above, and they are correctly aligned since `bytes` are aligned to
-            // `Alignment::MAX` and everything before them is a multiple of it (see the assertions
-            // above)
-            write_slots: unsafe {
-                slice::from_raw_parts(
-                    write_slots_bytes.as_ptr().cast::<TransactionSlot>(),
-                    write_slots,
-                )
-            },
-            // SAFETY: Any bytes are valid for `u128`, there are enough of them as checked above
-            // (the length is a multiple of `u128` size), and they are correctly aligned since
-            // `bytes` are aligned to `Alignment::MAX` and everything before them is a multiple of
-            // it (see the assertions above)
-            payload: unsafe {
-                slice::from_raw_parts(
-                    payload_bytes.as_ptr().cast::<u128>(),
-                    payload / size_of::<u128>(),
-                )
-            },
+            read_slots,
+            write_slots,
+            payload,
             seal,
             bytes,
+            #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
+            cached_hash: once_cell::race::OnceBox::new(),
+            #[cfg(not(any(target_os = "none", target_os = "unknown")))]
+            cached_hash: std::sync::OnceLock::new(),
         };
 
         Some((transaction, remainder))
@@ -253,13 +227,45 @@ impl<'a> Transaction<'a> {
         self.bytes.len()
     }
 
+    /// Serialized transaction
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    pub(crate) const fn bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
+
     /// Compute transaction hash.
     ///
-    /// Note: this computes transaction hash on every call, so worth caching if it is expected to be
-    /// called often.
+    /// Note that this method hashes the whole serialized transaction. The result is then cached if
+    /// `alloc` feature is enabled or when compiled for OS target that is not `none`.
     #[inline]
-    pub fn hash(&self) -> TransactionHash {
-        TransactionHash(Blake3Hash::from(blake3::hash(self.bytes)))
+    pub fn hash(&self) -> impl Deref<Target = TransactionHash> + Send + Sync {
+        let compute_hash = || TransactionHash(Blake3Hash::from(blake3::hash(self.bytes)));
+
+        #[cfg(not(any(target_os = "none", target_os = "unknown")))]
+        {
+            self.cached_hash.get_or_init(compute_hash)
+        }
+        #[cfg(all(feature = "alloc", any(target_os = "none", target_os = "unknown")))]
+        {
+            self.cached_hash
+                .get_or_init(|| alloc::boxed::Box::new(compute_hash()))
+        }
+        #[cfg(all(not(feature = "alloc"), any(target_os = "none", target_os = "unknown")))]
+        {
+            struct Wrapper(TransactionHash);
+
+            impl Deref for Wrapper {
+                type Target = TransactionHash;
+
+                #[inline(always)]
+                fn deref(&self) -> &Self::Target {
+                    &self.0
+                }
+            }
+
+            Wrapper(compute_hash())
+        }
     }
 
     /// Read slots touched by the transaction.

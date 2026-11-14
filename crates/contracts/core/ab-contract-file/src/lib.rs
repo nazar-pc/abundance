@@ -383,20 +383,19 @@ impl<'a> ContractFile<'a> {
         }
 
         {
-            let mut contract_file_methods_metadata_iter = {
-                let mut file_contract_metadata_bytes = after_header_bytes;
-
-                iter::repeat_with(move || {
-                    let contract_file_method_metadata;
-                    (contract_file_method_metadata, file_contract_metadata_bytes) =
-                        Unaligned::<ContractFileMethodMetadata>::from_bytes(
-                            file_contract_metadata_bytes,
-                        )
-                        .ok_or(ContractFileParseError::FileTooSmall {
-                            num_methods: header.num_methods,
-                            read_only_section_size: header.read_only_section_file_size,
-                            file_size,
-                        })?;
+            let (contract_file_methods_metadata, _remainder) =
+                Unaligned::<ContractFileMethodMetadata>::slice_from_bytes(
+                    after_header_bytes,
+                    usize::from(header.num_methods),
+                )
+                .expect(
+                    "`code_size` is not zero and `code_section_offset` is at least \
+                    `read_only_section_offset`, the size of the header and metadata of all \
+                    methods, so the file is larger than that; qed",
+                );
+            let mut contract_file_methods_metadata_iter = contract_file_methods_metadata
+                .iter()
+                .map(|contract_file_method_metadata| {
                     let contract_file_method_metadata = contract_file_method_metadata.as_inner();
 
                     if contract_file_method_metadata
@@ -424,9 +423,7 @@ impl<'a> ContractFile<'a> {
                     }
 
                     Ok(contract_file_method_metadata)
-                })
-                .take(usize::from(header.num_methods))
-            };
+                });
 
             let mut metadata_num_methods = 0;
             let mut remaining_metadata_bytes = metadata_bytes;
@@ -615,9 +612,10 @@ impl<'a> ContractFile<'a> {
     /// Must be a valid input, for example, previously verified using [`ContractFile::parse()`].
     pub unsafe fn parse_unchecked(file_bytes: &'a [u8]) -> Self {
         // SAFETY: `Unaligned` has alignment 1, and valid input starts with a header (function
-        // contract)
-        let header =
-            unsafe { Unaligned::<ContractFileHeader>::from_bytes_unchecked(file_bytes) }.as_inner();
+        // contract), so `from_bytes()` returns `Some`
+        let (header, _remainder) =
+            unsafe { Unaligned::<ContractFileHeader>::from_bytes(file_bytes).unwrap_unchecked() };
+        let header = header.as_inner();
 
         Self {
             read_only_section_file_size: header.read_only_section_file_size,
@@ -631,8 +629,10 @@ impl<'a> ContractFile<'a> {
     #[inline(always)]
     pub fn header(&self) -> ContractFileHeader {
         // SAFETY: `Unaligned` has alignment 1, and `self.bytes` start with a header (internal
-        // invariant checked in the constructor)
-        unsafe { Unaligned::<ContractFileHeader>::from_bytes_unchecked(self.bytes) }.as_inner()
+        // invariant checked in the constructor), so `from_bytes()` returns `Some`
+        let (header, _remainder) =
+            unsafe { Unaligned::<ContractFileHeader>::from_bytes(self.bytes).unwrap_unchecked() };
+        header.as_inner()
     }
 
     /// Metadata stored in the file
@@ -849,34 +849,29 @@ impl<'a> ContractFile<'a> {
         // SAFETY: Protected internal invariant checked in constructor
         let contract_file_methods_metadata_bytes =
             unsafe { self.bytes.get_unchecked(size_of::<ContractFileHeader>()..) };
+        let (contract_file_methods_metadata, _remainder) =
+            Unaligned::<ContractFileMethodMetadata>::slice_from_bytes(
+                contract_file_methods_metadata_bytes,
+                usize::from(self.num_methods),
+            )
+            .expect("Protected internal invariant checked in constructor; qed");
 
-        (0..self.num_methods).map(move |method_index| {
-            // SAFETY: Protected internal invariant checked in constructor
-            let contract_file_method_metadata_bytes = unsafe {
-                contract_file_methods_metadata_bytes
-                    .get_unchecked(
-                        method_index as usize * size_of::<ContractFileMethodMetadata>()..,
-                    )
-                    .get_unchecked(..size_of::<ContractFileMethodMetadata>())
-            };
-            let contract_file_method_metadata =
-                Unaligned::<ContractFileMethodMetadata>::from_bytes_exact(
-                    contract_file_method_metadata_bytes,
-                )
-                .expect("Correct size; qed")
-                .as_inner();
+        contract_file_methods_metadata
+            .iter()
+            .map(move |contract_file_method_metadata| {
+                let contract_file_method_metadata = contract_file_method_metadata.as_inner();
 
-            let (method_metadata_item, method_metadata_bytes) = metadata_methods_iter
-                .next()
-                .expect("Protected internal invariant checked in constructor; qed");
+                let (method_metadata_item, method_metadata_bytes) = metadata_methods_iter
+                    .next()
+                    .expect("Protected internal invariant checked in constructor; qed");
 
-            ContractFileMethod {
-                address: contract_file_method_metadata.offset - read_only_section_offset
-                    + read_only_padding_size,
-                size: contract_file_method_metadata.size,
-                method_metadata_item,
-                method_metadata_bytes,
-            }
-        })
+                ContractFileMethod {
+                    address: contract_file_method_metadata.offset - read_only_section_offset
+                        + read_only_padding_size,
+                    size: contract_file_method_metadata.size,
+                    method_metadata_item,
+                    method_metadata_bytes,
+                }
+            })
     }
 }

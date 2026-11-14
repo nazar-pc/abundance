@@ -30,7 +30,7 @@ pub(crate) enum StorageItemTemporary {
 
 impl StorageItem for StorageItemTemporary {
     #[inline(always)]
-    fn total_bytes(&self) -> usize {
+    fn total_bytes(&self) -> Result<u32, StorageItemError> {
         match self {
             Self::Block(block) => block.total_bytes(),
             Self::SegmentHeaders(segment_headers) => segment_headers.total_bytes(),

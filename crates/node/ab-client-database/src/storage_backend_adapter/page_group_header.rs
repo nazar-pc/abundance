@@ -25,8 +25,8 @@ pub(crate) struct StorageItemPageGroupHeader {
 
 impl StorageItem for StorageItemPageGroupHeader {
     #[inline(always)]
-    fn total_bytes(&self) -> usize {
-        size_of::<Self>()
+    fn total_bytes(&self) -> Result<u32, StorageItemError> {
+        Ok(Self::SIZE)
     }
 
     #[inline(always)]

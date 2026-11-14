@@ -71,6 +71,8 @@ Improvements:
   parse bytes safely, checking enum discriminants and the length of `FixedCapacityElements`
 * `TrivialType::from_bytes_exact()` and `from_bytes_mut_exact()` return `None` if there are more bytes than the value
 * `TrivialType::slice_as_bytes()` returns the bytes of a slice of values
+* `TrivialType::slice_from_bytes()` and `slice_from_bytes_mut()` create a slice of a given number of `AnyBitPattern`
+  values from aligned bytes and return the remaining bytes
 * `IoType::try_from_ptr()` and `IoType::try_from_mut_ptr()` parse memory, checking its contents, while size, capacity
   and alignment must be valid for the type, like for `from_ptr()` and `from_mut_ptr()`
 * `#[trivial_type(validate = path)]` adds a check to derived parsing, `path(&value)` returns whether the value is valid,
