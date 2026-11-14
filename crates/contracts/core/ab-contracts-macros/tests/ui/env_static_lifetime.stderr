@@ -1,18 +1,19 @@
-error[E0521]: borrowed data escapes outside of function
-  --> tests/ui/env_static_lifetime.rs:15:6
+error: lifetime may not live long enough
+  --> tests/ui/env_static_lifetime.rs:17:33
    |
-15 |   impl Example {
-   |  ______^
-16 | |     #[view]
-17 | |     pub fn keep_env(#[env] env: &'static Env<'static>) {
-   | |         ---------------------------------------------^
-   | |         |                                            |
-   | |_________|____________________________________________`args` escapes the function body here
-   |           |                                            argument requires that `'1` must outlive `'static`
-   |           `args` is only valid in the function body
-   |           has type `&mut ffi::keep_env::InternalArgs<'1>`
-   |           lifetime `'1` introduced here
+17 |     pub fn keep_env(#[env] env: &'static Env<'static>) {
+   |         ------------------------^^^^^^^^^^^^^^^^^^^^^-
+   |         |                       |
+   |         |                       type annotation requires that `'1` must outlive `'static`
+   |         has type `&mut ffi::keep_env::InternalArgs<'1>`
+   |         lifetime `'1` introduced here
+
+error: lifetime may not live long enough
+  --> tests/ui/env_static_lifetime.rs:22:43
    |
-   = note: requirement occurs because of the type `Env<'static>`, which makes the generic argument `'static` invariant
-   = note: the struct `Env<'a>` is invariant over the parameter `'a`
-   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+22 |     pub fn keep_env_reference(#[env] env: &'static Env<'_>) {
+   |         ----------------------------------^^^^^^^^^^^^^^^^-
+   |         |                                 |
+   |         |                                 type annotation requires that `'1` must outlive `'static`
+   |         has type `&mut ffi::keep_env_reference::InternalArgs<'1>`
+   |         lifetime `'1` introduced here
