@@ -468,19 +468,35 @@ impl TransactionPayloadBuilder {
                 actual: output_indices.len(),
             });
         }
-        for &output_index in slot_output_indices
-            .iter()
-            .chain(input_output_indices)
-            .flatten()
-            .chain(output_indices)
-        {
-            if usize::from(output_index) >= MAX_OUTPUTS {
-                return Err(TransactionPayloadBuilderError::InvalidOutputIndex(
-                    output_index,
-                ));
+
+        // `TransactionSlot` for each slot, an explicit address unless it refers to a declared
+        // output
+        let mut slot_tags =
+            [TransactionSlot::new_address().into_u8(); MAX_TOTAL_METHOD_ARGS as usize];
+        for (&slot_output_index, slot_tag) in slot_output_indices.iter().zip(&mut slot_tags) {
+            if let Some(output_index) = slot_output_index {
+                *slot_tag = TransactionSlot::new_output_index(output_index)
+                    .ok_or(TransactionPayloadBuilderError::InvalidOutputIndex(
+                        output_index,
+                    ))?
+                    .into_u8();
             }
         }
-
+        // `TransactionInput` for each input
+        let mut input_tags = [0; MAX_TOTAL_METHOD_ARGS as usize];
+        for ((input_offset, type_details), input_tag) in
+            input_type_details.iter().enumerate().zip(&mut input_tags)
+        {
+            let input = if let Some(&Some(output_index)) = input_output_indices.get(input_offset) {
+                // Only the output index is written, so the alignment of the input isn't used
+                TransactionInput::new_output_index(output_index).ok_or(
+                    TransactionPayloadBuilderError::InvalidOutputIndex(output_index),
+                )?
+            } else {
+                TransactionInput::new_value(type_details.alignment)
+            };
+            *input_tag = input.into_u8();
+        }
         // `TransactionOutput` for each output, the return value last
         let mut output_tags = [0; MAX_TOTAL_METHOD_ARGS as usize];
         for ((output_offset, &output_index), output_tag) in
@@ -539,31 +555,14 @@ impl TransactionPayloadBuilder {
 
         // Store number of slots and `TransactionSlot` for each slot
         self.push_payload_byte(num_slot_arguments)?;
-        for slot_offset in 0..usize::from(num_slot_arguments) {
-            let slot_type = if let Some(&Some(output_index)) = slot_output_indices.get(slot_offset)
-            {
-                TransactionSlot::new_output_index(output_index).ok_or(
-                    TransactionPayloadBuilderError::InvalidOutputIndex(output_index),
-                )?
-            } else {
-                TransactionSlot::new_address()
-            };
-            self.push_payload_byte(slot_type.into_u8())?;
+        for &slot_tag in slot_tags.iter().take(usize::from(num_slot_arguments)) {
+            self.push_payload_byte(slot_tag)?;
         }
 
         // Store number of inputs and `TransactionInput` for each input
         self.push_payload_byte(num_input_arguments)?;
-        for (input_offset, type_details) in input_type_details.iter().enumerate() {
-            let input_type =
-                if let Some(&Some(output_index)) = input_output_indices.get(input_offset) {
-                    // Only the output index is written, so the alignment of the input isn't used
-                    TransactionInput::new_output_index(output_index).ok_or(
-                        TransactionPayloadBuilderError::InvalidOutputIndex(output_index),
-                    )?
-                } else {
-                    TransactionInput::new_value(type_details.alignment)
-                };
-            self.push_payload_byte(input_type.into_u8())?;
+        for &input_tag in input_tags.iter().take(usize::from(num_input_arguments)) {
+            self.push_payload_byte(input_tag)?;
         }
 
         // Store number of outputs and `TransactionOutput` for each output

@@ -907,6 +907,37 @@ fn payload_invalid_output_index() {
 }
 
 #[test]
+fn payload_invalid_output_index_order() {
+    let max_outputs = u8::try_from(MAX_OUTPUTS).unwrap();
+    let mut builder = TransactionPayloadBuilder::new(1024, 1).unwrap();
+
+    // An invalid output index is returned before any rule of the payload format is checked, here
+    // that the slot refers to declared output `0`, which no earlier method call wrote
+    assert_matches!(
+        with_stored_method_call(&mut builder, Some(0), max_outputs),
+        Err(TransactionPayloadBuilderError::InvalidOutputIndex(output_index))
+            if output_index == max_outputs
+    );
+    // The first invalid output index is returned, slots come before outputs
+    assert_matches!(
+        with_stored_method_call(&mut builder, Some(max_outputs), u8::MAX),
+        Err(TransactionPayloadBuilderError::InvalidOutputIndex(output_index))
+            if output_index == max_outputs
+    );
+    for output_indices in [[u8::MAX, max_outputs], [0, u8::MAX]] {
+        assert_matches!(
+            with_get_value_method_call(&mut builder, &output_indices),
+            Err(TransactionPayloadBuilderError::InvalidOutputIndex(u8::MAX)),
+            "Output indices {output_indices:?}"
+        );
+    }
+
+    // Nothing was added or changed, the payload has only its header
+    assert_eq!(builder.payload.len(), 8);
+    assert_eq!(declared_capacities(&builder), [0]);
+}
+
+#[test]
 fn payload_reference_to_unwritten_output() {
     // A slot and an input that refer to a declared output that no earlier method call wrote
     let mut builder = TransactionPayloadBuilder::new(1024, 2).unwrap();
