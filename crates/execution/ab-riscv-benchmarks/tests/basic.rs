@@ -20,7 +20,7 @@ use ab_riscv_primitives::prelude::Register;
 use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::io::BorrowedBuf;
-use std::{ptr, slice};
+use std::slice;
 
 const MEMORY_BASE_ADDRESS: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
@@ -75,11 +75,8 @@ where
 
     {
         let internal_args = create_internal_args(internal_args_addr);
-        // SAFETY: Byte representation of a `TrivialType`, which has no padding, hence fully
-        // initialized
-        let internal_args_bytes = unsafe {
-            slice::from_raw_parts(ptr::from_ref(&internal_args).cast::<u8>(), size_of::<IA>())
-        };
+        // `as_bytes()` does not work here, its array length depends on a generic parameter
+        let internal_args_bytes = IA::slice_as_bytes(slice::from_ref(&internal_args));
 
         memory
             .get_mut_bytes(internal_args_addr, size_of::<IA>())

@@ -4,6 +4,7 @@ use ab_blake3::CHUNK_LEN;
 use ab_contract_file::ContractFile;
 use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
+use ab_io_type::trivial_type::TrivialType;
 use ab_riscv_benchmarks::Benchmarks;
 use ab_riscv_benchmarks::host_utils::{
     Blake3HashChunkInternalArgs, Ed25519VerifyInternalArgs, RISCV_CONTRACT_BYTES,
@@ -20,7 +21,6 @@ use ed25519_dalek::{Signer, SigningKey};
 use std::collections::HashMap;
 use std::hint::black_box;
 use std::io::BorrowedBuf;
-use std::{ptr, slice};
 
 const MEMORY_BASE_ADDRESS: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
@@ -177,14 +177,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         {
             let internal_args = Blake3HashChunkInternalArgs::new(internal_args_addr, data_to_hash);
-            // SAFETY: Byte representation of a `TrivialType`, which has no padding, hence fully
-            // initialized
-            let internal_args_bytes = unsafe {
-                slice::from_raw_parts(
-                    ptr::from_ref(&internal_args).cast::<u8>(),
-                    size_of::<Blake3HashChunkInternalArgs>(),
-                )
-            };
+            let internal_args_bytes = internal_args.as_bytes();
 
             lazy_state
                 .memory
@@ -288,14 +281,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         {
             let internal_args =
                 Ed25519VerifyInternalArgs::new(internal_args_addr, public_key, signature, message);
-            // SAFETY: Byte representation of a `TrivialType`, which has no padding, hence fully
-            // initialized
-            let internal_args_bytes = unsafe {
-                slice::from_raw_parts(
-                    ptr::from_ref(&internal_args).cast::<u8>(),
-                    size_of::<Ed25519VerifyInternalArgs>(),
-                )
-            };
+            let internal_args_bytes = internal_args.as_bytes();
 
             lazy_state
                 .memory
