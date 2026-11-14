@@ -256,8 +256,6 @@ impl<'a> Env<'a> {
         Self {
             state,
             executor_context,
-            // TODO: Use just `PhantomInvariantLifetime` once upgrading to the latest nightly that
-            //  supports it
             invariant_lifetime: PhantomInvariantLifetime::new(),
         }
     }
