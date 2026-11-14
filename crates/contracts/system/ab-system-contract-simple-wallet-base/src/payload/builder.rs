@@ -10,6 +10,7 @@ use crate::payload::{
     TransactionOutput, TransactionOutputKind, TransactionPayloadDecoderError, TransactionSlot,
 };
 use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, MetadataDecodingError, MethodKind, MethodMetadataDecoder, MethodMetadataItem,
@@ -172,7 +173,7 @@ impl TransactionPayloadBuilder {
     /// Memory for the whole payload is allocated here and never reallocated, a method call that
     /// doesn't fit returns [`TransactionPayloadBuilderError::PayloadTooLarge`]. The payload is
     /// padded to a multiple of [`Alignment::MAX`], so `max_size` is rounded down to a multiple of
-    /// it.
+    /// it, after it is limited to [`OwnedAlignedBuffer::MAX_CAPACITY`].
     ///
     /// `#[output]` arguments and return values of method calls write the declared outputs, and
     /// slots and inputs of later method calls can refer to what was written last, by output index
@@ -200,6 +201,15 @@ impl TransactionPayloadBuilder {
             return Err(TransactionPayloadBuilderError::TooManyOutputs);
         }
 
+        // A larger buffer can't be allocated
+        #[cfg_attr(
+            target_pointer_width = "64",
+            expect(
+                clippy::unnecessary_min_or_max,
+                reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+            )
+        )]
+        let max_size = max_size.min(OwnedAlignedBuffer::<Align16>::MAX_CAPACITY);
         let mut builder = Self {
             payload: OwnedAlignedBuffer::with_capacity(
                 max_size / u32::from(Alignment::MAX.get()) * u32::from(Alignment::MAX.get()),

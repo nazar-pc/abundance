@@ -1315,6 +1315,24 @@ fn payload_max_size() {
 }
 
 #[test]
+#[cfg(target_pointer_width = "32")]
+#[cfg_attr(not(miri), ignore = "Allocates almost 2 GiB outside of Miri")]
+fn payload_max_size_above_max_capacity() {
+    use ab_aligned_buffer::OwnedAlignedBuffer;
+    use ab_aligned_buffer::alignment::Align16;
+
+    // `MAX_CAPACITY` is below `u32::MAX` where `usize` is 32-bit, a larger maximum size is limited
+    // to it
+    let builder = TransactionPayloadBuilder::new(u32::MAX, 0).unwrap();
+    assert_eq!(
+        builder.payload.capacity(),
+        OwnedAlignedBuffer::<Align16>::MAX_CAPACITY
+    );
+    let payload = builder.into_aligned_bytes().unwrap();
+    assert_eq!(payload.as_slice(), &[0; u128::SIZE as usize]);
+}
+
+#[test]
 fn payload_clone() {
     let mut builder = TransactionPayloadBuilder::new(1024, 0).unwrap();
     with_set_method_call(&mut builder, None).unwrap();
