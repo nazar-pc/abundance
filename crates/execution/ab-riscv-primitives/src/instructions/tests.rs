@@ -734,4 +734,9 @@ fn composed_alignment() {
         <TestZcaInstruction<BasicHart<Reg<u64>>> as Instruction>::ALIGNMENT,
         2
     );
+    // Inherited `Zca` ignored as a whole has no instructions left to lower the specified alignment
+    assert_eq!(
+        <TestIgnoreZcaInstruction<BasicHart<Reg<u64>>> as Instruction>::ALIGNMENT,
+        4
+    );
 }

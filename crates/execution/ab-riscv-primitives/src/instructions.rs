@@ -173,12 +173,12 @@ pub const trait Instruction:
     ///
     /// When an instruction enum inherits other instruction enums with the `#[instruction]` macro,
     /// the macro sets this constant to the smallest of the value specified in the implementation
-    /// and the values of all inherited enums (directly or transitively), since an instruction can
-    /// start wherever any of them allows. The specified value can therefore only lower the result.
-    /// The convention is to specify the alignment of the enum's own instructions, like
-    /// `align_of::<u32>()` for an enum without 16-bit instructions of its own, even when it
-    /// inherits `Zca`, such that the alignment becomes 4 bytes automatically once `Zca` is no
-    /// longer inherited.
+    /// and the values of all inherited enums (directly or transitively) with at least one of their
+    /// own instructions in the instruction set, since an instruction can start wherever any of them
+    /// allows. The specified value can therefore only lower the result. The convention is to
+    /// specify the alignment of the enum's own instructions, like `align_of::<u32>()` for an enum
+    /// without 16-bit instructions of its own, even when it inherits `Zca`, such that the alignment
+    /// becomes 4 bytes automatically once `Zca` is no longer inherited.
     const ALIGNMENT: u8;
 
     /// Hart configuration of the implementation

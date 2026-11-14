@@ -351,6 +351,12 @@ pub(super) fn process_enum_decoding_impl(
         }
     };
 
+    let allowed_instructions = enum_definition
+        .instructions
+        .iter()
+        .map(|instruction| &instruction.ident)
+        .collect::<HashSet<_>>();
+
     let mut all_try_decode_blocks = Vec::new();
     let mut all_dependency_alignment_blocks = Vec::new();
     let mut all_dependency_size_entries = Vec::new();
@@ -372,13 +378,23 @@ pub(super) fn process_enum_decoding_impl(
                 .expect("Dependencies are all valid; qed");
 
         all_try_decode_blocks.push(dependency_blocks.try_decode);
-        all_dependency_alignment_blocks.push(dependency_blocks.alignment);
 
         let variant_idents = dependency_enum_definition
             .own_instructions
             .iter()
             .map(|v| &v.ident)
             .collect::<Vec<_>>();
+
+        // Alignment of a dependency only matters when at least one of its own instructions is in
+        // the instruction set (none are when `Zca` is ignored as a whole), enums it inherits are
+        // checked separately since dependencies are collected transitively
+        if variant_idents
+            .iter()
+            .any(|ident| allowed_instructions.contains(ident))
+        {
+            all_dependency_alignment_blocks.push(dependency_blocks.alignment);
+        }
+
         all_dependency_size_entries.push((variant_idents, dependency_blocks.size));
 
         if let Some(where_clause) = &dependency_enum_impl.item_impl.generics.where_clause {
@@ -412,12 +428,6 @@ pub(super) fn process_enum_decoding_impl(
             strip_const_where_predicates(&mut where_clause.predicates);
         }
     }
-
-    let allowed_instructions = enum_definition
-        .instructions
-        .iter()
-        .map(|instruction| &instruction.ident)
-        .collect::<HashSet<_>>();
 
     // Process `try_decode()` method
     // TODO: This simply concatenates individual decoding blocks, but it'd be much nicer to combine
