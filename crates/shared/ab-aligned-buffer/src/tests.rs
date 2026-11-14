@@ -1,5 +1,7 @@
 use crate::alignment::{Align1, Align16, Align32, Align4096, Alignment, AtLeast};
-use crate::{AlignedBuffer, EMPTY_ALLOCATION, OwnedAlignedBuffer, SharedAlignedBuffer};
+use crate::{
+    AlignedBuffer, AllocationError, EMPTY_ALLOCATION, OwnedAlignedBuffer, SharedAlignedBuffer,
+};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::iter;
@@ -976,7 +978,7 @@ fn aligned_buffer() {
 // A `u32` capacity can only exceed `isize::MAX` bytes where `usize` is 32-bit
 #[cfg(target_pointer_width = "32")]
 #[test]
-#[should_panic(expected = "has failed: too large")]
+#[should_panic(expected = "larger than the largest supported capacity")]
 fn capacity_overflow_panics() {
     OwnedAlignedBuffer::<Align16>::with_capacity(1).ensure_capacity(u32::MAX);
 }
@@ -984,7 +986,7 @@ fn capacity_overflow_panics() {
 // A `u32` capacity can only exceed `isize::MAX` bytes where `usize` is 32-bit
 #[cfg(target_pointer_width = "32")]
 #[test]
-#[should_panic(expected = "has failed: too large")]
+#[should_panic(expected = "larger than the largest supported capacity")]
 fn capacity_above_isize_max_panics() {
     OwnedAlignedBuffer::<Align16>::with_capacity(1).ensure_capacity(1 << 31);
 }
@@ -992,7 +994,7 @@ fn capacity_above_isize_max_panics() {
 // The largest capacity is only below `u32::MAX` where `usize` is 32-bit
 #[cfg(target_pointer_width = "32")]
 #[test]
-#[should_panic(expected = "has failed: too large")]
+#[should_panic(expected = "larger than the largest supported capacity")]
 fn capacity_above_max_capacity_panics() {
     OwnedAlignedBuffer::<Align16>::with_capacity(1)
         .ensure_capacity(OwnedAlignedBuffer::<Align16>::MAX_CAPACITY + 1);
@@ -1014,7 +1016,7 @@ fn append_beyond_max_capacity() {
 // The largest capacity is only below `u32::MAX` where `usize` is 32-bit
 #[cfg(target_pointer_width = "32")]
 #[test]
-#[should_panic(expected = "has failed: too large")]
+#[should_panic(expected = "larger than the largest supported capacity")]
 fn capacity_with_offset_above_max_capacity_panics() {
     let mut owned = OwnedAlignedBuffer::<Align1>::EMPTY;
     assert!(owned.relocate::<Align16>(16, 1));
@@ -1076,4 +1078,65 @@ fn generic_alignment_is_at_least_one_byte() {
     let shared = into_unaligned(shared);
     assert_eq!(shared.as_byte_ptr(), ptr);
     assert_eq!(shared.as_slice(), b"abc");
+}
+
+#[test]
+fn fallible_allocation() {
+    let owned = OwnedAlignedBuffer::<Align16>::try_with_capacity(10).unwrap();
+    assert!(owned.capacity() >= 10);
+    assert!(owned.is_empty());
+
+    let owned = OwnedAlignedBuffer::<Align4096>::try_with_capacity(10).unwrap();
+    assert_eq!(owned.allocation_alignment(), Align4096::ALIGN);
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
+
+    let owned = OwnedAlignedBuffer::<Align16>::try_zeroed(10).unwrap();
+    assert_eq!(owned.as_slice(), [0; 10]);
+
+    let owned = OwnedAlignedBuffer::<Align4096>::try_zeroed(10).unwrap();
+    assert_eq!(owned.as_slice(), [0; 10]);
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
+
+    // Zero capacity doesn't allocate
+    let owned = OwnedAlignedBuffer::<Align4096>::try_with_capacity(0).unwrap();
+    assert_eq!(owned.capacity(), 0);
+
+    let mut owned = OwnedAlignedBuffer::<Align16>::from_bytes(b"abc");
+    owned.try_ensure_capacity(100).unwrap();
+    assert!(owned.capacity() >= 100);
+    assert_eq!(owned.as_slice(), b"abc");
+}
+
+#[test]
+fn fallible_allocation_errors_leave_buffer_unchanged() {
+    // Offset with the largest capacity overflows
+    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity(32);
+    assert!(owned.relocate::<Align16>(16, 16));
+    assert!(owned.append(b"abc"));
+    let ptr = owned.as_byte_ptr();
+    let capacity = owned.capacity();
+
+    assert_eq!(
+        owned.try_ensure_capacity(u32::MAX),
+        Err(AllocationError::CapacityOverflow)
+    );
+    assert_eq!(owned.as_byte_ptr(), ptr);
+    assert_eq!(owned.capacity(), capacity);
+    assert_eq!(owned.offset(), 16);
+    assert_eq!(owned.as_slice(), b"abc");
+}
+
+// The largest capacity is only below `u32::MAX` where `usize` is 32-bit
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn fallible_allocation_above_max_capacity() {
+    let max_capacity = OwnedAlignedBuffer::<Align16>::MAX_CAPACITY;
+    assert_eq!(
+        OwnedAlignedBuffer::<Align16>::try_with_capacity(max_capacity + 1).err(),
+        Some(AllocationError::CapacityOverflow)
+    );
+    assert_eq!(
+        OwnedAlignedBuffer::<Align16>::try_zeroed(max_capacity + 1).err(),
+        Some(AllocationError::CapacityOverflow)
+    );
 }

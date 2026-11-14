@@ -46,6 +46,45 @@ const MAX_CAPACITY: u32 = if usize::BITS < u64::BITS {
     u32::MAX
 };
 
+/// Error of a fallible allocation, for example of [`OwnedAlignedBuffer::try_with_capacity()`]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum AllocationError {
+    /// Requested capacity is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    CapacityOverflow,
+    /// Allocator failed to allocate memory
+    AllocatorError {
+        /// Layout of the allocation that failed
+        layout: Layout,
+    },
+}
+
+impl fmt::Display for AllocationError {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CapacityOverflow => {
+                write!(f, "Capacity is larger than the largest supported capacity")
+            }
+            Self::AllocatorError { layout } => {
+                write!(f, "Allocator failed to allocate {} bytes", layout.size())
+            }
+        }
+    }
+}
+
+impl core::error::Error for AllocationError {}
+
+/// Handles an error of an infallible allocation the same way as standard library collections do
+#[cold]
+fn handle_error<T>(error: AllocationError) -> T {
+    match error {
+        AllocationError::CapacityOverflow => {
+            panic!("Capacity is larger than the largest supported capacity")
+        }
+        AllocationError::AllocatorError { layout } => handle_alloc_error(layout),
+    }
+}
+
 /// Header of every allocation, stored right before the contents of the buffer
 #[repr(C, align(16))]
 struct Header {
@@ -193,26 +232,40 @@ impl InnerBuffer {
     /// If `total_capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails
     #[inline(always)]
     fn allocate(total_capacity: u32, alignment: usize, offset: u32) -> Self {
-        // SAFETY: Global allocator's function
-        unsafe { Self::allocate_with(total_capacity, alignment, offset, alloc) }
+        Self::try_allocate(total_capacity, alignment, offset).unwrap_or_else(handle_error)
     }
 
-    /// Allocates a new buffer with zeroed data region, see [`Self::allocate()`] for details
+    /// Fallible version of [`Self::allocate()`]
     #[inline(always)]
-    fn allocate_zeroed(total_capacity: u32, alignment: usize, offset: u32) -> Self {
+    fn try_allocate(
+        total_capacity: u32,
+        alignment: usize,
+        offset: u32,
+    ) -> Result<Self, AllocationError> {
         // SAFETY: Global allocator's function
-        unsafe { Self::allocate_with(total_capacity, alignment, offset, alloc_zeroed) }
+        unsafe { Self::try_allocate_with(total_capacity, alignment, offset, alloc) }
+    }
+
+    /// Allocates a new buffer with zeroed data region, see [`Self::try_allocate()`] for details
+    #[inline(always)]
+    fn try_allocate_zeroed(
+        total_capacity: u32,
+        alignment: usize,
+        offset: u32,
+    ) -> Result<Self, AllocationError> {
+        // SAFETY: Global allocator's function
+        unsafe { Self::try_allocate_with(total_capacity, alignment, offset, alloc_zeroed) }
     }
 
     /// # Safety
     /// `allocator` must allocate memory with global allocator
     #[inline(always)]
-    unsafe fn allocate_with(
+    unsafe fn try_allocate_with(
         total_capacity: u32,
         alignment: usize,
         offset: u32,
         allocator: unsafe fn(Layout) -> *mut u8,
-    ) -> Self {
+    ) -> Result<Self, AllocationError> {
         debug_assert!(
             alignment.is_power_of_two()
                 && (MIN_ALLOCATION_ALIGNMENT..=MAX_ALIGNMENT).contains(&alignment),
@@ -224,17 +277,15 @@ impl InnerBuffer {
         );
 
         if total_capacity == 0 {
-            return Self::EMPTY;
+            return Ok(Self::EMPTY);
         }
 
-        let Some(layout) = Self::layout(total_capacity, alignment) else {
-            panic!("Allocation of capacity {total_capacity} has failed: too large");
-        };
+        let layout =
+            Self::layout(total_capacity, alignment).ok_or(AllocationError::CapacityOverflow)?;
         // SAFETY: Non-zero size, allocates with global allocator, guaranteed by the caller
         let allocation = unsafe { allocator(layout) };
-        let Some(allocation) = NonNull::new(allocation) else {
-            handle_alloc_error(layout);
-        };
+        let allocation =
+            NonNull::new(allocation).ok_or(AllocationError::AllocatorError { layout })?;
         // SAFETY: The data region starts right after the space reserved for the header at the
         // beginning of the allocation, which is as large as the alignment
         let data = unsafe { allocation.byte_add(alignment) };
@@ -249,12 +300,12 @@ impl InnerBuffer {
             });
         }
 
-        Self {
+        Ok(Self {
             // SAFETY: Offset is within the data region
             buffer: unsafe { data.byte_add(offset as usize) },
             offset,
             len: 0,
-        }
+        })
     }
 
     /// Changes capacity of the buffer while preserving its contents and their offset, the buffer
@@ -268,19 +319,23 @@ impl InnerBuffer {
     /// fails
     #[inline(always)]
     fn resize(&mut self, capacity: u32, min_alignment: usize) {
-        let old_total_capacity = self.total_capacity();
-        if old_total_capacity == 0 {
+        self.try_resize(capacity, min_alignment)
+            .unwrap_or_else(handle_error);
+    }
+
+    /// Fallible version of [`Self::resize()`], the buffer is not changed on error
+    #[inline(always)]
+    fn try_resize(&mut self, capacity: u32, min_alignment: usize) -> Result<(), AllocationError> {
+        if self.total_capacity() == 0 {
             // Empty buffer is not backed by an allocation, and it has no contents to preserve
-            *self = Self::allocate(capacity, min_alignment.max(MIN_ALLOCATION_ALIGNMENT), 0);
-            return;
+            *self = Self::try_allocate(capacity, min_alignment.max(MIN_ALLOCATION_ALIGNMENT), 0)?;
+            return Ok(());
         }
 
-        let Some(total_capacity) = self.offset.checked_add(capacity) else {
-            panic!(
-                "Resize from {} to {capacity} has failed: too large",
-                self.capacity()
-            );
-        };
+        let total_capacity = self
+            .offset
+            .checked_add(capacity)
+            .ok_or(AllocationError::CapacityOverflow)?;
 
         let alignment = self.alignment();
         // `realloc()` is only used for allocations aligned to 16 bytes when that is enough for the
@@ -297,21 +352,20 @@ impl InnerBuffer {
             let misalignment = u32::try_from(self.offset as usize % min_alignment)
                 .expect("Smaller than alignment, which is at most 4096; qed");
             let offset = self.offset - misalignment;
-            let new = Self::allocate(
+            let new = Self::try_allocate(
                 total_capacity - (self.offset - offset),
                 alignment.max(min_alignment),
                 offset,
-            );
+            )?;
             // SAFETY: Not shared, new buffer has enough capacity for the contents
             unsafe {
                 self.move_into(new);
             }
-            return;
+            return Ok(());
         }
 
-        let Some(new_layout) = Self::layout(total_capacity, alignment) else {
-            panic!("Realloc from {old_total_capacity} to {total_capacity} has failed: too large");
-        };
+        let new_layout =
+            Self::layout(total_capacity, alignment).ok_or(AllocationError::CapacityOverflow)?;
         // SAFETY: Non-zero capacity checked above
         let old_layout = unsafe { self.allocated_layout() };
 
@@ -324,9 +378,9 @@ impl InnerBuffer {
                 new_layout.size(),
             )
         };
-        let Some(allocation) = NonNull::new(allocation) else {
-            handle_alloc_error(new_layout);
-        };
+        // The old allocation is not changed if reallocation fails
+        let allocation = NonNull::new(allocation)
+            .ok_or(AllocationError::AllocatorError { layout: new_layout })?;
         // SAFETY: The data region starts right after the space reserved for the header at the
         // beginning of the allocation, which is as large as the alignment, and offset is zero
         self.buffer = unsafe { allocation.byte_add(alignment) };
@@ -334,6 +388,8 @@ impl InnerBuffer {
         unsafe {
             (*self.header_ptr().as_ptr()).capacity = total_capacity;
         }
+
+        Ok(())
     }
 
     /// Moves contents into a new buffer and deallocates the current one.
@@ -688,14 +744,20 @@ where
     /// Allocation is aligned to the alignment of the contents, but at least 16 bytes.
     ///
     /// # Panics
-    /// If `capacity` is larger than [`Self::MAX_CAPACITY`]
+    /// If `capacity` is larger than [`Self::MAX_CAPACITY`] or allocation fails, see
+    /// [`Self::try_with_capacity()`] for a fallible version
     #[inline(always)]
     pub fn with_capacity(capacity: u32) -> Self {
-        Self::from_inner(InnerBuffer::allocate(
-            capacity,
-            A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT),
-            0,
-        ))
+        Self::try_with_capacity(capacity).unwrap_or_else(handle_error)
+    }
+
+    /// Create a new instance with specified capacity, see [`Self::with_capacity()`] for details.
+    ///
+    /// Returns an error if `capacity` is larger than [`Self::MAX_CAPACITY`] or allocation fails.
+    #[inline(always)]
+    pub fn try_with_capacity(capacity: u32) -> Result<Self, AllocationError> {
+        InnerBuffer::try_allocate(capacity, A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT), 0)
+            .map(Self::from_inner)
     }
 
     /// Create a new instance from provided bytes.
@@ -722,19 +784,29 @@ where
     /// buffers.
     ///
     /// # Panics
-    /// If `len` is larger than [`Self::MAX_CAPACITY`]
+    /// If `len` is larger than [`Self::MAX_CAPACITY`] or allocation fails, see
+    /// [`Self::try_zeroed()`] for a fallible version
     #[inline(always)]
     pub fn zeroed(len: u32) -> Self {
-        let mut instance = Self::from_inner(InnerBuffer::allocate_zeroed(
+        Self::try_zeroed(len).unwrap_or_else(handle_error)
+    }
+
+    /// Create a new instance of specified length filled with zeroes, see [`Self::zeroed()`] for
+    /// details.
+    ///
+    /// Returns an error if `len` is larger than [`Self::MAX_CAPACITY`] or allocation fails.
+    #[inline(always)]
+    pub fn try_zeroed(len: u32) -> Result<Self, AllocationError> {
+        let mut instance = Self::from_inner(InnerBuffer::try_allocate_zeroed(
             len,
             A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT),
             0,
-        ));
+        )?);
         // SAFETY: The whole data region is zeroed, which is a valid initialized value
         unsafe {
             instance.set_len(len);
         }
-        instance
+        Ok(instance)
     }
 
     #[inline(always)]
@@ -845,11 +917,25 @@ where
     ///
     /// # Panics
     /// If `capacity` with [`Self::offset()`] is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    /// or allocation fails, see [`Self::try_ensure_capacity()`] for a fallible version
     #[inline(always)]
     pub fn ensure_capacity(&mut self, capacity: u32) {
+        self.try_ensure_capacity(capacity)
+            .unwrap_or_else(handle_error);
+    }
+
+    /// Ensure capacity of the buffer is at least `capacity`, see [`Self::ensure_capacity()`] for
+    /// details.
+    ///
+    /// Returns an error and leaves the buffer unchanged if `capacity` with [`Self::offset()`] is
+    /// larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails.
+    #[inline(always)]
+    pub fn try_ensure_capacity(&mut self, capacity: u32) -> Result<(), AllocationError> {
         if capacity > self.capacity() {
-            self.inner.resize(capacity, A::ALIGN);
+            self.inner.try_resize(capacity, A::ALIGN)?;
         }
+
+        Ok(())
     }
 
     /// Will re-allocate if capacity is not enough to store provided bytes.

@@ -40,6 +40,8 @@ New features:
   `SharedAlignedBuffer::make_mut()` copies the contents into a new allocation first if it is still shared
 * `OwnedAlignedBuffer::zeroed()` creates a buffer filled with zeroes, allocating zeroed memory directly
 * `OwnedAlignedBuffer::spare_capacity_mut()` returns capacity after the contents for writing into it
+* `OwnedAlignedBuffer::try_with_capacity()`, `try_zeroed()` and `try_ensure_capacity()` return `AllocationError` instead
+  of panicking when the capacity is too large or allocation fails
 * `AlignedBuffer` trait implemented for both buffers, for APIs that accept either of them
 * `OwnedAlignedBuffer::as_u128_slice()` returns the contents as whole `u128`s
 * `OwnedAlignedBuffer::MAX_CAPACITY` is the largest capacity of a buffer, which is smaller than `u32::MAX` on 32-bit
