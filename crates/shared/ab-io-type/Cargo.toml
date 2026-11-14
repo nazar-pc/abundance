@@ -20,7 +20,7 @@ all-features = true
 
 [dependencies]
 ab-io-type-derive = { workspace = true }
-parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
+parity-scale-codec = { workspace = true, features = ["derive", "max-encoded-len"], optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]
