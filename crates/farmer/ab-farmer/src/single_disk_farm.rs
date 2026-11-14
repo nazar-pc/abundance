@@ -23,7 +23,7 @@ use crate::farm::{
 use crate::node_client::NodeClient;
 use crate::plotter::Plotter;
 use crate::single_disk_farm::block_sealing::block_sealing;
-use crate::single_disk_farm::direct_io_file_wrapper::{DISK_PAGE_SIZE, DirectIoFileWrapper};
+use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::single_disk_farm::farming::rayon_files::RayonFiles;
 use crate::single_disk_farm::farming::{
     FarmingOptions, PlotAudit, farming, slot_notification_forwarder,
@@ -47,6 +47,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::Record;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
+use ab_direct_io_file::AlignedPage;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::file_ext::FileExt;
@@ -688,7 +689,7 @@ impl AllocatedSpaceDistribution {
                 * (100 - u64::from(cache_percentage));
             // Do the rounding to make sure we have exactly as much space as fits whole number of
             // sectors, account for disk sector size just in case
-            (potentially_plottable_space - DISK_PAGE_SIZE as u64) / single_sector_overhead
+            (potentially_plottable_space - AlignedPage::SIZE as u64) / single_sector_overhead
         };
 
         if target_sector_count == 0 {
@@ -710,7 +711,8 @@ impl AllocatedSpaceDistribution {
         }
         let plot_file_size = target_sector_count * sector_size;
         // Align plot file size for disk sector size
-        let plot_file_size = plot_file_size.div_ceil(DISK_PAGE_SIZE as u64) * DISK_PAGE_SIZE as u64;
+        let plot_file_size =
+            plot_file_size.div_ceil(AlignedPage::SIZE as u64) * AlignedPage::SIZE as u64;
 
         // Remaining space will be used for caching purposes
         let piece_cache_capacity = if cache_percentage > 0 {
@@ -1396,7 +1398,7 @@ impl SingleDiskFarm {
         let expected_metadata_size = allocated_space_distribution.metadata_file_size;
         // Align plot file size for disk sector size
         let expected_metadata_size =
-            expected_metadata_size.div_ceil(DISK_PAGE_SIZE as u64) * DISK_PAGE_SIZE as u64;
+            expected_metadata_size.div_ceil(AlignedPage::SIZE as u64) * AlignedPage::SIZE as u64;
         let metadata_header = if metadata_size == 0 {
             let metadata_header = PlotMetadataHeader {
                 version: SingleDiskFarm::SUPPORTED_PLOT_VERSION,

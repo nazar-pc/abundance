@@ -9,10 +9,11 @@ mod tests;
 use crate::disk_piece_cache::metrics::DiskPieceCacheMetrics;
 use crate::farm;
 use crate::farm::{FarmError, PieceCacheId, PieceCacheOffset};
-use crate::single_disk_farm::direct_io_file_wrapper::{DISK_PAGE_SIZE, DirectIoFileWrapper};
+use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_direct_io_file::AlignedPage;
 use ab_farmer_components::file_ext::FileExt;
 use async_trait::async_trait;
 use bytes::BytesMut;
@@ -262,7 +263,8 @@ impl DiskPieceCache {
 
         let expected_size = u64::from(Self::element_size()) * u64::from(capacity);
         // Align plot file size for disk sector size
-        let expected_size = expected_size.div_ceil(DISK_PAGE_SIZE as u64) * DISK_PAGE_SIZE as u64;
+        let expected_size =
+            expected_size.div_ceil(AlignedPage::SIZE as u64) * AlignedPage::SIZE as u64;
         {
             let file = files.write();
             if file.size()? != expected_size {

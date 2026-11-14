@@ -1,14 +1,11 @@
 //! Wrapper data structure for direct/unbuffered I/O
 
-use ab_direct_io_file::{AlignedPage, DirectIoFile};
+use ab_direct_io_file::DirectIoFile;
 use ab_farmer_components::ReadAtSync;
 use ab_farmer_components::file_ext::FileExt;
 use std::fs::OpenOptions;
 use std::io;
 use std::path::Path;
-
-/// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096 bytes
-pub const DISK_PAGE_SIZE: usize = AlignedPage::SIZE;
 
 /// Wrapper data structure for direct/unbuffered I/O
 #[derive(Debug)]

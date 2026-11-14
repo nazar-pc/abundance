@@ -30,8 +30,6 @@ use std::mem::MaybeUninit;
 use std::path::Path;
 use std::{io, mem};
 
-/// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096 bytes
-pub const DISK_PAGE_SIZE: usize = 4096;
 /// Restrict how much data to read from the disk in a single call to avoid very large memory usage
 const MAX_READ_SIZE: usize = 1024 * 1024;
 
