@@ -17,9 +17,20 @@ include = [
 [package.metadata.docs.rs]
 all-features = true
 
+[lib]
+# Necessary for CLI options to work on benches
+bench = false
+
+[[bench]]
+name = "aligned_buffer"
+harness = false
+
 [dependencies]
 stable_deref_trait = { workspace = true }
 yoke = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
 
 [lints]
 workspace = true

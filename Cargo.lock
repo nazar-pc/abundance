@@ -6,6 +6,7 @@ version = 4
 name = "ab-aligned-buffer"
 version = "0.2.0"
 dependencies = [
+ "criterion",
  "stable_deref_trait",
  "yoke",
 ]
