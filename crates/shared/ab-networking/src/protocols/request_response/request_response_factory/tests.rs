@@ -1,7 +1,9 @@
 use crate::protocols::request_response::request_response_factory::{
     Event, IfDisconnected, IncomingRequest, OutboundFailure, OutgoingResponse, ProtocolConfig,
-    RequestFailure, RequestHandler, RequestResponseFactoryBehaviour,
+    RequestFailure, RequestHandler, RequestResponseFactoryBehaviour, ResponsePayload,
 };
+use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align1;
 use async_trait::async_trait;
 use futures::StreamExt;
 use futures::channel::{mpsc, oneshot};
@@ -76,8 +78,13 @@ async fn basic_request_response_works() {
         tokio::spawn(async move {
             while let Some(rq) = rx.next().await {
                 assert_eq!(rq.payload, b"this is a request");
+                // Response consists of multiple buffers
+                let mut payload = ResponsePayload::default();
+                payload.push(SharedAlignedBuffer::<Align1>::from_bytes(b"this is "));
+                payload.push(SharedAlignedBuffer::<Align1>::EMPTY);
+                payload.push(SharedAlignedBuffer::<Align1>::from_bytes(b"a response"));
                 let _: Result<_, _> = rq.pending_response.send(OutgoingResponse {
-                    result: Ok(b"this is a response".to_vec()),
+                    result: Ok(payload),
                     sent_feedback: None,
                 });
             }
@@ -138,7 +145,10 @@ async fn basic_request_response_works() {
         }
     }
     // Expect response
-    assert_eq!(receiver.await.unwrap().unwrap(), b"this is a response");
+    assert_eq!(
+        receiver.await.unwrap().unwrap().as_slice(),
+        b"this is a response"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -153,7 +163,11 @@ async fn max_response_size_exceeded() {
             while let Some(rq) = rx.next().await {
                 assert_eq!(rq.payload, b"this is a request");
                 let _: Result<(), _> = rq.pending_response.send(OutgoingResponse {
-                    result: Ok(b"this response exceeds the limit".to_vec()),
+                    result: Ok(ResponsePayload::from(
+                        SharedAlignedBuffer::<Align1>::from_bytes(
+                            b"this response exceeds the limit",
+                        ),
+                    )),
                     sent_feedback: None,
                 });
             }
@@ -319,7 +333,9 @@ async fn request_id_collision() {
             .unwrap()
             .pending_response
             .send(OutgoingResponse {
-                result: Ok(b"this is a response 1".to_vec()),
+                result: Ok(ResponsePayload::from(
+                    SharedAlignedBuffer::<Align1>::from_bytes(b"this is a response 1"),
+                )),
                 sent_feedback: None,
             })
             .unwrap();
@@ -327,7 +343,9 @@ async fn request_id_collision() {
             .unwrap()
             .pending_response
             .send(OutgoingResponse {
-                result: Ok(b"this is a response 2".to_vec()),
+                result: Ok(ResponsePayload::from(
+                    SharedAlignedBuffer::<Align1>::from_bytes(b"this is a response 2"),
+                )),
                 sent_feedback: None,
             })
             .unwrap();
@@ -368,6 +386,12 @@ async fn request_id_collision() {
         }
     }
     // Expect two responses
-    assert_eq!(receiver_1.await.unwrap().unwrap(), b"this is a response 1");
-    assert_eq!(receiver_2.await.unwrap().unwrap(), b"this is a response 2");
+    assert_eq!(
+        receiver_1.await.unwrap().unwrap().as_slice(),
+        b"this is a response 1"
+    );
+    assert_eq!(
+        receiver_2.await.unwrap().unwrap().as_slice(),
+        b"this is a response 2"
+    );
 }

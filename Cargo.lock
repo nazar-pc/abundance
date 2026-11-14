@@ -600,13 +600,13 @@ dependencies = [
 name = "ab-networking"
 version = "0.1.0"
 dependencies = [
+ "ab-aligned-buffer",
  "ab-cli-utils",
  "ab-core-primitives",
  "async-lock",
  "async-trait",
  "backon",
  "blake3",
- "bytes",
  "clap",
  "derive_more",
  "event-listener-primitives",
