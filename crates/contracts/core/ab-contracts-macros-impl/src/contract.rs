@@ -251,13 +251,13 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
                         "Generated metadata is correct and its types are not nested deeper than \
                         `MAX_METADATA_DEPTH`; qed"
                     );
-            assert!(
+            ::core::assert!(
                 impl_compact_metadata_size == def_compact_metadata_size,
                 "Trait implementation must match trait definition exactly"
             );
             let mut i = 0;
             while impl_compact_metadata_size > i {
-                assert!(
+                ::core::assert!(
                     impl_compact_metadata[i] == def_compact_metadata[i],
                     "Trait implementation must match trait definition exactly"
                 );
@@ -318,7 +318,7 @@ fn generate_trait_metadata(
         /// [`ContractMetadataKind`]: ::ab_contracts_macros::__private::ContractMetadataKind
         const METADATA: &[::core::primitive::u8] = {
             const fn metadata()
-                -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+                -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], ::core::primitive::usize)
             {
                 ::ab_contracts_macros::__private::concat_metadata_sources(&[
                     &[::ab_contracts_macros::__private::ContractMetadataKind::Trait as ::core::primitive::u8],
@@ -431,7 +431,7 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         quote! {
             const MAIN_CONTRACT_METADATA: &[::core::primitive::u8] = {
                 const fn metadata()
-                    -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+                    -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], ::core::primitive::usize)
                 {
                     ::ab_contracts_macros::__private::concat_metadata_sources(&[
                         &[::ab_contracts_macros::__private::ContractMetadataKind::Contract as ::core::primitive::u8],

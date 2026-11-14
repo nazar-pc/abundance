@@ -1273,8 +1273,10 @@ impl MethodDetails {
                     quote! {
                         // Return exit code
                         match #result_var_name {
-                            Ok(()) => ::ab_contracts_macros::__private::ExitCode::ok(),
-                            Err(error) => error.exit_code(),
+                            ::core::result::Result::Ok(()) => {
+                                ::ab_contracts_macros::__private::ExitCode::ok()
+                            }
+                            ::core::result::Result::Err(error) => error.exit_code(),
                         }
                     }
                 }
@@ -1282,12 +1284,12 @@ impl MethodDetails {
                     quote! {
                         // Write a result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
-                            Ok(result) => {
+                            ::core::result::Result::Ok(result) => {
                                 args.ok_result.write(result);
                                 // Return exit code
                                 ::ab_contracts_macros::__private::ExitCode::ok()
                             }
-                            Err(error) => error.exit_code(),
+                            ::core::result::Result::Err(error) => error.exit_code(),
                         }
                     }
                 }
@@ -1398,7 +1400,10 @@ impl MethodDetails {
                         // done here
                         unsafe {
                             let mut args = args_ptr.cast::<InternalArgs<'_>>();
-                            debug_assert!(args.is_aligned(), "`args` pointer is misaligned");
+                            ::core::debug_assert!(
+                                args.is_aligned(),
+                                "`args` pointer is misaligned",
+                            );
                             let args = args.as_mut();
                             #ffi_fn_name(args)
                         }
@@ -1833,9 +1838,9 @@ impl MethodDetails {
                 reason = "Auto-generated compile-time check"
             )]
             const fn metadata()
-                -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+                -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], ::core::primitive::usize)
             {
-                assert!(
+                ::core::assert!(
                     #total_number_of_arguments <= ::ab_contracts_macros::__private::MAX_TOTAL_METHOD_ARGS,
                     "Too many arguments"
                 );
@@ -2063,7 +2068,7 @@ impl MethodDetails {
                 #method_signature {
                     #call
 
-                    Ok(())
+                    ::core::result::Result::Ok(())
                 }
             };
 
