@@ -33,12 +33,13 @@ const {
 /// Read from an external arguments pointer and move it forward.
 ///
 /// # Safety
-/// `external_args` must have enough capacity for the read value, and the current offset must
-/// have the correct alignment for the type being read.
+/// `external_args` must have enough capacity for the read value, the current offset must have the
+/// correct alignment for the type being read, and the bytes at the current offset must be a valid
+/// `T`.
 #[inline(always)]
 #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 unsafe fn read_external_args<T>(external_args: &mut NonNull<c_void>) -> T {
-    // SAFETY: guaranteed by this function signature
+    // SAFETY: Guaranteed by this function's contract
     unsafe {
         let value = external_args.cast::<T>().read();
         *external_args = external_args.byte_add(size_of::<T>());
