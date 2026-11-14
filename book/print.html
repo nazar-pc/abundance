@@ -1,0 +1,965 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Project Abundance</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "ayu";
+            window.path_to_searchindex_js = "searchindex-b343dc2f.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-987a167c.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Project Abundance</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/nazar-pc/abundance/tree/main/website/book" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="status-quo"><a class="header" href="#status-quo">Status quo</a></h1>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>State-of-the-art blockchains are yet to resolve the Blockchain Trilemma</p>
+</blockquote>
+<p>Bitcoin and Ethereum de-facto lost decentralization due to their consensus algorithm, they are also very slow.</p>
+<p>The majority of modern blockchains today use a variation of Proof-of-Stake consensus, meaning they are permissioned and
+inherently not scalable to unbounded number of participants. Those that are based on Proof-of-Work are arguably not
+secure to begin with, regardless of what algorithm they are using due to how cheap and easy it is to purchase compute in
+large quantities today to attach the blockchain.</p>
+<p>There are many blockchains that claim to be scalable, but all of them have a glass ceiling and are unable to scale
+bandwidth, storage and compute sub-linearly with unbounded number of participants. Those that do not support sharding
+are not scalable by definition, those that are sharded have other inherent limitations that prevent unbounded growth.</p>
+<p>Only security is the property arguably achieved by many blockchains, but it is also debatable how real or useful it is
+without two other properties.</p>
+<h1 id="-project-abundance-"><a class="header" href="#-project-abundance-">🚧 Project Abundance 🚧</a></h1>
+<p>The goal here is to find a way to remove existing bottlenecks and unleash the full power of the blockchain.</p>
+<p>We need <strong>ABUNDANCE</strong>:</p>
+<ul>
+<li>Abundance of consensus participation
+<ul>
+<li>Without practical limits</li>
+</ul>
+</li>
+<li>Abundance of bandwidth, storage and compute
+<ul>
+<li>With increased consensus participation, it must be possible to process more transactions, persist larger history
+and do more computation without practical limits</li>
+</ul>
+</li>
+<li>Abundance of developers
+<ul>
+<li>Standard programming languages with familiar tooling, standard and efficient execution environment, infrastructure
+that allows for a single app to scale to the capacity of the blockchain itself</li>
+</ul>
+</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="consensus"><a class="header" href="#consensus">Consensus</a></h1>
+<p>While <a href="https://wikipedia.org/wiki/Proof_of_work">Proof-of-Work</a> and <a href="https://wikipedia.org/wiki/Proof_of_stake">Proof-of-Stake</a> have solidified as primary ways to achieve consensus in blockchains, they
+both inevitably lead to centralization and potentially to reduction of security.</p>
+<p>With Proof-of-Work, this is primarily driven by the need to access to exotic hardware and cheap electricity, which
+limits the number of people who can participate. With the growth of the network and difficulty increase, it also becomes
+impractical for small miners to participate without mining pools due to infrequent and unpredictable rewards. Another
+complication is the existence of services like Nicehash that allow to buy large amounts of compute for limited amounts
+of time on an open market, which makes it very practical to own the network and in case of anything that is smaller than
+<a href="https://bitcoin.org">Bitcoin</a> arguably fairly inexpensive.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>As the result majority of Proof-of-Work blockchains are neither decentralized nor secure in practice.</p>
+</blockquote>
+<p>With Proof-of-Stake currently staked owners of tokens get richer every day, which arguably makes it a permissioned
+system. Due to being permissioned and requiring on-chain registration before participation, most Proof-of-Stake
+implementations have to substantially limit the number of consensus participants by imposing things like minimum stake
+amount as well as only selecting a subset of validators to be active at any time. Due to the nature of consensus
+implementation, it is also important for consensus nodes to stay online, so those unable to are typically being punished
+for it on top of simply having their tokens locked and not receiving rewards. This also leads to pooling and
+centralization. Blockchains like <a href="https://polkadot.com">Polkadot</a> support nominated staking that improves scalability of consensus
+participation
+to some degree, but it is not a full replacement for being able to participate in consensus individually.</p>
+<blockquote class="blockquote-tag blockquote-tag-warning">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575Zm1.763.707a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm.53 3.996v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Warning</p>
+<p>As the result majority of Proof-of-Stake networks arguably are not really that decentralized in a sense of supporting
+millions or even billions of consensus participants.</p>
+</blockquote>
+<h2 id="proof-of-space"><a class="header" href="#proof-of-space">Proof-of-Space</a></h2>
+<p>The alternative to above that is not talked about quite as much is <a href="https://en.wikipedia.org/wiki/Proof_of_space">Proof-of-Space</a>. There are different variations of
+it, but a shared trait between them all is permissionless participation with low energy usage requirements, while also
+using the resource that is generic, widely distributed and abundant: disk storage.</p>
+<p>The most prominent example of Proof-of-Space consensus is probably <a href="https://www.chia.net/">Chia</a>. Chia is essentially an energy efficient
+version of Bitcoin that wastes disk space to store random data just like Bitcoin wastes compute to calculate hashes. It
+also happens to suffer, just like almost every other Proof-of-Space blockchain from <a href="https://academy.autonomys.xyz/subspace-protocol/advancing-blockchain">Farmer’s dilemma</a>, which makes
+incentive compatibility a challenge.</p>
+<p>While this is an improvement over Proof-of-Work, it turns out it could be even better.</p>
+<h2 id="proof-of-archival-storage"><a class="header" href="#proof-of-archival-storage">Proof-of-Archival-Storage</a></h2>
+<p><a href="https://academy.autonomys.xyz/subspace-protocol/consensus">Proof-of-Archival-Storage</a> is a flavor of Proof-of-Space, more specifically Proof-of-Storage, that instead of filling
+disks with random data stores the history of the blockchain itself. This not only resolves Farmer’s dilemma, but allows
+for a few interesting side effects:</p>
+<ul>
+<li>On-chain storage cost no longer needs to be hardcoded, it can be driven by on-chain Automated Market Maker thanks to
+ability to measure not only demand for storage (size of blockchain history), but also supply (space pledged to the
+network by farmers), resulting in approximation of real-world price of the hardware, regardless of the token price</li>
+<li>The history of the blockchain can’t be lost regardless of how large it becomes, in an incentive-compatible and
+sustainable way, as long as the blockchain is operational</li>
+<li>Blockchain effectively becomes a Distributed Storage Network since any piece of data uploaded to the network can later
+be retrieved from the network of farmers</li>
+</ul>
+<p>To make pools even more interesting to farmers <a href="https://www.autonomys.xyz/">Autonomys Network</a> was deployed with a voting mechanism built-in that
+increases the frequency of rewards 10x comparing to just having block rewards, making it possible to receive weekly
+rewards for even relatively small farmers.</p>
+<blockquote class="blockquote-tag blockquote-tag-important">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v9.5A1.75 1.75 0 0 1 14.25 13H8.06l-2.573 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-9.5a.25.25 0 0 0-.25-.25Zm7 2.25v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>Important</p>
+<p>As a result, Proof-of-Archival-Storage seems to be the closest ideal consensus mechanism that is both permissionless,
+distributed and secure.</p>
+</blockquote>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="everything-is-a-contract"><a class="header" href="#everything-is-a-contract">Everything is a contract</a></h1>
+<p>Every contract has an address, which is just a monotonically increasing number. This is in contrast to many blockchains
+where address might be derived from a public key (in case of end user wallet) or code (of “smart contracts”). There is
+no separate notion of Externally Owned Account (EOA) like in Ethereum, end user wallets are also just contracts.</p>
+<p>The address is allocated on contract creation and doesn’t change regardless of how the contract evolves in the future.
+This means that externally, all contracts essentially look the same regardless of what they represent. This enables a
+wallet contract to change its logic from verifying a single signature to multisig to 2FA to use a completely different
+cryptography in the future, all while retaining its address/identity.</p>
+<p>This not only includes contracts created/deployed by users/developers, but also some fundamental blockchain features.
+For example, there are system contracts like <code>code</code> and <code>state</code>. In most blockchains code of the contract is stored in a
+special location by the node and retrieved before processing a <a href="Execution_environment/Transactions_overview#transactions-abstraction">transaction</a>. Here, <code>code</code> contract manages code of all
+contracts instead and deployment of a new contract is a call to system <code>code</code> contract. There is no special host
+function provided by the node. <code>code</code> contract will store the code in the corresponding slot of the newly created
+contract (see <a href="#storage-model">Storage model</a> below for more details), which can be read by execution environment (which knows about
+system contracts).</p>
+<p>A few examples of contracts:</p>
+<ul>
+<li>a wallet (can be something simple that only checks signature or a complex smart wallet with multisig/2FA)</li>
+<li>utility functions that offer some shared logic like exotic signature verification</li>
+<li>various kinds of tokens, including native token of the blockchain itself</li>
+<li>even fundamental pieces of logic that allocate addresses and deploy other contracts are contracts themselves</li>
+</ul>
+<p>It’ll be clear later how far this concept can be stretched, but so far the potential is quite high to make as many
+things as possible “just a contract.”</p>
+<p>This helps to reduce the number of special cases for built-in functions vs. something that blockchain user can deploy.</p>
+<h1 id="storage-model"><a class="header" href="#storage-model">Storage model</a></h1>
+<p>All storage owned by a contract is organized into a container that has slots inside. It forms a tree with the root
+being the root of contract’s storage, which can be used to generation inclusion/exclusion proofs when processing
+transactions (see <a href="Execution_environment/Transactions_overview#transaction-processing">Transaction processing</a>). Having a per-contract tree with storage proofs allows consensus nodes to
+not be required to store the state of all contracts, just their storage roots. This is unlike many other blockchains
+where contract may have access to a form of key-value database.</p>
+<p>Each slot is managed by exactly one of the existing contracts and can only be read or modified by that contract.
+Contract’s code and state are also slots managed by contracts (system contracts), even though developer-facing API might
+abstract it in a more friendly way. It is possible for a contract to manage one of its slots too, like when a token
+contract owns some number of its own tokens.</p>
+<p>A bit wrong, but hopefully useful analogy is cloud server. A server is owned by a provider, but managed by a customer.
+A provider typically doesn’t have remote access to the server customer orders, all changes to the software that server
+runs are done by the customer. Similarly, slots owned by a contract are managed by other contracts.</p>
+<p>In contrast to most other blockchains by “state” we refer to the inherent state of the contract itself, rather than
+things that might belong to end-users. The right mental model is to think of it as a global state of a contract.</p>
+<p>Let’s take a generic fungible token as an example. System <code>state</code> contract will manage its state, stored in
+corresponding slot owned by the token contract. State will contain things like total supply and potentially useful
+metadata like number of decimal places and ticker, but not balances of individual users.</p>
+<p>In pseudocode, more traditional blockchains:</p>
+<pre><code>fancy_token = {
+    // Global state
+    totalSupply: 50_000,
+    ticker: "FANCY",
+
+    // Individual balances of accoutns in a global hashmap
+    balances: {
+        alice_wallet: 10,
+        bob_wallet: 15,
+    },
+}
+</code></pre>
+<p>Described storage model with slots:</p>
+<pre><code>fancy_token = {
+    // Global state owned by `fancy_token` in a slot managed by `state` contract
+    state: {
+      totalSupply: 50_000,
+      ticker: "FANCY",
+    },
+    code: "...",
+}
+
+alice_wallet = {
+    // Balance owned by `alice_wallet` in a slot managed by `fancy_token` contract
+    fancy_token: {
+        balance: 10,
+    },
+    code: "...",
+}
+
+bob_wallet = {
+    // Balance owned by `bob_wallet` in a slot managed by `fancy_token` contract
+    fancy_token: {
+        balance: 15,
+    },
+    code: "...",
+}
+</code></pre>
+<p>The state of the contract (and any other slot) is typically bounded in size and defined by contract developer upfront.
+Bounded size allows execution environment to allocate the necessary amount of memory and to limit the amount of data
+that potentially needs to be sent with the transaction over the network (see <a href="Execution_environment/Transactions_overview#transaction-processing">Transaction processing</a>).</p>
+<p>This implies there can’t be more traditional unbounded hashmap there. Instead, balances are stored in slots of contracts
+that own the balance (like smart wallet owned by end user), but managed by the token contract. This is similar to how
+contract’s state and code are managed by corresponding system contracts.</p>
+<p>Visually, it looks something like this:</p>
+<pre><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" data-d2-version="v0.9.0" preserveaspectratio="xMinYMin meet" viewbox="0 0 830 638"><svg class="d2-2967575504 d2-svg" width="830" height="638" viewbox="-1 -1 830 638"><rect x="-1" y="-1" width="830" height="638" rx="0" class=" fill-N7" stroke-width="0" /><style type="text/css"><![CDATA[
+.d2-2967575504 .text {
+	font-family: "d2-2967575504-font-regular";
+}
+@font-face {
+	font-family: d2-2967575504-font-regular;
+	src: url("data:application/font-woff;base64,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");
+}
+.d2-2967575504 .text-bold {
+	font-family: "d2-2967575504-font-bold";
+}
+@font-face {
+	font-family: d2-2967575504-font-bold;
+	src: url("data:application/font-woff;base64,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");
+}]]></style><style type="text/css"><![CDATA[.shape {
+  shape-rendering: geometricPrecision;
+  stroke-linejoin: round;
+}
+.connection {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.blend {
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+		.d2-2967575504 .fill-N1{fill:#0A0F25;}
+		.d2-2967575504 .fill-N7{fill:transparent;}
+		.d2-2967575504 .fill-B1{fill:#0A0F25;}
+		.d2-2967575504 .fill-B4{fill:#CFD2DD;}
+		.d2-2967575504 .fill-B5{fill:#DEE1EB;}
+		.d2-2967575504 .stroke-B1{stroke:#0A0F25;}
+		.d2-2967575504 .stroke-B2{stroke:#676C7E;}.appendix text.text{fill:#0A0F25}.md{--color-fg-default:#0A0F25;--color-fg-muted:#676C7E;--color-fg-subtle:#9499AB;--color-canvas-default:transparent;--color-canvas-subtle:#EEF1F8;--color-border-default:#0A0F25;--color-border-muted:#676C7E;--color-neutral-muted:#EEF1F8;--color-accent-fg:#676C7E;--color-accent-emphasis:#676C7E;--color-attention-subtle:#676C7E;--color-danger-fg:red;}.light-code{display: block}.dark-code{display: none}@media screen and (prefers-color-scheme:dark){
+		.d2-2967575504 .fill-N1{fill:#F4F6FA;}
+		.d2-2967575504 .fill-N7{fill:transparent;}
+		.d2-2967575504 .fill-B1{fill:#F4F6FA;}
+		.d2-2967575504 .fill-B4{fill:#070B67;}
+		.d2-2967575504 .fill-B5{fill:#0B1197;}
+		.d2-2967575504 .stroke-B1{stroke:#F4F6FA;}
+		.d2-2967575504 .stroke-B2{stroke:#6B8AFB;}.appendix text.text{fill:#F4F6FA}.md{--color-fg-default:#F4F6FA;--color-fg-muted:#BBBEC9;--color-fg-subtle:#868A96;--color-canvas-default:transparent;--color-canvas-subtle:#191C28;--color-border-default:#F4F6FA;--color-border-muted:#6B8AFB;--color-neutral-muted:#191C28;--color-accent-fg:#6B8AFB;--color-accent-emphasis:#6B8AFB;--color-attention-subtle:#BBBEC9;--color-danger-fg:red;}.light-code{display: none}.dark-code{display: block}}]]></style><g class="V2FsbGV0"><g class="shape"><rect x="608" y="0" width="220" height="576" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="718" y="33" class="text fill-N1" style="text-anchor:middle;font-size:28px">Wallet</text></g><g class="Q29kZUNvbnRyYWN0"><g class="shape"><rect x="0" y="304" width="201" height="186" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="100.5" y="337" class="text fill-N1" style="text-anchor:middle;font-size:28px">Code contract</text></g><g class="U3RhdGVDb250cmFjdA=="><g class="shape"><rect x="305" y="0" width="201" height="186" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="405.5" y="33" class="text fill-N1" style="text-anchor:middle;font-size:28px">State contract</text></g><g class="VG9rZW4="><g class="shape"><rect x="304" y="261" width="203" height="272" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="405.5" y="520" class="text fill-N1" style="text-anchor:middle;font-size:28px">Token contract</text></g><g class="V2FsbGV0LlN0YXRl"><g class="shape"><rect x="668" y="60" width="83" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="709.5" y="98.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">State</text></g><g class="V2FsbGV0LkJhbGFuY2U="><g class="shape"><rect x="668" y="364" width="100" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="718" y="402.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Balance</text></g><g class="V2FsbGV0LkNvZGU="><g class="shape"><rect x="668" y="450" width="81" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="708.5" y="488.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="Q29kZUNvbnRyYWN0LkNvZGU="><g class="shape"><rect x="60" y="364" width="81" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="100.5" y="402.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="U3RhdGVDb250cmFjdC5Db2Rl"><g class="shape"><rect x="365" y="60" width="81" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="405.5" y="98.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="VG9rZW4uU3RhdGU="><g class="shape"><rect x="364" y="321" width="83" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="405.5" y="359.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">State</text></g><g class="VG9rZW4uQ29kZQ=="><g class="shape"><rect x="364" y="407" width="81" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="404.5" y="445.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBXYWxsZXQuQ29kZSlbMF0="><marker id="mk-d2-2967575504-3488378134" markerwidth="10" markerheight="12" refx="7" refy="6" viewbox="0 0 10 12" orient="auto" markerunits="userSpaceOnUse"> <polygon points="0,0 10,6 0,12" class="connection fill-B1" stroke-width="2" /> </marker><path d="M 100 492 L 100 626 S 100 636 110 636 L 698 636 S 708 636 708 626 L 708 520" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBDb2RlQ29udHJhY3QuQ29kZSlbMF0="><path d="M 2 397 L 56 397" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBTdGF0ZUNvbnRyYWN0LkNvZGUpWzBd"><path d="M 100 302 L 100 103 S 100 93 110 93 L 361 93" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBUb2tlbi5Db2RlKVswXQ=="><path d="M 203 440 L 360 440" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KFN0YXRlQ29udHJhY3QgLSZndDsgV2FsbGV0LlN0YXRlKVswXQ=="><path d="M 508 93 L 664 93" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KFN0YXRlQ29udHJhY3QgLSZndDsgVG9rZW4uU3RhdGUpWzBd"><path d="M 405 188 L 405 317" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KFRva2VuIC0mZ3Q7IFdhbGxldC5CYWxhbmNlKVswXQ=="><path d="M 509 397 L 664 397" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><mask id="d2-2967575504" maskunits="userSpaceOnUse" x="-1" y="-1" width="830" height="638">
+<rect x="-1" y="-1" width="830" height="638" fill="white"></rect>
+
+</mask></svg></svg>
+</pre>
+
+<p>Contracts do not have access to underlying storage implementation in the form of key-value database, instead they modify
+slots as the only way of persisting data between transactions.</p>
+<h1 id="contract-io"><a class="header" href="#contract-io">Contract I/O</a></h1>
+<p>Not only contract methods do not have access to general purpose key-value store (even if private to the contract), they
+don’t have access to any other data except what was explicitly provided as method input. They also can’t return data in
+any other way except through return arguments. Execution environment will pre-allocate memory for all slots (and the
+caller for all outputs) and provide it to the method to work with, removing a need for heap allocation in many cases.</p>
+<p>One can think about contract logic as a pure function: it takes inputs and slots, potentially modifies slots and returns
+outputs.</p>
+<p>Conceptually, all methods look something like this:</p>
+<pre><code class="language-rust ignore">#[derive(Debug, Copy, Clone, TrivialType)]
+#[repr(C)]
+pub struct MyContract {
+    pub value: u32,
+}
+
+#[contract]
+impl MyContract {
+    /// Stateless compute
+    #[view]
+    pub fn add(
+        #[input] &amp;a: &amp;u32,
+        #[input] &amp;b: &amp;u32,
+    ) -&gt; u32 {
+        a + b
+    }
+
+    /// Calling another contract (in this case into itself)
+    #[view]
+    pub fn add_through_contract_call(
+        #[env] env: &amp;Env,
+        #[input] a: &amp;u32,
+        #[input] b: &amp;u32,
+    ) -&gt; Result&lt;u32, ContractError&gt; {
+        env.my_contract_add(env.own_address(), a, b)
+    }
+
+    /// Modifying its own state using the contents of the slot
+    #[update]
+    pub fn self_increment_by_slot(
+        &amp;mut self,
+        #[slot] slot: &amp;MaybeData&lt;'_, u32&gt;,
+    ) -&gt; Result&lt;u32, ContractError&gt; {
+        let old_value = self.value;
+
+        // The slot may or may not exist yet
+        let Some(slot_value) = slot.get().copied() else {
+            return Err(ContractError::Forbidden);
+        };
+
+        self.value = old_value
+            .checked_add(slot_value)
+            .ok_or(ContractError::BadInput)?;
+        Ok(old_value)
+    }
+}</code></pre>
+<p>Environment handle (<code>&amp;Env</code> or <code>&amp;mut Env</code>) allows calling other contracts and request ephemeral state, contract slots can
+be read and written to, inputs are read-only and outputs can be both read and written to (the caller provides their
+current contents, which allows updating values in-place). <code>&amp;</code> or <code>&amp;mut</code> in Rust limits what can be done with these
+types, there is no other implicit “global” way to read or update ephemeral or permanent state of the blockchain except
+through these explicit arguments.</p>
+<p>Handling everything through explicit inputs and outputs results in straightforward implementation, analysis and testing
+approach without side effects. In many cases, even heap allocations can be avoided completely, leading to fast and
+compact smart contract implementation.</p>
+<p><code>#[contract]</code> macro and attributes like <code>#[env]</code> do not impact the code in a method in any way, but help to generate
+additional helper data structures, functions and metadata about the contract. The macro also verifies a lot of different
+invariants about the contract with helpful compile-time error messages if something goes wrong. For example, when
+different methods use different types for <code>#[slot]</code> argument or when type not allowed for FFI is used in an argument.</p>
+<p>Inputs and the current contents of outputs come from the caller and can’t be trusted, so the generated code parses them
+before calling the method and returns <code>ContractError::BadInput</code> to the caller if they are not valid values of their
+types. A method only ever sees valid values, and for most types, which accept every bit pattern, there is nothing to
+check. Sizes, capacities and alignment of inputs and outputs must match the method’s metadata, which the executor
+guarantees. The state and slots of the contract are only written by the contract itself or on its behalf and are not
+checked.</p>
+<h1 id="method-call-context"><a class="header" href="#method-call-context">Method call context</a></h1>
+<p>When calling into another contract, a method context needs to be specified. The correct mental model for context is
+“user of the child process,” where “process” is a method call. Essentially, something executed with a context of a
+contract can be thought as done “on behalf” of that contract, which depending on circumstances may or may not be
+desired.</p>
+<p>Initially, context is “Null.” For each call into another contract, the context of the current method can be either
+preserved, reset to “Null” or replaced with the current contract’s address. Those are the only options. Contracts do not
+have privileges to change context to the address of an arbitrary contract.</p>
+<p>The safest option is to reset context to “Null,” which means called contract will be able to “know” who called it, but
+unable to convince any further calls in it. Preservation of the context allows to “delegate” certain operations to
+another contract, which while is potentially dangerous, allows for more advanced use cases.</p>
+<p>In addition to argument attributes mentioned before, there is also <code>#[tmp]</code>, which is essentially an ephemeral storage
+that only lives for the duration of a single <a href="Execution_environment/Transactions_overview#transactions-abstraction">transaction</a>. It can be used for temporary approvals, allowing to use
+“Null” context for most operations, while also allowing for contracts to do certain operations effectively on behalf of
+the caller. For example, in a transaction, the first call might approve a defi contract to spend some tokens and then
+call defi contract to actually do the operation. Both calls are done with “Null” method context, but still achieve the
+desired impact with the least permission possible.</p>
+<h1 id="metadata"><a class="header" href="#metadata">Metadata</a></h1>
+<p>Metadata about contract is a crucial piece used in many places of the system. Metadata essentially describes in a
+compact binary format all traits and methods that the contract implements alongside recursive metadata of all types in
+those methods.</p>
+<p>Metadata contains exhaustive details about the method, allowing execution environment to encode and decode arguments
+from/to method calls from metadata alone.</p>
+<p>Metadata can also be used to auto-generate user-facing interfaces and FFI bindings to other languages since it contains
+relatively basic types.</p>
+<p>The same metadata can also be used by a transaction handler contract to encode/decode method calls in a <a href="Execution_environment/Transactions_overview#transactions-abstraction">transaction</a>.
+This is huge because with metadata being an inherent part of the contract itself, enables hardware wallets to accurately
+and verifiably render transaction contents in a relatively user-friendly way, especially on those with larger screens.
+This means no blind signing anymore and no need to trust the computer wallet is connected to either, the wallet can
+verify and render everything on its own.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="transactions-abstraction"><a class="header" href="#transactions-abstraction">Transactions abstraction</a></h1>
+<p>Transactions are a way to run a logic on a blockchain, which in blockchains with smart contracts means to call
+contracts. There are different ways to do this, but to make things as flexible as possible, little assumptions are made
+about what transaction actually looks like. There are many use cases that should be supported, it is tough to foresee
+them all.</p>
+<p>Since as mentioned in <a href="Execution_environment/Contracts_overview">Contract overview</a> “<a href="Execution_environment/Contracts_overview#everything-is-a-contract">Everything is a contract</a>,” then the majority of transaction processing must
+be done by a contract too. To do this, the contract must implement the following “transaction handler” interface that
+looks like this (simplified for readability):</p>
+<pre class="playground"><code class="language-rust edition2024"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TransactionHeader {
+    pub block_hash: Blake3Hash,
+    pub gas_limit: Gas,
+    pub contract: Address,
+}
+
+pub struct TransactionSlot {
+    pub owner: Address,
+    pub contract: Address,
+}
+
+pub type TxHandlerPayload = [u128];
+pub type TxHandlerSlots = [TransactionSlot];
+pub type TxHandlerSeal = [u8];
+
+#[contract]
+pub trait TxHandler {
+    /// Verify a transaction
+    #[view]
+    fn authorize(
+        #[env] env: &amp;Env,
+        #[input] header: &amp;TransactionHeader,
+        #[input] read_slots: &amp;TxHandlerSlots,
+        #[input] write_slots: &amp;TxHandlerSlots,
+        #[input] payload: &amp;TxHandlerPayload,
+        #[input] seal: &amp;TxHandlerSeal,
+    ) -&gt; Result&lt;(), ContractError&gt;;
+
+    /// Execute previously verified transaction
+    #[update]
+    fn execute(
+        #[env] env: &amp;mut Env,
+        #[input] header: &amp;TransactionHeader,
+        #[input] read_slots: &amp;TxHandlerSlots,
+        #[input] write_slots: &amp;TxHandlerSlots,
+        #[input] payload: &amp;TxHandlerPayload,
+        #[input] seal: &amp;TxHandlerSeal,
+    ) -&gt; Result&lt;(), ContractError&gt;;
+}
+<span class="boring">}</span></code></pre>
+<p>High-level transaction processing workflow:</p>
+<pre><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" data-d2-version="v0.9.0" preserveaspectratio="xMinYMin meet" viewbox="0 0 917 68"><svg class="d2-2997543547 d2-svg" width="917" height="68" viewbox="-1 -1 917 68"><rect x="-1" y="-1" width="917" height="68" rx="0" class=" fill-N7" stroke-width="0" /><style type="text/css"><![CDATA[
+.d2-2997543547 .text-bold {
+	font-family: "d2-2997543547-font-bold";
+}
+@font-face {
+	font-family: d2-2997543547-font-bold;
+	src: url("data:application/font-woff;base64,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");
+}]]></style><style type="text/css"><![CDATA[.shape {
+  shape-rendering: geometricPrecision;
+  stroke-linejoin: round;
+}
+.connection {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.blend {
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+		.d2-2997543547 .fill-N1{fill:#0A0F25;}
+		.d2-2997543547 .fill-N7{fill:transparent;}
+		.d2-2997543547 .fill-B1{fill:#0A0F25;}
+		.d2-2997543547 .fill-B6{fill:#EEF1F8;}
+		.d2-2997543547 .stroke-B1{stroke:#0A0F25;}
+		.d2-2997543547 .stroke-B2{stroke:#676C7E;}.appendix text.text{fill:#0A0F25}.md{--color-fg-default:#0A0F25;--color-fg-muted:#676C7E;--color-fg-subtle:#9499AB;--color-canvas-default:transparent;--color-canvas-subtle:#EEF1F8;--color-border-default:#0A0F25;--color-border-muted:#676C7E;--color-neutral-muted:#EEF1F8;--color-accent-fg:#676C7E;--color-accent-emphasis:#676C7E;--color-attention-subtle:#676C7E;--color-danger-fg:red;}.light-code{display: block}.dark-code{display: none}@media screen and (prefers-color-scheme:dark){
+		.d2-2997543547 .fill-N1{fill:#F4F6FA;}
+		.d2-2997543547 .fill-N7{fill:transparent;}
+		.d2-2997543547 .fill-B1{fill:#F4F6FA;}
+		.d2-2997543547 .fill-B6{fill:#3733E9;}
+		.d2-2997543547 .stroke-B1{stroke:#F4F6FA;}
+		.d2-2997543547 .stroke-B2{stroke:#6B8AFB;}.appendix text.text{fill:#F4F6FA}.md{--color-fg-default:#F4F6FA;--color-fg-muted:#BBBEC9;--color-fg-subtle:#868A96;--color-canvas-default:transparent;--color-canvas-subtle:#191C28;--color-border-default:#F4F6FA;--color-border-muted:#6B8AFB;--color-neutral-muted:#191C28;--color-accent-fg:#6B8AFB;--color-accent-emphasis:#6B8AFB;--color-attention-subtle:#BBBEC9;--color-danger-fg:red;}.light-code{display: none}.dark-code{display: block}}]]></style><g class="JiMzNDtUeEhhbmRsZXI6OmF1dGhvcml6ZSgpJiMzNDs="><g class="shape"><rect x="0" y="0" width="208" height="66" class=" stroke-B1 fill-B6" style="stroke-width:2;" /></g><text x="104" y="38.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">TxHandler::authorize()</text></g><g class="Q2hhcmdlIGdhcw=="><g class="shape"><rect x="297" y="0" width="123" height="66" class=" stroke-B1 fill-B6" style="stroke-width:2;" /></g><text x="358.5" y="38.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Charge gas</text></g><g class="JiMzNDtUeEhhbmRsZXI6OmV4ZWN1dGUoKSYjMzQ7"><g class="shape"><rect x="509" y="0" width="195" height="66" class=" stroke-B1 fill-B6" style="stroke-width:2;" /></g><text x="606.5" y="38.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">TxHandler::execute()</text></g><g class="UmVmdW5kIGdhcw=="><g class="shape"><rect x="792" y="0" width="123" height="66" class=" stroke-B1 fill-B6" style="stroke-width:2;" /></g><text x="853.5" y="38.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Refund gas</text></g><g class="KCYjMzQ7VHhIYW5kbGVyOjphdXRob3JpemUoKSYjMzQ7IC0mZ3Q7IENoYXJnZSBnYXMpWzBd"><marker id="mk-d2-2997543547-3488378134" markerwidth="10" markerheight="12" refx="7" refy="6" viewbox="0 0 10 12" orient="auto" markerunits="userSpaceOnUse"> <polygon points="0,0 10,6 0,12" class="connection fill-B1" stroke-width="2" /> </marker><path d="M 210 33 L 293 33" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2997543547-3488378134)" mask="url(#d2-2997543547)" /></g><g class="KENoYXJnZSBnYXMgLSZndDsgJiMzNDtUeEhhbmRsZXI6OmV4ZWN1dGUoKSYjMzQ7KVswXQ=="><path d="M 422 33 L 505 33" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2997543547-3488378134)" mask="url(#d2-2997543547)" /></g><g class="KCYjMzQ7VHhIYW5kbGVyOjpleGVjdXRlKCkmIzM0OyAtJmd0OyBSZWZ1bmQgZ2FzKVswXQ=="><path d="M 706 33 L 788 33" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2997543547-3488378134)" mask="url(#d2-2997543547)" /></g><mask id="d2-2997543547" maskunits="userSpaceOnUse" x="-1" y="-1" width="917" height="68">
+<rect x="-1" y="-1" width="917" height="68" fill="white"></rect>
+
+</mask></svg></svg>
+</pre>
+
+<p><code>TxHandler::authorize()</code> is a method to be called by execution environment that must, in a limited amount of time,
+either authorize further processing of the transaction or reject it. It can read the state of the blockchain, but can’t
+modify it. If authorized successfully, execution environment will charge <code>TransactionHeader.gas_limit</code> gas, call
+<code>TxHandler::execute()</code> and return unused gas afterward. It is up to the node to decide how much compute to allow in
+authorization, but some reasonable for reference hardware default will be used to allow for typical signature
+verification needs. Compute involved in transaction authorization will be added to the total gas usage. <code>seal</code> is where
+the signature will typically be stored, although it is more of a convention a strict requirement.</p>
+<p><code>TxHandler::execute()</code> is responsible for transaction execution, meaning making method calls. Method calls by convention
+are serialized into <code>payload</code> (<code>u128</code> is used to ensure its alignment in memory for performance reasons and to enable
+zero-copy throughout the system). It is up to the contract how it wants to encode method calls there, though optimized
+reference implementation of this is provided. While typically not needed, authorization code may also inspect <code>payload</code>
+to, for example, only allow certain method calls and not others.</p>
+<p>This separation should be enough to build all kinds of contracts that would server as a “wallet” for the user: from
+those that do simple signature verification, to complex multisig wallet with a sophisticated role-based permission
+system. There is a large space of tradeoffs to explore.</p>
+<p><code>read_slots</code> and <code>write_slots</code> contain the list of slots (see <a href="Execution_environment/Contracts_overview#storage-model">Storage model</a>), which will be read or possibly modified
+during transaction execution. They will not need to be inspected by most contracts in detail, though can be used
+constrain interation with a limited set of contracts if needed. This information is crucial for to be able to schedule
+concurrent execution of non-conflicting transactions, leveraging the fact that modern CPUs have multiple cores. This is
+primarily enabled by the storage model that makes the storage used by contracts well suited for concurrent execution by
+avoiding data structures like global hashmaps that are likely to be updated by multiple transactions in a block.</p>
+<h1 id="transaction-processing"><a class="header" href="#transaction-processing">Transaction processing</a></h1>
+<p>A transaction submitted to the network will include not only inputs to the method calls, the storage items (code, state,
+other slots) required for the transaction to be processed alongside corresponding storage proofs. This allows for
+consensus nodes to not store state of contracts beyond a small root, yet being able to process incoming transactions,
+leading to much lower disk requirements. This is especially true in the presence of dormant contracts without any
+activity for a long period of time and generally removes the need to charge “rent” for the state. It is, of course,
+possible for node to have a cache to reduce or remove the need to download frequently used storage items.</p>
+<p>Each method call of the contract has <a href="Execution_environment/Contracts_overview#metadata">metadata</a> associated with it about what slots will be read or modified alongside
+any inputs or outputs it expects and their type information. With this information and <code>read_slots</code>/<code>write_slots</code>
+included in the transaction, execution engine can run non-conflicting transactions in parallel.</p>
+<p>For example, balance transfer between two accounts doesn’t change the total issuance of the token. So there is no need
+to change the global state of the token contract and no reason why such transfers affecting a disjoint set of accounts
+can’t be run in parallel.</p>
+<p>Not only that, storage items used in each method call follow a Rust-like ownership model where contract can’t
+recursively call its own method that mutates already accessed slots because it’ll violate safety invariants. Recursive
+calls of stateless or read-only methods are fine though.</p>
+<p>The right mental model is that storage access can be used with shared <code>&amp;</code> or exclusive <code>&amp;mut</code> references. It is possible
+to have multiple shared references to the same slot at the same time. For exclusive access in a recursive call to the
+slot already being accessed, caller must share it as an input instead, explicitly giving borrowing the data. As a
+result, multiple calls (in the same transaction or even different transaction) can read the same slot concurrently, but
+only one of them is allowed to mutate a particular storage item at a time. And any violation aborts the corresponding
+method, which caller can observe and either handle or propagate further up the stack.</p>
+<p>This makes traditional reentrancy attacks impossible in such execution environment.</p>
+<p>Conceptually in pseudocode with <code>RwLock</code> it looks something like this:</p>
+<pre class="playground"><code class="language-rust edition2024"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn entrypoint(data: &amp;RwLock&lt;Data&gt;) -&gt; Result&lt;(), Error&gt; {
+    // This is the first write access, it succeeds
+    let data_write_guard = data.try_write()?;
+
+    // This will fail because we still have write access to the data
+    if call_into_other_contract(data).is_err() {
+        // This is okay, the data was given as an explicit argument
+        modify_data(data_write_guard);
+    }
+
+    Ok(())
+}
+
+fn call_into_other_contract(data: &amp;RwLock&lt;Data&gt;) -&gt; Result&lt;(), Error&gt; {
+    // Only succeeds if there isn't already write access elsewhere
+    data.try_read()?;
+
+    Ok(())
+}
+
+fn modify_data(data: &amp;mut Data) {}
+<span class="boring">}</span></code></pre>
+<p>Here is a visual example:</p>
+<pre><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" data-d2-version="v0.9.0" preserveaspectratio="xMinYMin meet" viewbox="0 0 1159 246"><svg class="d2-2900763737 d2-svg" width="1159" height="246" viewbox="-1 -1 1159 246"><rect x="-1" y="-1" width="1159" height="246" rx="0" class=" fill-N7" stroke-width="0" /><style type="text/css"><![CDATA[
+.d2-2900763737 .text {
+	font-family: "d2-2900763737-font-regular";
+}
+@font-face {
+	font-family: d2-2900763737-font-regular;
+	src: url("data:application/font-woff;base64,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");
+}
+.d2-2900763737 .text-bold {
+	font-family: "d2-2900763737-font-bold";
+}
+@font-face {
+	font-family: d2-2900763737-font-bold;
+	src: url("data:application/font-woff;base64,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");
+}
+.d2-2900763737 .text-italic {
+	font-family: "d2-2900763737-font-italic";
+}
+@font-face {
+	font-family: d2-2900763737-font-italic;
+	src: url("data:application/font-woff;base64,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");
+}]]></style><style type="text/css"><![CDATA[.shape {
+  shape-rendering: geometricPrecision;
+  stroke-linejoin: round;
+}
+.connection {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.blend {
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+		.d2-2900763737 .fill-N1{fill:#0A0F25;}
+		.d2-2900763737 .fill-N2{fill:#676C7E;}
+		.d2-2900763737 .fill-N7{fill:transparent;}
+		.d2-2900763737 .fill-B1{fill:#0A0F25;}
+		.d2-2900763737 .fill-B4{fill:#CFD2DD;}
+		.d2-2900763737 .fill-B5{fill:#DEE1EB;}
+		.d2-2900763737 .stroke-B1{stroke:#0A0F25;}
+		.d2-2900763737 .stroke-B2{stroke:#676C7E;}.appendix text.text{fill:#0A0F25}.md{--color-fg-default:#0A0F25;--color-fg-muted:#676C7E;--color-fg-subtle:#9499AB;--color-canvas-default:transparent;--color-canvas-subtle:#EEF1F8;--color-border-default:#0A0F25;--color-border-muted:#676C7E;--color-neutral-muted:#EEF1F8;--color-accent-fg:#676C7E;--color-accent-emphasis:#676C7E;--color-attention-subtle:#676C7E;--color-danger-fg:red;}.light-code{display: block}.dark-code{display: none}@media screen and (prefers-color-scheme:dark){
+		.d2-2900763737 .fill-N1{fill:#F4F6FA;}
+		.d2-2900763737 .fill-N2{fill:#BBBEC9;}
+		.d2-2900763737 .fill-N7{fill:transparent;}
+		.d2-2900763737 .fill-B1{fill:#F4F6FA;}
+		.d2-2900763737 .fill-B4{fill:#070B67;}
+		.d2-2900763737 .fill-B5{fill:#0B1197;}
+		.d2-2900763737 .stroke-B1{stroke:#F4F6FA;}
+		.d2-2900763737 .stroke-B2{stroke:#6B8AFB;}.appendix text.text{fill:#F4F6FA}.md{--color-fg-default:#F4F6FA;--color-fg-muted:#BBBEC9;--color-fg-subtle:#868A96;--color-canvas-default:transparent;--color-canvas-subtle:#191C28;--color-border-default:#F4F6FA;--color-border-muted:#6B8AFB;--color-neutral-muted:#191C28;--color-accent-fg:#6B8AFB;--color-accent-emphasis:#6B8AFB;--color-attention-subtle:#BBBEC9;--color-danger-fg:red;}.light-code{display: none}.dark-code{display: block}}]]></style><g class="U3RhdGVsZXNz"><g class="shape"><rect x="0" y="0" width="301" height="244" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="150.5" y="33" class="text fill-N1" style="text-anchor:middle;font-size:28px">No state (Contract 1)</text></g><g class="TXV0YXRlcw=="><g class="shape"><rect x="376" y="0" width="376" height="244" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="564" y="33" class="text fill-N1" style="text-anchor:middle;font-size:28px">Mutates own state (Contract 2)</text></g><g class="UmVhZHM="><g class="shape"><rect x="842" y="0" width="315" height="244" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="999.5" y="33" class="text fill-N1" style="text-anchor:middle;font-size:28px">Reads state (Contract 3)</text></g><g class="U3RhdGVsZXNzLmNvbXB1dGU="><g class="shape"><rect x="90" y="118" width="151" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="165.5" y="156.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">fn compute(...)</text></g><g class="TXV0YXRlcy51cGRhdGU="><g class="shape"><rect x="466" y="118" width="215" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="573.5" y="156.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">fn update(&amp;mut self, ...)</text></g><g class="UmVhZHMucmVhZA=="><g class="shape"><rect x="932" y="118" width="165" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="1014.5" y="156.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">fn read(&amp;self, ...)</text></g><g class="U3RhdGVsZXNzLihjb21wdXRlIC0mZ3Q7IGNvbXB1dGUpWzBd"><marker id="mk-d2-2900763737-3488378134" markerwidth="10" markerheight="12" refx="7" refy="6" viewbox="0 0 10 12" orient="auto" markerunits="userSpaceOnUse"> <polygon points="0,0 10,6 0,12" class="connection fill-B1" stroke-width="2" /> </marker><path d="M 88 135 L 70 135 S 60 135 60 125 L 60 98 S 60 88 70 88 L 118 88 S 128 88 128 98 L 128 114" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2900763737-3488378134)" mask="url(#d2-2900763737)" /><text x="71" y="77" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">✅</text></g><g class="KFN0YXRlbGVzcy5jb21wdXRlIC0mZ3Q7IE11dGF0ZXMudXBkYXRlKVswXQ=="><path d="M 243 159 L 462 159" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2900763737-3488378134)" mask="url(#d2-2900763737)" /><text x="354" y="148" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">✅</text></g><g class="TXV0YXRlcy4odXBkYXRlIC0mZ3Q7IHVwZGF0ZSlbMF0="><path d="M 464 135 L 446 135 S 436 135 436 125 L 436 98 S 436 88 446 88 L 510 88 S 520 88 520 98 L 520 114" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2900763737-3488378134)" mask="url(#d2-2900763737)" /><text x="455" y="77" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">❌</text></g><g class="KE11dGF0ZXMudXBkYXRlIC0mZ3Q7IFJlYWRzLnJlYWQpWzBd"><path d="M 683 159 L 928 159" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2900763737-3488378134)" mask="url(#d2-2900763737)" /><text x="807" y="148" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">✅</text></g><g class="UmVhZHMuKHJlYWQgLSZndDsgcmVhZClbMF0="><path d="M 930 135 L 912 135 S 902 135 902 125 L 902 98 S 902 88 912 88 L 963 88 S 973 88 973 98 L 973 114" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2900763737-3488378134)" mask="url(#d2-2900763737)" /><text x="914" y="77" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">✅</text></g><mask id="d2-2900763737" maskunits="userSpaceOnUse" x="-1" y="-1" width="1159" height="246">
+<rect x="-1" y="-1" width="1159" height="246" fill="white"></rect>
+<rect x="59" y="61" width="24" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="342" y="132" width="24" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="443" y="61" width="24" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="795" y="132" width="24" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="902" y="61" width="24" height="21" fill="rgba(0,0,0,0.75)"></rect>
+</mask></svg></svg>
+</pre>
+
+<p>Such a loop will be caught and the transaction will be aborted:</p>
+<pre><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" data-d2-version="v0.9.0" preserveaspectratio="xMinYMin meet" viewbox="0 0 754 242"><svg class="d2-2813974432 d2-svg" width="754" height="242" viewbox="-1 -1 754 242"><rect x="-1" y="-1" width="754" height="242" rx="0" class=" fill-N7" stroke-width="0" /><style type="text/css"><![CDATA[
+.d2-2813974432 .text {
+	font-family: "d2-2813974432-font-regular";
+}
+@font-face {
+	font-family: d2-2813974432-font-regular;
+	src: url("data:application/font-woff;base64,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");
+}
+.d2-2813974432 .text-bold {
+	font-family: "d2-2813974432-font-bold";
+}
+@font-face {
+	font-family: d2-2813974432-font-bold;
+	src: url("data:application/font-woff;base64,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");
+}
+.d2-2813974432 .text-italic {
+	font-family: "d2-2813974432-font-italic";
+}
+@font-face {
+	font-family: d2-2813974432-font-italic;
+	src: url("data:application/font-woff;base64,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");
+}]]></style><style type="text/css"><![CDATA[.shape {
+  shape-rendering: geometricPrecision;
+  stroke-linejoin: round;
+}
+.connection {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.blend {
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+		.d2-2813974432 .fill-N1{fill:#0A0F25;}
+		.d2-2813974432 .fill-N2{fill:#676C7E;}
+		.d2-2813974432 .fill-N7{fill:transparent;}
+		.d2-2813974432 .fill-B1{fill:#0A0F25;}
+		.d2-2813974432 .fill-B4{fill:#CFD2DD;}
+		.d2-2813974432 .fill-B5{fill:#DEE1EB;}
+		.d2-2813974432 .stroke-B1{stroke:#0A0F25;}
+		.d2-2813974432 .stroke-B2{stroke:#676C7E;}.appendix text.text{fill:#0A0F25}.md{--color-fg-default:#0A0F25;--color-fg-muted:#676C7E;--color-fg-subtle:#9499AB;--color-canvas-default:transparent;--color-canvas-subtle:#EEF1F8;--color-border-default:#0A0F25;--color-border-muted:#676C7E;--color-neutral-muted:#EEF1F8;--color-accent-fg:#676C7E;--color-accent-emphasis:#676C7E;--color-attention-subtle:#676C7E;--color-danger-fg:red;}.light-code{display: block}.dark-code{display: none}@media screen and (prefers-color-scheme:dark){
+		.d2-2813974432 .fill-N1{fill:#F4F6FA;}
+		.d2-2813974432 .fill-N2{fill:#BBBEC9;}
+		.d2-2813974432 .fill-N7{fill:transparent;}
+		.d2-2813974432 .fill-B1{fill:#F4F6FA;}
+		.d2-2813974432 .fill-B4{fill:#070B67;}
+		.d2-2813974432 .fill-B5{fill:#0B1197;}
+		.d2-2813974432 .stroke-B1{stroke:#F4F6FA;}
+		.d2-2813974432 .stroke-B2{stroke:#6B8AFB;}.appendix text.text{fill:#F4F6FA}.md{--color-fg-default:#F4F6FA;--color-fg-muted:#BBBEC9;--color-fg-subtle:#868A96;--color-canvas-default:transparent;--color-canvas-subtle:#191C28;--color-border-default:#F4F6FA;--color-border-muted:#6B8AFB;--color-neutral-muted:#191C28;--color-accent-fg:#6B8AFB;--color-accent-emphasis:#6B8AFB;--color-attention-subtle:#BBBEC9;--color-danger-fg:red;}.light-code{display: none}.dark-code{display: block}}]]></style><g class="TXV0YXRlcw=="><g class="shape"><rect x="376" y="0" width="376" height="240" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="564" y="33" class="text fill-N1" style="text-anchor:middle;font-size:28px">Mutates own state (Contract 1)</text></g><g class="UmVhZHM="><g class="shape"><rect x="0" y="0" width="297" height="240" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="148.5" y="33" class="text fill-N1" style="text-anchor:middle;font-size:28px">Reads state (Contract 2)</text></g><g class="TXV0YXRlcy51cGRhdGU="><g class="shape"><rect x="436" y="60" width="215" height="120" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="543.5" y="125.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">fn update(&amp;mut self, ...)</text></g><g class="UmVhZHMucmVhZA=="><g class="shape"><rect x="60" y="60" width="165" height="120" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="142.5" y="125.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">fn read(&amp;self, ...)</text></g><g class="KE11dGF0ZXMudXBkYXRlIC0mZ3Q7IFJlYWRzLnJlYWQpWzBd"><marker id="mk-d2-2813974432-3488378134" markerwidth="10" markerheight="12" refx="7" refy="6" viewbox="0 0 10 12" orient="auto" markerunits="userSpaceOnUse"> <polygon points="0,0 10,6 0,12" class="connection fill-B1" stroke-width="2" /> </marker><path d="M 434 100 L 229 100" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2813974432-3488378134)" mask="url(#d2-2813974432)" /><text x="331" y="122" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">✅</text><text x="414" y="122" class="text-italic fill-N1" style="text-anchor:middle;font-size:16px">Start</text></g><g class="KFJlYWRzLnJlYWQgLSZndDsgTXV0YXRlcy51cGRhdGUpWzBd"><path d="M 227 140 L 432 140" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2813974432-3488378134)" mask="url(#d2-2813974432)" /><text x="331" y="162" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">❌</text></g><mask id="d2-2813974432" maskunits="userSpaceOnUse" x="-1" y="-1" width="754" height="242">
+<rect x="-1" y="-1" width="754" height="242" fill="white"></rect>
+<rect x="319" y="106" width="24" height="21" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="319" y="146" width="24" height="21" fill="rgba(0,0,0,0.75)"></rect>
+</mask></svg></svg>
+</pre>
+
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="how-can-you-help"><a class="header" href="#how-can-you-help">How can you help?</a></h1>
+<p>There are a number of things that are being worked on, but there are also things that we’d really like some help with or
+to collaborate on. If any of this is interesting to you, join our <a href="https://abundance.zulipchat.com/">Zulip</a> chat and let’s discuss it. The list will be
+expanded over time.</p>
+<p>If you have ideas that are not mentioned below, feel free to reach out and share them.</p>
+<p>There may or may not be funding available for these things.</p>
+<h2 id="high-performance-risc-v-vm"><a class="header" href="#high-performance-risc-v-vm">High-performance RISC-V VM</a></h2>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>Mostly engineering</p>
+</blockquote>
+<p>We need a RISC-V VM. There is already a basic interpreter, but more performance is still needed. The basic requirements
+are as follows:</p>
+<ul>
+<li>Able to run RV64E code with popular extensions (current interpreter supports RV64EMBZbc, adding vector and
+cryptographic extensions afterward, C extension is explicitly not supported directly for simplicity and performance
+reasons)</li>
+<li>Runs in a secure minimal sandbox (like seccomp, possibly in a hardware-accelerated VM)</li>
+<li>Cross-platform (Linux, macOS and Windows) deterministic execution</li>
+<li>Has low overhead gas metering</li>
+<li>High performance (~50% of native speed is highly desirable, which includes gas metering)</li>
+<li>Low memory usage</li>
+<li>Quick instantiations to support cheap and frequent cross-contract calls</li>
+</ul>
+<p><a href="https://github.com/paritytech/polkavm">PolkaVM</a> satisfies some requirements above, but not all and doesn’t 100% align
+in its design goals, but there might be an opportunity for collaboration.</p>
+<h2 id="state-database"><a class="header" href="#state-database">State database</a></h2>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>Research informed by engineering constraints</p>
+</blockquote>
+<p>We need a special state database. Since consensus nodes do not store the state itself (it is not mandatory), but rather
+store hashes, one per account, we have quite unique database requirements, and it must be possible to exploit them for
+better performance.</p>
+<p>Here are the key requirements:</p>
+<ul>
+<li>Key-value database</li>
+<li>All keys are monotonically increasing 128-bit unsigned integers</li>
+<li>It is extremely likely that many keys will be close to each other (most will be exactly next to each other)</li>
+<li>All values are tiny, constant size, less than 100 bytes</li>
+<li>Verifiable, entries form a Sparse Merkle Tree, whose root is the state root</li>
+<li>Efficiently updatable (including update of the Merkle Root)</li>
+<li>Reasonably efficiently provable</li>
+<li>Optimized for modern NVMe SSDs (concurrent random reads, sequential batch writes)</li>
+<li>Should use low to moderate amount of RAM</li>
+<li>Nice if supports versioning, but not mandatory</li>
+<li>Very, very fast</li>
+</ul>
+<p>By very fast, I mean that it should ideally support hundreds of thousands of operations on modern SSDs, productively
+leveraging IOPS available.</p>
+<p>Specifically, note that we don’t need variable sized keys, values are constant size as well. Keys are not uniformly and
+randomly distributed throughout the key space, instead a lot (most) of them will be right next to each other.</p>
+<p>Also, most blockchains support state versioning at various depths, here we just need 100 blocks max. I suspect we can
+store the diff in RAM or apply directly, while keeping separate “rollback details” rather than supporting proper
+versions of the whole tree be readily available at any time.</p>
+<p>With such constraints, I think there should be something really simple and efficient out there either implemented (less
+likely) or at least designed in a paper or something (more likely).</p>
+<h2 id="p2p-networking-stack"><a class="header" href="#p2p-networking-stack">P2P networking stack</a></h2>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>Research/engineering</p>
+</blockquote>
+<p>We need a P2P networking stack. There is a prototype already, but it’ll need to be expanded significantly with sharding
+and blockchain needs in mind. Some requirements:</p>
+<ul>
+<li>TCP-based</li>
+<li>Likely pea2pea-based with Yamux and Noise (strictly speaking, not a hard requirement)</li>
+<li>Low overhead and high performance</li>
+<li>Zero-copy whenever possible</li>
+<li>Support for custom gossip protocols (block and transaction propagation, proof-of-time notifications)</li>
+<li>Support for both structured (for distributed storage network) and unstructured (for blockchain) architecture</li>
+</ul>
+<p>There is a networking stack inherited from <a href="https://github.com/autonomys/subspace">Subspace reference implementation</a>, which is focused on distributed storage
+network needs. It generally works, though bootstrapping time and downloading speeds can be improved. It will likely need
+to be upgraded with support for various blockchain needs that were previously provided by <a href="https://github.com/paritytech/polkadot-sdk/tree/master/substrate">Substrate</a> framework, but
+will have to be reimplemented differently.</p>
+<h2 id="funding-model-for-core-contributors"><a class="header" href="#funding-model-for-core-contributors">Funding model for core contributors</a></h2>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>Research</p>
+</blockquote>
+<p>It would be really nice to find a sustainable funding model for core contributors and valuable community members. Here
+are some requirements:</p>
+<ul>
+<li>Fully on chain without legal entities and jurisdiction constraints</li>
+<li>Ability to discover and reward valuable contributions without relying on committees/governance</li>
+<li>Ideally P2P or using small DAOs</li>
+</ul>
+<p>The first thing that comes to mind is having multiple rewards addresses specified during farming, with a specified
+portion of rewards probabilistically ending up in a wallet of the developer/contributor that farmer wants to support.
+This doesn’t solve the problem of discoverability though. One way or another, there should not be a big
+treasury/governance structure that is responsible for managing funds, it should be more direct and more distributed.</p>
+<h2 id="gpu-plotting-performance-improvements"><a class="header" href="#gpu-plotting-performance-improvements">GPU plotting performance improvements</a></h2>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>Engineering</p>
+</blockquote>
+<p>GPU plotting was <a href="https://github.com/nazar-pc/abundance/tree/2862d4ae59b60000e020bcbf38c4dcbd9a74f10e/crates/farmer/ab-proof-of-space-gpu">re-written in Rust</a> using <a href="https://github.com/Rust-GPU/rust-gpu">rust-gpu</a> with the goal of running on Vulkan 1.2-capable devices (plus
+Metal on macOS). It works and has decent performance, but there must still be significant optimization opportunities
+left to explore, some of which might require improving rust-gpu itself first.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="acknowledgements"><a class="header" href="#acknowledgements">Acknowledgements</a></h1>
+<p>There are a lot of individuals and organizations that helped the project along the way. This page aims to have a short
+high-level summary, but it is by no means exhaustive and will be expanded in the future.</p>
+<ul>
+<li><a href="https://www.linkedin.com/company/autonomys/">Subspace Labs (now Autonomys Labs)</a> - Original research and implementation of the Subspace protocol, which is the
+foundation of the work done here. Especially research and protocol engineering teams, without which all this may have
+not been possible, you rock!</li>
+<li><a href="https://subspace.foundation/">Subspace Foundation</a> - Financial and HR support during 2025 for bootstrapping research and experimentation beyond
+original Subspace design, while providing complete freedom to choose what to work on. It would be much harder to make
+progress early on without this sponsorship.</li>
+<li><a href="https://zulip.com/">Zulip</a> - Generously sponsoring free access to the “Zulip Cloud Standard” plan for us and other Open Source projects.
+Zulip is an organized team chat app designed for efficient communication.</li>
+<li><a href="https://graphite.com/">Graphite</a> - For adding me to Graphite’s free Open Source program to benefit from their AI code review service</li>
+<li><a href="https://www.adlrocha.com/">Alfonso de la Rocha</a> - For helping with early research of the sharding design</li>
+<li>Open Source community - Seriously, there are thousands of high-quality dependencies used effortlessly, and it would be
+physically impossible to implement all of it alone from scratch, certainly not with the same or better level of
+quality. This is a modern-day miracle that we have so much code sharing.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            MathJax.Hub.Register.StartupHook('End', function() {
+                window.setTimeout(window.print, 100);
+            });
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

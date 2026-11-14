@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["alignment"],"struct":["OwnedAlignedBuffer","SharedAlignedBuffer"],"trait":["AlignedBuffer"]};

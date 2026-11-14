@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Rv32ZbbInstruction","Rv32ZbbZbkbSharedInstruction"]};

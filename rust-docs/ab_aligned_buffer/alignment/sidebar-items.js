@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Align1","Align1024","Align128","Align16","Align2","Align2048","Align256","Align32","Align4","Align4096","Align512","Align64","Align8"],"trait":["Alignment","AtLeast"]};
