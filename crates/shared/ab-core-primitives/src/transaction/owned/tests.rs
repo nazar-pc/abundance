@@ -6,6 +6,7 @@ use crate::transaction::{
     Gas, SerializedTransactionLengths, Transaction, TransactionHash, TransactionHeader,
     TransactionSlot,
 };
+use ab_aligned_buffer::alignment::Align16;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use core::ptr;
@@ -90,7 +91,7 @@ fn owned_transaction_payload_and_seal() {
 /// allocated memory is committed upfront, like on Windows.
 #[test]
 fn owned_transaction_larger_than_max_capacity_is_rejected() {
-    let max_capacity = usize::try_from(OwnedAlignedBuffer::MAX_CAPACITY).unwrap();
+    let max_capacity = usize::try_from(OwnedAlignedBuffer::<Align16>::MAX_CAPACITY).unwrap();
     #[cfg(target_pointer_width = "64")]
     let allocation_size = usize::try_from(u32::MAX).unwrap() + 1;
     #[cfg(not(target_pointer_width = "64"))]
@@ -205,7 +206,7 @@ fn transaction_to_owned_copies_only_transaction_bytes() {
         OwnedTransaction::from_parts(&header(), &slots(1, 100), &slots(2, 200), &[1, 2], &[3; 5])
             .unwrap();
     let bytes = owned_transaction.buffer().as_slice();
-    let mut extended = OwnedAlignedBuffer::from_bytes(bytes);
+    let mut extended = OwnedAlignedBuffer::<Align16>::from_bytes(bytes);
     assert!(extended.append(&[4; 16]));
 
     let (transaction, remainder) = Transaction::try_from_bytes(extended.as_slice()).unwrap();
@@ -226,7 +227,7 @@ fn transaction_bytes_must_be_aligned_to_max_alignment() {
     assert_eq!(transaction.seal, [3; 5]);
 
     // 8 bytes after a 16-byte boundary
-    let mut misaligned = OwnedAlignedBuffer::from_bytes(&[0; 8]);
+    let mut misaligned = OwnedAlignedBuffer::<Align16>::from_bytes(&[0; 8]);
     assert!(misaligned.append(bytes));
     assert!(Transaction::try_from_bytes(&misaligned.as_slice()[8..]).is_none());
 }
@@ -255,7 +256,7 @@ fn owned_transaction_constructors_cache_hash() {
         OwnedTransaction::from_parts(&header(), &read_slots, &write_slots, &[1, 2], &[3; 5])
             .unwrap();
     let bytes = from_parts.buffer().as_slice();
-    let mut extended = OwnedAlignedBuffer::from_bytes(bytes);
+    let mut extended = OwnedAlignedBuffer::<Align16>::from_bytes(bytes);
     assert!(extended.append(&[4; 16]));
     let (transaction, _remainder) = Transaction::try_from_bytes(extended.as_slice()).unwrap();
     let expected_hash = TransactionHash::from(Blake3Hash::from(blake3::hash(bytes)));

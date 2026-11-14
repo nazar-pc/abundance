@@ -9,6 +9,7 @@ license = "0BSD"
 version = "0.1.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
+rust-version = "1.89"
 include = [
     "/src",
     "/Cargo.toml",

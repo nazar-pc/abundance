@@ -54,6 +54,33 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
+  cargo-test-rust-version:
+    runs-on: ubuntu-26.04
+    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
+    needs: act4
+
+    steps:
+      - *checkout-step
+
+      - *cache-restore-step
+
+      - &install-nextest-step
+        name: Install cargo-nextest
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # 2.90.2
+        with:
+          tool: cargo-nextest
+
+      # Crates that support stable Rust declare `rust-version`, they must compile and pass tests with that version
+      - name: cargo nextest run
+        run: |
+          # Stable Rust is already installed on the runner, unlike the toolchain the workspace is pinned to
+          cargo +stable metadata --format-version 1 --no-deps \
+            | jq -r '.packages[] | select(.rust_version != null) | "\(.rust_version) \(.name)"' \
+            | while read -r rust_version package; do
+                rustup toolchain install "$rust_version" --profile minimal
+                cargo "+$rust_version" nextest run --locked --no-tests pass --package "$package"
+              done
+
   cargo-clippy:
     name: cargo-clippy (${{ matrix.platform.name }}, ${{ matrix.type }})
     strategy:
@@ -394,10 +421,7 @@ jobs:
       skip_crates: *skip-crates
 
     steps: &test-steps
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # 2.90.2
-        with:
-          tool: cargo-nextest
+      - *install-nextest-step
 
       - *rust-gpu-cache
       - *shared-test-steps
@@ -1039,6 +1063,7 @@ jobs:
     if: ${{ always() }}
     runs-on: ubuntu-slim
     needs:
+      - cargo-test-rust-version
       - cargo-clippy
       - cargo-fmt
       - cargo-test

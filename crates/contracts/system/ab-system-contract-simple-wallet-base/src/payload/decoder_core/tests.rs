@@ -10,6 +10,7 @@ use crate::payload::{
     TransactionMethodContext, TransactionOutputKind, TransactionPayloadDecoderError,
 };
 use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use ab_contracts_common::MAX_TOTAL_METHOD_ARGS;
 use ab_core_primitives::address::Address;
 use ab_io_type::alignment::Alignment;
@@ -221,7 +222,7 @@ fn payload_decode_misaligned() {
 
     // A misaligned `u128` slice only exists where `u128` is aligned to 8 bytes
     if align_of::<u128>() < usize::from(Alignment::MAX.get()) {
-        let mut buffer = OwnedAlignedBuffer::from_bytes(&[0; 8]);
+        let mut buffer = OwnedAlignedBuffer::<Align16>::from_bytes(&[0; 8]);
         for word in payload {
             assert!(buffer.append(&word.to_ne_bytes()));
         }

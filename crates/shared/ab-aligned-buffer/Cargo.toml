@@ -1,13 +1,14 @@
 [package]
 name = "ab-aligned-buffer"
-description = "Efficient abstraction for memory buffers aligned to 16 bytes with both owned and shared variants"
+description = "Efficient abstraction for aligned memory buffers with both owned and shared variants"
 keywords = ["alignment", "aligned", "buffer", "rc", "no-std"]
 categories = ["data-structures", "no-std", "rust-patterns"]
 repository = "https://github.com/nazar-pc/abundance"
 license = "0BSD"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
+rust-version = "1.89"
 include = [
     "/src",
     "/Cargo.toml",
@@ -17,9 +18,20 @@ include = [
 [package.metadata.docs.rs]
 all-features = true
 
+[lib]
+# Necessary for CLI options to work on benches
+bench = false
+
+[[bench]]
+name = "aligned_buffer"
+harness = false
+
 [dependencies]
 stable_deref_trait = { workspace = true }
 yoke = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
 
 [lints]
 workspace = true

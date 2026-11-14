@@ -34,6 +34,7 @@ use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
 use crate::transaction::Transaction;
 use crate::transaction::owned::OwnedTransaction;
+use ab_aligned_buffer::alignment::Align16;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
@@ -338,7 +339,7 @@ impl OwnedBeaconChainBody {
         )]
         let min_size = fixed_size
             .checked_add(pot_checkpoints_size)
-            .filter(|&size| size <= OwnedAlignedBuffer::MAX_CAPACITY)
+            .filter(|&size| size <= OwnedAlignedBuffer::<Align16>::MAX_CAPACITY)
             .ok_or(OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
         // This is only an estimate of intermediate shard blocks to get in the ballpark where
         // reallocation should not be necessary in many cases
@@ -355,7 +356,7 @@ impl OwnedBeaconChainBody {
         let mut buffer = OwnedAlignedBuffer::with_capacity(
             min_size
                 .saturating_add(intermediate_shard_blocks_size)
-                .min(OwnedAlignedBuffer::MAX_CAPACITY),
+                .min(OwnedAlignedBuffer::<Align16>::MAX_CAPACITY),
         );
 
         let true = buffer.append(&num_pot_checkpoints.to_le_bytes()) else {

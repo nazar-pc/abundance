@@ -9,6 +9,7 @@
 //! can't panic, whatever the payload is.
 
 use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use ab_system_contract_simple_wallet_base::MAX_OUTPUTS;
 use ab_system_contract_simple_wallet_base::payload::decoder::{
     DecodedInput, DecodedOutput, DecodedSlot, OutputRef, TransactionPayloadDecoder,
@@ -28,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("The size of the payload must be a multiple of 16 bytes".into());
     }
     // The decoder requires a payload aligned to 16 bytes
-    let payload = OwnedAlignedBuffer::from_bytes(&bytes);
+    let payload = OwnedAlignedBuffer::<Align16>::from_bytes(&bytes);
 
     let mut declared_outputs = [MaybeUninit::uninit(); MAX_OUTPUTS];
     let mut decoder =
