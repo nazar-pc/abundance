@@ -13,7 +13,7 @@ use ab_core_primitives::checksum::Blake3Checksummed;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{PieceHeader, PieceOffset, Record};
 use ab_core_primitives::sectors::{SBucket, SectorIndex};
-use ab_core_primitives::segments::{HistorySize, SegmentIndex};
+use ab_core_primitives::segments::HistorySize;
 use ab_direct_io_file::AlignedPage;
 use ab_io_type::trivial_type::TrivialType;
 use parity_scale_codec::{Decode, Encode};
@@ -56,7 +56,7 @@ pub const fn sector_padding_size(pieces_in_sector: u16) -> usize {
 /// checksum).
 ///
 /// NOTE: Each sector also has corresponding fixed size metadata whose size can be obtained with
-/// [`SectorMetadataChecksummed::encoded_size()`], size of the record chunks (s-buckets) with
+/// [`SectorMetadataChecksummed::disk_size()`], size of the record chunks (s-buckets) with
 /// [`sector_record_chunks_size()`], size of record roots and proofs with
 /// [`sector_record_metadata_size()`] and size of padding with [`sector_padding_size()`]. This
 /// function just combines those together for convenience.
@@ -136,21 +136,42 @@ impl DerefMut for SectorMetadataChecksummed {
 }
 
 impl SectorMetadataChecksummed {
-    /// Size of encoded checksummed sector metadata.
+    /// Size of checksummed sector metadata on disk.
+    ///
+    /// Sector metadata is padded with zeroes to a multiple of [`AlignedPage::SIZE`], such that it
+    /// can be written with direct I/O without read-modify-write, see [`Self::encode_for_disk()`].
     ///
     /// For sector plot size use [`sector_size()`].
     #[inline]
-    pub fn encoded_size() -> usize {
-        let default = SectorMetadataChecksummed::from(SectorMetadata {
-            sector_index: SectorIndex::ZERO,
-            pieces_in_sector: 0,
-            // TODO: Should have been just `::new()`, but https://github.com/rust-lang/rust/issues/53827
-            // SAFETY: Data structure filled with zeroes is a valid invariant
-            s_bucket_sizes: unsafe { Box::new_zeroed().assume_init() },
-            history_size: HistorySize::from(SegmentIndex::ZERO),
-        });
+    pub const fn disk_size() -> usize {
+        Self::encoded_size().next_multiple_of(AlignedPage::SIZE)
+    }
 
-        default.encoded_size()
+    /// Encode checksummed sector metadata for storing on disk, padded with zeroes to
+    /// [`Self::disk_size()`]
+    pub fn encode_for_disk(&self) -> Box<[u8; Self::disk_size()]> {
+        // SAFETY: Bytes filled with zeroes are valid
+        let mut bytes = unsafe { Box::<[u8; Self::disk_size()]>::new_zeroed().assume_init() };
+        self.encode_to(&mut bytes.as_mut_slice());
+        bytes
+    }
+
+    /// Decode checksummed sector metadata stored on disk, the inverse of
+    /// [`Self::encode_for_disk()`]
+    pub fn decode_from_disk(
+        bytes: &[u8; Self::disk_size()],
+    ) -> Result<Self, parity_scale_codec::Error> {
+        Self::decode(&mut bytes.as_slice())
+    }
+
+    /// Size of SCALE-encoded checksummed sector metadata
+    const fn encoded_size() -> usize {
+        // Fields of `SectorMetadata` followed by the checksum
+        SectorIndex::SIZE
+            + size_of::<u16>()
+            + size_of::<[u16; Record::NUM_S_BUCKETS]>()
+            + size_of::<HistorySize>()
+            + Blake3Hash::SIZE
     }
 }
 

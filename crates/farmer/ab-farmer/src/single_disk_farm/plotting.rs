@@ -19,7 +19,6 @@ use async_lock::{Mutex as AsyncMutex, RwLock as AsyncRwLock, Semaphore, Semaphor
 use futures::channel::{mpsc, oneshot};
 use futures::stream::FuturesOrdered;
 use futures::{FutureExt, SinkExt, StreamExt, select};
-use parity_scale_codec::Encode;
 use parking_lot::RwLock;
 use rand::prelude::*;
 use std::collections::HashSet;
@@ -262,7 +261,7 @@ async fn process_plotting_result(
     if u16::from(sector_index) + 1 > metadata_header.plotted_sector_count {
         metadata_header.plotted_sector_count = u16::from(sector_index) + 1;
 
-        let encoded_metadata_header = metadata_header.encode();
+        let encoded_metadata_header = metadata_header.encode_page();
         let write_fut =
             task::spawn_blocking(move || metadata_file.write_all_at(&encoded_metadata_header, 0));
         write_fut.await.map_err(|error| {
@@ -697,13 +696,13 @@ async fn plot_single_sector_internal(
             }
         }
         {
-            let encoded_sector_metadata = plotted_sector.sector_metadata.encode();
+            let encoded_sector_metadata = plotted_sector.sector_metadata.encode_for_disk();
             let write_fut = task::spawn_blocking({
                 let metadata_file = Arc::clone(metadata_file);
 
                 move || {
                     metadata_file.write_all_at(
-                        &encoded_sector_metadata,
+                        encoded_sector_metadata.as_slice(),
                         RESERVED_PLOT_METADATA
                             + (u64::from(sector_index) * encoded_sector_metadata.len() as u64),
                     )
