@@ -1,16 +1,51 @@
-use crate::pieces::cow_bytes::CowBytes;
 use crate::pieces::{InnerPiece, Piece};
 use crate::segments::RecordedHistorySegment;
+use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use alloc::boxed::Box;
-use bytes::{Bytes, BytesMut};
 use core::ops::{Deref, DerefMut};
 use core::{fmt, slice};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+/// Buffer that is either owned and mutable or shared and cheap to clone
+#[derive(Clone)]
+enum CowBuffer {
+    Owned(OwnedAlignedBuffer),
+    Shared(SharedAlignedBuffer),
+}
+
+impl CowBuffer {
+    #[inline(always)]
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Owned(buffer) => buffer.as_slice(),
+            Self::Shared(buffer) => buffer.as_slice(),
+        }
+    }
+
+    /// Shared buffer is copied into a new allocation first, unless it is the last reference to
+    /// its allocation
+    #[inline(always)]
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        match self {
+            Self::Owned(buffer) => buffer.as_mut_slice(),
+            Self::Shared(buffer) => buffer.make_mut(),
+        }
+    }
+}
+
 /// Flat representation of multiple pieces concatenated for more efficient for processing
-#[derive(Clone, PartialEq, Eq)]
-pub struct FlatPieces(CowBytes);
+#[derive(Clone)]
+pub struct FlatPieces(CowBuffer);
+
+impl PartialEq for FlatPieces {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.0.as_slice() == other.0.as_slice()
+    }
+}
+
+impl Eq for FlatPieces {}
 
 impl fmt::Debug for FlatPieces {
     #[inline]
@@ -24,7 +59,7 @@ impl Deref for FlatPieces {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        let bytes = self.0.as_ref();
+        let bytes = self.0.as_slice();
         // SAFETY: Bytes slice has length of multiples of piece size and lifetimes of returned data
         // are preserved
         let pieces = unsafe {
@@ -40,7 +75,7 @@ impl Deref for FlatPieces {
 impl DerefMut for FlatPieces {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        let bytes = self.0.as_mut();
+        let bytes = self.0.as_mut_slice();
         // SAFETY: Bytes slice has length of multiples of piece size and lifetimes of returned data
         // are preserved
         let pieces = unsafe {
@@ -54,10 +89,18 @@ impl DerefMut for FlatPieces {
 }
 
 impl FlatPieces {
-    /// Allocate `FlatPieces` that will hold `piece_count` pieces filled with zeroes
+    /// Allocate `FlatPieces` that will hold `piece_count` pieces filled with zeroes.
+    ///
+    /// # Panics
+    /// If pieces don't fit into [`OwnedAlignedBuffer::MAX_CAPACITY`]
     #[inline]
     pub fn new(piece_count: usize) -> Self {
-        Self(CowBytes::Owned(BytesMut::zeroed(piece_count * Piece::SIZE)))
+        let size = piece_count
+            .checked_mul(Piece::SIZE)
+            .and_then(|size| u32::try_from(size).ok())
+            .unwrap_or_else(|| panic!("{piece_count} pieces don't fit into a buffer"));
+
+        Self(CowBuffer::Owned(OwnedAlignedBuffer::zeroed(size)))
     }
 
     /// Iterate over all pieces.
@@ -70,19 +113,21 @@ impl FlatPieces {
     #[inline]
     pub fn pieces(&self) -> Box<dyn ExactSizeIterator<Item = Piece> + '_> {
         match &self.0 {
-            CowBytes::Shared(bytes) => Box::new(
-                bytes
+            CowBuffer::Shared(buffer) => {
+                Box::new((0..buffer.len()).step_by(Piece::SIZE).map(|start| {
+                    Piece(
+                        buffer
+                            .get_slice(start..start + Piece::SIZE_U32)
+                            .expect("Buffer contains whole pieces; qed"),
+                    )
+                }))
+            }
+            CowBuffer::Owned(buffer) => Box::new(
+                buffer
                     .as_chunks::<{ Piece::SIZE }>()
                     .0
                     .iter()
-                    .map(|slice| Piece(CowBytes::Shared(bytes.slice_ref(slice)))),
-            ),
-            CowBytes::Owned(bytes) => Box::new(
-                bytes
-                    .as_chunks::<{ Piece::SIZE }>()
-                    .0
-                    .iter()
-                    .map(|slice| Piece(CowBytes::Shared(Bytes::copy_from_slice(slice)))),
+                    .map(|bytes| Piece(SharedAlignedBuffer::from_bytes(bytes))),
             ),
         }
     }
@@ -132,8 +177,8 @@ impl FlatPieces {
     /// will not result in additional memory allocations.
     pub fn to_shared(self) -> Self {
         Self(match self.0 {
-            CowBytes::Shared(bytes) => CowBytes::Shared(bytes),
-            CowBytes::Owned(bytes) => CowBytes::Shared(bytes.freeze()),
+            CowBuffer::Shared(buffer) => CowBuffer::Shared(buffer),
+            CowBuffer::Owned(buffer) => CowBuffer::Shared(buffer.into_shared()),
         })
     }
 

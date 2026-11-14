@@ -22,13 +22,11 @@ ab-merkle-tree = { workspace = true, features = ["blake3"] }
 array-reshape = { workspace = true }
 bech32 = { workspace = true }
 blake3 = { workspace = true }
-bytes = { workspace = true, optional = true }
 const-fn-specialization = { workspace = true }
 derive_more = { workspace = true, features = ["full"] }
 ed25519-dalek = { workspace = true, optional = true }
 hex = { workspace = true }
-parity-scale-codec = { workspace = true, features = ["bytes", "derive", "max-encoded-len"], optional = true }
-replace_with = { workspace = true, optional = true }
+parity-scale-codec = { workspace = true, features = ["derive", "max-encoded-len"], optional = true }
 rayon = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 serde-big-array = { workspace = true, optional = true }
@@ -47,9 +45,7 @@ trybuild = { workspace = true }
 [features]
 alloc = [
     "dep:ab-aligned-buffer",
-    "dep:bytes",
     "dep:once_cell",
-    "dep:replace_with",
     "dep:triomphe",
     "serde?/alloc",
 ]
@@ -73,7 +69,6 @@ serde = [
     "dep:serde-big-array",
     "ab-io-type/serde",
     "alloc",
-    "bytes/serde",
     # TODO: Ideally wouldn't be necessary, but https://github.com/KokaKiwi/rust-hex/issues/90
     "hex/alloc",
     "hex/serde",

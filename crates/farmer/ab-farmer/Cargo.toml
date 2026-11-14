@@ -18,6 +18,7 @@ name = "ab-farmer"
 required-features = ["binary"]
 
 [dependencies]
+ab-aligned-buffer = { workspace = true }
 ab-cli-utils = { workspace = true, optional = true }
 ab-core-primitives = { workspace = true, features = ["ed25519"] }
 ab-data-retrieval = { workspace = true }

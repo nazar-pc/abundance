@@ -329,7 +329,6 @@ dependencies = [
  "array-reshape",
  "bech32",
  "blake3",
- "bytes",
  "chacha20 0.10.2",
  "const-fn-specialization",
  "derive_more",
@@ -338,7 +337,6 @@ dependencies = [
  "once_cell",
  "parity-scale-codec",
  "rayon",
- "replace_with",
  "serde",
  "serde-big-array",
  "thiserror 2.0.21",
@@ -470,6 +468,7 @@ dependencies = [
 name = "ab-farmer"
 version = "0.1.0"
 dependencies = [
+ "ab-aligned-buffer",
  "ab-cli-utils",
  "ab-core-primitives",
  "ab-data-retrieval",
