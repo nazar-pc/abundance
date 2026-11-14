@@ -7,6 +7,7 @@ use crate::instructions::rv64::b::Rv64BInstruction;
 use crate::instructions::rv64::b::zba::Rv64ZbaInstruction;
 use crate::instructions::rv64::b::zbb::{Rv64ZbbInstruction, Rv64ZbbZbkbSharedInstruction};
 use crate::instructions::rv64::b::zbs::Rv64ZbsInstruction;
+use crate::instructions::rv64::c::zca::Rv64ZcaInstruction;
 use crate::instructions::rv64::m::Rv64MInstruction;
 use crate::instructions::rv64::m::zmmul::Rv64ZmmulInstruction;
 use crate::instructions::rv64::zabha::Rv64ZabhaInstruction;
@@ -619,4 +620,60 @@ fn enum_without_own_instructions_condition() {
 fn ignored_own_instruction_condition() {
     // `mul` ignored by an inherited enum doesn't satisfy the condition
     assert!(TestIgnoredMulConditionInstruction::<BasicHart<Reg<u64>>>::try_decode(2).is_none());
+}
+
+/// RV64I with `Zca`, which specifies the alignment of its own instructions
+#[instruction(inherit = [Rv64Instruction, Rv64ZcaInstruction])]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+enum TestZcaInstruction<Hart>
+where
+    Hart: HartConfig, {}
+
+#[instruction]
+const impl<Reg, Hart> Instruction for TestZcaInstruction<Hart>
+where
+    Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
+{
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Hart = Hart;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg, Hart> fmt::Display for TestZcaInstruction<Hart>
+where
+    Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
+#[test]
+fn composed_alignment() {
+    // Without 16-bit instructions, the specified alignment is used as is
+    assert_eq!(
+        <TestIgnoreInstruction<BasicHart<Reg<u64>>> as Instruction>::ALIGNMENT,
+        4
+    );
+    // Inherited `Zca` lowers the specified alignment
+    assert_eq!(
+        <TestZcaInstruction<BasicHart<Reg<u64>>> as Instruction>::ALIGNMENT,
+        2
+    );
 }

@@ -118,7 +118,7 @@ use proc_macro::TokenStream;
 /// # Enum decoding implementation
 ///
 /// For enum decoding implementation, the macro is applied to the implementation of `Instruction`
-/// trait and affects its `try_decode()` method:
+/// trait and affects its `try_decode()` method, `ALIGNMENT` constant and `size()` method:
 /// ```rust,ignore
 /// #[instruction]
 /// const impl<Reg, Hart> Instruction for Rv64Instruction<Hart>
@@ -140,6 +140,12 @@ use proc_macro::TokenStream;
 /// Construction of variants that are not present in the instruction set (like ignored ones) is
 /// replaced with `None?`. This also allows decoding to construct variants of other enums when they
 /// are present, like Zbkb decoding `packw rd, rs1, x0` as Zbb's `zext.h`.
+///
+/// `ALIGNMENT` constant becomes the smallest of the value specified in the implementation and the
+/// values specified by all inherited enums (directly or transitively), so the specified value can
+/// only lower the result (see `Instruction::ALIGNMENT`). `size()` method is composed out of the
+/// `size()` bodies of all inherited enums, with each instruction getting the body specified by the
+/// enum that defines it.
 ///
 /// The macro also generates `IMPLEMENTED_EXTENSIONS` constant (see
 /// `Instruction::IMPLEMENTED_EXTENSIONS`), while `OWN_ISA_EXTENSIONS` with ISA extensions of the
