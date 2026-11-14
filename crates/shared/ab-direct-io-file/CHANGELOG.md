@@ -3,6 +3,7 @@
 Breaking changes:
 
 * Nightly Rust is required again
+* Removed `DISK_PAGE_SIZE`, `AlignedPage::SIZE` is the same constant
 * `DirectIoFile::read_exact_at_raw()` takes `BorrowedCursor<'_, AlignedPage>` instead of
   `&mut [MaybeUninit<AlignedPage>]`, which works with both initialized and uninitialized memory without treating
   uninitialized memory as `&mut [u8]` internally

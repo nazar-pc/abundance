@@ -9,10 +9,11 @@ mod tests;
 use crate::disk_piece_cache::metrics::DiskPieceCacheMetrics;
 use crate::farm;
 use crate::farm::{FarmError, PieceCacheId, PieceCacheOffset};
-use crate::single_disk_farm::direct_io_file_wrapper::{DISK_PAGE_SIZE, DirectIoFileWrapper};
+use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_direct_io_file::AlignedPage;
 use ab_farmer_components::file_ext::FileExt;
 use async_trait::async_trait;
 use bytes::BytesMut;
@@ -36,6 +37,10 @@ use triomphe::Arc;
 const CONTENTS_READ_SKIP_LIMIT: usize = 3;
 /// How many piece to read from disk at the same time (using tokio thread pool)
 const PIECES_READING_CONCURRENCY: usize = 32;
+/// Size of a cache element: piece index, piece and checksum, followed by zero padding to whole
+/// disk pages, such that elements can be written without read-modify-write
+const ELEMENT_SIZE: usize =
+    (PieceIndex::SIZE + Piece::SIZE + Blake3Hash::SIZE).next_multiple_of(AlignedPage::SIZE);
 
 /// Disk piece cache open error
 #[derive(Debug, Error)]
@@ -262,7 +267,8 @@ impl DiskPieceCache {
 
         let expected_size = u64::from(Self::element_size()) * u64::from(capacity);
         // Align plot file size for disk sector size
-        let expected_size = expected_size.div_ceil(DISK_PAGE_SIZE as u64) * DISK_PAGE_SIZE as u64;
+        let expected_size =
+            expected_size.div_ceil(AlignedPage::SIZE as u64) * AlignedPage::SIZE as u64;
         {
             let file = files.write();
             if file.size()? != expected_size {
@@ -291,7 +297,7 @@ impl DiskPieceCache {
 
     /// Size of a single piece cache element
     pub const fn element_size() -> u32 {
-        (PieceIndex::SIZE + Piece::SIZE + Blake3Hash::SIZE) as u32
+        ELEMENT_SIZE as u32
     }
 
     /// Contents of this piece cache
@@ -301,7 +307,7 @@ impl DiskPieceCache {
     pub(crate) fn contents(
         &self,
     ) -> impl ExactSizeIterator<Item = (PieceCacheOffset, Option<PieceIndex>)> + '_ {
-        let mut element = vec![0; Self::element_size() as usize];
+        let mut element = vec![0; ELEMENT_SIZE];
         let count_total = self.inner.metrics.as_ref().is_some_and(|metrics| {
             metrics.contents.inc();
             metrics.capacity_used.get() == 0
@@ -366,9 +372,8 @@ impl DiskPieceCache {
         let element_offset = u64::from(offset) * u64::from(Self::element_size());
 
         let piece_index_bytes = piece_index.to_bytes();
-        // File writes are read/write/modify internally, so combine all data here for more efficient
-        // write
-        let mut bytes = Vec::with_capacity(PieceIndex::SIZE + Piece::SIZE + Blake3Hash::SIZE);
+        // Combine all data with padding here, such that the whole element is written at once
+        let mut bytes = Vec::with_capacity(ELEMENT_SIZE);
         bytes.extend_from_slice(&piece_index_bytes);
         bytes.extend_from_slice(piece.as_ref());
         bytes.extend_from_slice(
@@ -380,6 +385,7 @@ impl DiskPieceCache {
             }
             .as_bytes(),
         );
+        bytes.resize(ELEMENT_SIZE, 0);
         self.inner
             .files
             .write()
@@ -410,7 +416,7 @@ impl DiskPieceCache {
         if let Some(metrics) = &self.inner.metrics {
             metrics.read_piece_index.inc();
         }
-        self.read_piece_internal(offset, &mut vec![0; Self::element_size() as usize])
+        self.read_piece_internal(offset, &mut vec![0; ELEMENT_SIZE])
     }
 
     /// Read piece from cache at specified offset.
@@ -435,7 +441,7 @@ impl DiskPieceCache {
         if let Some(metrics) = &self.inner.metrics {
             metrics.read_piece.inc();
         }
-        let mut element = BytesMut::zeroed(Self::element_size() as usize);
+        let mut element = BytesMut::zeroed(ELEMENT_SIZE);
         if let Some(piece_index) = self.read_piece_internal(offset, &mut element)? {
             let element = element.freeze();
             let piece =
@@ -458,7 +464,9 @@ impl DiskPieceCache {
             .read_exact_at(element, u64::from(offset) * u64::from(Self::element_size()))?;
 
         let (piece_index_bytes, remaining_bytes) = element.split_at(PieceIndex::SIZE);
-        let (piece_bytes, expected_checksum) = remaining_bytes.split_at(Piece::SIZE);
+        let (piece_bytes, remaining_bytes) = remaining_bytes.split_at(Piece::SIZE);
+        // The rest of the element after the checksum is zero padding
+        let (expected_checksum, _padding) = remaining_bytes.split_at(Blake3Hash::SIZE);
 
         // Verify checksum
         let actual_checksum = {

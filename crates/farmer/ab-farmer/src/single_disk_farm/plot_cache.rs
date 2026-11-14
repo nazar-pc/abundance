@@ -10,6 +10,7 @@ use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
+use ab_direct_io_file::AlignedPage;
 use ab_farmer_components::file_ext::FileExt;
 use ab_farmer_components::sector::SectorMetadataChecksummed;
 use ab_networking::libp2p::kad::RecordKey;
@@ -25,6 +26,11 @@ use thiserror::Error;
 use tokio::task;
 use tracing::{debug, info, trace, warn};
 use triomphe::Arc;
+
+/// Size of a cache element: piece index, piece and checksum, followed by zero padding to whole
+/// disk pages, such that elements can be written without read-modify-write
+const ELEMENT_SIZE: usize =
+    (PieceIndex::SIZE + Piece::SIZE + Blake3Hash::SIZE).next_multiple_of(AlignedPage::SIZE);
 
 /// Disk plot cache open error
 #[derive(Debug, Error)]
@@ -91,7 +97,7 @@ impl DiskPlotCache {
         info!("Checking plot cache contents, this can take a while");
         let cached_pieces = {
             let sectors_metadata = sectors_metadata.read_blocking();
-            let mut element = vec![0; Self::element_size() as usize];
+            let mut element = vec![0; ELEMENT_SIZE];
             let mut map = HashMap::new();
             let mut next_offset = None;
 
@@ -139,7 +145,7 @@ impl DiskPlotCache {
 
     /// Size of a single plot cache element
     pub(crate) const fn element_size() -> u32 {
-        (PieceIndex::SIZE + Piece::SIZE + Blake3Hash::SIZE) as u32
+        ELEMENT_SIZE as u32
     }
 
     /// Check if piece is potentially stored in this cache (not guaranteed to be because it might be
@@ -241,9 +247,8 @@ impl DiskPlotCache {
 
         let write_fut = task::spawn_blocking({
             let piece_index_bytes = piece_index.to_bytes();
-            // File writes are read/write/modify internally, so combine all data here for more
-            // efficient write
-            let mut bytes = Vec::with_capacity(PieceIndex::SIZE + Piece::SIZE + Blake3Hash::SIZE);
+            // Combine all data with padding here, such that the whole element is written at once
+            let mut bytes = Vec::with_capacity(ELEMENT_SIZE);
             bytes.extend_from_slice(&piece_index_bytes);
             bytes.extend_from_slice(piece.as_ref());
             bytes.extend_from_slice(
@@ -255,6 +260,7 @@ impl DiskPlotCache {
                 }
                 .as_bytes(),
             );
+            bytes.resize(ELEMENT_SIZE, 0);
 
             move || file.write_all_at(&bytes, element_offset)
         });
@@ -281,7 +287,7 @@ impl DiskPlotCache {
         let file = self.file.upgrade()?;
 
         let read_fn = move || {
-            let mut element = BytesMut::zeroed(Self::element_size() as usize);
+            let mut element = BytesMut::zeroed(ELEMENT_SIZE);
             if let Ok(Some(_piece_index)) = Self::read_piece_internal(&file, offset, &mut element) {
                 let element = element.freeze();
                 let piece =
@@ -334,7 +340,9 @@ impl DiskPlotCache {
         file.read_exact_at(element, u64::from(offset) * u64::from(Self::element_size()))?;
 
         let (piece_index_bytes, remaining_bytes) = element.split_at(PieceIndex::SIZE);
-        let (piece_bytes, expected_checksum) = remaining_bytes.split_at(Piece::SIZE);
+        let (piece_bytes, remaining_bytes) = remaining_bytes.split_at(Piece::SIZE);
+        // The rest of the element after the checksum is zero padding
+        let (expected_checksum, _padding) = remaining_bytes.split_at(Blake3Hash::SIZE);
 
         // Verify checksum
         let actual_checksum = {

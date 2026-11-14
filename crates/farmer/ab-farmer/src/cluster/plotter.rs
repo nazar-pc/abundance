@@ -12,6 +12,7 @@ use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::solutions::ShardCommitmentHash;
+use ab_direct_io_file::AlignedPage;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::PlottedSector;
 use ab_farmer_components::sector::sector_size;
@@ -121,6 +122,14 @@ struct ClusterPlotterPlotSectorRequest {
 impl GenericStreamRequest for ClusterPlotterPlotSectorRequest {
     const SUBJECT: &'static str = "ab.plotter.*.plot-sector";
     type Response = ClusterSectorPlottingProgress;
+}
+
+/// Size of sector chunks sent from plotter to farmer.
+///
+/// It is a multiple of disk page size, such that farmer can write chunks to disk without
+/// read-modify-write.
+fn sector_chunk_size(nats_client: &NatsClient) -> usize {
+    nats_client.approximate_max_message_size() / AlignedPage::SIZE * AlignedPage::SIZE
 }
 
 #[derive(Default, Debug)]
@@ -394,8 +403,7 @@ impl ClusterPlotter {
                 // Allow to buffer up to the whole sector in memory to not block plotter on the
                 // other side
                 let (mut sector_sender, sector_receiver) = mpsc::channel(
-                    (sector_size(pieces_in_sector) / nats_client.approximate_max_message_size())
-                        .max(1),
+                    sector_size(pieces_in_sector).div_ceil(sector_chunk_size(&nats_client)),
                 );
                 let mut maybe_sector_receiver = Some(sector_receiver);
                 loop {
@@ -882,16 +890,12 @@ async fn process_plot_sector_request<P>(
 
         let progress_proxy_fut = {
             let mut response_proxy_sender = response_proxy_sender.clone();
-            let approximate_max_message_size = nats_client.approximate_max_message_size();
+            let sector_chunk_size = sector_chunk_size(nats_client);
 
             async move {
                 while let Some(progress) = progress_receiver.next().await {
-                    send_publish_progress(
-                        &mut response_proxy_sender,
-                        progress,
-                        approximate_max_message_size,
-                    )
-                    .await;
+                    send_publish_progress(&mut response_proxy_sender, progress, sector_chunk_size)
+                        .await;
                 }
             }
         };
@@ -931,7 +935,7 @@ async fn process_plot_sector_request<P>(
 async fn send_publish_progress(
     response_sender: &mut mpsc::Sender<ClusterSectorPlottingProgress>,
     progress: SectorPlottingProgress,
-    approximate_max_message_size: usize,
+    sector_chunk_size: usize,
 ) {
     // Finished response is large and needs special care
     let cluster_progress = match progress {
@@ -959,8 +963,7 @@ async fn send_publish_progress(
                 match maybe_sector_chunk {
                     Ok(sector_chunk) => {
                         // Slice large chunks into smaller ones before publishing
-                        for small_sector_chunk in sector_chunk.chunks(approximate_max_message_size)
-                        {
+                        for small_sector_chunk in sector_chunk.chunks(sector_chunk_size) {
                             if let Err(error) = response_sender
                                 .send(ClusterSectorPlottingProgress::SectorChunk(Ok(
                                     sector_chunk.slice_ref(small_sector_chunk)

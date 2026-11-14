@@ -9,7 +9,8 @@
 use crate::FarmerProtocolInfo;
 use crate::sector::{
     FoundProofs, RawSector, RecordMetadata, SectorContentsMap, SectorMetadata,
-    SectorMetadataChecksummed, sector_record_chunks_size, sector_record_metadata_size, sector_size,
+    SectorMetadataChecksummed, sector_padding_size, sector_record_chunks_size,
+    sector_record_metadata_size, sector_size,
 };
 use crate::segment_reconstruction::recover_missing_piece;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -607,6 +608,7 @@ pub fn write_sector(
     // * sector contents map
     // * record chunks as s-buckets
     // * record metadata
+    // * zero padding
     // * checksum
     {
         let (sector_contents_map_region, remaining_bytes) = sector_output
@@ -615,8 +617,10 @@ pub fn write_sector(
         // Slice remaining memory into belonging to s-buckets and metadata
         let (s_buckets_region, remaining_bytes) =
             remaining_bytes.split_at_mut(sector_record_chunks_size(pieces_in_sector));
-        let (metadata_region, _remaining_bytes) =
+        let (metadata_region, remaining_bytes) =
             remaining_bytes.split_at_mut(sector_record_metadata_size(pieces_in_sector));
+        let (padding_region, _remaining_bytes) =
+            remaining_bytes.split_at_mut(sector_padding_size(pieces_in_sector));
 
         // Write sector contents map so we can decode it later
         sector_contents_map
@@ -669,11 +673,14 @@ pub fn write_sector(
             metadata_region.len(),
             "Raw sector always has metadata for every record; qed"
         );
+
+        padding_region.write_filled(0);
     }
 
     // SAFETY: The sector contents map is written by `encode_into()`, s-buckets and metadata regions
-    // are covered by contiguous chunks written from their beginning, which is checked above, and
-    // together they are everything except the checksum. The capacity was reserved above.
+    // are covered by contiguous chunks written from their beginning, which is checked above, the
+    // padding region is filled with zeroes, and together they are everything except the checksum.
+    // The capacity was reserved above.
     unsafe {
         sector_output.set_len(sector_size - Blake3Hash::SIZE);
     }

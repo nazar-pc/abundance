@@ -1,9 +1,10 @@
 use crate::farm::MaybePieceStoredResult;
-use crate::single_disk_farm::direct_io_file_wrapper::{DISK_PAGE_SIZE, DirectIoFileWrapper};
+use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::single_disk_farm::plot_cache::DiskPlotCache;
 use ab_core_primitives::pieces::{Piece, PieceIndex, Record};
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::HistorySize;
+use ab_direct_io_file::AlignedPage;
 use ab_farmer_components::file_ext::FileExt;
 use ab_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
 use ab_networking::libp2p::kad::RecordKey;
@@ -31,8 +32,9 @@ async fn basic() {
 
     // Align plot file size for disk sector size
     file.preallocate(
-        (FAKE_SECTOR_SIZE as u64 * u64::from(TARGET_SECTOR_COUNT)).div_ceil(DISK_PAGE_SIZE as u64)
-            * DISK_PAGE_SIZE as u64,
+        (FAKE_SECTOR_SIZE as u64 * u64::from(TARGET_SECTOR_COUNT))
+            .div_ceil(AlignedPage::SIZE as u64)
+            * AlignedPage::SIZE as u64,
     )
     .unwrap();
 
