@@ -1023,8 +1023,11 @@ impl OwnedLeafShardBlockBodyBuilder {
 
     /// Finish building block body
     pub fn finish(self) -> OwnedLeafShardBody {
-        OwnedLeafShardBody::from_buffer(self.transaction_builder.finish().into_shared())
-            .expect("Known to be created correctly; qed")
+        OwnedLeafShardBody::from_buffer(self.transaction_builder.finish().into_shared()).expect(
+            "`init()` wrote valid own segments and a zero number of transactions, each added \
+            transaction is an already parsed one followed by padding and increments that number, \
+            and the buffer is 16-byte aligned and can't be longer than `u32::MAX` bytes; qed",
+        )
     }
 }
 

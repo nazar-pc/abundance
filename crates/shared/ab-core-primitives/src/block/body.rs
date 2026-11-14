@@ -606,7 +606,6 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
                 num_leaf_shard_blocks_with_segments_1,
             ]);
 
-            // TODO: Unchecked method would have been helpful here
             let header;
             (header, remainder) = IntermediateShardHeader::try_from_bytes(remainder)
                 .expect("Already checked in constructor; qed");
@@ -1072,7 +1071,6 @@ impl<'a> LeafShardBlocksInfo<'a> {
         counts.iter().map(move |&num_own_segment_roots| {
             let num_own_segment_roots = usize::from(num_own_segment_roots);
 
-            // TODO: Unchecked method would have been helpful here
             let header;
             (header, remainder) = LeafShardHeader::try_from_bytes(remainder)
                 .expect("Already checked in constructor; qed");
