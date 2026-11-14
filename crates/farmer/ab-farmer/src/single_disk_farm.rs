@@ -1422,6 +1422,21 @@ impl SingleDiskFarm {
 
             metadata_header
         } else {
+            let mut metadata_header_bytes = vec![0; PlotMetadataHeader::encoded_size()];
+            metadata_file.read_exact_at(&mut metadata_header_bytes, 0)?;
+
+            let mut metadata_header =
+                PlotMetadataHeader::decode(&mut metadata_header_bytes.as_ref())
+                    .map_err(SingleDiskFarmError::FailedToDecodeMetadataHeader)?;
+
+            // Check version before resizing, such that metadata file of unsupported version is not
+            // modified
+            if metadata_header.version != SingleDiskFarm::SUPPORTED_PLOT_VERSION {
+                return Err(SingleDiskFarmError::UnexpectedMetadataVersion(
+                    metadata_header.version,
+                ));
+            }
+
             if metadata_size != expected_metadata_size {
                 // Allocating the whole file (`set_len` below can create a sparse file, which will
                 // cause writes to fail later)
@@ -1430,19 +1445,6 @@ impl SingleDiskFarm {
                     .map_err(SingleDiskFarmError::CantPreallocateMetadataFile)?;
                 // Truncating file (if necessary)
                 metadata_file.set_len(expected_metadata_size)?;
-            }
-
-            let mut metadata_header_bytes = vec![0; PlotMetadataHeader::encoded_size()];
-            metadata_file.read_exact_at(&mut metadata_header_bytes, 0)?;
-
-            let mut metadata_header =
-                PlotMetadataHeader::decode(&mut metadata_header_bytes.as_ref())
-                    .map_err(SingleDiskFarmError::FailedToDecodeMetadataHeader)?;
-
-            if metadata_header.version != SingleDiskFarm::SUPPORTED_PLOT_VERSION {
-                return Err(SingleDiskFarmError::UnexpectedMetadataVersion(
-                    metadata_header.version,
-                ));
             }
 
             if metadata_header.plotted_sector_count > target_sector_count {
