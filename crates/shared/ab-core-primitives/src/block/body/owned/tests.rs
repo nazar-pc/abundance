@@ -31,6 +31,7 @@ use crate::trees::{
     ChildIntermediateShardBlocksMerkleTree, IntermediateShardBodyMerkleTree,
     IntermediateShardsSegmentsMerkleTree, LeafShardBodyMerkleTree, LeafShardsSegmentsMerkleTree,
 };
+use ab_aligned_buffer::alignment::Align16;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use core::num::{NonZeroU16, NonZeroU32};
 use core::ptr;
@@ -492,7 +493,7 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
         // The body starts at a 16-byte boundary
         pad_to(&mut bytes, 16);
         bytes.extend_from_slice(body.as_slice());
-        let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+        let bytes = SharedAlignedBuffer::<Align16>::from_bytes(&bytes);
 
         let consistent = BeaconChainBlock::try_from_bytes(bytes.as_slice()).is_some();
         assert_eq!(
@@ -543,7 +544,7 @@ fn beacon_chain_body_with_too_many_pot_checkpoints() {
     let mut bytes = num_pot_checkpoints.to_le_bytes().to_vec();
     // No own segments and no intermediate shard blocks, followed by padding
     bytes.extend_from_slice(&[0; 4]);
-    let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+    let bytes = SharedAlignedBuffer::<Align16>::from_bytes(&bytes);
 
     assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
 }
@@ -678,7 +679,7 @@ fn bodies_larger_than_max_capacity_are_rejected() {
     use crate::transaction::{SerializedTransactionLengths, Transaction};
     use ab_io_type::trivial_type::TrivialType;
 
-    let max_capacity = usize::try_from(OwnedAlignedBuffer::MAX_CAPACITY).unwrap();
+    let max_capacity = usize::try_from(OwnedAlignedBuffer::<Align16>::MAX_CAPACITY).unwrap();
     // A leaf shard body without own segments takes 16 bytes before its first transaction, so it
     // becomes one byte longer than the largest buffer
     let transaction_len = max_capacity - 15;
@@ -1685,7 +1686,7 @@ fn own_segments_with_local_segment_indices_near_u64_max() {
         append_segments(&mut bytes, &own_segments);
         bytes.extend_from_slice(&0u16.to_le_bytes());
         pad_to(&mut bytes, 8);
-        let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+        let bytes = SharedAlignedBuffer::<Align16>::from_bytes(&bytes);
         let body = BeaconChainBody::try_from_bytes(bytes.as_slice());
         assert_eq!(body.is_some(), valid);
         if let Some((body, _remainder)) = body {
@@ -1704,7 +1705,7 @@ fn own_segments_with_local_segment_indices_near_u64_max() {
         append_segments(&mut bytes, &own_segments);
         bytes.extend_from_slice(&0u32.to_le_bytes());
         pad_to(&mut bytes, 16);
-        let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+        let bytes = SharedAlignedBuffer::<Align16>::from_bytes(&bytes);
         let body = LeafShardBody::try_from_bytes(bytes.as_slice());
         assert_eq!(body.is_some(), valid);
         if let Some((body, _remainder)) = body {
@@ -1936,7 +1937,8 @@ where
 
     // Other bytes after the body don't belong to it
     let extra_bytes = [1; 16];
-    let bytes_with_extra_bytes = SharedAlignedBuffer::from_bytes(&[bytes, &extra_bytes].concat());
+    let bytes_with_extra_bytes =
+        SharedAlignedBuffer::<Align16>::from_bytes(&[bytes, &extra_bytes].concat());
     let (parsed_body, remainder) =
         BlockBody::try_from_bytes(bytes_with_extra_bytes.as_slice(), Body::SHARD_KIND).unwrap();
     assert_eq!(remainder, extra_bytes);

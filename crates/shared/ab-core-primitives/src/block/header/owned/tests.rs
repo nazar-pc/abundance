@@ -18,6 +18,7 @@ use crate::segments::SuperSegmentRoot;
 use crate::shard::{NumShards, NumShardsUnchecked, RealShardKind, ShardIndex, ShardKind};
 use crate::solutions::{Solution, SolutionRange};
 use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use ab_io_type::trivial_type::TrivialType;
 use std::num::{NonZeroU16, NonZeroU32};
 
@@ -777,7 +778,7 @@ fn fixed_consensus_parameters_from_unaligned_bytes() {
         &[1],
     ]
     .concat();
-    let buffer = OwnedAlignedBuffer::from_bytes(&bytes);
+    let buffer = OwnedAlignedBuffer::<Align16>::from_bytes(&bytes);
 
     assert_eq!(
         BlockHeaderFixedConsensusParameters::try_from_bytes(&buffer.as_slice()[1..]),
@@ -803,7 +804,7 @@ where
     // The parser only requires 8-byte alignment, and bytes after the header don't belong to it
     let extra_bytes = [1; 16];
     let bytes_with_extra_bytes =
-        OwnedAlignedBuffer::from_bytes(&[&[0; 8], bytes, &extra_bytes].concat());
+        OwnedAlignedBuffer::<Align16>::from_bytes(&[&[0; 8], bytes, &extra_bytes].concat());
     let (parsed_header, remainder) =
         BlockHeader::try_from_bytes(&bytes_with_extra_bytes.as_slice()[8..], Header::SHARD_KIND)
             .unwrap();

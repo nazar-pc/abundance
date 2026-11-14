@@ -6,6 +6,7 @@ mod tests;
 use crate::transaction::{
     SerializedTransactionLengths, Transaction, TransactionHash, TransactionHeader, TransactionSlot,
 };
+use ab_aligned_buffer::alignment::Align16;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
@@ -81,7 +82,7 @@ impl OwnedTransaction {
             .and_then(|size| size.checked_add(size_of_val(payload)))
             .and_then(|size| size.checked_add(size_of_val(seal)))
             .and_then(|size| u32::try_from(size).ok())
-            .filter(|&size| size <= OwnedAlignedBuffer::MAX_CAPACITY)
+            .filter(|&size| size <= OwnedAlignedBuffer::<Align16>::MAX_CAPACITY)
             .ok_or(OwnedTransactionError::TransactionTooLarge)?;
         let mut buffer = OwnedAlignedBuffer::with_capacity(size);
 

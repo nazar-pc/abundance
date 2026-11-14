@@ -30,6 +30,7 @@ use crate::block::header::{
 };
 use crate::hashes::Blake3Hash;
 use crate::shard::{NumShardsUnchecked, RealShardKind};
+use ab_aligned_buffer::alignment::Align16;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
@@ -224,7 +225,7 @@ impl OwnedBeaconChainHeader {
         // The header with the largest seal must fit after the bytes already in the buffer, so
         // that neither the appends below nor the seal appended later can fail. The length of a
         // buffer is never larger than its maximum capacity.
-        if OwnedAlignedBuffer::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
+        if OwnedAlignedBuffer::<Align16>::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
             return Err(OwnedBeaconChainHeaderError::HeaderTooLarge);
         }
         let true = buffer.append(prefix.as_bytes()) else {
@@ -562,7 +563,7 @@ impl OwnedIntermediateShardHeader {
         // The header with the largest seal must fit after the bytes already in the buffer, so
         // that neither the appends below nor the seal appended later can fail. The length of a
         // buffer is never larger than its maximum capacity.
-        if OwnedAlignedBuffer::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
+        if OwnedAlignedBuffer::<Align16>::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
             return Err(OwnedIntermediateShardHeaderError::HeaderTooLarge);
         }
         let true = buffer.append(prefix.as_bytes()) else {
@@ -832,7 +833,7 @@ impl OwnedLeafShardHeader {
         // The header with the largest seal must fit after the bytes already in the buffer, so
         // that neither the appends below nor the seal appended later can fail. The length of a
         // buffer is never larger than its maximum capacity.
-        if OwnedAlignedBuffer::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
+        if OwnedAlignedBuffer::<Align16>::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
             return Err(OwnedLeafShardHeaderError::HeaderTooLarge);
         }
         let true = buffer.append(prefix.as_bytes()) else {

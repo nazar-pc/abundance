@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "ab-aligned-buffer"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "stable_deref_trait",
  "yoke",

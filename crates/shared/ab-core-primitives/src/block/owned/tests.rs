@@ -26,6 +26,7 @@ use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader};
 use crate::trees::ChildLeafShardBlocksMerkleTree;
 use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use core::iter::TrustedLen;
 use std::num::{NonZeroU16, NonZeroU32};
 use std::{assert_matches, iter};
@@ -263,7 +264,7 @@ fn block_parsers_reject_seals_of_other_public_keys() {
         let public_key_offset =
             usize::try_from(header_size).unwrap() - Ed25519Signature::SIZE - Ed25519PublicKey::SIZE;
         bytes[public_key_offset] ^= 1;
-        let bytes = SharedAlignedBuffer::from_bytes(&bytes);
+        let bytes = SharedAlignedBuffer::<Align16>::from_bytes(&bytes);
 
         assert!(Block::try_from_bytes(bytes.as_slice(), shard_kind).is_none());
     }

@@ -1,35 +1,51 @@
-//! Efficient abstraction for memory buffers aligned to 16 bytes with both owned and shared
-//! variants.
+//! Efficient abstraction for aligned memory buffers with both owned and shared variants.
 //!
-//! Buffers are aligned to 16 bytes on every target.
-//!
-//! [`OwnedAlignedBuffer`] represents a memory location aligned to 16 bytes that can be modified.
+//! [`OwnedAlignedBuffer`] represents an aligned memory location that can be modified.
 //!
 //! [`SharedAlignedBuffer`] can't be modified but supports cheap reference-counting clones (like
 //! `Arc`, but much more efficient).
+//!
+//! Contents of buffers are aligned to 16 bytes by default, which is the largest alignment required
+//! by primitive types. Alignment of the contents is a part of the type of the buffer (see
+//! [`Alignment`]). Allocations can be aligned more strictly than that, for example, to 4096 bytes
+//! for direct I/O.
 //!
 //! Does not require a standard library (`no_std`) but does require allocator and atomics.
 
 #![cfg_attr(test, feature(pointer_is_aligned_to))]
 #![no_std]
 
+pub mod alignment;
+mod sealed;
 #[cfg(test)]
 mod tests;
 
 extern crate alloc;
 
+use crate::alignment::{Align16, Align4096, Alignment, AtLeast};
 use alloc::alloc::{alloc, dealloc, handle_alloc_error, realloc};
 use core::alloc::Layout;
+use core::marker::PhantomData;
 use core::mem::ManuallyDrop;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
-use core::slice;
 use core::sync::atomic::{AtomicUsize, Ordering, fence};
+use core::{hint, ptr, slice};
 use stable_deref_trait::{CloneStableDeref, StableDeref};
 use yoke::CloneableCart;
 
-/// Alignment of the contents of every buffer
-const ALIGNMENT: usize = 16;
+/// The smallest alignment of allocations, which is also the size of the header
+const MIN_ALLOCATION_ALIGNMENT: usize = Align16::ALIGN;
+/// The strictest supported alignment of allocations
+const MAX_ALIGNMENT: usize = Align4096::ALIGN;
+/// See [`OwnedAlignedBuffer::MAX_CAPACITY`]
+const MAX_CAPACITY: u32 = if usize::BITS < u64::BITS {
+    // Space for the header is reserved in front of the contents, which is as large as the
+    // alignment
+    ((isize::MAX.cast_unsigned() / MAX_ALIGNMENT - 1) * MAX_ALIGNMENT) as u32
+} else {
+    u32::MAX
+};
 
 /// Header of every allocation, stored right before the contents of the buffer
 #[repr(C, align(16))]
@@ -38,48 +54,64 @@ struct Header {
     strong_count: AtomicUsize,
     /// Capacity of the buffer in bytes
     capacity: u32,
+    /// Base 2 logarithm of the alignment of the allocation
+    alignment_log2: u32,
 }
 
 const _: () = {
-    assert!(size_of::<Header>() == ALIGNMENT);
-    assert!(align_of::<Header>() == ALIGNMENT);
-    // Buffers are accessed as `u128`s
-    assert!(ALIGNMENT >= align_of::<u128>());
+    assert!(size_of::<Header>() == MIN_ALLOCATION_ALIGNMENT);
+    assert!(align_of::<Header>() == MIN_ALLOCATION_ALIGNMENT);
+    // Contents of buffers aligned to `Align16` are accessed as `u128`s
+    assert!(Align16::ALIGN >= align_of::<u128>());
 };
 
 const _: () = {
-    // The size of an allocation for the largest capacity, computed like in `layout()`, is valid
+    // The size of an allocation for the largest capacity and alignment, computed like in
+    // `InnerBuffer::layout()`, is valid
     let Ok(_) = Layout::from_size_align(
-        size_of::<Header>()
-            + (OwnedAlignedBuffer::MAX_CAPACITY as usize).next_multiple_of(ALIGNMENT),
-        ALIGNMENT,
+        MAX_ALIGNMENT + (MAX_CAPACITY as usize).next_multiple_of(MAX_ALIGNMENT),
+        MAX_ALIGNMENT,
     ) else {
         panic!("The largest capacity can't be allocated");
     };
     // A larger capacity either doesn't fit into `u32` or its allocation is too large
     assert!(
-        OwnedAlignedBuffer::MAX_CAPACITY == u32::MAX
+        MAX_CAPACITY == u32::MAX
             || Layout::from_size_align(
-                size_of::<Header>()
-                    + (OwnedAlignedBuffer::MAX_CAPACITY as usize + 1).next_multiple_of(ALIGNMENT),
-                ALIGNMENT,
+                MAX_ALIGNMENT + (MAX_CAPACITY as usize + 1).next_multiple_of(MAX_ALIGNMENT),
+                MAX_ALIGNMENT,
             )
             .is_err()
     );
 };
 
-/// Header of empty buffers, which are not backed by an allocation.
+/// Memory of empty buffers, which are not backed by an allocation.
 ///
-/// Empty owned buffers have zero capacity, empty shared buffers don't hold a reference, so nothing
-/// ever modifies it.
-static EMPTY_HEADER: Header = Header {
-    strong_count: AtomicUsize::new(0),
-    capacity: 0,
+/// Empty buffers point to the end of it, right after the header, which makes them aligned to any
+/// supported alignment. Empty owned buffers have zero capacity and empty shared buffers don't hold
+/// a reference, so nothing ever modifies it.
+#[repr(C, align(4096))]
+struct EmptyAllocation {
+    padding: [u8; MAX_ALIGNMENT - size_of::<Header>()],
+    header: Header,
+}
+
+const _: () = {
+    assert!(align_of::<EmptyAllocation>() == MAX_ALIGNMENT);
+    assert!(size_of::<EmptyAllocation>() == MAX_ALIGNMENT);
 };
 
-static EMPTY_SHARED_ALIGNED_BUFFER: SharedAlignedBuffer = SharedAlignedBuffer {
-    inner: InnerBuffer::EMPTY,
+static EMPTY_ALLOCATION: EmptyAllocation = EmptyAllocation {
+    padding: [0; _],
+    header: Header {
+        strong_count: AtomicUsize::new(0),
+        capacity: 0,
+        alignment_log2: MAX_ALIGNMENT.ilog2(),
+    },
 };
+
+/// Empty buffer referenced by [`SharedAlignedBuffer::empty_ref()`] for any alignment
+static EMPTY_INNER_BUFFER: InnerBuffer = InnerBuffer::EMPTY;
 
 #[derive(Debug)]
 struct InnerBuffer {
@@ -96,26 +128,43 @@ unsafe impl Sync for InnerBuffer {}
 impl InnerBuffer {
     /// Empty buffer that is not backed by an allocation
     const EMPTY: Self = Self {
-        // SAFETY: One byte past the end of the header, which is the same as for allocated buffers
+        // SAFETY: Right after the header at the end of the empty allocation, which is the same as
+        // for allocated buffers
         buffer: unsafe {
-            NonNull::from_ref(&EMPTY_HEADER)
+            NonNull::from_ref(&EMPTY_ALLOCATION)
                 .cast::<u8>()
-                .byte_add(size_of::<Header>())
+                .byte_add(size_of::<EmptyAllocation>())
         },
         len: 0,
     };
 
-    /// Layout of an allocation for a specified capacity.
+    /// Layout of an allocation for a specified capacity and alignment.
     ///
-    /// Returns `None` if the allocation would be too large.
+    /// The header is in front of the contents, and the size of the allocation is a multiple of
+    /// alignment, which allocators handle most efficiently.
+    ///
+    /// Returns `None` if the capacity is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or the
+    /// allocation would be too large.
     #[inline(always)]
-    fn layout(capacity: u32) -> Option<Layout> {
+    #[cfg_attr(
+        target_pointer_width = "64",
+        expect(
+            clippy::absurd_extreme_comparisons,
+            reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+        )
+    )]
+    fn layout(capacity: u32, alignment: usize) -> Option<Layout> {
+        // The largest capacity is the same for all alignments, even if allocations with smaller
+        // alignment could be slightly larger
+        if capacity > MAX_CAPACITY {
+            return None;
+        }
         // With a narrower `usize`, a `u32` capacity can overflow the size or exceed `isize::MAX`,
         // the largest size of an allocation
         let size = (capacity as usize)
-            .checked_next_multiple_of(ALIGNMENT)?
-            .checked_add(size_of::<Header>())?;
-        Layout::from_size_align(size, ALIGNMENT).ok()
+            .checked_next_multiple_of(alignment)?
+            .checked_add(alignment)?;
+        Layout::from_size_align(size, alignment).ok()
     }
 
     /// Layout of the allocation that backs the buffer.
@@ -124,64 +173,94 @@ impl InnerBuffer {
     /// The buffer must be backed by an allocation (have non-zero capacity).
     #[inline(always)]
     unsafe fn allocated_layout(&self) -> Layout {
-        let size = size_of::<Header>() + (self.capacity() as usize).next_multiple_of(ALIGNMENT);
+        let alignment = self.alignment();
+        let size = alignment + (self.capacity() as usize).next_multiple_of(alignment);
         // SAFETY: Allocated with the same layout before, which was checked by `Self::layout()`
-        unsafe { Layout::from_size_align_unchecked(size, ALIGNMENT) }
+        unsafe { Layout::from_size_align_unchecked(size, alignment) }
     }
 
-    /// Allocates a new buffer with a header at the beginning.
+    /// Allocates a new buffer with a header in front of the contents.
     ///
-    /// Zero capacity results in an empty buffer that is not backed by an allocation.
+    /// `alignment` must be a supported alignment that is not smaller than
+    /// `MIN_ALLOCATION_ALIGNMENT`. Zero capacity results in an empty buffer that is not backed by
+    /// an allocation.
     ///
     /// # Panics
     /// If `capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails
     #[inline(always)]
-    fn allocate(capacity: u32) -> Self {
+    fn allocate(capacity: u32, alignment: usize) -> Self {
+        debug_assert!(
+            alignment.is_power_of_two()
+                && (MIN_ALLOCATION_ALIGNMENT..=MAX_ALIGNMENT).contains(&alignment),
+            "Unsupported alignment {alignment}"
+        );
+
         if capacity == 0 {
             return Self::EMPTY;
         }
 
-        let Some(layout) = Self::layout(capacity) else {
+        let Some(layout) = Self::layout(capacity, alignment) else {
             panic!("Allocation of capacity {capacity} has failed: too large");
         };
         // SAFETY: Non-zero size
-        let header = unsafe { alloc(layout) };
-        #[expect(
-            clippy::cast_ptr_alignment,
-            reason = "Allocated with alignment of the header"
-        )]
-        let Some(header) = NonNull::new(header.cast::<Header>()) else {
+        let allocation = unsafe { alloc(layout) };
+        let Some(allocation) = NonNull::new(allocation) else {
             handle_alloc_error(layout);
         };
-        // SAFETY: Allocation starts with a correctly aligned header
+        // SAFETY: Contents start right after the space reserved for the header at the beginning of
+        // the allocation, which is as large as the alignment
+        let buffer = unsafe { allocation.byte_add(alignment) };
+
+        // SAFETY: The header is right before the contents and is correctly aligned, since the
+        // contents are aligned to at least the size of the header
         unsafe {
-            header.write(Header {
+            buffer.cast::<Header>().sub(1).write(Header {
                 strong_count: AtomicUsize::new(1),
                 capacity,
+                alignment_log2: alignment.ilog2(),
             });
         }
 
-        Self {
-            // SAFETY: Contents are right after the header within the same allocation
-            buffer: unsafe { header.add(1).cast::<u8>() },
-            len: 0,
-        }
+        Self { buffer, len: 0 }
     }
 
-    /// Changes capacity of the buffer, the buffer must not be shared.
+    /// Changes capacity of the buffer while preserving its contents, the buffer must not be
+    /// shared.
+    ///
+    /// The new allocation is aligned to at least `min_alignment`, which must be a supported
+    /// alignment.
     ///
     /// # Panics
-    /// If `capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or reallocation fails
+    /// If `capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails
     #[inline(always)]
-    fn resize(&mut self, capacity: u32) {
+    fn resize(&mut self, capacity: u32, min_alignment: usize) {
         let old_capacity = self.capacity();
         if old_capacity == 0 {
             // Empty buffer is not backed by an allocation, and it has no contents to preserve
-            *self = Self::allocate(capacity);
+            *self = Self::allocate(capacity, min_alignment.max(MIN_ALLOCATION_ALIGNMENT));
             return;
         }
 
-        let Some(new_layout) = Self::layout(capacity) else {
+        let alignment = self.alignment();
+        if alignment != MIN_ALLOCATION_ALIGNMENT || min_alignment > MIN_ALLOCATION_ALIGNMENT {
+            // Copy just the contents into a new allocation
+            let mut new = Self::allocate(capacity, alignment.max(min_alignment));
+            // SAFETY: Different allocations, `len` bytes are initialized and fit into the new
+            // capacity, since owned buffers only grow
+            unsafe {
+                new.buffer
+                    .copy_from_nonoverlapping(self.buffer, self.len as usize);
+            }
+            new.len = self.len;
+            // SAFETY: Backed by an allocation and not shared
+            unsafe {
+                self.deallocate();
+            }
+            *self = new;
+            return;
+        }
+
+        let Some(new_layout) = Self::layout(capacity, alignment) else {
             panic!("Realloc from {old_capacity} to {capacity} has failed: too large");
         };
         // SAFETY: Non-zero capacity checked above
@@ -189,27 +268,23 @@ impl InnerBuffer {
 
         // SAFETY: Allocated with global allocator and `old_layout`, non-zero new size that is at
         // most `isize::MAX` when rounded up to the alignment (checked by `Layout` above)
-        let header = unsafe {
+        let allocation = unsafe {
             realloc(
-                self.header_ptr().as_ptr().cast::<u8>(),
+                self.allocation_ptr().as_ptr(),
                 old_layout,
                 new_layout.size(),
             )
         };
-        #[expect(
-            clippy::cast_ptr_alignment,
-            reason = "Reallocated with alignment of the header"
-        )]
-        let Some(header) = NonNull::new(header.cast::<Header>()) else {
+        let Some(allocation) = NonNull::new(allocation) else {
             handle_alloc_error(new_layout);
         };
-        // SAFETY: Reallocation preserved the header at the beginning, and the buffer is not shared
+        // SAFETY: Contents start right after the space reserved for the header at the beginning of
+        // the allocation, which is as large as the alignment
+        self.buffer = unsafe { allocation.byte_add(alignment) };
+        // SAFETY: Reallocation preserved the header, and the buffer is not shared
         unsafe {
-            (*header.as_ptr()).capacity = capacity;
+            (*self.header_ptr().as_ptr()).capacity = capacity;
         }
-
-        // SAFETY: Contents are right after the header within the same allocation
-        self.buffer = unsafe { header.add(1).cast::<u8>() };
     }
 
     /// Deallocates the buffer.
@@ -222,11 +297,27 @@ impl InnerBuffer {
         // SAFETY: Allocated with global allocator and this layout, guaranteed by the caller to be
         // backed by an allocation that is not referenced anymore
         unsafe {
-            dealloc(
-                self.header_ptr().as_ptr().cast::<u8>(),
-                self.allocated_layout(),
-            );
+            dealloc(self.allocation_ptr().as_ptr(), self.allocated_layout());
         }
+    }
+
+    /// Creates an owned copy of the contents aligned to at least `min_alignment`, which must be a
+    /// supported alignment
+    #[inline(always)]
+    fn copy(&self, min_alignment: usize) -> Self {
+        let mut new = Self::allocate(
+            self.len,
+            self.alignment()
+                .max(min_alignment)
+                .max(MIN_ALLOCATION_ALIGNMENT),
+        );
+        // SAFETY: Different allocations, `len` bytes are initialized and fit into the new capacity
+        unsafe {
+            new.buffer
+                .copy_from_nonoverlapping(self.buffer, self.len as usize);
+        }
+        new.len = self.len;
+        new
     }
 
     #[inline(always)]
@@ -239,6 +330,13 @@ impl InnerBuffer {
     const fn header(&self) -> &Header {
         // SAFETY: The header is initialized in the constructor and lives as long as the buffer
         unsafe { self.header_ptr().as_ref() }
+    }
+
+    #[inline(always)]
+    fn allocation_ptr(&self) -> NonNull<u8> {
+        // SAFETY: Contents start right after the space reserved for the header at the beginning of
+        // the allocation, which is as large as the alignment
+        unsafe { self.buffer.byte_sub(self.alignment()) }
     }
 
     #[inline(always)]
@@ -263,6 +361,26 @@ impl InnerBuffer {
         self.header().capacity
     }
 
+    /// Alignment of the allocation, or the alignment an empty buffer without an allocation grows
+    /// into for contents aligned to `content_alignment`
+    #[inline(always)]
+    fn allocation_alignment(&self, content_alignment: usize) -> usize {
+        if ptr::eq(self.header(), &raw const EMPTY_ALLOCATION.header) {
+            content_alignment.max(MIN_ALLOCATION_ALIGNMENT)
+        } else {
+            self.alignment()
+        }
+    }
+
+    #[inline(always)]
+    const fn alignment(&self) -> usize {
+        let alignment = 2_usize.pow(self.header().alignment_log2);
+        // SAFETY: The header stores the binary logarithm of a supported alignment, which is never
+        // larger than `MAX_ALIGNMENT`
+        unsafe { hint::assert_unchecked(alignment != 0) }
+        alignment
+    }
+
     #[inline(always)]
     const fn strong_count_ref(&self) -> &AtomicUsize {
         &self.header().strong_count
@@ -272,41 +390,29 @@ impl InnerBuffer {
     const fn as_slice(&self) -> &[u8] {
         let len = self.len() as usize;
         // SAFETY: Not null and length is a protected invariant of the implementation
-        unsafe { slice::from_raw_parts(self.buffer.as_ptr().cast_const(), len) }
+        unsafe { slice::from_raw_parts(self.as_ptr(), len) }
     }
 
     #[inline(always)]
     const fn as_mut_slice(&mut self) -> &mut [u8] {
         let len = self.len() as usize;
         // SAFETY: Not null and length is a protected invariant of the implementation
-        unsafe { slice::from_raw_parts_mut(self.buffer.as_ptr(), len) }
+        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), len) }
     }
 
     #[inline(always)]
-    const fn as_u128_slice(&self) -> &[u128] {
-        let len = self.len() as usize / size_of::<u128>();
-        // SAFETY: Not null, correctly aligned (contents are aligned to at least `u128`), and the
-        // first `len` elements are initialized, since they are within `self.len()` bytes, which
-        // are initialized (a protected invariant of the implementation)
-        unsafe { slice::from_raw_parts(self.as_ptr(), len) }
+    const fn as_ptr(&self) -> *const u8 {
+        self.buffer.as_ptr().cast_const()
     }
 
     #[inline(always)]
-    #[expect(
-        clippy::cast_ptr_alignment,
-        reason = "Contents are aligned to `ALIGNMENT`"
-    )]
-    const fn as_ptr(&self) -> *const u128 {
-        self.buffer.as_ptr().cast_const().cast::<u128>()
+    const fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.buffer.as_ptr()
     }
 
     #[inline(always)]
-    #[expect(
-        clippy::cast_ptr_alignment,
-        reason = "Contents are aligned to `ALIGNMENT`"
-    )]
-    const fn as_mut_ptr(&mut self) -> *mut u128 {
-        self.buffer.as_ptr().cast::<u128>()
+    fn is_aligned_to(&self, alignment: usize) -> bool {
+        self.buffer.addr().get().is_multiple_of(alignment)
     }
 }
 
@@ -315,14 +421,21 @@ impl InnerBuffer {
 /// See [`SharedAlignedBuffer`] for a version that can be cheaply cloned while reusing the original
 /// allocation.
 ///
-/// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
-/// types and by extension any type that implements `TrivialType`/`IoType`.
+/// Contents are aligned to `A`, by default 16 bytes (128 bits), which is the largest alignment
+/// required by primitive types and by extension any type that implements `TrivialType`/`IoType`.
 #[derive(Debug)]
-pub struct OwnedAlignedBuffer {
+pub struct OwnedAlignedBuffer<A = Align16>
+where
+    A: Alignment,
+{
     inner: InnerBuffer,
+    alignment: PhantomData<A>,
 }
 
-impl Drop for OwnedAlignedBuffer {
+impl<A> Drop for OwnedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     #[inline(always)]
     fn drop(&mut self) {
         // Owned buffer is not shared, so the reference counter is not used, and an empty buffer
@@ -336,7 +449,10 @@ impl Drop for OwnedAlignedBuffer {
     }
 }
 
-impl Deref for OwnedAlignedBuffer {
+impl<A> Deref for OwnedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     type Target = [u8];
 
     #[inline(always)]
@@ -345,7 +461,10 @@ impl Deref for OwnedAlignedBuffer {
     }
 }
 
-impl DerefMut for OwnedAlignedBuffer {
+impl<A> DerefMut for OwnedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
@@ -353,45 +472,60 @@ impl DerefMut for OwnedAlignedBuffer {
 }
 
 // SAFETY: Heap-allocated data structure, points to the same memory if moved
-unsafe impl StableDeref for OwnedAlignedBuffer {}
+unsafe impl<A> StableDeref for OwnedAlignedBuffer<A> where A: Alignment {}
 
-impl Clone for OwnedAlignedBuffer {
+impl<A> Default for OwnedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     #[inline(always)]
-    fn clone(&self) -> Self {
-        Self::from_bytes(self.as_slice())
+    fn default() -> Self {
+        Self::EMPTY
     }
 }
 
-impl OwnedAlignedBuffer {
+impl<A> Clone for OwnedAlignedBuffer<A>
+where
+    A: Alignment,
+{
+    /// Allocates as much as the length of the buffer with the same alignment
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        Self::from_inner(self.inner.copy(A::ALIGN))
+    }
+}
+
+impl<A> OwnedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     /// The largest capacity of a buffer.
     ///
     /// It is `u32::MAX` where `usize` is 64-bit, and smaller where `usize` is 32-bit, since an
     /// allocation can't be larger than `isize::MAX` bytes. The allocator may still fail to allocate
     /// a buffer that large.
-    pub const MAX_CAPACITY: u32 = if usize::BITS < u64::BITS {
-        // The header is in front of the contents
-        ((isize::MAX.cast_unsigned() / ALIGNMENT - 1) * ALIGNMENT) as u32
-    } else {
-        u32::MAX
-    };
+    pub const MAX_CAPACITY: u32 = MAX_CAPACITY;
 
-    /// Create a new instance with at least specified capacity.
+    /// Create a new instance with specified capacity.
     ///
-    /// NOTE: Actual capacity might be larger due to alignment requirements.
+    /// Allocation is aligned to the alignment of the contents, but at least 16 bytes.
     ///
     /// # Panics
     /// If `capacity` is larger than [`Self::MAX_CAPACITY`]
     #[inline(always)]
     pub fn with_capacity(capacity: u32) -> Self {
-        Self {
-            inner: InnerBuffer::allocate(capacity),
-        }
+        Self::from_inner(InnerBuffer::allocate(
+            capacity,
+            A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT),
+        ))
     }
 
     /// Create a new instance from provided bytes.
     ///
+    /// Allocation is aligned to the alignment of the contents, but at least 16 bytes.
+    ///
     /// # Panics
-    /// If `bytes.len()` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    /// If `bytes.len()` is larger than [`Self::MAX_CAPACITY`]
     #[inline(always)]
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let Ok(len) = u32::try_from(bytes.len()) else {
@@ -401,6 +535,39 @@ impl OwnedAlignedBuffer {
         let mut instance = Self::with_capacity(len);
         instance.copy_from_slice(bytes);
         instance
+    }
+
+    /// Empty buffer that is not backed by an allocation
+    pub const EMPTY: Self = Self::from_inner(InnerBuffer::EMPTY);
+
+    #[inline(always)]
+    const fn from_inner(inner: InnerBuffer) -> Self {
+        Self {
+            inner,
+            alignment: PhantomData,
+        }
+    }
+
+    #[inline(always)]
+    fn into_inner(self) -> InnerBuffer {
+        let this = ManuallyDrop::new(self);
+        // SAFETY: Moved out of `ManuallyDrop` that is never used again
+        unsafe { (&raw const this.inner).read() }
+    }
+
+    /// Create a new instance with specified capacity and allocation aligned to `AA`.
+    ///
+    /// Zero capacity doesn't allocate, and such a buffer grows into an allocation aligned to the
+    /// alignment of the contents, but at least 16 bytes.
+    ///
+    /// # Panics
+    /// If `capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    #[inline(always)]
+    pub fn with_capacity_aligned<AA>(capacity: u32) -> Self
+    where
+        AA: AtLeast<A> + AtLeast<Align16>,
+    {
+        Self::from_inner(InnerBuffer::allocate(capacity, AA::ALIGN))
     }
 
     #[inline(always)]
@@ -413,22 +580,15 @@ impl OwnedAlignedBuffer {
         self.inner.as_mut_slice()
     }
 
-    /// Contents as `u128`s.
-    ///
-    /// Only whole `u128`s are included: when the length is not a multiple of `u128` size, the
-    /// bytes after the last whole `u128` are not.
+    /// Pointer to the first byte of the contents
     #[inline(always)]
-    pub const fn as_u128_slice(&self) -> &[u128] {
-        self.inner.as_u128_slice()
-    }
-
-    #[inline(always)]
-    pub const fn as_ptr(&self) -> *const u128 {
+    pub const fn as_byte_ptr(&self) -> *const u8 {
         self.inner.as_ptr()
     }
 
+    /// Mutable pointer to the first byte of the contents
     #[inline(always)]
-    pub const fn as_mut_ptr(&mut self) -> *mut u128 {
+    pub const fn as_mut_byte_ptr(&mut self) -> *mut u8 {
         self.inner.as_mut_ptr()
     }
 
@@ -436,16 +596,48 @@ impl OwnedAlignedBuffer {
     ///
     /// Allocation is reused, except for empty buffer, which doesn't need an allocation.
     #[inline(always)]
-    pub fn into_shared(self) -> SharedAlignedBuffer {
+    pub fn into_shared(self) -> SharedAlignedBuffer<A> {
         if self.is_empty() {
-            return SharedAlignedBuffer::default();
+            return SharedAlignedBuffer::EMPTY;
         }
 
-        let this = ManuallyDrop::new(self);
-        SharedAlignedBuffer {
-            // SAFETY: Moved out of `ManuallyDrop` that is never used again, the reference counter
-            // is `1` since owned buffer is not shared
-            inner: unsafe { (&raw const this.inner).read() },
+        // The reference counter is `1` since owned buffer is not shared
+        SharedAlignedBuffer::from_inner(self.into_inner())
+    }
+
+    /// Convert into a buffer with a weaker alignment of the contents, which is free.
+    ///
+    /// Conversion to a stricter alignment doesn't compile, see [`Self::try_into_start_align()`]
+    /// instead:
+    /// ```compile_fail
+    /// use ab_aligned_buffer::OwnedAlignedBuffer;
+    /// use ab_aligned_buffer::alignment::Align4096;
+    ///
+    /// // Contents aligned to 16 bytes are not necessarily aligned to 4096 bytes
+    /// let _ = OwnedAlignedBuffer::with_capacity(1).into_start_align::<Align4096>();
+    /// ```
+    #[inline(always)]
+    #[must_use = "The buffer is dropped otherwise"]
+    pub fn into_start_align<B>(self) -> OwnedAlignedBuffer<B>
+    where
+        A: AtLeast<B>,
+        B: Alignment,
+    {
+        OwnedAlignedBuffer::from_inner(self.into_inner())
+    }
+
+    /// Convert into a buffer with a different alignment of the contents, which is free.
+    ///
+    /// Returns the buffer back if its contents are not aligned to `B`.
+    #[inline(always)]
+    pub fn try_into_start_align<B>(self) -> Result<OwnedAlignedBuffer<B>, Self>
+    where
+        B: Alignment,
+    {
+        if self.inner.is_aligned_to(B::ALIGN) {
+            Ok(OwnedAlignedBuffer::from_inner(self.into_inner()))
+        } else {
+            Err(self)
         }
     }
 
@@ -454,11 +646,11 @@ impl OwnedAlignedBuffer {
     /// Will re-allocate if necessary.
     ///
     /// # Panics
-    /// If `capacity` is larger than [`Self::MAX_CAPACITY`]
+    /// If `capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
     #[inline(always)]
     pub fn ensure_capacity(&mut self, capacity: u32) {
         if capacity > self.capacity() {
-            self.inner.resize(capacity);
+            self.inner.resize(capacity, A::ALIGN);
         }
     }
 
@@ -481,15 +673,16 @@ impl OwnedAlignedBuffer {
 
         if len > self.capacity() {
             // Doubling the capacity is capped by the largest one `Layout` allows
-            self.inner
-                .resize(len.max(self.capacity().saturating_mul(2).min(Self::MAX_CAPACITY)));
+            self.inner.resize(
+                len.max(self.capacity().saturating_mul(2).min(MAX_CAPACITY)),
+                A::ALIGN,
+            );
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
         // and output, non-overlapping allocations guaranteed by the type system
         unsafe {
-            self.as_mut_ptr()
-                .cast::<u8>()
+            self.as_mut_byte_ptr()
                 .copy_from_nonoverlapping(bytes.as_ptr(), bytes.len());
 
             self.inner.set_len(len);
@@ -499,7 +692,7 @@ impl OwnedAlignedBuffer {
     /// Will re-allocate if capacity is not enough to store provided bytes.
     ///
     /// Returns `false` and leaves the buffer unchanged if `self.len() + bytes.len()` is larger than
-    /// [`Self::MAX_CAPACITY`].
+    /// [`OwnedAlignedBuffer::MAX_CAPACITY`].
     ///
     /// # Panics
     /// If memory re-allocation fails
@@ -521,21 +714,22 @@ impl OwnedAlignedBuffer {
         let Some(new_len) = self.len().checked_add(len) else {
             return false;
         };
-        if new_len > Self::MAX_CAPACITY {
+        if new_len > MAX_CAPACITY {
             return false;
         }
 
         if new_len > self.capacity() {
             // Doubling the capacity is capped by the largest one `Layout` allows
-            self.inner
-                .resize(new_len.max(self.capacity().saturating_mul(2).min(Self::MAX_CAPACITY)));
+            self.inner.resize(
+                new_len.max(self.capacity().saturating_mul(2).min(MAX_CAPACITY)),
+                A::ALIGN,
+            );
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
         // and output, non-overlapping allocations guaranteed by the type system
         unsafe {
-            self.as_mut_ptr()
-                .cast::<u8>()
+            self.as_mut_byte_ptr()
                 .add(self.len() as usize)
                 .copy_from_nonoverlapping(bytes.as_ptr(), bytes.len());
 
@@ -560,6 +754,16 @@ impl OwnedAlignedBuffer {
         self.inner.capacity()
     }
 
+    /// Alignment of the allocation in bytes.
+    ///
+    /// It is not smaller than the alignment of the contents, unless the contents happen to be
+    /// aligned more strictly than the allocation (see [`Self::try_into_start_align()`]). Empty
+    /// buffer without an allocation reports the alignment it grows into.
+    #[inline(always)]
+    pub fn allocation_alignment(&self) -> usize {
+        self.inner.allocation_alignment(A::ALIGN)
+    }
+
     /// Set the length of the useful data to a specified value.
     ///
     /// # Safety
@@ -573,29 +777,74 @@ impl OwnedAlignedBuffer {
     }
 }
 
+impl<A> OwnedAlignedBuffer<A>
+where
+    A: AtLeast<Align16>,
+{
+    /// Contents as `u128`s.
+    ///
+    /// Only whole `u128`s are included: when the length is not a multiple of `u128` size, the
+    /// bytes after the last whole `u128` are not.
+    #[inline(always)]
+    pub const fn as_u128_slice(&self) -> &[u128] {
+        let len = self.len() as usize / size_of::<u128>();
+        // SAFETY: Not null, correctly aligned (contents are aligned to at least `u128`), and the
+        // first `len` elements are initialized, since they are within `self.len()` bytes, which
+        // are initialized (a protected invariant of the implementation)
+        unsafe { slice::from_raw_parts(self.as_ptr(), len) }
+    }
+
+    #[inline(always)]
+    #[expect(
+        clippy::cast_ptr_alignment,
+        reason = "Contents are aligned to at least `u128`"
+    )]
+    pub const fn as_ptr(&self) -> *const u128 {
+        self.as_byte_ptr().cast::<u128>()
+    }
+
+    #[inline(always)]
+    #[expect(
+        clippy::cast_ptr_alignment,
+        reason = "Contents are aligned to at least `u128`"
+    )]
+    pub const fn as_mut_ptr(&mut self) -> *mut u128 {
+        self.as_mut_byte_ptr().cast::<u128>()
+    }
+}
+
 /// Shared aligned buffer for executor purposes.
 ///
 /// See [`OwnedAlignedBuffer`] for a version that can be mutated.
 ///
-/// Data is aligned to 16 bytes (128 bits), which is the largest alignment required by primitive
-/// types and by extension any type that implements `TrivialType`/`IoType`.
+/// Contents are aligned to `A`, by default 16 bytes (128 bits), which is the largest alignment
+/// required by primitive types and by extension any type that implements `TrivialType`/`IoType`.
 #[derive(Debug)]
-pub struct SharedAlignedBuffer {
-    /// Empty buffer doesn't hold a reference to an allocation and points to the static empty
-    /// header instead, all other buffers hold one reference
+#[repr(transparent)]
+pub struct SharedAlignedBuffer<A = Align16>
+where
+    A: Alignment,
+{
+    /// Empty buffer doesn't hold a reference to an allocation and points to the empty allocation
+    /// instead, all other buffers hold one reference
     inner: InnerBuffer,
+    alignment: PhantomData<A>,
 }
 
-impl Default for SharedAlignedBuffer {
+impl<A> Default for SharedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     #[inline(always)]
     fn default() -> Self {
-        Self {
-            inner: InnerBuffer::EMPTY,
-        }
+        Self::EMPTY
     }
 }
 
-impl Clone for SharedAlignedBuffer {
+impl<A> Clone for SharedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     #[inline(always)]
     fn clone(&self) -> Self {
         if !self.is_empty() {
@@ -609,16 +858,17 @@ impl Clone for SharedAlignedBuffer {
             }
         }
 
-        Self {
-            inner: InnerBuffer {
-                buffer: self.inner.buffer,
-                len: self.inner.len,
-            },
-        }
+        Self::from_inner(InnerBuffer {
+            buffer: self.inner.buffer,
+            len: self.inner.len,
+        })
     }
 }
 
-impl Drop for SharedAlignedBuffer {
+impl<A> Drop for SharedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     #[inline(always)]
     fn drop(&mut self) {
         if !self.is_empty()
@@ -639,7 +889,10 @@ impl Drop for SharedAlignedBuffer {
     }
 }
 
-impl Deref for SharedAlignedBuffer {
+impl<A> Deref for SharedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     type Target = [u8];
 
     #[inline(always)]
@@ -649,20 +902,19 @@ impl Deref for SharedAlignedBuffer {
 }
 
 // SAFETY: Heap-allocated data structure, points to the same memory if moved
-unsafe impl StableDeref for SharedAlignedBuffer {}
+unsafe impl<A> StableDeref for SharedAlignedBuffer<A> where A: Alignment {}
 // SAFETY: Inner buffer is exactly the same and points to the same memory after clone
-unsafe impl CloneStableDeref for SharedAlignedBuffer {}
+unsafe impl<A> CloneStableDeref for SharedAlignedBuffer<A> where A: Alignment {}
 // SAFETY: Inner buffer is exactly the same and points to the same memory after clone
-unsafe impl CloneableCart for SharedAlignedBuffer {}
+unsafe impl<A> CloneableCart for SharedAlignedBuffer<A> where A: Alignment {}
 
-impl SharedAlignedBuffer {
-    /// Static reference to an empty buffer
-    #[inline(always)]
-    pub const fn empty_ref() -> &'static Self {
-        &EMPTY_SHARED_ALIGNED_BUFFER
-    }
-
+impl<A> SharedAlignedBuffer<A>
+where
+    A: Alignment,
+{
     /// Create a new instance from provided bytes.
+    ///
+    /// Allocation is aligned to the alignment of the contents, but at least 16 bytes.
     ///
     /// # Panics
     /// If `bytes.len()` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
@@ -671,27 +923,75 @@ impl SharedAlignedBuffer {
         OwnedAlignedBuffer::from_bytes(bytes).into_shared()
     }
 
+    /// Empty buffer that is not backed by an allocation
+    pub const EMPTY: Self = Self::from_inner(InnerBuffer::EMPTY);
+
+    #[inline(always)]
+    const fn from_inner(inner: InnerBuffer) -> Self {
+        Self {
+            inner,
+            alignment: PhantomData,
+        }
+    }
+
+    #[inline(always)]
+    fn into_inner(self) -> InnerBuffer {
+        let this = ManuallyDrop::new(self);
+        // SAFETY: Moved out of `ManuallyDrop` that is never used again
+        unsafe { (&raw const this.inner).read() }
+    }
+
+    /// Static reference to an empty buffer
+    #[inline(always)]
+    pub const fn empty_ref() -> &'static Self {
+        // SAFETY: `repr(transparent)` wrapper around `InnerBuffer`, and empty buffer is aligned to
+        // any supported alignment
+        unsafe { &*(&raw const EMPTY_INNER_BUFFER).cast::<Self>() }
+    }
+
     /// Convert into owned buffer.
     ///
     /// If this is the last shared instance, then allocation will be reused, otherwise a new
     /// allocation will be created.
     #[inline(always)]
-    pub fn into_owned(self) -> OwnedAlignedBuffer {
+    pub fn into_owned(self) -> OwnedAlignedBuffer<A> {
         if self.is_empty() {
-            return OwnedAlignedBuffer::with_capacity(0);
+            return OwnedAlignedBuffer::EMPTY;
         }
 
         // Synchronizes with decrements in other instances, such that their accesses to the
         // contents happen before modifications through the owned buffer
         if self.inner.strong_count_ref().load(Ordering::Acquire) == 1 {
-            let this = ManuallyDrop::new(self);
-            OwnedAlignedBuffer {
-                // SAFETY: Moved out of `ManuallyDrop` that is never used again, this was the last
-                // reference, so owned buffer is not shared
-                inner: unsafe { (&raw const this.inner).read() },
-            }
+            // This was the last reference, so owned buffer is not shared
+            OwnedAlignedBuffer::from_inner(self.into_inner())
         } else {
-            OwnedAlignedBuffer::from_bytes(self.as_slice())
+            OwnedAlignedBuffer::from_inner(self.inner.copy(A::ALIGN))
+        }
+    }
+
+    /// Convert into a buffer with a weaker alignment of the contents, which is free
+    #[inline(always)]
+    #[must_use = "The buffer is dropped otherwise"]
+    pub fn into_start_align<B>(self) -> SharedAlignedBuffer<B>
+    where
+        A: AtLeast<B>,
+        B: Alignment,
+    {
+        SharedAlignedBuffer::from_inner(self.into_inner())
+    }
+
+    /// Convert into a buffer with a different alignment of the contents, which is free.
+    ///
+    /// Returns the buffer back if its contents are not aligned to `B`.
+    #[inline(always)]
+    pub fn try_into_start_align<B>(self) -> Result<SharedAlignedBuffer<B>, Self>
+    where
+        B: Alignment,
+    {
+        if self.inner.is_aligned_to(B::ALIGN) {
+            Ok(SharedAlignedBuffer::from_inner(self.into_inner()))
+        } else {
+            Err(self)
         }
     }
 
@@ -700,8 +1000,9 @@ impl SharedAlignedBuffer {
         self.inner.as_slice()
     }
 
+    /// Pointer to the first byte of the contents
     #[inline(always)]
-    pub const fn as_ptr(&self) -> *const u128 {
+    pub const fn as_byte_ptr(&self) -> *const u8 {
         self.inner.as_ptr()
     }
 
@@ -718,5 +1019,29 @@ impl SharedAlignedBuffer {
     #[inline(always)]
     pub const fn capacity(&self) -> u32 {
         self.inner.capacity()
+    }
+
+    /// Alignment of the allocation in bytes.
+    ///
+    /// It is not smaller than the alignment of the contents, unless the contents happen to be
+    /// aligned more strictly than the allocation (see [`Self::try_into_start_align()`]). Empty
+    /// buffer without an allocation reports the alignment it grows into.
+    #[inline(always)]
+    pub fn allocation_alignment(&self) -> usize {
+        self.inner.allocation_alignment(A::ALIGN)
+    }
+}
+
+impl<A> SharedAlignedBuffer<A>
+where
+    A: AtLeast<Align16>,
+{
+    #[inline(always)]
+    #[expect(
+        clippy::cast_ptr_alignment,
+        reason = "Contents are aligned to at least `u128`"
+    )]
+    pub const fn as_ptr(&self) -> *const u128 {
+        self.as_byte_ptr().cast::<u128>()
     }
 }
