@@ -230,27 +230,31 @@ impl StorageItemTemporaryBlock {
     }
 
     pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
+        // Read lengths, any of which is missing only if the buffer is shorter than the prefix
         let buffer_len = buffer.len();
-        let prefix_bytes = buffer
-            .split_off(..Self::prefix_size())
+        let header_len;
+        (header_len, buffer) = buffer
+            .split_first_chunk::<{ size_of::<u32>() }>()
             .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
-        let mut read_len = prefix_bytes.len();
+        let body_len;
+        (body_len, buffer) = buffer
+            .split_first_chunk::<{ size_of::<u32>() }>()
+            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
+        let mmr_len;
+        (mmr_len, buffer) = buffer
+            .split_first_chunk::<{ size_of::<u32>() }>()
+            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
+        let num_system_contract_states;
+        (num_system_contract_states, buffer) =
+            buffer
+                .split_first_chunk::<{ size_of::<u32>() }>()
+                .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
+        let mut read_len = Self::prefix_size();
 
-        let (header_len, remainder) = prefix_bytes.split_at(size_of::<u32>());
-        let (body_len, remainder) = remainder.split_at(size_of::<u32>());
-        let (mmr_len, num_system_contract_states) = remainder.split_at(size_of::<u32>());
-
-        // Read lengths
-        let header_len =
-            u32::from_le_bytes(header_len.try_into().expect("Correct length; qed")) as usize;
-        let body_len =
-            u32::from_le_bytes(body_len.try_into().expect("Correct length; qed")) as usize;
-        let mmr_len = u32::from_le_bytes(mmr_len.try_into().expect("Correct length; qed")) as usize;
-        let num_system_contract_states = u32::from_le_bytes(
-            num_system_contract_states
-                .try_into()
-                .expect("Correct length; qed"),
-        );
+        let header_len = u32::from_le_bytes(*header_len) as usize;
+        let body_len = u32::from_le_bytes(*body_len) as usize;
+        let mmr_len = u32::from_le_bytes(*mmr_len) as usize;
+        let num_system_contract_states = u32::from_le_bytes(*num_system_contract_states);
 
         let header = {
             let buffer_len = buffer.len();

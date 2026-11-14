@@ -80,13 +80,13 @@ impl StorageItemTemporarySegmentHeaders {
 
     pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
         let buffer_len = buffer.len();
-        let prefix_bytes = buffer
-            .split_off(..Self::prefix_size())
+        let prefix_bytes;
+        (prefix_bytes, buffer) = buffer
+            .split_first_chunk::<{ Self::prefix_size() }>()
             .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
 
         // Read the number of segment headers
-        let num_segment_headers =
-            u32::from_le_bytes(prefix_bytes.try_into().expect("Correct length; qed")) as usize;
+        let num_segment_headers = u32::from_le_bytes(*prefix_bytes) as usize;
 
         let Some((segment_headers, _remainder)) =
             SegmentHeader::slice_from_bytes(buffer, num_segment_headers)

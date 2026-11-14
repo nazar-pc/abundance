@@ -154,24 +154,12 @@ pub fn decode_block<Block>(mut encoded_block: &[u8]) -> Option<Block>
 where
     Block: GenericOwnedBlock,
 {
-    let header_length = {
-        let header_length = encoded_block.split_off(..size_of::<u32>())?;
-        u32::from_le_bytes([
-            header_length[0],
-            header_length[1],
-            header_length[2],
-            header_length[3],
-        ])
-    };
-    let body_length = {
-        let body_length = encoded_block.split_off(..size_of::<u32>())?;
-        u32::from_le_bytes([
-            body_length[0],
-            body_length[1],
-            body_length[2],
-            body_length[3],
-        ])
-    };
+    let header_length;
+    (header_length, encoded_block) = encoded_block.split_first_chunk::<{ size_of::<u32>() }>()?;
+    let header_length = u32::from_le_bytes(*header_length);
+    let body_length;
+    (body_length, encoded_block) = encoded_block.split_first_chunk::<{ size_of::<u32>() }>()?;
+    let body_length = u32::from_le_bytes(*body_length);
 
     let header_buffer = encoded_block.split_off(..header_length as usize)?;
     let body_buffer = encoded_block.split_off(..body_length as usize)?;

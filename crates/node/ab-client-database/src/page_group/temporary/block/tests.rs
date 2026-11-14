@@ -194,6 +194,13 @@ fn read_of_truncated_bytes_needs_more_bytes() {
                 missing_bytes > 0 && missing_bytes <= total_bytes - read_len,
                 "Unexpected number of missing bytes {missing_bytes} for read length {read_len}"
             );
+            // Missing bytes of a truncated prefix are counted up to the end of the prefix
+            if read_len < StorageItemTemporaryBlock::prefix_size() {
+                assert_eq!(
+                    missing_bytes,
+                    StorageItemTemporaryBlock::prefix_size() - read_len
+                );
+            }
         }
     }
 }
