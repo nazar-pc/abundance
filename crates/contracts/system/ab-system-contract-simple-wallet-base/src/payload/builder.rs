@@ -131,7 +131,7 @@ pub struct MethodCallReferences<'a> {
 /// [`SimpleWallet`]: crate::SimpleWalletBase
 /// [`TransactionPayloadCaller`]: crate::payload::caller::TransactionPayloadCaller
 /// [`TransactionPayloadDecoder`]: crate::payload::decoder::TransactionPayloadDecoder
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TransactionPayloadBuilder {
     /// Starts with the header, which declares the outputs, with a capacity for each of them that
     /// method calls raise, see [`Self::into_aligned_bytes()`]
@@ -142,6 +142,27 @@ pub struct TransactionPayloadBuilder {
     declared_outputs: [DeclaredOutput; MAX_OUTPUTS],
     /// Number of outputs that the payload declares, at most [`MAX_OUTPUTS`]
     num_outputs: u8,
+}
+
+impl Clone for TransactionPayloadBuilder {
+    fn clone(&self) -> Self {
+        let Self {
+            payload,
+            declared_outputs,
+            num_outputs,
+        } = self;
+
+        // The capacity of the payload is its maximum size, which `OwnedAlignedBuffer::clone()`
+        // doesn't keep
+        let mut cloned_payload = OwnedAlignedBuffer::with_capacity(payload.capacity());
+        cloned_payload.copy_from_slice(payload);
+
+        Self {
+            payload: cloned_payload,
+            declared_outputs: *declared_outputs,
+            num_outputs: *num_outputs,
+        }
+    }
 }
 
 impl TransactionPayloadBuilder {

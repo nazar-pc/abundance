@@ -1315,6 +1315,31 @@ fn payload_max_size() {
 }
 
 #[test]
+fn payload_clone() {
+    let mut builder = TransactionPayloadBuilder::new(1024, 0).unwrap();
+    with_set_method_call(&mut builder, None).unwrap();
+    // The payload is padded to a multiple of `u128` size only when it is returned
+    let mut padded_payload = builder.payload.to_vec();
+    assert_ne!(padded_payload.len() % size_of::<u128>(), 0);
+    padded_payload.resize(padded_payload.len().next_multiple_of(size_of::<u128>()), 0);
+
+    // A clone has the same maximum size, so its payload is padded the same way, and the same
+    // method calls fit into it
+    assert_eq!(
+        builder.clone().into_aligned_bytes().unwrap().as_slice(),
+        padded_payload
+    );
+    let mut cloned = builder.clone();
+    assert_eq!(cloned.payload.capacity(), builder.payload.capacity());
+    with_set_method_call(&mut builder, None).unwrap();
+    with_set_method_call(&mut cloned, None).unwrap();
+    assert_eq!(
+        cloned.into_aligned_bytes().unwrap().as_slice(),
+        builder.into_aligned_bytes().unwrap().as_slice()
+    );
+}
+
+#[test]
 fn payload_too_large_leaves_builder_unchanged() {
     // Size of the header and a single method call
     let payload_size = {
