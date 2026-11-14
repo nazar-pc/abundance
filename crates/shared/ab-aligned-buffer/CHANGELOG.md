@@ -29,6 +29,9 @@ New features:
   * `OwnedAlignedBuffer::realign()` converts a buffer into one with a different alignment of the contents, moving them
     within the allocation if possible
 * `truncate()` on both buffers
+* `OwnedAlignedBuffer::zeroed()` creates a buffer filled with zeroes, allocating zeroed memory directly,
+  `OwnedAlignedBuffer::zeroed_aligned()` does the same with a specified alignment of the allocation
+* `OwnedAlignedBuffer::spare_capacity_mut()` returns capacity after the contents for writing into it
 * `OwnedAlignedBuffer::as_u128_slice()` returns the contents as whole `u128`s
 * `OwnedAlignedBuffer::MAX_CAPACITY` is the largest capacity of a buffer, which is smaller than `u32::MAX` on 32-bit
   targets, the same for allocations with any alignment

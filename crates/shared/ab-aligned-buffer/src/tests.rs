@@ -829,6 +829,49 @@ fn last_reference_synchronizes_with_other_threads() {
     assert_eq!(owned.as_slice(), [2; 64]);
 }
 
+#[test]
+fn zeroed() {
+    for len in [0, 1, 15, 16, 17, 1000] {
+        let owned = OwnedAlignedBuffer::<Align16>::zeroed(len);
+        assert_eq!(owned.len(), len, "Length {len}");
+        assert!(owned.capacity() >= len, "Length {len}");
+        assert!(owned.iter().all(|&byte| byte == 0), "Length {len}");
+        assert!(
+            owned.as_ptr().is_aligned_to(EXPECTED_ALIGNMENT),
+            "Length {len}"
+        );
+
+        let owned = OwnedAlignedBuffer::<Align1>::zeroed_aligned::<Align4096>(len);
+        assert_eq!(owned.len(), len, "Length {len}");
+        assert!(owned.iter().all(|&byte| byte == 0), "Length {len}");
+        if len != 0 {
+            assert_eq!(
+                owned.allocation_alignment(),
+                Align4096::ALIGN,
+                "Length {len}"
+            );
+        }
+    }
+}
+
+#[test]
+fn spare_capacity() {
+    let mut owned = OwnedAlignedBuffer::<Align16>::with_capacity(10);
+    assert!(owned.append(b"abc"));
+    let capacity = owned.capacity();
+    let spare_capacity = owned.spare_capacity_mut();
+    assert_eq!(spare_capacity.len() as u32, capacity - 3);
+    spare_capacity[..4].write_copy_of_slice(b"defg");
+    // SAFETY: Initialized 4 more bytes above
+    unsafe {
+        owned.set_len(7);
+    }
+    assert_eq!(owned.as_slice(), b"abcdefg");
+
+    let mut empty = OwnedAlignedBuffer::<Align1>::EMPTY;
+    assert!(empty.spare_capacity_mut().is_empty());
+}
+
 // A `u32` capacity can only exceed `isize::MAX` bytes where `usize` is 32-bit
 #[cfg(target_pointer_width = "32")]
 #[test]

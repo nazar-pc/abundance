@@ -23,10 +23,10 @@ mod tests;
 extern crate alloc;
 
 use crate::alignment::{Align1, Align16, Align4096, Alignment, AtLeast};
-use alloc::alloc::{alloc, dealloc, handle_alloc_error, realloc};
+use alloc::alloc::{alloc, alloc_zeroed, dealloc, handle_alloc_error, realloc};
 use core::alloc::Layout;
 use core::marker::PhantomData;
-use core::mem::ManuallyDrop;
+use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ops::{Bound, Deref, DerefMut, RangeBounds};
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicUsize, Ordering, fence};
@@ -194,6 +194,26 @@ impl InnerBuffer {
     /// If `total_capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails
     #[inline(always)]
     fn allocate(total_capacity: u32, alignment: usize, offset: u32) -> Self {
+        // SAFETY: Global allocator's function
+        unsafe { Self::allocate_with(total_capacity, alignment, offset, alloc) }
+    }
+
+    /// Allocates a new buffer with zeroed data region, see [`Self::allocate()`] for details
+    #[inline(always)]
+    fn allocate_zeroed(total_capacity: u32, alignment: usize, offset: u32) -> Self {
+        // SAFETY: Global allocator's function
+        unsafe { Self::allocate_with(total_capacity, alignment, offset, alloc_zeroed) }
+    }
+
+    /// # Safety
+    /// `allocator` must allocate memory with global allocator
+    #[inline(always)]
+    unsafe fn allocate_with(
+        total_capacity: u32,
+        alignment: usize,
+        offset: u32,
+        allocator: unsafe fn(Layout) -> *mut u8,
+    ) -> Self {
         debug_assert!(
             alignment.is_power_of_two()
                 && (MIN_ALLOCATION_ALIGNMENT..=MAX_ALIGNMENT).contains(&alignment),
@@ -211,8 +231,8 @@ impl InnerBuffer {
         let Some(layout) = Self::layout(total_capacity, alignment) else {
             panic!("Allocation of capacity {total_capacity} has failed: too large");
         };
-        // SAFETY: Non-zero size
-        let allocation = unsafe { alloc(layout) };
+        // SAFETY: Non-zero size, allocates with global allocator, guaranteed by the caller
+        let allocation = unsafe { allocator(layout) };
         let Some(allocation) = NonNull::new(allocation) else {
             handle_alloc_error(layout);
         };
@@ -659,6 +679,42 @@ where
         instance
     }
 
+    /// Create a new instance of specified length filled with zeroes.
+    ///
+    /// Allocation is aligned to the alignment of the contents, but at least 16 bytes. Zeroed memory
+    /// is allocated directly, which is cheaper than writing zeroes into it, especially for large
+    /// buffers.
+    ///
+    /// # Panics
+    /// If `len` is larger than [`Self::MAX_CAPACITY`]
+    #[inline(always)]
+    pub fn zeroed(len: u32) -> Self {
+        Self::zeroed_with_alignment(len, A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT))
+    }
+
+    /// Create a new instance of specified length filled with zeroes and allocation aligned to
+    /// `AA`, see [`Self::zeroed()`] for details.
+    ///
+    /// # Panics
+    /// If `len` is larger than [`Self::MAX_CAPACITY`]
+    #[inline(always)]
+    pub fn zeroed_aligned<AA>(len: u32) -> Self
+    where
+        AA: AtLeast<A> + AtLeast<Align16>,
+    {
+        Self::zeroed_with_alignment(len, AA::ALIGN)
+    }
+
+    #[inline(always)]
+    fn zeroed_with_alignment(len: u32, alignment: usize) -> Self {
+        let mut instance = Self::from_inner(InnerBuffer::allocate_zeroed(len, alignment, 0));
+        // SAFETY: The whole data region is zeroed, which is a valid initialized value
+        unsafe {
+            instance.set_len(len);
+        }
+        instance
+    }
+
     /// Empty buffer that is not backed by an allocation
     pub const EMPTY: Self = Self::from_inner(InnerBuffer::EMPTY);
 
@@ -712,6 +768,22 @@ where
     #[inline(always)]
     pub const fn as_mut_byte_ptr(&mut self) -> *mut u8 {
         self.inner.as_mut_ptr()
+    }
+
+    /// Spare capacity of the buffer after its contents, which can be written to and then included
+    /// in the contents with [`Self::set_len()`]
+    #[inline(always)]
+    pub const fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+        let len = self.len() as usize;
+        let spare_capacity = (self.capacity() - self.len()) as usize;
+        // SAFETY: Spare capacity is within the allocation right after the contents, the buffer is
+        // not shared, and bytes are treated as potentially uninitialized
+        unsafe {
+            slice::from_raw_parts_mut(
+                self.as_mut_byte_ptr().add(len).cast::<MaybeUninit<u8>>(),
+                spare_capacity,
+            )
+        }
     }
 
     /// Convert into shared buffer.
