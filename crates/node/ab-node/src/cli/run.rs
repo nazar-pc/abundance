@@ -127,6 +127,12 @@ pub(crate) enum RunError {
         #[from]
         error: ClientDatabaseError,
     },
+    /// Failed to spawn the timekeeper thread
+    #[error("Failed to spawn the timekeeper thread: {error}")]
+    SpawnTimekeeperThread {
+        /// Low-level error
+        error: io::Error,
+    },
     /// Failed to create a segment archiver task
     #[error("Failed to create a segment archiver task: {error}")]
     SegmentArchiverTask {
@@ -505,7 +511,7 @@ impl Run {
                         error!(%error, "Timekeeper exited with an error");
                     }
                 })
-                .expect("Thread creation must not panic");
+                .map_err(|error| RunError::SpawnTimekeeperThread { error })?;
         }
 
         // TODO: These are currently not implementable, but should be eventually
