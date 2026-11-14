@@ -21,7 +21,7 @@ pub mod __private;
 /// Each argument (except `self`) of these methods has to be annotated with one of the
 /// following attributes (must be in this order):
 /// * `#[env]` - an environment variable, used to access ephemeral execution environment, call
-///   methods on other contracts, etc.
+///   methods on other contracts, etc., must be named `env` (or `_env` if it is unused)
 /// * `#[tmp]` - a temporary ephemeral value to store auxiliary data while processing a
 ///   transaction
 /// * `#[slot]` - a slot corresponding to this contract
