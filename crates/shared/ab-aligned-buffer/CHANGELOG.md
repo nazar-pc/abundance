@@ -18,6 +18,17 @@ New features:
 * `into_start_align()` converts a buffer into one with a weaker alignment of the contents, `try_into_start_align()`
   converts into one with any alignment that the contents are actually aligned to
 * `OwnedAlignedBuffer::EMPTY` and `SharedAlignedBuffer::EMPTY` constants, and `Default` for `OwnedAlignedBuffer`
+* Contents of buffers can start at an offset within the allocation, `offset()` returns it, `capacity()` is counted
+  from the beginning of the contents, and the largest capacity of a buffer is smaller by the offset:
+  * `SharedAlignedBuffer::get_slice()` creates a buffer that references a part of the contents without copying them
+  * `SharedAlignedBuffer::try_into_owned()` converts the last reference into an owned buffer with the same offset
+  * `SharedAlignedBuffer::into_standalone()` copies the contents unless they already cover the whole allocation, so that
+    a small buffer doesn't keep a large allocation alive
+  * `OwnedAlignedBuffer::relocate()` moves the contents to a different offset within the allocation or into a new
+    allocation with a different capacity and alignment at the same time
+  * `OwnedAlignedBuffer::realign()` converts a buffer into one with a different alignment of the contents, moving them
+    within the allocation if possible
+* `truncate()` on both buffers
 * `OwnedAlignedBuffer::as_u128_slice()` returns the contents as whole `u128`s
 * `OwnedAlignedBuffer::MAX_CAPACITY` is the largest capacity of a buffer, which is smaller than `u32::MAX` on 32-bit
   targets, the same for allocations with any alignment

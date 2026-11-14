@@ -22,12 +22,12 @@ mod tests;
 
 extern crate alloc;
 
-use crate::alignment::{Align16, Align4096, Alignment, AtLeast};
+use crate::alignment::{Align1, Align16, Align4096, Alignment, AtLeast};
 use alloc::alloc::{alloc, dealloc, handle_alloc_error, realloc};
 use core::alloc::Layout;
 use core::marker::PhantomData;
 use core::mem::ManuallyDrop;
-use core::ops::{Deref, DerefMut};
+use core::ops::{Bound, Deref, DerefMut, RangeBounds};
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicUsize, Ordering, fence};
 use core::{hint, ptr, slice};
@@ -115,8 +115,11 @@ static EMPTY_INNER_BUFFER: InnerBuffer = InnerBuffer::EMPTY;
 
 #[derive(Debug)]
 struct InnerBuffer {
-    /// The first byte of the contents, the header is right before it
+    /// The first byte of the contents
     buffer: NonNull<u8>,
+    /// Offset of the contents from the beginning of the data region of the allocation, which has
+    /// the header right before it
+    offset: u32,
     len: u32,
 }
 
@@ -135,12 +138,13 @@ impl InnerBuffer {
                 .cast::<u8>()
                 .byte_add(size_of::<EmptyAllocation>())
         },
+        offset: 0,
         len: 0,
     };
 
     /// Layout of an allocation for a specified capacity and alignment.
     ///
-    /// The header is in front of the contents, and the size of the allocation is a multiple of
+    /// The header is in front of the data region, and the size of the allocation is a multiple of
     /// alignment, which allocators handle most efficiently.
     ///
     /// Returns `None` if the capacity is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or the
@@ -170,98 +174,124 @@ impl InnerBuffer {
     /// Layout of the allocation that backs the buffer.
     ///
     /// # Safety
-    /// The buffer must be backed by an allocation (have non-zero capacity).
+    /// The buffer must be backed by an allocation (have non-zero total capacity).
     #[inline(always)]
     unsafe fn allocated_layout(&self) -> Layout {
         let alignment = self.alignment();
-        let size = alignment + (self.capacity() as usize).next_multiple_of(alignment);
+        let size = alignment + (self.total_capacity() as usize).next_multiple_of(alignment);
         // SAFETY: Allocated with the same layout before, which was checked by `Self::layout()`
         unsafe { Layout::from_size_align_unchecked(size, alignment) }
     }
 
-    /// Allocates a new buffer with a header in front of the contents.
+    /// Allocates a new buffer with a header in front of the data region, contents start at
+    /// `offset` within the data region.
     ///
     /// `alignment` must be a supported alignment that is not smaller than
-    /// `MIN_ALLOCATION_ALIGNMENT`. Zero capacity results in an empty buffer that is not backed by
-    /// an allocation.
+    /// `MIN_ALLOCATION_ALIGNMENT`, `offset` must not be larger than `total_capacity`. Zero total
+    /// capacity results in an empty buffer that is not backed by an allocation.
     ///
     /// # Panics
-    /// If `capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails
+    /// If `total_capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails
     #[inline(always)]
-    fn allocate(capacity: u32, alignment: usize) -> Self {
+    fn allocate(total_capacity: u32, alignment: usize, offset: u32) -> Self {
         debug_assert!(
             alignment.is_power_of_two()
                 && (MIN_ALLOCATION_ALIGNMENT..=MAX_ALIGNMENT).contains(&alignment),
             "Unsupported alignment {alignment}"
         );
+        debug_assert!(
+            offset <= total_capacity,
+            "Offset {offset} is larger than capacity {total_capacity}"
+        );
 
-        if capacity == 0 {
+        if total_capacity == 0 {
             return Self::EMPTY;
         }
 
-        let Some(layout) = Self::layout(capacity, alignment) else {
-            panic!("Allocation of capacity {capacity} has failed: too large");
+        let Some(layout) = Self::layout(total_capacity, alignment) else {
+            panic!("Allocation of capacity {total_capacity} has failed: too large");
         };
         // SAFETY: Non-zero size
         let allocation = unsafe { alloc(layout) };
         let Some(allocation) = NonNull::new(allocation) else {
             handle_alloc_error(layout);
         };
-        // SAFETY: Contents start right after the space reserved for the header at the beginning of
-        // the allocation, which is as large as the alignment
-        let buffer = unsafe { allocation.byte_add(alignment) };
+        // SAFETY: The data region starts right after the space reserved for the header at the
+        // beginning of the allocation, which is as large as the alignment
+        let data = unsafe { allocation.byte_add(alignment) };
 
-        // SAFETY: The header is right before the contents and is correctly aligned, since the
-        // contents are aligned to at least the size of the header
+        // SAFETY: The header is right before the data region and is correctly aligned, since the
+        // data region is aligned to at least the size of the header
         unsafe {
-            buffer.cast::<Header>().sub(1).write(Header {
+            data.cast::<Header>().sub(1).write(Header {
                 strong_count: AtomicUsize::new(1),
-                capacity,
+                capacity: total_capacity,
                 alignment_log2: alignment.ilog2(),
             });
         }
 
-        Self { buffer, len: 0 }
+        Self {
+            // SAFETY: Offset is within the data region
+            buffer: unsafe { data.byte_add(offset as usize) },
+            offset,
+            len: 0,
+        }
     }
 
-    /// Changes capacity of the buffer while preserving its contents, the buffer must not be
-    /// shared.
+    /// Changes capacity of the buffer while preserving its contents and their offset, the buffer
+    /// must not be shared.
     ///
     /// The new allocation is aligned to at least `min_alignment`, which must be a supported
     /// alignment.
     ///
     /// # Panics
-    /// If `capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails
+    /// If `capacity` with offset is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation
+    /// fails
     #[inline(always)]
     fn resize(&mut self, capacity: u32, min_alignment: usize) {
-        let old_capacity = self.capacity();
-        if old_capacity == 0 {
+        let old_total_capacity = self.total_capacity();
+        if old_total_capacity == 0 {
             // Empty buffer is not backed by an allocation, and it has no contents to preserve
-            *self = Self::allocate(capacity, min_alignment.max(MIN_ALLOCATION_ALIGNMENT));
+            *self = Self::allocate(capacity, min_alignment.max(MIN_ALLOCATION_ALIGNMENT), 0);
             return;
         }
+
+        let Some(total_capacity) = self.offset.checked_add(capacity) else {
+            panic!(
+                "Resize from {} to {capacity} has failed: too large",
+                self.capacity()
+            );
+        };
 
         let alignment = self.alignment();
-        if alignment != MIN_ALLOCATION_ALIGNMENT || min_alignment > MIN_ALLOCATION_ALIGNMENT {
-            // Copy just the contents into a new allocation
-            let mut new = Self::allocate(capacity, alignment.max(min_alignment));
-            // SAFETY: Different allocations, `len` bytes are initialized and fit into the new
-            // capacity, since owned buffers only grow
+        // `realloc()` is only used for allocations aligned to 16 bytes when that is enough for the
+        // contents: it can't change the alignment, and standard library's `realloc()` copies the
+        // whole allocation for larger alignments anyway. Contents with an offset are not
+        // reallocated either, since bytes before them would be copied too
+        let reallocate_in_place = alignment == MIN_ALLOCATION_ALIGNMENT
+            && min_alignment <= MIN_ALLOCATION_ALIGNMENT
+            && self.offset == 0;
+        if !reallocate_in_place {
+            // Copy just the contents into a new allocation. Contents with an offset in an
+            // allocation with smaller alignment could only be aligned to `min_alignment` by chance,
+            // so the offset is reduced to keep the alignment then.
+            let misalignment = u32::try_from(self.offset as usize % min_alignment)
+                .expect("Smaller than alignment, which is at most 4096; qed");
+            let offset = self.offset - misalignment;
+            let new = Self::allocate(
+                total_capacity - (self.offset - offset),
+                alignment.max(min_alignment),
+                offset,
+            );
+            // SAFETY: Not shared, new buffer has enough capacity for the contents
             unsafe {
-                new.buffer
-                    .copy_from_nonoverlapping(self.buffer, self.len as usize);
+                self.move_into(new);
             }
-            new.len = self.len;
-            // SAFETY: Backed by an allocation and not shared
-            unsafe {
-                self.deallocate();
-            }
-            *self = new;
             return;
         }
 
-        let Some(new_layout) = Self::layout(capacity, alignment) else {
-            panic!("Realloc from {old_capacity} to {capacity} has failed: too large");
+        let Some(new_layout) = Self::layout(total_capacity, alignment) else {
+            panic!("Realloc from {old_total_capacity} to {total_capacity} has failed: too large");
         };
         // SAFETY: Non-zero capacity checked above
         let old_layout = unsafe { self.allocated_layout() };
@@ -278,20 +308,67 @@ impl InnerBuffer {
         let Some(allocation) = NonNull::new(allocation) else {
             handle_alloc_error(new_layout);
         };
-        // SAFETY: Contents start right after the space reserved for the header at the beginning of
-        // the allocation, which is as large as the alignment
+        // SAFETY: The data region starts right after the space reserved for the header at the
+        // beginning of the allocation, which is as large as the alignment, and offset is zero
         self.buffer = unsafe { allocation.byte_add(alignment) };
         // SAFETY: Reallocation preserved the header, and the buffer is not shared
         unsafe {
-            (*self.header_ptr().as_ptr()).capacity = capacity;
+            (*self.header_ptr().as_ptr()).capacity = total_capacity;
         }
+    }
+
+    /// Moves contents into a new buffer and deallocates the current one.
+    ///
+    /// # Safety
+    /// The buffer must not be shared, the new buffer must be a different allocation with enough
+    /// capacity for the contents.
+    #[inline(always)]
+    unsafe fn move_into(&mut self, mut new: Self) {
+        debug_assert!(new.capacity() >= self.len, "Not enough capacity");
+
+        // SAFETY: Different allocations, `len` bytes are initialized and fit into the new
+        // capacity, guaranteed by the caller
+        unsafe {
+            new.buffer
+                .copy_from_nonoverlapping(self.buffer, self.len as usize);
+        }
+        new.len = self.len;
+        if self.total_capacity() != 0 {
+            // SAFETY: Backed by an allocation and not shared, guaranteed by the caller
+            unsafe {
+                self.deallocate();
+            }
+        }
+        *self = new;
+    }
+
+    /// Moves contents to a different offset within the same allocation.
+    ///
+    /// # Safety
+    /// The buffer must not be shared, the contents must fit into the data region at a new offset.
+    #[inline(always)]
+    unsafe fn move_to_offset(&mut self, offset: u32) {
+        debug_assert!(
+            u64::from(offset) + u64::from(self.len) <= u64::from(self.total_capacity()),
+            "Contents don't fit"
+        );
+
+        // SAFETY: Within the data region, guaranteed by the caller
+        let buffer = unsafe { self.data_ptr().byte_add(offset as usize) };
+        // SAFETY: Both ranges are within the same allocation, `copy_from` handles overlapping
+        // ranges, `len` bytes are initialized
+        unsafe {
+            buffer.copy_from(self.buffer, self.len as usize);
+        }
+        self.buffer = buffer;
+        self.offset = offset;
     }
 
     /// Deallocates the buffer.
     ///
     /// # Safety
-    /// The buffer must be backed by an allocation (have non-zero capacity) and not be referenced
-    /// anymore.
+    /// The buffer must be backed by an allocation (have non-zero total capacity) and not be
+    /// referenced anymore.
     #[inline(always)]
     unsafe fn deallocate(&self) {
         // SAFETY: Allocated with global allocator and this layout, guaranteed by the caller to be
@@ -301,16 +378,11 @@ impl InnerBuffer {
         }
     }
 
-    /// Creates an owned copy of the contents aligned to at least `min_alignment`, which must be a
-    /// supported alignment
+    /// Creates an owned copy of the contents without offset, aligned to `alignment`, which must be
+    /// a supported alignment
     #[inline(always)]
-    fn copy(&self, min_alignment: usize) -> Self {
-        let mut new = Self::allocate(
-            self.len,
-            self.alignment()
-                .max(min_alignment)
-                .max(MIN_ALLOCATION_ALIGNMENT),
-        );
+    fn copy(&self, alignment: usize) -> Self {
+        let mut new = Self::allocate(self.len, alignment.max(MIN_ALLOCATION_ALIGNMENT), 0);
         // SAFETY: Different allocations, `len` bytes are initialized and fit into the new capacity
         unsafe {
             new.buffer
@@ -320,10 +392,47 @@ impl InnerBuffer {
         new
     }
 
+    /// Creates a new reference to a part of the contents of a shared buffer, which must be
+    /// non-empty and within the contents
+    #[inline(always)]
+    fn slice(&self, start: u32, len: u32) -> Self {
+        debug_assert!(
+            len != 0 && u64::from(start) + u64::from(len) <= u64::from(self.len),
+            "Slice out of bounds"
+        );
+        self.increment_strong_count();
+
+        Self {
+            // SAFETY: Within the contents
+            buffer: unsafe { self.buffer.byte_add(start as usize) },
+            offset: self.offset + start,
+            len,
+        }
+    }
+
+    /// Increments reference counter of a shared buffer, which must not be empty
+    #[inline(always)]
+    fn increment_strong_count(&self) {
+        let strong_count = self.strong_count_ref();
+        let old_count = strong_count.fetch_add(1, Ordering::Relaxed);
+        // Leaked clones could wrap a counter narrower than 64 bits around, and a drop would then
+        // free the buffer while other clones still use it
+        if usize::BITS < u64::BITS && old_count > isize::MAX.cast_unsigned() {
+            strong_count.fetch_sub(1, Ordering::Relaxed);
+            panic!("Too many clones of a shared aligned buffer");
+        }
+    }
+
+    #[inline(always)]
+    const fn data_ptr(&self) -> NonNull<u8> {
+        // SAFETY: Contents are at offset within the data region
+        unsafe { self.buffer.byte_sub(self.offset as usize) }
+    }
+
     #[inline(always)]
     const fn header_ptr(&self) -> NonNull<Header> {
-        // SAFETY: The header is right before the contents
-        unsafe { self.buffer.cast::<Header>().sub(1) }
+        // SAFETY: The header is right before the data region
+        unsafe { self.data_ptr().cast::<Header>().sub(1) }
     }
 
     #[inline(always)]
@@ -334,9 +443,9 @@ impl InnerBuffer {
 
     #[inline(always)]
     fn allocation_ptr(&self) -> NonNull<u8> {
-        // SAFETY: Contents start right after the space reserved for the header at the beginning of
-        // the allocation, which is as large as the alignment
-        unsafe { self.buffer.byte_sub(self.alignment()) }
+        // SAFETY: The data region starts right after the space reserved for the header at the
+        // beginning of the allocation, which is as large as the alignment
+        unsafe { self.data_ptr().byte_sub(self.alignment()) }
     }
 
     #[inline(always)]
@@ -357,7 +466,19 @@ impl InnerBuffer {
     }
 
     #[inline(always)]
+    const fn offset(&self) -> u32 {
+        self.offset
+    }
+
+    /// Capacity from the beginning of the contents
+    #[inline(always)]
     const fn capacity(&self) -> u32 {
+        self.total_capacity() - self.offset
+    }
+
+    /// Capacity of the whole data region
+    #[inline(always)]
+    const fn total_capacity(&self) -> u32 {
         self.header().capacity
     }
 
@@ -440,7 +561,7 @@ where
     fn drop(&mut self) {
         // Owned buffer is not shared, so the reference counter is not used, and an empty buffer
         // with zero capacity is not backed by an allocation
-        if self.inner.capacity() != 0 {
+        if self.inner.total_capacity() != 0 {
             // SAFETY: Backed by an allocation and not shared
             unsafe {
                 self.inner.deallocate();
@@ -488,10 +609,10 @@ impl<A> Clone for OwnedAlignedBuffer<A>
 where
     A: Alignment,
 {
-    /// Allocates as much as the length of the buffer with the same alignment
+    /// Allocates as much as the length of the buffer with the same alignment, without offset
     #[inline(always)]
     fn clone(&self) -> Self {
-        Self::from_inner(self.inner.copy(A::ALIGN))
+        Self::from_inner(self.inner.copy(self.inner.alignment().max(A::ALIGN)))
     }
 }
 
@@ -517,6 +638,7 @@ where
         Self::from_inner(InnerBuffer::allocate(
             capacity,
             A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT),
+            0,
         ))
     }
 
@@ -567,7 +689,7 @@ where
     where
         AA: AtLeast<A> + AtLeast<Align16>,
     {
-        Self::from_inner(InnerBuffer::allocate(capacity, AA::ALIGN))
+        Self::from_inner(InnerBuffer::allocate(capacity, AA::ALIGN, 0))
     }
 
     #[inline(always)]
@@ -646,7 +768,7 @@ where
     /// Will re-allocate if necessary.
     ///
     /// # Panics
-    /// If `capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    /// If `capacity` with [`Self::offset()`] is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
     #[inline(always)]
     pub fn ensure_capacity(&mut self, capacity: u32) {
         if capacity > self.capacity() {
@@ -657,15 +779,8 @@ where
     /// Will re-allocate if capacity is not enough to store provided bytes.
     ///
     /// # Panics
-    /// If `bytes.len()` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    /// If `bytes.len()` with [`Self::offset()`] is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
     #[inline(always)]
-    #[cfg_attr(
-        target_pointer_width = "64",
-        expect(
-            clippy::unnecessary_min_or_max,
-            reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
-        )
-    )]
     pub fn copy_from_slice(&mut self, bytes: &[u8]) {
         let Ok(len) = u32::try_from(bytes.len()) else {
             panic!("Too many bytes {}", bytes.len());
@@ -674,7 +789,11 @@ where
         if len > self.capacity() {
             // Doubling the capacity is capped by the largest one `Layout` allows
             self.inner.resize(
-                len.max(self.capacity().saturating_mul(2).min(MAX_CAPACITY)),
+                len.max(
+                    self.capacity()
+                        .saturating_mul(2)
+                        .min(MAX_CAPACITY - self.offset()),
+                ),
                 A::ALIGN,
             );
         }
@@ -691,21 +810,13 @@ where
 
     /// Will re-allocate if capacity is not enough to store provided bytes.
     ///
-    /// Returns `false` and leaves the buffer unchanged if `self.len() + bytes.len()` is larger than
-    /// [`OwnedAlignedBuffer::MAX_CAPACITY`].
+    /// Returns `false` and leaves the buffer unchanged if `self.len() + bytes.len()` with
+    /// [`Self::offset()`] is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`].
     ///
     /// # Panics
     /// If memory re-allocation fails
     #[inline(always)]
     #[must_use = "Check for overflow"]
-    #[cfg_attr(
-        target_pointer_width = "64",
-        expect(
-            clippy::absurd_extreme_comparisons,
-            clippy::unnecessary_min_or_max,
-            reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
-        )
-    )]
     pub fn append(&mut self, bytes: &[u8]) -> bool {
         let Ok(len) = u32::try_from(bytes.len()) else {
             return false;
@@ -714,14 +825,19 @@ where
         let Some(new_len) = self.len().checked_add(len) else {
             return false;
         };
-        if new_len > MAX_CAPACITY {
+        // Offset is not larger than the capacity of the allocation, so this doesn't underflow
+        if new_len > MAX_CAPACITY - self.offset() {
             return false;
         }
 
         if new_len > self.capacity() {
             // Doubling the capacity is capped by the largest one `Layout` allows
             self.inner.resize(
-                new_len.max(self.capacity().saturating_mul(2).min(MAX_CAPACITY)),
+                new_len.max(
+                    self.capacity()
+                        .saturating_mul(2)
+                        .min(MAX_CAPACITY - self.offset()),
+                ),
                 A::ALIGN,
             );
         }
@@ -749,19 +865,135 @@ where
         self.inner.len()
     }
 
+    /// Capacity from the beginning of the contents
     #[inline(always)]
     pub const fn capacity(&self) -> u32 {
         self.inner.capacity()
     }
 
+    /// Offset of the contents from the beginning of the data region of the allocation
+    #[inline(always)]
+    pub const fn offset(&self) -> u32 {
+        self.inner.offset()
+    }
+
     /// Alignment of the allocation in bytes.
     ///
     /// It is not smaller than the alignment of the contents, unless the contents happen to be
-    /// aligned more strictly than the allocation (see [`Self::try_into_start_align()`]). Empty
-    /// buffer without an allocation reports the alignment it grows into.
+    /// aligned more strictly than the allocation (see [`Self::try_into_start_align()`] and
+    /// [`Self::realign()`]). Empty buffer without an allocation reports the alignment it grows
+    /// into.
     #[inline(always)]
     pub fn allocation_alignment(&self) -> usize {
         self.inner.allocation_alignment(A::ALIGN)
+    }
+
+    /// Shorten the buffer, keeping the first `len` bytes.
+    ///
+    /// Does nothing if `len` is not smaller than the current length.
+    #[inline(always)]
+    pub fn truncate(&mut self, len: u32) {
+        if len < self.len() {
+            self.inner.len = len;
+        }
+    }
+
+    /// Move the contents to `offset` from the beginning of the data region, with at least
+    /// `capacity` bytes available from there, in an allocation aligned to at least `AA`.
+    ///
+    /// Contents are moved within the current allocation when it is large enough and sufficiently
+    /// aligned, otherwise they are copied into a new allocation once.
+    ///
+    /// Returns `false` and leaves the buffer unchanged if `offset` is not a multiple of the
+    /// alignment of the contents or `offset` with `capacity` is larger than
+    /// [`OwnedAlignedBuffer::MAX_CAPACITY`].
+    #[inline]
+    #[must_use = "Check for invalid offset or capacity"]
+    #[cfg_attr(
+        target_pointer_width = "64",
+        expect(
+            clippy::absurd_extreme_comparisons,
+            reason = "`MAX_CAPACITY` is `u32::MAX` where `usize` is 64-bit"
+        )
+    )]
+    pub fn relocate<AA>(&mut self, offset: u32, capacity: u32) -> bool
+    where
+        AA: AtLeast<A> + AtLeast<Align16>,
+    {
+        if !(offset as usize).is_multiple_of(A::ALIGN) {
+            return false;
+        }
+        let capacity = capacity.max(self.len());
+        let Some(total_capacity) = offset.checked_add(capacity) else {
+            return false;
+        };
+        if total_capacity > MAX_CAPACITY {
+            return false;
+        }
+
+        if self.inner.total_capacity() >= total_capacity && self.inner.alignment() >= AA::ALIGN {
+            // SAFETY: Not shared, contents fit into the data region at a new offset
+            unsafe {
+                self.inner.move_to_offset(offset);
+            }
+        } else {
+            // SAFETY: Not shared, a new allocation with enough capacity for the contents
+            unsafe {
+                self.inner
+                    .move_into(InnerBuffer::allocate(total_capacity, AA::ALIGN, offset));
+            }
+        }
+
+        true
+    }
+
+    /// Convert into a buffer with a different alignment of the contents.
+    ///
+    /// Free if the contents are already aligned to `B`. Otherwise, the contents are moved within
+    /// the current allocation to the closest offset aligned to `B` if possible, even if the
+    /// allocation itself is aligned less strictly, or copied into a new allocation aligned to `B`
+    /// once.
+    #[inline]
+    #[must_use = "The buffer is dropped otherwise"]
+    pub fn realign<B>(mut self) -> OwnedAlignedBuffer<B>
+    where
+        B: Alignment,
+    {
+        let misalignment = u32::try_from(self.inner.buffer.addr().get() % B::ALIGN)
+            .expect("Smaller than alignment, which is at most 4096; qed");
+        if misalignment != 0 {
+            let alignment = u32::try_from(B::ALIGN).expect("At most 4096; qed");
+            let len = self.len();
+            let total_capacity = self.inner.total_capacity();
+            // Moving contents backwards always fits, moving them forward only fits with enough
+            // capacity
+            let maybe_offset = self.offset().checked_sub(misalignment).or_else(|| {
+                self.offset()
+                    .checked_add(alignment - misalignment)
+                    .filter(|&offset| {
+                        u64::from(offset) + u64::from(len) <= u64::from(total_capacity)
+                    })
+            });
+
+            if let Some(offset) = maybe_offset {
+                // SAFETY: Not shared, contents fit into the data region at a new offset
+                unsafe {
+                    self.inner.move_to_offset(offset);
+                }
+            } else {
+                let new = InnerBuffer::allocate(
+                    self.capacity(),
+                    B::ALIGN.max(MIN_ALLOCATION_ALIGNMENT),
+                    0,
+                );
+                // SAFETY: Not shared, a new allocation with enough capacity for the contents
+                unsafe {
+                    self.inner.move_into(new);
+                }
+            }
+        }
+
+        OwnedAlignedBuffer::from_inner(self.into_inner())
     }
 
     /// Set the length of the useful data to a specified value.
@@ -848,18 +1080,12 @@ where
     #[inline(always)]
     fn clone(&self) -> Self {
         if !self.is_empty() {
-            let strong_count = self.inner.strong_count_ref();
-            let old_count = strong_count.fetch_add(1, Ordering::Relaxed);
-            // Leaked clones could wrap a counter narrower than 64 bits around, and a drop would
-            // then free the buffer while other clones still use it
-            if usize::BITS < u64::BITS && old_count > isize::MAX.cast_unsigned() {
-                strong_count.fetch_sub(1, Ordering::Relaxed);
-                panic!("Too many clones of a shared aligned buffer");
-            }
+            self.inner.increment_strong_count();
         }
 
         Self::from_inner(InnerBuffer {
             buffer: self.inner.buffer,
+            offset: self.inner.offset,
             len: self.inner.len,
         })
     }
@@ -951,21 +1177,102 @@ where
 
     /// Convert into owned buffer.
     ///
-    /// If this is the last shared instance, then allocation will be reused, otherwise a new
-    /// allocation will be created.
+    /// If this is the last reference to the allocation, then allocation will be reused with the
+    /// same offset of the contents, otherwise contents will be copied into a new allocation with
+    /// the same alignment.
     #[inline(always)]
     pub fn into_owned(self) -> OwnedAlignedBuffer<A> {
+        match self.try_into_owned() {
+            Ok(owned) => owned,
+            Err(shared) => OwnedAlignedBuffer::from_inner(
+                shared.inner.copy(shared.inner.alignment().max(A::ALIGN)),
+            ),
+        }
+    }
+
+    /// Convert into owned buffer if this is the last reference to the allocation, which is reused
+    /// with the same offset of the contents.
+    ///
+    /// Returns the buffer back if the allocation is still shared.
+    #[inline(always)]
+    pub fn try_into_owned(self) -> Result<OwnedAlignedBuffer<A>, Self> {
         if self.is_empty() {
-            return OwnedAlignedBuffer::EMPTY;
+            return Ok(OwnedAlignedBuffer::EMPTY);
         }
 
         // Synchronizes with decrements in other instances, such that their accesses to the
         // contents happen before modifications through the owned buffer
         if self.inner.strong_count_ref().load(Ordering::Acquire) == 1 {
             // This was the last reference, so owned buffer is not shared
-            OwnedAlignedBuffer::from_inner(self.into_inner())
+            Ok(OwnedAlignedBuffer::from_inner(self.into_inner()))
         } else {
-            OwnedAlignedBuffer::from_inner(self.inner.copy(A::ALIGN))
+            Err(self)
+        }
+    }
+
+    /// Make sure the buffer doesn't keep a larger allocation alive than its contents need.
+    ///
+    /// Contents are copied into a new allocation without offset, unless they already cover the
+    /// whole data region of the allocation. This is useful for buffers that are kept for a long
+    /// time and may be a part of a much larger allocation, see [`Self::get_slice()`].
+    ///
+    /// The new allocation is aligned to the alignment of the contents, but at least 16 bytes,
+    /// rather than the alignment of the original allocation, which may be much larger than
+    /// necessary.
+    #[inline]
+    #[must_use = "The buffer is dropped otherwise"]
+    pub fn into_standalone(self) -> Self {
+        if self.offset() == 0 && self.len() == self.inner.total_capacity() {
+            self
+        } else {
+            Self::from_inner(self.inner.copy(A::ALIGN))
+        }
+    }
+
+    /// Create a new buffer that references a part of the contents of this one without copying
+    /// them.
+    ///
+    /// Returns `None` if `range` is out of bounds. Alignment of the contents is not guaranteed
+    /// anymore, use [`SharedAlignedBuffer::try_into_start_align()`] if necessary. The new buffer
+    /// keeps the whole allocation alive, see [`Self::into_standalone()`].
+    #[inline]
+    #[must_use = "The slice is dropped otherwise"]
+    pub fn get_slice<R>(&self, range: R) -> Option<SharedAlignedBuffer<Align1>>
+    where
+        R: RangeBounds<u32>,
+    {
+        let start = match range.start_bound() {
+            Bound::Included(&start) => start,
+            Bound::Excluded(&start) => start.checked_add(1)?,
+            Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            Bound::Included(&end) => end.checked_add(1)?,
+            Bound::Excluded(&end) => end,
+            Bound::Unbounded => self.len(),
+        };
+        if start > end || end > self.len() {
+            return None;
+        }
+        if start == end {
+            return Some(SharedAlignedBuffer::EMPTY);
+        }
+
+        Some(SharedAlignedBuffer::from_inner(
+            self.inner.slice(start, end - start),
+        ))
+    }
+
+    /// Shorten the buffer, keeping the first `len` bytes.
+    ///
+    /// Does nothing if `len` is not smaller than the current length. Empty buffer doesn't keep the
+    /// allocation alive.
+    #[inline(always)]
+    pub fn truncate(&mut self, len: u32) {
+        if len == 0 {
+            *self = Self::EMPTY;
+        } else if len < self.len() {
+            self.inner.len = len;
         }
     }
 
@@ -1016,9 +1323,16 @@ where
         self.inner.len()
     }
 
+    /// Capacity from the beginning of the contents
     #[inline(always)]
     pub const fn capacity(&self) -> u32 {
         self.inner.capacity()
+    }
+
+    /// Offset of the contents from the beginning of the data region of the allocation
+    #[inline(always)]
+    pub const fn offset(&self) -> u32 {
+        self.inner.offset()
     }
 
     /// Alignment of the allocation in bytes.
