@@ -795,8 +795,8 @@ impl TransactionPayloadBuilder {
         &mut self,
         bytes: &[u8],
     ) -> Result<(), TransactionPayloadBuilderError<'static>> {
-        // The same checks as in `OwnedAlignedBuffer::append()`, so the compiler can prove that it
-        // never reallocates
+        // The checks in `OwnedAlignedBuffer::append()` that decide whether it reallocates, so the
+        // compiler can prove that it never does
         let fits = u32::try_from(bytes.len())
             .ok()
             .and_then(|len| self.payload.len().checked_add(len))
