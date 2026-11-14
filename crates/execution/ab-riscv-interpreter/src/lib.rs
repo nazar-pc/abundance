@@ -806,8 +806,6 @@ where
 ///   moves, even after the fetcher or `peeked` is moved to another place in memory. Threaded
 ///   dispatch picks the handler by the variant of this instruction. The handler then reads the
 ///   instruction again and takes that variant for granted.
-///
-/// [`BasicInterpreterState::execute()`]: basic::BasicInterpreterState::execute
 pub const unsafe trait InstructionFetcher<I, Memory>
 where
     Self: ProgramCounter<Address<I>, Memory>,
