@@ -9,6 +9,11 @@ New features:
 
 Improvements:
 
+* Empty buffers are not backed by an allocation, cloning and dropping an empty `SharedAlignedBuffer` no longer modifies
+  a reference counter shared by all empty buffers, which was contended between threads
+* Converting an empty `OwnedAlignedBuffer` into `SharedAlignedBuffer` frees its allocation
+* Dropping `OwnedAlignedBuffer` doesn't use atomic operations
+* Reference counting of `SharedAlignedBuffer` uses the same memory orderings as `Arc`, which are weaker than before
 * The reference counter of `SharedAlignedBuffer` is pointer-sized, and cloning panics before a 32-bit counter would wrap
   around
 * 32-bit RISC-V and Arm targets are supported

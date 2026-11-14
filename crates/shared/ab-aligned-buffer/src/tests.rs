@@ -1,8 +1,9 @@
-use crate::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use crate::{EMPTY_HEADER, OwnedAlignedBuffer, SharedAlignedBuffer};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::iter;
 use core::ops::{Deref, DerefMut};
+use core::sync::atomic::Ordering;
 
 const EXPECTED_ALIGNMENT: usize = 16;
 
@@ -312,6 +313,58 @@ fn strong_count_survives_clones() {
     let owned = shared.into_owned();
     assert_eq!(owned.as_ptr(), ptr_before);
     assert_eq!(owned.as_slice(), b"abc");
+}
+
+#[test]
+fn empty_buffers_are_not_backed_by_allocation() {
+    let empty_ptr = SharedAlignedBuffer::default().as_ptr();
+
+    assert_eq!(SharedAlignedBuffer::empty_ref().as_ptr(), empty_ptr);
+    assert_eq!(SharedAlignedBuffer::from_bytes(&[]).as_ptr(), empty_ptr);
+    assert_eq!(OwnedAlignedBuffer::with_capacity(0).as_ptr(), empty_ptr);
+    assert_eq!(OwnedAlignedBuffer::from_bytes(&[]).as_ptr(), empty_ptr);
+    assert_eq!(OwnedAlignedBuffer::with_capacity(0).capacity(), 0);
+    assert_eq!(SharedAlignedBuffer::default().capacity(), 0);
+    assert!(
+        OwnedAlignedBuffer::with_capacity(0)
+            .as_ptr()
+            .is_aligned_to(EXPECTED_ALIGNMENT)
+    );
+
+    // Empty shared buffer doesn't keep the allocation of an owned buffer with capacity
+    let shared = OwnedAlignedBuffer::with_capacity(10).into_shared();
+    assert_eq!(shared.as_ptr(), empty_ptr);
+    assert_eq!(shared.capacity(), 0);
+    assert_eq!(shared.into_owned().as_ptr(), empty_ptr);
+
+    // Empty buffer grows into an allocation
+    let mut owned = OwnedAlignedBuffer::with_capacity(0);
+    assert!(owned.append(b"abc"));
+    assert_ne!(owned.as_ptr(), empty_ptr);
+    assert_eq!(owned.as_slice(), b"abc");
+}
+
+#[test]
+fn empty_buffers_do_not_touch_reference_counter() {
+    extern crate std;
+
+    use std::thread;
+
+    let empty = SharedAlignedBuffer::default();
+    thread::scope(|scope| {
+        for _ in 0..4 {
+            scope.spawn(|| {
+                for _ in 0..10 {
+                    let clones = [empty.clone(), SharedAlignedBuffer::empty_ref().clone()];
+                    drop(clones);
+                    drop(SharedAlignedBuffer::default().into_owned());
+                }
+            });
+        }
+    });
+
+    assert_eq!(EMPTY_HEADER.strong_count.load(Ordering::Relaxed), 0);
+    assert_eq!(EMPTY_HEADER.capacity, 0);
 }
 
 // A `u32` capacity can only exceed `isize::MAX` bytes where `usize` is 32-bit
