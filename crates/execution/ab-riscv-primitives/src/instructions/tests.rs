@@ -664,6 +664,64 @@ where
     }
 }
 
+/// RV64I with `Zca` ignored as a whole
+#[instruction(
+    ignore = [Rv64ZcaInstruction],
+    inherit = [Rv64Instruction, Rv64ZcaInstruction],
+)]
+#[derive(Debug, Clone, Copy)]
+#[derive_const(PartialEq, Eq)]
+enum TestIgnoreZcaInstruction<Hart>
+where
+    Hart: HartConfig, {}
+
+#[instruction]
+const impl<Reg, Hart> Instruction for TestIgnoreZcaInstruction<Hart>
+where
+    Reg: [const] Register<Type = u64>,
+    Hart: [const] HartConfig<Reg = Reg>,
+{
+    const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
+
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
+
+    type Hart = Hart;
+
+    #[inline(always)]
+    fn try_decode(instruction: u32) -> Option<Self> {
+        None
+    }
+
+    #[inline(always)]
+    fn size(&self) -> u8 {
+        size_of::<u32>() as u8
+    }
+}
+
+#[instruction]
+impl<Reg, Hart> fmt::Display for TestIgnoreZcaInstruction<Hart>
+where
+    Reg: fmt::Display + Copy,
+    Hart: HartConfig<Reg = Reg>,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {}
+    }
+}
+
+#[test]
+fn ignored_enum_with_decoding_helpers() {
+    // addi x0, x0, 0
+    let nop = 0x0000_0013;
+    // c.nop
+    let c_nop = 0x0001;
+    assert!(TestZcaInstruction::<BasicHart<Reg<u64>>>::try_decode(nop).is_some());
+    assert!(TestZcaInstruction::<BasicHart<Reg<u64>>>::try_decode(c_nop).is_some());
+    // Decoding helpers of `Zca` are left unused, but its instructions are not decoded
+    assert!(TestIgnoreZcaInstruction::<BasicHart<Reg<u64>>>::try_decode(nop).is_some());
+    assert!(TestIgnoreZcaInstruction::<BasicHart<Reg<u64>>>::try_decode(c_nop).is_none());
+}
+
 #[test]
 fn composed_alignment() {
     // Without 16-bit instructions, the specified alignment is used as is

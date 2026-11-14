@@ -432,8 +432,24 @@ pub(super) fn process_enum_decoding_impl(
             block
         });
 
+    // Helper functions defined in decoding logic may only be used by removed instructions, but
+    // unused helpers are still reported when nothing is removed
+    let has_removed_instructions = all_dependencies
+        .iter()
+        .flat_map(|(_, dependency_enum_definition)| &dependency_enum_definition.own_instructions)
+        .chain(&enum_definition.own_instructions)
+        .any(|instruction| !allowed_instructions.contains(&instruction.ident));
+    let dead_code_allow = has_removed_instructions.then_some(quote! {
+        #[allow(
+            dead_code,
+            reason = "Helper functions defined in decoding logic are not used when all \
+            instructions that use them are ignored"
+        )]
+    });
+
     *try_decode_block = parse_quote! {{
         #[expect(clippy::allow_attributes, reason = "Attribute below")]
+        #dead_code_allow
         #[allow(
             clippy::if_same_then_else,
             reason = "In presence of ignored instructions, simple replacement sometimes results in \

@@ -1,12 +1,14 @@
+use crate::build::enum_definition::process_enum_definition;
 use crate::build::enum_impl::process_enum_impl;
 use crate::build::execution_impl::process_execution_impl;
 use crate::build::shared::attribute_arguments;
 use crate::build::state::State;
 use crate::build::{InstructionItem, InstructionItemsCollector, may_contain_instruction_macros};
 use quote::ToTokens;
+use std::fs;
 use std::path::Path;
 use syn::visit::Visit;
-use syn::{Attribute, File, ItemImpl, parse_quote};
+use syn::{Attribute, File, ItemEnum, ItemImpl, parse_quote};
 
 #[test]
 fn may_contain_instruction_macros_matches() {
@@ -163,5 +165,93 @@ fn execution_impl_arguments() {
     ] {
         let error = impl_error(item_impl, process_execution_impl);
         assert!(error.contains("doesn't take arguments"), "{error}");
+    }
+}
+
+// TODO: Not supported on Miri on Windows yet: https://github.com/rust-lang/miri/issues/3482
+#[cfg(not(all(miri, target_os = "windows")))]
+#[test]
+fn decoding_impl_dead_code_allow() {
+    let out_dir = tempfile::tempdir().unwrap();
+    let out_dir = out_dir.path();
+    let mut state = State::new();
+
+    let enums: [ItemEnum; 3] = [
+        parse_quote! {
+            #[instruction]
+            enum A { X, Y }
+        },
+        parse_quote! {
+            #[instruction(inherit = [A])]
+            enum B {}
+        },
+        parse_quote! {
+            #[instruction(inherit = [A], ignore = [Y])]
+            enum C {}
+        },
+    ];
+    for item_enum in enums {
+        process_enum_definition(item_enum, out_dir, &mut state).unwrap();
+    }
+
+    let item_impls: [ItemImpl; 3] = [
+        parse_quote! {
+            #[instruction]
+            impl Instruction for A {
+                const ALIGNMENT: u8 = 4;
+
+                fn try_decode(instruction: u32) -> Option<Self> {
+                    fn is_x(instruction: u32) -> bool {
+                        instruction == 0
+                    }
+
+                    if is_x(instruction) { Some(Self::X) } else { Some(Self::Y) }
+                }
+
+                fn size(&self) -> u8 {
+                    4
+                }
+            }
+        },
+        parse_quote! {
+            #[instruction]
+            impl Instruction for B {
+                const ALIGNMENT: u8 = 4;
+
+                fn try_decode(instruction: u32) -> Option<Self> {
+                    None
+                }
+
+                fn size(&self) -> u8 {
+                    4
+                }
+            }
+        },
+        parse_quote! {
+            #[instruction]
+            impl Instruction for C {
+                const ALIGNMENT: u8 = 4;
+
+                fn try_decode(instruction: u32) -> Option<Self> {
+                    None
+                }
+
+                fn size(&self) -> u8 {
+                    4
+                }
+            }
+        },
+    ];
+    for item_impl in item_impls {
+        process_enum_impl(item_impl, out_dir, &mut state)
+            .unwrap()
+            .unwrap();
+    }
+
+    // Only `C` removes an instruction from decoding logic it is composed of
+    for (enum_name, expected) in [("A", false), ("B", false), ("C", true)] {
+        let code =
+            fs::read_to_string(out_dir.join(format!("{enum_name}_decoding_impl.rs"))).unwrap();
+        assert_eq!(code.contains("dead_code"), expected, "{code}");
     }
 }
