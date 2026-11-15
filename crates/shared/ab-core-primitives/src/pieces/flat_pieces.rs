@@ -1,9 +1,10 @@
 use crate::pieces::{InnerPiece, Piece};
 use crate::segments::RecordedHistorySegment;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use ab_io_type::trivial_type::TrivialType;
 use alloc::boxed::Box;
+use core::fmt;
 use core::ops::{Deref, DerefMut};
-use core::{fmt, slice};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
@@ -60,15 +61,10 @@ impl Deref for FlatPieces {
     #[inline]
     fn deref(&self) -> &Self::Target {
         let bytes = self.0.as_slice();
-        // SAFETY: Bytes slice has length of multiples of piece size and lifetimes of returned data
-        // are preserved
-        let pieces = unsafe {
-            slice::from_raw_parts(
-                bytes.as_ptr().cast::<[u8; Piece::SIZE]>(),
-                bytes.len() / Piece::SIZE,
-            )
-        };
-        InnerPiece::slice_from_repr(pieces)
+        let (pieces, _) = InnerPiece::slice_from_bytes(bytes, bytes.len() / Piece::SIZE).expect(
+            "`InnerPiece` has alignment of 1 and `bytes` are at least this many pieces long; qed",
+        );
+        pieces
     }
 }
 
@@ -76,15 +72,11 @@ impl DerefMut for FlatPieces {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         let bytes = self.0.as_mut_slice();
-        // SAFETY: Bytes slice has length of multiples of piece size and lifetimes of returned data
-        // are preserved
-        let pieces = unsafe {
-            slice::from_raw_parts_mut(
-                bytes.as_mut_ptr().cast::<[u8; Piece::SIZE]>(),
-                bytes.len() / Piece::SIZE,
-            )
-        };
-        InnerPiece::slice_mut_from_repr(pieces)
+        let num_pieces = bytes.len() / Piece::SIZE;
+        let (pieces, _) = InnerPiece::slice_from_bytes_mut(bytes, num_pieces).expect(
+            "`InnerPiece` has alignment of 1 and `bytes` are at least this many pieces long; qed",
+        );
+        pieces
     }
 }
 

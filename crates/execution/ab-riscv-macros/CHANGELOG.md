@@ -25,6 +25,10 @@ Fixes:
   `ab-riscv-interpreter` can be built for targets without one
 * Generated code is identical for identical source, previously the order of arms in `Display` implementations and of
   metadata exported to dependent crates changed from one build to another
+* Helper functions defined in decoding logic no longer cause `dead_code` warnings when all instructions using them are
+  ignored, like when `Zca` is ignored as a whole
+* `ALIGNMENT` of an instruction set ignores inherited enums none of whose own instructions are present, like `Zca`
+  ignored as a whole, which previously still allowed instructions to start at 2-byte boundaries
 
 # 0.1.1
 

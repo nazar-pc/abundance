@@ -2412,7 +2412,8 @@ where
                         %best_number,
                         block_offset,
                         header = ?block.header(),
-                        "Block to be confirmed must not be in memory, this is an implementation bug"
+                        "Block to be confirmed is still in memory because of an earlier write \
+                        failure"
                     );
                     block
                 }

@@ -47,7 +47,8 @@ enum ArgumentKind {
 
 #[derive(Clone)]
 struct Env {
-    arg_name: Ident,
+    /// The reference type, unlike the types of other arguments
+    type_name: Type,
     mutability: Option<Token![mut]>,
 }
 
@@ -268,8 +269,17 @@ impl MethodDetails {
 
         if let Type::Reference(type_reference) = &*pat_type.ty
             && let Type::Path(_type_path) = &*type_reference.elem
-            && let Pat::Ident(pat_ident) = &*pat_type.pat
         {
+            // Named like the field of `InternalArgs` that holds it
+            if !matches!(
+                &*pat_type.pat,
+                Pat::Ident(pat_ident) if pat_ident.ident == "env" || pat_ident.ident == "_env"
+            ) {
+                return Err(Error::new(
+                    pat_type.pat.span(),
+                    "`#[env]` argument must be named `env`, or `_env` if it is unused",
+                ));
+            }
             if type_reference.mutability.is_some() && !allow_mut {
                 return Err(Error::new(
                     input_span,
@@ -278,7 +288,7 @@ impl MethodDetails {
             }
 
             self.env.replace(Env {
-                arg_name: pat_ident.ident.clone(),
+                type_name: pat_type.ty.as_ref().clone(),
                 mutability: type_reference.mutability,
             });
             Ok(())
@@ -770,6 +780,9 @@ impl MethodDetails {
         trait_name: Option<&Ident>,
     ) -> Result<TokenStream, Error> {
         let self_type = &self.self_type;
+        // Generated locals and parameters have mixed-site spans, so that they can't clash with
+        // names from the method signature
+        let args = Ident::new("args", Span::mixed_site().located_at(fn_sig.span()));
 
         // `internal_args_pointers` will generate pointers in `InternalArgs` fields
         let mut internal_args_pointers = Vec::new();
@@ -808,9 +821,9 @@ impl MethodDetails {
                     }
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
-                        &mut args.self_ptr,
-                        &mut args.self_size,
-                        args.self_capacity,
+                        &mut #args.self_ptr,
+                        &mut #args.self_size,
+                        #args.self_capacity,
                     )
                 }});
             } else {
@@ -826,9 +839,9 @@ impl MethodDetails {
                     }
 
                     <#self_type as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                        &args.self_ptr,
-                        &args.self_size,
-                        args.self_capacity,
+                        &#args.self_ptr,
+                        &#args.self_size,
+                        #args.self_capacity,
                     )
                 }});
             }
@@ -836,13 +849,15 @@ impl MethodDetails {
 
         // Optional environment argument
         if let Some(env) = &self.env {
-            let env_field = &env.arg_name;
             let mutability = env.mutability;
-            let env_local = format_ident!("macro_{env_field}");
+            // Without the prefix of locals named after arguments, so that it can't clash with them
+            let env_local = Ident::new("env", Span::mixed_site());
 
+            // The field has a fixed name rather than the name of the argument, so it can't clash
+            // with other fields
             internal_args_pointers.push(quote! {
                 // Use `Env` to check if the method argument had the correct type at compile time
-                pub #env_field: &'internal_args #mutability ::ab_contracts_macros::__private::Env<'internal_args>,
+                pub env: &'internal_args #mutability ::ab_contracts_macros::__private::Env<'internal_args>,
             });
 
             // The lifetime of `Env` is inferred to cover the call, so that the method can declare
@@ -895,10 +910,13 @@ impl MethodDetails {
                 // parses it first. After the call, the caller of this function only accesses the
                 // contents of outputs by parsing them, unless every bit pattern is valid
                 // (`# Safety` of this function).
-                let #env_local = unsafe { macro_shorten_env(args.#env_field) };
+                let #env_local = unsafe { macro_shorten_env(#args.env) };
             });
 
-            original_fn_args.push(quote! { #env_local });
+            original_fn_args.push(bind_to_reference_type(
+                &env.type_name,
+                quote! { #env_local },
+            ));
         }
 
         // Optional tmp argument
@@ -912,9 +930,9 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", tmp.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
-            // The span of the call site rather than of the argument name, so that `non_snake_case`
-            // doesn't report the local in the method signature, like `macro__tmp` for `_tmp`
-            let tmp_local = format_ident!("macro_{}", tmp.arg_name, span = Span::call_site());
+            // Not the span of the argument name, so that `non_snake_case` doesn't report the local
+            // in the method signature, like `macro__tmp` for `_tmp`
+            let tmp_local = format_ident!("macro_{}", tmp.arg_name, span = Span::mixed_site());
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -932,17 +950,17 @@ impl MethodDetails {
             let view = if mutability.is_some() {
                 quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
-                        &mut args.#ptr_field,
-                        &mut args.#size_field,
-                        args.#capacity_field,
+                        &mut #args.#ptr_field,
+                        &mut #args.#size_field,
+                        #args.#capacity_field,
                     )
                 }
             } else {
                 quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                        &args.#ptr_field,
-                        &args.#size_field,
-                        args.#capacity_field,
+                        &#args.#ptr_field,
+                        &#args.#size_field,
+                        #args.#capacity_field,
                     )
                 }
             };
@@ -982,8 +1000,8 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{}_capacity", slot.arg_name);
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
-            // The span of the call site, like for `#[tmp]` above
-            let slot_local = format_ident!("macro_{}", slot.arg_name, span = Span::call_site());
+            // Not the span of the argument name, like for `#[tmp]` above
+            let slot_local = format_ident!("macro_{}", slot.arg_name, span = Span::mixed_site());
 
             internal_args_pointers.push(quote! {
                 // Use `Address` to check if the method argument had the correct type at compile
@@ -1004,17 +1022,17 @@ impl MethodDetails {
             let view = if mutability.is_some() {
                 quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_mut_ptr(
-                        &mut args.#ptr_field,
-                        &mut args.#size_field,
-                        args.#capacity_field,
+                        &mut #args.#ptr_field,
+                        &mut #args.#size_field,
+                        #args.#capacity_field,
                     )
                 }
             } else {
                 quote! {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::from_ptr(
-                        &args.#ptr_field,
-                        &args.#size_field,
-                        args.#capacity_field,
+                        &#args.#ptr_field,
+                        &#args.#size_field,
+                        #args.#capacity_field,
                     )
                 }
             };
@@ -1042,7 +1060,7 @@ impl MethodDetails {
             if slot.with_address_arg {
                 original_fn_args.push(quote! {
                     (
-                        args.#address_field,
+                        #args.#address_field,
                         #arg_extraction,
                     )
                 });
@@ -1061,7 +1079,7 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
-            let input_local = format_ident!("macro_{arg_name}");
+            let input_local = format_ident!("macro_{arg_name}", span = Span::mixed_site());
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -1093,9 +1111,9 @@ impl MethodDetails {
                 // function
                 match unsafe {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::try_from_ptr(
-                        &args.#ptr_field,
-                        &args.#size_field,
-                        args.#capacity_field,
+                        &#args.#ptr_field,
+                        &#args.#size_field,
+                        #args.#capacity_field,
                     )
                 } {
                     ::core::option::Option::Some(input) => input,
@@ -1122,7 +1140,7 @@ impl MethodDetails {
             let size_doc = format!("Size of the contents `{ptr_field}` points to");
             let capacity_field = format_ident!("{arg_name}_capacity");
             let capacity_doc = format!("Capacity of the allocated memory `{ptr_field}` points to");
-            let output_local = format_ident!("macro_{arg_name}");
+            let output_local = format_ident!("macro_{arg_name}", span = Span::mixed_site());
 
             internal_args_pointers.push(quote! {
                 pub #ptr_field: ::core::ptr::NonNull<
@@ -1159,9 +1177,9 @@ impl MethodDetails {
                 // `'static`, so only locals of the method or of this function can hold them.
                 match unsafe {
                     <#type_name as ::ab_contracts_macros::__private::IoType>::try_from_mut_ptr(
-                        &mut args.#ptr_field,
-                        &mut args.#size_field,
-                        args.#capacity_field,
+                        &mut #args.#ptr_field,
+                        &mut #args.#size_field,
+                        #args.#capacity_field,
                     )
                 } {
                     ::core::option::Option::Some(output) => output,
@@ -1251,7 +1269,7 @@ impl MethodDetails {
             }
         };
 
-        let result_var_name = format_ident!("result");
+        let result_var_name = Ident::new("result", Span::mixed_site());
         let guest_fn = {
             // Depending on whether `T` or `Result<T, ContractError>` is used as a return type,
             // generate different code for result handling
@@ -1264,7 +1282,7 @@ impl MethodDetails {
                 }
                 MethodReturnType::Regular(_) => {
                     quote! {
-                        args.ok_result.write(#result_var_name);
+                        #args.ok_result.write(#result_var_name);
                         // Return exit code
                         ::ab_contracts_macros::__private::ExitCode::ok()
                     }
@@ -1273,8 +1291,10 @@ impl MethodDetails {
                     quote! {
                         // Return exit code
                         match #result_var_name {
-                            Ok(()) => ::ab_contracts_macros::__private::ExitCode::ok(),
-                            Err(error) => error.exit_code(),
+                            ::core::result::Result::Ok(()) => {
+                                ::ab_contracts_macros::__private::ExitCode::ok()
+                            }
+                            ::core::result::Result::Err(error) => error.exit_code(),
                         }
                     }
                 }
@@ -1282,12 +1302,12 @@ impl MethodDetails {
                     quote! {
                         // Write a result into `InternalArgs` if there is any, return exit code
                         match #result_var_name {
-                            Ok(result) => {
-                                args.ok_result.write(result);
+                            ::core::result::Result::Ok(result) => {
+                                #args.ok_result.write(result);
                                 // Return exit code
                                 ::ab_contracts_macros::__private::ExitCode::ok()
                             }
-                            Err(error) => error.exit_code(),
+                            ::core::result::Result::Err(error) => error.exit_code(),
                         }
                     }
                 }
@@ -1304,7 +1324,7 @@ impl MethodDetails {
             let args_pattern = if internal_args_pointers.is_empty() {
                 quote_spanned! {fn_sig.span() => _ }
             } else {
-                quote_spanned! {fn_sig.span() => args }
+                quote! { #args }
             };
 
             // Generate FFI function with the original name
@@ -1398,7 +1418,10 @@ impl MethodDetails {
                         // done here
                         unsafe {
                             let mut args = args_ptr.cast::<InternalArgs<'_>>();
-                            debug_assert!(args.is_aligned(), "`args` pointer is misaligned");
+                            ::core::debug_assert!(
+                                args.is_aligned(),
+                                "`args` pointer is misaligned",
+                            );
                             let args = args.as_mut();
                             #ffi_fn_name(args)
                         }
@@ -1443,6 +1466,9 @@ impl MethodDetails {
         let mut getters = Vec::new();
         // Lifetimes of outputs that `::new()` declares
         let mut output_lifetimes = Vec::new();
+        // Generated locals and parameters have mixed-site spans, so that they can't clash with
+        // arguments named after those of the method
+        let ok_result = Ident::new("ok_result", Span::mixed_site());
 
         // For slots in external args only the address pointer is needed
         for slot in &self.slots {
@@ -1550,16 +1576,19 @@ impl MethodDetails {
             });
             // The memory is only accessed through the pointer while the output stays exclusively
             // borrowed, for the lifetime of the struct
+            let ptr_local = Ident::new(&ptr_field.to_string(), Span::mixed_site());
+            let size_local = Ident::new(&size_field.to_string(), Span::mixed_site());
+            let capacity_local = Ident::new(&capacity_field.to_string(), Span::mixed_site());
             method_preparation.push(quote! {
-                let (#ptr_field, #size_field, #capacity_field) =
+                let (#ptr_local, #size_local, #capacity_local) =
                     ::ab_contracts_macros::__private::OutputArg::<#arg_type_name>::as_raw_output(
                         #arg_name,
                     );
             });
             method_args_fields.push(quote! {
-                #ptr_field,
-                #size_field,
-                #capacity_field,
+                #ptr_field: #ptr_local,
+                #size_field: #size_local,
+                #capacity_field: #capacity_local,
             });
         }
 
@@ -1577,10 +1606,10 @@ impl MethodDetails {
             });
 
             method_args.push(quote! {
-                ok_result: &'external_args mut ::core::mem::MaybeUninit<#return_type>,
+                #ok_result: &'external_args mut ::core::mem::MaybeUninit<#return_type>,
             });
             method_args_fields.push(quote! {
-                ok_result,
+                ok_result: #ok_result,
             });
         }
         let args_struct_doc = format!(
@@ -1833,9 +1862,9 @@ impl MethodDetails {
                 reason = "Auto-generated compile-time check"
             )]
             const fn metadata()
-                -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], usize)
+                -> ([::core::primitive::u8; ::ab_contracts_macros::__private::MAX_METADATA_CAPACITY], ::core::primitive::usize)
             {
-                assert!(
+                ::core::assert!(
                     #total_number_of_arguments <= ::ab_contracts_macros::__private::MAX_TOTAL_METHOD_ARGS,
                     "Too many arguments"
                 );
@@ -1880,10 +1909,17 @@ impl MethodDetails {
         let mut size_write_backs = Vec::new();
         // Lifetimes of outputs that the method declares
         let mut output_lifetimes = Vec::new();
+        // Generated locals and parameters have mixed-site spans, so that they can't clash with
+        // arguments named after those of the method
+        let contract = Ident::new("contract", Span::mixed_site());
+        let method_context = Ident::new("method_context", Span::mixed_site());
+        let ok_result = Ident::new("ok_result", Span::mixed_site());
+        let ok_result_ptr = Ident::new("ok_result_ptr", Span::mixed_site());
+        let args = Ident::new("args", Span::mixed_site());
 
         // Address of the contract
         method_args.push(quote_spanned! {fn_sig.span() =>
-            contract: ::ab_contracts_macros::__private::Address,
+            #contract: ::ab_contracts_macros::__private::Address,
         });
 
         // For each slot argument generate an address argument
@@ -1911,7 +1947,7 @@ impl MethodDetails {
         let mut outputs_iter = self.outputs.iter().peekable();
         while let Some(output) = outputs_iter.next() {
             let arg_name = &output.arg_name;
-            let size_var = format_ident!("macro_{arg_name}_size");
+            let size_var = format_ident!("macro_{arg_name}_size", span = Span::mixed_site());
             let size_field = format_ident!("{arg_name}_size");
 
             // Initializer's return type will be `()` for the caller of `#[init]`, state is stored
@@ -1932,7 +1968,7 @@ impl MethodDetails {
             });
             external_args_args.push(quote_spanned! {fn_sig.span() => #arg_name });
             result_processing_before.push(quote_spanned! {fn_sig.span() =>
-                let #size_var = args.#size_field();
+                let #size_var = #args.#size_field();
             });
             size_write_backs.push(quote_spanned! {fn_sig.span() =>
                 // SAFETY: The executor keeps the size of the output valid for its type and within
@@ -1958,7 +1994,7 @@ impl MethodDetails {
         // `#[view]` methods do not require explicit method context
         let method_context_arg = (!matches!(self.method_type, MethodType::View)).then(|| {
             quote_spanned! {fn_sig.span() =>
-                method_context: ::ab_contracts_macros::__private::MethodContext,
+                #method_context: ::ab_contracts_macros::__private::MethodContext,
             }
         });
         let method_args_attrs = quote_spanned! {fn_sig.span() =>
@@ -2030,16 +2066,14 @@ impl MethodDetails {
                 ::ab_contracts_macros::__private::MethodContext::Reset
             }
         } else {
-            quote_spanned! {fn_sig.span() =>
-                method_context
-            }
+            quote! { #method_context }
         };
         let ok_result_declaration = if return_value.is_some() {
             external_args_args.push(quote_spanned! {fn_sig.span() =>
-                &mut ok_result
+                &mut #ok_result
             });
             Some(quote_spanned! {fn_sig.span() =>
-                let mut ok_result = ::core::mem::MaybeUninit::uninit();
+                let mut #ok_result = ::core::mem::MaybeUninit::uninit();
             })
         } else {
             None
@@ -2047,11 +2081,11 @@ impl MethodDetails {
         let call = quote_spanned! {fn_sig.span() =>
             #ok_result_declaration
 
-            let mut args = #original_method_name::#args_struct_name::new(
+            let mut #args = #original_method_name::#args_struct_name::new(
                 #( #external_args_args, )*
             );
 
-            self.call(contract, &mut args, #method_context_value)?;
+            self.call(#contract, &mut #args, #method_context_value)?;
 
             #( #result_processing_before )*
             #( #size_write_backs )*
@@ -2063,7 +2097,7 @@ impl MethodDetails {
                 #method_signature {
                     #call
 
-                    Ok(())
+                    ::core::result::Result::Ok(())
                 }
             };
 
@@ -2088,7 +2122,7 @@ impl MethodDetails {
                 #call
 
                 // The callee isn't trusted to write a valid value, so the return value is parsed
-                let ok_result_ptr = ::core::ptr::NonNull::from_ref(&ok_result).cast::<
+                let #ok_result_ptr = ::core::ptr::NonNull::from_ref(&#ok_result).cast::<
                     <#return_type as ::ab_contracts_macros::__private::IoType>::PointerType,
                 >();
                 // SAFETY: The pointer is aligned for `PointerType`, which is the return type itself
@@ -2097,7 +2131,7 @@ impl MethodDetails {
                 // the host for guests), while nothing writes to it during parsing
                 match unsafe {
                     <#return_type as ::ab_contracts_macros::__private::IoType>::try_from_ptr(
-                        &ok_result_ptr,
+                        &#ok_result_ptr,
                         &<#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                         <#return_type as ::ab_contracts_macros::__private::TrivialType>::SIZE,
                     )
@@ -2165,6 +2199,17 @@ fn bind_to_type(
     let user_type = with_inferred_lifetimes(type_name);
     quote_spanned! {type_name.span() => {
         let argument: &#mutability #user_type = #value;
+        argument
+    }}
+}
+
+/// Like [`bind_to_type()`], but `type_name` is the whole reference type.
+///
+/// The lifetime of the reference is checked too, like `'static` in `&'static Env<'_>`.
+fn bind_to_reference_type(type_name: &Type, value: TokenStream) -> TokenStream {
+    let user_type = with_inferred_lifetimes(type_name);
+    quote_spanned! {type_name.span() => {
+        let argument: #user_type = #value;
         argument
     }}
 }

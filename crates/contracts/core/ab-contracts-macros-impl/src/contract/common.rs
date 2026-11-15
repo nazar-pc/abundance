@@ -35,7 +35,7 @@ pub(super) fn derive_ident_metadata(ident: &Ident) -> Result<TokenStream, Error>
 /// like contracts decode it
 pub(super) fn max_depth_assertion(type_name: &Type, error_message: &str) -> TokenStream {
     quote_spanned! {type_name.span() =>
-        assert!(
+        ::core::assert!(
             ::ab_contracts_macros::__private::IoTypeMetadataKind::type_details::<{
                 ::ab_contracts_macros::__private::MAX_METADATA_DEPTH
             }>(<#type_name as ::ab_contracts_macros::__private::IoType>::METADATA)

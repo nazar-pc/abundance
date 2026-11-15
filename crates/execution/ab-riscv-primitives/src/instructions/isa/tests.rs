@@ -74,7 +74,7 @@ where
 {
     const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
 
-    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;
 
@@ -178,7 +178,7 @@ where
 {
     const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
 
-    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;
 
@@ -321,7 +321,7 @@ where
 {
     const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
 
-    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;
 
@@ -364,7 +364,7 @@ where
 {
     const OWN_ISA_EXTENSIONS: &'static [IsaExtension] = &[];
 
-    const ALIGNMENT: u8 = align_of::<u16>() as u8;
+    const ALIGNMENT: u8 = align_of::<u32>() as u8;
 
     type Hart = Hart;
 

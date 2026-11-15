@@ -825,6 +825,7 @@ dependencies = [
  "prettyplease",
  "quote",
  "syn 3.0.10",
+ "tempfile",
  "trybuild",
 ]
 

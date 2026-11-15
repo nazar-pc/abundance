@@ -144,21 +144,18 @@ pub fn change_public_key(env: &mut Env<'_>, public_key: &[u8; 32]) -> Result<(),
 // TODO: `no_panic` can't prove lack of panics in methods of the executor called through `Env`
 // #[cfg_attr(feature = "no-panic", no_panic_const::no_panic)]
 fn load_current_state(env: &Env<'_>) -> Result<WalletState, ContractError> {
-    let current_state = {
-        let mut current_state = MaybeUninit::<WalletState>::uninit();
-        let mut current_state_size = 0;
-        env.state_read(
-            Address::SYSTEM_STATE,
-            &env.own_address(),
-            &mut VariableBytes::from_uninit(current_state.as_bytes_mut(), &mut current_state_size)
-                .expect("Size is zero and `WalletState` is smaller than 4 GiB; qed"),
-        )?;
-        if current_state_size != WalletState::SIZE {
-            return Err(ContractError::BadOutput);
-        }
-        // SAFETY: Just initialized
-        unsafe { current_state.assume_init() }
-    };
+    let mut current_state = MaybeUninit::<WalletState>::uninit();
+    let mut current_state_size = 0;
+    let mut current_state_bytes =
+        VariableBytes::from_uninit(current_state.as_bytes_mut(), &mut current_state_size)
+            .expect("Size is zero and `WalletState` is smaller than 4 GiB; qed");
+    env.state_read(
+        Address::SYSTEM_STATE,
+        &env.own_address(),
+        &mut current_state_bytes,
+    )?;
 
-    Ok(current_state)
+    WalletState::from_bytes_exact(current_state_bytes.get_initialized())
+        .copied()
+        .ok_or(ContractError::BadOutput)
 }

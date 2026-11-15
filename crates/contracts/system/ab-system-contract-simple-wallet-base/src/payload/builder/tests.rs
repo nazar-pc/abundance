@@ -907,6 +907,37 @@ fn payload_invalid_output_index() {
 }
 
 #[test]
+fn payload_invalid_output_index_order() {
+    let max_outputs = u8::try_from(MAX_OUTPUTS).unwrap();
+    let mut builder = TransactionPayloadBuilder::new(1024, 1).unwrap();
+
+    // An invalid output index is returned before any rule of the payload format is checked, here
+    // that the slot refers to declared output `0`, which no earlier method call wrote
+    assert_matches!(
+        with_stored_method_call(&mut builder, Some(0), max_outputs),
+        Err(TransactionPayloadBuilderError::InvalidOutputIndex(output_index))
+            if output_index == max_outputs
+    );
+    // The first invalid output index is returned, slots come before outputs
+    assert_matches!(
+        with_stored_method_call(&mut builder, Some(max_outputs), u8::MAX),
+        Err(TransactionPayloadBuilderError::InvalidOutputIndex(output_index))
+            if output_index == max_outputs
+    );
+    for output_indices in [[u8::MAX, max_outputs], [0, u8::MAX]] {
+        assert_matches!(
+            with_get_value_method_call(&mut builder, &output_indices),
+            Err(TransactionPayloadBuilderError::InvalidOutputIndex(u8::MAX)),
+            "Output indices {output_indices:?}"
+        );
+    }
+
+    // Nothing was added or changed, the payload has only its header
+    assert_eq!(builder.payload.len(), 8);
+    assert_eq!(declared_capacities(&builder), [0]);
+}
+
+#[test]
 fn payload_reference_to_unwritten_output() {
     // A slot and an input that refer to a declared output that no earlier method call wrote
     let mut builder = TransactionPayloadBuilder::new(1024, 2).unwrap();
@@ -1281,6 +1312,49 @@ fn payload_max_size() {
         assert_eq!(builder.payload.capacity(), capacity, "Max size {max_size}");
         assert_eq!(builder.payload.as_ptr(), ptr, "Max size {max_size}");
     }
+}
+
+#[test]
+#[cfg(target_pointer_width = "32")]
+#[cfg_attr(not(miri), ignore = "Allocates almost 2 GiB outside of Miri")]
+fn payload_max_size_above_max_capacity() {
+    use ab_aligned_buffer::OwnedAlignedBuffer;
+    use ab_aligned_buffer::alignment::Align16;
+
+    // `MAX_CAPACITY` is below `u32::MAX` where `usize` is 32-bit, a larger maximum size is limited
+    // to it
+    let builder = TransactionPayloadBuilder::new(u32::MAX, 0).unwrap();
+    assert_eq!(
+        builder.payload.capacity(),
+        OwnedAlignedBuffer::<Align16>::MAX_CAPACITY
+    );
+    let payload = builder.into_aligned_bytes().unwrap();
+    assert_eq!(payload.as_slice(), &[0; u128::SIZE as usize]);
+}
+
+#[test]
+fn payload_clone() {
+    let mut builder = TransactionPayloadBuilder::new(1024, 0).unwrap();
+    with_set_method_call(&mut builder, None).unwrap();
+    // The payload is padded to a multiple of `u128` size only when it is returned
+    let mut padded_payload = builder.payload.to_vec();
+    assert_ne!(padded_payload.len() % size_of::<u128>(), 0);
+    padded_payload.resize(padded_payload.len().next_multiple_of(size_of::<u128>()), 0);
+
+    // A clone has the same maximum size, so its payload is padded the same way, and the same
+    // method calls fit into it
+    assert_eq!(
+        builder.clone().into_aligned_bytes().unwrap().as_slice(),
+        padded_payload
+    );
+    let mut cloned = builder.clone();
+    assert_eq!(cloned.payload.capacity(), builder.payload.capacity());
+    with_set_method_call(&mut builder, None).unwrap();
+    with_set_method_call(&mut cloned, None).unwrap();
+    assert_eq!(
+        cloned.into_aligned_bytes().unwrap().as_slice(),
+        builder.into_aligned_bytes().unwrap().as_slice()
+    );
 }
 
 #[test]

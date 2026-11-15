@@ -186,26 +186,13 @@ impl BlockHeaderFixedConsensusParameters {
         // * PoT slot iterations: NonZeroU32 as unaligned little-endian bytes
         // * number of shards: NumShards as unaligned little-endian bytes
 
-        let solution_range = bytes.split_off(..size_of::<SolutionRange>())?;
-        let solution_range = SolutionRange::from_bytes([
-            solution_range[0],
-            solution_range[1],
-            solution_range[2],
-            solution_range[3],
-            solution_range[4],
-            solution_range[5],
-            solution_range[6],
-            solution_range[7],
-        ]);
+        let solution_range;
+        (solution_range, bytes) = bytes.split_first_chunk::<{ size_of::<SolutionRange>() }>()?;
+        let solution_range = SolutionRange::from_bytes(*solution_range);
 
-        let pot_slot_iterations = bytes.split_off(..size_of::<u32>())?;
-        let slot_iterations = u32::from_le_bytes([
-            pot_slot_iterations[0],
-            pot_slot_iterations[1],
-            pot_slot_iterations[2],
-            pot_slot_iterations[3],
-        ]);
-        let slot_iterations = NonZeroU32::new(slot_iterations)?;
+        let slot_iterations;
+        (slot_iterations, bytes) = bytes.split_first_chunk::<{ size_of::<u32>() }>()?;
+        let slot_iterations = NonZeroU32::new(u32::from_le_bytes(*slot_iterations))?;
         let num_shards;
         (num_shards, bytes) = Unaligned::<NumShardsUnchecked>::from_bytes(bytes)?;
         let num_shards = NumShards::try_from(num_shards.as_inner()).ok()?;
@@ -286,13 +273,14 @@ impl BlockHeaderPotParametersChange {
 
         let pot_parameters_change_ptr = bytes.as_ptr().cast::<Self>();
 
-        let _slot = bytes.split_off(..size_of::<SlotNumber>())?;
+        (_, bytes) = bytes.split_first_chunk::<{ size_of::<SlotNumber>() }>()?;
 
-        let slot_iterations = bytes.split_off(..size_of::<u32>())?;
-        if slot_iterations == [0, 0, 0, 0] {
+        let slot_iterations;
+        (slot_iterations, bytes) = bytes.split_first_chunk::<{ size_of::<u32>() }>()?;
+        if *slot_iterations == [0, 0, 0, 0] {
             return None;
         }
-        let _entropy = bytes.split_off(..size_of::<Blake3Hash>())?;
+        (_, bytes) = bytes.split_first_chunk::<{ size_of::<Blake3Hash>() }>()?;
 
         // SAFETY: Not null, packed, bit pattern for `NonZeroU32` checked above
         let pot_parameters_change = unsafe { pot_parameters_change_ptr.as_ref_unchecked() };
@@ -385,8 +373,7 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
         let (fixed_parameters, mut remainder) =
             BlockHeaderFixedConsensusParameters::try_from_bytes(bytes)?;
 
-        let bitflags = remainder.split_off(..size_of::<u8>())?;
-        let bitflags = bitflags[0];
+        let bitflags = *remainder.split_off_first()?;
 
         if (bitflags & Self::MASK_ALL) != bitflags {
             // Unexpected bitflags were set
@@ -403,18 +390,11 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
         };
 
         let next_solution_range = if bitflags & Self::NEXT_SOLUTION_RANGE_MASK != 0 {
-            let next_solution_range = remainder.split_off(..size_of::<SolutionRange>())?;
+            let next_solution_range;
+            (next_solution_range, remainder) =
+                remainder.split_first_chunk::<{ size_of::<SolutionRange>() }>()?;
             // Not guaranteed to be aligned
-            let next_solution_range = SolutionRange::from_bytes([
-                next_solution_range[0],
-                next_solution_range[1],
-                next_solution_range[2],
-                next_solution_range[3],
-                next_solution_range[4],
-                next_solution_range[5],
-                next_solution_range[6],
-                next_solution_range[7],
-            ]);
+            let next_solution_range = SolutionRange::from_bytes(*next_solution_range);
 
             Some(next_solution_range)
         } else {
@@ -593,8 +573,7 @@ impl<'a> BlockHeaderSeal<'a> {
         // * seal type: u8
         // * seal (depends on a seal type): BlockHeaderEd25519Seal
 
-        let seal_type = bytes.split_off(..size_of::<u8>())?;
-        let seal_type = BlockHeaderSealType::try_from_byte(seal_type[0])?;
+        let seal_type = BlockHeaderSealType::try_from_byte(*bytes.split_off_first()?)?;
 
         match seal_type {
             BlockHeaderSealType::Ed25519 => {

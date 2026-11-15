@@ -981,12 +981,11 @@ impl NatsClient {
                         .await
                     {
                         Ok(Some(message)) => {
-                            if let Some(received_index) =
-                                message.payload.get(..size_of::<u32>()).map(|bytes| {
-                                    u32::from_le_bytes(
-                                        bytes.try_into().expect("Correctly chunked slice; qed"),
-                                    )
-                                })
+                            if let Some(received_index) = message
+                                .payload
+                                .first_chunk::<{ size_of::<u32>() }>()
+                                .copied()
+                                .map(u32::from_le_bytes)
                             {
                                 debug!(
                                     %response_subject,

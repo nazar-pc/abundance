@@ -566,10 +566,10 @@ impl<'a> ContractFile<'a> {
             while offset < file_bytes.len() {
                 let remaining = &file_bytes[offset..];
 
-                let instruction_word = if remaining.len() >= size_of::<u32>() {
-                    u32::from_le_bytes([remaining[0], remaining[1], remaining[2], remaining[3]])
-                } else if remaining.len() >= size_of::<u16>() {
-                    u32::from_le_bytes([remaining[0], remaining[1], 0, 0])
+                let instruction_word = if let Some(&word) = remaining.first_chunk::<4>() {
+                    u32::from_le_bytes(word)
+                } else if let Some(&[byte_0, byte_1]) = remaining.first_chunk::<2>() {
+                    u32::from_le_bytes([byte_0, byte_1, 0, 0])
                 } else {
                     // Need at least 2 bytes to read a compressed instruction
                     return Err(ContractFileParseError::UnexpectedTrailingCodeBytes {

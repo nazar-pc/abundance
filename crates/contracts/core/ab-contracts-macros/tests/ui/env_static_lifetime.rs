@@ -17,6 +17,11 @@ impl Example {
     pub fn keep_env(#[env] env: &'static Env<'static>) {
         let _env = env;
     }
+
+    #[view]
+    pub fn keep_env_reference(#[env] env: &'static Env<'_>) {
+        let _env = env;
+    }
 }
 
 fn main() {}

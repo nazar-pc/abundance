@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize, Serializer};
 /// one byte.
 ///
 /// This is similar to `#[repr(packed)]`, but makes sure to only expose safe API when dealing with
-/// the contents. For example, if `Data` is unaligned and has fields, it is not sounds having
-/// references to its fields. This data structure prevents such invalid invariants.
+/// the contents. For example, if `Data` is unaligned and has fields, it is not sound to have
+/// references to its fields. This data structure prevents such unsound references.
 #[derive(Debug, Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "scale-codec", derive(Decode, MaxEncodedLen))]
 #[cfg_attr(feature = "serde", derive(Deserialize))]

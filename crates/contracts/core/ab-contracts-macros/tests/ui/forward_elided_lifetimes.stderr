@@ -5,12 +5,12 @@ error: lifetime may not live long enough
    |                           ---           --                  - let's call the lifetime of this reference `'1`
    |                           |             |
    |                           |             lifetime `'2` introduced here
-   |                           has type `&mut Env<'2>`
+   |                           has type `&mut ab_contracts_common::env::Env<'2>`
 19 |         let _out = env.lend_output(out);
    |                    ^^^^^^^^^^^^^^^^^^^^ argument requires that `'1` must outlive `'2`
    |
-   = note: requirement occurs because of the type `Env<'_>`, which makes the generic argument `'_` invariant
-   = note: the struct `Env<'a>` is invariant over the parameter `'a`
+   = note: requirement occurs because of the type `ab_contracts_common::env::Env<'_>`, which makes the generic argument `'_` invariant
+   = note: the struct `ab_contracts_common::env::Env<'a>` is invariant over the parameter `'a`
    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
 help: consider introducing a named lifetime parameter and update trait if needed
    |

@@ -149,7 +149,7 @@ impl TransactionSlot {
         }
     }
 
-    /// Returns `Some(output_index)` or `None` if explicit slot address
+    /// Returns whether this is an explicit slot address or an output index
     #[inline(always)]
     pub const fn slot_type(self) -> TransactionSlotType {
         self.0
@@ -218,7 +218,7 @@ impl TransactionInput {
         }
     }
 
-    /// Returns `Some(output_index)` or `None` if regular input value
+    /// Returns whether this is a regular input value with its alignment or an output index
     #[inline(always)]
     pub const fn input_type(self) -> TransactionInputType {
         self.0

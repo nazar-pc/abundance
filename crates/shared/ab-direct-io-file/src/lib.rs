@@ -62,7 +62,9 @@ impl AlignedPage {
     /// Convenient conversion from slice to underlying representation for efficiency purposes
     #[inline(always)]
     pub fn slice_to_repr(value: &[Self]) -> &[[u8; AlignedPage::SIZE]] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` and guaranteed to have the same memory layout
+        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
+        // alignment equal to its size, so it has no padding and the same size as the inner value,
+        // whose alignment is smaller
         unsafe { mem::transmute(value) }
     }
 
@@ -71,7 +73,10 @@ impl AlignedPage {
     pub fn uninit_slice_to_repr(
         value: &[MaybeUninit<Self>],
     ) -> &[MaybeUninit<[u8; AlignedPage::SIZE]>] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` and guaranteed to have the same memory layout
+        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
+        // alignment equal to its size, so it has no padding and the same size as the inner value,
+        // whose alignment is smaller. `MaybeUninit` preserves the size and alignment of the wrapped
+        // type.
         unsafe { mem::transmute(value) }
     }
 
@@ -80,7 +85,7 @@ impl AlignedPage {
     /// Returns `None` if not correctly aligned.
     #[inline]
     pub fn try_slice_from_repr(value: &[[u8; AlignedPage::SIZE]]) -> Option<&[Self]> {
-        // SAFETY: All bit patterns are valid
+        // SAFETY: All bit patterns are valid and there is no padding
         let (before, slice, after) = unsafe { value.align_to::<Self>() };
 
         if before.is_empty() && after.is_empty() {
@@ -97,7 +102,7 @@ impl AlignedPage {
     pub fn try_uninit_slice_from_repr(
         value: &[MaybeUninit<[u8; AlignedPage::SIZE]>],
     ) -> Option<&[MaybeUninit<Self>]> {
-        // SAFETY: All bit patterns are valid
+        // SAFETY: All bit patterns are valid and there is no padding
         let (before, slice, after) = unsafe { value.align_to::<MaybeUninit<Self>>() };
 
         if before.is_empty() && after.is_empty() {
@@ -136,7 +141,7 @@ impl AlignedPage {
     /// Returns `None` if not correctly aligned.
     #[inline]
     pub fn try_slice_mut_from_repr(value: &mut [[u8; AlignedPage::SIZE]]) -> Option<&mut [Self]> {
-        // SAFETY: All bit patterns are valid
+        // SAFETY: All bit patterns are valid and there is no padding
         let (before, slice, after) = unsafe { value.align_to_mut::<Self>() };
 
         if before.is_empty() && after.is_empty() {
@@ -153,7 +158,7 @@ impl AlignedPage {
     pub fn try_uninit_slice_mut_from_repr(
         value: &mut [MaybeUninit<[u8; AlignedPage::SIZE]>],
     ) -> Option<&mut [MaybeUninit<Self>]> {
-        // SAFETY: All bit patterns are valid
+        // SAFETY: All bit patterns are valid and there is no padding
         let (before, slice, after) = unsafe { value.align_to_mut::<MaybeUninit<Self>>() };
 
         if before.is_empty() && after.is_empty() {
