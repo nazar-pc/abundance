@@ -20,8 +20,8 @@ New features:
 
 * `alignment` module with `Alignment` trait and `Align1` to `Align4096` types, which are used as type parameters for
   alignment of the contents of buffers and of their allocations
-* `OwnedAlignedBuffer::with_capacity_aligned()` creates a buffer with allocation aligned to up to 4096 bytes, which is
-  preserved when it grows, is cloned or converted into an owned buffer, `allocation_alignment()` returns it
+* `allocation_alignment()` on both buffers returns the alignment of the allocation, which can be stricter than the
+  alignment of the contents and is preserved when a buffer grows, is cloned or converted into an owned buffer
 * `into_start_align()` converts a buffer into one with a weaker alignment of the contents, `try_into_start_align()`
   converts into one with any alignment that the contents are actually aligned to
 * `OwnedAlignedBuffer::EMPTY` and `SharedAlignedBuffer::EMPTY` constants, and `Default` for `OwnedAlignedBuffer`
@@ -38,8 +38,7 @@ New features:
 * `truncate()` on both buffers
 * `SharedAlignedBuffer::get_mut()` gives mutable access to the contents of the last reference to the allocation,
   `SharedAlignedBuffer::make_mut()` copies the contents into a new allocation first if it is still shared
-* `OwnedAlignedBuffer::zeroed()` creates a buffer filled with zeroes, allocating zeroed memory directly,
-  `OwnedAlignedBuffer::zeroed_aligned()` does the same with a specified alignment of the allocation
+* `OwnedAlignedBuffer::zeroed()` creates a buffer filled with zeroes, allocating zeroed memory directly
 * `OwnedAlignedBuffer::spare_capacity_mut()` returns capacity after the contents for writing into it
 * `AlignedBuffer` trait implemented for both buffers, for APIs that accept either of them
 * `OwnedAlignedBuffer::as_u128_slice()` returns the contents as whole `u128`s

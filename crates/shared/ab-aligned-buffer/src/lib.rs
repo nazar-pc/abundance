@@ -725,25 +725,11 @@ where
     /// If `len` is larger than [`Self::MAX_CAPACITY`]
     #[inline(always)]
     pub fn zeroed(len: u32) -> Self {
-        Self::zeroed_with_alignment(len, A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT))
-    }
-
-    /// Create a new instance of specified length filled with zeroes and allocation aligned to
-    /// `AA`, see [`Self::zeroed()`] for details.
-    ///
-    /// # Panics
-    /// If `len` is larger than [`Self::MAX_CAPACITY`]
-    #[inline(always)]
-    pub fn zeroed_aligned<AA>(len: u32) -> Self
-    where
-        AA: AtLeast<A> + AtLeast<Align16>,
-    {
-        Self::zeroed_with_alignment(len, AA::ALIGN)
-    }
-
-    #[inline(always)]
-    fn zeroed_with_alignment(len: u32, alignment: usize) -> Self {
-        let mut instance = Self::from_inner(InnerBuffer::allocate_zeroed(len, alignment, 0));
+        let mut instance = Self::from_inner(InnerBuffer::allocate_zeroed(
+            len,
+            A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT),
+            0,
+        ));
         // SAFETY: The whole data region is zeroed, which is a valid initialized value
         unsafe {
             instance.set_len(len);
@@ -764,21 +750,6 @@ where
         let this = ManuallyDrop::new(self);
         // SAFETY: Moved out of `ManuallyDrop` that is never used again
         unsafe { (&raw const this.inner).read() }
-    }
-
-    /// Create a new instance with specified capacity and allocation aligned to `AA`.
-    ///
-    /// Zero capacity doesn't allocate, and such a buffer grows into an allocation aligned to the
-    /// alignment of the contents, but at least 16 bytes.
-    ///
-    /// # Panics
-    /// If `capacity` is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
-    #[inline(always)]
-    pub fn with_capacity_aligned<AA>(capacity: u32) -> Self
-    where
-        AA: AtLeast<A> + AtLeast<Align16>,
-    {
-        Self::from_inner(InnerBuffer::allocate(capacity, AA::ALIGN, 0))
     }
 
     #[inline(always)]

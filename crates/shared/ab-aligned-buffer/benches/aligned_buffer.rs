@@ -1,4 +1,4 @@
-use ab_aligned_buffer::alignment::{Align1, Align16, Align4096};
+use ab_aligned_buffer::alignment::{Align16, Align4096};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
@@ -11,11 +11,11 @@ fn criterion_benchmark(c: &mut Criterion) {
             black_box(OwnedAlignedBuffer::<Align16>::with_capacity(black_box(64)));
         });
     });
-    c.bench_function("owned/with-capacity-aligned/4096", |b| {
+    c.bench_function("owned/with-capacity-align-4096/4096", |b| {
         b.iter(|| {
-            black_box(OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<
-                Align4096,
-            >(black_box(4096)));
+            black_box(OwnedAlignedBuffer::<Align4096>::with_capacity(black_box(
+                4096,
+            )));
         });
     });
     c.bench_function("owned/from-bytes/64", |b| {

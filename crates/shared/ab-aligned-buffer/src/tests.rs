@@ -405,7 +405,7 @@ where
 {
     let bytes = (0..=u8::MAX).cycle().take(1000).collect::<Vec<_>>();
 
-    let mut owned = OwnedAlignedBuffer::<A>::with_capacity_aligned::<AA>(10);
+    let mut owned = OwnedAlignedBuffer::<AA>::with_capacity(10).into_start_align::<A>();
     assert!(owned.capacity() >= 10);
     assert_eq!(owned.allocation_alignment(), AA::ALIGN);
     assert!(is_aligned_to(owned.as_byte_ptr(), AA::ALIGN));
@@ -474,7 +474,7 @@ fn empty_buffer_grows_to_alignment_of_contents() {
     assert_eq!(owned.as_slice(), b"abc");
 
     // Zero capacity doesn't keep the alignment of the allocation
-    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<Align4096>(0);
+    let mut owned = OwnedAlignedBuffer::<Align4096>::with_capacity(0).into_start_align::<Align1>();
     assert_eq!(owned.allocation_alignment(), Align16::ALIGN);
     assert!(owned.append(b"abc"));
     assert_eq!(owned.allocation_alignment(), Align16::ALIGN);
@@ -486,7 +486,7 @@ fn empty_buffer_grows_to_alignment_of_contents() {
 
 #[test]
 fn start_alignment_conversions() {
-    let owned = OwnedAlignedBuffer::<Align16>::with_capacity_aligned::<Align4096>(10);
+    let owned = OwnedAlignedBuffer::<Align4096>::with_capacity(10).into_start_align::<Align16>();
     let owned = owned
         .try_into_start_align::<Align4096>()
         .unwrap()
@@ -691,7 +691,7 @@ fn relocate() {
     let bytes = (0..100).collect::<Vec<u8>>();
 
     // Within the allocation, forward and backward with overlapping ranges
-    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<Align16>(200);
+    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity(200);
     let ptr = owned.as_byte_ptr();
     assert!(owned.append(&bytes));
     assert!(owned.relocate::<Align16>(10, 100));
@@ -773,10 +773,9 @@ fn realign() {
 
     // Allocations aligned to 16 bytes, but not to 32 bytes, buffers are kept alive, so that their
     // addresses are different
-    let mut buffers =
-        iter::repeat_with(|| OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<Align16>(100))
-            .take(100)
-            .collect::<Vec<_>>();
+    let mut buffers = iter::repeat_with(|| OwnedAlignedBuffer::<Align1>::with_capacity(100))
+        .take(100)
+        .collect::<Vec<_>>();
     let mut misaligned_buffers = iter::from_fn(|| {
         let index = buffers
             .iter()
@@ -910,7 +909,7 @@ fn zeroed() {
             "Length {len}"
         );
 
-        let owned = OwnedAlignedBuffer::<Align1>::zeroed_aligned::<Align4096>(len);
+        let owned = OwnedAlignedBuffer::<Align4096>::zeroed(len).into_start_align::<Align1>();
         assert_eq!(owned.len(), len, "Length {len}");
         assert!(owned.iter().all(|&byte| byte == 0), "Length {len}");
         if len != 0 {
@@ -964,7 +963,8 @@ where
 
 #[test]
 fn aligned_buffer() {
-    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<Align4096>(100);
+    let mut owned =
+        OwnedAlignedBuffer::<Align4096>::with_capacity(100).into_start_align::<Align1>();
     assert!(owned.relocate::<Align4096>(10, 0));
     assert!(owned.append(b"abc"));
     check_aligned_buffer(owned.clone(), b"abc", 0);
