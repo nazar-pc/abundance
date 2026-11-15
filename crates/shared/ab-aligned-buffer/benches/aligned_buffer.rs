@@ -30,7 +30,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             owned.truncate(0);
             for chunk in bytes.as_chunks::<8>().0 {
-                assert!(owned.append(black_box(chunk)));
+                owned.append(black_box(chunk)).unwrap();
             }
         });
     });
@@ -38,7 +38,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let mut owned = OwnedAlignedBuffer::<Align16>::EMPTY;
             for chunk in bytes.as_chunks::<8>().0 {
-                assert!(owned.append(black_box(chunk)));
+                owned.append(black_box(chunk)).unwrap();
             }
             black_box(owned);
         });

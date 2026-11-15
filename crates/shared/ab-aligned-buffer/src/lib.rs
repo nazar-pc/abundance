@@ -972,36 +972,27 @@ where
 
     /// Will re-allocate if capacity is not enough to store provided bytes.
     ///
-    /// Returns `false` and leaves the buffer unchanged if `self.len() + bytes.len()` with
-    /// [`Self::offset()`] is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`].
-    ///
-    /// # Panics
-    /// If memory re-allocation fails
+    /// Returns an error and leaves the buffer unchanged if `self.len() + bytes.len()` with
+    /// [`Self::offset()`] is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails.
     #[inline(always)]
-    #[must_use = "Check for overflow"]
-    pub fn append(&mut self, bytes: &[u8]) -> bool {
-        let Ok(len) = u32::try_from(bytes.len()) else {
-            return false;
-        };
-
-        let Some(new_len) = self.len().checked_add(len) else {
-            return false;
-        };
-        // Offset is not larger than the capacity of the allocation, so this doesn't underflow
-        if new_len > MAX_CAPACITY - self.offset() {
-            return false;
-        }
+    pub fn append(&mut self, bytes: &[u8]) -> Result<(), AllocationError> {
+        let new_len = u32::try_from(bytes.len())
+            .ok()
+            .and_then(|len| self.len().checked_add(len))
+            // Offset is not larger than the capacity of the allocation, so this doesn't underflow
+            .filter(|&new_len| new_len <= MAX_CAPACITY - self.offset())
+            .ok_or(AllocationError::CapacityOverflow)?;
 
         if new_len > self.capacity() {
             // Doubling the capacity is capped by the largest one `Layout` allows
-            self.inner.resize(
+            self.inner.try_resize(
                 new_len.max(
                     self.capacity()
                         .saturating_mul(2)
                         .min(MAX_CAPACITY - self.offset()),
                 ),
                 A::ALIGN,
-            );
+            )?;
         }
 
         // SAFETY: Sufficient capacity guaranteed above, natural alignment of bytes is 1 for input
@@ -1014,7 +1005,7 @@ where
             self.inner.set_len(new_len);
         }
 
-        true
+        Ok(())
     }
 
     #[inline(always)]

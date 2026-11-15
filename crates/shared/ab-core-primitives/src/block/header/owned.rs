@@ -66,12 +66,12 @@ pub trait GenericOwnedBlockHeader:
 fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSeal<'_>) {
     match seal {
         BlockHeaderSeal::Ed25519(seal) => {
-            let true = buffer.append(&[BlockHeaderSealType::Ed25519 as u8]) else {
-                unreachable!("Unsealed headers are only created when the largest seal fits; qed");
-            };
-            let true = buffer.append(seal.as_bytes()) else {
-                unreachable!("Unsealed headers are only created when the largest seal fits; qed");
-            };
+            buffer
+                .append(&[BlockHeaderSealType::Ed25519 as u8])
+                .expect("Unsealed headers are only created when the largest seal fits; qed");
+            buffer
+                .append(seal.as_bytes())
+                .expect("Unsealed headers are only created when the largest seal fits; qed");
         }
     }
 }
@@ -228,30 +228,30 @@ impl OwnedBeaconChainHeader {
         if OwnedAlignedBuffer::<Align16>::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
             return Err(OwnedBeaconChainHeaderError::HeaderTooLarge);
         }
-        let true = buffer.append(prefix.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(result.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(consensus_info.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(intermediate_shard_blocks_root.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
+        buffer
+            .append(prefix.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(result.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(consensus_info.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(intermediate_shard_blocks_root.as_bytes())
+            .expect("Checked size above; qed");
         // TODO: Would be nice for `BlockHeaderConsensusParameters` to have API to write this by
         //  itself
         {
-            let true = buffer.append(&solution_range.to_bytes()) else {
-                unreachable!("Checked size above; qed");
-            };
-            let true = buffer.append(&slot_iterations.get().to_le_bytes()) else {
-                unreachable!("Checked size above; qed");
-            };
-            let true = buffer.append(NumShardsUnchecked::from(*num_shards).as_bytes()) else {
-                unreachable!("Checked size above; qed");
-            };
+            buffer
+                .append(&solution_range.to_bytes())
+                .expect("Checked size above; qed");
+            buffer
+                .append(&slot_iterations.get().to_le_bytes())
+                .expect("Checked size above; qed");
+            buffer
+                .append(NumShardsUnchecked::from(*num_shards).as_bytes())
+                .expect("Checked size above; qed");
 
             let bitflags = {
                 let mut bitflags = 0u8;
@@ -269,34 +269,30 @@ impl OwnedBeaconChainHeader {
                 bitflags
             };
 
-            let true = buffer.append(&[bitflags]) else {
-                unreachable!("Checked size above; qed");
-            };
+            buffer.append(&[bitflags]).expect("Checked size above; qed");
 
             if let Some(super_segment_root) = super_segment_root {
-                let true = buffer.append(super_segment_root.as_ref()) else {
-                    unreachable!("Checked size above; qed");
-                };
+                buffer
+                    .append(super_segment_root.as_ref())
+                    .expect("Checked size above; qed");
             }
 
             if let Some(next_solution_range) = next_solution_range {
-                let true = buffer.append(&next_solution_range.to_bytes()) else {
-                    unreachable!("Checked size above; qed");
-                };
+                buffer
+                    .append(&next_solution_range.to_bytes())
+                    .expect("Checked size above; qed");
             }
 
             if let Some(pot_parameters_change) = pot_parameters_change {
-                let true = buffer.append(&pot_parameters_change.slot.to_bytes()) else {
-                    unreachable!("Checked size above; qed");
-                };
-                let true =
-                    buffer.append(&pot_parameters_change.slot_iterations.get().to_le_bytes())
-                else {
-                    unreachable!("Checked size above; qed");
-                };
-                let true = buffer.append(pot_parameters_change.entropy.as_ref()) else {
-                    unreachable!("Checked size above; qed");
-                };
+                buffer
+                    .append(&pot_parameters_change.slot.to_bytes())
+                    .expect("Checked size above; qed");
+                buffer
+                    .append(&pot_parameters_change.slot_iterations.get().to_le_bytes())
+                    .expect("Checked size above; qed");
+                buffer
+                    .append(pot_parameters_change.entropy.as_ref())
+                    .expect("Checked size above; qed");
             }
         }
 
@@ -566,21 +562,21 @@ impl OwnedIntermediateShardHeader {
         if OwnedAlignedBuffer::<Align16>::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
             return Err(OwnedIntermediateShardHeaderError::HeaderTooLarge);
         }
-        let true = buffer.append(prefix.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(result.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(consensus_info.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(beacon_chain_info.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(leaf_shard_blocks_root.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
+        buffer
+            .append(prefix.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(result.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(consensus_info.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(beacon_chain_info.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(leaf_shard_blocks_root.as_bytes())
+            .expect("Checked size above; qed");
 
         Ok(())
     }
@@ -836,18 +832,18 @@ impl OwnedLeafShardHeader {
         if OwnedAlignedBuffer::<Align16>::MAX_CAPACITY - buffer.len() < Self::MAX_ALLOCATION {
             return Err(OwnedLeafShardHeaderError::HeaderTooLarge);
         }
-        let true = buffer.append(prefix.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(result.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(consensus_info.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
-        let true = buffer.append(beacon_chain_info.as_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
+        buffer
+            .append(prefix.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(result.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(consensus_info.as_bytes())
+            .expect("Checked size above; qed");
+        buffer
+            .append(beacon_chain_info.as_bytes())
+            .expect("Checked size above; qed");
 
         Ok(())
     }

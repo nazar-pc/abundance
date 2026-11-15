@@ -229,7 +229,7 @@ impl ResponsePayload {
     /// of a single buffer.
     ///
     /// # Panics
-    /// If the payload is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    /// If the payload is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails
     pub fn into_buffer(mut self) -> SharedAlignedBuffer<Align1> {
         if self.buffers.len() <= 1 {
             return self.buffers.pop().unwrap_or_default();
@@ -238,7 +238,9 @@ impl ResponsePayload {
         let capacity = u32::try_from(self.len()).unwrap_or(u32::MAX);
         let mut buffer = OwnedAlignedBuffer::<Align1>::with_capacity(capacity);
         for part in &self.buffers {
-            assert!(buffer.append(part), "Payload is too large");
+            buffer
+                .append(part)
+                .unwrap_or_else(|error| panic!("Failed to concatenate payload: {error}"));
         }
         buffer.into_shared()
     }

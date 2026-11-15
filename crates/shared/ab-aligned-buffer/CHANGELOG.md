@@ -15,6 +15,8 @@ Breaking changes:
   contents of at least 16 bytes, `as_byte_ptr()` and `as_mut_byte_ptr()` are available for any alignment
 * Constructors, `MAX_CAPACITY`, `Default`, `EMPTY` and `empty_ref()` are generic over alignment of the contents, so
   call sites need type annotations where it can't be inferred
+* `OwnedAlignedBuffer::append()` returns `Result<(), AllocationError>` instead of `bool`, and it returns an error
+  instead of panicking when allocation fails
 
 New features:
 
