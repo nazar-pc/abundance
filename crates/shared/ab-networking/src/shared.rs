@@ -5,7 +5,8 @@ use crate::protocols::request_response::request_response_factory::RequestFailure
 use crate::utils::Handler;
 use crate::utils::multihash::Multihash;
 use crate::utils::rate_limiter::RateLimiter;
-use bytes::Bytes;
+use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align1;
 use futures::channel::{mpsc, oneshot};
 use libp2p::gossipsub::{PublishError, Sha256Topic, SubscriptionError};
 use libp2p::kad::{PeerRecord, RecordKey};
@@ -52,7 +53,7 @@ pub(crate) struct CreatedSubscription {
     /// Subscription ID to be used for unsubscribing.
     pub(crate) subscription_id: usize,
     /// Receiver side of the channel with new messages.
-    pub(crate) receiver: mpsc::UnboundedReceiver<Bytes>,
+    pub(crate) receiver: mpsc::UnboundedReceiver<SharedAlignedBuffer>,
 }
 
 #[derive(Debug)]
@@ -96,7 +97,7 @@ pub(crate) enum Command {
         addresses: Vec<Multiaddr>,
         protocol_name: &'static str,
         request: Vec<u8>,
-        result_sender: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
+        result_sender: oneshot::Sender<Result<SharedAlignedBuffer<Align1>, RequestFailure>>,
     },
     GetProviders {
         key: RecordKey,

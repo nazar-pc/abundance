@@ -14,8 +14,8 @@ use crate::protocols::request_response::request_response_factory::{
 };
 use crate::shared::{Command, CreatedSubscription, PeerDiscovered, Shared};
 use crate::utils::{SubspaceMetrics, is_global_address_or_dns, strip_peer_id};
+use ab_aligned_buffer::SharedAlignedBuffer;
 use async_lock::Mutex as AsyncMutex;
-use bytes::Bytes;
 use event_listener_primitives::HandlerId;
 use futures::channel::mpsc;
 use futures::future::Fuse;
@@ -104,7 +104,8 @@ pub struct NodeRunner {
     next_subscription_id: usize,
     /// Topic subscription senders for logical subscriptions (multiple logical subscriptions can be
     /// present for the same physical subscription).
-    topic_subscription_senders: HashMap<TopicHash, IntMap<usize, mpsc::UnboundedSender<Bytes>>>,
+    topic_subscription_senders:
+        HashMap<TopicHash, IntMap<usize, mpsc::UnboundedSender<SharedAlignedBuffer>>>,
     random_query_timeout: Pin<Box<Fuse<Sleep>>>,
     /// Defines an interval between periodical tasks.
     periodical_tasks_interval: Pin<Box<Fuse<Sleep>>>,
@@ -1163,11 +1164,11 @@ impl NodeRunner {
         if let GossipsubEvent::Message { message, .. } = event
             && let Some(senders) = self.topic_subscription_senders.get(&message.topic)
         {
-            let bytes = Bytes::from(message.data);
+            let buffer = SharedAlignedBuffer::from_bytes(&message.data);
 
             for sender in senders.values() {
                 // Doesn't matter if receiver is still listening for messages or not.
-                let _: Result<(), _> = sender.unbounded_send(bytes.clone());
+                let _: Result<(), _> = sender.unbounded_send(buffer.clone());
             }
         }
     }

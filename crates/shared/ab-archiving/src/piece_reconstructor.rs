@@ -233,8 +233,6 @@ impl PiecesReconstructor {
         //  source piece
         let pieces = self.reconstruct_shards(segment_pieces)?;
 
-        let piece = Piece::from(&pieces[piece_position]);
-
-        Ok(piece.to_shared())
+        Ok(Piece::from(&pieces[piece_position]))
     }
 }

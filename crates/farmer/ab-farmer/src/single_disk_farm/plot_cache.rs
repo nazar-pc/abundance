@@ -8,6 +8,8 @@ mod tests;
 use crate::farm::{FarmError, MaybePieceStoredResult, PlotCache};
 use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::utils::AsyncJoinOnDrop;
+use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_direct_io_file::AlignedPage;
@@ -17,7 +19,6 @@ use ab_networking::libp2p::kad::RecordKey;
 use ab_networking::utils::multihash::ToMultihash;
 use async_lock::RwLock as AsyncRwLock;
 use async_trait::async_trait;
-use bytes::BytesMut;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::{Arc as StdArc, Weak};
@@ -287,12 +288,15 @@ impl DiskPlotCache {
         let file = self.file.upgrade()?;
 
         let read_fn = move || {
-            let mut element = BytesMut::zeroed(ELEMENT_SIZE);
-            if let Ok(Some(_piece_index)) = Self::read_piece_internal(&file, offset, &mut element) {
-                let element = element.freeze();
-                let piece =
-                    Piece::try_from(element.slice_ref(&element[PieceIndex::SIZE..][..Piece::SIZE]))
-                        .expect("Correct length; qed");
+            let mut element = OwnedAlignedBuffer::<Align16>::zeroed(ELEMENT_SIZE as u32);
+            if let Ok(Some(_piece_index)) =
+                Self::read_piece_internal(&file, offset, element.as_mut_slice())
+            {
+                let piece = element
+                    .into_shared()
+                    .get_slice(PieceIndex::SIZE as u32..(PieceIndex::SIZE + Piece::SIZE) as u32)
+                    .and_then(|piece| Piece::try_from(piece).ok())
+                    .expect("Piece is within the element and has correct length; qed");
                 Some(piece)
             } else {
                 None
