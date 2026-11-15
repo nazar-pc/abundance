@@ -207,7 +207,7 @@ fn transaction_to_owned_copies_only_transaction_bytes() {
             .unwrap();
     let bytes = owned_transaction.buffer().as_slice();
     let mut extended = OwnedAlignedBuffer::<Align16>::from_bytes(bytes);
-    assert!(extended.append(&[4; 16]));
+    extended.append(&[4; 16]).unwrap();
 
     let (transaction, remainder) = Transaction::try_from_bytes(extended.as_slice()).unwrap();
     assert_eq!(remainder, [4; 16]);
@@ -228,7 +228,7 @@ fn transaction_bytes_must_be_aligned_to_max_alignment() {
 
     // 8 bytes after a 16-byte boundary
     let mut misaligned = OwnedAlignedBuffer::<Align16>::from_bytes(&[0; 8]);
-    assert!(misaligned.append(bytes));
+    misaligned.append(bytes).unwrap();
     assert!(Transaction::try_from_bytes(&misaligned.as_slice()[8..]).is_none());
 }
 
@@ -257,7 +257,7 @@ fn owned_transaction_constructors_cache_hash() {
             .unwrap();
     let bytes = from_parts.buffer().as_slice();
     let mut extended = OwnedAlignedBuffer::<Align16>::from_bytes(bytes);
-    assert!(extended.append(&[4; 16]));
+    extended.append(&[4; 16]).unwrap();
     let (transaction, _remainder) = Transaction::try_from_bytes(extended.as_slice()).unwrap();
     let expected_hash = TransactionHash::from(Blake3Hash::from(blake3::hash(bytes)));
 

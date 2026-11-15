@@ -1,6 +1,8 @@
 // Plotting and proving a sector takes too long under Miri
 #![cfg(not(miri))]
 
+use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align4096;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset};
 use ab_core_primitives::pos::PosSeed;
@@ -38,7 +40,7 @@ fn plot_test_sector(
     erasure_coding: &ErasureCoding,
     table_generator: &ShimTableGenerator,
     history_size: HistorySize,
-) -> (Vec<u8>, PlottedSector) {
+) -> (OwnedAlignedBuffer<Align4096>, PlottedSector) {
     let shard_commitments_root = &shard_commitments_roots_cache().get(history_size);
     let farmer_protocol_info = FarmerProtocolInfo {
         history_size,
@@ -72,7 +74,7 @@ fn plot_test_sector(
         })
         .collect::<Vec<_>>();
 
-    let mut sector = Vec::new();
+    let mut sector = OwnedAlignedBuffer::EMPTY;
     let plotted_sector = block_on(plot_sector(PlotSectorOptions {
         public_key_hash: &PUBLIC_KEY_HASH,
         shard_commitments_root,

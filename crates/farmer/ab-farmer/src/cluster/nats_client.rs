@@ -24,7 +24,7 @@ use backon::{BackoffBuilder, ExponentialBuilder};
 use futures::channel::mpsc;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, Stream, StreamExt, select};
-use parity_scale_codec::{Decode, Encode, decode_from_bytes};
+use parity_scale_codec::{Decode, DecodeAll, Encode};
 use std::any::type_name;
 use std::collections::VecDeque;
 use std::fmt;
@@ -203,7 +203,7 @@ where
         let mut projected = self.project();
         match projected.subscriber.poll_next_unpin(cx) {
             Poll::Ready(Some(message)) => {
-                match decode_from_bytes::<GenericStreamResponses<Response>>(message.payload.clone())
+                match GenericStreamResponses::<Response>::decode_all(&mut message.payload.as_ref())
                 {
                     Ok(mut responses) => {
                         if responses.index() != *projected.next_index {
@@ -353,7 +353,7 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.project().subscriber.poll_next_unpin(cx) {
             Poll::Ready(Some(message)) => {
-                match decode_from_bytes::<Message>(message.payload.clone()) {
+                match Message::decode_all(&mut message.payload.as_ref()) {
                     Ok(message) => Poll::Ready(Some(message)),
                     Err(error) => {
                         warn!(
@@ -504,7 +504,7 @@ impl NatsClient {
         };
 
         let response =
-            decode_from_bytes::<Request::Response>(message.payload.clone()).map_err(|error| {
+            Request::Response::decode_all(&mut message.payload.as_ref()).map_err(|error| {
                 warn!(
                     %subject,
                     %error,
@@ -600,7 +600,7 @@ impl NatsClient {
         };
 
         let message_payload_size = message.payload.len();
-        let request = match decode_from_bytes::<Request>(message.payload.clone()) {
+        let request = match Request::decode_all(&mut message.payload.as_ref()) {
             Ok(request) => {
                 // Free allocation early
                 drop(message.payload);
@@ -769,7 +769,7 @@ impl NatsClient {
         };
 
         let message_payload_size = message.payload.len();
-        let request = match decode_from_bytes::<Request>(message.payload.clone()) {
+        let request = match Request::decode_all(&mut message.payload.as_ref()) {
             Ok(request) => {
                 // Free allocation early
                 drop(message.payload);

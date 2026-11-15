@@ -224,7 +224,7 @@ fn payload_decode_misaligned() {
     if align_of::<u128>() < usize::from(Alignment::MAX.get()) {
         let mut buffer = OwnedAlignedBuffer::<Align16>::from_bytes(&[0; 8]);
         for word in payload {
-            assert!(buffer.append(&word.to_ne_bytes()));
+            buffer.append(&word.to_ne_bytes()).unwrap();
         }
         // The buffer holds the payload 8 bytes after its 16-byte aligned start, which is aligned
         // for `u128` here

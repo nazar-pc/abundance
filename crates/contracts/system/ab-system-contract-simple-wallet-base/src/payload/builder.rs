@@ -828,10 +828,12 @@ impl TransactionPayloadBuilder {
             .ok()
             .and_then(|len| self.payload.len().checked_add(len))
             .is_some_and(|new_len| new_len <= self.payload.capacity());
-        if !(fits && self.payload.append(bytes)) {
+        if !fits {
             return Err(TransactionPayloadBuilderError::PayloadTooLarge);
         }
 
-        Ok(())
+        self.payload
+            .append(bytes)
+            .map_err(|_error| TransactionPayloadBuilderError::PayloadTooLarge)
     }
 }

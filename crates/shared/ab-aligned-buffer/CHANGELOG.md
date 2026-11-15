@@ -15,13 +15,15 @@ Breaking changes:
   contents of at least 16 bytes, `as_byte_ptr()` and `as_mut_byte_ptr()` are available for any alignment
 * Constructors, `MAX_CAPACITY`, `Default`, `EMPTY` and `empty_ref()` are generic over alignment of the contents, so
   call sites need type annotations where it can't be inferred
+* `OwnedAlignedBuffer::append()` returns `Result<(), AllocationError>` instead of `bool`, and it returns an error
+  instead of panicking when allocation fails
 
 New features:
 
 * `alignment` module with `Alignment` trait and `Align1` to `Align4096` types, which are used as type parameters for
   alignment of the contents of buffers and of their allocations
-* `OwnedAlignedBuffer::with_capacity_aligned()` creates a buffer with allocation aligned to up to 4096 bytes, which is
-  preserved when it grows, is cloned or converted into an owned buffer, `allocation_alignment()` returns it
+* `allocation_alignment()` on both buffers returns the alignment of the allocation, which can be stricter than the
+  alignment of the contents and is preserved when a buffer grows, is cloned or converted into an owned buffer
 * `into_start_align()` converts a buffer into one with a weaker alignment of the contents, `try_into_start_align()`
   converts into one with any alignment that the contents are actually aligned to
 * `OwnedAlignedBuffer::EMPTY` and `SharedAlignedBuffer::EMPTY` constants, and `Default` for `OwnedAlignedBuffer`
@@ -38,9 +40,10 @@ New features:
 * `truncate()` on both buffers
 * `SharedAlignedBuffer::get_mut()` gives mutable access to the contents of the last reference to the allocation,
   `SharedAlignedBuffer::make_mut()` copies the contents into a new allocation first if it is still shared
-* `OwnedAlignedBuffer::zeroed()` creates a buffer filled with zeroes, allocating zeroed memory directly,
-  `OwnedAlignedBuffer::zeroed_aligned()` does the same with a specified alignment of the allocation
+* `OwnedAlignedBuffer::zeroed()` creates a buffer filled with zeroes, allocating zeroed memory directly
 * `OwnedAlignedBuffer::spare_capacity_mut()` returns capacity after the contents for writing into it
+* `OwnedAlignedBuffer::try_with_capacity()`, `try_zeroed()` and `try_ensure_capacity()` return `AllocationError` instead
+  of panicking when the capacity is too large or allocation fails
 * `AlignedBuffer` trait implemented for both buffers, for APIs that accept either of them
 * `OwnedAlignedBuffer::as_u128_slice()` returns the contents as whole `u128`s
 * `OwnedAlignedBuffer::MAX_CAPACITY` is the largest capacity of a buffer, which is smaller than `u32::MAX` on 32-bit

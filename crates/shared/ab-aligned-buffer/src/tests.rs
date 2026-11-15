@@ -1,5 +1,7 @@
 use crate::alignment::{Align1, Align16, Align32, Align4096, Alignment, AtLeast};
-use crate::{AlignedBuffer, EMPTY_ALLOCATION, OwnedAlignedBuffer, SharedAlignedBuffer};
+use crate::{
+    AlignedBuffer, AllocationError, EMPTY_ALLOCATION, OwnedAlignedBuffer, SharedAlignedBuffer,
+};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::iter;
@@ -225,7 +227,7 @@ fn basic() {
 #[test]
 fn realloc() {
     let mut owned = OwnedAlignedBuffer::<Align16>::with_capacity(10);
-    assert!(owned.append(b"abc"));
+    owned.append(b"abc").unwrap();
 
     let original_capacity = owned.capacity();
     assert!(original_capacity >= 10);
@@ -236,7 +238,7 @@ fn realloc() {
     assert_eq!(owned.as_slice(), b"abc");
 
     let ptr_before_append = owned.as_ptr();
-    assert!(owned.append(&[1; 1000 - 3]));
+    owned.append(&[1; 1000 - 3]).unwrap();
     // Ensure it didn't reallocate
     assert_eq!(ptr_before_append, owned.as_ptr());
 }
@@ -266,7 +268,7 @@ fn as_u128_slice() {
 fn resize_through_unaligned_capacities() {
     let bytes = (1..=u8::MAX).collect::<Vec<_>>();
     let mut owned = OwnedAlignedBuffer::<Align16>::with_capacity(1);
-    assert!(owned.append(&bytes[..1]));
+    owned.append(&bytes[..1]).unwrap();
 
     // Every capacity that is not a multiple of the alignment, and those that are
     for capacity in 1..=40 {
@@ -364,7 +366,7 @@ fn empty_buffers_are_not_backed_by_allocation() {
 
     // Empty buffer grows into an allocation
     let mut owned = OwnedAlignedBuffer::<Align16>::with_capacity(0);
-    assert!(owned.append(b"abc"));
+    owned.append(b"abc").unwrap();
     assert_ne!(owned.as_ptr(), empty_ptr);
     assert_eq!(owned.as_slice(), b"abc");
 }
@@ -405,7 +407,7 @@ where
 {
     let bytes = (0..=u8::MAX).cycle().take(1000).collect::<Vec<_>>();
 
-    let mut owned = OwnedAlignedBuffer::<A>::with_capacity_aligned::<AA>(10);
+    let mut owned = OwnedAlignedBuffer::<AA>::with_capacity(10).into_start_align::<A>();
     assert!(owned.capacity() >= 10);
     assert_eq!(owned.allocation_alignment(), AA::ALIGN);
     assert!(is_aligned_to(owned.as_byte_ptr(), AA::ALIGN));
@@ -413,7 +415,7 @@ where
     // Growing preserves the alignment of the allocation
     for len in [1, 10, 11, 100, 1000] {
         owned.copy_from_slice(&bytes[..len]);
-        assert!(owned.append(&bytes[..len]));
+        owned.append(&bytes[..len]).unwrap();
         assert_eq!(owned.allocation_alignment(), AA::ALIGN, "Length {len}");
         assert!(
             is_aligned_to(owned.as_byte_ptr(), AA::ALIGN),
@@ -462,21 +464,21 @@ fn allocation_alignment() {
 fn empty_buffer_grows_to_alignment_of_contents() {
     let mut owned = OwnedAlignedBuffer::<Align1>::EMPTY;
     assert_eq!(owned.allocation_alignment(), Align16::ALIGN);
-    assert!(owned.append(b"abc"));
+    owned.append(b"abc").unwrap();
     assert_eq!(owned.allocation_alignment(), Align16::ALIGN);
 
     let mut owned = OwnedAlignedBuffer::<Align4096>::EMPTY;
     assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
     assert_eq!(owned.allocation_alignment(), Align4096::ALIGN);
-    assert!(owned.append(b"abc"));
+    owned.append(b"abc").unwrap();
     assert_eq!(owned.allocation_alignment(), Align4096::ALIGN);
     assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
     assert_eq!(owned.as_slice(), b"abc");
 
     // Zero capacity doesn't keep the alignment of the allocation
-    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<Align4096>(0);
+    let mut owned = OwnedAlignedBuffer::<Align4096>::with_capacity(0).into_start_align::<Align1>();
     assert_eq!(owned.allocation_alignment(), Align16::ALIGN);
-    assert!(owned.append(b"abc"));
+    owned.append(b"abc").unwrap();
     assert_eq!(owned.allocation_alignment(), Align16::ALIGN);
     assert_eq!(
         SharedAlignedBuffer::<Align32>::EMPTY.allocation_alignment(),
@@ -486,7 +488,7 @@ fn empty_buffer_grows_to_alignment_of_contents() {
 
 #[test]
 fn start_alignment_conversions() {
-    let owned = OwnedAlignedBuffer::<Align16>::with_capacity_aligned::<Align4096>(10);
+    let owned = OwnedAlignedBuffer::<Align4096>::with_capacity(10).into_start_align::<Align16>();
     let owned = owned
         .try_into_start_align::<Align4096>()
         .unwrap()
@@ -539,7 +541,7 @@ fn growth_preserves_alignment_of_contents() {
     // Allocation is only aligned to 16 bytes, but contents are moved within it to an address
     // aligned to 32 bytes
     let mut owned = OwnedAlignedBuffer::<Align16>::with_capacity(64);
-    assert!(owned.append(b"abc"));
+    owned.append(b"abc").unwrap();
     let mut owned = owned.realign::<Align32>();
     assert_eq!(owned.allocation_alignment(), Align16::ALIGN);
     assert!(is_aligned_to(owned.as_byte_ptr(), Align32::ALIGN));
@@ -623,12 +625,12 @@ fn owned_slices() {
     assert_eq!(owned.as_slice(), &bytes[16..48]);
 
     // Bytes after the contents are available as capacity
-    assert!(owned.append(&bytes[..50]));
+    owned.append(&bytes[..50]).unwrap();
     assert_eq!(owned.as_byte_ptr(), ptr);
     assert_eq!(&owned[32..], &bytes[..50]);
 
     // Growing keeps the offset
-    assert!(owned.append(&bytes));
+    owned.append(&bytes).unwrap();
     assert_eq!(owned.offset(), 16);
     assert_eq!(owned.len(), 32 + 50 + 100);
     assert_eq!(&owned[..32], &bytes[16..48]);
@@ -673,7 +675,7 @@ fn standalone() {
 
     // Owned buffer with spare capacity is not standalone
     let mut owned = OwnedAlignedBuffer::<Align16>::with_capacity(100);
-    assert!(owned.append(&bytes[..10]));
+    owned.append(&bytes[..10]).unwrap();
     let ptr = owned.as_byte_ptr();
     let shared = owned.into_shared().into_standalone();
     assert_ne!(shared.as_byte_ptr(), ptr);
@@ -691,9 +693,9 @@ fn relocate() {
     let bytes = (0..100).collect::<Vec<u8>>();
 
     // Within the allocation, forward and backward with overlapping ranges
-    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<Align16>(200);
+    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity(200);
     let ptr = owned.as_byte_ptr();
-    assert!(owned.append(&bytes));
+    owned.append(&bytes).unwrap();
     assert!(owned.relocate::<Align16>(10, 100));
     assert_eq!(owned.offset(), 10);
     // SAFETY: Within the allocation
@@ -773,10 +775,9 @@ fn realign() {
 
     // Allocations aligned to 16 bytes, but not to 32 bytes, buffers are kept alive, so that their
     // addresses are different
-    let mut buffers =
-        iter::repeat_with(|| OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<Align16>(100))
-            .take(100)
-            .collect::<Vec<_>>();
+    let mut buffers = iter::repeat_with(|| OwnedAlignedBuffer::<Align1>::with_capacity(100))
+        .take(100)
+        .collect::<Vec<_>>();
     let mut misaligned_buffers = iter::from_fn(|| {
         let index = buffers
             .iter()
@@ -787,7 +788,7 @@ fn realign() {
     // Moved forward within the allocation
     let mut owned = misaligned_buffers.next().unwrap();
     let ptr = owned.as_byte_ptr();
-    assert!(owned.append(&bytes[..10]));
+    owned.append(&bytes[..10]).unwrap();
     let owned = owned.realign::<Align32>();
     // SAFETY: Within the allocation
     assert_eq!(owned.as_byte_ptr(), unsafe { ptr.add(16) });
@@ -797,7 +798,7 @@ fn realign() {
     // Doesn't fit, copied into a new allocation
     let mut owned = misaligned_buffers.next().unwrap();
     let ptr = owned.as_byte_ptr();
-    assert!(owned.append(&bytes[..90]));
+    owned.append(&bytes[..90]).unwrap();
     let owned = owned.realign::<Align32>();
     assert_ne!(owned.as_byte_ptr(), ptr);
     assert_eq!(owned.offset(), 0);
@@ -910,7 +911,7 @@ fn zeroed() {
             "Length {len}"
         );
 
-        let owned = OwnedAlignedBuffer::<Align1>::zeroed_aligned::<Align4096>(len);
+        let owned = OwnedAlignedBuffer::<Align4096>::zeroed(len).into_start_align::<Align1>();
         assert_eq!(owned.len(), len, "Length {len}");
         assert!(owned.iter().all(|&byte| byte == 0), "Length {len}");
         if len != 0 {
@@ -926,7 +927,7 @@ fn zeroed() {
 #[test]
 fn spare_capacity() {
     let mut owned = OwnedAlignedBuffer::<Align16>::with_capacity(10);
-    assert!(owned.append(b"abc"));
+    owned.append(b"abc").unwrap();
     let capacity = owned.capacity();
     let spare_capacity = owned.spare_capacity_mut();
     assert_eq!(spare_capacity.len() as u32, capacity - 3);
@@ -964,9 +965,10 @@ where
 
 #[test]
 fn aligned_buffer() {
-    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity_aligned::<Align4096>(100);
+    let mut owned =
+        OwnedAlignedBuffer::<Align4096>::with_capacity(100).into_start_align::<Align1>();
     assert!(owned.relocate::<Align4096>(10, 0));
-    assert!(owned.append(b"abc"));
+    owned.append(b"abc").unwrap();
     check_aligned_buffer(owned.clone(), b"abc", 0);
     let shared = owned.into_shared();
     check_aligned_buffer(shared.clone(), b"abc", 10);
@@ -976,7 +978,7 @@ fn aligned_buffer() {
 // A `u32` capacity can only exceed `isize::MAX` bytes where `usize` is 32-bit
 #[cfg(target_pointer_width = "32")]
 #[test]
-#[should_panic(expected = "has failed: too large")]
+#[should_panic(expected = "larger than the largest supported capacity")]
 fn capacity_overflow_panics() {
     OwnedAlignedBuffer::<Align16>::with_capacity(1).ensure_capacity(u32::MAX);
 }
@@ -984,7 +986,7 @@ fn capacity_overflow_panics() {
 // A `u32` capacity can only exceed `isize::MAX` bytes where `usize` is 32-bit
 #[cfg(target_pointer_width = "32")]
 #[test]
-#[should_panic(expected = "has failed: too large")]
+#[should_panic(expected = "larger than the largest supported capacity")]
 fn capacity_above_isize_max_panics() {
     OwnedAlignedBuffer::<Align16>::with_capacity(1).ensure_capacity(1 << 31);
 }
@@ -992,7 +994,7 @@ fn capacity_above_isize_max_panics() {
 // The largest capacity is only below `u32::MAX` where `usize` is 32-bit
 #[cfg(target_pointer_width = "32")]
 #[test]
-#[should_panic(expected = "has failed: too large")]
+#[should_panic(expected = "larger than the largest supported capacity")]
 fn capacity_above_max_capacity_panics() {
     OwnedAlignedBuffer::<Align16>::with_capacity(1)
         .ensure_capacity(OwnedAlignedBuffer::<Align16>::MAX_CAPACITY + 1);
@@ -1007,14 +1009,14 @@ fn append_beyond_max_capacity() {
     // Zeroed allocation is not backed by memory until written to
     let bytes = vec![0; OwnedAlignedBuffer::<Align16>::MAX_CAPACITY as usize - 2];
 
-    assert!(!owned.append(&bytes));
+    assert_eq!(owned.append(&bytes), Err(AllocationError::CapacityOverflow));
     assert_eq!(owned.as_slice(), [1, 2, 3]);
 }
 
 // The largest capacity is only below `u32::MAX` where `usize` is 32-bit
 #[cfg(target_pointer_width = "32")]
 #[test]
-#[should_panic(expected = "has failed: too large")]
+#[should_panic(expected = "larger than the largest supported capacity")]
 fn capacity_with_offset_above_max_capacity_panics() {
     let mut owned = OwnedAlignedBuffer::<Align1>::EMPTY;
     assert!(owned.relocate::<Align16>(16, 1));
@@ -1028,11 +1030,11 @@ fn capacity_with_offset_above_max_capacity_panics() {
 fn append_with_offset_beyond_max_capacity() {
     let mut owned = OwnedAlignedBuffer::<Align1>::EMPTY;
     assert!(owned.relocate::<Align16>(16, 3));
-    assert!(owned.append(&[1, 2, 3]));
+    owned.append(&[1, 2, 3]).unwrap();
     // Zeroed allocation is not backed by memory until written to
     let bytes = vec![0; OwnedAlignedBuffer::<Align16>::MAX_CAPACITY as usize - 3 - 15];
 
-    assert!(!owned.append(&bytes));
+    assert_eq!(owned.append(&bytes), Err(AllocationError::CapacityOverflow));
     assert_eq!(owned.as_slice(), [1, 2, 3]);
 }
 
@@ -1076,4 +1078,65 @@ fn generic_alignment_is_at_least_one_byte() {
     let shared = into_unaligned(shared);
     assert_eq!(shared.as_byte_ptr(), ptr);
     assert_eq!(shared.as_slice(), b"abc");
+}
+
+#[test]
+fn fallible_allocation() {
+    let owned = OwnedAlignedBuffer::<Align16>::try_with_capacity(10).unwrap();
+    assert!(owned.capacity() >= 10);
+    assert!(owned.is_empty());
+
+    let owned = OwnedAlignedBuffer::<Align4096>::try_with_capacity(10).unwrap();
+    assert_eq!(owned.allocation_alignment(), Align4096::ALIGN);
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
+
+    let owned = OwnedAlignedBuffer::<Align16>::try_zeroed(10).unwrap();
+    assert_eq!(owned.as_slice(), [0; 10]);
+
+    let owned = OwnedAlignedBuffer::<Align4096>::try_zeroed(10).unwrap();
+    assert_eq!(owned.as_slice(), [0; 10]);
+    assert!(is_aligned_to(owned.as_byte_ptr(), Align4096::ALIGN));
+
+    // Zero capacity doesn't allocate
+    let owned = OwnedAlignedBuffer::<Align4096>::try_with_capacity(0).unwrap();
+    assert_eq!(owned.capacity(), 0);
+
+    let mut owned = OwnedAlignedBuffer::<Align16>::from_bytes(b"abc");
+    owned.try_ensure_capacity(100).unwrap();
+    assert!(owned.capacity() >= 100);
+    assert_eq!(owned.as_slice(), b"abc");
+}
+
+#[test]
+fn fallible_allocation_errors_leave_buffer_unchanged() {
+    // Offset with the largest capacity overflows
+    let mut owned = OwnedAlignedBuffer::<Align1>::with_capacity(32);
+    assert!(owned.relocate::<Align16>(16, 16));
+    owned.append(b"abc").unwrap();
+    let ptr = owned.as_byte_ptr();
+    let capacity = owned.capacity();
+
+    assert_eq!(
+        owned.try_ensure_capacity(u32::MAX),
+        Err(AllocationError::CapacityOverflow)
+    );
+    assert_eq!(owned.as_byte_ptr(), ptr);
+    assert_eq!(owned.capacity(), capacity);
+    assert_eq!(owned.offset(), 16);
+    assert_eq!(owned.as_slice(), b"abc");
+}
+
+// The largest capacity is only below `u32::MAX` where `usize` is 32-bit
+#[cfg(target_pointer_width = "32")]
+#[test]
+fn fallible_allocation_above_max_capacity() {
+    let max_capacity = OwnedAlignedBuffer::<Align16>::MAX_CAPACITY;
+    assert_eq!(
+        OwnedAlignedBuffer::<Align16>::try_with_capacity(max_capacity + 1).err(),
+        Some(AllocationError::CapacityOverflow)
+    );
+    assert_eq!(
+        OwnedAlignedBuffer::<Align16>::try_zeroed(max_capacity + 1).err(),
+        Some(AllocationError::CapacityOverflow)
+    );
 }

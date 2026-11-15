@@ -132,12 +132,12 @@ impl OwnedTransaction {
             padding: [0; _],
         };
 
-        if !buffer.append(header.as_bytes()) {
-            return Err(OwnedTransactionError::TransactionTooLarge);
-        }
-        if !buffer.append(transaction_lengths.as_bytes()) {
-            return Err(OwnedTransactionError::TransactionTooLarge);
-        }
+        buffer
+            .append(header.as_bytes())
+            .map_err(|_error| OwnedTransactionError::TransactionTooLarge)?;
+        buffer
+            .append(transaction_lengths.as_bytes())
+            .map_err(|_error| OwnedTransactionError::TransactionTooLarge)?;
 
         const {
             // Writing `TransactionSlot` after `OwnedTransactionLengths` and `TransactionHeader`
@@ -147,15 +147,15 @@ impl OwnedTransaction {
                     .is_multiple_of(align_of::<TransactionSlot>())
             );
         }
-        if transaction_lengths.read_slots > 0
-            && !buffer.append(TransactionSlot::slice_as_bytes(read_slots))
-        {
-            return Err(OwnedTransactionError::TransactionTooLarge);
+        if transaction_lengths.read_slots > 0 {
+            buffer
+                .append(TransactionSlot::slice_as_bytes(read_slots))
+                .map_err(|_error| OwnedTransactionError::TransactionTooLarge)?;
         }
-        if transaction_lengths.write_slots > 0
-            && !buffer.append(TransactionSlot::slice_as_bytes(write_slots))
-        {
-            return Err(OwnedTransactionError::TransactionTooLarge);
+        if transaction_lengths.write_slots > 0 {
+            buffer
+                .append(TransactionSlot::slice_as_bytes(write_slots))
+                .map_err(|_error| OwnedTransactionError::TransactionTooLarge)?;
         }
 
         const {
@@ -172,12 +172,16 @@ impl OwnedTransaction {
                 .is_multiple_of(usize::from(Alignment::MAX.get()))
             );
         }
-        if transaction_lengths.payload > 0 && !buffer.append(u128::slice_as_bytes(payload)) {
-            return Err(OwnedTransactionError::TransactionTooLarge);
+        if transaction_lengths.payload > 0 {
+            buffer
+                .append(u128::slice_as_bytes(payload))
+                .map_err(|_error| OwnedTransactionError::TransactionTooLarge)?;
         }
 
-        if transaction_lengths.seal > 0 && !buffer.append(seal) {
-            return Err(OwnedTransactionError::TransactionTooLarge);
+        if transaction_lengths.seal > 0 {
+            buffer
+                .append(seal)
+                .map_err(|_error| OwnedTransactionError::TransactionTooLarge)?;
         }
 
         Ok(())
@@ -188,9 +192,9 @@ impl OwnedTransaction {
     pub fn from_transaction(transaction: Transaction<'_>) -> Result<Self, OwnedTransactionError> {
         // Appending to an empty buffer allocates exactly the necessary capacity
         let mut buffer = OwnedAlignedBuffer::with_capacity(0);
-        if !buffer.append(transaction.bytes) {
-            return Err(OwnedTransactionError::TransactionTooLarge);
-        }
+        buffer
+            .append(transaction.bytes)
+            .map_err(|_error| OwnedTransactionError::TransactionTooLarge)?;
 
         let transaction = Self::from_buffer(buffer.into_shared()).expect(
             "The same bytes were already parsed with all checks, which only depend on the address \

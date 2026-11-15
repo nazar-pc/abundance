@@ -663,7 +663,7 @@ async fn plot_single_sector_internal(
                     }
                 };
 
-                total_received += sector_chunk.len();
+                total_received += sector_chunk.len() as usize;
 
                 if total_received > sector_size {
                     return Ok(Err(PlottingError::LowLevel(format!(
@@ -672,7 +672,7 @@ async fn plot_single_sector_internal(
                     ))));
                 }
 
-                let sector_chunk_size = sector_chunk.len() as u64;
+                let sector_chunk_size = u64::from(sector_chunk.len());
 
                 trace!(sector_chunk_size, "Writing sector chunk to disk");
                 let write_fut = task::spawn_blocking({

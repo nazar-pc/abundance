@@ -35,7 +35,6 @@ async-nats = { workspace = true, optional = true }
 async-trait = { workspace = true }
 backon = { workspace = true, features = ["tokio-sleep"] }
 blake3 = { workspace = true }
-bytes = { workspace = true }
 bytesize = { workspace = true }
 clap = { workspace = true, optional = true }
 criterion = { workspace = true, features = ["rayon", "async"], optional = true }
@@ -51,7 +50,7 @@ jsonrpsee = { workspace = true, features = ["ws-client"] }
 mimalloc = { workspace = true, optional = true }
 num_cpus = { workspace = true }
 ouroboros = { workspace = true }
-parity-scale-codec = { workspace = true, features = ["bytes"] }
+parity-scale-codec = { workspace = true }
 parking_lot = { workspace = true }
 pin-project = { workspace = true }
 prometheus-client = { workspace = true }

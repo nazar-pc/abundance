@@ -35,7 +35,7 @@ use crate::shard::RealShardKind;
 use crate::transaction::Transaction;
 use crate::transaction::owned::OwnedTransaction;
 use ab_aligned_buffer::alignment::Align16;
-use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use ab_aligned_buffer::{AllocationError, OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
@@ -84,22 +84,18 @@ pub impl(self) trait WritableBodyTransaction {
 impl WritableBodyTransaction for Transaction<'_> {
     #[inline(always)]
     fn write_into(&self, buffer: &mut OwnedAlignedBuffer) -> Result<(), OwnedLeafShardBodyError> {
-        if buffer.append(self.bytes()) {
-            Ok(())
-        } else {
-            Err(OwnedLeafShardBodyError::BlockBodyIsTooLarge)
-        }
+        buffer
+            .append(self.bytes())
+            .map_err(|_error| OwnedLeafShardBodyError::BlockBodyIsTooLarge)
     }
 }
 
 impl WritableBodyTransaction for &OwnedTransaction {
     #[inline(always)]
     fn write_into(&self, buffer: &mut OwnedAlignedBuffer) -> Result<(), OwnedLeafShardBodyError> {
-        if buffer.append(self.buffer().as_slice()) {
-            Ok(())
-        } else {
-            Err(OwnedLeafShardBodyError::BlockBodyIsTooLarge)
-        }
+        buffer
+            .append(self.buffer().as_slice())
+            .map_err(|_error| OwnedLeafShardBodyError::BlockBodyIsTooLarge)
     }
 }
 
@@ -136,7 +132,7 @@ impl TransactionBuilder {
             return Err(error);
         }
 
-        if !align_to_16_bytes_with_padding(&mut self.buffer) {
+        if align_to_16_bytes_with_padding(&mut self.buffer).is_err() {
             self.dec_transaction_count();
             // SAFETY: Length was obtained from the same buffer before the last write
             unsafe {
@@ -359,13 +355,13 @@ impl OwnedBeaconChainBody {
                 .min(OwnedAlignedBuffer::<Align16>::MAX_CAPACITY),
         );
 
-        let true = buffer.append(&num_pot_checkpoints.to_le_bytes()) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
-        };
+        buffer
+            .append(&num_pot_checkpoints.to_le_bytes())
+            .expect("Fixed size data structures that are guaranteed to fit; qed");
 
-        let true = buffer.append(&[num_own_segment_roots]) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
-        };
+        buffer
+            .append(&[num_own_segment_roots])
+            .expect("Fixed size data structures that are guaranteed to fit; qed");
         let mut own_segments = own_segments.peekable();
         if let Some(&(first_local_segment_index, _own_segment_root)) = own_segments.peek() {
             // The parser rejects bodies where the index after the last segment root doesn't fit
@@ -380,9 +376,9 @@ impl OwnedBeaconChainBody {
                     first_local_segment_index,
                 });
             }
-            let true = buffer.append(first_local_segment_index.as_bytes()) else {
-                unreachable!("Checked size above; qed");
-            };
+            buffer
+                .append(first_local_segment_index.as_bytes())
+                .expect("Checked size above; qed");
         }
         let mut previous_local_segment_index = None;
         for (local_segment_index, own_segment_root) in own_segments {
@@ -398,26 +394,22 @@ impl OwnedBeaconChainBody {
             }
             previous_local_segment_index = Some(local_segment_index);
 
-            let true = buffer.append(own_segment_root.as_ref()) else {
-                unreachable!("Checked size above; qed");
-            };
+            buffer
+                .append(own_segment_root.as_ref())
+                .expect("Checked size above; qed");
         }
         // TODO: Would be nice for `IntermediateShardBlocksInfo` to have API to write this by itself
         {
-            let true = buffer.append(&num_blocks.to_le_bytes()) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
-            };
+            buffer
+                .append(&num_blocks.to_le_bytes())
+                .expect("Fixed size data structures that are guaranteed to fit; qed");
             let mut segments_roots_num_cursor = buffer.len() as usize;
             for _ in 0..num_blocks {
                 // Placeholder values for the number of own segment roots, number of leaf shard
                 // blocks and number of leaf shard blocks with segments
-                let true = buffer.append(&[0; 5]) else {
-                    unreachable!("Checked size above; qed");
-                };
+                buffer.append(&[0; 5]).expect("Checked size above; qed");
             }
-            let true = align_to_8_with_padding(&mut buffer) else {
-                unreachable!("Checked size above; qed");
-            };
+            align_to_8_with_padding(&mut buffer).expect("Checked size above; qed");
             for intermediate_shard_block in intermediate_shard_blocks {
                 let num_own_segment_roots = intermediate_shard_block
                     .own_segments
@@ -456,47 +448,46 @@ impl OwnedBeaconChainBody {
                 .expect("Seal of a parsed header matches its solution; qed");
 
                 if let Some(own_segments) = &intermediate_shard_block.own_segments {
-                    if !buffer.append(own_segments.first_local_segment_index.as_bytes()) {
-                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                    }
-                    if !buffer.append(SegmentRoot::slice_as_bytes(own_segments.segment_roots)) {
-                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                    }
+                    buffer
+                        .append(own_segments.first_local_segment_index.as_bytes())
+                        .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+                    buffer
+                        .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
+                        .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
                 }
 
                 for (_position, _shard_index, own_segments) in
                     intermediate_shard_block.leaf_shards_segments()
                 {
-                    if !buffer.append(&[own_segments.num_segment_roots().get()]) {
-                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                    }
+                    buffer
+                        .append(&[own_segments.num_segment_roots().get()])
+                        .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
                 }
                 for (position, shard_index, own_segments) in
                     intermediate_shard_block.leaf_shards_segments()
                 {
-                    if !buffer.append(&position.to_le_bytes()) {
-                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                    }
-                    if !buffer.append(shard_index.as_bytes()) {
-                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                    }
-                    if !buffer.append(own_segments.first_local_segment_index.as_bytes()) {
-                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                    }
-                    if !buffer.append(SegmentRoot::slice_as_bytes(own_segments.segment_roots)) {
-                        return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                    }
+                    buffer
+                        .append(&position.to_le_bytes())
+                        .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+                    buffer
+                        .append(shard_index.as_bytes())
+                        .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+                    buffer
+                        .append(own_segments.first_local_segment_index.as_bytes())
+                        .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+                    buffer
+                        .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
+                        .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
                 }
 
-                if !align_to_8_with_padding(&mut buffer) {
-                    return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-                }
+                align_to_8_with_padding(&mut buffer)
+                    .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
             }
         }
 
-        let true = buffer.append(PotCheckpoints::slice_as_bytes(pot_checkpoints)) else {
-            return Err(OwnedBeaconChainBodyError::BlockBodyIsTooLarge);
-        };
+        buffer
+            .append(PotCheckpoints::slice_as_bytes(pot_checkpoints))
+            .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
 
         Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
             // Everything else is written the way the parser reads it, only contents of
@@ -662,9 +653,9 @@ impl OwnedIntermediateShardBody {
                 + u32::from(num_blocks) * OwnedLeafShardHeader::MAX_ALLOCATION * 2,
         );
 
-        let true = buffer.append(&[num_own_segment_roots]) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
-        };
+        buffer
+            .append(&[num_own_segment_roots])
+            .expect("Fixed size data structures that are guaranteed to fit; qed");
         let mut own_segments = own_segments.peekable();
         if let Some(&(first_local_segment_index, _own_segment_root)) = own_segments.peek() {
             // The parser rejects bodies where the index after the last segment root doesn't fit
@@ -679,9 +670,9 @@ impl OwnedIntermediateShardBody {
                     first_local_segment_index,
                 });
             }
-            let true = buffer.append(first_local_segment_index.as_bytes()) else {
-                unreachable!("Checked size above; qed");
-            };
+            buffer
+                .append(first_local_segment_index.as_bytes())
+                .expect("Checked size above; qed");
         }
         let mut previous_local_segment_index = None;
         for (local_segment_index, own_segment_root) in own_segments {
@@ -699,24 +690,20 @@ impl OwnedIntermediateShardBody {
             }
             previous_local_segment_index = Some(local_segment_index);
 
-            let true = buffer.append(own_segment_root.as_ref()) else {
-                unreachable!("Checked size above; qed");
-            };
+            buffer
+                .append(own_segment_root.as_ref())
+                .expect("Checked size above; qed");
         }
         // TODO: Would be nice for `LeafShardBlocksInfo` to have API to write this by itself
         {
-            let true = buffer.append(&num_blocks.to_le_bytes()) else {
-                unreachable!("Fixed size data structures that are guaranteed to fit; qed");
-            };
+            buffer
+                .append(&num_blocks.to_le_bytes())
+                .expect("Fixed size data structures that are guaranteed to fit; qed");
             let mut own_segments_roots_num_cursor = buffer.len() as usize;
             for _ in 0..num_blocks {
-                let true = buffer.append(&[0]) else {
-                    unreachable!("Checked size above; qed");
-                };
+                buffer.append(&[0]).expect("Checked size above; qed");
             }
-            let true = align_to_8_with_padding(&mut buffer) else {
-                unreachable!("Checked size above; qed");
-            };
+            align_to_8_with_padding(&mut buffer).expect("Checked size above; qed");
             for leaf_shard_block in leaf_shard_blocks {
                 if let Some(own_segments) = &leaf_shard_block.own_segments {
                     buffer.as_mut_slice()[own_segments_roots_num_cursor] =
@@ -738,23 +725,18 @@ impl OwnedIntermediateShardBody {
                 )
                 .with_seal(leaf_shard_block.header.seal)
                 .expect("Seal of a parsed header matches its solution; qed");
-                let true = align_to_8_with_padding(&mut buffer) else {
-                    unreachable!("Checked size above; qed");
-                };
+                align_to_8_with_padding(&mut buffer).expect("Checked size above; qed");
 
-                let true = buffer.append(leaf_shard_block.transactions_root.as_bytes()) else {
-                    unreachable!("Checked size above; qed");
-                };
+                buffer
+                    .append(leaf_shard_block.transactions_root.as_bytes())
+                    .expect("Checked size above; qed");
                 if let Some(own_segments) = &leaf_shard_block.own_segments {
-                    let true = buffer.append(own_segments.first_local_segment_index.as_bytes())
-                    else {
-                        unreachable!("Checked size above; qed");
-                    };
-                    let true =
-                        buffer.append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
-                    else {
-                        unreachable!("Checked size above; qed");
-                    };
+                    buffer
+                        .append(own_segments.first_local_segment_index.as_bytes())
+                        .expect("Checked size above; qed");
+                    buffer
+                        .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
+                        .expect("Checked size above; qed");
                 }
             }
         }
@@ -908,9 +890,9 @@ impl OwnedLeafShardBody {
                 .next_multiple_of(u32::from(Alignment::MAX.get())),
         );
 
-        let true = buffer.append(&[num_own_segment_roots]) else {
-            unreachable!("Fixed size data structures that are guaranteed to fit; qed");
-        };
+        buffer
+            .append(&[num_own_segment_roots])
+            .expect("Fixed size data structures that are guaranteed to fit; qed");
         let mut own_segments = own_segments.peekable();
         if let Some(&(first_local_segment_index, _own_segment_root)) = own_segments.peek() {
             // The parser rejects bodies where the index after the last segment root doesn't fit
@@ -925,9 +907,9 @@ impl OwnedLeafShardBody {
                     first_local_segment_index,
                 });
             }
-            let true = buffer.append(first_local_segment_index.as_bytes()) else {
-                unreachable!("Checked size above; qed");
-            };
+            buffer
+                .append(first_local_segment_index.as_bytes())
+                .expect("Checked size above; qed");
         }
         let mut previous_local_segment_index = None;
         for (local_segment_index, own_segment_root) in own_segments {
@@ -943,19 +925,17 @@ impl OwnedLeafShardBody {
             }
             previous_local_segment_index = Some(local_segment_index);
 
-            let true = buffer.append(own_segment_root.as_ref()) else {
-                unreachable!("Checked size above; qed");
-            };
+            buffer
+                .append(own_segment_root.as_ref())
+                .expect("Checked size above; qed");
         }
 
         let num_transactions_offset = buffer.len() as usize;
-        let true = buffer.append(&0u32.to_le_bytes()) else {
-            unreachable!("Checked size above; qed");
-        };
+        buffer
+            .append(&0u32.to_le_bytes())
+            .expect("Checked size above; qed");
         // The parser expects padding after the number of transactions even if there are none
-        let true = align_to_16_bytes_with_padding(&mut buffer) else {
-            unreachable!("Checked size above; qed");
-        };
+        align_to_16_bytes_with_padding(&mut buffer).expect("Checked size above; qed");
 
         Ok(OwnedLeafShardBlockBodyBuilder {
             transaction_builder: TransactionBuilder::new(num_transactions_offset, buffer),
@@ -1096,40 +1076,34 @@ impl OwnedBlockBody {
 
 /// Aligns buffer to 8 bytes by adding necessary padding zero bytes.
 ///
-/// Returns `false` if buffer becomes too long.
+/// Returns an error if buffer becomes too long.
 #[inline(always)]
-#[must_use = "Check if buffer becomes too long"]
-fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
+fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> Result<(), AllocationError> {
     let alignment = usize::from(Alignment::of::<u64>().get());
     let unaligned_by = buffer.len() as usize % alignment;
     if unaligned_by > 0 {
         // SAFETY: Subtracted value is always smaller than alignment
         let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
 
-        if !buffer.append(&0u64.to_le_bytes()[..padding_bytes]) {
-            return false;
-        }
+        buffer.append(&0u64.to_le_bytes()[..padding_bytes])?;
     }
 
-    true
+    Ok(())
 }
 
 /// Aligns buffer to 16 bytes by adding necessary padding zero bytes.
 ///
-/// Returns `false` if buffer becomes too long.
+/// Returns an error if buffer becomes too long.
 #[inline(always)]
-#[must_use = "Check if buffer becomes too long"]
-fn align_to_16_bytes_with_padding(buffer: &mut OwnedAlignedBuffer) -> bool {
+fn align_to_16_bytes_with_padding(buffer: &mut OwnedAlignedBuffer) -> Result<(), AllocationError> {
     let alignment = usize::from(Alignment::MAX.get());
     let unaligned_by = buffer.len() as usize % alignment;
     if unaligned_by > 0 {
         // SAFETY: Subtracted value is always smaller than alignment
         let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
 
-        if !buffer.append(&0u128.to_le_bytes()[..padding_bytes]) {
-            return false;
-        }
+        buffer.append(&0u128.to_le_bytes()[..padding_bytes])?;
     }
 
-    true
+    Ok(())
 }

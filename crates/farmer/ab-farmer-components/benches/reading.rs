@@ -1,3 +1,4 @@
+use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_archiving::archiver::Archiver;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -89,7 +90,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             persisted_sector.display()
         );
 
-        let plotted_sector_bytes = fs::read(&persisted_sector).unwrap();
+        let plotted_sector_bytes =
+            OwnedAlignedBuffer::from_bytes(&fs::read(&persisted_sector).unwrap());
         let sector_contents_map = SectorContentsMap::from_bytes(
             &plotted_sector_bytes[..SectorContentsMap::encoded_size(pieces_in_sector)],
             pieces_in_sector,
@@ -119,7 +121,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     } else {
         println!("Plotting one sector...");
 
-        let mut plotted_sector_bytes = Vec::new();
+        let mut plotted_sector_bytes = OwnedAlignedBuffer::EMPTY;
 
         let plotted_sector = block_on(plot_sector(PlotSectorOptions {
             public_key_hash,
@@ -144,14 +146,14 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         (plotted_sector, plotted_sector_bytes)
     };
 
-    assert_eq!(plotted_sector_bytes.len(), sector_size);
+    assert_eq!(plotted_sector_bytes.len() as usize, sector_size);
 
     if persist_sector && !persisted_sector.is_file() {
         println!(
             "Writing persisted sector into {}...",
             persisted_sector.display()
         );
-        fs::write(persisted_sector, &plotted_sector_bytes).unwrap();
+        fs::write(persisted_sector, plotted_sector_bytes.as_slice()).unwrap();
     }
 
     let piece_offset = PieceOffset::ZERO;
@@ -164,7 +166,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 black_box(piece_offset),
                 black_box(&plotted_sector.sector_id),
                 black_box(&plotted_sector.sector_metadata),
-                black_box(&ReadAt::from_sync(&plotted_sector_bytes)),
+                black_box(&ReadAt::from_sync(plotted_sector_bytes.as_slice())),
                 black_box(&erasure_coding),
                 black_box(&table_generator),
             )

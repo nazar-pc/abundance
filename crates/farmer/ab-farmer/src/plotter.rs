@@ -9,13 +9,14 @@ pub mod cpu;
 pub mod gpu;
 pub mod pool;
 
+use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align4096;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::solutions::ShardCommitmentHash;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::PlottedSector;
 use async_trait::async_trait;
-use bytes::Bytes;
 use futures::Stream;
 use futures::channel::mpsc;
 use std::fmt;
@@ -39,8 +40,11 @@ pub enum SectorPlottingProgress {
         plotted_sector: PlottedSector,
         /// How much time it took to plot a sector
         time: Duration,
-        /// Stream of all plotted sector bytes
-        sector: Pin<Box<dyn Stream<Item = Result<Bytes, String>> + Send + Sync>>,
+        /// Stream of all plotted sector bytes in chunks, whose contents are aligned to the page
+        /// size for direct I/O
+        sector: Pin<
+            Box<dyn Stream<Item = Result<SharedAlignedBuffer<Align4096>, String>> + Send + Sync>,
+        >,
     },
     /// Plotting failed
     Error {

@@ -25,21 +25,22 @@ const REQUESTS_BUFFER_SIZE: usize = 50;
 /// SCALE codec output that writes into an aligned buffer
 struct BufferOutput {
     buffer: OwnedAlignedBuffer<Align1>,
-    too_large: bool,
+    failed: bool,
 }
 
 impl Output for BufferOutput {
     #[inline]
     fn write(&mut self, bytes: &[u8]) {
-        if !self.buffer.append(bytes) {
-            self.too_large = true;
+        if self.buffer.append(bytes).is_err() {
+            self.failed = true;
         }
     }
 }
 
 /// Encode a value with SCALE codec into a new buffer.
 ///
-/// Returns `None` if the encoding is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`].
+/// Returns `None` if the encoding is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation
+/// fails.
 pub fn encode_to_buffer<T>(value: &T) -> Option<SharedAlignedBuffer<Align1>>
 where
     T: Encode + ?Sized,
@@ -55,12 +56,12 @@ where
         .unwrap_or(u32::MAX)
         .min(OwnedAlignedBuffer::<Align1>::MAX_CAPACITY);
     let mut output = BufferOutput {
-        buffer: OwnedAlignedBuffer::with_capacity(capacity),
-        too_large: false,
+        buffer: OwnedAlignedBuffer::try_with_capacity(capacity).ok()?,
+        failed: false,
     };
     value.encode_to(&mut output);
 
-    (!output.too_large).then(|| output.buffer.into_shared())
+    (!output.failed).then(|| output.buffer.into_shared())
 }
 
 /// Generic request with associated response

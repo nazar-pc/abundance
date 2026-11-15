@@ -1,10 +1,12 @@
 // Sectors are made of full-size records, which takes too long to process under Miri
 #![cfg(not(miri))]
 
+use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset, Record};
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::HistorySize;
+use ab_direct_io_file::AlignedPage;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::{
@@ -118,7 +120,7 @@ fn encode_test_sector(
 ) -> Result<(), PlottingError> {
     let encoded_sector = encode_test_sector_only(erasure_coding, sector_contents_map, abort_early)?;
 
-    write_sector(&encoded_sector, &mut Vec::new())
+    write_sector(&encoded_sector, &mut OwnedAlignedBuffer::default())
 }
 
 #[test]
@@ -202,17 +204,38 @@ fn write_sector_writes_whole_output() {
     let encoded_sector =
         encode_test_sector_only(erasure_coding, sector_contents_map.clone(), false).unwrap();
 
-    let mut sector = Vec::new();
+    let mut sector = OwnedAlignedBuffer::EMPTY;
     write_sector(&encoded_sector, &mut sector).unwrap();
-    assert_eq!(sector.len(), sector_size(PIECES_IN_SECTOR));
+    assert_eq!(sector.len() as usize, sector_size(PIECES_IN_SECTOR));
+    // Contents are aligned to the page size for direct I/O
+    assert_eq!(sector.allocation_alignment(), AlignedPage::SIZE);
+    assert!(
+        sector
+            .as_byte_ptr()
+            .addr()
+            .is_multiple_of(AlignedPage::SIZE)
+    );
 
-    // Output of the correct size is overwritten completely
-    let mut reused_sector = vec![u8::MAX; sector.len()];
+    // Output of the correct size is overwritten completely without reallocation
+    let mut reused_sector = OwnedAlignedBuffer::from_bytes(&vec![u8::MAX; sector.len() as usize]);
+    let reused_sector_ptr = reused_sector.as_byte_ptr();
     write_sector(&encoded_sector, &mut reused_sector).unwrap();
-    assert_eq!(reused_sector, sector);
+    assert_eq!(reused_sector.as_byte_ptr(), reused_sector_ptr);
+    assert_eq!(reused_sector.as_slice(), sector.as_slice());
+
+    // Output of a wrong size is rejected
+    let mut wrong_sector = OwnedAlignedBuffer::from_bytes(&[0; AlignedPage::SIZE]);
+    assert_matches!(
+        write_sector(&encoded_sector, &mut wrong_sector),
+        Err(PlottingError::BadSectorOutputSize {
+            provided: AlignedPage::SIZE,
+            expected,
+        }) if expected == sector_size(PIECES_IN_SECTOR)
+    );
 
     // Checksum covers everything before it, including zero padding
-    let (sector_contents, sector_checksum) = sector.split_at(sector.len() - Blake3Hash::SIZE);
+    let (sector_contents, sector_checksum) =
+        sector.split_at(sector.len() as usize - Blake3Hash::SIZE);
     assert_eq!(sector_checksum, blake3::hash(sector_contents).as_bytes());
     let padding = &sector_contents[sector_contents.len() - sector_padding_size(PIECES_IN_SECTOR)..];
     assert!(!padding.is_empty());

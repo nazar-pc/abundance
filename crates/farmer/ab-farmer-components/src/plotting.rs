@@ -13,6 +13,8 @@ use crate::sector::{
     sector_record_metadata_size, sector_size,
 };
 use crate::segment_reconstruction::recover_missing_piece;
+use ab_aligned_buffer::alignment::Align4096;
+use ab_aligned_buffer::{AllocationError, OwnedAlignedBuffer};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex, PieceOffset, Record, RecordChunk};
 use ab_core_primitives::pos::PosSeed;
@@ -83,6 +85,14 @@ pub enum PlottingError {
         /// Expected number of chunks
         expected: usize,
     },
+    /// Failed to allocate sector output
+    #[error("Failed to allocate sector output of {sector_size} bytes: {error}")]
+    SectorAllocationFailed {
+        /// Size of the sector
+        sector_size: usize,
+        /// Lower-level error
+        error: AllocationError,
+    },
     /// Bad sector output size
     #[error("Bad sector output size: provided {provided}, expected {expected}")]
     BadSectorOutputSize {
@@ -112,9 +122,8 @@ pub enum PlottingError {
 
 /// Options for plotting a sector.
 ///
-/// Sector output and sector metadata output should be either empty (in which case they'll be
-/// resized to correct size automatically) or correctly sized from the beginning or else error will
-/// be returned.
+/// Sector output should be either empty (in which case it'll be resized to correct size
+/// automatically) or correctly sized from the beginning or else error will be returned.
 #[derive(Debug)]
 pub struct PlotSectorOptions<'a, RE, PG> {
     /// Public key corresponding to sector
@@ -131,9 +140,12 @@ pub struct PlotSectorOptions<'a, RE, PG> {
     pub erasure_coding: &'a ErasureCoding,
     /// How many pieces should sector contain
     pub pieces_in_sector: u16,
-    /// Where plotted sector should be written, vector must either be empty (in which case it'll be
-    /// resized to correct size automatically) or correctly sized from the beginning
-    pub sector_output: &'a mut Vec<u8>,
+    /// Where plotted sector should be written, buffer must either be empty (in which case it'll be
+    /// resized to correct size automatically) or correctly sized from the beginning.
+    ///
+    /// Contents of the buffer are aligned to the page size, so the sector can be written to disk
+    /// with direct I/O.
+    pub sector_output: &'a mut OwnedAlignedBuffer<Align4096>,
     /// Semaphore for part of the plotting when farmer downloads new sector, allows to limit memory
     /// usage of the plotting process, permit will be held until the end of the plotting process
     pub downloading_semaphore: Option<Arc<Semaphore>>,
@@ -461,11 +473,7 @@ where
     }
 }
 
-/// Options for encoding a sector.
-///
-/// Sector output and sector metadata output should be either empty (in which case they'll be
-/// resized to correct size automatically) or correctly sized from the beginning or else error will
-/// be returned.
+/// Options for encoding a sector
 #[derive(Debug)]
 pub struct EncodeSectorOptions<'a, RE>
 where
@@ -576,10 +584,13 @@ where
     })
 }
 
-/// Write encoded sector into sector output
+/// Write encoded sector into sector output.
+///
+/// Sector output must either be empty (in which case it'll be resized to correct size
+/// automatically) or correctly sized from the beginning.
 pub fn write_sector(
     encoded_sector: &EncodedSector,
-    sector_output: &mut Vec<u8>,
+    sector_output: &mut OwnedAlignedBuffer<Align4096>,
 ) -> Result<(), PlottingError> {
     let EncodedSector {
         plotted_sector: _,
@@ -592,17 +603,24 @@ pub fn write_sector(
     );
 
     let sector_size = sector_size(pieces_in_sector);
+    let sector_size_u32 =
+        u32::try_from(sector_size).map_err(|_error| PlottingError::SectorAllocationFailed {
+            sector_size,
+            error: AllocationError::CapacityOverflow,
+        })?;
 
-    if !sector_output.is_empty() && sector_output.len() != sector_size {
+    if !sector_output.is_empty() && sector_output.len() != sector_size_u32 {
         return Err(PlottingError::BadSectorOutputSize {
-            provided: sector_output.len(),
+            provided: sector_output.len() as usize,
             expected: sector_size,
         });
     }
 
     // Every byte of the sector is written below, there is no need to initialize memory beforehand
-    sector_output.clear();
-    sector_output.reserve_exact(sector_size);
+    sector_output.truncate(0);
+    sector_output
+        .try_ensure_capacity(sector_size_u32)
+        .map_err(|error| PlottingError::SectorAllocationFailed { sector_size, error })?;
 
     // Write sector to disk in as the following regions:
     // * sector contents map
@@ -682,18 +700,20 @@ pub fn write_sector(
     // padding region is filled with zeroes, and together they are everything except the checksum.
     // The capacity was reserved above.
     unsafe {
-        sector_output.set_len(sector_size - Blake3Hash::SIZE);
+        sector_output.set_len(sector_size_u32 - Blake3Hash::SIZE as u32);
     }
 
     // It would be more efficient to not re-read the whole sector again, but it makes above code
     // significantly more convoluted and most likely not worth it
     let sector_checksum = {
         let mut hasher = blake3::Hasher::new();
-        hasher.update_rayon(sector_output);
+        hasher.update_rayon(sector_output.as_slice());
         hasher.finalize()
     };
     // Doesn't reallocate, the capacity was reserved above
-    sector_output.extend_from_slice(sector_checksum.as_bytes());
+    sector_output
+        .append(sector_checksum.as_bytes())
+        .expect("Capacity for the whole sector was reserved above; qed");
 
     Ok(())
 }

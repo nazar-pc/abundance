@@ -12,7 +12,7 @@ use crate::farm::{FarmError, PieceCacheId, PieceCacheOffset};
 use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::utils::AsyncJoinOnDrop;
 use ab_aligned_buffer::OwnedAlignedBuffer;
-use ab_aligned_buffer::alignment::Align16;
+use ab_aligned_buffer::alignment::Align4096;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_direct_io_file::AlignedPage;
@@ -372,25 +372,28 @@ impl DiskPieceCache {
         }
         let element_offset = u64::from(offset) * u64::from(Self::element_size());
 
-        let piece_index_bytes = piece_index.to_bytes();
-        // Combine all data with padding here, such that the whole element is written at once
-        let mut bytes = Vec::with_capacity(ELEMENT_SIZE);
-        bytes.extend_from_slice(&piece_index_bytes);
-        bytes.extend_from_slice(piece.as_ref());
-        bytes.extend_from_slice(
-            {
-                let mut hasher = blake3::Hasher::new();
-                hasher.update(&piece_index_bytes);
-                hasher.update(piece.as_ref());
-                hasher.finalize()
-            }
-            .as_bytes(),
-        );
-        bytes.resize(ELEMENT_SIZE, 0);
+        // Combine all data with zero padding here, such that the whole element is written at once,
+        // the element is aligned to the page size for direct I/O
+        let mut element = OwnedAlignedBuffer::<Align4096>::zeroed(ELEMENT_SIZE as u32);
+        element.truncate(0);
+        element
+            .append(&piece_index.to_bytes())
+            .expect("Element has capacity for piece index; qed");
+        element
+            .append(piece.as_ref())
+            .expect("Element has capacity for piece; qed");
+        let checksum = blake3::hash(element.as_slice());
+        element
+            .append(checksum.as_bytes())
+            .expect("Element has capacity for checksum; qed");
+        // SAFETY: The allocation is zeroed, so bytes after the checksum are zero padding
+        unsafe {
+            element.set_len(ELEMENT_SIZE as u32);
+        }
         self.inner
             .files
             .write()
-            .write_all_at(&bytes, element_offset)?;
+            .write_all_at(&element, element_offset)?;
 
         Ok(())
     }
@@ -442,7 +445,7 @@ impl DiskPieceCache {
         if let Some(metrics) = &self.inner.metrics {
             metrics.read_piece.inc();
         }
-        let mut element = OwnedAlignedBuffer::<Align16>::zeroed(ELEMENT_SIZE as u32);
+        let mut element = OwnedAlignedBuffer::<Align4096>::zeroed(ELEMENT_SIZE as u32);
         if let Some(piece_index) = self.read_piece_internal(offset, element.as_mut_slice())? {
             let piece = element
                 .into_shared()

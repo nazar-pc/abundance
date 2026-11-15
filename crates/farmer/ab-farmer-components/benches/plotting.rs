@@ -1,3 +1,4 @@
+use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_archiving::archiver::Archiver;
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -62,7 +63,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         &derive_shard_commitments_root(shard_commitments_seed, farmer_protocol_info.history_size);
 
     let sector_size = sector_size(pieces_in_sector);
-    let mut sector_bytes = Vec::new();
+    let mut sector_bytes = OwnedAlignedBuffer::EMPTY;
 
     let mut group = c.benchmark_group("plotting");
     group.throughput(Throughput::Bytes(sector_size as u64));
