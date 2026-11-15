@@ -9,6 +9,8 @@ use crate::storage_backend_adapter::PageGroupKind;
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemError, StorageItemWriteResult, UniqueStorageItem,
 };
+use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use ab_io_type::trivial_type::TrivialType;
 use std::mem::MaybeUninit;
 
@@ -67,7 +69,7 @@ impl StorageItem for StorageItemTemporary {
     }
 
     #[inline(always)]
-    fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError> {
+    fn read(variant: u8, buffer: &SharedAlignedBuffer<Align16>) -> Result<Self, StorageItemError> {
         let variant = StorageItemBlockVariant::try_from_bytes_exact(&[variant])
             .copied()
             .ok_or(StorageItemError::UnknownStorageItemVariant(variant))?;
@@ -75,11 +77,11 @@ impl StorageItem for StorageItemTemporary {
         Ok(match variant {
             StorageItemBlockVariant::Block => Self::Block(StorageItemTemporaryBlock::read(buffer)?),
             StorageItemBlockVariant::SegmentHeaders => {
-                Self::SegmentHeaders(StorageItemTemporarySegmentHeaders::read(buffer)?)
+                Self::SegmentHeaders(StorageItemTemporarySegmentHeaders::read(buffer.as_slice())?)
             }
-            StorageItemBlockVariant::SuperSegmentHeaders => {
-                Self::SuperSegmentHeaders(StorageItemTemporarySuperSegmentHeaders::read(buffer)?)
-            }
+            StorageItemBlockVariant::SuperSegmentHeaders => Self::SuperSegmentHeaders(
+                StorageItemTemporarySuperSegmentHeaders::read(buffer.as_slice())?,
+            ),
         })
     }
 }

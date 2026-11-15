@@ -148,19 +148,21 @@ where
         // Check the first page group. This could have been done in the loop below, but that makes
         // the code even more ugly than this copy-paste.
         {
-            buffer = Self::read_pages(&storage_backend, buffer, 1, 0).await?;
+            let pages = Self::read_pages(&storage_backend, buffer, 1, 0)
+                .await?
+                .into_shared();
+            let maybe_container =
+                StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&pages);
+            buffer = Self::reclaim_buffer(pages);
 
-            let (container, header_pages) =
-                match StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(
-                    buffer.as_slice(),
-                ) {
-                    Ok(result) => result,
-                    Err(_error) => {
-                        // Page group header fit the first page, so any deciding error indicates it
-                        // is not a valid page group header
-                        return Err(ClientDatabaseError::Unformatted);
-                    }
-                };
+            let (container, header_pages) = match maybe_container {
+                Ok(result) => result,
+                Err(_error) => {
+                    // Page group header fit the first page, so any deciding error indicates it is
+                    // not a valid page group header
+                    return Err(ClientDatabaseError::Unformatted);
+                }
+            };
 
             let page_group_header = &container.storage_item;
             if page_group_header.database_version != Self::VERSION {
@@ -207,18 +209,20 @@ where
         // Quick scan through the rest of page groups
         for page_group_index in 1..num_page_groups {
             let first_page_offset = page_group_index * page_group_size;
-            buffer = Self::read_pages(&storage_backend, buffer, 1, first_page_offset).await?;
+            let pages = Self::read_pages(&storage_backend, buffer, 1, first_page_offset)
+                .await?
+                .into_shared();
+            let maybe_container =
+                StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&pages);
+            buffer = Self::reclaim_buffer(pages);
 
-            let (container, header_pages) =
-                match StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(
-                    buffer.as_slice(),
-                ) {
-                    Ok(result) => result,
-                    Err(_error) => {
-                        free_page_groups.push_back(first_page_offset);
-                        continue;
-                    }
-                };
+            let (container, header_pages) = match maybe_container {
+                Ok(result) => result,
+                Err(_error) => {
+                    free_page_groups.push_back(first_page_offset);
+                    continue;
+                }
+            };
 
             let page_group_header = &container.storage_item;
             if !(page_group_header.database_id == database_id
@@ -329,15 +333,13 @@ where
             result.map_err(|error| ClientDatabaseFormatError::ReadError {
                 error: error.into(),
             })?;
-            buffer = read_buffer;
+            let pages = read_buffer.into_shared();
 
-            if StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(
-                buffer.as_slice(),
-            )
-            .is_ok()
-            {
+            if StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&pages).is_ok() {
                 return Err(ClientDatabaseFormatError::AlreadyFormatted);
             }
+
+            buffer = Self::reclaim_buffer(pages);
         }
 
         let container = StorageItemContainer {
@@ -383,6 +385,18 @@ where
         })?;
 
         Ok(buffer)
+    }
+
+    /// Reclaim the buffer of `pages` for further reads.
+    ///
+    /// Storage items are not supposed to keep references to the pages they were read from beyond
+    /// the storage item handler, but if they do, the next read allocates a new buffer.
+    fn reclaim_buffer(pages: SharedPages) -> OwnedPages {
+        pages.try_into_owned().unwrap_or_else(|_pages| {
+            debug!("Pages are still referenced, the next read allocates a new buffer");
+
+            OwnedPages::EMPTY
+        })
     }
 
     /// Read all page groups and call the storage item handler for every storage item except the
@@ -431,11 +445,15 @@ where
                 });
             }
 
-            let mut pages = buffer.as_slice();
+            let pages = buffer.into_shared();
+            // Pages that were not read yet
+            let mut remaining_pages = pages.clone();
 
-            while !pages.is_empty() {
+            while !remaining_pages.is_empty() {
                 let page_offset = page_group.first_page_offset + page_group.inner_next_page_offset;
-                let (container, num_pages) = match StorageItemContainer::read_from_pages(pages) {
+                let (container, num_pages) = match StorageItemContainer::read_from_pages(
+                    &remaining_pages,
+                ) {
                     Ok(result) => result,
                     Err(error) => {
                         debug!(
@@ -472,9 +490,18 @@ where
                     num_pages,
                 })?;
 
-                pages = &pages[(num_pages * OwnedPages::ALIGN) as usize..];
+                remaining_pages = remaining_pages
+                    .get_slice(num_pages * SharedPages::ALIGN..)
+                    .and_then(|rest| rest.try_into_start_align().ok())
+                    .expect(
+                        "Storage item occupies whole pages among remaining pages, so the rest \
+                        starts at a page boundary; qed",
+                    );
                 page_group.inner_next_page_offset += num_pages;
             }
+
+            drop(remaining_pages);
+            buffer = Self::reclaim_buffer(pages);
         }
 
         target_page_groups.next_sequence_number = next_sequence_number;
@@ -506,8 +533,9 @@ where
             })?;
         result?;
 
-        let (container, _num_pages) = StorageItemContainer::read_from_pages(pages.as_slice())
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        let (container, _num_pages) =
+            StorageItemContainer::read_from_pages(&pages.into_shared())
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
 
         Ok(container.storage_item)
     }

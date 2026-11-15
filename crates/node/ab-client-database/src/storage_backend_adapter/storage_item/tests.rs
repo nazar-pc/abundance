@@ -34,9 +34,8 @@ fn read_of_truncated_storage_item_needs_more_bytes() {
         - StorageItemContainer::<StorageItemTemporary>::prefix_size()
             .next_multiple_of(size_of::<u128>());
 
-    let result = StorageItemContainer::<StorageItemTemporary>::read_from_pages(
-        &pages[..OwnedPages::ALIGN as usize],
-    );
+    let (first_page, _rest) = pages.into_shared().split_at(OwnedPages::ALIGN).unwrap();
+    let result = StorageItemContainer::<StorageItemTemporary>::read_from_pages(&first_page);
     let Err(StorageItemError::NeedMoreBytes(missing_bytes)) = result else {
         panic!("Unexpected result: {result:?}");
     };

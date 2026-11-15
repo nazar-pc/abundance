@@ -1747,8 +1747,6 @@ where
                     }
                 };
 
-                // TODO: It would be nice to not allocate body here since we'll not use it here
-                //  anyway
                 let StorageItemTemporaryBlock {
                     header,
                     body,

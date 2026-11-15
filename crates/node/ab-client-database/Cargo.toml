@@ -14,7 +14,7 @@ include = [
 all-features = true
 
 [dependencies]
-ab-aligned-buffer = { workspace = true }
+ab-aligned-buffer = { workspace = true, features = ["io-type"] }
 ab-blake3 = { workspace = true }
 ab-client-api = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["alloc"] }

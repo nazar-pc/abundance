@@ -3,6 +3,7 @@ mod tests;
 
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::{Align8, Align16};
 use ab_client_api::ContractSlotState;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::trees::BlockMerkleMountainRange;
@@ -229,63 +230,20 @@ impl StorageItemTemporaryBlock {
         Ok(written_len)
     }
 
-    pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
-        // Read lengths, any of which is missing only if the buffer is shorter than the prefix
-        let buffer_len = buffer.len();
-        let header_len;
-        (header_len, buffer) = buffer
-            .split_first_chunk::<{ size_of::<u32>() }>()
-            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
-        let body_len;
-        (body_len, buffer) = buffer
-            .split_first_chunk::<{ size_of::<u32>() }>()
-            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
-        let mmr_len;
-        (mmr_len, buffer) = buffer
-            .split_first_chunk::<{ size_of::<u32>() }>()
-            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
-        let num_system_contract_states;
-        (num_system_contract_states, buffer) =
-            buffer
-                .split_first_chunk::<{ size_of::<u32>() }>()
-                .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::prefix_size() - buffer_len))?;
-        let mut read_len = Self::prefix_size();
+    /// Body references the storage item without copying it, while header and contents of system
+    /// contract states are copied, since they are kept in memory for much longer than the body
+    /// and must not keep the memory of the whole storage item alive
+    pub(super) fn read(item: &SharedAlignedBuffer<Align16>) -> Result<Self, StorageItemError> {
+        let mut reader = item.reader();
 
-        let header_len = u32::from_le_bytes(*header_len) as usize;
-        let body_len = u32::from_le_bytes(*body_len) as usize;
-        let mmr_len = u32::from_le_bytes(*mmr_len) as usize;
-        let num_system_contract_states = u32::from_le_bytes(*num_system_contract_states);
-
-        let header = {
-            let buffer_len = buffer.len();
-            let header_bytes = buffer
-                .split_off(..header_len.next_multiple_of(size_of::<u128>()))
-                .ok_or_else(|| {
-                    StorageItemError::NeedMoreBytes(
-                        header_len.next_multiple_of(size_of::<u128>()) - buffer_len,
-                    )
-                })?;
-            let header = SharedAlignedBuffer::from_bytes(&header_bytes[..header_len]);
-            read_len += header_bytes.len();
-            header
-        };
-
-        let body = {
-            let buffer_len = buffer.len();
-            let body_bytes = buffer
-                .split_off(..body_len)
-                .ok_or_else(|| StorageItemError::NeedMoreBytes(body_len - buffer_len))?;
-            let body = SharedAlignedBuffer::from_bytes(body_bytes);
-            read_len += body_bytes.len();
-            body
-        };
+        let &[header_len, body_len, mmr_len, num_system_contract_states] =
+            reader.read_trivial_array()?;
+        let header = reader.read_buffer::<Align16>(header_len)?.into_standalone();
+        reader.read_to_alignment::<Align16>()?;
+        let body = reader.read_buffer::<Align16>(body_len)?;
 
         let mmr = {
-            let buffer_len = buffer.len();
-            let mmr_raw_bytes = buffer
-                .split_off(..mmr_len)
-                .ok_or_else(|| StorageItemError::NeedMoreBytes(mmr_len - buffer_len))?;
-
+            let mmr_raw_bytes = reader.read_bytes(mmr_len)?;
             let mut mmr_bytes = MerkleMountainRangeBytes::default();
 
             if mmr_bytes.len() != mmr_raw_bytes.len() {
@@ -300,75 +258,24 @@ impl StorageItemTemporaryBlock {
 
             // SAFETY: Created using `BlockMerkleMountainRange::as_bytes()` and checked data
             // integrity
-            let mmr = unsafe { BlockMerkleMountainRange::from_bytes(&mmr_bytes) };
-            read_len += mmr_raw_bytes.len();
-            *mmr
+            *unsafe { BlockMerkleMountainRange::from_bytes(&mmr_bytes) }
         };
 
         // Every system contract state takes at least the size of the prefix, which prevents large
         // allocations due to corrupted number of system contract states
         let mut system_contract_states = Vec::with_capacity(
-            (num_system_contract_states as usize)
-                .min(buffer.len() / size_of::<SystemContractStatePrefix>()),
+            usize::try_from(num_system_contract_states)
+                .unwrap_or(usize::MAX)
+                .min(reader.remaining().len() / size_of::<SystemContractStatePrefix>()),
         );
 
         for _ in 0..num_system_contract_states {
-            // Alignment padding (if needed)
-            if !read_len.is_multiple_of(size_of::<u64>()) {
-                let new_read_len = read_len.next_multiple_of(size_of::<u64>());
-                let buffer_len = buffer.len();
-                buffer
-                    .split_off(..(new_read_len - read_len))
-                    .ok_or_else(|| {
-                        StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len)
-                    })?;
-                read_len = new_read_len;
-            }
-
-            let prefix = {
-                let buffer_len = buffer.len();
-                let prefix_bytes = buffer
-                    .split_off(..size_of::<SystemContractStatePrefix>())
-                    .ok_or_else(|| {
-                        StorageItemError::NeedMoreBytes(
-                            size_of::<SystemContractStatePrefix>() - buffer_len,
-                        )
-                    })?;
-                let prefix = SystemContractStatePrefix::from_bytes_exact(prefix_bytes).ok_or(
-                    StorageItemError::InvalidDataAlignment {
-                        data_type: "SystemContractStatePrefix",
-                    },
-                )?;
-                read_len += prefix_bytes.len();
-                prefix
-            };
-
-            // Alignment padding (if needed)
-            if !read_len.is_multiple_of(size_of::<u128>()) {
-                let new_read_len = read_len.next_multiple_of(size_of::<u128>());
-                let buffer_len = buffer.len();
-                buffer
-                    .split_off(..(new_read_len - read_len))
-                    .ok_or_else(|| {
-                        StorageItemError::NeedMoreBytes((new_read_len - read_len) - buffer_len)
-                    })?;
-                read_len = new_read_len;
-            }
-
-            let contents = {
-                let buffer_len = buffer.len();
-                let contents_bytes =
-                    buffer
-                        .split_off(..prefix.content_len as usize)
-                        .ok_or_else(|| {
-                            StorageItemError::NeedMoreBytes(
-                                prefix.content_len as usize - buffer_len,
-                            )
-                        })?;
-                let contents = SharedAlignedBuffer::from_bytes(contents_bytes);
-                read_len += contents_bytes.len();
-                contents
-            };
+            reader.read_to_alignment::<Align8>()?;
+            let prefix = reader.read_trivial::<SystemContractStatePrefix>()?;
+            reader.read_to_alignment::<Align16>()?;
+            let contents = reader
+                .read_buffer::<Align16>(prefix.content_len)?
+                .into_standalone();
 
             system_contract_states.push(ContractSlotState {
                 owner: prefix.owner,

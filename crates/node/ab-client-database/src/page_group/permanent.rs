@@ -1,6 +1,8 @@
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemError, StorageItemWriteResult,
 };
+use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use std::mem::MaybeUninit;
 
 #[derive(Debug)]
@@ -20,7 +22,7 @@ impl StorageItem for StorageItemPermanent {
         unreachable!()
     }
 
-    fn read(variant: u8, _buffer: &[u8]) -> Result<Self, StorageItemError> {
+    fn read(variant: u8, _buffer: &SharedAlignedBuffer<Align16>) -> Result<Self, StorageItemError> {
         Err(StorageItemError::UnknownStorageItemVariant(variant))
     }
 }
