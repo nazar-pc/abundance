@@ -680,6 +680,9 @@ where
     /// a buffer that large.
     pub const MAX_CAPACITY: u32 = MAX_CAPACITY;
 
+    /// Empty buffer that is not backed by an allocation
+    pub const EMPTY: Self = Self::from_inner(InnerBuffer::EMPTY);
+
     /// Create a new instance with specified capacity.
     ///
     /// Allocation is aligned to the alignment of the contents, but at least 16 bytes.
@@ -747,9 +750,6 @@ where
         }
         instance
     }
-
-    /// Empty buffer that is not backed by an allocation
-    pub const EMPTY: Self = Self::from_inner(InnerBuffer::EMPTY);
 
     #[inline(always)]
     const fn from_inner(inner: InnerBuffer) -> Self {
@@ -1277,6 +1277,9 @@ impl<A> SharedAlignedBuffer<A>
 where
     A: Alignment,
 {
+    /// Empty buffer that is not backed by an allocation
+    pub const EMPTY: Self = Self::from_inner(InnerBuffer::EMPTY);
+
     /// Create a new instance from provided bytes.
     ///
     /// Allocation is aligned to the alignment of the contents, but at least 16 bytes.
@@ -1287,9 +1290,6 @@ where
     pub fn from_bytes(bytes: &[u8]) -> Self {
         OwnedAlignedBuffer::from_bytes(bytes).into_shared()
     }
-
-    /// Empty buffer that is not backed by an allocation
-    pub const EMPTY: Self = Self::from_inner(InnerBuffer::EMPTY);
 
     #[inline(always)]
     const fn from_inner(inner: InnerBuffer) -> Self {
