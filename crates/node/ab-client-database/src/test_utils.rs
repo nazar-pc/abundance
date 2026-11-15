@@ -35,6 +35,13 @@ use triomphe::Arc;
 const NUM_PAGES: u32 = 4096;
 pub(crate) const PAGE_GROUP_SIZE: NonZeroU32 = NonZeroU32::new(256).unwrap();
 
+/// Write that is held back by [`MemoryStorageBackend::hold_writes()`]
+struct HeldWrite {
+    buffer: SharedPages,
+    offset: u32,
+    sender: oneshot::Sender<(Result<(), StorageBackendError>, SharedPages)>,
+}
+
 /// In-memory storage backend, clones share the same pages, so a database can be reopened on them
 /// after the previous instance was dropped
 #[derive(Clone)]
@@ -42,6 +49,8 @@ pub(crate) struct MemoryStorageBackend {
     bytes: Arc<Mutex<Vec<u8>>>,
     /// Number of writes that still reach the pages, `None` means unlimited
     remaining_writes: Arc<Mutex<Option<usize>>>,
+    /// Writes that neither reached the pages nor finished yet, `None` means writes are not held
+    held_writes: Arc<Mutex<Option<Vec<HeldWrite>>>>,
 }
 
 impl fmt::Debug for MemoryStorageBackend {
@@ -85,31 +94,17 @@ impl ClientDatabaseStorageBackend for MemoryStorageBackend {
         offset: u32,
     ) -> oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)> {
         let (sender, receiver) = oneshot::channel();
-        let offset = (offset * OwnedPages::ALIGN) as usize;
         assert!(buffer.len().is_multiple_of(SharedPages::ALIGN));
 
-        if let Some(remaining_writes) = self.remaining_writes.lock().unwrap().as_mut() {
-            let Some(new_remaining_writes) = remaining_writes.checked_sub(1) else {
-                // Lost as if the process was killed before the write reached the disk
-                sender.send((Ok(()), buffer)).unwrap();
-                return receiver;
-            };
-            *remaining_writes = new_remaining_writes;
+        if let Some(held_writes) = self.held_writes.lock().unwrap().as_mut() {
+            held_writes.push(HeldWrite {
+                buffer,
+                offset,
+                sender,
+            });
+        } else {
+            sender.send(self.write_now(buffer, offset)).unwrap();
         }
-
-        let result = match self
-            .bytes
-            .lock()
-            .unwrap()
-            .get_mut(offset..offset + buffer.len() as usize)
-        {
-            Some(bytes) => {
-                bytes.copy_from_slice(&buffer);
-                Ok(())
-            }
-            None => Err(io::Error::other("Write out of bounds").into()),
-        };
-        sender.send((result, buffer)).unwrap();
 
         receiver
     }
@@ -124,6 +119,7 @@ impl MemoryStorageBackend {
                 (NUM_PAGES * OwnedPages::ALIGN) as usize
             ])),
             remaining_writes: Arc::default(),
+            held_writes: Arc::default(),
         };
 
         block_on(ClientDatabase::<OwnedBeaconChainBlock, Self>::format(
@@ -142,6 +138,71 @@ impl MemoryStorageBackend {
     /// all writes through again
     pub(crate) fn limit_writes(&self, num_writes: Option<usize>) {
         *self.remaining_writes.lock().unwrap() = num_writes;
+    }
+
+    /// Hold back writes until [`Self::release_writes()`] or [`Self::fail_held_writes()`], as if
+    /// they were still in flight
+    pub(crate) fn hold_writes(&self) {
+        self.held_writes.lock().unwrap().get_or_insert_default();
+    }
+
+    /// Let held writes reach the pages in the order they were submitted in and stop holding writes
+    pub(crate) fn release_writes(&self) {
+        let held_writes = self.held_writes.lock().unwrap().take().unwrap_or_default();
+        for HeldWrite {
+            buffer,
+            offset,
+            sender,
+        } in held_writes
+        {
+            sender.send(self.write_now(buffer, offset)).unwrap();
+        }
+    }
+
+    /// Fail held writes without them reaching the pages and stop holding writes
+    pub(crate) fn fail_held_writes(&self) {
+        let held_writes = self.held_writes.lock().unwrap().take().unwrap_or_default();
+        for HeldWrite {
+            buffer,
+            offset: _,
+            sender,
+        } in held_writes
+        {
+            sender
+                .send((Err(io::Error::other("Write failed").into()), buffer))
+                .unwrap();
+        }
+    }
+
+    fn write_now(
+        &self,
+        buffer: SharedPages,
+        offset: u32,
+    ) -> (Result<(), StorageBackendError>, SharedPages) {
+        let offset = (offset * SharedPages::ALIGN) as usize;
+
+        if let Some(remaining_writes) = self.remaining_writes.lock().unwrap().as_mut() {
+            let Some(new_remaining_writes) = remaining_writes.checked_sub(1) else {
+                // Lost as if the process was killed before the write reached the disk
+                return (Ok(()), buffer);
+            };
+            *remaining_writes = new_remaining_writes;
+        }
+
+        let result = match self
+            .bytes
+            .lock()
+            .unwrap()
+            .get_mut(offset..offset + buffer.len() as usize)
+        {
+            Some(bytes) => {
+                bytes.copy_from_slice(&buffer);
+                Ok(())
+            }
+            None => Err(io::Error::other("Write out of bounds").into()),
+        };
+
+        (result, buffer)
     }
 }
 

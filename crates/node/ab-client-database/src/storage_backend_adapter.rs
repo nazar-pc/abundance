@@ -22,7 +22,6 @@ use futures::channel::oneshot;
 use page_group_header::StorageItemPageGroupHeader;
 use rand::TryRng;
 use rand::rngs::SysRng;
-use replace_with::replace_with_or_abort_and_return;
 use std::cmp::Reverse;
 use std::collections::VecDeque;
 use std::task::Poll;
@@ -62,16 +61,30 @@ struct PageGroups {
     list: VecDeque<PageGroup>,
 }
 
-#[derive(Debug)]
-enum WriteBufferEntry {
-    Free(OwnedPages),
-    Occupied(oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)>),
-}
-
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) struct WriteLocation {
     pub(crate) page_offset: u32,
     pub(crate) num_pages: u32,
+}
+
+#[derive(Debug)]
+enum WriteBufferEntry {
+    /// Buffer that can be reused for the next write
+    Free(OwnedPages),
+    /// Write was submitted to the storage backend, but its result was not observed yet.
+    ///
+    /// Reads of the storage item are served from memory since the write may not have reached the
+    /// storage backend yet.
+    ///
+    /// An entry stays occupied after its write failed or was aborted, since no further writes are
+    /// allowed and its pages may not be in the storage backend.
+    Occupied {
+        /// Location of the storage item
+        location: WriteLocation,
+        /// Pages of the storage item
+        item_pages: SharedPages,
+        receiver: oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)>,
+    },
 }
 
 #[derive(Debug)]
@@ -101,7 +114,9 @@ pub(crate) struct StorageBackendAdapter<StorageBackend> {
     /// Page group size in pages
     page_group_size: u32,
     storage_backend: StorageBackend,
-    write_buffer: Box<[WriteBufferEntry]>,
+    /// Entries are reused in the order they were occupied, from front to back, see
+    /// [`Self::write_storage_item_inner()`]
+    write_buffer: VecDeque<WriteBufferEntry>,
     page_groups: EnumMap<PageGroupKind, PageGroups>,
     /// Offsets of the first pages that correspond to free page groups.
     ///
@@ -516,6 +531,26 @@ where
     where
         SI: UniqueStorageItem,
     {
+        // The write may not have reached the storage backend yet
+        if let Some(item_pages) = self.write_buffer.iter().find_map(|entry| {
+            if let WriteBufferEntry::Occupied {
+                location,
+                item_pages,
+                receiver: _,
+            } = entry
+                && *location == write_location
+            {
+                Some(item_pages)
+            } else {
+                None
+            }
+        }) {
+            let (container, _num_pages) = StorageItemContainer::read_from_pages(item_pages)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+
+            return Ok(container.storage_item);
+        }
+
         let WriteLocation {
             page_offset,
             num_pages,
@@ -673,81 +708,96 @@ where
             });
         }
 
-        let write_fut = future::poll_fn(|cx| {
-            // Find a free write buffer entry among those that are either completely free or already
-            // finished and can be reused
-            let write_attempt_result = self.write_buffer.iter_mut().find_map(|entry| {
-                replace_with_or_abort_and_return(entry, |entry| {
-                    let mut buffer = match entry {
-                        // Already free buffer
-                        WriteBufferEntry::Free(buffer) => buffer,
-                        WriteBufferEntry::Occupied(mut receiver) => {
-                            // Poll pending write attempt
-                            match receiver.poll_unpin(cx) {
-                                // Write succeeded, reuse the buffer unless it is still referenced
-                                // elsewhere, in which case a new one will be allocated
-                                Poll::Ready(Ok((Ok(()), buffer))) => {
-                                    buffer.try_into_owned().unwrap_or(OwnedPages::EMPTY)
-                                }
-                                // Write failed
-                                Poll::Ready(Ok((Err(error), _buffer))) => {
-                                    return (
-                                        Some(Err(error.into())),
-                                        WriteBufferEntry::Occupied(receiver),
-                                    );
-                                }
-                                // Write attempt was aborted
-                                Poll::Ready(Err(_cancelled)) => {
-                                    return (
-                                        Some(Err(io::Error::new(
-                                            io::ErrorKind::Interrupted,
-                                            "Storage backend write was aborted",
-                                        ))),
-                                        WriteBufferEntry::Occupied(receiver),
-                                    );
-                                }
-                                // Still in progress
-                                Poll::Pending => {
-                                    return (None, WriteBufferEntry::Occupied(receiver));
-                                }
-                            }
+        // The first entry that is free or whose write finished is moved to the back. Entries in
+        // front of it are still in flight, so entries are reused in the order they were occupied,
+        // which bounds how long a finished write keeps its pages in memory.
+        let mut buffer = future::poll_fn(|cx| {
+            for index in 0..self.write_buffer.len() {
+                let written_buffer = match &mut self.write_buffer[index] {
+                    WriteBufferEntry::Free(_buffer) => None,
+                    WriteBufferEntry::Occupied {
+                        location: _,
+                        item_pages: _,
+                        receiver,
+                    } => match receiver.poll_unpin(cx) {
+                        Poll::Ready(Ok((Ok(()), buffer))) => Some(buffer),
+                        // Write failed, the entry stays occupied since its pages may not be in the
+                        // storage backend
+                        Poll::Ready(Ok((Err(error), _buffer))) => {
+                            return Poll::Ready(Err(io::Error::from(error)));
                         }
-                    };
-
-                    // Write storage item pages to the buffer
-                    let page_offset = match Self::write_pages_to_buffer(
-                        &container,
-                        maybe_page_group_header.as_ref(),
-                        &mut buffer,
-                        num_pages,
-                        write_page_offset,
-                    ) {
-                        Ok(page_offset) => page_offset,
-                        Err(error) => {
-                            return (Some(Err(error)), WriteBufferEntry::Free(buffer));
+                        Poll::Ready(Err(_cancelled)) => {
+                            return Poll::Ready(Err(io::Error::new(
+                                io::ErrorKind::Interrupted,
+                                "Storage backend write was aborted",
+                            )));
                         }
-                    };
+                        Poll::Pending => {
+                            continue;
+                        }
+                    },
+                };
 
-                    let receiver = self
-                        .storage_backend
-                        .write(buffer.into_shared(), write_page_offset);
-                    (
-                        Some(Ok(WriteLocation {
-                            page_offset,
-                            num_pages,
-                        })),
-                        WriteBufferEntry::Occupied(receiver),
-                    )
-                })
-            });
-
-            match write_attempt_result {
-                Some(result) => Poll::Ready(result),
-                None => Poll::Pending,
+                // The entry is removed before the written buffer is reclaimed, since pages of the
+                // storage item reference it. The buffer is reused unless it is still referenced
+                // elsewhere (like by storage items that were read from it), in which case a new
+                // one will be allocated.
+                let buffer = match self.write_buffer.remove(index) {
+                    Some(WriteBufferEntry::Free(buffer)) => buffer,
+                    Some(WriteBufferEntry::Occupied {
+                        location: _,
+                        item_pages: _,
+                        receiver: _,
+                    })
+                    | None => written_buffer
+                        .and_then(|buffer| buffer.try_into_owned().ok())
+                        .unwrap_or(OwnedPages::EMPTY),
+                };
+                return Poll::Ready(Ok(buffer));
             }
+
+            Poll::Pending
+        })
+        .await?;
+
+        let page_offset = match Self::write_pages_to_buffer(
+            &container,
+            maybe_page_group_header.as_ref(),
+            &mut buffer,
+            num_pages,
+            write_page_offset,
+        ) {
+            Ok(page_offset) => page_offset,
+            Err(error) => {
+                self.write_buffer.push_back(WriteBufferEntry::Free(buffer));
+                return Err(error);
+            }
+        };
+
+        let location = WriteLocation {
+            page_offset,
+            num_pages,
+        };
+        let buffer = buffer.into_shared();
+        let item_pages = if maybe_page_group_header.is_some() {
+            buffer
+                .get_slice(SharedPages::ALIGN..)
+                .and_then(|item_pages| item_pages.try_into_start_align().ok())
+                .expect(
+                    "Page group header page is in front of storage item pages, which start at a \
+                    page boundary; qed",
+                )
+        } else {
+            buffer.clone()
+        };
+        let receiver = self.storage_backend.write(buffer, write_page_offset);
+        self.write_buffer.push_back(WriteBufferEntry::Occupied {
+            location,
+            item_pages,
+            receiver,
         });
 
-        write_fut.await
+        Ok(location)
     }
 
     /// Write a storage item that takes `num_pages` pages with an optional page group header in
