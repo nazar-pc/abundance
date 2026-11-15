@@ -28,6 +28,7 @@ jobs:
           - { name: linux-aarch64, runner: ubuntu-26.04-arm }
           - { name: windows-x86_64, runner: windows-2025 }
           - { name: windows-aarch64, runner: windows-11-arm }
+        # `false` is kache-action's default and what the regular workflow uses
         cache-executables:
           - 'true'
           - 'false'
@@ -54,7 +55,7 @@ jobs:
       - name: Install kache
         uses: kunobi-ninja/kache-action@1a33fb2ff51be23eb9e87abeae6edb65be78f71c # v1
         with:
-          version: v2.0.0-rc.3
+          version: v2.1.1
           cache-c-cpp: 'true'
           cache-dir: ${{ runner.temp }}/kache
           cache-executables: ${{ matrix.cache-executables }}
@@ -63,7 +64,7 @@ jobs:
           pr-comment: 'false'
 
       - name: Install wild-linker
-        uses: taiki-e/install-action@5488ac5a951645ce95062214902ac4b6bc1a1037 # 2.87.32
+        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # 2.90.2
         with:
           tool: wild-linker
         if: runner.os == 'Linux'
