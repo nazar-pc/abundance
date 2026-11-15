@@ -4,6 +4,7 @@ use crate::storage_backend_adapter::storage_item::StorageItemContainer;
 use crate::storage_backend_adapter::{PageGroupKind, StorageBackendAdapter};
 use crate::test_utils::{MemoryStorageBackend, database_options, open_database_with_options};
 use crate::{ClientDatabaseError, DatabaseId};
+use ab_aligned_buffer::OwnedAlignedBuffer;
 use futures::executor::block_on;
 
 #[test]
@@ -23,7 +24,7 @@ fn open_rejects_page_group_size_larger_than_storage_backend() {
             page_group_size: u32::MAX,
         },
     };
-    let mut buffer = Vec::new();
+    let mut buffer = OwnedAlignedBuffer::EMPTY;
     StorageBackendAdapter::<MemoryStorageBackend>::write_pages_to_buffer(
         &container,
         None,
@@ -32,7 +33,10 @@ fn open_rejects_page_group_size_larger_than_storage_backend() {
         0,
     )
     .unwrap();
-    block_on(storage_backend.write(buffer, 0)).unwrap().unwrap();
+    block_on(storage_backend.write(buffer.into_shared(), 0))
+        .unwrap()
+        .0
+        .unwrap();
 
     let result = open_database_with_options(database_options(&storage_backend));
     let Err(ClientDatabaseError::PageGroupSizeTooLarge {

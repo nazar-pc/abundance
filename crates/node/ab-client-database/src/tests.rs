@@ -1,4 +1,6 @@
-use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
+use crate::storage_backend::{
+    ClientDatabaseStorageBackend, OwnedPages, SharedPages, StorageBackendError,
+};
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::test_utils::{
     Database, DatabaseOptions, MemoryStorageBackend, PAGE_GROUP_SIZE, beacon_chain_block,
@@ -7,7 +9,7 @@ use crate::test_utils::{
     segment_header, super_segment_header,
 };
 use crate::{
-    ClientDatabaseBlock, ClientDatabaseError, ClientDatabaseFormatError,
+    ClientDatabase, ClientDatabaseBlock, ClientDatabaseError, ClientDatabaseFormatError,
     ClientDatabaseFormatOptions,
 };
 use ab_aligned_buffer::SharedAlignedBuffer;
@@ -16,9 +18,11 @@ use ab_client_api::{
     ContractSlotState, PersistBlockError, ReadBlockError,
 };
 use ab_core_primitives::address::Address;
+use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{LocalSegmentIndex, SuperSegmentIndex};
 use ab_core_primitives::trees::BlockMerkleMountainRange;
+use futures::channel::oneshot;
 use futures::executor::block_on;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::{assert_matches, io, iter};
@@ -1191,8 +1195,9 @@ fn format_without_force_only_formats_unformatted_storage() {
     );
 
     // Erase the page group header, as if the storage was never formatted
-    block_on(storage_backend.write(vec![AlignedPage::default()], 0))
+    block_on(storage_backend.write(OwnedPages::zeroed(OwnedPages::ALIGN).into_shared(), 0))
         .unwrap()
+        .0
         .unwrap();
     block_on(Database::format(&storage_backend, options)).unwrap();
     open_database(&storage_backend);
@@ -1201,6 +1206,33 @@ fn format_without_force_only_formats_unformatted_storage() {
         block_on(Database::format(&storage_backend, options)),
         Err(ClientDatabaseFormatError::AlreadyFormatted)
     );
+}
+
+/// Storage backend with the max number of pages, which is never read from or written to
+#[derive(Debug)]
+struct HugeStorageBackend;
+
+impl ClientDatabaseStorageBackend for HugeStorageBackend {
+    fn num_pages(&self) -> u32 {
+        u32::MAX
+    }
+
+    fn read(
+        &self,
+        _buffer: OwnedPages,
+        _num_pages: u32,
+        _offset: u32,
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, OwnedPages)> {
+        unreachable!("Not read from")
+    }
+
+    fn write(
+        &self,
+        _buffer: SharedPages,
+        _offset: u32,
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)> {
+        unreachable!("Not written to")
+    }
 }
 
 #[test]
@@ -1237,6 +1269,23 @@ fn format_rejects_invalid_page_group_size() {
     assert_eq!(
         (error_page_group_size, error_num_pages),
         (page_group_size, num_pages)
+    );
+
+    // Storage backend is large enough, but the page group doesn't fit into a buffer for reading it
+    let result = block_on(ClientDatabase::<OwnedBeaconChainBlock, _>::format(
+        &HugeStorageBackend,
+        ClientDatabaseFormatOptions {
+            page_group_size: NonZeroU32::MAX,
+            force: true,
+        },
+    ));
+    assert_matches!(
+        result,
+        Err(
+            ClientDatabaseFormatError::PageGroupSizeExceedsBufferCapacity {
+                page_group_size: u32::MAX
+            }
+        )
     );
 
     // The previously formatted database is left intact

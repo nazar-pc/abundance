@@ -1,4 +1,6 @@
-use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
+use crate::storage_backend::{
+    ClientDatabaseStorageBackend, OwnedPages, SharedPages, StorageBackendError,
+};
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::{
     ClientDatabase, ClientDatabaseError, ClientDatabaseFormatOptions, ClientDatabaseInnerOptions,
@@ -27,17 +29,17 @@ use std::mem::MaybeUninit;
 use std::num::{NonZeroU16, NonZeroU32, NonZeroUsize};
 use std::ops::RangeInclusive;
 use std::sync::Mutex;
-use std::{fmt, io};
+use std::{fmt, io, slice};
 use triomphe::Arc;
 
-const NUM_PAGES: usize = 4096;
+const NUM_PAGES: u32 = 4096;
 pub(crate) const PAGE_GROUP_SIZE: NonZeroU32 = NonZeroU32::new(256).unwrap();
 
 /// In-memory storage backend, clones share the same pages, so a database can be reopened on them
 /// after the previous instance was dropped
 #[derive(Clone)]
 pub(crate) struct MemoryStorageBackend {
-    pages: Arc<Mutex<Vec<AlignedPage>>>,
+    bytes: Arc<Mutex<Vec<u8>>>,
     /// Number of writes that still reach the pages, `None` means unlimited
     remaining_writes: Arc<Mutex<Option<usize>>>,
 }
@@ -51,61 +53,63 @@ impl fmt::Debug for MemoryStorageBackend {
 
 impl ClientDatabaseStorageBackend for MemoryStorageBackend {
     fn num_pages(&self) -> u32 {
-        u32::try_from(self.pages.lock().unwrap().len()).unwrap()
+        u32::try_from(self.bytes.lock().unwrap().len()).unwrap() / OwnedPages::ALIGN
     }
 
     fn read(
         &self,
-        mut buffer: Vec<AlignedPage>,
-        length: u32,
+        mut buffer: OwnedPages,
+        num_pages: u32,
         offset: u32,
-    ) -> oneshot::Receiver<io::Result<Vec<AlignedPage>>> {
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, OwnedPages)> {
         let (sender, receiver) = oneshot::channel();
-        let offset = usize::try_from(offset).unwrap();
-        let length = usize::try_from(length).unwrap();
+        let offset = (offset * OwnedPages::ALIGN) as usize;
+        let length = (num_pages * OwnedPages::ALIGN) as usize;
 
-        let result = match self.pages.lock().unwrap().get(offset..offset + length) {
-            Some(pages) => {
-                buffer.extend_from_slice(pages);
-                Ok(buffer)
-            }
-            None => Err(io::Error::other("Read out of bounds")),
+        buffer.truncate(0);
+        let result = match self.bytes.lock().unwrap().get(offset..offset + length) {
+            Some(bytes) => buffer
+                .try_ensure_capacity(num_pages * OwnedPages::ALIGN)
+                .and_then(|()| buffer.append(bytes))
+                .map_err(StorageBackendError::from),
+            None => Err(io::Error::other("Read out of bounds").into()),
         };
-        sender.send(result).unwrap();
+        sender.send((result, buffer)).unwrap();
 
         receiver
     }
 
     fn write(
         &self,
-        buffer: Vec<AlignedPage>,
+        buffer: SharedPages,
         offset: u32,
-    ) -> oneshot::Receiver<io::Result<Vec<AlignedPage>>> {
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)> {
         let (sender, receiver) = oneshot::channel();
-        let offset = usize::try_from(offset).unwrap();
+        let offset = (offset * OwnedPages::ALIGN) as usize;
+        assert!(buffer.len().is_multiple_of(SharedPages::ALIGN));
 
         if let Some(remaining_writes) = self.remaining_writes.lock().unwrap().as_mut() {
             let Some(new_remaining_writes) = remaining_writes.checked_sub(1) else {
                 // Lost as if the process was killed before the write reached the disk
-                sender.send(Ok(buffer)).unwrap();
+                sender.send((Ok(()), buffer)).unwrap();
                 return receiver;
             };
             *remaining_writes = new_remaining_writes;
         }
 
         let result = match self
-            .pages
+            .bytes
             .lock()
             .unwrap()
-            .get_mut(offset..offset + buffer.len())
+            .get_mut(offset..offset + buffer.len() as usize)
         {
-            Some(pages) => {
-                pages.copy_from_slice(&buffer);
-                Ok(buffer)
+            Some(bytes) => {
+                bytes.copy_from_slice(&buffer);
+                Ok(())
             }
-            None => Err(io::Error::other("Write out of bounds")),
+            None => Err(io::Error::other("Write out of bounds").into()),
         };
-        sender.send(result).unwrap();
+        sender.send((result, buffer)).unwrap();
 
         receiver
     }
@@ -115,7 +119,10 @@ impl MemoryStorageBackend {
     /// Create a new formatted storage backend
     pub(crate) fn new() -> Self {
         let storage_backend = Self {
-            pages: Arc::new(Mutex::new(vec![AlignedPage::default(); NUM_PAGES])),
+            bytes: Arc::new(Mutex::new(vec![
+                0;
+                (NUM_PAGES * OwnedPages::ALIGN) as usize
+            ])),
             remaining_writes: Arc::default(),
         };
 
@@ -309,20 +316,27 @@ pub(crate) fn super_segment_header(super_segment_index: u64) -> SuperSegmentHead
     }
 }
 
-/// Call `write` with the first `buffer_len` bytes of zeroed aligned pages, which is how storage
-/// items are written, and return its result together with the pages
+/// Call `write` with the first `buffer_len` bytes of zeroed pages, which is how storage items are
+/// written, and return its result together with the pages
 pub(crate) fn write_to_aligned_pages<W>(
     buffer_len: usize,
     write: W,
-) -> (Result<usize, StorageItemError>, Box<[AlignedPage]>)
+) -> (Result<usize, StorageItemError>, SharedPages)
 where
     W: FnOnce(&mut [MaybeUninit<u8>]) -> Result<usize, StorageItemError>,
 {
-    let num_pages = buffer_len.div_ceil(AlignedPage::SIZE);
-    let mut pages = vec![MaybeUninit::new(AlignedPage::default()); num_pages].into_boxed_slice();
-    let result = write(&mut pages.as_bytes_mut()[..buffer_len]);
-    // SAFETY: All pages were initialized above and storage items only write initialized bytes
-    let pages = unsafe { pages.assume_init() };
+    let num_bytes = u32::try_from(buffer_len)
+        .unwrap()
+        .next_multiple_of(OwnedPages::ALIGN);
+    let mut pages = OwnedPages::zeroed(num_bytes);
+    // SAFETY: Bytes are initialized and storage items only write initialized bytes
+    let bytes = unsafe {
+        slice::from_raw_parts_mut(
+            pages.as_mut_byte_ptr().cast::<MaybeUninit<u8>>(),
+            buffer_len,
+        )
+    };
+    let result = write(bytes);
 
-    (result, pages)
+    (result, pages.into_shared())
 }

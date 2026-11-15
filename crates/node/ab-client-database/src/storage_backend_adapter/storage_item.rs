@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::storage_backend::AlignedPage;
+use crate::storage_backend::OwnedPages;
 use crate::storage_backend_adapter::PageGroupKind;
 use ab_blake3::single_block_hash;
 use ab_core_primitives::hashes::Blake3Hash;
@@ -25,8 +25,8 @@ pub(crate) enum StorageItemError {
     #[error("Buffer too small: expected {expected}, actual {actual}")]
     BufferTooSmall { expected: usize, actual: usize },
     /// Buffer too large
-    #[error("Buffer too large, {extra_pages} extra pages were provided")]
-    BufferTooLarge { extra_pages: usize },
+    #[error("Buffer too large, {extra_bytes} extra bytes were provided")]
+    BufferTooLarge { extra_bytes: usize },
     /// Need more bytes
     #[error("Need {0} more bytes")]
     NeedMoreBytes(usize),
@@ -136,17 +136,21 @@ where
             .checked_add((prefix_size + Self::suffix_size()) as u32)
             .ok_or(StorageItemError::StorageItemTooLarge)?;
 
-        Ok(num_bytes.div_ceil(AlignedPage::SIZE as u32))
+        Ok(num_bytes.div_ceil(OwnedPages::ALIGN))
     }
 
-    /// Write a storage item to the provided buffer of aligned pages.
+    /// Write a storage item to the provided buffer of whole pages, which must be aligned to 16
+    /// bytes.
     ///
-    /// Successful write means all provided pages are fully initialized.
+    /// Successful write means the whole buffer is fully initialized.
     pub(super) fn write_to_pages(
         &self,
-        buffer: &mut [MaybeUninit<AlignedPage>],
+        mut buffer: &mut [MaybeUninit<u8>],
     ) -> Result<(), StorageItemError> {
-        let mut buffer = buffer.as_bytes_mut();
+        debug_assert!(
+            buffer.len().is_multiple_of(OwnedPages::ALIGN as usize),
+            "Buffer must contain whole pages"
+        );
 
         // Align buffer used by storage item to 128 bytes
         let prefix_bytes = buffer
@@ -191,11 +195,11 @@ where
         storage_item_checksum_bytes.write_copy_of_slice(&storage_item_checksum);
         prefix_checksum_repeat_bytes.write_copy_of_slice(&checksum);
 
-        if buffer.len() < AlignedPage::SIZE {
+        if buffer.len() < OwnedPages::ALIGN as usize {
             buffer.write_filled(0);
         } else {
             return Err(StorageItemError::BufferTooLarge {
-                extra_pages: buffer.len(),
+                extra_bytes: buffer.len(),
             });
         }
 
@@ -204,9 +208,10 @@ where
 
     /// The inverse of [`Self::write_to_pages()`].
     ///
+    /// Pages are bytes of whole pages that start with the storage item.
+    ///
     /// Returns the storage item container and the number of pages it occupies.
-    pub(super) fn read_from_pages(pages: &[AlignedPage]) -> Result<(Self, u32), StorageItemError> {
-        let pages_bytes = AlignedPage::slice_to_repr(pages).as_flattened();
+    pub(super) fn read_from_pages(pages_bytes: &[u8]) -> Result<(Self, u32), StorageItemError> {
         let mut buffer = pages_bytes;
 
         // Align buffer used by storage item to 128 bytes
@@ -279,11 +284,13 @@ where
         }
 
         let storage_item = SI::read(storage_item_variant, storage_item_bytes)?;
-        let num_pages =
-            u32::try_from((pages_bytes.len() - buffer.len()).div_ceil(AlignedPage::SIZE)).expect(
-                "Read bytes are the prefix, storage item of `u32` size and suffix, which take far \
+        let num_pages = u32::try_from(
+            (pages_bytes.len() - buffer.len()).div_ceil(OwnedPages::ALIGN as usize),
+        )
+        .expect(
+            "Read bytes are the prefix, storage item of `u32` size and suffix, which take far \
                 fewer than `u32::MAX` pages; qed",
-            );
+        );
 
         Ok((
             Self {

@@ -1,5 +1,4 @@
 use crate::page_group::temporary::block::{StorageItemTemporaryBlock, SystemContractStatePrefix};
-use crate::storage_backend::AlignedPage;
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::test_utils::write_to_aligned_pages;
 use ab_aligned_buffer::SharedAlignedBuffer;
@@ -157,7 +156,7 @@ fn read_returns_written_block() {
         let (result, pages) =
             write_to_aligned_pages(buffer_len, |buffer| storage_item.write(buffer));
         result.unwrap();
-        let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
+        let bytes = pages.as_slice();
 
         // The caller frames storage items, so trailing bytes are ignored
         for read_len in [total_bytes, buffer_len] {
@@ -174,7 +173,7 @@ fn read_of_truncated_bytes_needs_more_bytes() {
         let (result, pages) =
             write_to_aligned_pages(total_bytes, |buffer| storage_item.write(buffer));
         result.unwrap();
-        let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
+        let bytes = pages.as_slice();
         // Without system contract states, trailing padding after MMR is not needed for reading
         let min_read_len = if storage_item.system_contract_states.is_empty() {
             size_of::<u128>()

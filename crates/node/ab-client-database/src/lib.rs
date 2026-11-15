@@ -2,14 +2,15 @@
 //!
 //! ## High-level architecture overview
 //!
-//! The database operates on [`ClientDatabaseStorageBackend`], which is backed by [`AlignedPage`]s
-//! that can be read or written. Pages contain `StorageItem`s, one storage item can occupy one or
-//! more pages, but pages always belong to a single storage item. Pages are the smallest unit and
-//! align nicely with the hardware architecture of modern SSDs. Each page starts with a prefix that
-//! describes the contents of the page. `StorageItem` always starts at the multiple of the
-//! `u128`/16 bytes, allowing for direct memory mapping onto target data structures.
+//! The database operates on [`ClientDatabaseStorageBackend`], which is backed by pages of
+//! [`OwnedPages::ALIGN`] bytes that can be read or written. Pages contain `StorageItem`s, one
+//! storage item can occupy one or more pages, but pages always belong to a single storage item.
+//! Pages are the smallest unit and align nicely with the hardware architecture of modern SSDs. Each
+//! page starts with a prefix that describes the contents of the page. `StorageItem` always starts
+//! at the multiple of the `u128`/16 bytes, allowing for direct memory mapping onto target data
+//! structures.
 //!
-//! [`AlignedPage`]: crate::storage_backend::AlignedPage
+//! [`OwnedPages::ALIGN`]: crate::storage_backend::OwnedPages::ALIGN
 //!
 //! Individual pages are grouped into page groups (configurable via [`ClientDatabaseOptions`]). Page
 //! groups can be permanent and ephemeral. Permanent page groups store information that is never
@@ -46,7 +47,6 @@
     const_trait_impl,
     default_field_values,
     iter_collect_into,
-    maybe_uninit_as_bytes,
     maybe_uninit_fill
 )]
 
@@ -258,9 +258,9 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
 /// Options for [`ClientDatabase`]
 #[derive(Debug, Copy, Clone)]
 pub struct ClientDatabaseFormatOptions {
-    /// The number of [`AlignedPage`]s in a single page group.
+    /// The number of pages of [`OwnedPages::ALIGN`] bytes in a single page group.
     ///
-    /// [`AlignedPage`]: crate::storage_backend::AlignedPage
+    /// [`OwnedPages::ALIGN`]: crate::storage_backend::OwnedPages::ALIGN
     ///
     /// Each group always has a set of storage items with monotonically increasing sequence
     /// numbers. The database only frees page groups for reuse when all storage items there are
@@ -303,6 +303,16 @@ pub enum ClientDatabaseError {
     ReadError {
         /// Low-level error
         error: io::Error,
+    },
+    /// Page group size is too large, the whole page group must fit into an aligned buffer, whose
+    /// max capacity is less than 4 GiB
+    #[error(
+        "Page group size is too large ({page_group_size}), the whole page group must fit into an \
+        aligned buffer"
+    )]
+    PageGroupSizeExceedsBufferCapacity {
+        /// Page group size in pages
+        page_group_size: u32,
     },
     /// Unsupported database version
     #[error("Unsupported database version: {database_version}")]
@@ -406,6 +416,16 @@ pub enum ClientDatabaseFormatError {
         page_group_size: u32,
         /// Number of pages in the storage backend
         num_pages: u32,
+    },
+    /// Page group size is too large, the whole page group must fit into an aligned buffer, whose
+    /// max capacity is less than 4 GiB
+    #[error(
+        "Page group size is too large ({page_group_size}), the whole page group must fit into an \
+        aligned buffer"
+    )]
+    PageGroupSizeExceedsBufferCapacity {
+        /// Page group size in pages
+        page_group_size: u32,
     },
     /// Database is already formatted yet
     #[error("Database is already formatted yet")]

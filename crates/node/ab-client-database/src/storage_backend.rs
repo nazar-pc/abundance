@@ -1,135 +1,35 @@
+use ab_aligned_buffer::alignment::Align4096;
+use ab_aligned_buffer::{AllocationError, OwnedAlignedBuffer, SharedAlignedBuffer};
 use futures::channel::oneshot;
-use std::mem::MaybeUninit;
-use std::{fmt, io, mem};
+use std::{fmt, io};
 
-/// A wrapper data structure with 4096 bytes alignment, which is the most common alignment for
-/// direct I/O operations.
-#[derive(Debug, Copy, Clone)]
-#[repr(C, align(4096))]
-pub struct AlignedPage([u8; AlignedPage::SIZE]);
+/// Owned buffer of pages, which are the unit of reads and writes of a storage backend.
+///
+/// The size of a page is the alignment of the buffer, [`OwnedPages::ALIGN`] bytes. 4096 bytes is a
+/// relatively safe size due to sector size on SSDs commonly being 512 or 4096 bytes.
+pub type OwnedPages = OwnedAlignedBuffer<Align4096>;
+/// Shared buffer of pages, see [`OwnedPages`]
+pub type SharedPages = SharedAlignedBuffer<Align4096>;
 
-const {
-    assert!(align_of::<AlignedPage>() == AlignedPage::SIZE);
+/// Error of a storage backend operation
+#[derive(Debug, thiserror::Error)]
+pub enum StorageBackendError {
+    /// Failed to allocate a buffer for the requested pages
+    #[error("Failed to allocate a buffer: {0}")]
+    AllocationFailed(#[from] AllocationError),
+    /// I/O error
+    #[error("I/O error: {0}")]
+    Io(#[from] io::Error),
 }
 
-impl Default for AlignedPage {
-    #[inline(always)]
-    fn default() -> Self {
-        Self([0; AlignedPage::SIZE])
-    }
-}
-
-impl AlignedPage {
-    /// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096
-    /// bytes
-    pub const SIZE: usize = 4096;
-
-    /// Convenient conversion from slice to underlying representation for efficiency purposes
-    #[inline(always)]
-    pub fn slice_to_repr(value: &[Self]) -> &[[u8; AlignedPage::SIZE]] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
-        // alignment equal to its size, so it has no padding and the same size as the inner value,
-        // whose alignment is smaller
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from slice to underlying representation for efficiency purposes
-    #[inline(always)]
-    pub fn uninit_slice_to_repr(
-        value: &[MaybeUninit<Self>],
-    ) -> &[MaybeUninit<[u8; AlignedPage::SIZE]>] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
-        // alignment equal to its size, so it has no padding and the same size as the inner value,
-        // whose alignment is smaller. `MaybeUninit` preserves the size and alignment of the wrapped
-        // type.
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
-    ///
-    /// Returns `None` if not correctly aligned.
+impl From<StorageBackendError> for io::Error {
     #[inline]
-    pub fn try_slice_from_repr(value: &[[u8; AlignedPage::SIZE]]) -> Option<&[Self]> {
-        // SAFETY: All bit patterns are valid and there is no padding
-        let (before, slice, after) = unsafe { value.align_to::<Self>() };
-
-        if before.is_empty() && after.is_empty() {
-            Some(slice)
-        } else {
-            None
-        }
-    }
-
-    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
-    ///
-    /// Returns `None` if not correctly aligned.
-    #[inline]
-    pub fn try_uninit_slice_from_repr(
-        value: &[MaybeUninit<[u8; AlignedPage::SIZE]>],
-    ) -> Option<&[MaybeUninit<Self>]> {
-        // SAFETY: All bit patterns are valid and there is no padding
-        let (before, slice, after) = unsafe { value.align_to::<MaybeUninit<Self>>() };
-
-        if before.is_empty() && after.is_empty() {
-            Some(slice)
-        } else {
-            None
-        }
-    }
-
-    /// Convenient conversion from mutable slice to underlying representation for efficiency
-    /// purposes
-    #[inline(always)]
-    pub fn slice_mut_to_repr(slice: &mut [Self]) -> &mut [[u8; AlignedPage::SIZE]] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
-        // alignment equal to its size, so it has no padding and the same size as the inner value,
-        // whose alignment is smaller. Any bytes written through the result are valid `AlignedPage`.
-        unsafe { mem::transmute(slice) }
-    }
-
-    /// Convenient conversion from mutable slice to underlying representation for efficiency
-    /// purposes
-    #[inline(always)]
-    pub fn uninit_slice_mut_to_repr(
-        slice: &mut [MaybeUninit<Self>],
-    ) -> &mut [MaybeUninit<[u8; AlignedPage::SIZE]>] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
-        // alignment equal to its size, so it has no padding and the same size as the inner value,
-        // whose alignment is smaller. `MaybeUninit` preserves the size and alignment of the wrapped
-        // type, and any bytes (initialized or not) written through the result are a valid
-        // `MaybeUninit<AlignedPage>`.
-        unsafe { mem::transmute(slice) }
-    }
-
-    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
-    ///
-    /// Returns `None` if not correctly aligned.
-    #[inline]
-    pub fn try_slice_mut_from_repr(value: &mut [[u8; AlignedPage::SIZE]]) -> Option<&mut [Self]> {
-        // SAFETY: All bit patterns are valid and there is no padding
-        let (before, slice, after) = unsafe { value.align_to_mut::<Self>() };
-
-        if before.is_empty() && after.is_empty() {
-            Some(slice)
-        } else {
-            None
-        }
-    }
-
-    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
-    ///
-    /// Returns `None` if not correctly aligned.
-    #[inline]
-    pub fn try_uninit_slice_mut_from_repr(
-        value: &mut [MaybeUninit<[u8; AlignedPage::SIZE]>],
-    ) -> Option<&mut [MaybeUninit<Self>]> {
-        // SAFETY: All bit patterns are valid and there is no padding
-        let (before, slice, after) = unsafe { value.align_to_mut::<MaybeUninit<Self>>() };
-
-        if before.is_empty() && after.is_empty() {
-            Some(slice)
-        } else {
-            None
+    fn from(error: StorageBackendError) -> Self {
+        match error {
+            StorageBackendError::AllocationFailed(_) => {
+                io::Error::new(io::ErrorKind::OutOfMemory, error)
+            }
+            StorageBackendError::Io(error) => error,
         }
     }
 }
@@ -141,26 +41,30 @@ pub trait ClientDatabaseStorageBackend: fmt::Debug + Send + Sync + 'static {
     /// Total number of pages available for reads/writes
     fn num_pages(&self) -> u32;
 
-    // TODO: Think whether `Vec` is the right wrapper here to avoid reallocations
-    /// Reading into aligned memory.
+    /// Read `num_pages` pages at `offset` (in pages) into `buffer`, replacing its contents.
     ///
-    /// `length` is the number of [`AlignedPage`] units (pages) to read into (append to)
-    /// `buffer`. `offset` is in pages too.
+    /// The buffer grows if its capacity is smaller than `num_pages` pages. Existing contents are
+    /// discarded, so they are never copied, and [`StorageBackendError::AllocationFailed`] is
+    /// returned if growing fails. On success the buffer contains exactly `num_pages` pages. The
+    /// buffer is returned back regardless of the result.
+    ///
+    /// The read is started before this method returns.
     fn read(
         &self,
-        buffer: Vec<AlignedPage>,
-        length: u32,
+        buffer: OwnedPages,
+        num_pages: u32,
         offset: u32,
-    ) -> oneshot::Receiver<io::Result<Vec<AlignedPage>>>;
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, OwnedPages)>;
 
-    // TODO: Think whether `Vec` is the right wrapper here to avoid reallocations
-    /// Writing from aligned memory.
+    /// Write the contents of `buffer`, which are whole pages, at `offset` (in pages).
     ///
-    /// `offset` is in [`AlignedPage`] units (pages). After successful writing returns allocated
-    /// pages back to the caller.
+    /// The buffer is shared, so the caller can keep reading it while the write is in progress. The
+    /// buffer is returned back regardless of the result.
+    ///
+    /// The write is started before this method returns.
     fn write(
         &self,
-        buffer: Vec<AlignedPage>,
+        buffer: SharedPages,
         offset: u32,
-    ) -> oneshot::Receiver<io::Result<Vec<AlignedPage>>>;
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)>;
 }

@@ -15,7 +15,7 @@ use crate::cli::CliCommand;
 use crate::cli::format_database::{FormatDb, FormatDbError};
 use crate::cli::run::{Run, RunError};
 use ab_cli_utils::{init_logger, raise_fd_limit, set_exit_on_panic};
-use ab_client_database::storage_backend::AlignedPage;
+use ab_client_database::storage_backend::OwnedPages;
 use bytesize::ByteSize;
 use clap::Parser;
 use std::num::NonZeroU32;
@@ -28,7 +28,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 ///
 /// It might become customizable in the future, but should not be necessary for now.
 const PAGE_GROUP_SIZE: NonZeroU32 =
-    NonZeroU32::new((ByteSize::mib(256).as_u64() / AlignedPage::SIZE as u64) as u32)
+    NonZeroU32::new((ByteSize::mib(256).as_u64() / u64::from(OwnedPages::ALIGN)) as u32)
         .expect("Not zero; qed");
 
 /// Node CLI
