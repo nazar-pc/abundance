@@ -6,27 +6,24 @@ mod metrics;
 #[cfg(test)]
 mod tests;
 
+use crate::cache_element::{ChecksumMismatch, ELEMENT_PAGES, ELEMENT_SIZE};
 use crate::disk_piece_cache::metrics::DiskPieceCacheMetrics;
-use crate::farm;
 use crate::farm::{FarmError, PieceCacheId, PieceCacheOffset};
-use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::utils::AsyncJoinOnDrop;
-use ab_aligned_buffer::OwnedAlignedBuffer;
-use ab_aligned_buffer::alignment::Align4096;
-use ab_core_primitives::hashes::Blake3Hash;
+use crate::{cache_element, farm};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_direct_io_file::AlignedPage;
-use ab_farmer_components::file_ext::FileExt;
+use ab_direct_io_file::{DirectIoFile, IoBufError, OwnedPages};
 use async_trait::async_trait;
 use futures::channel::mpsc;
 use futures::{SinkExt, Stream, StreamExt, stream};
 use parking_lot::Mutex;
 use prometheus_client::registry::Registry;
+use std::fs::OpenOptions;
 use std::num::NonZeroU32;
 use std::path::Path;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::task::Poll;
-use std::{fs, io, iter};
+use std::{fs, io, iter, mem};
 use thiserror::Error;
 use tokio::runtime::Handle;
 use tokio::task;
@@ -38,10 +35,6 @@ use triomphe::Arc;
 const CONTENTS_READ_SKIP_LIMIT: usize = 3;
 /// How many piece to read from disk at the same time (using tokio thread pool)
 const PIECES_READING_CONCURRENCY: usize = 32;
-/// Size of a cache element: piece index, piece and checksum, followed by zero padding to whole
-/// disk pages, such that elements can be written without read-modify-write
-const ELEMENT_SIZE: usize =
-    (PieceIndex::SIZE + Piece::SIZE + Blake3Hash::SIZE).next_multiple_of(AlignedPage::SIZE);
 
 /// Disk piece cache open error
 #[derive(Debug, Error)]
@@ -65,15 +58,29 @@ pub enum DiskPieceCacheError {
     ChecksumMismatch,
 }
 
+impl<B> From<IoBufError<B>> for DiskPieceCacheError {
+    #[inline]
+    fn from(error: IoBufError<B>) -> Self {
+        Self::Io(error.into())
+    }
+}
+
 #[derive(Debug)]
 struct FilePool {
-    files: Box<[DirectIoFileWrapper; PIECES_READING_CONCURRENCY]>,
+    files: Box<[DirectIoFile; PIECES_READING_CONCURRENCY]>,
     cursor: AtomicU8,
 }
 
 impl FilePool {
     fn open(path: &Path) -> io::Result<Self> {
-        let files = iter::repeat_with(|| DirectIoFileWrapper::open(path))
+        let mut open_options = OpenOptions::new();
+        open_options
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false);
+
+        let files = iter::repeat_with(|| DirectIoFile::open(open_options.clone(), path))
             .take(PIECES_READING_CONCURRENCY)
             .collect::<Result<Box<_>, _>>()?
             .try_into()
@@ -84,14 +91,14 @@ impl FilePool {
         })
     }
 
-    fn read(&self) -> &DirectIoFileWrapper {
+    fn read(&self) -> &DirectIoFile {
         let position = usize::from(self.cursor.fetch_add(1, Ordering::Relaxed));
         &self.files[position % PIECES_READING_CONCURRENCY]
     }
 
-    fn write(&self) -> &DirectIoFileWrapper {
-        // Always the same file or else overlapping writes will be corrupted due to
-        // read/modify/write internals, which are in turn caused by alignment requirements
+    fn write(&self) -> &DirectIoFile {
+        // Elements are whole pages written at page-aligned offsets, so writes don't need
+        // read/modify/write and don't take a lock, any file would work
         &self.files[0]
     }
 }
@@ -268,14 +275,13 @@ impl DiskPieceCache {
 
         let expected_size = u64::from(Self::element_size()) * u64::from(capacity);
         // Align plot file size for disk sector size
-        let expected_size =
-            expected_size.div_ceil(AlignedPage::SIZE as u64) * AlignedPage::SIZE as u64;
+        let expected_size = expected_size.next_multiple_of(u64::from(OwnedPages::ALIGN));
         {
             let file = files.write();
-            if file.size()? != expected_size {
+            if file.len()? != expected_size {
                 // Allocating the whole file (`set_len` below can create a sparse file, which will
                 // cause writes to fail later)
-                file.preallocate(expected_size)
+                file.allocate(expected_size)
                     .map_err(DiskPieceCacheError::CantPreallocateCacheFile)?;
                 // Truncating file (if necessary)
                 file.set_len(expected_size)?;
@@ -298,7 +304,7 @@ impl DiskPieceCache {
 
     /// Size of a single piece cache element
     pub const fn element_size() -> u32 {
-        ELEMENT_SIZE as u32
+        ELEMENT_SIZE
     }
 
     /// Contents of this piece cache
@@ -308,7 +314,7 @@ impl DiskPieceCache {
     pub(crate) fn contents(
         &self,
     ) -> impl ExactSizeIterator<Item = (PieceCacheOffset, Option<PieceIndex>)> + '_ {
-        let mut element = vec![0; ELEMENT_SIZE];
+        let mut element = OwnedPages::EMPTY;
         let count_total = self.inner.metrics.as_ref().is_some_and(|metrics| {
             metrics.contents.inc();
             metrics.capacity_used.get() == 0
@@ -370,30 +376,11 @@ impl DiskPieceCache {
                 metrics.capacity_used.set(capacity_used);
             }
         }
-        let element_offset = u64::from(offset) * u64::from(Self::element_size());
+        let element_offset = u64::from(offset) * u64::from(ELEMENT_SIZE);
 
-        // Combine all data with zero padding here, such that the whole element is written at once,
-        // the element is aligned to the page size for direct I/O
-        let mut element = OwnedAlignedBuffer::<Align4096>::zeroed(ELEMENT_SIZE as u32);
-        element.truncate(0);
-        element
-            .append(&piece_index.to_bytes())
-            .expect("Element has capacity for piece index; qed");
-        element
-            .append(piece.as_ref())
-            .expect("Element has capacity for piece; qed");
-        let checksum = blake3::hash(element.as_slice());
-        element
-            .append(checksum.as_bytes())
-            .expect("Element has capacity for checksum; qed");
-        // SAFETY: The allocation is zeroed, so bytes after the checksum are zero padding
-        unsafe {
-            element.set_len(ELEMENT_SIZE as u32);
-        }
-        self.inner
-            .files
-            .write()
-            .write_all_at(&element, element_offset)?;
+        // The whole element is written at once
+        let element = cache_element::encode(piece_index, piece);
+        self.inner.files.write().write_at(element, element_offset)?;
 
         Ok(())
     }
@@ -420,7 +407,7 @@ impl DiskPieceCache {
         if let Some(metrics) = &self.inner.metrics {
             metrics.read_piece_index.inc();
         }
-        self.read_piece_internal(offset, &mut vec![0; ELEMENT_SIZE])
+        self.read_piece_internal(offset, &mut OwnedPages::default())
     }
 
     /// Read piece from cache at specified offset.
@@ -445,61 +432,34 @@ impl DiskPieceCache {
         if let Some(metrics) = &self.inner.metrics {
             metrics.read_piece.inc();
         }
-        let mut element = OwnedAlignedBuffer::<Align4096>::zeroed(ELEMENT_SIZE as u32);
-        if let Some(piece_index) = self.read_piece_internal(offset, element.as_mut_slice())? {
-            let piece = element
-                .into_shared()
-                .get_slice(PieceIndex::SIZE as u32..(PieceIndex::SIZE + Piece::SIZE) as u32)
-                .and_then(|piece| Piece::try_from(piece).ok())
-                .expect("Piece is within the element and has correct length; qed");
+        let mut element = OwnedPages::EMPTY;
+        if let Some(piece_index) = self.read_piece_internal(offset, &mut element)? {
+            let piece = cache_element::into_piece(element)
+                .expect("Successfully read element has the whole size; qed");
             Ok(Some((piece_index, piece)))
         } else {
             Ok(None)
         }
     }
 
+    /// Read element at `offset` into `element`, replacing its contents, and verify its checksum
     fn read_piece_internal(
         &self,
         offset: u32,
-        element: &mut [u8],
+        element: &mut OwnedPages,
     ) -> Result<Option<PieceIndex>, DiskPieceCacheError> {
-        self.inner
-            .files
-            .read()
-            .read_exact_at(element, u64::from(offset) * u64::from(Self::element_size()))?;
+        *element = self.inner.files.read().read_pages_at(
+            mem::take(element),
+            ELEMENT_PAGES,
+            u64::from(offset) * u64::from(ELEMENT_PAGES),
+        )?;
 
-        let (piece_index_bytes, remaining_bytes) = element.split_at(PieceIndex::SIZE);
-        let (piece_bytes, remaining_bytes) = remaining_bytes.split_at(Piece::SIZE);
-        // The rest of the element after the checksum is zero padding
-        let (expected_checksum, _padding) = remaining_bytes.split_at(Blake3Hash::SIZE);
-
-        // Verify checksum
-        let actual_checksum = {
-            let mut hasher = blake3::Hasher::new();
-            hasher.update(piece_index_bytes);
-            hasher.update(piece_bytes);
-            *hasher.finalize().as_bytes()
-        };
-        if actual_checksum != expected_checksum {
-            if element.iter().all(|&byte| byte == 0) {
-                return Ok(None);
-            }
-
-            debug!(
-                actual_checksum = %hex::encode(actual_checksum),
-                expected_checksum = %hex::encode(expected_checksum),
-                "Hash doesn't match, corrupted piece in cache"
-            );
-
-            return Err(DiskPieceCacheError::ChecksumMismatch);
-        }
-
-        let piece_index = PieceIndex::from_bytes(
-            piece_index_bytes
-                .try_into()
-                .expect("Statically known to have correct size; qed"),
-        );
-        Ok(Some(piece_index))
+        cache_element::verify_checksum(
+            element
+                .as_array()
+                .expect("Exactly one element was read; qed"),
+        )
+        .map_err(|ChecksumMismatch| DiskPieceCacheError::ChecksumMismatch)
     }
 
     pub(crate) fn wipe(directory: &Path) -> io::Result<()> {

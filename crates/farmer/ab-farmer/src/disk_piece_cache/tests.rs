@@ -1,7 +1,7 @@
 use crate::disk_piece_cache::{DiskPieceCache, DiskPieceCacheError, PieceCacheOffset};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_direct_io_file::AlignedPage;
+use ab_direct_io_file::OwnedPages;
 use rand::prelude::*;
 use std::num::NonZeroU32;
 use std::{assert_matches, fs};
@@ -150,8 +150,8 @@ fn basic() {
 
 #[test]
 fn element_layout() {
+    assert_eq!(DiskPieceCache::element_size() % OwnedPages::ALIGN, 0);
     let element_size = usize::try_from(DiskPieceCache::element_size()).unwrap();
-    assert_eq!(element_size % AlignedPage::SIZE, 0);
 
     let path = tempdir().unwrap();
     let disk_piece_cache =
