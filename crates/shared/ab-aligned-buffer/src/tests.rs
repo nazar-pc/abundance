@@ -8,12 +8,13 @@ use core::iter;
 use core::ops::{Deref, DerefMut};
 use core::sync::atomic::Ordering;
 
-const EXPECTED_ALIGNMENT: usize = 16;
+const EXPECTED_ALIGNMENT: u32 = 16;
 
 // TODO: Replace with `<*const T>::is_aligned_to()` once stabilized:
 //  https://github.com/rust-lang/rust/issues/96284
-fn is_aligned_to<T>(ptr: *const T, alignment: usize) -> bool {
-    ptr.addr().is_multiple_of(alignment)
+fn is_aligned_to<T>(ptr: *const T, alignment: u32) -> bool {
+    ptr.addr()
+        .is_multiple_of(usize::try_from(alignment).unwrap())
 }
 
 #[test]
@@ -22,7 +23,7 @@ fn is_aligned_to<T>(ptr: *const T, alignment: usize) -> bool {
     reason = "Intentionally explicit for testing"
 )]
 fn basic() {
-    for capacity in 0..=EXPECTED_ALIGNMENT as u32 {
+    for capacity in 0..=EXPECTED_ALIGNMENT {
         let mut owned = OwnedAlignedBuffer::<Align16>::with_capacity(capacity);
         assert_eq!(owned.len(), 0, "Capacity {capacity}");
         assert!(owned.capacity() >= capacity, "Capacity {capacity}");
@@ -717,7 +718,10 @@ fn relocate() {
     assert_eq!(owned.as_slice(), bytes);
     assert!(owned.relocate::<Align4096>(1, 0));
     assert_eq!(owned.allocation_alignment(), Align4096::ALIGN);
-    assert_eq!(owned.as_byte_ptr().addr() % Align4096::ALIGN, 1);
+    assert_eq!(
+        owned.as_byte_ptr().addr() % usize::try_from(Align4096::ALIGN).unwrap(),
+        1
+    );
     assert_eq!(owned.capacity(), 100);
     assert_eq!(owned.as_slice(), bytes);
 
@@ -743,7 +747,10 @@ fn relocate() {
     let mut owned = OwnedAlignedBuffer::<Align1>::EMPTY;
     assert!(owned.relocate::<Align4096>(100, 8000));
     assert_eq!(owned.offset(), 100);
-    assert_eq!(owned.as_byte_ptr().addr() % Align4096::ALIGN, 100);
+    assert_eq!(
+        owned.as_byte_ptr().addr() % usize::try_from(Align4096::ALIGN).unwrap(),
+        100
+    );
     assert!(owned.capacity() >= 8000);
     assert!(owned.is_empty());
 }
@@ -1139,4 +1146,12 @@ fn fallible_allocation_above_max_capacity() {
         OwnedAlignedBuffer::<Align16>::try_zeroed(max_capacity + 1).err(),
         Some(AllocationError::CapacityOverflow)
     );
+}
+
+#[test]
+fn alignment_constants() {
+    assert_eq!(Align4096::ALIGN, 4096);
+    assert_eq!(OwnedAlignedBuffer::<Align4096>::ALIGN, 4096);
+    assert_eq!(SharedAlignedBuffer::<Align1>::ALIGN, 1);
+    assert_eq!(alloc::format!("{:?}", Align16::default()), "Align<16>");
 }

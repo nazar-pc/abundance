@@ -20,10 +20,12 @@ Breaking changes:
 
 New features:
 
-* `alignment` module with `Alignment` trait and `Align1` to `Align4096` types, which are used as type parameters for
-  alignment of the contents of buffers and of their allocations
-* `allocation_alignment()` on both buffers returns the alignment of the allocation, which can be stricter than the
-  alignment of the contents and is preserved when a buffer grows, is cloned or converted into an owned buffer
+* `alignment` module with `Alignment` trait, which is implemented by `Align<N>` for powers of two from 1 to 4096, and
+  `Align1` to `Align4096` aliases, which are used as type parameters for alignment of the contents of buffers and of
+  their allocations
+* `OwnedAlignedBuffer::ALIGN` and `SharedAlignedBuffer::ALIGN` constants with the alignment of the contents in bytes
+* `allocation_alignment()` on both buffers returns the alignment of the allocation in bytes, which can be stricter than
+  the alignment of the contents and is preserved when a buffer grows, is cloned or converted into an owned buffer
 * `into_start_align()` converts a buffer into one with a weaker alignment of the contents, `try_into_start_align()`
   converts into one with any alignment that the contents are actually aligned to
 * `OwnedAlignedBuffer::EMPTY` and `SharedAlignedBuffer::EMPTY` constants, and `Default` for `OwnedAlignedBuffer`

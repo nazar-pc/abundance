@@ -33,10 +33,20 @@ use core::{fmt, hint, ptr, slice};
 use stable_deref_trait::{CloneStableDeref, StableDeref};
 use yoke::CloneableCart;
 
+/// Alignment `A` in bytes as `usize`
+#[inline(always)]
+const fn align_usize<A>() -> usize
+where
+    A: Alignment,
+{
+    // Lossless, alignment is at most 4096
+    A::ALIGN as usize
+}
+
 /// The smallest alignment of allocations, which is also the size of the header
-const MIN_ALLOCATION_ALIGNMENT: usize = Align16::ALIGN;
+const MIN_ALLOCATION_ALIGNMENT: usize = align_usize::<Align16>();
 /// The strictest supported alignment of allocations
-const MAX_ALIGNMENT: usize = Align4096::ALIGN;
+const MAX_ALIGNMENT: usize = align_usize::<Align4096>();
 /// See [`OwnedAlignedBuffer::MAX_CAPACITY`]
 const MAX_CAPACITY: u32 = if usize::BITS < u64::BITS {
     // Space for the header is reserved in front of the contents, which is as large as the
@@ -100,7 +110,7 @@ const _: () = {
     assert!(size_of::<Header>() == MIN_ALLOCATION_ALIGNMENT);
     assert!(align_of::<Header>() == MIN_ALLOCATION_ALIGNMENT);
     // Contents of buffers aligned to `Align16` are accessed as `u128`s
-    assert!(Align16::ALIGN >= align_of::<u128>());
+    assert!(align_usize::<Align16>() >= align_of::<u128>());
 };
 
 const _: () = {
@@ -560,11 +570,11 @@ impl InnerBuffer {
     /// Alignment of the allocation, or the alignment an empty buffer without an allocation grows
     /// into for contents aligned to `content_alignment`
     #[inline(always)]
-    fn allocation_alignment(&self, content_alignment: usize) -> usize {
+    fn allocation_alignment(&self, content_alignment: u32) -> u32 {
         if ptr::eq(self.header(), &raw const EMPTY_ALLOCATION.header) {
-            content_alignment.max(MIN_ALLOCATION_ALIGNMENT)
+            content_alignment.max(Align16::ALIGN)
         } else {
-            self.alignment()
+            2_u32.pow(self.header().alignment_log2)
         }
     }
 
@@ -694,7 +704,7 @@ where
     }
 
     #[inline(always)]
-    fn allocation_alignment(&self) -> usize {
+    fn allocation_alignment(&self) -> u32 {
         self.allocation_alignment()
     }
 
@@ -721,7 +731,10 @@ where
     /// Allocates as much as the length of the buffer with the same alignment, without offset
     #[inline(always)]
     fn clone(&self) -> Self {
-        Self::from_inner(self.inner.copy(self.inner.alignment().max(A::ALIGN)))
+        Self::from_inner(
+            self.inner
+                .copy(self.inner.alignment().max(align_usize::<A>())),
+        )
     }
 }
 
@@ -735,6 +748,11 @@ where
     /// allocation can't be larger than `isize::MAX` bytes. The allocator may still fail to allocate
     /// a buffer that large.
     pub const MAX_CAPACITY: u32 = MAX_CAPACITY;
+
+    /// Alignment of the contents in bytes.
+    ///
+    /// The allocation can be aligned more strictly, see [`Self::allocation_alignment()`].
+    pub const ALIGN: u32 = A::ALIGN;
 
     /// Empty buffer that is not backed by an allocation
     pub const EMPTY: Self = Self::from_inner(InnerBuffer::EMPTY);
@@ -756,8 +774,12 @@ where
     /// Returns an error if `capacity` is larger than [`Self::MAX_CAPACITY`] or allocation fails.
     #[inline(always)]
     pub fn try_with_capacity(capacity: u32) -> Result<Self, AllocationError> {
-        InnerBuffer::try_allocate(capacity, A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT), 0)
-            .map(Self::from_inner)
+        InnerBuffer::try_allocate(
+            capacity,
+            align_usize::<A>().max(MIN_ALLOCATION_ALIGNMENT),
+            0,
+        )
+        .map(Self::from_inner)
     }
 
     /// Create a new instance from provided bytes.
@@ -799,7 +821,7 @@ where
     pub fn try_zeroed(len: u32) -> Result<Self, AllocationError> {
         let mut instance = Self::from_inner(InnerBuffer::try_allocate_zeroed(
             len,
-            A::ALIGN.max(MIN_ALLOCATION_ALIGNMENT),
+            align_usize::<A>().max(MIN_ALLOCATION_ALIGNMENT),
             0,
         )?);
         // SAFETY: The whole data region is zeroed, which is a valid initialized value
@@ -904,7 +926,7 @@ where
     where
         B: Alignment,
     {
-        if self.inner.is_aligned_to(B::ALIGN) {
+        if self.inner.is_aligned_to(align_usize::<B>()) {
             Ok(OwnedAlignedBuffer::from_inner(self.into_inner()))
         } else {
             Err(self)
@@ -932,7 +954,7 @@ where
     #[inline(always)]
     pub fn try_ensure_capacity(&mut self, capacity: u32) -> Result<(), AllocationError> {
         if capacity > self.capacity() {
-            self.inner.try_resize(capacity, A::ALIGN)?;
+            self.inner.try_resize(capacity, align_usize::<A>())?;
         }
 
         Ok(())
@@ -956,7 +978,7 @@ where
                         .saturating_mul(2)
                         .min(MAX_CAPACITY - self.offset()),
                 ),
-                A::ALIGN,
+                align_usize::<A>(),
             );
         }
 
@@ -991,7 +1013,7 @@ where
                         .saturating_mul(2)
                         .min(MAX_CAPACITY - self.offset()),
                 ),
-                A::ALIGN,
+                align_usize::<A>(),
             )?;
         }
 
@@ -1037,7 +1059,7 @@ where
     /// [`Self::realign()`]). Empty buffer without an allocation reports the alignment it grows
     /// into.
     #[inline(always)]
-    pub fn allocation_alignment(&self) -> usize {
+    pub fn allocation_alignment(&self) -> u32 {
         self.inner.allocation_alignment(A::ALIGN)
     }
 
@@ -1073,7 +1095,7 @@ where
     where
         AA: AtLeast<A> + AtLeast<Align16>,
     {
-        if !(offset as usize).is_multiple_of(A::ALIGN) {
+        if !offset.is_multiple_of(A::ALIGN) {
             return false;
         }
         let capacity = capacity.max(self.len());
@@ -1084,7 +1106,9 @@ where
             return false;
         }
 
-        if self.inner.total_capacity() >= total_capacity && self.inner.alignment() >= AA::ALIGN {
+        if self.inner.total_capacity() >= total_capacity
+            && self.inner.alignment() >= align_usize::<AA>()
+        {
             // SAFETY: Not shared, contents fit into the data region at a new offset
             unsafe {
                 self.inner.move_to_offset(offset);
@@ -1092,8 +1116,11 @@ where
         } else {
             // SAFETY: Not shared, a new allocation with enough capacity for the contents
             unsafe {
-                self.inner
-                    .move_into(InnerBuffer::allocate(total_capacity, AA::ALIGN, offset));
+                self.inner.move_into(InnerBuffer::allocate(
+                    total_capacity,
+                    align_usize::<AA>(),
+                    offset,
+                ));
             }
         }
 
@@ -1112,10 +1139,10 @@ where
     where
         B: Alignment,
     {
-        let misalignment = u32::try_from(self.inner.buffer.addr().get() % B::ALIGN)
+        let misalignment = u32::try_from(self.inner.buffer.addr().get() % align_usize::<B>())
             .expect("Smaller than alignment, which is at most 4096; qed");
         if misalignment != 0 {
-            let alignment = u32::try_from(B::ALIGN).expect("At most 4096; qed");
+            let alignment = B::ALIGN;
             let len = self.len();
             let total_capacity = self.inner.total_capacity();
             // Moving contents backwards always fits, moving them forward only fits with enough
@@ -1136,7 +1163,7 @@ where
             } else {
                 let new = InnerBuffer::allocate(
                     self.capacity(),
-                    B::ALIGN.max(MIN_ALLOCATION_ALIGNMENT),
+                    align_usize::<B>().max(MIN_ALLOCATION_ALIGNMENT),
                     0,
                 );
                 // SAFETY: Not shared, a new allocation with enough capacity for the contents
@@ -1311,7 +1338,7 @@ where
     }
 
     #[inline(always)]
-    fn allocation_alignment(&self) -> usize {
+    fn allocation_alignment(&self) -> u32 {
         self.allocation_alignment()
     }
 
@@ -1325,6 +1352,11 @@ impl<A> SharedAlignedBuffer<A>
 where
     A: Alignment,
 {
+    /// Alignment of the contents in bytes.
+    ///
+    /// The allocation can be aligned more strictly, see [`Self::allocation_alignment()`].
+    pub const ALIGN: u32 = A::ALIGN;
+
     /// Empty buffer that is not backed by an allocation
     pub const EMPTY: Self = Self::from_inner(InnerBuffer::EMPTY);
 
@@ -1372,7 +1404,9 @@ where
         match self.try_into_owned() {
             Ok(owned) => owned,
             Err(shared) => OwnedAlignedBuffer::from_inner(
-                shared.inner.copy(shared.inner.alignment().max(A::ALIGN)),
+                shared
+                    .inner
+                    .copy(shared.inner.alignment().max(align_usize::<A>())),
             ),
         }
     }
@@ -1434,7 +1468,10 @@ where
         }
 
         if !self.is_last_reference() {
-            *self = Self::from_inner(self.inner.copy(self.inner.alignment().max(A::ALIGN)));
+            *self = Self::from_inner(
+                self.inner
+                    .copy(self.inner.alignment().max(align_usize::<A>())),
+            );
         }
 
         // This is the last reference to the allocation (either checked above or just allocated),
@@ -1457,7 +1494,7 @@ where
         if self.offset() == 0 && self.len() == self.inner.total_capacity() {
             self
         } else {
-            Self::from_inner(self.inner.copy(A::ALIGN))
+            Self::from_inner(self.inner.copy(align_usize::<A>()))
         }
     }
 
@@ -1527,7 +1564,7 @@ where
     where
         B: Alignment,
     {
-        if self.inner.is_aligned_to(B::ALIGN) {
+        if self.inner.is_aligned_to(align_usize::<B>()) {
             Ok(SharedAlignedBuffer::from_inner(self.into_inner()))
         } else {
             Err(self)
@@ -1573,7 +1610,7 @@ where
     /// aligned more strictly than the allocation (see [`Self::try_into_start_align()`]). Empty
     /// buffer without an allocation reports the alignment it grows into.
     #[inline(always)]
-    pub fn allocation_alignment(&self) -> usize {
+    pub fn allocation_alignment(&self) -> u32 {
         self.inner.allocation_alignment(A::ALIGN)
     }
 }
@@ -1612,7 +1649,7 @@ pub trait AlignedBuffer:
     fn offset(&self) -> u32;
 
     /// Alignment of the allocation in bytes, see [`OwnedAlignedBuffer::allocation_alignment()`]
-    fn allocation_alignment(&self) -> usize;
+    fn allocation_alignment(&self) -> u32;
 
     /// Convert into shared buffer, which reuses the allocation
     fn into_shared(self) -> SharedAlignedBuffer<Self::Alignment>;
