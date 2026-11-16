@@ -31,7 +31,6 @@ libc = { workspace = true }
 windows = { workspace = true }
 
 [dev-dependencies]
-chacha20 = { workspace = true, features = ["rng"] }
 tempfile = { workspace = true }
 
 [lints]

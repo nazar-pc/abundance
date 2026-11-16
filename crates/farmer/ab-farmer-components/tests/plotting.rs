@@ -6,7 +6,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset, Record};
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::HistorySize;
-use ab_direct_io_file::AlignedPage;
+use ab_direct_io_file::OwnedPages;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::{
@@ -208,16 +208,9 @@ fn write_sector_writes_whole_output() {
     write_sector(&encoded_sector, &mut sector).unwrap();
     assert_eq!(sector.len() as usize, sector_size(PIECES_IN_SECTOR));
     // Contents are aligned to the page size for direct I/O
-    assert_eq!(
-        usize::try_from(sector.allocation_alignment()).unwrap(),
-        AlignedPage::SIZE
-    );
-    assert!(
-        sector
-            .as_byte_ptr()
-            .addr()
-            .is_multiple_of(AlignedPage::SIZE)
-    );
+    let page_size = OwnedPages::ALIGN as usize;
+    assert_eq!(sector.allocation_alignment(), OwnedPages::ALIGN);
+    assert!(sector.as_byte_ptr().addr().is_multiple_of(page_size));
 
     // Output of the correct size is overwritten completely without reallocation
     let mut reused_sector = OwnedAlignedBuffer::from_bytes(&vec![u8::MAX; sector.len() as usize]);
@@ -227,13 +220,13 @@ fn write_sector_writes_whole_output() {
     assert_eq!(reused_sector.as_slice(), sector.as_slice());
 
     // Output of a wrong size is rejected
-    let mut wrong_sector = OwnedAlignedBuffer::from_bytes(&[0; AlignedPage::SIZE]);
+    let mut wrong_sector = OwnedAlignedBuffer::from_bytes(&vec![0; page_size]);
     assert_matches!(
         write_sector(&encoded_sector, &mut wrong_sector),
         Err(PlottingError::BadSectorOutputSize {
-            provided: AlignedPage::SIZE,
+            provided,
             expected,
-        }) if expected == sector_size(PIECES_IN_SECTOR)
+        }) if provided == page_size && expected == sector_size(PIECES_IN_SECTOR)
     );
 
     // Checksum covers everything before it, including zero padding

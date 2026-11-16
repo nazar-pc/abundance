@@ -369,7 +369,6 @@ name = "ab-direct-io-file"
 version = "0.2.0"
 dependencies = [
  "ab-aligned-buffer",
- "chacha20 0.10.2",
  "fs4",
  "libc",
  "parking_lot 0.13.0",

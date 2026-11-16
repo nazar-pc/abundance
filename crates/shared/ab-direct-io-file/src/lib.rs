@@ -7,17 +7,9 @@
 //! <https://learn.microsoft.com/en-us/windows/win32/fileio/file-buffering#alignment-and-file-access-requirements>
 //! <https://man7.org/linux/man-pages/man2/open.2.html>
 
-#![feature(core_io_borrowed_buf, maybe_uninit_as_bytes)]
+#![feature(core_io_borrowed_buf)]
 #![cfg_attr(unix, feature(read_buf_at))]
 #![cfg_attr(windows, feature(seek_read_exact_seek_write_all))]
-// TODO: Remove once https://github.com/rust-lang/rust-clippy/issues/17498 is resolved
-#![cfg_attr(
-    any(unix, windows),
-    expect(
-        clippy::items_after_statements,
-        reason = "https://github.com/rust-lang/rust-clippy/issues/17498"
-    )
-)]
 
 // TODO: Windows shims are incomplete under Miri: https://github.com/rust-lang/miri/issues/3482
 #[cfg(all(test, not(all(miri, windows))))]
@@ -27,8 +19,7 @@ use ab_aligned_buffer::alignment::{Align1, Align4096};
 use ab_aligned_buffer::{AlignedBuffer, AllocationError, OwnedAlignedBuffer, SharedAlignedBuffer};
 use parking_lot::Mutex;
 use std::fs::{File, OpenOptions};
-use std::io::{BorrowedBuf, BorrowedCursor};
-use std::mem::MaybeUninit;
+use std::io::BorrowedBuf;
 #[cfg(unix)]
 use std::os::unix::fs::FileExt;
 #[cfg(windows)]
@@ -91,145 +82,6 @@ impl<B> From<IoBufError<B>> for io::Error {
     }
 }
 
-/// Restrict how much data to read from the disk in a single call to avoid very large memory usage
-const MAX_READ_SIZE: usize = 1024 * 1024;
-
-const _: () = {
-    assert!(MAX_READ_SIZE.is_multiple_of(AlignedPage::SIZE));
-};
-
-/// A wrapper data structure with 4096 bytes alignment, which is the most common alignment for
-/// direct I/O operations.
-#[derive(Debug, Copy, Clone)]
-#[repr(C, align(4096))]
-pub struct AlignedPage([u8; AlignedPage::SIZE]);
-
-const _: () = {
-    assert!(align_of::<AlignedPage>() == AlignedPage::SIZE);
-};
-
-impl Default for AlignedPage {
-    #[inline(always)]
-    fn default() -> Self {
-        Self([0; AlignedPage::SIZE])
-    }
-}
-
-impl AlignedPage {
-    /// 4096 is as a relatively safe size due to sector size on SSDs commonly being 512 or 4096
-    /// bytes
-    pub const SIZE: usize = 4096;
-
-    /// Convenient conversion from slice to underlying representation for efficiency purposes
-    #[inline(always)]
-    pub fn slice_to_repr(value: &[Self]) -> &[[u8; AlignedPage::SIZE]] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
-        // alignment equal to its size, so it has no padding and the same size as the inner value,
-        // whose alignment is smaller
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from slice to underlying representation for efficiency purposes
-    #[inline(always)]
-    pub fn uninit_slice_to_repr(
-        value: &[MaybeUninit<Self>],
-    ) -> &[MaybeUninit<[u8; AlignedPage::SIZE]>] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
-        // alignment equal to its size, so it has no padding and the same size as the inner value,
-        // whose alignment is smaller. `MaybeUninit` preserves the size and alignment of the wrapped
-        // type.
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
-    ///
-    /// Returns `None` if not correctly aligned.
-    #[inline]
-    pub fn try_slice_from_repr(value: &[[u8; AlignedPage::SIZE]]) -> Option<&[Self]> {
-        // SAFETY: All bit patterns are valid and there is no padding
-        let (before, slice, after) = unsafe { value.align_to::<Self>() };
-
-        if before.is_empty() && after.is_empty() {
-            Some(slice)
-        } else {
-            None
-        }
-    }
-
-    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
-    ///
-    /// Returns `None` if not correctly aligned.
-    #[inline]
-    pub fn try_uninit_slice_from_repr(
-        value: &[MaybeUninit<[u8; AlignedPage::SIZE]>],
-    ) -> Option<&[MaybeUninit<Self>]> {
-        // SAFETY: All bit patterns are valid and there is no padding
-        let (before, slice, after) = unsafe { value.align_to::<MaybeUninit<Self>>() };
-
-        if before.is_empty() && after.is_empty() {
-            Some(slice)
-        } else {
-            None
-        }
-    }
-
-    /// Convenient conversion from mutable slice to underlying representation for efficiency
-    /// purposes
-    #[inline(always)]
-    pub fn slice_mut_to_repr(slice: &mut [Self]) -> &mut [[u8; AlignedPage::SIZE]] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
-        // alignment equal to its size, so it has no padding and the same size as the inner value,
-        // whose alignment is smaller. Any bytes written through the result are valid `AlignedPage`.
-        unsafe { mem::transmute(slice) }
-    }
-
-    /// Convenient conversion from mutable slice to underlying representation for efficiency
-    /// purposes
-    #[inline(always)]
-    pub fn uninit_slice_mut_to_repr(
-        slice: &mut [MaybeUninit<Self>],
-    ) -> &mut [MaybeUninit<[u8; AlignedPage::SIZE]>] {
-        // SAFETY: `AlignedPage` is `#[repr(C)]` with a single `[u8; AlignedPage::SIZE]` field and
-        // alignment equal to its size, so it has no padding and the same size as the inner value,
-        // whose alignment is smaller. `MaybeUninit` preserves the size and alignment of the wrapped
-        // type, and any bytes (initialized or not) written through the result are a valid
-        // `MaybeUninit<AlignedPage>`.
-        unsafe { mem::transmute(slice) }
-    }
-
-    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
-    ///
-    /// Returns `None` if not correctly aligned.
-    #[inline]
-    pub fn try_slice_mut_from_repr(value: &mut [[u8; AlignedPage::SIZE]]) -> Option<&mut [Self]> {
-        // SAFETY: All bit patterns are valid and there is no padding
-        let (before, slice, after) = unsafe { value.align_to_mut::<Self>() };
-
-        if before.is_empty() && after.is_empty() {
-            Some(slice)
-        } else {
-            None
-        }
-    }
-
-    /// Convenient conversion from a slice of underlying representation for efficiency purposes.
-    ///
-    /// Returns `None` if not correctly aligned.
-    #[inline]
-    pub fn try_uninit_slice_mut_from_repr(
-        value: &mut [MaybeUninit<[u8; AlignedPage::SIZE]>],
-    ) -> Option<&mut [MaybeUninit<Self>]> {
-        // SAFETY: All bit patterns are valid and there is no padding
-        let (before, slice, after) = unsafe { value.align_to_mut::<MaybeUninit<Self>>() };
-
-        if before.is_empty() && after.is_empty() {
-            Some(slice)
-        } else {
-            None
-        }
-    }
-}
-
 /// Wrapper data structure for direct/unbuffered/uncached I/O.
 ///
 /// Depending on OS, this will use direct I/O, unbuffered, uncaches passthrough file reads/writes,
@@ -241,8 +93,8 @@ impl AlignedPage {
 #[derive(Debug)]
 pub struct DirectIoFile {
     file: File,
-    /// Scratch buffer of aligned memory for reads and writes
-    scratch_buffer: Mutex<Vec<AlignedPage>>,
+    /// Serializes read-modify-write of partially written pages
+    partial_pages: Mutex<()>,
 }
 
 impl DirectIoFile {
@@ -297,11 +149,7 @@ impl DirectIoFile {
 
         Ok(Self {
             file,
-            // In many cases, we'll want to read this much at once, so pre-allocate it right away
-            scratch_buffer: Mutex::new(vec![
-                AlignedPage::default();
-                MAX_READ_SIZE / AlignedPage::SIZE
-            ]),
+            partial_pages: Mutex::new(()),
         })
     }
 
@@ -334,164 +182,6 @@ impl DirectIoFile {
     #[inline(always)]
     pub fn set_len(&self, len: u64) -> io::Result<()> {
         self.file.set_len(len)
-    }
-
-    /// Read the exact number of bytes needed to fill `buf` at `offset`.
-    ///
-    /// NOTE: This uses locking and buffering internally, prefer [`Self::read_exact_at_raw()`] if
-    /// you can control data alignment.
-    pub fn read_exact_at(&self, buf: &mut [u8], mut offset: u64) -> io::Result<()> {
-        if buf.is_empty() {
-            return Ok(());
-        }
-
-        let mut scratch_buffer = self.scratch_buffer.lock();
-
-        // This is guaranteed by the constructor
-        debug_assert!(
-            AlignedPage::slice_to_repr(&scratch_buffer)
-                .as_flattened()
-                .len()
-                <= MAX_READ_SIZE
-        );
-
-        // First read up to `MAX_READ_SIZE - padding`
-        let padding = (offset % AlignedPage::SIZE as u64) as usize;
-        let first_unaligned_chunk_size = (MAX_READ_SIZE - padding).min(buf.len());
-        let (unaligned_start, buf) = buf.split_at_mut(first_unaligned_chunk_size);
-        {
-            let bytes_to_read = unaligned_start.len();
-            unaligned_start.copy_from_slice(self.read_exact_at_internal(
-                &mut scratch_buffer,
-                bytes_to_read,
-                offset,
-            )?);
-            offset += unaligned_start.len() as u64;
-        }
-
-        if buf.is_empty() {
-            return Ok(());
-        }
-
-        // Process the rest of the chunks, up to `MAX_READ_SIZE` at a time
-        for buf in buf.chunks_mut(MAX_READ_SIZE) {
-            let bytes_to_read = buf.len();
-            buf.copy_from_slice(self.read_exact_at_internal(
-                &mut scratch_buffer,
-                bytes_to_read,
-                offset,
-            )?);
-            offset += buf.len() as u64;
-        }
-
-        Ok(())
-    }
-
-    /// Write all bytes at `buf` at `offset`.
-    ///
-    /// NOTE: This uses locking and buffering internally, prefer [`Self::write_all_at_raw()`] if you
-    /// can control data alignment.
-    pub fn write_all_at(&self, buf: &[u8], mut offset: u64) -> io::Result<()> {
-        if buf.is_empty() {
-            return Ok(());
-        }
-
-        let mut scratch_buffer = self.scratch_buffer.lock();
-
-        // This is guaranteed by the constructor
-        debug_assert!(
-            AlignedPage::slice_to_repr(&scratch_buffer)
-                .as_flattened()
-                .len()
-                <= MAX_READ_SIZE
-        );
-
-        // First, write up to `MAX_READ_SIZE - padding`
-        let padding = (offset % AlignedPage::SIZE as u64) as usize;
-        let first_unaligned_chunk_size = (MAX_READ_SIZE - padding).min(buf.len());
-        let (unaligned_start, buf) = buf.split_at(first_unaligned_chunk_size);
-        {
-            self.write_all_at_internal(&mut scratch_buffer, unaligned_start, offset)?;
-            offset += unaligned_start.len() as u64;
-        }
-
-        if buf.is_empty() {
-            return Ok(());
-        }
-
-        // Process the rest of the chunks, up to `MAX_READ_SIZE` at a time
-        for buf in buf.chunks(MAX_READ_SIZE) {
-            self.write_all_at_internal(&mut scratch_buffer, buf, offset)?;
-            offset += buf.len() as u64;
-        }
-
-        Ok(())
-    }
-
-    /// Low-level reading into aligned memory.
-    ///
-    /// `offset` needs to be page-aligned as well or use [`Self::read_exact_at()`] if you're willing
-    /// to pay for the corresponding overhead.
-    ///
-    /// Successful result guarantees that the whole `buf` was filled.
-    #[inline]
-    pub fn read_exact_at_raw(
-        &self,
-        mut buf: BorrowedCursor<'_, AlignedPage>,
-        offset: u64,
-    ) -> io::Result<()> {
-        // SAFETY: Only bytes read from the file are written into pages
-        let pages = unsafe { buf.as_mut() };
-        let num_pages = pages.len();
-        let mut bytes = BorrowedBuf::from(pages.as_bytes_mut());
-
-        cfg_select! {
-            unix => {
-                use std::os::unix::fs::FileExt;
-
-                self.file.read_buf_exact_at(bytes.unfilled(), offset)?;
-            }
-            windows => {
-                use std::os::windows::fs::FileExt;
-
-                self.file.seek_read_buf_exact(bytes.unfilled(), offset)?;
-            }
-            _ => {
-                compile_error!("Unsupported platform (consider contributing)");
-            }
-        }
-
-        // SAFETY: All pages were just filled with bytes read from the file
-        unsafe {
-            buf.advance(num_pages);
-        }
-
-        Ok(())
-    }
-
-    /// Low-level writing from aligned memory.
-    ///
-    /// `offset` needs to be page-aligned as well or use [`Self::write_all_at()`] if you're willing
-    /// to pay for the corresponding overhead.
-    #[inline]
-    pub fn write_all_at_raw(&self, buf: &[AlignedPage], offset: u64) -> io::Result<()> {
-        let buf = AlignedPage::slice_to_repr(buf).as_flattened();
-
-        cfg_select! {
-            unix => {
-                use std::os::unix::fs::FileExt;
-
-                self.file.write_all_at(buf, offset)
-            }
-            windows => {
-                use std::os::windows::fs::FileExt;
-
-                self.file.seek_write_all(buf, offset)
-            }
-            _ => {
-                compile_error!("Unsupported platform (consider contributing)");
-            }
-        }
     }
 
     /// Read `len` bytes at `offset` into `buffer`, replacing its contents.
@@ -712,74 +402,10 @@ impl DirectIoFile {
 
         // Read-modify-write of pages is serialized, such that concurrent writes to different bytes
         // of the same page don't overwrite each other
-        let _guard = self.scratch_buffer.lock();
+        let _guard = self.partial_pages.lock();
 
         self.read_exact(BorrowedBuf::from(page.0.as_mut_slice()), page_offset)?;
         page.0[start..][..bytes.len()].copy_from_slice(bytes);
         self.write_pages(&page.0, page_offset)
-    }
-
-    /// Access internal [`File`] instance
-    #[inline(always)]
-    pub fn file(&self) -> &File {
-        &self.file
-    }
-
-    fn read_exact_at_internal<'a>(
-        &self,
-        scratch_buffer: &'a mut [AlignedPage],
-        bytes_to_read: usize,
-        offset: u64,
-    ) -> io::Result<&'a [u8]> {
-        let page_aligned_offset = offset / AlignedPage::SIZE as u64 * AlignedPage::SIZE as u64;
-        let padding = (offset - page_aligned_offset) as usize;
-
-        // Make a scratch buffer of a size that is necessary to read aligned memory, accounting
-        // for extra bytes at the beginning and the end that will be thrown away
-        let pages_to_read = (padding + bytes_to_read).div_ceil(AlignedPage::SIZE);
-        let scratch_buffer = &mut scratch_buffer[..pages_to_read];
-
-        self.read_exact_at_raw(
-            BorrowedBuf::from(&mut *scratch_buffer).unfilled(),
-            page_aligned_offset,
-        )?;
-
-        Ok(&AlignedPage::slice_to_repr(scratch_buffer).as_flattened()[padding..][..bytes_to_read])
-    }
-
-    /// Panics on writes over `MAX_READ_SIZE` (including padding on both ends)
-    fn write_all_at_internal(
-        &self,
-        scratch_buffer: &mut [AlignedPage],
-        bytes_to_write: &[u8],
-        offset: u64,
-    ) -> io::Result<()> {
-        let page_aligned_offset = offset / AlignedPage::SIZE as u64 * AlignedPage::SIZE as u64;
-        let padding = (offset - page_aligned_offset) as usize;
-
-        // Calculate the size of the read including padding on both ends
-        let pages_to_read = (padding + bytes_to_write.len()).div_ceil(AlignedPage::SIZE);
-
-        if padding == 0 && bytes_to_write.len() == pages_to_read * AlignedPage::SIZE {
-            let scratch_buffer = &mut scratch_buffer[..pages_to_read];
-            AlignedPage::slice_mut_to_repr(scratch_buffer)
-                .as_flattened_mut()
-                .copy_from_slice(bytes_to_write);
-            self.write_all_at_raw(scratch_buffer, offset)?;
-        } else {
-            let scratch_buffer = &mut scratch_buffer[..pages_to_read];
-            // Read whole pages where `bytes_to_write` will be written
-            self.read_exact_at_raw(
-                BorrowedBuf::from(&mut *scratch_buffer).unfilled(),
-                page_aligned_offset,
-            )?;
-            // Update the contents of existing pages and write into the file
-            AlignedPage::slice_mut_to_repr(scratch_buffer).as_flattened_mut()[padding..]
-                [..bytes_to_write.len()]
-                .copy_from_slice(bytes_to_write);
-            self.write_all_at_raw(scratch_buffer, page_aligned_offset)?;
-        }
-
-        Ok(())
     }
 }
