@@ -26,7 +26,7 @@ env:
   # Custom target without OS, anchored here so that matrix entries can reference it
   ABUNDANCE_RISCV64_TARGET: &abundance-riscv64-target crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
   # Features that are checked and tested individually in every crate that has them
-  INDIVIDUAL_FEATURES: alloc parallel scale-codec serde
+  INDIVIDUAL_FEATURES: alloc io-type parallel scale-codec serde
 
 jobs:
   cargo-fmt:

@@ -5,8 +5,10 @@ mod tests;
 
 use crate::SharedAlignedBuffer;
 use crate::alignment::Alignment;
+#[cfg(feature = "io-type")]
+use ab_io_type::trivial_type::AnyBitPattern;
 use core::fmt;
-use core::num::NonZeroU32;
+use core::num::{NonZeroU32, NonZeroU64};
 
 /// Error of a read with [`SharedAlignedBufferReader`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -16,7 +18,8 @@ pub enum ReadError {
         /// How many more bytes the read needs.
         ///
         /// Counted from the position of the reader, so it is not larger than the number of bytes
-        /// missing for the rest of the data, whose size the reader doesn't know.
+        /// missing for the rest of the data, whose size the reader doesn't know. Saturates at
+        /// `u32::MAX`, a read that needs more can't succeed with any buffer.
         missing: NonZeroU32,
     },
     /// Bytes at the position of the reader are not aligned in memory as the read requires
@@ -106,7 +109,7 @@ where
     /// Read the next `len` bytes
     #[inline]
     pub fn read_bytes(&mut self, len: u32) -> Result<&'a [u8], ReadError> {
-        let start = self.advance(len)?;
+        let start = self.advance(u64::from(len))?;
         let contents: &'a [u8] = self.buffer.as_slice();
         Ok(contents
             .get(start as usize..)
@@ -138,7 +141,7 @@ where
         B: Alignment,
     {
         self.check_alignment(B::ALIGN)?;
-        let start = self.advance(len)?;
+        let start = self.advance(u64::from(len))?;
         if len == 0 {
             return Ok(SharedAlignedBuffer::EMPTY);
         }
@@ -146,6 +149,50 @@ where
         Ok(SharedAlignedBuffer::from_inner(
             self.buffer.inner.slice(start, len),
         ))
+    }
+
+    /// Read a value of a trivial type.
+    ///
+    /// The bytes must be aligned for `T` in memory, [`Self::read_to_alignment()`] reads padding in
+    /// front of them if necessary. [`Unaligned`] reads values that are not aligned.
+    ///
+    /// [`Unaligned`]: ab_io_type::unaligned::Unaligned
+    #[cfg(feature = "io-type")]
+    #[inline]
+    pub fn read_trivial<T>(&mut self) -> Result<&'a T, ReadError>
+    where
+        T: AnyBitPattern,
+    {
+        self.check_alignment(u32::from(T::ALIGNMENT.get()))?;
+        let bytes = self.read_bytes(T::SIZE)?;
+        Ok(T::from_bytes_exact(bytes).expect("Aligned bytes of the size of `T`; qed"))
+    }
+
+    /// Read `N` values of a trivial type, like [`Self::read_trivial()`]
+    #[cfg(feature = "io-type")]
+    #[inline]
+    pub fn read_trivial_array<T, const N: usize>(&mut self) -> Result<&'a [T; N], ReadError>
+    where
+        [T; N]: AnyBitPattern,
+    {
+        self.read_trivial()
+    }
+
+    /// Read `count` values of a trivial type, like [`Self::read_trivial()`]
+    #[cfg(feature = "io-type")]
+    #[inline]
+    pub fn read_trivial_slice<T>(&mut self, count: u32) -> Result<&'a [T], ReadError>
+    where
+        T: AnyBitPattern,
+    {
+        self.check_alignment(u32::from(T::ALIGNMENT.get()))?;
+        let start = self.advance(u64::from(T::SIZE) * u64::from(count))?;
+        let contents: &'a [u8] = self.buffer.as_slice();
+        let (values, _remainder) = contents
+            .get(start as usize..)
+            .and_then(|bytes| T::slice_from_bytes(bytes, count as usize))
+            .expect("Aligned bytes of the size of `count` values of `T`; qed");
+        Ok(values)
     }
 
     /// Check that bytes at the position of the reader are aligned to `alignment` in memory
@@ -165,14 +212,15 @@ where
 
     /// Advance by `len` bytes, returns the position before advancing
     #[inline(always)]
-    fn advance(&mut self, len: u32) -> Result<u32, ReadError> {
+    fn advance(&mut self, len: u64) -> Result<u32, ReadError> {
         let remaining = self.buffer.len() - self.position;
-        if len > remaining {
+        let Some(len) = u32::try_from(len).ok().filter(|&len| len <= remaining) else {
+            let missing = NonZeroU64::new(len - u64::from(remaining))
+                .expect("More bytes are needed than remain as checked above; qed");
             return Err(ReadError::NotEnoughBytes {
-                missing: NonZeroU32::new(len - remaining)
-                    .expect("More bytes are needed than remain as checked above; qed"),
+                missing: NonZeroU32::try_from(missing).unwrap_or(NonZeroU32::MAX),
             });
-        }
+        };
 
         let start = self.position;
         // Within the contents, whose length is a `u32`, as checked above

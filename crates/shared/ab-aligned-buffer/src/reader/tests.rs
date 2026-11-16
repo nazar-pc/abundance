@@ -124,3 +124,53 @@ fn alignment_is_checked_in_memory() {
         &[4, 5, 6, 7]
     );
 }
+
+#[cfg(feature = "io-type")]
+#[test]
+fn reads_trivial_types() {
+    use ab_io_type::unaligned::Unaligned;
+
+    let buffer = buffer(40);
+    let mut reader = buffer.reader();
+
+    assert_eq!(
+        reader.read_trivial::<u32>(),
+        Ok(&u32::from_le_bytes([0, 1, 2, 3]))
+    );
+    assert_eq!(
+        reader.read_trivial_array::<u16, 2>(),
+        Ok(&[u16::from_le_bytes([4, 5]), u16::from_le_bytes([6, 7])])
+    );
+    assert_eq!(
+        reader.read_trivial_slice::<u8>(3),
+        Ok([8, 9, 10].as_slice())
+    );
+    assert_eq!(reader.position(), 11);
+
+    // Alignment is checked in memory, the reader is left unchanged
+    assert_eq!(
+        reader.read_trivial::<u32>(),
+        Err(ReadError::Misaligned { alignment: 4 })
+    );
+    assert_eq!(reader.position(), 11);
+    // Unaligned values can be read anywhere
+    assert_eq!(
+        reader
+            .read_trivial::<Unaligned<u32>>()
+            .map(Unaligned::as_inner),
+        Ok(u32::from_le_bytes([11, 12, 13, 14]))
+    );
+
+    // Saturates when more than `u32::MAX` bytes are missing
+    reader.read_to_alignment::<Align8>().unwrap();
+    assert_eq!(
+        reader.read_trivial_slice::<u64>(u32::MAX),
+        Err(ReadError::NotEnoughBytes {
+            missing: NonZeroU32::MAX
+        })
+    );
+    assert_eq!(
+        reader.read_trivial_array::<u64, 4>(),
+        Err(not_enough_bytes(8))
+    );
+}
