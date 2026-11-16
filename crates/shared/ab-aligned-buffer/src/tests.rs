@@ -1,4 +1,4 @@
-use crate::alignment::{Align1, Align16, Align32, Align4096, Alignment, AtLeast};
+use crate::alignment::{Align1, Align4, Align16, Align32, Align4096, Alignment, AtLeast};
 use crate::{
     AlignedBuffer, AllocationError, EMPTY_ALLOCATION, OwnedAlignedBuffer, SharedAlignedBuffer,
 };
@@ -1188,4 +1188,28 @@ fn split_at() {
     let (empty_first, empty_rest) = first.split_at(0).unwrap();
     assert!(empty_first.is_empty() && empty_rest.is_empty());
     shared.try_into_owned().unwrap();
+}
+
+#[test]
+fn pad_to_alignment() {
+    let mut owned = OwnedAlignedBuffer::<Align16>::from_bytes(&[1; 3]);
+
+    owned.pad_to_alignment::<Align1>().unwrap();
+    assert_eq!(owned.as_slice(), &[1; 3]);
+    owned.pad_to_alignment::<Align4>().unwrap();
+    assert_eq!(owned.as_slice(), &[1, 1, 1, 0]);
+    // Already aligned
+    owned.pad_to_alignment::<Align4>().unwrap();
+    assert_eq!(owned.len(), 4);
+    owned.append(&[1]).unwrap();
+    owned.pad_to_alignment::<Align4096>().unwrap();
+    assert_eq!(owned.len(), 4096);
+    assert_eq!(&owned[..5], &[1, 1, 1, 0, 1]);
+    assert!(owned[5..].iter().all(|&byte| byte == 0));
+
+    // Reads back with the reader
+    let shared = owned.into_shared();
+    let mut reader = shared.reader();
+    reader.read_bytes(3).unwrap();
+    assert_eq!(reader.read_to_alignment::<Align4>().unwrap(), &[0]);
 }

@@ -1032,6 +1032,27 @@ where
         Ok(())
     }
 
+    /// Append zero padding up to the next multiple of `B` bytes from the beginning of the
+    /// contents, the inverse of [`SharedAlignedBufferReader::read_to_alignment()`].
+    ///
+    /// Re-allocates like [`Self::append()`] if capacity is not enough.
+    #[inline]
+    pub fn pad_to_alignment<B>(&mut self) -> Result<(), AllocationError>
+    where
+        B: Alignment,
+    {
+        /// Zero padding for the largest alignment
+        static ZEROES: [u8; MAX_ALIGNMENT] = [0; MAX_ALIGNMENT];
+
+        let misalignment = self.len() % B::ALIGN;
+        let padding = if misalignment == 0 {
+            0
+        } else {
+            B::ALIGN - misalignment
+        };
+        self.append(&ZEROES[..padding as usize])
+    }
+
     #[inline(always)]
     pub const fn is_empty(&self) -> bool {
         self.inner.len() == 0

@@ -37,6 +37,8 @@ New features:
   * `SharedAlignedBuffer::reader()` reads the contents front to back with `reader::SharedAlignedBufferReader`, which
     borrows bytes, reads alignment padding explicitly and creates buffers that reference parts of the contents without
     copying them, failed reads return `reader::ReadError`
+  * `OwnedAlignedBuffer::pad_to_alignment()` appends zero padding, which `SharedAlignedBufferReader` reads with
+    `read_to_alignment()`
   * `io-type` feature adds `read_trivial()`, `read_trivial_array()` and `read_trivial_slice()` to
     `SharedAlignedBufferReader` for values of `ab-io-type`'s trivial types, it requires nightly Rust like `ab-io-type`
   * `SharedAlignedBuffer::try_into_owned()` converts the last reference into an owned buffer with the same offset
