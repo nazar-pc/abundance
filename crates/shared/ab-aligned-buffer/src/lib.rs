@@ -371,7 +371,7 @@ impl InnerBuffer {
             )?;
             // SAFETY: Not shared, new buffer has enough capacity for the contents
             unsafe {
-                self.move_into(new);
+                self.replace(new);
             }
             return Ok(());
         }
@@ -404,13 +404,14 @@ impl InnerBuffer {
         Ok(())
     }
 
-    /// Moves contents into a new buffer and deallocates the current one.
+    /// Replaces the buffer with `new`, moving the contents into it and deallocating the current
+    /// allocation.
     ///
     /// # Safety
     /// The buffer must not be shared, the new buffer must be a different allocation with enough
     /// capacity for the contents.
     #[inline(always)]
-    unsafe fn move_into(&mut self, mut new: Self) {
+    unsafe fn replace(&mut self, mut new: Self) {
         debug_assert!(new.capacity() >= self.len, "Not enough capacity");
 
         // SAFETY: Different allocations, `len` bytes are initialized and fit into the new
@@ -1139,7 +1140,7 @@ where
         } else {
             // SAFETY: Not shared, a new allocation with enough capacity for the contents
             unsafe {
-                self.inner.move_into(InnerBuffer::allocate(
+                self.inner.replace(InnerBuffer::allocate(
                     total_capacity,
                     align_usize::<AA>(),
                     offset,
@@ -1191,7 +1192,7 @@ where
                 );
                 // SAFETY: Not shared, a new allocation with enough capacity for the contents
                 unsafe {
-                    self.inner.move_into(new);
+                    self.inner.replace(new);
                 }
             }
         }
