@@ -1,17 +1,17 @@
-use ab_aligned_buffer::AllocationError;
 use ab_client_database::storage_backend::{
     ClientDatabaseStorageBackend, OwnedPages, SharedPages, StorageBackendError,
 };
-use ab_direct_io_file::{AlignedPage, DirectIoFile};
+use ab_direct_io_file::{DirectIoError, DirectIoFile, IoBufError};
 use futures::channel::oneshot;
-use std::io::BorrowedBuf;
-use std::mem::MaybeUninit;
-use std::{io, slice};
+use std::io;
 use tracing::{Span, debug};
 use triomphe::Arc;
 
-const {
-    assert!(OwnedPages::ALIGN as usize == AlignedPage::SIZE);
+fn storage_backend_error(error: DirectIoError) -> StorageBackendError {
+    match error {
+        DirectIoError::AllocationFailed(error) => StorageBackendError::AllocationFailed(error),
+        DirectIoError::Io(error) => StorageBackendError::Io(error),
+    }
 }
 
 // TODO: This is a simple wrapper, but it will need to deal with multiple dynamic chains eventually
@@ -31,28 +31,11 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
     #[inline(always)]
     fn read(
         &self,
-        mut buffer: OwnedPages,
+        buffer: OwnedPages,
         num_pages: u32,
         offset: u32,
     ) -> oneshot::Receiver<(Result<(), StorageBackendError>, OwnedPages)> {
         let (sender, receiver) = oneshot::channel();
-
-        // Content is replaced, so nothing is copied if the buffer has to grow
-        buffer.truncate(0);
-        let maybe_length = num_pages
-            .checked_mul(OwnedPages::ALIGN)
-            .ok_or(AllocationError::CapacityOverflow)
-            .and_then(|length| buffer.try_ensure_capacity(length).map(|()| length));
-        let length = match maybe_length {
-            Ok(length) => length,
-            Err(error) => {
-                if sender.send((Err(error.into()), buffer)).is_err() {
-                    debug!("Failed to send a read result back, receiver dropped");
-                }
-                return receiver;
-            }
-        };
-        let offset = u64::from(offset) * u64::from(OwnedPages::ALIGN);
 
         tokio::task::spawn_blocking({
             let file = Arc::clone(&self.file);
@@ -61,31 +44,14 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
             move || {
                 let _guard = span.enter();
 
-                // TODO: Remove the conversion once direct I/O file supports aligned buffers
-                let bytes = &mut buffer.spare_capacity_mut()[..length as usize];
-                // SAFETY: `MaybeUninit<[u8; N]>` has the same layout as `[MaybeUninit<u8>; N]`, and
-                // the length is a multiple of the page size, which `AlignedPage::SIZE` is
-                let pages = unsafe {
-                    slice::from_raw_parts_mut(
-                        bytes
-                            .as_mut_ptr()
-                            .cast::<MaybeUninit<[u8; AlignedPage::SIZE]>>(),
-                        bytes.len() / AlignedPage::SIZE,
-                    )
-                };
-                let pages = AlignedPage::try_uninit_slice_mut_from_repr(pages)
-                    .expect("Contents of the buffer are aligned to the page size; qed");
-                let result = file
-                    .read_exact_at_raw(BorrowedBuf::from(pages).unfilled(), offset)
-                    .map_err(StorageBackendError::from);
-                if result.is_ok() {
-                    // SAFETY: Just read `length` bytes
-                    unsafe {
-                        buffer.set_len(length);
+                let result = match file.read_pages_at(buffer, num_pages, u64::from(offset)) {
+                    Ok(buffer) => (Ok(()), buffer),
+                    Err(IoBufError { error, buffer }) => {
+                        (Err(storage_backend_error(error)), buffer)
                     }
-                }
+                };
 
-                if sender.send((result, buffer)).is_err() {
+                if sender.send(result).is_err() {
                     debug!("Failed to send a read result back, receiver dropped");
                 }
             }
@@ -100,6 +66,11 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
         buffer: SharedPages,
         offset: u32,
     ) -> oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)> {
+        debug_assert!(
+            buffer.len().is_multiple_of(SharedPages::ALIGN),
+            "Buffer must contain whole pages"
+        );
+
         let offset = u64::from(offset) * u64::from(SharedPages::ALIGN);
         let (sender, receiver) = oneshot::channel();
 
@@ -110,21 +81,14 @@ impl ClientDatabaseStorageBackend for FileStorageBackend {
             move || {
                 let _guard = span.enter();
 
-                // TODO: Remove the conversion once direct I/O file supports aligned buffers
-                let (pages, remainder) = buffer.as_chunks::<{ AlignedPage::SIZE }>();
-                let result = if remainder.is_empty() {
-                    let pages = AlignedPage::try_slice_from_repr(pages)
-                        .expect("Contents of the buffer are aligned to the page size; qed");
-                    file.write_all_at_raw(pages, offset)
-                        .map_err(StorageBackendError::from)
-                } else {
-                    Err(StorageBackendError::Io(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "Buffer doesn't contain whole pages",
-                    )))
+                let result = match file.write_at(buffer, offset) {
+                    Ok(buffer) => (Ok(()), buffer),
+                    Err(IoBufError { error, buffer }) => {
+                        (Err(storage_backend_error(error)), buffer)
+                    }
                 };
 
-                if sender.send((result, buffer)).is_err() {
+                if sender.send(result).is_err() {
                     debug!("Failed to send a write result back, receiver dropped");
                 }
             }

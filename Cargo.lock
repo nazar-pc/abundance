@@ -644,7 +644,6 @@ dependencies = [
 name = "ab-node"
 version = "0.0.1"
 dependencies = [
- "ab-aligned-buffer",
  "ab-cli-utils",
  "ab-client-api",
  "ab-client-archiving",
