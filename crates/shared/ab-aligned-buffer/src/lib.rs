@@ -452,6 +452,26 @@ impl InnerBuffer {
         self.offset = offset;
     }
 
+    /// Moves the beginning of the contents forward to `offset` without moving any bytes, see
+    /// [`OwnedAlignedBuffer::set_offset()`].
+    ///
+    /// The contents are aligned to `alignment` in memory and stay aligned to it.
+    #[inline(always)]
+    fn set_offset(&mut self, offset: u32, alignment: u32) -> bool {
+        let Some(advance) = offset.checked_sub(self.offset) else {
+            return false;
+        };
+        if advance > self.len || !advance.is_multiple_of(alignment) {
+            return false;
+        }
+
+        // SAFETY: Within the contents as checked above
+        self.buffer = unsafe { self.buffer.byte_add(advance as usize) };
+        self.offset = offset;
+        self.len -= advance;
+        true
+    }
+
     /// Deallocates the buffer.
     ///
     /// # Safety
@@ -704,6 +724,11 @@ where
     #[inline(always)]
     fn offset(&self) -> u32 {
         self.offset()
+    }
+
+    #[inline(always)]
+    fn set_offset(&mut self, offset: u32) -> bool {
+        self.set_offset(offset)
     }
 
     #[inline(always)]
@@ -1097,6 +1122,43 @@ where
         }
     }
 
+    /// Move the beginning of the contents to `offset` from the beginning of the data region
+    /// without moving any bytes, the end of the contents stays where it is.
+    ///
+    /// Returns `false` and leaves the buffer unchanged if `offset` is outside of the contents or
+    /// the contents would not be aligned to `A` anymore. [`Self::capacity()`] is counted from the
+    /// new beginning.
+    #[inline(always)]
+    #[must_use = "Check for invalid offset"]
+    pub fn set_offset(&mut self, offset: u32) -> bool {
+        self.inner.set_offset(offset, A::ALIGN)
+    }
+
+    /// Clear the contents and convert into a buffer with contents aligned to `B` at the
+    /// beginning of the data region.
+    ///
+    /// The allocation is kept if it is aligned to at least `B` and released otherwise, it never
+    /// allocates or copies. This is useful for reusing the allocation of a buffer, whose contents
+    /// are aligned less strictly than the next contents need.
+    #[inline]
+    #[must_use = "The buffer is dropped otherwise"]
+    pub fn into_empty<B>(mut self) -> OwnedAlignedBuffer<B>
+    where
+        B: Alignment,
+    {
+        if self.inner.total_capacity() == 0 || self.inner.alignment() < align_usize::<B>() {
+            return OwnedAlignedBuffer::EMPTY;
+        }
+
+        self.inner.len = 0;
+        // SAFETY: Not shared, empty contents fit at any offset
+        unsafe {
+            self.inner.move_to_offset(0);
+        }
+        // Allocation is aligned to `B` as checked above and contents are at its beginning
+        OwnedAlignedBuffer::from_inner(self.into_inner())
+    }
+
     /// Move the contents to `offset` from the beginning of the data region, with at least
     /// `capacity` bytes available from there, in an allocation aligned to at least `AA`.
     ///
@@ -1362,6 +1424,11 @@ where
     }
 
     #[inline(always)]
+    fn set_offset(&mut self, offset: u32) -> bool {
+        self.set_offset(offset)
+    }
+
+    #[inline(always)]
     fn allocation_alignment(&self) -> u32 {
         self.allocation_alignment()
     }
@@ -1596,6 +1663,26 @@ where
         }
     }
 
+    /// Move the beginning of the contents to `offset` from the beginning of the data region
+    /// without moving any bytes, the end of the contents stays where it is.
+    ///
+    /// Returns `false` and leaves the buffer unchanged if `offset` is outside of the contents or
+    /// the contents would not be aligned to `A` anymore. Other buffers that reference the same
+    /// allocation are not affected. Empty buffer at the end of the contents doesn't keep the
+    /// allocation alive, see [`Self::truncate()`].
+    #[inline(always)]
+    #[must_use = "Check for invalid offset"]
+    pub fn set_offset(&mut self, offset: u32) -> bool {
+        if offset.checked_sub(self.offset()) == Some(self.len())
+            && self.len().is_multiple_of(A::ALIGN)
+        {
+            *self = Self::EMPTY;
+            return true;
+        }
+
+        self.inner.set_offset(offset, A::ALIGN)
+    }
+
     /// Convert into a buffer with a weaker alignment of the contents, which is free
     #[inline(always)]
     #[must_use = "The buffer is dropped otherwise"]
@@ -1698,6 +1785,11 @@ pub trait AlignedBuffer:
 
     /// Offset of the contents from the beginning of the data region of the allocation
     fn offset(&self) -> u32;
+
+    /// Move the beginning of the contents forward to `offset` without moving any bytes, see
+    /// [`OwnedAlignedBuffer::set_offset()`]
+    #[must_use = "Check for invalid offset"]
+    fn set_offset(&mut self, offset: u32) -> bool;
 
     /// Alignment of the allocation in bytes, see [`OwnedAlignedBuffer::allocation_alignment()`]
     fn allocation_alignment(&self) -> u32;

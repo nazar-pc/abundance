@@ -44,6 +44,10 @@ New features:
   * `SharedAlignedBuffer::try_into_owned()` converts the last reference into an owned buffer with the same offset
   * `SharedAlignedBuffer::into_standalone()` copies the contents unless they already cover the whole allocation, so that
     a small buffer doesn't keep a large allocation alive
+  * `set_offset()` on both buffers and `AlignedBuffer` moves the beginning of the contents forward without moving any
+    bytes
+  * `OwnedAlignedBuffer::into_empty()` clears the contents and reuses the allocation for contents with a different
+    alignment when it is aligned strictly enough
   * `OwnedAlignedBuffer::relocate()` moves the contents to a different offset within the allocation or into a new
     allocation with a different capacity and alignment at the same time
   * `OwnedAlignedBuffer::realign()` converts a buffer into one with a different alignment of the contents, moving them

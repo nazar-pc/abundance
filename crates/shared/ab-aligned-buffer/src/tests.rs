@@ -1213,3 +1213,81 @@ fn pad_to_alignment() {
     reader.read_bytes(3).unwrap();
     assert_eq!(reader.read_to_alignment::<Align4>().unwrap(), &[0]);
 }
+
+#[test]
+fn set_offset() {
+    let bytes = (0..40).collect::<Vec<u8>>();
+    let mut owned = OwnedAlignedBuffer::<Align4>::from_bytes(&bytes);
+    let allocation = owned.as_byte_ptr();
+    let capacity = owned.capacity();
+
+    // Forward within the contents, keeping the end
+    assert!(owned.set_offset(8));
+    assert_eq!(owned.offset(), 8);
+    assert_eq!(owned.as_slice(), &bytes[8..]);
+    assert_eq!(owned.as_byte_ptr(), allocation.wrapping_add(8));
+    assert_eq!(owned.capacity(), capacity - 8);
+    // Not aligned to the contents anymore
+    assert!(!owned.set_offset(10));
+    // Backwards
+    assert!(!owned.set_offset(4));
+    // Past the end of the contents
+    assert!(!owned.set_offset(44));
+    assert_eq!(owned.offset(), 8);
+    assert_eq!(owned.as_slice(), &bytes[8..]);
+    // Up to the end of the contents
+    assert!(owned.set_offset(40));
+    assert!(owned.is_empty());
+
+    // Shared buffers move independently of each other
+    let shared = OwnedAlignedBuffer::<Align1>::from_bytes(&bytes).into_shared();
+    let mut moved = shared.clone();
+    assert!(moved.set_offset(3));
+    assert_eq!(moved.as_slice(), &bytes[3..]);
+    assert_eq!(shared.as_slice(), bytes.as_slice());
+    assert!(!moved.set_offset(2));
+
+    // Advancing to the end of the contents releases the allocation, both of a clone and of the
+    // last reference
+    let mut to_end = shared.clone();
+    assert!(to_end.set_offset(40));
+    assert!(to_end.is_empty());
+    drop(to_end);
+    let mut last = OwnedAlignedBuffer::<Align1>::from_bytes(&bytes).into_shared();
+    assert!(last.set_offset(40));
+    assert!(last.is_empty());
+
+    // Through the trait
+    let mut shared = shared;
+    assert!(AlignedBuffer::set_offset(&mut shared, 5));
+    assert_eq!(shared.as_slice(), &bytes[5..]);
+
+    // No references are leaked
+    drop(moved);
+    shared.try_into_owned().unwrap();
+}
+
+#[test]
+fn into_empty() {
+    // Allocation aligned strictly enough is kept, contents move to the beginning
+    let mut owned =
+        OwnedAlignedBuffer::<Align4096>::from_bytes(&[1; 100]).into_start_align::<Align1>();
+    let allocation = owned.as_byte_ptr();
+    let capacity = owned.capacity();
+    assert!(owned.set_offset(3));
+    let empty = owned.into_empty::<Align4096>();
+    assert!(empty.is_empty());
+    assert_eq!(empty.offset(), 0);
+    assert_eq!(empty.as_byte_ptr(), allocation);
+    assert_eq!(empty.capacity(), capacity);
+    assert_eq!(empty.allocation_alignment(), Align4096::ALIGN);
+
+    // Allocation aligned less strictly is released
+    let owned = OwnedAlignedBuffer::<Align16>::from_bytes(&[1; 100]);
+    let empty = owned.into_empty::<Align4096>();
+    assert_eq!(empty.capacity(), 0);
+
+    // Empty buffer stays empty
+    let empty = OwnedAlignedBuffer::<Align1>::EMPTY.into_empty::<Align4096>();
+    assert_eq!(empty.capacity(), 0);
+}
