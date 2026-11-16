@@ -10,6 +10,14 @@ Breaking changes:
 * Removed `AlignedPage::as_uninit_slice_mut()`, which was unsound: safe code could write uninitialized values through
   it and then read them through the original slice
 
+New features:
+
+* `DirectIoFile::read_at()`, `DirectIoFile::read_pages_at()` and `DirectIoFile::write_at()` take aligned buffers of
+  `ab-aligned-buffer` by value and return them back, also on error with `IoBufError`, such that reads and writes of
+  whole pages happen directly from and into the buffers without copying or locking, and allocations can be reused.
+  Allocation failures are returned as `DirectIoError::AllocationFailed` instead of panicking
+* `OwnedPages` and `SharedPages` type aliases for page-aligned buffers, whose alignment is the size of a page
+
 Fixes:
 
 * `DirectIoFile::write_all_at()` no longer panics on small page-aligned writes, which were incorrectly treated as
