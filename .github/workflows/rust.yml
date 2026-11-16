@@ -25,6 +25,8 @@ env:
   __CARGO_TEMPORARY_BUILD_DIR_NEW_LAYOUT_OPT_OUT: 1
   # Custom target without OS, anchored here so that matrix entries can reference it
   ABUNDANCE_RISCV64_TARGET: &abundance-riscv64-target crates/contracts/core/ab-contracts-tooling/src/riscv64-unknown-none-abundance.json
+  # Features that are checked and tested individually in every crate that has them
+  INDIVIDUAL_FEATURES: alloc parallel scale-codec serde
 
 jobs:
   cargo-fmt:
@@ -272,7 +274,7 @@ jobs:
         run: |
           metadata=$(cargo metadata --no-deps --format-version 1)
 
-          for feature in alloc parallel scale-codec serde; do
+          for feature in $INDIVIDUAL_FEATURES; do
             # `parallel` needs `std`, which targets without OS don't have
             if [[ "$feature" == parallel && "${{ matrix.platform.target }}" == *-none* ]]; then
               continue
@@ -683,7 +685,7 @@ jobs:
           # Crates are only built for targets without OS, see `command` above
           action="${{ contains(matrix.platform.target, '-none') && 'Building' || 'Testing' }}"
 
-          for feature in alloc parallel scale-codec serde; do
+          for feature in $INDIVIDUAL_FEATURES; do
             # `parallel` needs `std`, which targets without OS don't have
             if [[ "$feature" == parallel && "${{ matrix.platform.target }}" == *-none* ]]; then
               continue
