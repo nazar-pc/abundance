@@ -27,11 +27,18 @@ name = "aligned_buffer"
 harness = false
 
 [dependencies]
+ab-io-type = { workspace = true, optional = true }
 stable_deref_trait = { workspace = true }
 yoke = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
+
+[features]
+# Typed reads of `ab-io-type`'s trivial types, requires nightly Rust like `ab-io-type` itself
+io-type = [
+    "dep:ab-io-type",
+]
 
 [lints]
 workspace = true

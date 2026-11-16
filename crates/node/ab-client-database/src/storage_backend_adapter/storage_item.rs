@@ -1,8 +1,11 @@
 #[cfg(test)]
 mod tests;
 
-use crate::storage_backend::AlignedPage;
+use crate::storage_backend::{OwnedPages, SharedPages};
 use crate::storage_backend_adapter::PageGroupKind;
+use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
+use ab_aligned_buffer::reader::ReadError;
 use ab_blake3::single_block_hash;
 use ab_core_primitives::hashes::Blake3Hash;
 use blake3::hash;
@@ -25,8 +28,8 @@ pub(crate) enum StorageItemError {
     #[error("Buffer too small: expected {expected}, actual {actual}")]
     BufferTooSmall { expected: usize, actual: usize },
     /// Buffer too large
-    #[error("Buffer too large, {extra_pages} extra pages were provided")]
-    BufferTooLarge { extra_pages: usize },
+    #[error("Buffer too large, {extra_bytes} extra bytes were provided")]
+    BufferTooLarge { extra_bytes: usize },
     /// Need more bytes
     #[error("Need {0} more bytes")]
     NeedMoreBytes(usize),
@@ -69,6 +72,20 @@ pub(crate) enum StorageItemError {
     StorageItemTooLarge,
 }
 
+impl From<ReadError> for StorageItemError {
+    #[inline(always)]
+    fn from(error: ReadError) -> Self {
+        match error {
+            ReadError::NotEnoughBytes { missing } => {
+                Self::NeedMoreBytes(usize::try_from(missing.get()).unwrap_or(usize::MAX))
+            }
+            ReadError::Misaligned { alignment: _ } => Self::InvalidDataAlignment {
+                data_type: "storage item data",
+            },
+        }
+    }
+}
+
 /// The result of [`StorageItem::write()`] call
 pub(crate) struct StorageItemWriteResult<'a> {
     /// Storage item variant
@@ -93,8 +110,11 @@ pub(crate) trait StorageItem: fmt::Debug + Send + Sync + Sized + 'static {
         buffer: &'a mut [MaybeUninit<u8>],
     ) -> Result<StorageItemWriteResult<'a>, StorageItemError>;
 
-    /// The inverse of [`Self::write()`]
-    fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError>;
+    /// The inverse of [`Self::write()`].
+    ///
+    /// The buffer references the memory of the storage item, which may be large. Parts of it that
+    /// are kept in memory for a long time should be copied.
+    fn read(variant: u8, buffer: &SharedAlignedBuffer<Align16>) -> Result<Self, StorageItemError>;
 }
 
 /// Storage item that maps to a unique page group kind
@@ -136,17 +156,21 @@ where
             .checked_add((prefix_size + Self::suffix_size()) as u32)
             .ok_or(StorageItemError::StorageItemTooLarge)?;
 
-        Ok(num_bytes.div_ceil(AlignedPage::SIZE as u32))
+        Ok(num_bytes.div_ceil(OwnedPages::ALIGN))
     }
 
-    /// Write a storage item to the provided buffer of aligned pages.
+    /// Write a storage item to the provided buffer of whole pages, which must be aligned to 16
+    /// bytes.
     ///
-    /// Successful write means all provided pages are fully initialized.
+    /// Successful write means the whole buffer is fully initialized.
     pub(super) fn write_to_pages(
         &self,
-        buffer: &mut [MaybeUninit<AlignedPage>],
+        mut buffer: &mut [MaybeUninit<u8>],
     ) -> Result<(), StorageItemError> {
-        let mut buffer = buffer.as_bytes_mut();
+        debug_assert!(
+            buffer.len().is_multiple_of(OwnedPages::ALIGN as usize),
+            "Buffer must contain whole pages"
+        );
 
         // Align buffer used by storage item to 128 bytes
         let prefix_bytes = buffer
@@ -191,11 +215,11 @@ where
         storage_item_checksum_bytes.write_copy_of_slice(&storage_item_checksum);
         prefix_checksum_repeat_bytes.write_copy_of_slice(&checksum);
 
-        if buffer.len() < AlignedPage::SIZE {
+        if buffer.len() < OwnedPages::ALIGN as usize {
             buffer.write_filled(0);
         } else {
             return Err(StorageItemError::BufferTooLarge {
-                extra_pages: buffer.len(),
+                extra_bytes: buffer.len(),
             });
         }
 
@@ -204,17 +228,14 @@ where
 
     /// The inverse of [`Self::write_to_pages()`].
     ///
+    /// Pages start with the storage item, which references them without copying.
+    ///
     /// Returns the storage item container and the number of pages it occupies.
-    pub(super) fn read_from_pages(pages: &[AlignedPage]) -> Result<(Self, u32), StorageItemError> {
-        let pages_bytes = AlignedPage::slice_to_repr(pages).as_flattened();
-        let mut buffer = pages_bytes;
+    pub(super) fn read_from_pages(pages: &SharedPages) -> Result<(Self, u32), StorageItemError> {
+        let mut reader = pages.reader();
 
-        // Align buffer used by storage item to 128 bytes
-        let prefix_bytes = buffer
-            .split_off(..Self::prefix_size().next_multiple_of(size_of::<u128>()))
-            .expect("Always fits one page; qed");
-        let prefix_bytes = &prefix_bytes[..Self::prefix_size()];
-
+        let prefix_bytes =
+            reader.read_bytes_array::<{ StorageItemContainer::<()>::prefix_size() }>()?;
         let (sequence_number_bytes, remainder) = prefix_bytes.split_at(size_of::<u64>());
         let (storage_item_variant_bytes, remainder) = remainder.split_at(size_of::<u8>());
         let (storage_item_size_bytes, checksum_bytes) = remainder.split_at(size_of::<u32>());
@@ -242,16 +263,12 @@ where
                 .expect("Correct length; qed"),
         );
 
-        let buffer_len = buffer.len();
-        let storage_item_size = storage_item_size as usize;
-        let storage_item_bytes = buffer
-            .split_off(..storage_item_size)
-            .ok_or_else(|| StorageItemError::NeedMoreBytes(storage_item_size - buffer_len))?;
+        // Storage item starts at a multiple of 16 bytes after the prefix
+        reader.read_to_alignment::<Align16>()?;
+        let storage_item = reader.read_buffer::<Align16>(storage_item_size)?;
 
-        let buffer_len = buffer.len();
-        let suffix_bytes = buffer
-            .split_off(..Self::suffix_size())
-            .ok_or_else(|| StorageItemError::NeedMoreBytes(Self::suffix_size() - buffer_len))?;
+        let suffix_bytes =
+            reader.read_bytes_array::<{ StorageItemContainer::<()>::suffix_size() }>()?;
         let (storage_item_checksum_bytes, prefix_checksum_repeat_bytes) =
             suffix_bytes.split_at(size_of::<Blake3Hash>());
 
@@ -266,7 +283,7 @@ where
             });
         }
 
-        let storage_item_checksum = Blake3Hash::from(hash(storage_item_bytes));
+        let storage_item_checksum = Blake3Hash::from(hash(&storage_item));
         if storage_item_checksum.as_slice() != storage_item_checksum_bytes {
             return Err(StorageItemError::StorageItemChecksumMismatch {
                 expected: storage_item_checksum,
@@ -278,12 +295,8 @@ where
             });
         }
 
-        let storage_item = SI::read(storage_item_variant, storage_item_bytes)?;
-        let num_pages =
-            u32::try_from((pages_bytes.len() - buffer.len()).div_ceil(AlignedPage::SIZE)).expect(
-                "Read bytes are the prefix, storage item of `u32` size and suffix, which take far \
-                fewer than `u32::MAX` pages; qed",
-            );
+        let storage_item = SI::read(storage_item_variant, &storage_item)?;
+        let num_pages = reader.position().div_ceil(SharedPages::ALIGN);
 
         Ok((
             Self {

@@ -5,13 +5,16 @@ mod tests;
 
 use crate::page_group::permanent::StorageItemPermanent;
 use crate::page_group::temporary::StorageItemTemporary;
-use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
+use crate::storage_backend::{
+    ClientDatabaseStorageBackend, OwnedPages, SharedPages, StorageBackendError,
+};
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemContainer, UniqueStorageItem,
 };
 use crate::{
     ClientDatabaseError, ClientDatabaseFormatError, ClientDatabaseFormatOptions, DatabaseId,
 };
+use ab_aligned_buffer::AllocationError;
 use ab_io_type::trivial_type::TrivialType;
 use enum_map::{EnumMap, enum_map};
 use futures::FutureExt;
@@ -19,7 +22,6 @@ use futures::channel::oneshot;
 use page_group_header::StorageItemPageGroupHeader;
 use rand::TryRng;
 use rand::rngs::SysRng;
-use replace_with::replace_with_or_abort_and_return;
 use std::cmp::Reverse;
 use std::collections::VecDeque;
 use std::task::Poll;
@@ -59,16 +61,30 @@ struct PageGroups {
     list: VecDeque<PageGroup>,
 }
 
-#[derive(Debug)]
-enum WriteBufferEntry {
-    Free(Vec<AlignedPage>),
-    Occupied(oneshot::Receiver<io::Result<Vec<AlignedPage>>>),
-}
-
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) struct WriteLocation {
     pub(crate) page_offset: u32,
     pub(crate) num_pages: u32,
+}
+
+#[derive(Debug)]
+enum WriteBufferEntry {
+    /// Buffer that can be reused for the next write
+    Free(OwnedPages),
+    /// Write was submitted to the storage backend, but its result was not observed yet.
+    ///
+    /// Reads of the storage item are served from memory since the write may not have reached the
+    /// storage backend yet.
+    ///
+    /// An entry stays occupied after its write failed or was aborted, since no further writes are
+    /// allowed and its pages may not be in the storage backend.
+    Occupied {
+        /// Location of the storage item
+        location: WriteLocation,
+        /// Pages of the storage item
+        item_pages: SharedPages,
+        receiver: oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)>,
+    },
 }
 
 #[derive(Debug)]
@@ -98,7 +114,9 @@ pub(crate) struct StorageBackendAdapter<StorageBackend> {
     /// Page group size in pages
     page_group_size: u32,
     storage_backend: StorageBackend,
-    write_buffer: Box<[WriteBufferEntry]>,
+    /// Entries are reused in the order they were occupied, from front to back, see
+    /// [`Self::write_storage_item_inner()`]
+    write_buffer: VecDeque<WriteBufferEntry>,
     page_groups: EnumMap<PageGroupKind, PageGroups>,
     /// Offsets of the first pages that correspond to free page groups.
     ///
@@ -139,27 +157,27 @@ where
             },
         };
         let mut free_page_groups = VecDeque::new();
-
-        let mut buffer = Vec::new();
+        // A single buffer is used for all reads below, it grows as needed
+        let mut buffer = OwnedPages::EMPTY;
 
         // Check the first page group. This could have been done in the loop below, but that makes
         // the code even more ugly than this copy-paste.
         {
-            buffer = storage_backend
-                .read(buffer, 1, 0)
-                .await
-                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
-                .map_err(|error| ClientDatabaseError::ReadError { error })?;
+            let pages = Self::read_pages(&storage_backend, buffer, 1, 0)
+                .await?
+                .into_shared();
+            let maybe_container =
+                StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&pages);
+            buffer = Self::reclaim_buffer(pages);
 
-            let (container, header_pages) =
-                match StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
-                    Ok(result) => result,
-                    Err(_error) => {
-                        // Page group header fit the first page, so any deciding error indicates it
-                        // is not a valid page group header
-                        return Err(ClientDatabaseError::Unformatted);
-                    }
-                };
+            let (container, header_pages) = match maybe_container {
+                Ok(result) => result,
+                Err(_error) => {
+                    // Page group header fit the first page, so any deciding error indicates it is
+                    // not a valid page group header
+                    return Err(ClientDatabaseError::Unformatted);
+                }
+            };
 
             let page_group_header = &container.storage_item;
             if page_group_header.database_version != Self::VERSION {
@@ -178,6 +196,11 @@ where
                 return Err(ClientDatabaseError::PageGroupSizeTooLarge {
                     page_group_size,
                     num_pages,
+                });
+            }
+            if !Self::page_group_fits_buffer(page_group_size) {
+                return Err(ClientDatabaseError::PageGroupSizeExceedsBufferCapacity {
+                    page_group_size,
                 });
             }
             num_page_groups = num_pages / page_group_size;
@@ -201,21 +224,20 @@ where
         // Quick scan through the rest of page groups
         for page_group_index in 1..num_page_groups {
             let first_page_offset = page_group_index * page_group_size;
-            buffer.clear();
-            buffer = storage_backend
-                .read(buffer, 1, first_page_offset)
-                .await
-                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
-                .map_err(|error| ClientDatabaseError::ReadError { error })?;
+            let pages = Self::read_pages(&storage_backend, buffer, 1, first_page_offset)
+                .await?
+                .into_shared();
+            let maybe_container =
+                StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&pages);
+            buffer = Self::reclaim_buffer(pages);
 
-            let (container, header_pages) =
-                match StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer) {
-                    Ok(result) => result,
-                    Err(_error) => {
-                        free_page_groups.push_back(first_page_offset);
-                        continue;
-                    }
-                };
+            let (container, header_pages) = match maybe_container {
+                Ok(result) => result,
+                Err(_error) => {
+                    free_page_groups.push_back(first_page_offset);
+                    continue;
+                }
+            };
 
             let page_group_header = &container.storage_item;
             if !(page_group_header.database_id == database_id
@@ -256,7 +278,7 @@ where
         .await?;
 
         // Read all temporary storage groups
-        let _: Vec<_> = StorageBackendAdapter::read_page_groups(
+        let _: OwnedPages = StorageBackendAdapter::read_page_groups(
             &mut page_groups[PageGroupKind::Temporary],
             page_group_size,
             &storage_backend,
@@ -271,13 +293,28 @@ where
             database_version,
             page_group_size,
             storage_backend,
-            write_buffer: iter::repeat_with(|| WriteBufferEntry::Free(Vec::new()))
+            write_buffer: iter::repeat_with(|| WriteBufferEntry::Free(OwnedPages::EMPTY))
                 .take(write_buffer_size)
                 .collect(),
             page_groups,
             free_page_groups,
             had_write_failure: false,
         })
+    }
+
+    /// Whether a whole page group of `page_group_size` pages fits into a buffer, which is
+    /// necessary for writing the page group header together with the largest storage item
+    #[cfg_attr(
+        target_pointer_width = "64",
+        expect(
+            clippy::absurd_extreme_comparisons,
+            reason = "Max capacity is only lower than `u32::MAX` on 32-bit platforms"
+        )
+    )]
+    fn page_group_fits_buffer(page_group_size: u32) -> bool {
+        page_group_size
+            .checked_mul(OwnedPages::ALIGN)
+            .is_some_and(|capacity| capacity <= OwnedPages::MAX_CAPACITY)
     }
 
     pub(crate) async fn format(
@@ -295,22 +332,29 @@ where
                 num_pages,
             });
         }
+        if !Self::page_group_fits_buffer(page_group_size) {
+            return Err(
+                ClientDatabaseFormatError::PageGroupSizeExceedsBufferCapacity { page_group_size },
+            );
+        }
 
-        let mut buffer = Vec::with_capacity(1);
+        let mut buffer = OwnedPages::EMPTY;
 
         if !options.force {
-            buffer = storage_backend
+            let (result, read_buffer) = storage_backend
                 .read(buffer, 1, 0)
                 .await
-                .map_err(|_error| ClientDatabaseFormatError::ReadRequestCancelled)?
-                .map_err(|error| ClientDatabaseFormatError::ReadError { error })?;
+                .map_err(|_error| ClientDatabaseFormatError::ReadRequestCancelled)?;
+            result.map_err(|error| ClientDatabaseFormatError::ReadError {
+                error: error.into(),
+            })?;
+            let pages = read_buffer.into_shared();
 
-            if StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&buffer).is_ok()
-            {
+            if StorageItemContainer::<StorageItemPageGroupHeader>::read_from_pages(&pages).is_ok() {
                 return Err(ClientDatabaseFormatError::AlreadyFormatted);
             }
 
-            buffer.clear();
+            buffer = Self::reclaim_buffer(pages);
         }
 
         let container = StorageItemContainer {
@@ -331,12 +375,43 @@ where
         // another storage item
         Self::write_pages_to_buffer(&container, None, &mut buffer, 1, 0)?;
 
-        let _buffer: Vec<AlignedPage> = storage_backend
-            .write(buffer, 0)
+        let (result, _buffer) = storage_backend
+            .write(buffer.into_shared(), 0)
             .await
-            .map_err(|_cancelled| ClientDatabaseFormatError::WriteRequestCancelled)??;
+            .map_err(|_cancelled| ClientDatabaseFormatError::WriteRequestCancelled)?;
+        result.map_err(io::Error::from)?;
 
         Ok(())
+    }
+
+    /// Read `num_pages` pages at `offset` into `buffer`, replacing its contents
+    async fn read_pages(
+        storage_backend: &StorageBackend,
+        buffer: OwnedPages,
+        num_pages: u32,
+        offset: u32,
+    ) -> Result<OwnedPages, ClientDatabaseError> {
+        let (result, buffer) = storage_backend
+            .read(buffer, num_pages, offset)
+            .await
+            .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?;
+        result.map_err(|error| ClientDatabaseError::ReadError {
+            error: error.into(),
+        })?;
+
+        Ok(buffer)
+    }
+
+    /// Reclaim the buffer of `pages` for further reads.
+    ///
+    /// Storage items are not supposed to keep references to the pages they were read from beyond
+    /// the storage item handler, but if they do, the next read allocates a new buffer.
+    fn reclaim_buffer(pages: SharedPages) -> OwnedPages {
+        pages.try_into_owned().unwrap_or_else(|_pages| {
+            debug!("Pages are still referenced, the next read allocates a new buffer");
+
+            OwnedPages::EMPTY
+        })
     }
 
     /// Read all page groups and call the storage item handler for every storage item except the
@@ -345,9 +420,9 @@ where
         target_page_groups: &mut PageGroups,
         page_group_size: u32,
         storage_backend: &StorageBackend,
-        mut buffer: Vec<AlignedPage>,
+        mut buffer: OwnedPages,
         mut storage_item_handler: SIH,
-    ) -> Result<Vec<AlignedPage>, ClientDatabaseError>
+    ) -> Result<OwnedPages, ClientDatabaseError>
     where
         SI: StorageItem,
         SIH: FnMut(StorageItemHandlerArg<SI>) -> Result<(), ClientDatabaseError>,
@@ -360,17 +435,14 @@ where
                 next_sequence_number = page_group.first_sequence_number;
             }
 
-            buffer.clear();
-            buffer = storage_backend
-                .read(
-                    buffer,
-                    // Substraction accounts for the page group header, which was already read
-                    page_group_size - page_group.inner_next_page_offset,
-                    page_group.first_page_offset + page_group.inner_next_page_offset,
-                )
-                .await
-                .map_err(|_error| ClientDatabaseError::ReadRequestCancelled)?
-                .map_err(|error| ClientDatabaseError::ReadError { error })?;
+            buffer = Self::read_pages(
+                storage_backend,
+                buffer,
+                // Substraction accounts for the page group header, which was already read
+                page_group_size - page_group.inner_next_page_offset,
+                page_group.first_page_offset + page_group.inner_next_page_offset,
+            )
+            .await?;
 
             // Account for the page group header that was already read
             if page_group.first_sequence_number == next_sequence_number {
@@ -388,11 +460,15 @@ where
                 });
             }
 
-            let mut pages = buffer.as_slice();
+            let pages = buffer.into_shared();
+            // Pages that were not read yet
+            let mut remaining_pages = pages.clone();
 
-            while !pages.is_empty() {
+            while !remaining_pages.is_empty() {
                 let page_offset = page_group.first_page_offset + page_group.inner_next_page_offset;
-                let (container, num_pages) = match StorageItemContainer::read_from_pages(pages) {
+                let (container, num_pages) = match StorageItemContainer::read_from_pages(
+                    &remaining_pages,
+                ) {
                     Ok(result) => result,
                     Err(error) => {
                         debug!(
@@ -429,9 +505,18 @@ where
                     num_pages,
                 })?;
 
-                pages = &pages[num_pages as usize..];
+                remaining_pages = remaining_pages
+                    .get_slice(num_pages * SharedPages::ALIGN..)
+                    .and_then(|rest| rest.try_into_start_align().ok())
+                    .expect(
+                        "Storage item occupies whole pages among remaining pages, so the rest \
+                        starts at a page boundary; qed",
+                    );
                 page_group.inner_next_page_offset += num_pages;
             }
+
+            drop(remaining_pages);
+            buffer = Self::reclaim_buffer(pages);
         }
 
         target_page_groups.next_sequence_number = next_sequence_number;
@@ -446,25 +531,46 @@ where
     where
         SI: UniqueStorageItem,
     {
+        // The write may not have reached the storage backend yet
+        if let Some(item_pages) = self.write_buffer.iter().find_map(|entry| {
+            if let WriteBufferEntry::Occupied {
+                location,
+                item_pages,
+                receiver: _,
+            } = entry
+                && *location == write_location
+            {
+                Some(item_pages)
+            } else {
+                None
+            }
+        }) {
+            let (container, _num_pages) = StorageItemContainer::read_from_pages(item_pages)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+
+            return Ok(container.storage_item);
+        }
+
         let WriteLocation {
             page_offset,
             num_pages,
         } = write_location;
 
-        let pages = self
+        let (result, pages) = self
             .storage_backend
-            .read(Vec::new(), num_pages, page_offset)
+            .read(OwnedPages::EMPTY, num_pages, page_offset)
             .await
             .map_err(|_cancelled| {
                 io::Error::new(
                     io::ErrorKind::Interrupted,
                     "Storage backend read was aborted",
                 )
-            })
-            .flatten()?;
+            })?;
+        result?;
 
-        let (container, _num_pages) = StorageItemContainer::read_from_pages(&pages)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        let (container, _num_pages) =
+            StorageItemContainer::read_from_pages(&pages.into_shared())
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
 
         Ok(container.storage_item)
     }
@@ -574,7 +680,7 @@ where
         // In case buffering is disabled, allocate a buffer on demand and wait for write to
         // finish
         if self.write_buffer.is_empty() {
-            let mut buffer = Vec::new();
+            let mut buffer = OwnedPages::EMPTY;
 
             let page_offset = Self::write_pages_to_buffer(
                 &container,
@@ -584,17 +690,17 @@ where
                 write_page_offset,
             )?;
 
-            let _buffer: Vec<_> = self
+            let (result, _buffer) = self
                 .storage_backend
-                .write(buffer, write_page_offset)
+                .write(buffer.into_shared(), write_page_offset)
                 .await
                 .map_err(|_cancelled| {
                     io::Error::new(
                         io::ErrorKind::Interrupted,
                         "Storage backend write was aborted",
                     )
-                })
-                .flatten()?;
+                })?;
+            result?;
 
             return Ok(WriteLocation {
                 page_offset,
@@ -602,134 +708,142 @@ where
             });
         }
 
-        let write_fut = future::poll_fn(|cx| {
-            // Find a free write buffer entry among those that are either completely free or already
-            // finished and can be reused
-            let write_attempt_result = self.write_buffer.iter_mut().find_map(|entry| {
-                replace_with_or_abort_and_return(entry, |entry| {
-                    let mut buffer = match entry {
-                        // Already free buffer
-                        WriteBufferEntry::Free(buffer) => buffer,
-                        WriteBufferEntry::Occupied(mut receiver) => {
-                            // Poll pending write attempt
-                            match receiver.poll_unpin(cx) {
-                                Poll::Ready(Ok(write_result)) => match write_result {
-                                    // Write succeeded, reuse buffer
-                                    Ok(mut buffer) => {
-                                        buffer.clear();
-
-                                        buffer
-                                    }
-                                    // Write failed
-                                    Err(error) => {
-                                        return (
-                                            Some(Err(error)),
-                                            WriteBufferEntry::Occupied(receiver),
-                                        );
-                                    }
-                                },
-                                // Write attempt was aborted
-                                Poll::Ready(Err(_cancelled)) => {
-                                    return (
-                                        Some(Err(io::Error::new(
-                                            io::ErrorKind::Interrupted,
-                                            "Storage backend write was aborted",
-                                        ))),
-                                        WriteBufferEntry::Occupied(receiver),
-                                    );
-                                }
-                                // Still in progress
-                                Poll::Pending => {
-                                    return (None, WriteBufferEntry::Occupied(receiver));
-                                }
-                            }
+        // The first entry that is free or whose write finished is moved to the back. Entries in
+        // front of it are still in flight, so entries are reused in the order they were occupied,
+        // which bounds how long a finished write keeps its pages in memory.
+        let mut buffer = future::poll_fn(|cx| {
+            for index in 0..self.write_buffer.len() {
+                let written_buffer = match &mut self.write_buffer[index] {
+                    WriteBufferEntry::Free(_buffer) => None,
+                    WriteBufferEntry::Occupied {
+                        location: _,
+                        item_pages: _,
+                        receiver,
+                    } => match receiver.poll_unpin(cx) {
+                        Poll::Ready(Ok((Ok(()), buffer))) => Some(buffer),
+                        // Write failed, the entry stays occupied since its pages may not be in the
+                        // storage backend
+                        Poll::Ready(Ok((Err(error), _buffer))) => {
+                            return Poll::Ready(Err(io::Error::from(error)));
                         }
-                    };
-
-                    // Write storage item pages to the buffer
-                    let page_offset = match Self::write_pages_to_buffer(
-                        &container,
-                        maybe_page_group_header.as_ref(),
-                        &mut buffer,
-                        num_pages,
-                        write_page_offset,
-                    ) {
-                        Ok(page_offset) => page_offset,
-                        Err(error) => {
-                            buffer.clear();
-                            return (
-                                Some(Err(io::Error::other(error))),
-                                WriteBufferEntry::Free(buffer),
-                            );
+                        Poll::Ready(Err(_cancelled)) => {
+                            return Poll::Ready(Err(io::Error::new(
+                                io::ErrorKind::Interrupted,
+                                "Storage backend write was aborted",
+                            )));
                         }
-                    };
+                        Poll::Pending => {
+                            continue;
+                        }
+                    },
+                };
 
-                    let receiver = self.storage_backend.write(buffer, write_page_offset);
-                    (
-                        Some(Ok(WriteLocation {
-                            page_offset,
-                            num_pages,
-                        })),
-                        WriteBufferEntry::Occupied(receiver),
-                    )
-                })
-            });
-
-            match write_attempt_result {
-                Some(result) => Poll::Ready(result),
-                None => Poll::Pending,
+                // The entry is removed before the written buffer is reclaimed, since pages of the
+                // storage item reference it. The buffer is reused unless it is still referenced
+                // elsewhere (like by storage items that were read from it), in which case a new
+                // one will be allocated.
+                let buffer = match self.write_buffer.remove(index) {
+                    Some(WriteBufferEntry::Free(buffer)) => buffer,
+                    Some(WriteBufferEntry::Occupied {
+                        location: _,
+                        item_pages: _,
+                        receiver: _,
+                    })
+                    | None => written_buffer
+                        .and_then(|buffer| buffer.try_into_owned().ok())
+                        .unwrap_or(OwnedPages::EMPTY),
+                };
+                return Poll::Ready(Ok(buffer));
             }
+
+            Poll::Pending
+        })
+        .await?;
+
+        let page_offset = match Self::write_pages_to_buffer(
+            &container,
+            maybe_page_group_header.as_ref(),
+            &mut buffer,
+            num_pages,
+            write_page_offset,
+        ) {
+            Ok(page_offset) => page_offset,
+            Err(error) => {
+                self.write_buffer.push_back(WriteBufferEntry::Free(buffer));
+                return Err(error);
+            }
+        };
+
+        let location = WriteLocation {
+            page_offset,
+            num_pages,
+        };
+        let buffer = buffer.into_shared();
+        let item_pages = if maybe_page_group_header.is_some() {
+            buffer
+                .get_slice(SharedPages::ALIGN..)
+                .and_then(|item_pages| item_pages.try_into_start_align().ok())
+                .expect(
+                    "Page group header page is in front of storage item pages, which start at a \
+                    page boundary; qed",
+                )
+        } else {
+            buffer.clone()
+        };
+        let receiver = self.storage_backend.write(buffer, write_page_offset);
+        self.write_buffer.push_back(WriteBufferEntry::Occupied {
+            location,
+            item_pages,
+            receiver,
         });
 
-        write_fut.await
+        Ok(location)
     }
 
-    /// Write (append) a storage item that takes `num_pages` pages with an optional page group
-    /// header in front of it.
+    /// Write a storage item that takes `num_pages` pages with an optional page group header in
+    /// front of it into `buffer`, replacing its contents.
     ///
     /// Returns page offset at which an item is written based on `preliminary_page_offset`.
     #[inline(always)]
     fn write_pages_to_buffer<SI>(
         container: &StorageItemContainer<SI>,
         maybe_page_group_header: Option<&StorageItemContainer<StorageItemPageGroupHeader>>,
-        buffer: &mut Vec<AlignedPage>,
+        buffer: &mut OwnedPages,
         num_pages: u32,
         preliminary_page_offset: u32,
     ) -> io::Result<u32>
     where
         SI: StorageItem,
     {
-        if let Some(page_group_header) = maybe_page_group_header {
-            let length = num_pages as usize + 1;
-            buffer.reserve(length);
+        // Content is replaced, so nothing is copied if the buffer has to grow
+        buffer.truncate(0);
+        let num_pages_to_write = num_pages + u32::from(maybe_page_group_header.is_some());
+        let length = num_pages_to_write
+            .checked_mul(OwnedPages::ALIGN)
+            .ok_or(AllocationError::CapacityOverflow)
+            .and_then(|length| buffer.try_ensure_capacity(length).map(|()| length))
+            .map_err(|error| io::Error::new(io::ErrorKind::OutOfMemory, error))?;
 
-            {
-                let (header, buffer) = buffer.spare_capacity_mut()[..length].split_at_mut(1);
-                page_group_header
-                    .write_to_pages(header)
-                    .map_err(io::Error::other)?;
-                container.write_to_pages(buffer).map_err(io::Error::other)?;
-            }
-            // SAFETY: Successful writes above fully initialized `length` pages
-            unsafe {
-                buffer.set_len(buffer.len() + length);
-            }
+        let pages = &mut buffer.spare_capacity_mut()[..length as usize];
+        let page_offset = if let Some(page_group_header) = maybe_page_group_header {
+            let (header_page, pages) = pages.split_at_mut(OwnedPages::ALIGN as usize);
+            page_group_header
+                .write_to_pages(header_page)
+                .map_err(io::Error::other)?;
+            container.write_to_pages(pages).map_err(io::Error::other)?;
 
             // +1 because the page header was written in front of the storage item
-            Ok(preliminary_page_offset + 1)
+            preliminary_page_offset + 1
         } else {
-            let length = num_pages as usize;
-            buffer.reserve(length);
+            container.write_to_pages(pages).map_err(io::Error::other)?;
 
-            container
-                .write_to_pages(&mut buffer.spare_capacity_mut()[..length])
-                .map_err(io::Error::other)?;
-            // SAFETY: Successful write above fully initialized `length` pages
-            unsafe {
-                buffer.set_len(buffer.len() + length);
-            }
-
-            Ok(preliminary_page_offset)
+            preliminary_page_offset
+        };
+        // SAFETY: Successful writes above fully initialized `length` bytes
+        unsafe {
+            buffer.set_len(length);
         }
+
+        Ok(page_offset)
     }
 }

@@ -34,8 +34,8 @@ use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::RealShardKind;
 use crate::transaction::Transaction;
 use crate::transaction::owned::OwnedTransaction;
-use ab_aligned_buffer::alignment::Align16;
-use ab_aligned_buffer::{AllocationError, OwnedAlignedBuffer, SharedAlignedBuffer};
+use ab_aligned_buffer::alignment::{Align8, Align16};
+use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
@@ -132,7 +132,7 @@ impl TransactionBuilder {
             return Err(error);
         }
 
-        if align_to_16_bytes_with_padding(&mut self.buffer).is_err() {
+        if self.buffer.pad_to_alignment::<Align16>().is_err() {
             self.dec_transaction_count();
             // SAFETY: Length was obtained from the same buffer before the last write
             unsafe {
@@ -409,7 +409,9 @@ impl OwnedBeaconChainBody {
                 // blocks and number of leaf shard blocks with segments
                 buffer.append(&[0; 5]).expect("Checked size above; qed");
             }
-            align_to_8_with_padding(&mut buffer).expect("Checked size above; qed");
+            buffer
+                .pad_to_alignment::<Align8>()
+                .expect("Checked size above; qed");
             for intermediate_shard_block in intermediate_shard_blocks {
                 let num_own_segment_roots = intermediate_shard_block
                     .own_segments
@@ -480,7 +482,8 @@ impl OwnedBeaconChainBody {
                         .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
                 }
 
-                align_to_8_with_padding(&mut buffer)
+                buffer
+                    .pad_to_alignment::<Align8>()
                     .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
             }
         }
@@ -703,7 +706,9 @@ impl OwnedIntermediateShardBody {
             for _ in 0..num_blocks {
                 buffer.append(&[0]).expect("Checked size above; qed");
             }
-            align_to_8_with_padding(&mut buffer).expect("Checked size above; qed");
+            buffer
+                .pad_to_alignment::<Align8>()
+                .expect("Checked size above; qed");
             for leaf_shard_block in leaf_shard_blocks {
                 if let Some(own_segments) = &leaf_shard_block.own_segments {
                     buffer.as_mut_slice()[own_segments_roots_num_cursor] =
@@ -725,7 +730,9 @@ impl OwnedIntermediateShardBody {
                 )
                 .with_seal(leaf_shard_block.header.seal)
                 .expect("Seal of a parsed header matches its solution; qed");
-                align_to_8_with_padding(&mut buffer).expect("Checked size above; qed");
+                buffer
+                    .pad_to_alignment::<Align8>()
+                    .expect("Checked size above; qed");
 
                 buffer
                     .append(leaf_shard_block.transactions_root.as_bytes())
@@ -935,7 +942,9 @@ impl OwnedLeafShardBody {
             .append(&0u32.to_le_bytes())
             .expect("Checked size above; qed");
         // The parser expects padding after the number of transactions even if there are none
-        align_to_16_bytes_with_padding(&mut buffer).expect("Checked size above; qed");
+        buffer
+            .pad_to_alignment::<Align16>()
+            .expect("Checked size above; qed");
 
         Ok(OwnedLeafShardBlockBodyBuilder {
             transaction_builder: TransactionBuilder::new(num_transactions_offset, buffer),
@@ -1072,38 +1081,4 @@ impl OwnedBlockBody {
             Self::LeafShard(owned_body) => BlockBody::LeafShard(*owned_body.body()),
         }
     }
-}
-
-/// Aligns buffer to 8 bytes by adding necessary padding zero bytes.
-///
-/// Returns an error if buffer becomes too long.
-#[inline(always)]
-fn align_to_8_with_padding(buffer: &mut OwnedAlignedBuffer) -> Result<(), AllocationError> {
-    let alignment = usize::from(Alignment::of::<u64>().get());
-    let unaligned_by = buffer.len() as usize % alignment;
-    if unaligned_by > 0 {
-        // SAFETY: Subtracted value is always smaller than alignment
-        let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
-
-        buffer.append(&0u64.to_le_bytes()[..padding_bytes])?;
-    }
-
-    Ok(())
-}
-
-/// Aligns buffer to 16 bytes by adding necessary padding zero bytes.
-///
-/// Returns an error if buffer becomes too long.
-#[inline(always)]
-fn align_to_16_bytes_with_padding(buffer: &mut OwnedAlignedBuffer) -> Result<(), AllocationError> {
-    let alignment = usize::from(Alignment::MAX.get());
-    let unaligned_by = buffer.len() as usize % alignment;
-    if unaligned_by > 0 {
-        // SAFETY: Subtracted value is always smaller than alignment
-        let padding_bytes = unsafe { alignment.unchecked_sub(unaligned_by) };
-
-        buffer.append(&0u128.to_le_bytes()[..padding_bytes])?;
-    }
-
-    Ok(())
 }

@@ -7,11 +7,26 @@ use core::fmt;
 ///
 /// Used as a type parameter of buffers for the alignment of their contents, and as a value for the
 /// alignment of allocations.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a supported alignment",
+    note = "Supported alignments are powers of two from 1 to 4096"
+)]
 pub trait Alignment:
     sealed::Sealed + fmt::Debug + Default + Copy + Send + Sync + Unpin + 'static
 {
     /// Alignment in bytes
-    const ALIGN: usize;
+    const ALIGN: u32;
+}
+
+/// Alignment of `ALIGN` bytes, only powers of two from 1 to 4096 implement [`Alignment`]
+#[derive(Default, Copy, Clone, Eq, PartialEq)]
+pub struct Align<const ALIGN: u32>;
+
+impl<const ALIGN: u32> fmt::Debug for Align<ALIGN> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Align<{ALIGN}>")
+    }
 }
 
 /// Alignment that is at least as strict as `A`, such that anything aligned to `Self` is also
@@ -27,13 +42,12 @@ macro_rules! define_alignments {
     ($($name:ident = $align:literal),+ $(,)?) => {
         $(
             #[doc = concat!("Alignment of ", stringify!($align), " bytes")]
-            #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-            pub struct $name;
+            pub type $name = Align<$align>;
 
             impl sealed::Sealed for $name {}
 
             impl Alignment for $name {
-                const ALIGN: usize = $align;
+                const ALIGN: u32 = $align;
             }
         )+
     };

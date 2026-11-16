@@ -1,5 +1,5 @@
 use crate::page_group::temporary::segment_headers::StorageItemTemporarySegmentHeaders;
-use crate::storage_backend::AlignedPage;
+use crate::storage_backend::OwnedPages;
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::test_utils::{segment_header, write_to_aligned_pages};
 use ab_core_primitives::segments::SegmentHeader;
@@ -27,7 +27,7 @@ fn write_needs_total_bytes() {
         for buffer_len in [
             total_bytes,
             total_bytes + 1,
-            total_bytes + AlignedPage::SIZE,
+            total_bytes + OwnedPages::ALIGN as usize,
         ] {
             let (result, _pages) =
                 write_to_aligned_pages(buffer_len, |buffer| storage_item.write(buffer));
@@ -54,7 +54,7 @@ fn read_returns_written_segment_headers() {
         let (result, pages) =
             write_to_aligned_pages(buffer_len, |buffer| storage_item.write(buffer));
         result.unwrap();
-        let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
+        let bytes = pages.as_slice();
 
         // The caller frames storage items, so trailing bytes are ignored
         for read_len in [total_bytes, buffer_len] {
@@ -76,7 +76,7 @@ fn read_of_truncated_bytes_needs_more_bytes() {
         let (result, pages) =
             write_to_aligned_pages(total_bytes, |buffer| storage_item.write(buffer));
         result.unwrap();
-        let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
+        let bytes = pages.as_slice();
 
         for read_len in 0..total_bytes {
             // Missing bytes of the `u32` count prefix or of the segment header being read
@@ -105,7 +105,7 @@ fn read_of_more_segment_headers_than_bytes_needs_more_bytes() {
         Ok(buffer.len())
     });
     result.unwrap();
-    let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
+    let bytes = pages.as_slice();
 
     let result = StorageItemTemporarySegmentHeaders::read(&bytes[..size_of::<u32>()]);
     let Err(StorageItemError::NeedMoreBytes(missing_bytes)) = result else {
@@ -125,7 +125,7 @@ fn read_of_misaligned_bytes_fails() {
             storage_item.write(&mut buffer[1..])
         });
         result.unwrap();
-        let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
+        let bytes = pages.as_slice();
 
         for read_len in size_of::<u32>()..=total_bytes {
             let result = StorageItemTemporarySegmentHeaders::read(&bytes[1..][..read_len]);

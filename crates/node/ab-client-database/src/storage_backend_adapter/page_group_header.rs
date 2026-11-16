@@ -3,6 +3,8 @@ use crate::storage_backend_adapter::PageGroupKind;
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemError, StorageItemWriteResult,
 };
+use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align16;
 use ab_io_type::trivial_type::TrivialType;
 use std::mem::MaybeUninit;
 
@@ -54,7 +56,8 @@ impl StorageItem for StorageItemPageGroupHeader {
     }
 
     #[inline(always)]
-    fn read(variant: u8, buffer: &[u8]) -> Result<Self, StorageItemError> {
+    fn read(variant: u8, buffer: &SharedAlignedBuffer<Align16>) -> Result<Self, StorageItemError> {
+        let buffer = buffer.as_slice();
         if variant != 0 {
             return Err(StorageItemError::UnknownStorageItemVariant(variant));
         }

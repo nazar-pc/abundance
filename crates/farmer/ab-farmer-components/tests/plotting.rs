@@ -208,7 +208,10 @@ fn write_sector_writes_whole_output() {
     write_sector(&encoded_sector, &mut sector).unwrap();
     assert_eq!(sector.len() as usize, sector_size(PIECES_IN_SECTOR));
     // Contents are aligned to the page size for direct I/O
-    assert_eq!(sector.allocation_alignment(), AlignedPage::SIZE);
+    assert_eq!(
+        usize::try_from(sector.allocation_alignment()).unwrap(),
+        AlignedPage::SIZE
+    );
     assert!(
         sector
             .as_byte_ptr()

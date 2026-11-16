@@ -20,16 +20,27 @@ Breaking changes:
 
 New features:
 
-* `alignment` module with `Alignment` trait and `Align1` to `Align4096` types, which are used as type parameters for
-  alignment of the contents of buffers and of their allocations
-* `allocation_alignment()` on both buffers returns the alignment of the allocation, which can be stricter than the
-  alignment of the contents and is preserved when a buffer grows, is cloned or converted into an owned buffer
+* `alignment` module with `Alignment` trait, which is implemented by `Align<N>` for powers of two from 1 to 4096, and
+  `Align1` to `Align4096` aliases, which are used as type parameters for alignment of the contents of buffers and of
+  their allocations
+* `OwnedAlignedBuffer::ALIGN` and `SharedAlignedBuffer::ALIGN` constants with the alignment of the contents in bytes
+* `allocation_alignment()` on both buffers returns the alignment of the allocation in bytes, which can be stricter than
+  the alignment of the contents and is preserved when a buffer grows, is cloned or converted into an owned buffer
 * `into_start_align()` converts a buffer into one with a weaker alignment of the contents, `try_into_start_align()`
   converts into one with any alignment that the contents are actually aligned to
 * `OwnedAlignedBuffer::EMPTY` and `SharedAlignedBuffer::EMPTY` constants, and `Default` for `OwnedAlignedBuffer`
 * Contents of buffers can start at an offset within the allocation, `offset()` returns it, `capacity()` is counted
   from the beginning of the contents, and the largest capacity of a buffer is smaller by the offset:
   * `SharedAlignedBuffer::get_slice()` creates a buffer that references a part of the contents without copying them
+  * `SharedAlignedBuffer::split_at()` splits a buffer into two that reference parts of the contents without copying
+    them
+  * `SharedAlignedBuffer::reader()` reads the contents front to back with `reader::SharedAlignedBufferReader`, which
+    borrows bytes, reads alignment padding explicitly and creates buffers that reference parts of the contents without
+    copying them, failed reads return `reader::ReadError`
+  * `OwnedAlignedBuffer::pad_to_alignment()` appends zero padding, which `SharedAlignedBufferReader` reads with
+    `read_to_alignment()`
+  * `io-type` feature adds `read_trivial()`, `read_trivial_array()` and `read_trivial_slice()` to
+    `SharedAlignedBufferReader` for values of `ab-io-type`'s trivial types, it requires nightly Rust like `ab-io-type`
   * `SharedAlignedBuffer::try_into_owned()` converts the last reference into an owned buffer with the same offset
   * `SharedAlignedBuffer::into_standalone()` copies the contents unless they already cover the whole allocation, so that
     a small buffer doesn't keep a large allocation alive

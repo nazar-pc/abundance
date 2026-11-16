@@ -1,4 +1,6 @@
-use crate::storage_backend::{AlignedPage, ClientDatabaseStorageBackend};
+use crate::storage_backend::{
+    ClientDatabaseStorageBackend, OwnedPages, SharedPages, StorageBackendError,
+};
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::test_utils::{
     Database, DatabaseOptions, MemoryStorageBackend, PAGE_GROUP_SIZE, beacon_chain_block,
@@ -7,7 +9,7 @@ use crate::test_utils::{
     segment_header, super_segment_header,
 };
 use crate::{
-    ClientDatabaseBlock, ClientDatabaseError, ClientDatabaseFormatError,
+    ClientDatabase, ClientDatabaseBlock, ClientDatabaseError, ClientDatabaseFormatError,
     ClientDatabaseFormatOptions,
 };
 use ab_aligned_buffer::SharedAlignedBuffer;
@@ -16,9 +18,11 @@ use ab_client_api::{
     ContractSlotState, PersistBlockError, ReadBlockError,
 };
 use ab_core_primitives::address::Address;
+use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{LocalSegmentIndex, SuperSegmentIndex};
 use ab_core_primitives::trees::BlockMerkleMountainRange;
+use futures::channel::oneshot;
 use futures::executor::block_on;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::{assert_matches, io, iter};
@@ -1191,8 +1195,9 @@ fn format_without_force_only_formats_unformatted_storage() {
     );
 
     // Erase the page group header, as if the storage was never formatted
-    block_on(storage_backend.write(vec![AlignedPage::default()], 0))
+    block_on(storage_backend.write(OwnedPages::zeroed(OwnedPages::ALIGN).into_shared(), 0))
         .unwrap()
+        .0
         .unwrap();
     block_on(Database::format(&storage_backend, options)).unwrap();
     open_database(&storage_backend);
@@ -1201,6 +1206,33 @@ fn format_without_force_only_formats_unformatted_storage() {
         block_on(Database::format(&storage_backend, options)),
         Err(ClientDatabaseFormatError::AlreadyFormatted)
     );
+}
+
+/// Storage backend with the max number of pages, which is never read from or written to
+#[derive(Debug)]
+struct HugeStorageBackend;
+
+impl ClientDatabaseStorageBackend for HugeStorageBackend {
+    fn num_pages(&self) -> u32 {
+        u32::MAX
+    }
+
+    fn read(
+        &self,
+        _buffer: OwnedPages,
+        _num_pages: u32,
+        _offset: u32,
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, OwnedPages)> {
+        unreachable!("Not read from")
+    }
+
+    fn write(
+        &self,
+        _buffer: SharedPages,
+        _offset: u32,
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)> {
+        unreachable!("Not written to")
+    }
 }
 
 #[test]
@@ -1237,6 +1269,23 @@ fn format_rejects_invalid_page_group_size() {
     assert_eq!(
         (error_page_group_size, error_num_pages),
         (page_group_size, num_pages)
+    );
+
+    // Storage backend is large enough, but the page group doesn't fit into a buffer for reading it
+    let result = block_on(ClientDatabase::<OwnedBeaconChainBlock, _>::format(
+        &HugeStorageBackend,
+        ClientDatabaseFormatOptions {
+            page_group_size: NonZeroU32::MAX,
+            force: true,
+        },
+    ));
+    assert_matches!(
+        result,
+        Err(
+            ClientDatabaseFormatError::PageGroupSizeExceedsBufferCapacity {
+                page_group_size: u32::MAX
+            }
+        )
     );
 
     // The previously formatted database is left intact
@@ -1277,4 +1326,115 @@ fn block_with_too_large_system_contract_states_is_not_written() {
         *error.into_inner().unwrap().downcast().unwrap(),
         StorageItemError::StorageItemTooLarge
     );
+}
+
+/// Options for a database on `storage_backend` that buffers `write_buffer_size` writes
+fn buffered_database_options(
+    storage_backend: &MemoryStorageBackend,
+    write_buffer_size: usize,
+) -> DatabaseOptions {
+    DatabaseOptions {
+        write_buffer_size,
+        ..database_options(storage_backend)
+    }
+}
+
+/// Check that `block` is the block built by [`beacon_chain_block()`] at `number` of `chain`, which
+/// starts with genesis and was built with zero salt
+fn assert_chain_block(block: &OwnedBeaconChainBlock, chain: &[BlockRoot], number: u64) {
+    let parent_root = number
+        .checked_sub(1)
+        .map_or_else(BlockRoot::default, |parent_number| {
+            chain[usize::try_from(parent_number).unwrap()]
+        });
+    let expected = beacon_chain_block(number, parent_root, 0);
+    assert_eq!(
+        block.header.buffer().as_slice(),
+        expected.header.buffer().as_slice(),
+        "{number}"
+    );
+    assert_eq!(
+        block.body.buffer().as_slice(),
+        expected.body.buffer().as_slice(),
+        "{number}"
+    );
+}
+
+/// Check that all blocks of `chain`, which starts with genesis and was built with zero salt, can be
+/// read
+fn assert_chain_blocks(database: &Database, chain: &[BlockRoot]) {
+    for (number, block_root) in (0..).zip(chain) {
+        let block = block_on(database.block(block_root)).unwrap();
+        assert_chain_block(&block, chain, number);
+    }
+}
+
+#[test]
+#[cfg_attr(miri, ignore = "Reopening is safe code, too slow under Miri")]
+fn persisted_blocks_are_read_while_their_writes_are_in_flight() {
+    // genesis - c1 .. c8, blocks up to `c5` are persisted and not kept in memory
+    let storage_backend = MemoryStorageBackend::new();
+    let database =
+        open_database_with_options(buffered_database_options(&storage_backend, 16)).unwrap();
+    // Genesis block is written once `c3` is persisted and, as the first temporary storage item,
+    // starts a temporary page group, so it is written after the page group header
+    storage_backend.hold_writes();
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=8, 0));
+    assert_chain_blocks(&database, &chain);
+
+    storage_backend.release_writes();
+    assert_chain_blocks(&database, &chain);
+
+    let database = reopen(database, &storage_backend);
+    let persisted_best_number = highest_persisted_number(&database, 8);
+    assert_consistent(&database, persisted_best_number);
+    assert_chain_blocks(
+        &database,
+        &chain[..=usize::try_from(persisted_best_number).unwrap()],
+    );
+}
+
+#[test]
+fn persisted_blocks_are_read_after_their_writes_failed() {
+    // genesis - c1 .. c9, writes of blocks up to `c5` fail, the failure is observed when `c6` is
+    // written, since all six entries of the write buffer are occupied by failed writes
+    let storage_backend = MemoryStorageBackend::new();
+    let database =
+        open_database_with_options(buffered_database_options(&storage_backend, 6)).unwrap();
+    storage_backend.hold_writes();
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=8, 0));
+    storage_backend.fail_held_writes();
+
+    let result = persist_block(&database, 9, chain[8], 0);
+    let Err(PersistBlockError::StorageItemWriteError { error }) = result else {
+        panic!("Unexpected result: {result:?}");
+    };
+    assert_eq!(error.kind(), io::ErrorKind::Other);
+    assert_chain_blocks(&database, &chain);
+}
+
+#[test]
+fn blocks_read_from_in_flight_writes_outlive_reuse_of_write_buffer() {
+    // genesis - c1 .. c6, `genesis` and `c1` are read while their writes are in flight and remain
+    // intact after writes of `c2` and `c3` reuse the write buffer
+    let storage_backend = MemoryStorageBackend::new();
+    let database =
+        open_database_with_options(buffered_database_options(&storage_backend, 2)).unwrap();
+    storage_backend.hold_writes();
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=4, 0));
+    let blocks = chain
+        .iter()
+        .take(2)
+        .map(|block_root| block_on(database.block(block_root)).unwrap())
+        .collect::<Vec<_>>();
+
+    storage_backend.release_writes();
+    chain.extend(persist_chain(&database, chain[4], 5..=6, 0));
+    for (number, block) in (0..).zip(&blocks) {
+        assert_chain_block(block, &chain, number);
+    }
+    assert_chain_blocks(&database, &chain);
 }

@@ -6,6 +6,7 @@ version = 4
 name = "ab-aligned-buffer"
 version = "0.2.0"
 dependencies = [
+ "ab-io-type",
  "criterion",
  "stable_deref_trait",
  "yoke",
@@ -640,6 +641,7 @@ dependencies = [
 name = "ab-node"
 version = "0.0.1"
 dependencies = [
+ "ab-aligned-buffer",
  "ab-cli-utils",
  "ab-client-api",
  "ab-client-archiving",

@@ -1,8 +1,8 @@
 use crate::page_group::temporary::block::{StorageItemTemporaryBlock, SystemContractStatePrefix};
-use crate::storage_backend::AlignedPage;
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::test_utils::write_to_aligned_pages;
 use ab_aligned_buffer::SharedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align4096;
 use ab_client_api::ContractSlotState;
 use ab_core_primitives::address::Address;
 use ab_core_primitives::trees::BlockMerkleMountainRange;
@@ -149,6 +149,15 @@ fn assert_same_block(
     }
 }
 
+/// The first `len` bytes of the storage item written to `pages`
+fn item_prefix(pages: &SharedAlignedBuffer<Align4096>, len: usize) -> SharedAlignedBuffer {
+    pages
+        .get_slice(..u32::try_from(len).unwrap())
+        .unwrap()
+        .try_into_start_align()
+        .unwrap()
+}
+
 #[test]
 fn read_returns_written_block() {
     for storage_item in storage_items() {
@@ -157,12 +166,27 @@ fn read_returns_written_block() {
         let (result, pages) =
             write_to_aligned_pages(buffer_len, |buffer| storage_item.write(buffer));
         result.unwrap();
-        let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
+        let pages_range = pages.as_slice().as_ptr_range();
 
         // The caller frames storage items, so trailing bytes are ignored
         for read_len in [total_bytes, buffer_len] {
-            let read_storage_item = StorageItemTemporaryBlock::read(&bytes[..read_len]).unwrap();
+            let read_storage_item =
+                StorageItemTemporaryBlock::read(&item_prefix(&pages, read_len)).unwrap();
             assert_same_block(&read_storage_item, &storage_item);
+
+            // Body references the item, while header and contents of system contract states are
+            // standalone
+            if !read_storage_item.body.is_empty() {
+                assert!(pages_range.contains(&read_storage_item.body.as_slice().as_ptr()));
+            }
+            if !read_storage_item.header.is_empty() {
+                assert!(!pages_range.contains(&read_storage_item.header.as_slice().as_ptr()));
+            }
+            for state in read_storage_item.system_contract_states.iter() {
+                if !state.contents.is_empty() {
+                    assert!(!pages_range.contains(&state.contents.as_slice().as_ptr()));
+                }
+            }
         }
     }
 }
@@ -174,7 +198,6 @@ fn read_of_truncated_bytes_needs_more_bytes() {
         let (result, pages) =
             write_to_aligned_pages(total_bytes, |buffer| storage_item.write(buffer));
         result.unwrap();
-        let bytes = AlignedPage::slice_to_repr(&pages).as_flattened();
         // Without system contract states, trailing padding after MMR is not needed for reading
         let min_read_len = if storage_item.system_contract_states.is_empty() {
             size_of::<u128>()
@@ -186,7 +209,7 @@ fn read_of_truncated_bytes_needs_more_bytes() {
         };
 
         for read_len in 0..min_read_len {
-            let result = StorageItemTemporaryBlock::read(&bytes[..read_len]);
+            let result = StorageItemTemporaryBlock::read(&item_prefix(&pages, read_len));
             let Err(StorageItemError::NeedMoreBytes(missing_bytes)) = result else {
                 panic!("Unexpected result for read length {read_len}: {result:?}");
             };
