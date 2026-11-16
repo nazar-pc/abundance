@@ -1155,3 +1155,37 @@ fn alignment_constants() {
     assert_eq!(SharedAlignedBuffer::<Align1>::ALIGN, 1);
     assert_eq!(alloc::format!("{:?}", Align16::default()), "Align<16>");
 }
+
+#[test]
+fn split_at() {
+    let bytes = (0..40).collect::<Vec<u8>>();
+    let shared = OwnedAlignedBuffer::<Align16>::from_bytes(&bytes).into_shared();
+    let contents = shared.as_slice().as_ptr_range();
+
+    // Any offset is valid
+    for mid in 0..=40 {
+        let (first, rest) = shared.split_at(mid).unwrap();
+        assert_eq!(first.as_slice(), &bytes[..mid as usize], "Mid {mid}");
+        assert_eq!(rest.as_slice(), &bytes[mid as usize..], "Mid {mid}");
+        assert!(is_aligned_to(first.as_byte_ptr(), EXPECTED_ALIGNMENT));
+        for part in [first.as_slice(), rest.as_slice()] {
+            if !part.is_empty() {
+                assert!(contents.contains(&part.as_ptr()), "Mid {mid}");
+            }
+        }
+    }
+    assert!(shared.split_at(41).is_none());
+
+    // Rest is aligned when split at a multiple of the alignment
+    let (first, rest) = shared.split_at(16).unwrap();
+    assert_eq!(first.len(), 16);
+    assert_eq!(rest.try_into_start_align::<Align16>().unwrap().len(), 24);
+    drop(first);
+
+    // Empty parts don't keep the allocation alive
+    let (first, rest) = shared.split_at(0).unwrap();
+    drop(rest);
+    let (empty_first, empty_rest) = first.split_at(0).unwrap();
+    assert!(empty_first.is_empty() && empty_rest.is_empty());
+    shared.try_into_owned().unwrap();
+}

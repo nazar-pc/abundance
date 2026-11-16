@@ -32,6 +32,11 @@ New features:
 * Contents of buffers can start at an offset within the allocation, `offset()` returns it, `capacity()` is counted
   from the beginning of the contents, and the largest capacity of a buffer is smaller by the offset:
   * `SharedAlignedBuffer::get_slice()` creates a buffer that references a part of the contents without copying them
+  * `SharedAlignedBuffer::split_at()` splits a buffer into two that reference parts of the contents without copying
+    them
+  * `SharedAlignedBuffer::reader()` reads the contents front to back with `reader::SharedAlignedBufferReader`, which
+    borrows bytes, reads alignment padding explicitly and creates buffers that reference parts of the contents without
+    copying them, failed reads return `reader::ReadError`
   * `SharedAlignedBuffer::try_into_owned()` converts the last reference into an owned buffer with the same offset
   * `SharedAlignedBuffer::into_standalone()` copies the contents unless they already cover the whole allocation, so that
     a small buffer doesn't keep a large allocation alive

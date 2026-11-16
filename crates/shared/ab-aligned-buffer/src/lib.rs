@@ -15,6 +15,7 @@
 #![no_std]
 
 pub mod alignment;
+pub mod reader;
 mod sealed;
 #[cfg(test)]
 mod tests;
@@ -22,6 +23,7 @@ mod tests;
 extern crate alloc;
 
 use crate::alignment::{Align1, Align16, Align4096, Alignment, AtLeast};
+use crate::reader::SharedAlignedBufferReader;
 use alloc::alloc::{alloc, alloc_zeroed, dealloc, handle_alloc_error, realloc};
 use core::alloc::Layout;
 use core::marker::PhantomData;
@@ -1530,6 +1532,33 @@ where
         Some(SharedAlignedBuffer::from_inner(
             self.inner.slice(start, end - start),
         ))
+    }
+
+    /// Split into two buffers at `mid` without copying the contents, similarly to
+    /// [`slice::split_at_checked()`].
+    ///
+    /// The first buffer references bytes before `mid` and keeps the alignment of the contents. The
+    /// second buffer references the rest, whose alignment is not guaranteed anymore, use
+    /// [`SharedAlignedBuffer::try_into_start_align()`] if necessary. Returns `None` if `mid` is
+    /// larger than the length. Both buffers keep the whole allocation alive unless they are empty,
+    /// see [`Self::into_standalone()`].
+    #[inline]
+    #[must_use = "Buffers are dropped otherwise"]
+    pub fn split_at(&self, mid: u32) -> Option<(Self, SharedAlignedBuffer<Align1>)> {
+        let rest = self.get_slice(mid..)?;
+        let first = if mid == 0 {
+            Self::EMPTY
+        } else {
+            Self::from_inner(self.inner.slice(0, mid))
+        };
+
+        Some((first, rest))
+    }
+
+    /// Read the contents front to back, see [`SharedAlignedBufferReader`]
+    #[inline(always)]
+    pub const fn reader(&self) -> SharedAlignedBufferReader<'_, A> {
+        SharedAlignedBufferReader::new(self)
     }
 
     /// Shorten the buffer, keeping the first `len` bytes.
