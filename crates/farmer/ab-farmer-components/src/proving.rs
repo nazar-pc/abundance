@@ -18,6 +18,7 @@ use ab_core_primitives::shard::NumShards;
 use ab_core_primitives::solutions::{
     ChunkProof, ShardMembershipEntropy, Solution, SolutionDistance,
 };
+use ab_direct_io_file::{IoBufError, OwnedPages};
 use ab_erasure_coding::ErasureCoding;
 use ab_merkle_tree::blake3::BalancedMerkleTree;
 use ab_proof_of_space::PosProofs;
@@ -67,6 +68,13 @@ pub enum ProvingError {
     /// Record reading error
     #[error("Record reading error: {0}")]
     RecordReadingError(#[from] ReadingError),
+}
+
+impl<B> From<IoBufError<B>> for ProvingError {
+    #[inline]
+    fn from(error: IoBufError<B>) -> Self {
+        Self::Io(error.into())
+    }
 }
 
 impl ProvingError {
@@ -376,10 +384,11 @@ where
         table_generator: PosProofGenerator,
     ) -> Result<Self, ProvingError> {
         let sector_contents_map = {
-            let mut sector_contents_map_bytes =
-                vec![0; SectorContentsMap::encoded_size(sector_metadata.pieces_in_sector) as usize];
-
-            sector.read_at(&mut sector_contents_map_bytes, 0)?;
+            let sector_contents_map_bytes = sector.read_at(
+                OwnedPages::EMPTY,
+                SectorContentsMap::encoded_size(sector_metadata.pieces_in_sector),
+                0,
+            )?;
 
             SectorContentsMap::from_bytes(
                 &sector_contents_map_bytes,

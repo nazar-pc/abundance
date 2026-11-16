@@ -69,6 +69,7 @@ windows = { workspace = true }
 [dev-dependencies]
 chacha20 = { workspace = true, features = ["rng"] }
 criterion = { workspace = true }
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

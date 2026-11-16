@@ -1,5 +1,8 @@
 //! Files abstraction that allows reading concurrently using thread pool
 
+use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align1;
+use ab_direct_io_file::{IoBufError, OwnedPages};
 use ab_farmer_components::ReadAtSync;
 use ab_farmer_components::file_ext::{FileExt, OpenOptionsExt};
 use std::fs::{File, OpenOptions};
@@ -17,24 +20,21 @@ impl<File> ReadAtSync for RayonFiles<File>
 where
     File: ReadAtSync,
 {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
+    fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
         let thread_index = rayon::current_thread_index().unwrap_or_default();
-        let file = self
-            .files
-            .get(thread_index)
-            .ok_or_else(|| io::Error::other("No files entry for this rayon thread"))?;
+        let Some(file) = self.files.get(thread_index) else {
+            return Err(IoBufError {
+                error: io::Error::other("No files entry for this rayon thread").into(),
+                buffer,
+            });
+        };
 
-        file.read_at(buf, offset)
-    }
-}
-
-impl<File> ReadAtSync for &RayonFiles<File>
-where
-    File: ReadAtSync,
-{
-    #[inline]
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        (*self).read_at(buf, offset)
+        file.read_at(buffer, len, offset)
     }
 }
 

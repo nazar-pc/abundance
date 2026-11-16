@@ -25,7 +25,10 @@ mod segment_reconstruction;
 pub mod shard_commitment;
 
 use crate::file_ext::FileExt;
+use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align1;
 use ab_core_primitives::segments::HistorySize;
+use ab_direct_io_file::{DirectIoFile, IoBufError, OwnedPages};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -79,51 +82,141 @@ pub trait ReadAtSync: Send + Sync {
         }
     }
 
-    /// Fill the buffer by reading bytes at a specific offset
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()>;
+    /// Read `len` bytes at `offset` into `buffer`, replacing its contents.
+    ///
+    /// The allocation of the buffer is reused when possible and grows otherwise, allocation
+    /// failure is returned as an error. Existing contents are never copied. On success, the
+    /// contents are exactly the requested bytes. The buffer is returned back on error too.
+    ///
+    /// The returned buffer can be reused for the next read with
+    /// [`OwnedAlignedBuffer::into_empty()`].
+    fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>>;
+}
+
+impl<T> ReadAtSync for &T
+where
+    T: ReadAtSync + ?Sized,
+{
+    #[inline]
+    fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
+        (**self).read_at(buffer, len, offset)
+    }
 }
 
 impl ReadAtSync for ! {
-    fn read_at(&self, _buf: &mut [u8], _offset: u64) -> io::Result<()> {
+    fn read_at(
+        &self,
+        _buffer: OwnedPages,
+        _len: u32,
+        _offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
         unreachable!("Is never called")
     }
 }
 
-/// Container or asynchronously reading bytes using in [`ReadAtAsync`]
-#[repr(transparent)]
-#[derive(Debug)]
-pub struct AsyncReadBytes<B>(B)
-where
-    B: AsMut<[u8]> + Unpin + 'static;
+impl ReadAtSync for [u8] {
+    fn read_at(
+        &self,
+        mut buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
+        let maybe_bytes = offset
+            .checked_add(u64::from(len))
+            .and_then(|end| self.get(usize::try_from(offset).ok()?..usize::try_from(end).ok()?));
+        let Some(bytes) = maybe_bytes else {
+            return Err(IoBufError {
+                error: io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Buffer length with offset exceeds own length",
+                )
+                .into(),
+                buffer,
+            });
+        };
 
-impl From<Vec<u8>> for AsyncReadBytes<Vec<u8>> {
-    fn from(value: Vec<u8>) -> Self {
-        Self(value)
+        // Grow the buffer while it is page-aligned, such that the allocation can be reused for
+        // further reads
+        buffer.truncate(0);
+        if let Err(error) = buffer.try_ensure_capacity(len) {
+            return Err(IoBufError {
+                error: error.into(),
+                buffer,
+            });
+        }
+
+        let mut contents = buffer.into_start_align::<Align1>();
+        contents
+            .append(bytes)
+            .expect("Capacity for `len` bytes is ensured above; qed");
+
+        Ok(contents)
     }
 }
 
-impl From<Box<[u8]>> for AsyncReadBytes<Box<[u8]>> {
-    fn from(value: Box<[u8]>) -> Self {
-        Self(value)
+impl ReadAtSync for Vec<u8> {
+    #[inline]
+    fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
+        self.as_slice().read_at(buffer, len, offset)
     }
 }
 
-impl<B> AsMut<[u8]> for AsyncReadBytes<B>
-where
-    B: AsMut<[u8]> + Unpin + 'static,
-{
-    fn as_mut(&mut self) -> &mut [u8] {
-        self.0.as_mut()
+impl ReadAtSync for File {
+    fn read_at(
+        &self,
+        mut buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
+        buffer.truncate(0);
+        if let Err(error) = buffer.try_ensure_capacity(len) {
+            return Err(IoBufError {
+                error: error.into(),
+                buffer,
+            });
+        }
+        buffer.spare_capacity_mut()[..len as usize].write_filled(0);
+        // SAFETY: Capacity for `len` bytes is ensured and they are initialized with zeroes above
+        unsafe {
+            buffer.set_len(len);
+        }
+
+        if let Err(error) = self.read_exact_at(buffer.as_mut_slice(), offset) {
+            buffer.truncate(0);
+            return Err(IoBufError {
+                error: error.into(),
+                buffer,
+            });
+        }
+
+        Ok(buffer.into_start_align())
     }
 }
 
-impl<B> AsyncReadBytes<B>
-where
-    B: AsMut<[u8]> + Unpin + 'static,
-{
-    /// Extract inner value
-    pub fn into_inner(self) -> B {
-        self.0
+impl ReadAtSync for DirectIoFile {
+    #[inline]
+    fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
+        DirectIoFile::read_at(self, buffer, len, offset)
     }
 }
 
@@ -141,74 +234,39 @@ pub trait ReadAtAsync {
         }
     }
 
-    /// Fill the buffer by reading bytes at a specific offset and return the buffer back
-    fn read_at<B>(&self, buf: B, offset: u64) -> impl Future<Output = io::Result<B>>
-    where
-        AsyncReadBytes<B>: From<B>,
-        B: AsMut<[u8]> + Unpin + 'static;
+    /// Read `len` bytes at `offset` into `buffer`, replacing its contents, see
+    /// [`ReadAtSync::read_at()`] for details
+    fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> impl Future<Output = Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>>>;
+}
+
+impl<T> ReadAtAsync for &T
+where
+    T: ReadAtAsync + ?Sized,
+{
+    #[inline]
+    fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> impl Future<Output = Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>>> {
+        (**self).read_at(buffer, len, offset)
+    }
 }
 
 impl ReadAtAsync for ! {
-    async fn read_at<B>(&self, _buf: B, _offset: u64) -> io::Result<B>
-    where
-        AsyncReadBytes<B>: From<B>,
-        B: AsMut<[u8]> + Unpin + 'static,
-    {
+    async fn read_at(
+        &self,
+        _buffer: OwnedPages,
+        _len: u32,
+        _offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
         unreachable!("Is never called")
-    }
-}
-
-impl ReadAtSync for [u8] {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        if buf.len() as u64 + offset > self.len() as u64 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Buffer length with offset exceeds own length",
-            ));
-        }
-
-        buf.copy_from_slice(&self[offset as usize..][..buf.len()]);
-
-        Ok(())
-    }
-}
-
-impl ReadAtSync for &[u8] {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        if buf.len() as u64 + offset > self.len() as u64 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Buffer length with offset exceeds own length",
-            ));
-        }
-
-        buf.copy_from_slice(&self[offset as usize..][..buf.len()]);
-
-        Ok(())
-    }
-}
-
-impl ReadAtSync for Vec<u8> {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        self.as_slice().read_at(buf, offset)
-    }
-}
-
-impl ReadAtSync for &Vec<u8> {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        self.as_slice().read_at(buf, offset)
-    }
-}
-
-impl ReadAtSync for File {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        self.read_exact_at(buf, offset)
-    }
-}
-
-impl ReadAtSync for &File {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        self.read_exact_at(buf, offset)
     }
 }
 
@@ -223,17 +281,21 @@ impl<T> ReadAtSync for ReadAtOffset<'_, T>
 where
     T: ReadAtSync,
 {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        self.inner.read_at(buf, offset + self.offset)
-    }
-}
+    #[inline]
+    fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
+        let Some(offset) = offset.checked_add(self.offset) else {
+            return Err(IoBufError {
+                error: io::Error::new(io::ErrorKind::InvalidInput, "Offset overflow").into(),
+                buffer,
+            });
+        };
 
-impl<T> ReadAtSync for &ReadAtOffset<'_, T>
-where
-    T: ReadAtSync,
-{
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        self.inner.read_at(buf, offset + self.offset)
+        self.inner.read_at(buffer, len, offset)
     }
 }
 
@@ -241,25 +303,21 @@ impl<T> ReadAtAsync for ReadAtOffset<'_, T>
 where
     T: ReadAtAsync,
 {
-    async fn read_at<B>(&self, buf: B, offset: u64) -> io::Result<B>
-    where
-        AsyncReadBytes<B>: From<B>,
-        B: AsMut<[u8]> + Unpin + 'static,
-    {
-        self.inner.read_at(buf, offset + self.offset).await
-    }
-}
+    #[inline]
+    async fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
+        let Some(offset) = offset.checked_add(self.offset) else {
+            return Err(IoBufError {
+                error: io::Error::new(io::ErrorKind::InvalidInput, "Offset overflow").into(),
+                buffer,
+            });
+        };
 
-impl<T> ReadAtAsync for &ReadAtOffset<'_, T>
-where
-    T: ReadAtAsync,
-{
-    async fn read_at<B>(&self, buf: B, offset: u64) -> io::Result<B>
-    where
-        AsyncReadBytes<B>: From<B>,
-        B: AsMut<[u8]> + Unpin + 'static,
-    {
-        self.inner.read_at(buf, offset + self.offset).await
+        self.inner.read_at(buffer, len, offset).await
     }
 }
 

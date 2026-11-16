@@ -1,6 +1,8 @@
 //! Wrapper data structure for direct/unbuffered I/O
 
-use ab_direct_io_file::DirectIoFile;
+use ab_aligned_buffer::OwnedAlignedBuffer;
+use ab_aligned_buffer::alignment::Align1;
+use ab_direct_io_file::{DirectIoFile, IoBufError, OwnedPages};
 use ab_farmer_components::ReadAtSync;
 use ab_farmer_components::file_ext::FileExt;
 use std::fs::OpenOptions;
@@ -15,15 +17,13 @@ pub struct DirectIoFileWrapper {
 
 impl ReadAtSync for DirectIoFileWrapper {
     #[inline]
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        self.read_exact_at(buf, offset)
-    }
-}
-
-impl ReadAtSync for &DirectIoFileWrapper {
-    #[inline]
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
-        (*self).read_at(buf, offset)
+    fn read_at(
+        &self,
+        buffer: OwnedPages,
+        len: u32,
+        offset: u64,
+    ) -> Result<OwnedAlignedBuffer<Align1>, IoBufError<OwnedPages>> {
+        self.file.read_at(buffer, len, offset)
     }
 }
 

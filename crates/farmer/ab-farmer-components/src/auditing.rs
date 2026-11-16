@@ -13,9 +13,10 @@ use ab_core_primitives::pieces::RecordChunk;
 use ab_core_primitives::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
 use ab_core_primitives::shard::NumShards;
 use ab_core_primitives::solutions::{ShardMembershipEntropy, SolutionDistance, SolutionRange};
+use ab_direct_io_file::OwnedPages;
 use rayon::prelude::*;
 use std::collections::HashSet;
-use std::io;
+use std::{io, mem};
 use thiserror::Error;
 
 /// Errors that happen during proving
@@ -83,13 +84,16 @@ where
         sector_metadata,
     );
 
-    let mut s_bucket = vec![0; s_bucket_audit_size];
-    sector
-        .read_at(&mut s_bucket, s_bucket_audit_offset_in_sector)
+    let s_bucket = sector
+        .read_at(
+            OwnedPages::EMPTY,
+            s_bucket_audit_size,
+            s_bucket_audit_offset_in_sector,
+        )
         .map_err(|error| AuditingError::SBucketReading {
             sector_index: sector_metadata.sector_index,
             s_bucket_audit_index,
-            error,
+            error: error.into(),
         })?;
 
     let Some(winning_chunks) = map_winning_chunks(
@@ -155,58 +159,68 @@ where
             )
         })
         // Read s-buckets of all sectors, map to winning chunks and then to audit results, all in
-        // parallel
-        .filter_map(|(sector_auditing_info, sector_metadata)| {
-            if sectors_being_modified.contains(&sector_metadata.sector_index) {
-                // Skip sector that is being modified right now
-                return None;
-            }
+        // parallel, reusing a buffer for reads within each rayon job
+        .map_init(
+            || OwnedPages::EMPTY,
+            |buffer, (sector_auditing_info, sector_metadata)| {
+                if sectors_being_modified.contains(&sector_metadata.sector_index) {
+                    // Skip sector that is being modified right now
+                    return Ok(None);
+                }
 
-            if sector_auditing_info.s_bucket_audit_size == 0 {
-                // S-bucket is empty
-                return None;
-            }
+                if sector_auditing_info.s_bucket_audit_size == 0 {
+                    // S-bucket is empty
+                    return Ok(None);
+                }
 
-            let sector = plot.offset(
-                u64::from(sector_metadata.sector_index)
-                    * sector_size(sector_metadata.pieces_in_sector) as u64,
-            );
+                let sector = plot.offset(
+                    u64::from(sector_metadata.sector_index)
+                        * sector_size(sector_metadata.pieces_in_sector) as u64,
+                );
 
-            let mut s_bucket = vec![0; sector_auditing_info.s_bucket_audit_size];
+                let s_bucket = sector
+                    .read_at(
+                        mem::take(buffer),
+                        sector_auditing_info.s_bucket_audit_size,
+                        sector_auditing_info.s_bucket_audit_offset_in_sector,
+                    )
+                    .map_err(|error| {
+                        *buffer = error.buffer;
+                        AuditingError::SBucketReading {
+                            sector_index: sector_metadata.sector_index,
+                            s_bucket_audit_index: sector_auditing_info.s_bucket_audit_index,
+                            error: error.error.into(),
+                        }
+                    })?;
 
-            if let Err(error) = sector.read_at(
-                &mut s_bucket,
-                sector_auditing_info.s_bucket_audit_offset_in_sector,
-            ) {
-                return Some(Err(AuditingError::SBucketReading {
+                let maybe_winning_chunks = map_winning_chunks(
+                    &s_bucket,
+                    global_challenge,
+                    &sector_auditing_info.sector_slot_challenge,
+                    solution_range,
+                );
+                *buffer = s_bucket.into_empty();
+                let Some(winning_chunks) = maybe_winning_chunks else {
+                    return Ok(None);
+                };
+
+                Ok(Some(AuditResult {
                     sector_index: sector_metadata.sector_index,
-                    s_bucket_audit_index: sector_auditing_info.s_bucket_audit_index,
-                    error,
-                }));
-            }
-
-            let winning_chunks = map_winning_chunks(
-                &s_bucket,
-                global_challenge,
-                &sector_auditing_info.sector_slot_challenge,
-                solution_range,
-            )?;
-
-            Some(Ok(AuditResult {
-                sector_index: sector_metadata.sector_index,
-                solution_candidates: SolutionCandidates::new(
-                    public_key_hash,
-                    sector_auditing_info.sector_id,
-                    shard_commitments_roots_cache,
-                    shard_membership_entropy,
-                    num_shards,
-                    sector_auditing_info.s_bucket_audit_index,
-                    sector,
-                    sector_metadata,
-                    winning_chunks.into(),
-                ),
-            }))
-        })
+                    solution_candidates: SolutionCandidates::new(
+                        public_key_hash,
+                        sector_auditing_info.sector_id,
+                        shard_commitments_roots_cache,
+                        shard_membership_entropy,
+                        num_shards,
+                        sector_auditing_info.s_bucket_audit_index,
+                        sector,
+                        sector_metadata,
+                        winning_chunks.into(),
+                    ),
+                }))
+            },
+        )
+        .filter_map(Result::transpose)
         .collect()
 }
 
@@ -215,7 +229,7 @@ struct SectorAuditingDetails {
     sector_slot_challenge: SectorSlotChallenge,
     s_bucket_audit_index: SBucket,
     /// Size in bytes
-    s_bucket_audit_size: usize,
+    s_bucket_audit_size: u32,
     /// Offset in bytes
     s_bucket_audit_offset_in_sector: u64,
 }
@@ -235,8 +249,8 @@ fn collect_sector_auditing_details(
 
     let sector_slot_challenge = sector_id.derive_sector_slot_challenge(global_challenge);
     let s_bucket_audit_index = sector_slot_challenge.s_bucket_audit_index();
-    let s_bucket_audit_size = RecordChunk::SIZE
-        * usize::from(sector_metadata.s_bucket_sizes[usize::from(s_bucket_audit_index)]);
+    let s_bucket_audit_size = RecordChunk::SIZE as u32
+        * u32::from(sector_metadata.s_bucket_sizes[usize::from(s_bucket_audit_index)]);
     let s_bucket_audit_offset = RecordChunk::SIZE as u64
         * sector_metadata
             .s_bucket_sizes
