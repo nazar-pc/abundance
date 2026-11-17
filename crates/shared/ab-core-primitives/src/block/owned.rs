@@ -141,7 +141,7 @@ impl OwnedBeaconChainBlock {
     ) -> Result<OwnedBeaconChainBlockBuilder, OwnedBeaconChainBodyError>
     where
         OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
-        ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + Clone + 'a,
+        ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + 'a,
     {
         Ok(OwnedBeaconChainBlockBuilder {
             body: OwnedBeaconChainBody::new(
@@ -306,7 +306,7 @@ impl OwnedIntermediateShardBlock {
     ) -> Result<OwnedIntermediateShardBlockBuilder, OwnedIntermediateShardBodyError>
     where
         OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
-        LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + Clone + 'a,
+        LSB: TrustedLen<Item = LeafShardBlockInfo<'a>> + 'a,
     {
         Ok(OwnedIntermediateShardBlockBuilder {
             body: OwnedIntermediateShardBody::new(own_segments, leaf_shard_blocks)?,

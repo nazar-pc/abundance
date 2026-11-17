@@ -1,0 +1,69 @@
+error: `LeafShardBlockInfo` cannot be constructed using a `struct` expression outside `ab_core_primitives`
+  --> tests/ui/borrowed_shard_block_infos_read_only.rs:14:5
+   |
+14 | /     LeafShardBlockInfo {
+15 | |         header,
+16 | |         transactions_root,
+17 | |         own_segments,
+18 | |     }
+   | |_____^
+   |
+  ::: src/block/body.rs
+   |
+   |       pub mut(self) header: LeafShardHeader<'a>,
+   |           --------- field restricted here
+
+error: field `header` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_shard_block_infos_read_only.rs:26:5
+   |
+26 |     info.header = header;
+   |     ^^^^^^^^^^^
+   |
+  ::: src/block/body.rs
+   |
+   |     pub mut(self) header: IntermediateShardHeader<'a>,
+   |         --------- field restricted here
+
+error: field `own_segments` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_shard_block_infos_read_only.rs:27:5
+   |
+27 |     info.own_segments = own_segments;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block/body.rs
+   |
+   |     pub mut(self) own_segments: Option<OwnSegments<'a>>,
+   |         --------- field restricted here
+
+error: field `header` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_shard_block_infos_read_only.rs:36:5
+   |
+36 |     info.header = header;
+   |     ^^^^^^^^^^^
+   |
+  ::: src/block/body.rs
+   |
+   |     pub mut(self) header: LeafShardHeader<'a>,
+   |         --------- field restricted here
+
+error: field `transactions_root` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_shard_block_infos_read_only.rs:37:5
+   |
+37 |     info.transactions_root = transactions_root;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block/body.rs
+   |
+   |     pub mut(self) transactions_root: &'a Blake3Hash,
+   |         --------- field restricted here
+
+error: field `own_segments` cannot be mutated outside `ab_core_primitives`
+  --> tests/ui/borrowed_shard_block_infos_read_only.rs:38:5
+   |
+38 |     info.own_segments = own_segments;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+  ::: src/block/body.rs
+   |
+   |     pub mut(self) own_segments: Option<OwnSegments<'a>>,
+   |         --------- field restricted here

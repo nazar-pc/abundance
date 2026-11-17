@@ -1276,20 +1276,6 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
         OwnedIntermediateShardBody::new(iter::empty(), leaf_shard_blocks.into_iter())
     };
 
-    // A block created from parts, with its transactions root or with a different one
-    let block = &leaf_shard_blocks[0];
-    let (first_local_segment_index, segment_roots) = block.segments.as_ref().unwrap();
-    let block_info = |transactions_root| LeafShardBlockInfo {
-        header: block.header.header().clone(),
-        transactions_root,
-        own_segments: Some(OwnSegments::new(*first_local_segment_index, segment_roots).unwrap()),
-    };
-    new_body(vec![block_info(&block.transactions_root)]).unwrap();
-    assert_matches!(
-        new_body(vec![block_info(&Blake3Hash::new([0xff; _]))]),
-        Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
-    );
-
     // Blocks of a parsed body, which are in order there
     let bytes = intermediate_shard_body_bytes(Some(&segments(3, 1)), &leaf_shard_blocks);
     let (body, _remainder) = IntermediateShardBody::try_from_bytes(bytes.as_slice()).unwrap();
@@ -1305,8 +1291,7 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
 }
 
 /// Check that the intermediate shard body with `leaf_shard_blocks` is rejected by the parser, and
-/// by the builder with the same leaf shard blocks, and that the info of the block at
-/// `inconsistent_block` on its own is rejected by its parser
+/// that the info of the block at `inconsistent_block` on its own is rejected by its parser
 fn assert_inconsistent_leaf_shard_blocks(
     leaf_shard_blocks: &[TestLeafShardBlock],
     inconsistent_block: usize,
@@ -1317,21 +1302,6 @@ fn assert_inconsistent_leaf_shard_blocks(
         &leaf_shard_blocks[inconsistent_block],
     ))
     .unwrap_err();
-
-    let infos = leaf_shard_blocks.iter().map(|block| LeafShardBlockInfo {
-        header: block.header.header().clone(),
-        transactions_root: &block.transactions_root,
-        own_segments: block
-            .segments
-            .as_ref()
-            .map(|(first_local_segment_index, segment_roots)| {
-                OwnSegments::new(*first_local_segment_index, segment_roots).unwrap()
-            }),
-    });
-    assert_matches!(
-        OwnedIntermediateShardBody::new(iter::empty(), infos),
-        Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
-    );
 }
 
 #[test]
@@ -1360,8 +1330,8 @@ fn intermediate_shard_body_checks_leaf_shard_blocks_without_segments() {
     blocks[2].segments = Some(segments(0, 1));
     assert_inconsistent_leaf_shard_blocks(&blocks, 2);
 
-    // Another transactions root of a leaf shard block without segments
-    for index in [0, 2] {
+    // Another transactions root of leaf shard blocks with and without segments
+    for index in [0, 1, 2] {
         let mut blocks = leaf_shard_blocks();
         blocks[index].transactions_root = Blake3Hash::new([0xff; _]);
         assert_inconsistent_leaf_shard_blocks(&blocks, index);
@@ -1382,20 +1352,6 @@ fn owned_beacon_chain_body_with_inconsistent_intermediate_shard_blocks() {
         OwnedBeaconChainBody::new(iter::empty(), intermediate_shard_blocks.into_iter(), &[])
     };
     new_body(infos.clone()).unwrap();
-
-    // A header whose root of leaf shard blocks differs from the one the body root was built with
-    let header = intermediate_shard_header(
-        1,
-        1,
-        infos[1].header.result.body_root,
-        &Blake3Hash::new([0xff; _]),
-    );
-    let mut info = infos[1].clone();
-    info.header = header.header().clone();
-    assert_matches!(
-        new_body(vec![info]),
-        Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
-    );
 
     // Block numbers of the same shard and then shard indices out of order
     for (first, second) in [(1, 0), (2, 0)] {
@@ -1433,7 +1389,7 @@ fn beacon_chain_body_checks_segments_against_the_header_root() {
             block.header.header().result.body_root,
             &Blake3Hash::new([0xff; _]),
         );
-        assert_inconsistent_intermediate_shard_block(&block, true);
+        assert_inconsistent_intermediate_shard_block(&block);
     }
 }
 
@@ -1577,37 +1533,12 @@ fn intermediate_shard_block_roots_are_tree_roots_of_header_roots() {
 }
 
 /// Check that the beacon chain body with `block` and the info of `block` on its own are rejected by
-/// the parsers, and the beacon chain body by the builder with the same block if it is
-/// `structurally_valid`: its positions of leaf shard blocks with segments are increasing and
-/// smaller than the number of leaf shard blocks, which the info relies on
-fn assert_inconsistent_intermediate_shard_block(
-    block: &TestIntermediateShardBlock,
-    structurally_valid: bool,
-) {
+/// the parsers
+fn assert_inconsistent_intermediate_shard_block(block: &TestIntermediateShardBlock) {
     let bytes = beacon_chain_body_bytes(slice::from_ref(block), &[]);
     assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
     OwnedIntermediateShardBlockInfo::from_buffer(intermediate_shard_block_info_bytes(block))
         .unwrap_err();
-
-    if structurally_valid {
-        let leaf_shards_segments_bytes = leaf_shards_segments_bytes(block);
-        let info = IntermediateShardBlockInfo {
-            header: block.header.header().clone(),
-            own_segments: block.own_segments.as_ref().map(
-                |(first_local_segment_index, segment_roots)| {
-                    OwnSegments::new(*first_local_segment_index, segment_roots).unwrap()
-                },
-            ),
-            num_leaf_shard_blocks: block.num_leaf_shard_blocks,
-            num_leaf_shard_blocks_with_segments: u16::try_from(block.leaf_shards_segments.len())
-                .unwrap(),
-            leaf_shards_segments_bytes: &leaf_shards_segments_bytes,
-        };
-        assert_matches!(
-            OwnedBeaconChainBody::new(iter::empty(), iter::once(info), &[]),
-            Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
-        );
-    }
 }
 
 #[test]
@@ -1621,7 +1552,7 @@ fn beacon_chain_body_with_wrong_leaf_shard_segments_positions() {
     for num_leaf_shard_blocks in [5, 7] {
         let mut block = block();
         block.num_leaf_shard_blocks = num_leaf_shard_blocks;
-        assert_inconsistent_intermediate_shard_block(&block, true);
+        assert_inconsistent_intermediate_shard_block(&block);
     }
 
     // An entry moved to a neighbouring position of a leaf shard block without segments
@@ -1629,14 +1560,14 @@ fn beacon_chain_body_with_wrong_leaf_shard_segments_positions() {
         let mut block = block();
         let (entry_position, _leaf_shard_index, _segments) = &mut block.leaf_shards_segments[index];
         *entry_position = position;
-        assert_inconsistent_intermediate_shard_block(&block, true);
+        assert_inconsistent_intermediate_shard_block(&block);
     }
 
     // An entry dropped
     for index in [0, 1] {
         let mut block = block();
         block.leaf_shards_segments.remove(index);
-        assert_inconsistent_intermediate_shard_block(&block, true);
+        assert_inconsistent_intermediate_shard_block(&block);
     }
 
     // An entry duplicated at a position of a leaf shard block without segments, and an entry of
@@ -1654,7 +1585,7 @@ fn beacon_chain_body_with_wrong_leaf_shard_segments_positions() {
         segments,
     ));
     for block in [block_with_duplicate, block_with_another] {
-        assert_inconsistent_intermediate_shard_block(&block, true);
+        assert_inconsistent_intermediate_shard_block(&block);
     }
 
     // An entry of another child leaf shard, which keeps the order of shard indices
@@ -1662,7 +1593,7 @@ fn beacon_chain_body_with_wrong_leaf_shard_segments_positions() {
     let (_position, leaf_shard_index, _segments) =
         &mut block_with_another_shard.leaf_shards_segments[0];
     *leaf_shard_index = ShardIndex::new(1 | (2 << 10)).unwrap();
-    assert_inconsistent_intermediate_shard_block(&block_with_another_shard, true);
+    assert_inconsistent_intermediate_shard_block(&block_with_another_shard);
 
     // Positions that aren't increasing or not smaller than the number of leaf shard blocks are
     // rejected by both parsers
@@ -1673,7 +1604,7 @@ fn beacon_chain_body_with_wrong_leaf_shard_segments_positions() {
         {
             *position = new_position;
         }
-        assert_inconsistent_intermediate_shard_block(&block, false);
+        assert_inconsistent_intermediate_shard_block(&block);
     }
 }
 
@@ -1688,18 +1619,18 @@ fn beacon_chain_body_checks_intermediate_shard_blocks_without_segments() {
     // Own segments dropped
     let mut block = TestIntermediateShardBlock::new(1, 1, 1, 3, &[]);
     block.own_segments = None;
-    assert_inconsistent_intermediate_shard_block(&block, true);
+    assert_inconsistent_intermediate_shard_block(&block);
 
     // Segments of a leaf shard block dropped
     let mut block = TestIntermediateShardBlock::new(1, 1, 0, 3, &[(1, 1 | (1 << 10), 1)]);
     block.leaf_shards_segments.clear();
-    assert_inconsistent_intermediate_shard_block(&block, true);
+    assert_inconsistent_intermediate_shard_block(&block);
 
     // Another number of leaf shard blocks without segments
     for num_leaf_shard_blocks in [0, 2, 4] {
         let mut block = TestIntermediateShardBlock::new(1, 1, 0, 3, &[]);
         block.num_leaf_shard_blocks = num_leaf_shard_blocks;
-        assert_inconsistent_intermediate_shard_block(&block, true);
+        assert_inconsistent_intermediate_shard_block(&block);
     }
 }
 
@@ -1789,7 +1720,7 @@ fn beacon_chain_body_checks_leaf_shards_of_intermediate_shard_blocks() {
             (ShardIndex::new(2 | (1 << 10)).unwrap(), 5),
         ],
     ] {
-        assert_inconsistent_intermediate_shard_block(&block(leaf_shards_segments), true);
+        assert_inconsistent_intermediate_shard_block(&block(leaf_shards_segments));
     }
 }
 

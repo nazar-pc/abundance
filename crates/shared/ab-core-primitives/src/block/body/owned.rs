@@ -584,7 +584,7 @@ pub enum OwnedBeaconChainBodyError {
     /// Block body is too large
     #[error("Block body is too large")]
     BlockBodyIsTooLarge,
-    /// Intermediate shard blocks are inconsistent, see
+    /// Intermediate shard blocks are not in the order described in
     /// [`IntermediateShardBlocksInfo::try_from_bytes()`]
     ///
     /// [`IntermediateShardBlocksInfo::try_from_bytes()`]:
@@ -637,8 +637,8 @@ impl OwnedBeaconChainBody {
     ) -> Result<Self, OwnedBeaconChainBodyError>
     where
         OS: TrustedLen<Item = (LocalSegmentIndex, SegmentRoot)>,
-        // TODO: This is probably the wrong type to use here, especially because it doesn't have a
-        //  public constructor right now
+        // Infos come from parsed beacon chain bodies or from
+        // `OwnedIntermediateShardBlockInfo::info()`
         ISB: TrustedLen<Item = IntermediateShardBlockInfo<'a>> + 'a,
     {
         let num_pot_checkpoints = pot_checkpoints.len();
@@ -799,8 +799,9 @@ impl OwnedBeaconChainBody {
             .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
 
         Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
-            // Everything else is written the way the parser reads it, only contents of
-            // intermediate shard blocks can be rejected
+            // Everything is written the way the parser reads it, and infos can only be created by
+            // parsers that check them, so only the order of intermediate shard blocks can be
+            // rejected
             OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks
         })
     }
@@ -878,7 +879,8 @@ pub enum OwnedIntermediateShardBodyError {
         /// Actual number of leaf shard blocks
         actual: usize,
     },
-    /// Leaf shard blocks are inconsistent, see [`LeafShardBlocksInfo::try_from_bytes()`]
+    /// Leaf shard blocks are not in the order described in
+    /// [`LeafShardBlocksInfo::try_from_bytes()`]
     ///
     /// [`LeafShardBlocksInfo::try_from_bytes()`]:
     /// crate::block::body::LeafShardBlocksInfo::try_from_bytes
@@ -1037,8 +1039,8 @@ impl OwnedIntermediateShardBody {
         }
 
         Self::from_buffer(buffer.into_shared()).map_err(|_buffer| {
-            // Everything else is written the way the parser reads it, only contents of leaf shard
-            // blocks can be rejected
+            // Everything is written the way the parser reads it, and infos can only be created by
+            // parsers that check them, so only the order of leaf shard blocks can be rejected
             OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks
         })
     }

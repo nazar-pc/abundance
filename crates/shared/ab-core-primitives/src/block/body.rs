@@ -314,9 +314,9 @@ impl IntermediateShardBlockCounts {
 )]
 pub struct IntermediateShardBlockInfo<'a> {
     /// A block header that corresponds to an intermediate shard
-    pub header: IntermediateShardHeader<'a>,
+    pub mut(self) header: IntermediateShardHeader<'a>,
     /// Segments in the corresponding block
-    pub own_segments: Option<OwnSegments<'a>>,
+    pub mut(self) own_segments: Option<OwnSegments<'a>>,
     num_leaf_shard_blocks: u16,
     num_leaf_shard_blocks_with_segments: u16,
     leaf_shards_segments_bytes: &'a [u8],
@@ -485,7 +485,12 @@ impl<'a> IntermediateShardBlockInfo<'a> {
 
         // Also checks blocks without segments, positions and the number of leaf shard blocks, the
         // root of segments of leaf shards commits to them
-        self.body_root() == self.header.result.body_root
+        let body_root = intermediate_shard_body_root(
+            self.own_segments.as_ref(),
+            &self.leaf_shards_segments_root(),
+            self.header.leaf_shard_blocks_root(),
+        );
+        body_root == self.header.result.body_root
     }
 
     /// Number of leaf shard blocks in the corresponding intermediate shard block
@@ -551,19 +556,6 @@ impl<'a> IntermediateShardBlockInfo<'a> {
     fn leaf_shards_segments_root(&self) -> Blake3Hash {
         compute_leaf_shards_segments_root(self.num_leaf_shard_blocks, self.leaf_shards_segments())
             .expect("Positions are checked in constructor; qed")
-    }
-
-    /// Compute the body root of the corresponding intermediate shard block.
-    ///
-    /// It commits to the root of leaf shard blocks in the header, which is the same as in the body
-    /// of a consistent intermediate shard block.
-    #[inline]
-    pub fn body_root(&self) -> Blake3Hash {
-        intermediate_shard_body_root(
-            self.own_segments.as_ref(),
-            &self.leaf_shards_segments_root(),
-            self.header.leaf_shard_blocks_root(),
-        )
     }
 }
 
@@ -979,11 +971,11 @@ fn leaf_shard_body_root(
 #[derive(Debug, Clone)]
 pub struct LeafShardBlockInfo<'a> {
     /// A block header that corresponds to a leaf shard
-    pub header: LeafShardHeader<'a>,
+    pub mut(self) header: LeafShardHeader<'a>,
     /// Root of transactions in the corresponding block
-    pub transactions_root: &'a Blake3Hash,
+    pub mut(self) transactions_root: &'a Blake3Hash,
     /// Segments in the corresponding block
-    pub own_segments: Option<OwnSegments<'a>>,
+    pub mut(self) own_segments: Option<OwnSegments<'a>>,
 }
 
 impl<'a> LeafShardBlockInfo<'a> {
