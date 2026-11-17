@@ -229,7 +229,9 @@ pub(super) fn generate_threaded_fns(
                 improper_ctypes_definitions,
                 reason = "Handlers only ever call each other, within this crate"
             )]
-            // Make sure each handler starts on a cache line boundary
+            // Make sure each handler starts on a cache line boundary. Handlers are entered by
+            // jumping to them, so one that starts part-way into a line spans one more line than it
+            // needs to, which is paid on every executed instruction.
             #[rustc_align(64)]
             #target_feature
             unsafe #abi fn #handler_fn_name<#generic_params>(
@@ -301,6 +303,12 @@ pub(super) fn generate_threaded_fns(
                     ExecutionResult::ContinueNoWrite => {
                         Ok(::core::ops::ControlFlow::Continue(()))
                     }
+                    // Since the taken outcome validates its target and may leave for the cold
+                    // continuation, the compiler doesn't merge it with the fall-through into a
+                    // select feeding a single dispatch jump, so each outcome keeps a dispatch site
+                    // and branch prediction history of its own. Should validation ever move out of
+                    // here (like with branch targets resolved during decoding), the dispatch has to
+                    // be duplicated into this arm explicitly to preserve that.
                     ExecutionResult::Branch { offset } => {
                         // SAFETY: A refused target goes straight to the continuation below, which
                         // is what calls `failed_branch()` on it
