@@ -108,9 +108,10 @@ impl<'a> OwnSegments<'a> {
 
     /// Create own segments without checking them.
     ///
-    /// Iterators of child shard blocks use it for own segments that their parsers have already
-    /// checked: layouts only allow between 1 and `u8::MAX` segment roots, and the parsers check
-    /// that the local segment index after the last one fits into `u64`.
+    /// The iterator over segments of leaf shards of an intermediate shard block info uses it for
+    /// own segments that its parser has already checked: the layout only allows between 1 and
+    /// `u8::MAX` segment roots, and the parser checks that the local segment index after the last
+    /// one fits into `u64`.
     #[inline(always)]
     const fn new_unchecked(
         first_local_segment_index: LocalSegmentIndex,
@@ -974,7 +975,7 @@ fn leaf_shard_body_root(
     ]))
 }
 
-/// Information about the leaf shard block container inside the intermediate shard block body
+/// Information about leaf shard block
 #[derive(Debug, Clone)]
 pub struct LeafShardBlockInfo<'a> {
     /// A block header that corresponds to a leaf shard
@@ -983,6 +984,88 @@ pub struct LeafShardBlockInfo<'a> {
     pub transactions_root: &'a Blake3Hash,
     /// Segments in the corresponding block
     pub own_segments: Option<OwnSegments<'a>>,
+}
+
+impl<'a> LeafShardBlockInfo<'a> {
+    /// Create an instance from the record of a block in [`LeafShardBlocksInfo`] with its number of
+    /// own segment roots, see [`LeafShardBlocksInfo::try_from_bytes()`] for the layout.
+    ///
+    /// `bytes` must start at an 8-bytes boundary like in the collection, because padding after the
+    /// header depends on their address. Only the structure is checked here, the rest is checked by
+    /// [`Self::is_internally_consistent()`].
+    ///
+    /// Returns an instance and remaining bytes on success.
+    #[inline]
+    fn try_from_record(num_own_segment_roots: u8, mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        let header;
+        (header, bytes) = LeafShardHeader::try_from_bytes(bytes)?;
+
+        bytes = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
+
+        let transactions_root;
+        (transactions_root, bytes) = Blake3Hash::from_bytes(bytes)?;
+
+        let own_segments = if num_own_segment_roots > 0 {
+            let first_local_segment_index;
+            (first_local_segment_index, bytes) = LocalSegmentIndex::from_bytes(bytes)?;
+
+            let own_segment_roots;
+            (own_segment_roots, bytes) =
+                SegmentRoot::slice_from_bytes(bytes, usize::from(num_own_segment_roots))?;
+
+            Some(OwnSegments::new(
+                *first_local_segment_index,
+                own_segment_roots,
+            )?)
+        } else {
+            None
+        };
+
+        let info = Self {
+            header,
+            transactions_root,
+            own_segments,
+        };
+
+        Some((info, bytes))
+    }
+
+    /// Create an instance from the bytes of an info, which an owned info stores.
+    ///
+    /// `bytes` do not need to be aligned, but padding in the layout depends on their address and
+    /// must be present in full. The info is checked the same way as each block in
+    /// [`LeafShardBlocksInfo::try_from_bytes()`].
+    ///
+    /// The layout is as follows:
+    /// * number of own segment roots: u8
+    /// * padding to 8-bytes boundary with zeroes
+    /// * block header, padding, root of transactions and own segments, exactly as for each block in
+    ///   `LeafShardBlocksInfo`
+    ///
+    /// Returns an instance and remaining bytes on success.
+    #[cfg(feature = "alloc")]
+    #[inline]
+    fn try_from_standalone_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        let num_own_segment_roots = *bytes.split_off_first()?;
+
+        let bytes = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
+
+        let (info, remainder) = Self::try_from_record(num_own_segment_roots, bytes)?;
+
+        if !info.is_internally_consistent() {
+            return None;
+        }
+
+        Some((info, remainder))
+    }
+
+    /// Check leaf shard block info's internal consistency: the body root must match the header
+    #[inline]
+    fn is_internally_consistent(&self) -> bool {
+        // Also checks blocks without segments, whose body root has a zero leaf for segments
+        leaf_shard_body_root(self.own_segments.as_ref(), self.transactions_root)
+            == self.header.result.body_root
+    }
 }
 
 /// Information about a collection of leaf shard blocks
@@ -1027,23 +1110,12 @@ impl<'a> LeafShardBlocksInfo<'a> {
         let mut remainder = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
 
         for &num_own_segment_roots in counts {
-            let num_own_segment_roots = usize::from(num_own_segment_roots);
+            let leaf_shard_block;
+            (leaf_shard_block, remainder) =
+                LeafShardBlockInfo::try_from_record(num_own_segment_roots, remainder)?;
 
-            (_, remainder) = LeafShardHeader::try_from_bytes(remainder)?;
-
-            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())?;
-
-            (_, remainder) = Blake3Hash::from_bytes(remainder)?;
-
-            if num_own_segment_roots > 0 {
-                let first_local_segment_index;
-                (first_local_segment_index, remainder) = LocalSegmentIndex::from_bytes(remainder)?;
-                // The local segment index after the last segment root must fit into `u64`
-                let _next_local_segment_index = LocalSegmentIndex::forward_checked(
-                    *first_local_segment_index,
-                    num_own_segment_roots,
-                )?;
-                (_, remainder) = SegmentRoot::slice_from_bytes(remainder, num_own_segment_roots)?;
+            if !leaf_shard_block.is_internally_consistent() {
+                return None;
             }
         }
 
@@ -1059,7 +1131,10 @@ impl<'a> LeafShardBlocksInfo<'a> {
         Some((info, remainder))
     }
 
-    /// Check leaf shard info's internal consistency, see [`Self::try_from_bytes()`]
+    /// Check the order of leaf shard blocks, see [`Self::try_from_bytes()`].
+    ///
+    /// Internal consistency of each block is checked by
+    /// [`LeafShardBlockInfo::is_internally_consistent()`].
     #[inline]
     fn is_internally_consistent(&self) -> bool {
         let mut last_leaf_shard_info = None::<(ShardIndex, BlockNumber, Option<LocalSegmentIndex>)>;
@@ -1126,11 +1201,7 @@ impl<'a> LeafShardBlocksInfo<'a> {
                 ));
             }
 
-            // Also checks blocks without segments, whose body root has a zero leaf for segments
-            leaf_shard_body_root(
-                leaf_shard_block.own_segments.as_ref(),
-                leaf_shard_block.transactions_root,
-            ) == leaf_shard_block.header.result.body_root
+            true
         })
     }
 
@@ -1139,52 +1210,20 @@ impl<'a> LeafShardBlocksInfo<'a> {
     pub fn iter(
         &self,
     ) -> impl ExactSizeIterator<Item = LeafShardBlockInfo<'a>> + TrustedLen + use<'a> {
-        // SAFETY: Checked in constructor
-        let (counts, remainder) = unsafe {
-            self.bytes
-                .split_at_unchecked(usize::from(self.num_blocks) * size_of::<u8>())
-        };
+        let (counts, remainder) = self
+            .bytes
+            .split_at_checked(usize::from(self.num_blocks) * size_of::<u8>())
+            .expect("Already checked in constructor; qed");
         let mut remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
             .expect("Already checked in constructor; qed");
 
         counts.iter().map(move |&num_own_segment_roots| {
-            let num_own_segment_roots = usize::from(num_own_segment_roots);
-
-            let header;
-            (header, remainder) = LeafShardHeader::try_from_bytes(remainder)
-                .expect("Already checked in constructor; qed");
-
-            remainder = align_to_and_ensure_zero_padding(remainder, Alignment::of::<u64>())
-                .expect("Already checked in constructor; qed");
-
-            let transactions_root;
-            (transactions_root, remainder) =
-                Blake3Hash::from_bytes(remainder).expect("Already checked in constructor; qed");
-
-            let own_segments = if num_own_segment_roots > 0 {
-                let first_local_segment_index;
-                (first_local_segment_index, remainder) = LocalSegmentIndex::from_bytes(remainder)
+            let leaf_shard_block;
+            (leaf_shard_block, remainder) =
+                LeafShardBlockInfo::try_from_record(num_own_segment_roots, remainder)
                     .expect("Already checked in constructor; qed");
-                let first_local_segment_index = *first_local_segment_index;
 
-                let own_segment_roots;
-                (own_segment_roots, remainder) =
-                    SegmentRoot::slice_from_bytes(remainder, num_own_segment_roots)
-                        .expect("Already checked in constructor; qed");
-
-                Some(OwnSegments::new_unchecked(
-                    first_local_segment_index,
-                    own_segment_roots,
-                ))
-            } else {
-                None
-            };
-
-            LeafShardBlockInfo {
-                header,
-                transactions_root,
-                own_segments,
-            }
+            leaf_shard_block
         })
     }
 

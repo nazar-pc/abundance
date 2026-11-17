@@ -22,16 +22,18 @@
 ))]
 mod tests;
 
-use crate::block::IntermediateShardBlock;
 use crate::block::body::{
     BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBlockCounts,
     IntermediateShardBlockInfo, IntermediateShardBody, LeafShardBlockInfo, LeafShardBody,
     OwnSegments,
 };
-use crate::block::header::IntermediateShardHeader;
 use crate::block::header::owned::{
     OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
+    OwnedLeafShardHeaderError,
 };
+use crate::block::header::{IntermediateShardHeader, LeafShardHeader};
+use crate::block::{IntermediateShardBlock, LeafShardBlock};
+use crate::hashes::Blake3Hash;
 use crate::pot::PotCheckpoints;
 use crate::segments::{LocalSegmentIndex, SegmentRoot};
 use crate::shard::{RealShardKind, ShardIndex};
@@ -192,7 +194,7 @@ impl TransactionBuilder {
     }
 }
 
-/// The record of an intermediate shard block doesn't fit into the buffer
+/// The record of a child shard block doesn't fit into the buffer
 #[derive(Debug)]
 struct RecordTooLarge;
 
@@ -264,6 +266,54 @@ where
     buffer
         .pad_to_alignment::<Align8>()
         .map_err(|_error| RecordTooLarge)?;
+
+    Ok(())
+}
+
+/// Append the record of a leaf shard block as in an intermediate shard body, see
+/// [`LeafShardBlocksInfo::try_from_bytes()`] for the layout.
+///
+/// The length of the buffer must be a multiple of 8 for the record to parse. Returns an error if
+/// the record doesn't fit into the buffer, part of it might have been appended already.
+///
+/// [`LeafShardBlocksInfo::try_from_bytes()`]:
+/// crate::block::body::LeafShardBlocksInfo::try_from_bytes
+fn append_leaf_shard_block_record(
+    buffer: &mut OwnedAlignedBuffer,
+    header: &LeafShardHeader<'_>,
+    transactions_root: &Blake3Hash,
+    own_segments: Option<&OwnSegments<'_>>,
+) -> Result<(), RecordTooLarge> {
+    OwnedLeafShardHeader::from_parts_into(
+        header.prefix,
+        header.result,
+        header.consensus_info,
+        header.beacon_chain_info(),
+        buffer,
+    )
+    .map_err(|error| match error {
+        OwnedLeafShardHeaderError::HeaderTooLarge => RecordTooLarge,
+        OwnedLeafShardHeaderError::InvalidParts { error: _ } => {
+            unreachable!("Parts of a parsed header are consistent; qed")
+        }
+    })?
+    .with_seal(header.seal)
+    .expect("Seal of a parsed header matches its solution; qed");
+    buffer
+        .pad_to_alignment::<Align8>()
+        .map_err(|_error| RecordTooLarge)?;
+
+    buffer
+        .append(transactions_root.as_bytes())
+        .map_err(|_error| RecordTooLarge)?;
+    if let Some(own_segments) = own_segments {
+        buffer
+            .append(own_segments.first_local_segment_index.as_bytes())
+            .map_err(|_error| RecordTooLarge)?;
+        buffer
+            .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
+            .map_err(|_error| RecordTooLarge)?;
+    }
 
     Ok(())
 }
@@ -397,6 +447,98 @@ impl OwnedIntermediateShardBlockInfo {
     #[inline(always)]
     pub fn info(&self) -> &IntermediateShardBlockInfo<'_> {
         let YokeableIntermediateShardBlockInfo(info) = self.inner.get();
+        info
+    }
+}
+
+// TODO: Derive `Yokeable` for `LeafShardBlockInfo` directly once `syn` can parse `mut` restrictions
+//  of its fields: https://github.com/dtolnay/syn/issues/1987
+#[derive(Debug, Yokeable)]
+struct YokeableLeafShardBlockInfo<'a>(LeafShardBlockInfo<'a>);
+
+/// An owned version of [`LeafShardBlockInfo`].
+///
+/// It is well suited for sending over the network and keeping in memory independently of any block
+/// until an intermediate shard block includes it.
+#[derive(Debug, Clone)]
+pub struct OwnedLeafShardBlockInfo {
+    inner: Arc<Yoke<YokeableLeafShardBlockInfo<'static>, SharedAlignedBuffer>>,
+}
+
+impl OwnedLeafShardBlockInfo {
+    /// Create an owned info of a leaf shard block
+    pub fn from_block(block: &LeafShardBlock<'_>) -> Self {
+        let own_segments = block.body.own_segments();
+
+        // The number of own segment roots with padding, the header with the largest seal and
+        // padding, the root of transactions and own segments
+        let capacity = (u8::SIZE.next_multiple_of(u32::from(Alignment::of::<u64>().get()))
+            + OwnedLeafShardHeader::MAX_ALLOCATION)
+            .next_multiple_of(u32::from(Alignment::of::<u64>().get()))
+            + <Blake3Hash as TrivialType>::SIZE
+            + own_segments.map_or_default(|own_segments| {
+                LocalSegmentIndex::SIZE
+                    + u32::from(own_segments.num_segment_roots().get()) * SegmentRoot::SIZE as u32
+            });
+
+        let mut buffer = OwnedAlignedBuffer::with_capacity(capacity);
+        buffer
+            .append(&[
+                own_segments.map_or_default(|own_segments| own_segments.num_segment_roots().get())
+            ])
+            .expect("Enough capacity was allocated above; qed");
+        buffer
+            .pad_to_alignment::<Align8>()
+            .expect("Enough capacity was allocated above; qed");
+        append_leaf_shard_block_record(
+            &mut buffer,
+            &block.header,
+            &block.body.transactions().root(),
+            own_segments.as_ref(),
+        )
+        .expect("Enough capacity was allocated above; qed");
+
+        Self::from_buffer(buffer.into_shared()).expect(
+            "Written the way the parser reads it from a block that passed the same checks; qed",
+        )
+    }
+
+    /// Create an owned info from a buffer.
+    ///
+    /// The info is checked the same way as each info in an intermediate shard body, its seal is
+    /// not checked.
+    #[inline]
+    pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((info, extra_bytes)) = LeafShardBlockInfo::try_from_standalone_bytes(buffer)
+            else {
+                return Err(());
+            };
+            if !extra_bytes.is_empty() {
+                return Err(());
+            }
+
+            Ok(YokeableLeafShardBlockInfo(info))
+        })
+        .map_err(move |()| buffer)?;
+
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
+    }
+
+    /// Inner buffer with info contents
+    #[inline(always)]
+    pub fn buffer(&self) -> &SharedAlignedBuffer {
+        self.inner.backing_cart()
+    }
+
+    /// Get [`LeafShardBlockInfo`] out of [`OwnedLeafShardBlockInfo`]
+    #[inline(always)]
+    pub fn info(&self) -> &LeafShardBlockInfo<'_> {
+        let YokeableLeafShardBlockInfo(info) = self.inner.get();
         info
     }
 }
@@ -880,35 +1022,17 @@ impl OwnedIntermediateShardBody {
                 }
                 own_segments_roots_num_cursor += 1;
 
-                OwnedLeafShardHeader::from_parts_into(
-                    leaf_shard_block.header.prefix,
-                    leaf_shard_block.header.result,
-                    leaf_shard_block.header.consensus_info,
-                    leaf_shard_block.header.beacon_chain_info(),
+                append_leaf_shard_block_record(
                     &mut buffer,
+                    &leaf_shard_block.header,
+                    leaf_shard_block.transactions_root,
+                    leaf_shard_block.own_segments.as_ref(),
                 )
                 .expect(
-                    "Parts of a parsed header are consistent, and bodies with at most `u16::MAX` \
-                    leaf shard blocks with at most `u8::MAX` segment roots each are smaller than \
-                    1 GiB, which fits into a buffer even where `usize` is 32-bit; qed",
-                )
-                .with_seal(leaf_shard_block.header.seal)
-                .expect("Seal of a parsed header matches its solution; qed");
-                buffer
-                    .pad_to_alignment::<Align8>()
-                    .expect("Checked size above; qed");
-
-                buffer
-                    .append(leaf_shard_block.transactions_root.as_bytes())
-                    .expect("Checked size above; qed");
-                if let Some(own_segments) = &leaf_shard_block.own_segments {
-                    buffer
-                        .append(own_segments.first_local_segment_index.as_bytes())
-                        .expect("Checked size above; qed");
-                    buffer
-                        .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
-                        .expect("Checked size above; qed");
-                }
+                    "Bodies with at most `u16::MAX` leaf shard blocks with at most `u8::MAX` \
+                    segment roots each are smaller than 1 GiB, which fits into a buffer even where \
+                    `usize` is 32-bit; qed",
+                );
             }
         }
 

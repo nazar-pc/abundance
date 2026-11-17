@@ -2,7 +2,8 @@ use crate::address::Address;
 use crate::block::body::owned::{
     GenericOwnedBlockBody, OwnedBeaconChainBody, OwnedBeaconChainBodyError, OwnedBlockBody,
     OwnedIntermediateShardBlockInfo, OwnedIntermediateShardBody, OwnedIntermediateShardBodyError,
-    OwnedLeafShardBlockBodyBuilder, OwnedLeafShardBody, OwnedLeafShardBodyError,
+    OwnedLeafShardBlockBodyBuilder, OwnedLeafShardBlockInfo, OwnedLeafShardBody,
+    OwnedLeafShardBodyError,
 };
 use crate::block::body::{
     BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBlockInfo,
@@ -17,7 +18,9 @@ use crate::block::header::{
     BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
     BlockHeaderResult, BlockHeaderSeal,
 };
-use crate::block::owned::{OwnedBeaconChainBlock, OwnedIntermediateShardBlock};
+use crate::block::owned::{
+    OwnedBeaconChainBlock, OwnedIntermediateShardBlock, OwnedLeafShardBlock,
+};
 use crate::block::{BeaconChainBlock, BlockNumber, BlockRoot, BlockTimestamp};
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
@@ -787,6 +790,35 @@ impl TestLeafShardBlock {
     }
 }
 
+/// Bytes of the record of a leaf shard block inside an intermediate shard body, which starts at an
+/// 8-bytes boundary
+fn leaf_shard_block_record_bytes(block: &TestLeafShardBlock) -> Vec<u8> {
+    let mut bytes = block.header.buffer().as_slice().to_vec();
+    pad_to(&mut bytes, 8);
+    bytes.extend_from_slice(block.transactions_root.as_ref());
+    if let Some(segments) = &block.segments {
+        append_segments(&mut bytes, segments);
+    }
+    bytes
+}
+
+/// Bytes of a leaf shard block info, following the layout described in
+/// `LeafShardBlockInfo::try_from_standalone_bytes()`
+fn leaf_shard_block_info_bytes(block: &TestLeafShardBlock) -> SharedAlignedBuffer {
+    let mut bytes = vec![
+        block
+            .segments
+            .as_ref()
+            .map_or(0, |(_first_local_segment_index, segment_roots)| {
+                u8::try_from(segment_roots.len()).unwrap()
+            }),
+    ];
+    pad_to(&mut bytes, 8);
+    bytes.extend_from_slice(&leaf_shard_block_record_bytes(block));
+
+    SharedAlignedBuffer::from_bytes(&bytes)
+}
+
 /// Bytes of an intermediate shard body with leaf shard blocks, following the layout described in
 /// `LeafShardBlocksInfo::try_from_bytes()`
 fn intermediate_shard_body_bytes(
@@ -817,15 +849,23 @@ fn intermediate_shard_body_bytes(
     }
     pad_to(&mut bytes, 8);
     for block in leaf_shard_blocks {
-        bytes.extend_from_slice(block.header.buffer().as_slice());
-        pad_to(&mut bytes, 8);
-        bytes.extend_from_slice(block.transactions_root.as_ref());
-        if let Some(segments) = &block.segments {
-            append_segments(&mut bytes, segments);
-        }
+        bytes.extend_from_slice(&leaf_shard_block_record_bytes(block));
     }
 
     SharedAlignedBuffer::from_bytes(&bytes)
+}
+
+/// Check that a parsed `info` has the same contents as `block`
+fn assert_leaf_shard_block_info_eq(info: &LeafShardBlockInfo<'_>, block: &TestLeafShardBlock) {
+    assert_eq!(*info.header.root(), *block.header.header().root());
+    assert_eq!(*info.transactions_root, block.transactions_root);
+    match (&info.own_segments, &block.segments) {
+        (Some(own_segments), Some(segments)) => {
+            assert_segments_eq(own_segments, segments);
+        }
+        (None, None) => {}
+        _ => panic!("Segments mismatch"),
+    }
 }
 
 #[test]
@@ -848,19 +888,25 @@ fn intermediate_shard_body_with_leaf_shard_blocks() {
         assert_segments_eq(&body.own_segments().unwrap(), &own_segments);
         assert_eq!(body.leaf_shard_blocks().len(), num_blocks);
         for (info, block) in body.leaf_shard_blocks().iter().zip(leaf_shard_blocks) {
-            assert_eq!(*info.header.root(), *block.header.header().root());
-            assert_eq!(*info.transactions_root, block.transactions_root);
-            match (&info.own_segments, &block.segments) {
-                (Some(own_segments), Some(segments)) => {
-                    assert_segments_eq(own_segments, segments);
-                }
-                (None, None) => {}
-                _ => panic!("Segments mismatch"),
-            }
+            assert_leaf_shard_block_info_eq(&info, block);
+
+            // The info of the block on its own has the same contents
+            let owned_info =
+                OwnedLeafShardBlockInfo::from_buffer(leaf_shard_block_info_bytes(block)).unwrap();
+            assert_leaf_shard_block_info_eq(owned_info.info(), block);
         }
 
         // The builder writes the same bytes
         assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
+        let owned_body = OwnedIntermediateShardBody::new(
+            body.own_segments()
+                .unwrap()
+                .iter()
+                .map(|(local_segment_index, segment_root)| (local_segment_index, *segment_root)),
+            body.leaf_shard_blocks().iter(),
+        )
+        .unwrap();
+        assert_eq!(owned_body.buffer().as_slice(), bytes.as_slice());
     }
 }
 
@@ -1259,10 +1305,18 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
 }
 
 /// Check that the intermediate shard body with `leaf_shard_blocks` is rejected by the parser, and
-/// by the builder with the same leaf shard blocks
-fn assert_inconsistent_leaf_shard_blocks(leaf_shard_blocks: &[TestLeafShardBlock]) {
+/// by the builder with the same leaf shard blocks, and that the info of the block at
+/// `inconsistent_block` on its own is rejected by its parser
+fn assert_inconsistent_leaf_shard_blocks(
+    leaf_shard_blocks: &[TestLeafShardBlock],
+    inconsistent_block: usize,
+) {
     let bytes = intermediate_shard_body_bytes(None, leaf_shard_blocks);
     assert!(IntermediateShardBody::try_from_bytes(bytes.as_slice()).is_none());
+    OwnedLeafShardBlockInfo::from_buffer(leaf_shard_block_info_bytes(
+        &leaf_shard_blocks[inconsistent_block],
+    ))
+    .unwrap_err();
 
     let infos = leaf_shard_blocks.iter().map(|block| LeafShardBlockInfo {
         header: block.header.header().clone(),
@@ -1299,18 +1353,18 @@ fn intermediate_shard_body_checks_leaf_shard_blocks_without_segments() {
     // Segments of a leaf shard block dropped, with its transactions root
     let mut blocks = leaf_shard_blocks();
     blocks[1].segments = None;
-    assert_inconsistent_leaf_shard_blocks(&blocks);
+    assert_inconsistent_leaf_shard_blocks(&blocks, 1);
 
     // Segments added to a leaf shard block without segments
     let mut blocks = leaf_shard_blocks();
     blocks[2].segments = Some(segments(0, 1));
-    assert_inconsistent_leaf_shard_blocks(&blocks);
+    assert_inconsistent_leaf_shard_blocks(&blocks, 2);
 
     // Another transactions root of a leaf shard block without segments
     for index in [0, 2] {
         let mut blocks = leaf_shard_blocks();
         blocks[index].transactions_root = Blake3Hash::new([0xff; _]);
-        assert_inconsistent_leaf_shard_blocks(&blocks);
+        assert_inconsistent_leaf_shard_blocks(&blocks, index);
     }
 }
 
@@ -1879,6 +1933,159 @@ fn beacon_chain_body_with_owned_intermediate_shard_block_infos() {
     );
 }
 
+#[test]
+fn owned_leaf_shard_block_info_checks_its_bytes() {
+    // Own segments with two segment roots
+    let block = TestLeafShardBlock::new(1 | (1 << 10), 1, 2);
+    let bytes = leaf_shard_block_info_bytes(&block);
+    let bytes = bytes.as_slice();
+    OwnedLeafShardBlockInfo::from_buffer(SharedAlignedBuffer::from_bytes(bytes)).unwrap();
+    let assert_rejected = |bytes: &[u8]| {
+        OwnedLeafShardBlockInfo::from_buffer(SharedAlignedBuffer::from_bytes(bytes)).unwrap_err();
+    };
+
+    // The number of own segment roots with padding and the header come before padding and the
+    // root of transactions, which own segments follow
+    let header_len = block.header.buffer().as_slice().len();
+    assert!(!header_len.is_multiple_of(8));
+    let transactions_root_offset = (8 + header_len).next_multiple_of(8);
+    assert_eq!(bytes.len(), transactions_root_offset + 32 + 8 + 2 * 32);
+
+    // Extra bytes after the info, and the end of the last segment root cut off
+    assert_rejected(&[bytes, &[0; 8]].concat());
+    assert_rejected(&bytes[..bytes.len() - 1]);
+
+    // Non-zero padding after the number of own segment roots and after the header
+    for offset in [1, 7, transactions_root_offset - 1] {
+        let mut bytes = bytes.to_vec();
+        bytes[offset] = 1;
+        assert_rejected(&bytes);
+    }
+
+    // No own segment roots, fewer and more of them, and the root of transactions and the last byte
+    // of the last segment root changed
+    for (offset, byte) in [
+        (0, 0),
+        (0, 1),
+        (0, 3),
+        (
+            transactions_root_offset,
+            bytes[transactions_root_offset] ^ 1,
+        ),
+        (bytes.len() - 1, bytes[bytes.len() - 1] ^ 1),
+    ] {
+        let mut bytes = bytes.to_vec();
+        bytes[offset] = byte;
+        assert_rejected(&bytes);
+    }
+}
+
+/// Leaf shard blocks of two leaf shards of the first intermediate shard, with and without own
+/// segments and transactions, together with the same blocks for writing bytes by hand
+fn leaf_shard_blocks() -> Vec<(OwnedLeafShardBlock, TestLeafShardBlock)> {
+    [
+        (1 | (1 << 10), 0, None, false),
+        (1 | (1 << 10), 1, Some(segments(10, 2)), true),
+        (1 | (2 << 10), 0, Some(segments(20, 1)), false),
+        (1 | (2 << 10), 1, None, true),
+    ]
+    .into_iter()
+    .map(|(shard_index, number, segments, with_transaction)| {
+        let (first_local_segment_index, segment_roots) = segments
+            .clone()
+            .unwrap_or((LocalSegmentIndex::ZERO, Vec::new()));
+        let mut builder = OwnedLeafShardBody::init(segment_roots.iter().enumerate().map(
+            |(position, &segment_root)| {
+                let position = LocalSegmentIndex::from(u64::try_from(position).unwrap());
+                (first_local_segment_index + position, segment_root)
+            },
+        ))
+        .unwrap();
+        if with_transaction {
+            builder.add_transaction(&transaction()).unwrap();
+        }
+        let body = builder.finish();
+        let header = leaf_shard_header(shard_index, number, body.body().root());
+        let block =
+            OwnedLeafShardBlock::from_buffers(header.buffer().clone(), body.buffer().clone())
+                .unwrap();
+        let test_block = TestLeafShardBlock {
+            header,
+            transactions_root: body.body().transactions().root(),
+            segments,
+        };
+
+        (block, test_block)
+    })
+    .collect()
+}
+
+#[test]
+fn owned_leaf_shard_block_info_from_block() {
+    // With and without own segments and transactions
+    for (block, test_block) in leaf_shard_blocks() {
+        let info = OwnedLeafShardBlockInfo::from_block(&block.block());
+        assert_eq!(
+            info.buffer().as_slice(),
+            leaf_shard_block_info_bytes(&test_block).as_slice()
+        );
+        assert_leaf_shard_block_info_eq(info.info(), &test_block);
+
+        let parsed_info = OwnedLeafShardBlockInfo::from_buffer(info.buffer().clone()).unwrap();
+        assert_leaf_shard_block_info_eq(parsed_info.info(), &test_block);
+    }
+}
+
+#[test]
+fn intermediate_shard_body_with_owned_leaf_shard_block_infos() {
+    let (blocks, test_blocks) = leaf_shard_blocks()
+        .into_iter()
+        .unzip::<_, _, Vec<_>, Vec<_>>();
+    let infos = blocks
+        .iter()
+        .map(|block| OwnedLeafShardBlockInfo::from_block(&block.block()))
+        .collect::<Vec<_>>();
+
+    let body = OwnedIntermediateShardBody::new(
+        iter::empty(),
+        infos.iter().map(|info| info.info().clone()),
+    )
+    .unwrap();
+    let bytes = body.buffer().as_slice();
+    // The same bytes as written by hand, and as built from infos of the parsed body
+    assert_eq!(
+        bytes,
+        intermediate_shard_body_bytes(None, &test_blocks).as_slice()
+    );
+    assert_eq!(
+        OwnedIntermediateShardBody::new(iter::empty(), body.body().leaf_shard_blocks().iter())
+            .unwrap()
+            .buffer()
+            .as_slice(),
+        bytes
+    );
+
+    // Numbers of own segment roots of infos follow the zero number of own segment roots and the
+    // number of blocks, and the rest of infos follow padding after them
+    let counts_offset = size_of::<u8>() + size_of::<u16>();
+    let records_offset = (counts_offset + infos.len()).next_multiple_of(8);
+    assert_eq!(
+        &bytes[counts_offset..][..infos.len()],
+        infos
+            .iter()
+            .map(|info| info.buffer().as_slice()[0])
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        &bytes[records_offset..],
+        infos
+            .iter()
+            .flat_map(|info| &info.buffer().as_slice()[8..])
+            .copied()
+            .collect::<Vec<_>>()
+    );
+}
+
 /// Two segment roots that start at the largest index for which the index after the last root
 /// still fits into `u64`, and two that start one index later, each with whether they are valid
 fn segments_near_u64_max() -> [((LocalSegmentIndex, Vec<SegmentRoot>), bool); 2] {
@@ -1964,6 +2171,10 @@ fn leaf_shard_blocks_with_local_segment_indices_near_u64_max() {
     for (leaf_shard_segments, valid) in segments_near_u64_max() {
         let leaf_shard_block =
             TestLeafShardBlock::with_segments(1 | (1 << 10), 0, Some(leaf_shard_segments));
+        let info =
+            OwnedLeafShardBlockInfo::from_buffer(leaf_shard_block_info_bytes(&leaf_shard_block));
+        assert_eq!(info.is_ok(), valid);
+
         let bytes = intermediate_shard_body_bytes(Some(&segments(3, 1)), &[leaf_shard_block]);
         let body = IntermediateShardBody::try_from_bytes(bytes.as_slice());
         assert_eq!(body.is_some(), valid);
