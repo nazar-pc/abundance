@@ -203,7 +203,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// are confirmed at block offset `block_confirmation_depth` (see the block lifecycle in
     /// [`ClientDatabaseOptions`]).
     ///
-    /// Must be at least 2.
+    /// Must be at least 2 and the same every time the database is opened.
     pub block_confirmation_depth: BlockNumber,
     /// Soft confirmation depth for blocks.
     ///
