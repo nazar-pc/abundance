@@ -27,11 +27,8 @@ use crate::block::body::{
     IntermediateShardBlockInfo, IntermediateShardBody, LeafShardBlockInfo, LeafShardBody,
     OwnSegments,
 };
-use crate::block::header::owned::{
-    OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
-    OwnedLeafShardHeaderError,
-};
-use crate::block::header::{IntermediateShardHeader, LeafShardHeader};
+use crate::block::header::LeafShardHeader;
+use crate::block::header::owned::{OwnedIntermediateShardHeader, OwnedLeafShardHeader};
 use crate::block::{IntermediateShardBlock, LeafShardBlock};
 use crate::hashes::Blake3Hash;
 use crate::pot::PotCheckpoints;
@@ -43,7 +40,6 @@ use ab_aligned_buffer::alignment::{Align8, Align16};
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::alignment::Alignment;
 use ab_io_type::trivial_type::TrivialType;
-use alloc::vec::Vec;
 use core::fmt;
 use core::iter::{Step, TrustedLen};
 use derive_more::From;
@@ -198,78 +194,6 @@ impl TransactionBuilder {
 #[derive(Debug)]
 struct RecordTooLarge;
 
-/// Append the record of an intermediate shard block as in a beacon chain body, including padding
-/// after it, see [`IntermediateShardBlocksInfo::try_from_bytes()`] for the layout.
-///
-/// The length of the buffer must be a multiple of 8 for the record to parse. Returns an error if
-/// the record doesn't fit into the buffer, part of it might have been appended already.
-///
-/// [`IntermediateShardBlocksInfo::try_from_bytes()`]:
-/// crate::block::body::IntermediateShardBlocksInfo::try_from_bytes
-fn append_intermediate_shard_block_record<'a, LSS>(
-    buffer: &mut OwnedAlignedBuffer,
-    header: &IntermediateShardHeader<'_>,
-    own_segments: Option<&OwnSegments<'_>>,
-    leaf_shards_segments: LSS,
-) -> Result<(), RecordTooLarge>
-where
-    LSS: TrustedLen<Item = (u16, ShardIndex, OwnSegments<'a>)>,
-{
-    OwnedIntermediateShardHeader::from_parts_into(
-        header.prefix,
-        header.result,
-        header.consensus_info,
-        header.beacon_chain_info(),
-        header.leaf_shard_blocks_root(),
-        buffer,
-    )
-    .map_err(|error| match error {
-        OwnedIntermediateShardHeaderError::HeaderTooLarge => RecordTooLarge,
-        OwnedIntermediateShardHeaderError::InvalidParts { error: _ } => {
-            unreachable!("Parts of a parsed header are consistent; qed")
-        }
-    })?
-    .with_seal(header.seal)
-    .expect("Seal of a parsed header matches its solution; qed");
-
-    if let Some(own_segments) = own_segments {
-        buffer
-            .append(own_segments.first_local_segment_index.as_bytes())
-            .map_err(|_error| RecordTooLarge)?;
-        buffer
-            .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
-            .map_err(|_error| RecordTooLarge)?;
-    }
-
-    let mut num_segment_roots_cursor = buffer.len() as usize;
-    for _ in 0..leaf_shards_segments.size_hint().0 {
-        buffer.append(&[0]).map_err(|_error| RecordTooLarge)?;
-    }
-    for (position, shard_index, own_segments) in leaf_shards_segments {
-        buffer.as_mut_slice()[num_segment_roots_cursor] = own_segments.num_segment_roots().get();
-        num_segment_roots_cursor += 1;
-
-        buffer
-            .append(&position.to_le_bytes())
-            .map_err(|_error| RecordTooLarge)?;
-        buffer
-            .append(shard_index.as_bytes())
-            .map_err(|_error| RecordTooLarge)?;
-        buffer
-            .append(own_segments.first_local_segment_index.as_bytes())
-            .map_err(|_error| RecordTooLarge)?;
-        buffer
-            .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
-            .map_err(|_error| RecordTooLarge)?;
-    }
-
-    buffer
-        .pad_to_alignment::<Align8>()
-        .map_err(|_error| RecordTooLarge)?;
-
-    Ok(())
-}
-
 /// Append the record of a leaf shard block as in an intermediate shard body, see
 /// [`LeafShardBlocksInfo::try_from_bytes()`] for the layout.
 ///
@@ -284,21 +208,9 @@ fn append_leaf_shard_block_record(
     transactions_root: &Blake3Hash,
     own_segments: Option<&OwnSegments<'_>>,
 ) -> Result<(), RecordTooLarge> {
-    OwnedLeafShardHeader::from_parts_into(
-        header.prefix,
-        header.result,
-        header.consensus_info,
-        header.beacon_chain_info(),
-        buffer,
-    )
-    .map_err(|error| match error {
-        OwnedLeafShardHeaderError::HeaderTooLarge => RecordTooLarge,
-        OwnedLeafShardHeaderError::InvalidParts { error: _ } => {
-            unreachable!("Parts of a parsed header are consistent; qed")
-        }
-    })?
-    .with_seal(header.seal)
-    .expect("Seal of a parsed header matches its solution; qed");
+    buffer
+        .append(header.bytes())
+        .map_err(|_error| RecordTooLarge)?;
     buffer
         .pad_to_alignment::<Align8>()
         .map_err(|_error| RecordTooLarge)?;
@@ -337,12 +249,11 @@ impl OwnedIntermediateShardBlockInfo {
     pub fn from_block(block: &IntermediateShardBlock<'_>) -> Self {
         let own_segments = block.body.own_segments();
         let leaf_shard_blocks = block.body.leaf_shard_blocks();
-        let leaf_shards_segments = leaf_shard_blocks.leaf_shards_segments().collect::<Vec<_>>();
 
         // Counts with padding, the header with the largest seal and own segments, then for each
         // leaf shard block with segments its number of segment roots and segments, then padding
-        let (num_leaf_shard_blocks_with_segments, capacity) = leaf_shards_segments
-            .iter()
+        let (num_leaf_shard_blocks_with_segments, capacity) = leaf_shard_blocks
+            .leaf_shards_segments()
             .try_fold(
                 (
                     0u16,
@@ -356,7 +267,7 @@ impl OwnedIntermediateShardBlockInfo {
                         }),
                 ),
                 |(num_leaf_shard_blocks_with_segments, capacity),
-                 &(_position, _shard_index, own_segments)| {
+                 (_position, _shard_index, own_segments)| {
                     Some((
                         num_leaf_shard_blocks_with_segments.checked_add(1)?,
                         capacity.checked_add(
@@ -397,13 +308,39 @@ impl OwnedIntermediateShardBlockInfo {
         buffer
             .pad_to_alignment::<Align8>()
             .expect("Enough capacity was allocated above; qed");
-        append_intermediate_shard_block_record(
-            &mut buffer,
-            &block.header,
-            own_segments.as_ref(),
-            leaf_shards_segments.into_iter(),
-        )
-        .expect("Enough capacity was allocated above; qed");
+        buffer
+            .append(block.header.bytes())
+            .expect("Enough capacity was allocated above; qed");
+        if let Some(own_segments) = &own_segments {
+            buffer
+                .append(own_segments.first_local_segment_index.as_bytes())
+                .expect("Enough capacity was allocated above; qed");
+            buffer
+                .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
+                .expect("Enough capacity was allocated above; qed");
+        }
+        for (_position, _shard_index, own_segments) in leaf_shard_blocks.leaf_shards_segments() {
+            buffer
+                .append(&[own_segments.num_segment_roots().get()])
+                .expect("Enough capacity was allocated above; qed");
+        }
+        for (position, shard_index, own_segments) in leaf_shard_blocks.leaf_shards_segments() {
+            buffer
+                .append(&position.to_le_bytes())
+                .expect("Enough capacity was allocated above; qed");
+            buffer
+                .append(shard_index.as_bytes())
+                .expect("Enough capacity was allocated above; qed");
+            buffer
+                .append(own_segments.first_local_segment_index.as_bytes())
+                .expect("Enough capacity was allocated above; qed");
+            buffer
+                .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
+                .expect("Enough capacity was allocated above; qed");
+        }
+        buffer
+            .pad_to_alignment::<Align8>()
+            .expect("Enough capacity was allocated above; qed");
 
         Self::from_buffer(buffer.into_shared()).expect(
             "Written the way the parser reads it from a block that passed the same checks; qed",
@@ -784,13 +721,23 @@ impl OwnedBeaconChainBody {
                     .copy_from_slice(&counts.to_bytes());
                 segments_roots_num_cursor += IntermediateShardBlockCounts::SIZE;
 
-                append_intermediate_shard_block_record(
-                    &mut buffer,
-                    &intermediate_shard_block.header,
-                    intermediate_shard_block.own_segments.as_ref(),
-                    intermediate_shard_block.leaf_shards_segments(),
-                )
-                .map_err(|RecordTooLarge| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+                buffer
+                    .append(intermediate_shard_block.header.bytes())
+                    .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+                if let Some(own_segments) = &intermediate_shard_block.own_segments {
+                    buffer
+                        .append(own_segments.first_local_segment_index.as_bytes())
+                        .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+                    buffer
+                        .append(SegmentRoot::slice_as_bytes(own_segments.segment_roots))
+                        .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+                }
+                buffer
+                    .append(intermediate_shard_block.leaf_shards_segments_bytes)
+                    .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
+                buffer
+                    .pad_to_alignment::<Align8>()
+                    .map_err(|_error| OwnedBeaconChainBodyError::BlockBodyIsTooLarge)?;
             }
         }
 

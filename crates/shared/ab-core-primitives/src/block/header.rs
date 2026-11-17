@@ -993,6 +993,13 @@ impl<'a> IntermediateShardHeader<'a> {
         Some((header, remainder))
     }
 
+    /// All bytes of the header, which are copied as they are into other data structures
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    pub(crate) fn bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
+
     /// Create an owned version of this header
     #[cfg(feature = "alloc")]
     #[inline(always)]
@@ -1207,6 +1214,13 @@ impl<'a> LeafShardHeader<'a> {
         };
 
         Some((header, remainder))
+    }
+
+    /// All bytes of the header, which are copied as they are into other data structures
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    pub(crate) fn bytes(&self) -> &'a [u8] {
+        self.bytes
     }
 
     /// Create an owned version of this header
