@@ -278,6 +278,31 @@ impl IntermediateShardBlockCounts {
             ]),
         }
     }
+
+    /// Convert counts into bytes, the inverse of [`Self::from_bytes()`]
+    #[cfg(feature = "alloc")]
+    #[inline(always)]
+    fn to_bytes(self) -> [u8; Self::SIZE] {
+        let Self {
+            num_own_segment_roots,
+            num_leaf_shard_blocks,
+            num_leaf_shard_blocks_with_segments,
+        } = self;
+        let [num_leaf_shard_blocks_0, num_leaf_shard_blocks_1] =
+            num_leaf_shard_blocks.to_le_bytes();
+        let [
+            num_leaf_shard_blocks_with_segments_0,
+            num_leaf_shard_blocks_with_segments_1,
+        ] = num_leaf_shard_blocks_with_segments.to_le_bytes();
+
+        [
+            num_own_segment_roots,
+            num_leaf_shard_blocks_0,
+            num_leaf_shard_blocks_1,
+            num_leaf_shard_blocks_with_segments_0,
+            num_leaf_shard_blocks_with_segments_1,
+        ]
+    }
 }
 
 /// Information about intermediate shard block
@@ -376,6 +401,39 @@ impl<'a> IntermediateShardBlockInfo<'a> {
             num_leaf_shard_blocks_with_segments,
             leaf_shards_segments_bytes,
         };
+
+        Some((info, remainder))
+    }
+
+    /// Create an instance from the bytes of an info, which an owned info stores.
+    ///
+    /// `bytes` do not need to be aligned, but padding in the layout depends on their address and
+    /// must be present in full. The info is checked the same way as each block in
+    /// [`IntermediateShardBlocksInfo::try_from_bytes()`].
+    ///
+    /// The layout is as follows:
+    /// * number of own segment roots: u8
+    /// * number of leaf shard blocks: u16 as unaligned little-endian bytes
+    /// * number of leaf shard blocks with segments: u16 as unaligned little-endian bytes
+    /// * padding to 8-bytes boundary with zeroes
+    /// * block header, own segments, segments of leaf shards and padding, exactly as for each block
+    ///   in `IntermediateShardBlocksInfo`
+    ///
+    /// Returns an instance and remaining bytes on success.
+    #[cfg(feature = "alloc")]
+    #[inline]
+    fn try_from_standalone_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        let counts;
+        (counts, bytes) = bytes.split_first_chunk::<{ IntermediateShardBlockCounts::SIZE }>()?;
+
+        let bytes = align_to_and_ensure_zero_padding(bytes, Alignment::of::<u64>())?;
+
+        let (info, remainder) =
+            Self::try_from_record(IntermediateShardBlockCounts::from_bytes(*counts), bytes)?;
+
+        if !info.is_internally_consistent() {
+            return None;
+        }
 
         Some((info, remainder))
     }
