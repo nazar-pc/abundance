@@ -104,6 +104,50 @@ const RESERVED_PLOT_METADATA_PAGES: u64 = {
 /// Reserve 1M of space for farm info (for potential future expansion)
 const RESERVED_FARM_INFO: u64 = 1024 * 1024;
 const NEW_SEGMENT_PROCESSING_DELAY: Duration = Duration::from_mins(10);
+/// Maximum number of sector metadata entries read from the metadata file at once, about 1 MiB
+const SECTOR_METADATA_READ_BATCH: u16 = {
+    let batch = 1024 * 1024 / SectorMetadataChecksummed::disk_size();
+    assert!(batch > 0 && batch <= u16::MAX as usize);
+    batch as u16
+};
+
+/// Read metadata of `plotted_sector_count` sectors from `metadata_file` in batches of up to
+/// [`SECTOR_METADATA_READ_BATCH`] sectors, calling `process` with each sector index and its bytes
+/// in order
+fn read_sectors_metadata<E, F>(
+    metadata_file: &DirectIoFile,
+    plotted_sector_count: u16,
+    mut process: F,
+) -> Result<(), E>
+where
+    E: From<IoBufError<OwnedPages>>,
+    F: FnMut(SectorIndex, &[u8; SectorMetadataChecksummed::disk_size()]) -> Result<(), E>,
+{
+    let mut batch_bytes = OwnedPages::EMPTY;
+    for first_sector_index in
+        (0..plotted_sector_count).step_by(usize::from(SECTOR_METADATA_READ_BATCH))
+    {
+        let batch_len = SECTOR_METADATA_READ_BATCH.min(plotted_sector_count - first_sector_index);
+        batch_bytes = metadata_file.read_pages_at(
+            batch_bytes,
+            u32::from(batch_len) * SectorMetadataChecksummed::DISK_PAGES,
+            RESERVED_PLOT_METADATA_PAGES
+                + u64::from(SectorMetadataChecksummed::DISK_PAGES) * u64::from(first_sector_index),
+        )?;
+
+        // Whole entries were read, so there is no remainder
+        let (sectors_metadata_bytes, _remainder) = batch_bytes
+            .as_slice()
+            .as_chunks::<{ SectorMetadataChecksummed::disk_size() }>();
+        for (sector_index, sector_metadata_bytes) in
+            (first_sector_index..).zip(sectors_metadata_bytes)
+        {
+            process(SectorIndex::from(sector_index), sector_metadata_bytes)?;
+        }
+    }
+
+    Ok(())
+}
 
 /// Exclusive lock for single disk farm info file, ensuring no concurrent edits by cooperating
 /// processes is done
@@ -1469,49 +1513,45 @@ impl SingleDiskFarm {
             let mut sectors_metadata =
                 Vec::<SectorMetadataChecksummed>::with_capacity(usize::from(target_sector_count));
 
-            let mut sector_metadata_bytes = OwnedPages::EMPTY;
-            for sector_index in
-                SectorIndex::ZERO..SectorIndex::from(metadata_header.plotted_sector_count)
-            {
-                let sector_page_offset = RESERVED_PLOT_METADATA_PAGES
-                    + u64::from(SectorMetadataChecksummed::DISK_PAGES) * u64::from(sector_index);
-                sector_metadata_bytes = metadata_file.read_pages_at(
-                    sector_metadata_bytes,
-                    SectorMetadataChecksummed::DISK_PAGES,
-                    sector_page_offset,
-                )?;
+            read_sectors_metadata::<SingleDiskFarmError, _>(
+                &metadata_file,
+                metadata_header.plotted_sector_count,
+                |sector_index, sector_metadata_bytes| {
+                    let sector_metadata = match SectorMetadataChecksummed::decode_from_disk(
+                        sector_metadata_bytes,
+                    ) {
+                        Ok(sector_metadata) => sector_metadata,
+                        Err(error) => {
+                            warn!(
+                                path = %metadata_file_path.display(),
+                                %error,
+                                %sector_index,
+                                "Failed to decode sector metadata, replacing with dummy expired \
+                                sector metadata"
+                            );
 
-                let sector_metadata = match SectorMetadataChecksummed::decode_from_disk(
-                    sector_metadata_bytes
-                        .as_array()
-                        .expect("Exactly one sector metadata was read; qed"),
-                ) {
-                    Ok(sector_metadata) => sector_metadata,
-                    Err(error) => {
-                        warn!(
-                            path = %metadata_file_path.display(),
-                            %error,
-                            %sector_index,
-                            "Failed to decode sector metadata, replacing with dummy expired \
-                            sector metadata"
-                        );
+                            let dummy_sector = SectorMetadataChecksummed::from(SectorMetadata {
+                                sector_index,
+                                pieces_in_sector,
+                                s_bucket_sizes: Box::new([0; Record::NUM_S_BUCKETS]),
+                                history_size: HistorySize::from(SegmentIndex::ZERO),
+                            });
+                            let sector_page_offset = RESERVED_PLOT_METADATA_PAGES
+                                + u64::from(SectorMetadataChecksummed::DISK_PAGES)
+                                    * u64::from(sector_index);
+                            metadata_file.write_at(
+                                dummy_sector.encode_for_disk(),
+                                sector_page_offset * u64::from(OwnedPages::ALIGN),
+                            )?;
 
-                        let dummy_sector = SectorMetadataChecksummed::from(SectorMetadata {
-                            sector_index,
-                            pieces_in_sector,
-                            s_bucket_sizes: Box::new([0; Record::NUM_S_BUCKETS]),
-                            history_size: HistorySize::from(SegmentIndex::ZERO),
-                        });
-                        metadata_file.write_at(
-                            dummy_sector.encode_for_disk(),
-                            sector_page_offset * u64::from(OwnedPages::ALIGN),
-                        )?;
+                            dummy_sector
+                        }
+                    };
+                    sectors_metadata.push(sector_metadata);
 
-                        dummy_sector
-                    }
-                };
-                sectors_metadata.push(sector_metadata);
-            }
+                    Ok(())
+                },
+            )?;
 
             StdArc::new(AsyncRwLock::new(sectors_metadata))
         };
@@ -1688,25 +1728,21 @@ impl SingleDiskFarm {
             ((metadata_size - RESERVED_PLOT_METADATA) / sector_metadata_size as u64) as usize,
         );
 
-        let mut sector_metadata_bytes = OwnedPages::EMPTY;
-        for sector_index in 0..metadata_header.plotted_sector_count {
-            sector_metadata_bytes = metadata_file.read_pages_at(
-                sector_metadata_bytes,
-                SectorMetadataChecksummed::DISK_PAGES,
-                RESERVED_PLOT_METADATA_PAGES
-                    + u64::from(SectorMetadataChecksummed::DISK_PAGES) * u64::from(sector_index),
-            )?;
-            sectors_metadata.push(
-                SectorMetadataChecksummed::decode_from_disk(
-                    sector_metadata_bytes
-                        .as_array()
-                        .expect("Exactly one sector metadata was read; qed"),
-                )
-                .map_err(|error| {
-                    io::Error::other(format!("Failed to decode sector metadata: {error}"))
-                })?,
-            );
-        }
+        read_sectors_metadata::<io::Error, _>(
+            &metadata_file,
+            metadata_header.plotted_sector_count,
+            |_sector_index, sector_metadata_bytes| {
+                sectors_metadata.push(
+                    SectorMetadataChecksummed::decode_from_disk(sector_metadata_bytes).map_err(
+                        |error| {
+                            io::Error::other(format!("Failed to decode sector metadata: {error}"))
+                        },
+                    )?,
+                );
+
+                Ok(())
+            },
+        )?;
 
         Ok(sectors_metadata)
     }
