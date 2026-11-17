@@ -328,3 +328,12 @@ noise is the reason behind most of the rules below.
   does that before opening the PR in the first place.
 
 [GitHub linking keywords]: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
+
+## AI agents
+
+Everything above applies to AI agents as well. Knowledge that is only relevant when working on particular parts of the
+codebase is packaged as [Agent Skills] in `.agents/skills/`. Agents that don't discover skills there on their own should
+read the `name` and `description` at the top of each `.agents/skills/*/SKILL.md` and load the full skill before working
+on anything it covers.
+
+[Agent Skills]: https://agentskills.io
