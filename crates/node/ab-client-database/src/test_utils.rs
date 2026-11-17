@@ -7,11 +7,18 @@ use crate::{
     ClientDatabaseOptions, GenesisBlockBuilderResult,
 };
 use ab_client_api::{BlockDetails, ChainInfoWrite, PersistBlockError};
-use ab_core_primitives::block::header::{
-    BlockHeaderConsensusInfo, BlockHeaderConsensusParameters, BlockHeaderEd25519Seal,
-    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderSeal,
+use ab_core_primitives::block::body::owned::{
+    OwnedIntermediateShardBlockInfo, OwnedLeafShardBlockInfo,
 };
-use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
+use ab_core_primitives::block::header::{
+    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
+    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
+    BlockHeaderSeal,
+};
+use ab_core_primitives::block::owned::{
+    OwnedBeaconChainBlock, OwnedBeaconChainBlockBuilder, OwnedIntermediateShardBlock,
+    OwnedLeafShardBlock,
+};
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_core_primitives::hashes::Blake3Hash;
@@ -208,14 +215,31 @@ impl MemoryStorageBackend {
 
 pub(crate) type Database = ClientDatabase<OwnedBeaconChainBlock, MemoryStorageBackend>;
 
-/// Minimal beacon chain block, `salt` makes blocks with the same number and parent unique
-pub(crate) fn beacon_chain_block(
+fn consensus_info() -> BlockHeaderConsensusInfo {
+    BlockHeaderConsensusInfo {
+        slot: SlotNumber::ZERO,
+        proof_of_time: PotOutput::default(),
+        future_proof_of_time: PotOutput::default(),
+        solution: Solution::genesis_solution(),
+    }
+}
+
+fn seal() -> BlockHeaderEd25519Seal {
+    BlockHeaderEd25519Seal {
+        public_key: Ed25519PublicKey::default(),
+        signature: Ed25519Signature::default(),
+    }
+}
+
+/// Beacon chain block with the body of `block_builder`, `salt` makes blocks with the same number,
+/// parent and body unique
+fn beacon_chain_block_with_body(
+    block_builder: OwnedBeaconChainBlockBuilder,
     number: u64,
     parent_root: BlockRoot,
     salt: u64,
 ) -> OwnedBeaconChainBlock {
-    OwnedBeaconChainBlock::init([].into_iter(), [].into_iter(), &[])
-        .unwrap()
+    block_builder
         .with_header(
             &BlockHeaderPrefix {
                 number: BlockNumber::from(number),
@@ -226,12 +250,7 @@ pub(crate) fn beacon_chain_block(
                 mmr_root: Blake3Hash::default(),
             },
             Blake3Hash::default(),
-            &BlockHeaderConsensusInfo {
-                slot: SlotNumber::ZERO,
-                proof_of_time: PotOutput::default(),
-                future_proof_of_time: PotOutput::default(),
-                solution: Solution::genesis_solution(),
-            },
+            &consensus_info(),
             &BlockHeaderConsensusParameters {
                 fixed_parameters: BlockHeaderFixedConsensusParameters {
                     solution_range: SolutionRange::from_pieces(1000, (1, 10)),
@@ -244,11 +263,119 @@ pub(crate) fn beacon_chain_block(
             },
         )
         .unwrap()
-        .with_seal(BlockHeaderSeal::Ed25519(&BlockHeaderEd25519Seal {
-            public_key: Ed25519PublicKey::default(),
-            signature: Ed25519Signature::default(),
-        }))
+        .with_seal(BlockHeaderSeal::Ed25519(&seal()))
         .unwrap()
+}
+
+/// Minimal beacon chain block, `salt` makes blocks with the same number and parent unique
+pub(crate) fn beacon_chain_block(
+    number: u64,
+    parent_root: BlockRoot,
+    salt: u64,
+) -> OwnedBeaconChainBlock {
+    beacon_chain_block_with_body(
+        OwnedBeaconChainBlock::init([].into_iter(), [].into_iter(), &[]).unwrap(),
+        number,
+        parent_root,
+        salt,
+    )
+}
+
+/// Segments of an intermediate shard block and of its leaf shard blocks
+pub(crate) struct IntermediateShardBlockSegments<'a> {
+    pub(crate) shard_index: ShardIndex,
+    pub(crate) own_segments: &'a [(LocalSegmentIndex, SegmentRoot)],
+    /// Shard indices and own segments of leaf shard blocks, segments can be empty
+    pub(crate) leaf_shard_blocks: &'a [(ShardIndex, &'a [(LocalSegmentIndex, SegmentRoot)])],
+}
+
+/// Header prefix of a shard block of `shard_index` at `number`
+fn shard_header_prefix(shard_index: ShardIndex, number: u64) -> BlockHeaderPrefix {
+    BlockHeaderPrefix {
+        number: BlockNumber::from(number),
+        shard_index,
+        padding_0: [0; _],
+        timestamp: BlockTimestamp::default(),
+        parent_root: BlockRoot::default(),
+        mmr_root: Blake3Hash::default(),
+    }
+}
+
+/// Info of an intermediate shard block at `number` with `segments`, whose leaf shard blocks are
+/// numbered by their positions
+fn intermediate_shard_block_info(
+    number: u64,
+    segments: &IntermediateShardBlockSegments<'_>,
+) -> OwnedIntermediateShardBlockInfo {
+    let beacon_chain_info = BlockHeaderBeaconChainInfo {
+        number: BlockNumber::ZERO,
+        root: BlockRoot::default(),
+    };
+    let leaf_shard_block_infos = (0..)
+        .zip(segments.leaf_shard_blocks)
+        .map(|(leaf_number, &(shard_index, own_segments))| {
+            let block = OwnedLeafShardBlock::init(own_segments.iter().copied())
+                .unwrap()
+                .with_header(
+                    &shard_header_prefix(shard_index, leaf_number),
+                    Blake3Hash::default(),
+                    &consensus_info(),
+                    &beacon_chain_info,
+                )
+                .unwrap()
+                .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+                .unwrap();
+
+            OwnedLeafShardBlockInfo::from_block(&block.block())
+        })
+        .collect::<Vec<_>>();
+    let block = OwnedIntermediateShardBlock::init(
+        segments.own_segments.iter().copied(),
+        leaf_shard_block_infos
+            .iter()
+            .map(|info| info.info().clone()),
+    )
+    .unwrap()
+    .with_header(
+        &shard_header_prefix(segments.shard_index, number),
+        Blake3Hash::default(),
+        &consensus_info(),
+        &beacon_chain_info,
+    )
+    .unwrap()
+    .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap();
+
+    OwnedIntermediateShardBlockInfo::from_block(&block.block())
+}
+
+/// Beacon chain block like [`beacon_chain_block()`] with zero salt, whose body has intermediate
+/// shard blocks numbered by their positions with `intermediate_shard_blocks` segments
+pub(crate) fn beacon_chain_block_with_shard_segments(
+    number: u64,
+    parent_root: BlockRoot,
+    intermediate_shard_blocks: &[IntermediateShardBlockSegments<'_>],
+) -> OwnedBeaconChainBlock {
+    let intermediate_shard_block_infos = (0..)
+        .zip(intermediate_shard_blocks)
+        .map(|(intermediate_number, segments)| {
+            intermediate_shard_block_info(intermediate_number, segments)
+        })
+        .collect::<Vec<_>>();
+
+    beacon_chain_block_with_body(
+        OwnedBeaconChainBlock::init(
+            [].into_iter(),
+            intermediate_shard_block_infos
+                .iter()
+                .map(|info| info.info().clone()),
+            &[],
+        )
+        .unwrap(),
+        number,
+        parent_root,
+        0,
+    )
 }
 
 pub(crate) fn genesis_block_builder() -> GenesisBlockBuilderResult<OwnedBeaconChainBlock> {
@@ -315,14 +442,11 @@ pub(crate) fn block_confirmation_depth(database: &Database) -> u64 {
     u64::from(database.inner.options.block_confirmation_depth)
 }
 
-/// Persist a block built by [`beacon_chain_block()`] and return its root
-pub(crate) fn persist_block(
+/// Persist `block` and return its root
+pub(crate) fn persist_beacon_chain_block(
     database: &Database,
-    number: u64,
-    parent_root: BlockRoot,
-    salt: u64,
+    block: OwnedBeaconChainBlock,
 ) -> Result<BlockRoot, PersistBlockError> {
-    let block = beacon_chain_block(number, parent_root, salt);
     let block_root = *block.header.header().root();
     let block_details = BlockDetails {
         mmr_with_block: Arc::new(BlockMerkleMountainRange::new()),
@@ -332,6 +456,16 @@ pub(crate) fn persist_block(
     block_on(database.persist_block(block, block_details))?;
 
     Ok(block_root)
+}
+
+/// Persist a block built by [`beacon_chain_block()`] and return its root
+pub(crate) fn persist_block(
+    database: &Database,
+    number: u64,
+    parent_root: BlockRoot,
+    salt: u64,
+) -> Result<BlockRoot, PersistBlockError> {
+    persist_beacon_chain_block(database, beacon_chain_block(number, parent_root, salt))
 }
 
 /// Persist a chain of blocks with `numbers` on top of `parent_root`, returns their roots
