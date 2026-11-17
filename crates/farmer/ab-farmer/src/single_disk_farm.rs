@@ -5,7 +5,6 @@
 //! notifications, producing solutions and sealing blocks.
 
 mod block_sealing;
-pub mod direct_io_file_wrapper;
 pub mod farming;
 pub mod identity;
 mod metrics;
@@ -25,7 +24,6 @@ use crate::farm::{
 use crate::node_client::NodeClient;
 use crate::plotter::Plotter;
 use crate::single_disk_farm::block_sealing::block_sealing;
-use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::single_disk_farm::farming::rayon_files::RayonFiles;
 use crate::single_disk_farm::farming::{
     FarmingOptions, PlotAudit, farming, slot_notification_forwarder,
@@ -49,7 +47,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex, Record};
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
-use ab_direct_io_file::AlignedPage;
+use ab_direct_io_file::{DirectIoFile, IoBufError, OwnedPages};
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::file_ext::FileExt;
@@ -98,9 +96,58 @@ const {
 
 /// Reserve 1M of space for plot metadata (for potential future expansion)
 const RESERVED_PLOT_METADATA: u64 = 1024 * 1024;
+/// [`RESERVED_PLOT_METADATA`] in pages of [`OwnedPages::ALIGN`] bytes
+const RESERVED_PLOT_METADATA_PAGES: u64 = {
+    assert!(RESERVED_PLOT_METADATA.is_multiple_of(OwnedPages::ALIGN as u64));
+    RESERVED_PLOT_METADATA / OwnedPages::ALIGN as u64
+};
 /// Reserve 1M of space for farm info (for potential future expansion)
 const RESERVED_FARM_INFO: u64 = 1024 * 1024;
 const NEW_SEGMENT_PROCESSING_DELAY: Duration = Duration::from_mins(10);
+/// Maximum number of sector metadata entries read from the metadata file at once, about 1 MiB
+const SECTOR_METADATA_READ_BATCH: u16 = {
+    let batch = 1024 * 1024 / SectorMetadataChecksummed::disk_size();
+    assert!(batch > 0 && batch <= u16::MAX as usize);
+    batch as u16
+};
+
+/// Read metadata of `plotted_sector_count` sectors from `metadata_file` in batches of up to
+/// [`SECTOR_METADATA_READ_BATCH`] sectors, calling `process` with each sector index and its bytes
+/// in order
+fn read_sectors_metadata<E, F>(
+    metadata_file: &DirectIoFile,
+    plotted_sector_count: u16,
+    mut process: F,
+) -> Result<(), E>
+where
+    E: From<IoBufError<OwnedPages>>,
+    F: FnMut(SectorIndex, &[u8; SectorMetadataChecksummed::disk_size()]) -> Result<(), E>,
+{
+    let mut batch_bytes = OwnedPages::EMPTY;
+    for first_sector_index in
+        (0..plotted_sector_count).step_by(usize::from(SECTOR_METADATA_READ_BATCH))
+    {
+        let batch_len = SECTOR_METADATA_READ_BATCH.min(plotted_sector_count - first_sector_index);
+        batch_bytes = metadata_file.read_pages_at(
+            batch_bytes,
+            u32::from(batch_len) * SectorMetadataChecksummed::DISK_PAGES,
+            RESERVED_PLOT_METADATA_PAGES
+                + u64::from(SectorMetadataChecksummed::DISK_PAGES) * u64::from(first_sector_index),
+        )?;
+
+        // Whole entries were read, so there is no remainder
+        let (sectors_metadata_bytes, _remainder) = batch_bytes
+            .as_slice()
+            .as_chunks::<{ SectorMetadataChecksummed::disk_size() }>();
+        for (sector_index, sector_metadata_bytes) in
+            (first_sector_index..).zip(sectors_metadata_bytes)
+        {
+            process(SectorIndex::from(sector_index), sector_metadata_bytes)?;
+        }
+    }
+
+    Ok(())
+}
 
 /// Exclusive lock for single disk farm info file, ensuring no concurrent edits by cooperating
 /// processes is done
@@ -305,20 +352,10 @@ struct PlotMetadataHeader {
 }
 
 impl PlotMetadataHeader {
-    #[inline]
-    fn encoded_size() -> usize {
-        let default = PlotMetadataHeader {
-            version: 0,
-            plotted_sector_count: 0,
-        };
-
-        default.encoded_size()
-    }
-
     /// Encode header into a whole disk page, padded with zeroes, such that it can be written
     /// without read-modify-write
-    fn encode_page(&self) -> [u8; AlignedPage::SIZE] {
-        let mut page = [0; AlignedPage::SIZE];
+    fn encode_page(&self) -> OwnedPages {
+        let mut page = OwnedPages::zeroed(OwnedPages::ALIGN);
         self.encode_to(&mut page.as_mut_slice());
         page
     }
@@ -469,6 +506,13 @@ pub enum SingleDiskFarmError {
     /// Failed to create thread pool
     #[error("Failed to create thread pool: {0}")]
     FailedToCreateThreadPool(ThreadPoolBuildError),
+}
+
+impl<B> From<IoBufError<B>> for SingleDiskFarmError {
+    #[inline]
+    fn from(error: IoBufError<B>) -> Self {
+        Self::Io(error.into())
+    }
 }
 
 /// Errors happening during scrubbing
@@ -699,7 +743,7 @@ impl AllocatedSpaceDistribution {
                 * (100 - u64::from(cache_percentage));
             // Do the rounding to make sure we have exactly as much space as fits whole number of
             // sectors, account for disk sector size just in case
-            (potentially_plottable_space - AlignedPage::SIZE as u64) / single_sector_overhead
+            (potentially_plottable_space - u64::from(OwnedPages::ALIGN)) / single_sector_overhead
         };
 
         if target_sector_count == 0 {
@@ -721,8 +765,7 @@ impl AllocatedSpaceDistribution {
         }
         let plot_file_size = target_sector_count * sector_size;
         // Align plot file size for disk sector size
-        let plot_file_size =
-            plot_file_size.div_ceil(AlignedPage::SIZE as u64) * AlignedPage::SIZE as u64;
+        let plot_file_size = plot_file_size.next_multiple_of(u64::from(OwnedPages::ALIGN));
 
         // Remaining space will be used for caching purposes
         let piece_cache_capacity = if cache_percentage > 0 {
@@ -776,8 +819,8 @@ struct SingleDiskFarmInit {
     identity: Identity,
     single_disk_farm_info: SingleDiskFarmInfo,
     single_disk_farm_info_lock: Option<SingleDiskFarmInfoLock>,
-    plot_file: StdArc<DirectIoFileWrapper>,
-    metadata_file: DirectIoFileWrapper,
+    plot_file: StdArc<DirectIoFile>,
+    metadata_file: DirectIoFile,
     metadata_header: PlotMetadataHeader,
     target_sector_count: u16,
     sectors_metadata: StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
@@ -1009,7 +1052,13 @@ impl SingleDiskFarm {
             farming_thread_pool
                 .install(move || {
                     RayonFiles::open_with(directory.join(Self::PLOT_FILE), |path| {
-                        DirectIoFileWrapper::open(path)
+                        let mut open_options = OpenOptions::new();
+                        open_options
+                            .read(true)
+                            .write(true)
+                            .create(true)
+                            .truncate(false);
+                        DirectIoFile::open(open_options, path)
                     })
                 })
                 .map(|farming_plot| (farming_plot, farming_thread_pool))
@@ -1402,13 +1451,19 @@ impl SingleDiskFarm {
         let target_sector_count = allocated_space_distribution.target_sector_count;
 
         let metadata_file_path = directory.join(Self::METADATA_FILE);
-        let metadata_file = DirectIoFileWrapper::open(&metadata_file_path)?;
+        let mut open_options = OpenOptions::new();
+        open_options
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false);
+        let metadata_file = DirectIoFile::open(open_options.clone(), &metadata_file_path)?;
 
-        let metadata_size = metadata_file.size()?;
+        let metadata_size = metadata_file.len()?;
         let expected_metadata_size = allocated_space_distribution.metadata_file_size;
         // Align plot file size for disk sector size
         let expected_metadata_size =
-            expected_metadata_size.div_ceil(AlignedPage::SIZE as u64) * AlignedPage::SIZE as u64;
+            expected_metadata_size.next_multiple_of(u64::from(OwnedPages::ALIGN));
         let metadata_header = if metadata_size == 0 {
             let metadata_header = PlotMetadataHeader {
                 version: SingleDiskFarm::SUPPORTED_PLOT_VERSION,
@@ -1416,17 +1471,16 @@ impl SingleDiskFarm {
             };
 
             metadata_file
-                .preallocate(expected_metadata_size)
+                .allocate(expected_metadata_size)
                 .map_err(SingleDiskFarmError::CantPreallocateMetadataFile)?;
-            metadata_file.write_all_at(&metadata_header.encode_page(), 0)?;
+            metadata_file.write_at(metadata_header.encode_page(), 0)?;
 
             metadata_header
         } else {
-            let mut metadata_header_bytes = vec![0; PlotMetadataHeader::encoded_size()];
-            metadata_file.read_exact_at(&mut metadata_header_bytes, 0)?;
+            let metadata_header_page = metadata_file.read_pages_at(OwnedPages::EMPTY, 1, 0)?;
 
             let mut metadata_header =
-                PlotMetadataHeader::decode(&mut metadata_header_bytes.as_ref())
+                PlotMetadataHeader::decode(&mut metadata_header_page.as_slice())
                     .map_err(SingleDiskFarmError::FailedToDecodeMetadataHeader)?;
 
             // Check version before resizing, such that metadata file of unsupported version is not
@@ -1441,7 +1495,7 @@ impl SingleDiskFarm {
                 // Allocating the whole file (`set_len` below can create a sparse file, which will
                 // cause writes to fail later)
                 metadata_file
-                    .preallocate(expected_metadata_size)
+                    .allocate(expected_metadata_size)
                     .map_err(SingleDiskFarmError::CantPreallocateMetadataFile)?;
                 // Truncating file (if necessary)
                 metadata_file.set_len(expected_metadata_size)?;
@@ -1449,7 +1503,7 @@ impl SingleDiskFarm {
 
             if metadata_header.plotted_sector_count > target_sector_count {
                 metadata_header.plotted_sector_count = target_sector_count;
-                metadata_file.write_all_at(&metadata_header.encode_page(), 0)?;
+                metadata_file.write_at(metadata_header.encode_page(), 0)?;
             }
 
             metadata_header
@@ -1459,56 +1513,56 @@ impl SingleDiskFarm {
             let mut sectors_metadata =
                 Vec::<SectorMetadataChecksummed>::with_capacity(usize::from(target_sector_count));
 
-            let mut sector_metadata_bytes = vec![0; sector_metadata_size];
-            for sector_index in
-                SectorIndex::ZERO..SectorIndex::from(metadata_header.plotted_sector_count)
-            {
-                let sector_offset =
-                    RESERVED_PLOT_METADATA + sector_metadata_size as u64 * u64::from(sector_index);
-                metadata_file.read_exact_at(&mut sector_metadata_bytes, sector_offset)?;
+            read_sectors_metadata::<SingleDiskFarmError, _>(
+                &metadata_file,
+                metadata_header.plotted_sector_count,
+                |sector_index, sector_metadata_bytes| {
+                    let sector_metadata = match SectorMetadataChecksummed::decode_from_disk(
+                        sector_metadata_bytes,
+                    ) {
+                        Ok(sector_metadata) => sector_metadata,
+                        Err(error) => {
+                            warn!(
+                                path = %metadata_file_path.display(),
+                                %error,
+                                %sector_index,
+                                "Failed to decode sector metadata, replacing with dummy expired \
+                                sector metadata"
+                            );
 
-                let sector_metadata = match SectorMetadataChecksummed::decode_from_disk(
-                    sector_metadata_bytes
-                        .as_array()
-                        .expect("Allocated with the size of sector metadata; qed"),
-                ) {
-                    Ok(sector_metadata) => sector_metadata,
-                    Err(error) => {
-                        warn!(
-                            path = %metadata_file_path.display(),
-                            %error,
-                            %sector_index,
-                            "Failed to decode sector metadata, replacing with dummy expired \
-                            sector metadata"
-                        );
+                            let dummy_sector = SectorMetadataChecksummed::from(SectorMetadata {
+                                sector_index,
+                                pieces_in_sector,
+                                s_bucket_sizes: Box::new([0; Record::NUM_S_BUCKETS]),
+                                history_size: HistorySize::from(SegmentIndex::ZERO),
+                            });
+                            let sector_page_offset = RESERVED_PLOT_METADATA_PAGES
+                                + u64::from(SectorMetadataChecksummed::DISK_PAGES)
+                                    * u64::from(sector_index);
+                            metadata_file.write_at(
+                                dummy_sector.encode_for_disk(),
+                                sector_page_offset * u64::from(OwnedPages::ALIGN),
+                            )?;
 
-                        let dummy_sector = SectorMetadataChecksummed::from(SectorMetadata {
-                            sector_index,
-                            pieces_in_sector,
-                            s_bucket_sizes: Box::new([0; Record::NUM_S_BUCKETS]),
-                            history_size: HistorySize::from(SegmentIndex::ZERO),
-                        });
-                        metadata_file.write_all_at(
-                            dummy_sector.encode_for_disk().as_slice(),
-                            sector_offset,
-                        )?;
+                            dummy_sector
+                        }
+                    };
+                    sectors_metadata.push(sector_metadata);
 
-                        dummy_sector
-                    }
-                };
-                sectors_metadata.push(sector_metadata);
-            }
+                    Ok(())
+                },
+            )?;
 
             StdArc::new(AsyncRwLock::new(sectors_metadata))
         };
 
-        let plot_file = DirectIoFileWrapper::open(directory.join(Self::PLOT_FILE))?;
+        let plot_file = DirectIoFile::open(open_options, directory.join(Self::PLOT_FILE))?;
 
-        if plot_file.size()? != allocated_space_distribution.plot_file_size {
+        if plot_file.len()? != allocated_space_distribution.plot_file_size {
             // Allocating the whole file (`set_len` below can create a sparse file, which will cause
             // writes to fail later)
             plot_file
-                .preallocate(allocated_space_distribution.plot_file_size)
+                .allocate(allocated_space_distribution.plot_file_size)
                 .map_err(SingleDiskFarmError::CantPreallocatePlotFile)?;
             // Truncating file (if necessary)
             plot_file.set_len(allocated_space_distribution.plot_file_size)?;
@@ -1645,15 +1699,20 @@ impl SingleDiskFarm {
     pub fn read_all_sectors_metadata(
         directory: &Path,
     ) -> io::Result<Vec<SectorMetadataChecksummed>> {
-        let metadata_file = DirectIoFileWrapper::open(directory.join(Self::METADATA_FILE))?;
+        let mut open_options = OpenOptions::new();
+        open_options
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false);
+        let metadata_file = DirectIoFile::open(open_options, directory.join(Self::METADATA_FILE))?;
 
-        let metadata_size = metadata_file.size()?;
+        let metadata_size = metadata_file.len()?;
         let sector_metadata_size = SectorMetadataChecksummed::disk_size();
 
-        let mut metadata_header_bytes = vec![0; PlotMetadataHeader::encoded_size()];
-        metadata_file.read_exact_at(&mut metadata_header_bytes, 0)?;
+        let metadata_header_page = metadata_file.read_pages_at(OwnedPages::EMPTY, 1, 0)?;
 
-        let metadata_header = PlotMetadataHeader::decode(&mut metadata_header_bytes.as_ref())
+        let metadata_header = PlotMetadataHeader::decode(&mut metadata_header_page.as_slice())
             .map_err(|error| {
                 io::Error::other(format!("Failed to decode metadata header: {error}"))
             })?;
@@ -1669,23 +1728,21 @@ impl SingleDiskFarm {
             ((metadata_size - RESERVED_PLOT_METADATA) / sector_metadata_size as u64) as usize,
         );
 
-        let mut sector_metadata_bytes = vec![0; sector_metadata_size];
-        for sector_index in 0..metadata_header.plotted_sector_count {
-            metadata_file.read_exact_at(
-                &mut sector_metadata_bytes,
-                RESERVED_PLOT_METADATA + sector_metadata_size as u64 * u64::from(sector_index),
-            )?;
-            sectors_metadata.push(
-                SectorMetadataChecksummed::decode_from_disk(
-                    sector_metadata_bytes
-                        .as_array()
-                        .expect("Allocated with the size of sector metadata; qed"),
-                )
-                .map_err(|error| {
-                    io::Error::other(format!("Failed to decode sector metadata: {error}"))
-                })?,
-            );
-        }
+        read_sectors_metadata::<io::Error, _>(
+            &metadata_file,
+            metadata_header.plotted_sector_count,
+            |_sector_index, sector_metadata_bytes| {
+                sectors_metadata.push(
+                    SectorMetadataChecksummed::decode_from_disk(sector_metadata_bytes).map_err(
+                        |error| {
+                            io::Error::other(format!("Failed to decode sector metadata: {error}"))
+                        },
+                    )?,
+                );
+
+                Ok(())
+            },
+        )?;
 
         Ok(sectors_metadata)
     }
@@ -1967,7 +2024,7 @@ impl SingleDiskFarm {
                     {
                         return Err(SingleDiskFarmScrubError::FailedToWriteBytes {
                             file: metadata_file_path,
-                            size: metadata_header_bytes.len() as u64,
+                            size: u64::from(metadata_header_bytes.len()),
                             offset: 0,
                             error,
                         });
@@ -2036,7 +2093,7 @@ impl SingleDiskFarm {
                     {
                         return Err(SingleDiskFarmScrubError::FailedToWriteBytes {
                             file: plot_file_path,
-                            size: metadata_header_bytes.len() as u64,
+                            size: u64::from(metadata_header_bytes.len()),
                             offset: 0,
                             error,
                         });
@@ -2436,7 +2493,7 @@ fn write_dummy_sector_metadata(
         .write_all_at(dummy_sector_bytes.as_slice(), sector_offset)
         .map_err(|error| SingleDiskFarmScrubError::FailedToWriteBytes {
             file: metadata_file_path.to_path_buf(),
-            size: dummy_sector_bytes.len() as u64,
+            size: u64::from(dummy_sector_bytes.len()),
             offset: sector_offset,
             error,
         })

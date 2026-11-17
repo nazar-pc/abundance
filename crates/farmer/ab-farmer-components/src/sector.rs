@@ -14,7 +14,7 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{PieceHeader, PieceOffset, Record};
 use ab_core_primitives::sectors::{SBucket, SectorIndex};
 use ab_core_primitives::segments::HistorySize;
-use ab_direct_io_file::AlignedPage;
+use ab_direct_io_file::OwnedPages;
 use ab_io_type::trivial_type::TrivialType;
 use parity_scale_codec::{Decode, Encode};
 use rayon::prelude::*;
@@ -41,15 +41,15 @@ pub const fn sector_record_metadata_size(pieces_in_sector: u16) -> usize {
 
 /// Size of the zero padding between record metadata and sector checksum.
 ///
-/// Padding makes [`sector_size()`] a multiple of [`AlignedPage::SIZE`].
+/// Padding makes [`sector_size()`] a multiple of [`OwnedPages::ALIGN`].
 #[inline]
 pub const fn sector_padding_size(pieces_in_sector: u16) -> usize {
     let unpadded_size = sector_record_chunks_size(pieces_in_sector)
         + sector_record_metadata_size(pieces_in_sector)
-        + SectorContentsMap::encoded_size(pieces_in_sector)
+        + SectorContentsMap::encoded_size(pieces_in_sector) as usize
         + Blake3Hash::SIZE;
 
-    unpadded_size.next_multiple_of(AlignedPage::SIZE) - unpadded_size
+    unpadded_size.next_multiple_of(OwnedPages::ALIGN as usize) - unpadded_size
 }
 
 /// Exact sector plot size (sector contents map, record chunks, record metadata, padding and
@@ -64,7 +64,7 @@ pub const fn sector_padding_size(pieces_in_sector: u16) -> usize {
 pub const fn sector_size(pieces_in_sector: u16) -> usize {
     sector_record_chunks_size(pieces_in_sector)
         + sector_record_metadata_size(pieces_in_sector)
-        + SectorContentsMap::encoded_size(pieces_in_sector)
+        + SectorContentsMap::encoded_size(pieces_in_sector) as usize
         + sector_padding_size(pieces_in_sector)
         + Blake3Hash::SIZE
 }
@@ -136,22 +136,28 @@ impl DerefMut for SectorMetadataChecksummed {
 }
 
 impl SectorMetadataChecksummed {
+    /// Size of checksummed sector metadata on disk in pages of [`OwnedPages::ALIGN`] bytes, see
+    /// [`Self::disk_size()`]
+    pub const DISK_PAGES: u32 = {
+        assert!(Self::disk_size() <= u32::MAX as usize);
+        (Self::disk_size() / OwnedPages::ALIGN as usize) as u32
+    };
+
     /// Size of checksummed sector metadata on disk.
     ///
-    /// Sector metadata is padded with zeroes to a multiple of [`AlignedPage::SIZE`], such that it
+    /// Sector metadata is padded with zeroes to a multiple of [`OwnedPages::ALIGN`], such that it
     /// can be written with direct I/O without read-modify-write, see [`Self::encode_for_disk()`].
     ///
     /// For sector plot size use [`sector_size()`].
     #[inline]
     pub const fn disk_size() -> usize {
-        Self::encoded_size().next_multiple_of(AlignedPage::SIZE)
+        Self::encoded_size().next_multiple_of(OwnedPages::ALIGN as usize)
     }
 
     /// Encode checksummed sector metadata for storing on disk, padded with zeroes to
     /// [`Self::disk_size()`]
-    pub fn encode_for_disk(&self) -> Box<[u8; Self::disk_size()]> {
-        // SAFETY: Bytes filled with zeroes are valid
-        let mut bytes = unsafe { Box::<[u8; Self::disk_size()]>::new_zeroed().assume_init() };
+    pub fn encode_for_disk(&self) -> OwnedPages {
+        let mut bytes = OwnedPages::zeroed(Self::DISK_PAGES * OwnedPages::ALIGN);
         self.encode_to(&mut bytes.as_mut_slice());
         bytes
     }
@@ -294,9 +300,9 @@ impl SectorContentsMap {
         bytes: &[u8],
         pieces_in_sector: u16,
     ) -> Result<Self, SectorContentsMapFromBytesError> {
-        if bytes.len() != Self::encoded_size(pieces_in_sector) {
+        if bytes.len() != Self::encoded_size(pieces_in_sector) as usize {
             return Err(SectorContentsMapFromBytesError::InvalidBytesLength {
-                expected: Self::encoded_size(pieces_in_sector),
+                expected: Self::encoded_size(pieces_in_sector) as usize,
                 actual: bytes.len(),
             });
         }
@@ -325,8 +331,15 @@ impl SectorContentsMap {
 
     /// Size of sector contents map when encoded and stored in the plot for specified number of
     /// pieces in sector
-    pub const fn encoded_size(pieces_in_sector: u16) -> usize {
-        size_of::<FoundProofs>() * pieces_in_sector as usize + Blake3Hash::SIZE
+    pub const fn encoded_size(pieces_in_sector: u16) -> u32 {
+        const {
+            assert!(
+                size_of::<FoundProofs>() * usize::from(u16::MAX) + Blake3Hash::SIZE
+                    <= u32::MAX as usize
+            );
+        }
+        // Lossless as checked above
+        size_of::<FoundProofs>() as u32 * u32::from(pieces_in_sector) + Blake3Hash::SIZE as u32
     }
 
     /// Encode internal contents into `output`, which doesn't need to be initialized.
@@ -336,9 +349,9 @@ impl SectorContentsMap {
         &self,
         output: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], SectorContentsMapEncodeIntoError> {
-        if output.len() != Self::encoded_size(self.record_chunks_used.len() as u16) {
+        if output.len() != Self::encoded_size(self.record_chunks_used.len() as u16) as usize {
             return Err(SectorContentsMapEncodeIntoError::InvalidBytesLength {
-                expected: Self::encoded_size(self.record_chunks_used.len() as u16),
+                expected: Self::encoded_size(self.record_chunks_used.len() as u16) as usize,
                 actual: output.len(),
             });
         }

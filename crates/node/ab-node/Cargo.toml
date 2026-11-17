@@ -14,7 +14,6 @@ include = [
 all-features = true
 
 [dependencies]
-ab-aligned-buffer = { workspace = true }
 ab-client-api = { workspace = true }
 ab-client-archiving = { workspace = true }
 ab-client-block-authoring = { workspace = true }

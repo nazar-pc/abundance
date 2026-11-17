@@ -19,8 +19,10 @@ include = [
 all-features = true
 
 [dependencies]
+ab-aligned-buffer = { workspace = true }
 fs4 = { workspace = true }
 parking_lot = { workspace = true }
+thiserror = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 libc = { workspace = true }
@@ -29,7 +31,6 @@ libc = { workspace = true }
 windows = { workspace = true }
 
 [dev-dependencies]
-chacha20 = { workspace = true, features = ["rng"] }
 tempfile = { workspace = true }
 
 [lints]

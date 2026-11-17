@@ -93,7 +93,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let plotted_sector_bytes =
             OwnedAlignedBuffer::from_bytes(&fs::read(&persisted_sector).unwrap());
         let sector_contents_map = SectorContentsMap::from_bytes(
-            &plotted_sector_bytes[..SectorContentsMap::encoded_size(pieces_in_sector)],
+            &plotted_sector_bytes[..SectorContentsMap::encoded_size(pieces_in_sector) as usize],
             pieces_in_sector,
         )
         .unwrap();

@@ -1,11 +1,11 @@
 //! Piece reader for single disk farm
 
 use crate::farm::{FarmError, PieceReader};
-use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceOffset};
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::solutions::ShardCommitmentHash;
+use ab_direct_io_file::DirectIoFile;
 use ab_erasure_coding::ErasureCoding;
 use ab_farmer_components::sector::{SectorMetadataChecksummed, sector_size};
 use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
@@ -56,7 +56,7 @@ impl DiskPieceReader {
         public_key_hash: Blake3Hash,
         shard_commitments_roots_cache: ShardCommitmentsRootsCache,
         pieces_in_sector: u16,
-        plot_file: StdArc<DirectIoFileWrapper>,
+        plot_file: StdArc<DirectIoFile>,
         sectors_metadata: StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
         erasure_coding: ErasureCoding,
         sectors_being_modified: Arc<AsyncRwLock<HashSet<SectorIndex>>>,

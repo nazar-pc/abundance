@@ -5,15 +5,12 @@
 #[cfg(test)]
 mod tests;
 
+use crate::cache_element;
+use crate::cache_element::{ChecksumMismatch, ELEMENT_PAGES, ELEMENT_SIZE};
 use crate::farm::{FarmError, MaybePieceStoredResult, PlotCache};
-use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::utils::AsyncJoinOnDrop;
-use ab_aligned_buffer::OwnedAlignedBuffer;
-use ab_aligned_buffer::alignment::Align4096;
-use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_direct_io_file::AlignedPage;
-use ab_farmer_components::file_ext::FileExt;
+use ab_direct_io_file::{DirectIoFile, IoBufError, OwnedPages};
 use ab_farmer_components::sector::SectorMetadataChecksummed;
 use ab_networking::libp2p::kad::RecordKey;
 use ab_networking::utils::multihash::ToMultihash;
@@ -25,13 +22,8 @@ use std::sync::{Arc as StdArc, Weak};
 use std::{io, mem};
 use thiserror::Error;
 use tokio::task;
-use tracing::{debug, info, trace, warn};
+use tracing::{info, trace, warn};
 use triomphe::Arc;
-
-/// Size of a cache element: piece index, piece and checksum, followed by zero padding to whole
-/// disk pages, such that elements can be written without read-modify-write
-const ELEMENT_SIZE: usize =
-    (PieceIndex::SIZE + Piece::SIZE + Blake3Hash::SIZE).next_multiple_of(AlignedPage::SIZE);
 
 /// Disk plot cache open error
 #[derive(Debug, Error)]
@@ -47,6 +39,13 @@ pub enum DiskPlotCacheError {
     ChecksumMismatch,
 }
 
+impl<B> From<IoBufError<B>> for DiskPlotCacheError {
+    #[inline]
+    fn from(error: IoBufError<B>) -> Self {
+        Self::Io(error.into())
+    }
+}
+
 #[derive(Debug)]
 struct CachedPieces {
     /// Map of piece index into offset
@@ -57,7 +56,7 @@ struct CachedPieces {
 /// Additional piece cache that exploit part of the plot that does not contain sectors yet
 #[derive(Debug, Clone)]
 pub struct DiskPlotCache {
-    file: Weak<DirectIoFileWrapper>,
+    file: Weak<DirectIoFile>,
     sectors_metadata: Weak<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
     cached_pieces: Arc<RwLock<CachedPieces>>,
     target_sector_count: u16,
@@ -90,7 +89,7 @@ impl PlotCache for DiskPlotCache {
 
 impl DiskPlotCache {
     pub(crate) fn new(
-        file: &StdArc<DirectIoFileWrapper>,
+        file: &StdArc<DirectIoFile>,
         sectors_metadata: &StdArc<AsyncRwLock<Vec<SectorMetadataChecksummed>>>,
         target_sector_count: u16,
         sector_size: u64,
@@ -98,7 +97,7 @@ impl DiskPlotCache {
         info!("Checking plot cache contents, this can take a while");
         let cached_pieces = {
             let sectors_metadata = sectors_metadata.read_blocking();
-            let mut element = vec![0; ELEMENT_SIZE];
+            let mut element = OwnedPages::EMPTY;
             let mut map = HashMap::new();
             let mut next_offset = None;
 
@@ -106,8 +105,8 @@ impl DiskPlotCache {
             let plotted_size = sector_size * sectors_metadata.len() as u64;
 
             // Step over all free potential offsets for pieces that could have been cached
-            let from_offset = (plotted_size / u64::from(Self::element_size())) as u32;
-            let to_offset = (file_size / u64::from(Self::element_size())) as u32;
+            let from_offset = (plotted_size / u64::from(ELEMENT_SIZE)) as u32;
+            let to_offset = (file_size / u64::from(ELEMENT_SIZE)) as u32;
             // TODO: Parallelize or read in larger batches
             for offset in (from_offset..to_offset).rev() {
                 match Self::read_piece_internal(file, offset, &mut element) {
@@ -144,11 +143,6 @@ impl DiskPlotCache {
         }
     }
 
-    /// Size of a single plot cache element
-    pub(crate) const fn element_size() -> u32 {
-        ELEMENT_SIZE as u32
-    }
-
     /// Check if piece is potentially stored in this cache (not guaranteed to be because it might be
     /// overridden with sector any time)
     pub(crate) fn is_piece_maybe_stored(&self, key: &RecordKey) -> MaybePieceStoredResult {
@@ -170,7 +164,7 @@ impl DiskPlotCache {
             return MaybePieceStoredResult::No;
         };
 
-        let element_offset = u64::from(offset) * u64::from(Self::element_size());
+        let element_offset = u64::from(offset) * u64::from(ELEMENT_SIZE);
         // Blocking read is fine because writes in farmer are very rare and very brief
         let plotted_bytes = self.sector_size * sectors_metadata.read_blocking().len() as u64;
 
@@ -215,7 +209,7 @@ impl DiskPlotCache {
             return Ok(false);
         };
 
-        let element_offset = u64::from(offset) * u64::from(Self::element_size());
+        let element_offset = u64::from(offset) * u64::from(ELEMENT_SIZE);
         let sectors_metadata = sectors_metadata.read().await;
         let plotted_sectors_count = sectors_metadata.len() as u16;
         let plotted_bytes = self.sector_size * u64::from(plotted_sectors_count);
@@ -250,26 +244,9 @@ impl DiskPlotCache {
             let piece = piece.clone();
 
             move || {
-                // Combine all data with zero padding here, such that the whole element is written
-                // at once, the element is aligned to the page size for direct I/O
-                let mut element = OwnedAlignedBuffer::<Align4096>::zeroed(ELEMENT_SIZE as u32);
-                element.truncate(0);
-                element
-                    .append(&piece_index.to_bytes())
-                    .expect("Element has capacity for piece index; qed");
-                element
-                    .append(piece.as_ref())
-                    .expect("Element has capacity for piece; qed");
-                let checksum = blake3::hash(element.as_slice());
-                element
-                    .append(checksum.as_bytes())
-                    .expect("Element has capacity for checksum; qed");
-                // SAFETY: The allocation is zeroed, so bytes after the checksum are zero padding
-                unsafe {
-                    element.set_len(ELEMENT_SIZE as u32);
-                }
-
-                file.write_all_at(&element, element_offset)
+                // The whole element is written at once
+                let element = cache_element::encode(piece_index, &piece);
+                file.write_at(element, element_offset)
             }
         });
 
@@ -295,15 +272,10 @@ impl DiskPlotCache {
         let file = self.file.upgrade()?;
 
         let read_fn = move || {
-            let mut element = OwnedAlignedBuffer::<Align4096>::zeroed(ELEMENT_SIZE as u32);
-            if let Ok(Some(_piece_index)) =
-                Self::read_piece_internal(&file, offset, element.as_mut_slice())
-            {
-                let piece = element
-                    .into_shared()
-                    .get_slice(PieceIndex::SIZE as u32..(PieceIndex::SIZE + Piece::SIZE) as u32)
-                    .and_then(|piece| Piece::try_from(piece).ok())
-                    .expect("Piece is within the element and has correct length; qed");
+            let mut element = OwnedPages::EMPTY;
+            if let Ok(Some(_piece_index)) = Self::read_piece_internal(&file, offset, &mut element) {
+                let piece = cache_element::into_piece(element)
+                    .expect("Successfully read element has the whole size; qed");
                 Some(piece)
             } else {
                 None
@@ -343,44 +315,23 @@ impl DiskPlotCache {
         maybe_piece
     }
 
+    /// Read element at `offset` into `element`, replacing its contents, and verify its checksum
     fn read_piece_internal(
-        file: &DirectIoFileWrapper,
+        file: &DirectIoFile,
         offset: u32,
-        element: &mut [u8],
+        element: &mut OwnedPages,
     ) -> Result<Option<PieceIndex>, DiskPlotCacheError> {
-        file.read_exact_at(element, u64::from(offset) * u64::from(Self::element_size()))?;
+        *element = file.read_pages_at(
+            mem::take(element),
+            ELEMENT_PAGES,
+            u64::from(offset) * u64::from(ELEMENT_PAGES),
+        )?;
 
-        let (piece_index_bytes, remaining_bytes) = element.split_at(PieceIndex::SIZE);
-        let (piece_bytes, remaining_bytes) = remaining_bytes.split_at(Piece::SIZE);
-        // The rest of the element after the checksum is zero padding
-        let (expected_checksum, _padding) = remaining_bytes.split_at(Blake3Hash::SIZE);
-
-        // Verify checksum
-        let actual_checksum = {
-            let mut hasher = blake3::Hasher::new();
-            hasher.update(piece_index_bytes);
-            hasher.update(piece_bytes);
-            *hasher.finalize().as_bytes()
-        };
-        if actual_checksum != expected_checksum {
-            if element.iter().all(|&byte| byte == 0) {
-                return Ok(None);
-            }
-
-            debug!(
-                actual_checksum = %hex::encode(actual_checksum),
-                expected_checksum = %hex::encode(expected_checksum),
-                "Hash doesn't match, corrupted or overridden piece in cache"
-            );
-
-            return Err(DiskPlotCacheError::ChecksumMismatch);
-        }
-
-        let piece_index = PieceIndex::from_bytes(
-            piece_index_bytes
-                .try_into()
-                .expect("Statically known to have correct size; qed"),
-        );
-        Ok(Some(piece_index))
+        cache_element::verify_checksum(
+            element
+                .as_array()
+                .expect("Exactly one element was read; qed"),
+        )
+        .map_err(|ChecksumMismatch| DiskPlotCacheError::ChecksumMismatch)
     }
 }

@@ -368,11 +368,12 @@ dependencies = [
 name = "ab-direct-io-file"
 version = "0.2.0"
 dependencies = [
- "chacha20 0.10.2",
+ "ab-aligned-buffer",
  "fs4",
  "libc",
  "parking_lot 0.13.0",
  "tempfile",
+ "thiserror 2.0.21",
  "windows",
 ]
 
@@ -546,6 +547,7 @@ dependencies = [
  "rayon",
  "schnellru",
  "serde",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
@@ -641,7 +643,6 @@ dependencies = [
 name = "ab-node"
 version = "0.0.1"
 dependencies = [
- "ab-aligned-buffer",
  "ab-cli-utils",
  "ab-client-api",
  "ab-client-archiving",

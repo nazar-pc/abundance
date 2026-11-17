@@ -12,16 +12,22 @@ use crate::{ReadAt, ReadAtAsync, ReadAtSync};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pieces::{ExtendedRecord, Piece, PieceOffset, Record, RecordChunk};
 use ab_core_primitives::sectors::SectorId;
+use ab_direct_io_file::{IoBufError, OwnedPages};
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, ShardsPresent};
 use ab_proof_of_space::{PosProofs, Table, TableGenerator};
-use futures::StreamExt;
-use futures::stream::FuturesUnordered;
+use futures::{TryStreamExt, stream};
 use parity_scale_codec::Decode;
 use rayon::prelude::*;
-use std::io;
 use std::simd::Simd;
+use std::{io, mem};
 use thiserror::Error;
 use tracing::debug;
+
+/// Maximum number of record chunks that are read concurrently with [`ReadAtAsync`].
+///
+/// Enough concurrent reads to hide the latency of individual reads, while bounding the number of
+/// in-flight requests and buffers allocated for them.
+const MAX_CONCURRENT_ASYNC_CHUNK_READS: usize = 16;
 
 /// Errors that happen during reading
 #[derive(Debug, Error)]
@@ -74,6 +80,13 @@ pub enum ReadingError {
     /// Checksum mismatch
     #[error("Checksum mismatch")]
     ChecksumMismatch,
+}
+
+impl<B> From<IoBufError<B>> for ReadingError {
+    #[inline]
+    fn from(error: IoBufError<B>) -> Self {
+        Self::Io(error.into())
+    }
 }
 
 impl ReadingError {
@@ -166,71 +179,76 @@ where
         }
     }
 
-    let sector_contents_map_size = SectorContentsMap::encoded_size(pieces_in_sector) as u64;
+    let sector_contents_map_size = u64::from(SectorContentsMap::encoded_size(pieces_in_sector));
     match sector {
         ReadAt::Sync(sector) => {
             read_chunks_inputs
                 .into_par_iter()
                 .zip(&pos_proofs.proofs)
-                .try_for_each(|((_index, output_chunk, chunk_location), pos_proof)| {
-                    let mut record_chunk = [0; RecordChunk::SIZE];
-                    sector
-                        .read_at(
-                            &mut record_chunk,
-                            sector_contents_map_size + chunk_location * RecordChunk::SIZE as u64,
-                        )
-                        .map_err(|error| ReadingError::FailedToReadChunk {
-                            chunk_location,
-                            error,
-                        })?;
+                .try_for_each_init(
+                    || OwnedPages::EMPTY,
+                    |buffer, ((_index, output_chunk, chunk_location), pos_proof)| {
+                        let record_chunk = sector
+                            .read_at(
+                                mem::take(buffer),
+                                RecordChunk::SIZE as u32,
+                                sector_contents_map_size
+                                    + chunk_location * RecordChunk::SIZE as u64,
+                            )
+                            .map_err(|error| ReadingError::FailedToReadChunk {
+                                chunk_location,
+                                error: error.into(),
+                            })?;
 
-                    // TODO: Use SIMD for hashing
-                    record_chunk =
-                        Simd::to_array(Simd::from(record_chunk) ^ Simd::from(*pos_proof.hash()));
-
-                    *output_chunk = RecordChunk::from(record_chunk);
-
-                    Ok::<_, ReadingError>(())
-                })?;
-        }
-        ReadAt::Async(sector) => {
-            let processing_chunks = read_chunks_inputs
-                .into_iter()
-                .zip(&pos_proofs.proofs)
-                .map(
-                    |((_index, output_chunk, chunk_location), pos_proof)| async move {
-                        let mut record_chunk = [0; RecordChunk::SIZE];
-                        record_chunk.copy_from_slice(
-                            &sector
-                                .read_at(
-                                    vec![0; RecordChunk::SIZE],
-                                    sector_contents_map_size
-                                        + chunk_location * RecordChunk::SIZE as u64,
-                                )
-                                .await
-                                .map_err(|error| ReadingError::FailedToReadChunk {
-                                    chunk_location,
-                                    error,
-                                })?,
-                        );
-
+                        let record_chunk_bytes =
+                            <[u8; RecordChunk::SIZE]>::try_from(record_chunk.as_slice())
+                                .expect("Exactly one record chunk was read; qed");
                         // TODO: Use SIMD for hashing
-                        record_chunk = Simd::to_array(
-                            Simd::from(record_chunk) ^ Simd::from(*pos_proof.hash()),
-                        );
-
-                        *output_chunk = RecordChunk::from(record_chunk);
+                        *output_chunk = RecordChunk::from(Simd::to_array(
+                            Simd::from(record_chunk_bytes) ^ Simd::from(*pos_proof.hash()),
+                        ));
+                        *buffer = record_chunk.into_empty();
 
                         Ok::<_, ReadingError>(())
                     },
-                )
-                .collect::<FuturesUnordered<_>>()
-                .filter_map(|result| async move { result.err() });
+                )?;
+        }
+        ReadAt::Async(sector) => {
+            // Each read has its own buffer, so the number of concurrent reads is limited to keep
+            // memory usage low
+            stream::iter(
+                read_chunks_inputs
+                    .into_iter()
+                    .zip(&pos_proofs.proofs)
+                    .map(Ok::<_, ReadingError>),
+            )
+            .try_for_each_concurrent(
+                MAX_CONCURRENT_ASYNC_CHUNK_READS,
+                |((_index, output_chunk, chunk_location), pos_proof)| async move {
+                    let record_chunk = sector
+                        .read_at(
+                            OwnedPages::EMPTY,
+                            RecordChunk::SIZE as u32,
+                            sector_contents_map_size + chunk_location * RecordChunk::SIZE as u64,
+                        )
+                        .await
+                        .map_err(|error| ReadingError::FailedToReadChunk {
+                            chunk_location,
+                            error: error.into(),
+                        })?;
 
-            std::pin::pin!(processing_chunks)
-                .next()
-                .await
-                .map_or(Ok(()), Err)?;
+                    let record_chunk_bytes =
+                        <[u8; RecordChunk::SIZE]>::try_from(record_chunk.as_slice())
+                            .expect("Exactly one record chunk was read; qed");
+                    // TODO: Use SIMD for hashing
+                    *output_chunk = RecordChunk::from(Simd::to_array(
+                        Simd::from(record_chunk_bytes) ^ Simd::from(*pos_proof.hash()),
+                    ));
+
+                    Ok(())
+                },
+            )
+            .await?;
         }
     }
 
@@ -272,24 +290,30 @@ where
     S: ReadAtSync,
     A: ReadAtAsync,
 {
-    let sector_metadata_start = SectorContentsMap::encoded_size(pieces_in_sector) as u64
+    let sector_metadata_start = u64::from(SectorContentsMap::encoded_size(pieces_in_sector))
         + sector_record_chunks_size(pieces_in_sector) as u64;
     // Move to the beginning of the root and proof we care about
     let record_metadata_offset =
         sector_metadata_start + RecordMetadata::encoded_size() as u64 * u64::from(piece_offset);
 
-    let mut record_metadata_bytes = vec![0; RecordMetadata::encoded_size()];
-    match sector {
-        ReadAt::Sync(sector) => {
-            sector.read_at(&mut record_metadata_bytes, record_metadata_offset)?;
-        }
+    let record_metadata_size = RecordMetadata::encoded_size() as u32;
+    let record_metadata_bytes = match sector {
+        ReadAt::Sync(sector) => sector.read_at(
+            OwnedPages::EMPTY,
+            record_metadata_size,
+            record_metadata_offset,
+        ),
         ReadAt::Async(sector) => {
-            record_metadata_bytes = sector
-                .read_at(record_metadata_bytes, record_metadata_offset)
-                .await?;
+            sector
+                .read_at(
+                    OwnedPages::EMPTY,
+                    record_metadata_size,
+                    record_metadata_offset,
+                )
+                .await
         }
-    }
-    let record_metadata = RecordMetadata::decode(&mut record_metadata_bytes.as_ref())
+    }?;
+    let record_metadata = RecordMetadata::decode(&mut record_metadata_bytes.as_slice())
         .expect("Length is correct, contents doesn't have specific structure to it; qed");
 
     Ok(record_metadata)
@@ -315,16 +339,15 @@ where
     let pieces_in_sector = sector_metadata.pieces_in_sector;
 
     let sector_contents_map = {
-        let mut sector_contents_map_bytes =
-            vec![0; SectorContentsMap::encoded_size(pieces_in_sector)];
-        match sector {
-            ReadAt::Sync(sector) => {
-                sector.read_at(&mut sector_contents_map_bytes, 0)?;
-            }
+        let sector_contents_map_size = SectorContentsMap::encoded_size(pieces_in_sector);
+        let sector_contents_map_bytes = match sector {
+            ReadAt::Sync(sector) => sector.read_at(OwnedPages::EMPTY, sector_contents_map_size, 0),
             ReadAt::Async(sector) => {
-                sector_contents_map_bytes = sector.read_at(sector_contents_map_bytes, 0).await?;
+                sector
+                    .read_at(OwnedPages::EMPTY, sector_contents_map_size, 0)
+                    .await
             }
-        }
+        }?;
 
         SectorContentsMap::from_bytes(&sector_contents_map_bytes, pieces_in_sector)?
     };

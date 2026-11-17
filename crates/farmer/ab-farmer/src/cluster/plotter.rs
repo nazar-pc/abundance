@@ -17,7 +17,7 @@ use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_core_primitives::ed25519::Ed25519PublicKey;
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::solutions::ShardCommitmentHash;
-use ab_direct_io_file::AlignedPage;
+use ab_direct_io_file::OwnedPages;
 use ab_farmer_components::FarmerProtocolInfo;
 use ab_farmer_components::plotting::PlottedSector;
 use ab_farmer_components::sector::sector_size;
@@ -86,7 +86,8 @@ impl GenericRequest for ClusterPlotterFreeInstanceRequest {
 /// Chunk of a plotted sector, whose contents are aligned to the page size.
 ///
 /// Encoded the same way as bytes with SCALE codec, decoding copies the contents into a new buffer
-/// that is aligned to the page size.
+/// that is aligned to the page size. Decoding rejects lengths that are not a multiple of the page
+/// size, such that chunks can be written to disk without read-modify-write.
 #[derive(Debug)]
 struct SectorChunk(SharedAlignedBuffer<Align4096>);
 
@@ -113,6 +114,10 @@ impl Decode for SectorChunk {
     {
         let Compact(length) = Compact::<u32>::decode(input)?;
 
+        // Honest plotters only send whole pages, see `sector_chunk_size()`
+        if !length.is_multiple_of(OwnedPages::ALIGN) {
+            return Err("Sector chunk length is not a multiple of the page size".into());
+        }
         // The length comes from a remote plotter, check it before allocating memory
         if let Some(remaining) = input.remaining_len()?
             && remaining < length as usize
@@ -179,9 +184,9 @@ impl GenericStreamRequest for ClusterPlotterPlotSectorRequest {
 /// It is a multiple of disk page size, such that farmer can write chunks to disk without
 /// read-modify-write.
 fn sector_chunk_size(nats_client: &NatsClient) -> u32 {
-    let sector_chunk_size =
-        nats_client.approximate_max_message_size() / AlignedPage::SIZE * AlignedPage::SIZE;
-    u32::try_from(sector_chunk_size).expect("NATS messages are much smaller than 4 GiB; qed")
+    let max_message_size = u32::try_from(nats_client.approximate_max_message_size())
+        .expect("NATS messages are much smaller than 4 GiB; qed");
+    max_message_size / OwnedPages::ALIGN * OwnedPages::ALIGN
 }
 
 #[derive(Default, Debug)]
