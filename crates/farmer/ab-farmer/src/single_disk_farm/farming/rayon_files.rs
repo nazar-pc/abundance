@@ -10,7 +10,10 @@ use std::path::Path;
 use std::{io, iter};
 
 /// Wrapper data structure for multiple files to be used with [`rayon`] thread pool, where the same
-/// file is opened multiple times, once for each thread for faster concurrent reads
+/// file is opened multiple times, once for each thread for faster concurrent reads.
+///
+/// The benefit of multiple handles was measured (it is especially large on Windows), don't replace
+/// them with a single shared file.
 #[derive(Debug)]
 pub struct RayonFiles<File> {
     files: Vec<File>,

@@ -10,6 +10,9 @@
 //! [`Alignment`]). Allocations can be aligned more strictly than that, for example, to 4096 bytes
 //! for direct I/O.
 //!
+//! A buffer handle is 16 bytes on 64-bit platforms (pointer, offset and length, while capacity and
+//! the reference counter are stored in the allocation), so it is cheap to pass by value.
+//!
 //! Does not require a standard library (`no_std`) but does require allocator and atomics.
 
 #![no_std]
