@@ -1,21 +1,20 @@
 use crate::farm::MaybePieceStoredResult;
-use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::single_disk_farm::plot_cache::DiskPlotCache;
 use ab_core_primitives::pieces::{Piece, PieceIndex, Record};
 use ab_core_primitives::sectors::SectorIndex;
 use ab_core_primitives::segments::HistorySize;
-use ab_direct_io_file::AlignedPage;
-use ab_farmer_components::file_ext::FileExt;
+use ab_direct_io_file::{DirectIoFile, OwnedPages};
 use ab_farmer_components::sector::{SectorMetadata, SectorMetadataChecksummed};
 use ab_networking::libp2p::kad::RecordKey;
 use ab_networking::utils::multihash::ToMultihash;
 use rand::prelude::*;
 use std::assert_matches;
+use std::fs::OpenOptions;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use tempfile::tempdir;
 
-const FAKE_SECTOR_SIZE: usize = 2 * 1024 * 1024;
+const FAKE_SECTOR_SIZE: u32 = 2 * 1024 * 1024;
 const TARGET_SECTOR_COUNT: u16 = 5;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -28,13 +27,18 @@ async fn basic() {
     });
 
     let tempdir = tempdir().unwrap();
-    let file = DirectIoFileWrapper::open(tempdir.path().join("plot.bin")).unwrap();
+    let mut open_options = OpenOptions::new();
+    open_options
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false);
+    let file = DirectIoFile::open(open_options, tempdir.path().join("plot.bin")).unwrap();
 
     // Align plot file size for disk sector size
-    file.preallocate(
-        (FAKE_SECTOR_SIZE as u64 * u64::from(TARGET_SECTOR_COUNT))
-            .div_ceil(AlignedPage::SIZE as u64)
-            * AlignedPage::SIZE as u64,
+    file.allocate(
+        (u64::from(FAKE_SECTOR_SIZE) * u64::from(TARGET_SECTOR_COUNT))
+            .next_multiple_of(u64::from(OwnedPages::ALIGN)),
     )
     .unwrap();
 
@@ -68,7 +72,7 @@ async fn basic() {
         &file,
         &sectors_metadata,
         TARGET_SECTOR_COUNT,
-        FAKE_SECTOR_SIZE as u64,
+        u64::from(FAKE_SECTOR_SIZE),
     );
 
     // Initially empty
@@ -100,7 +104,7 @@ async fn basic() {
         &file,
         &sectors_metadata,
         TARGET_SECTOR_COUNT,
-        FAKE_SECTOR_SIZE as u64,
+        u64::from(FAKE_SECTOR_SIZE),
     );
 
     // Successfully stores piece if not all sectors are plotted
@@ -151,11 +155,8 @@ async fn basic() {
 
     // Write almost all sectors even without updating metadata, this will result in internal piece
     // read error due to checksum mismatch and eviction of the piece from cache
-    file.write_all_at(
-        &vec![0; usize::from(TARGET_SECTOR_COUNT - 1) * FAKE_SECTOR_SIZE],
-        0,
-    )
-    .unwrap();
+    let zeroes = OwnedPages::zeroed(u32::from(TARGET_SECTOR_COUNT - 1) * FAKE_SECTOR_SIZE);
+    file.write_at(zeroes, 0).unwrap();
     assert_matches!(
         disk_plot_cache.is_piece_maybe_stored(&record_key_2),
         MaybePieceStoredResult::Yes

@@ -3,8 +3,8 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::shard::NumShards;
 use ab_core_primitives::solutions::{ShardMembershipEntropy, SolutionRange};
+use ab_direct_io_file::DirectIoFile;
 use ab_erasure_coding::ErasureCoding;
-use ab_farmer::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use ab_farmer::single_disk_farm::farming::rayon_files::RayonFiles;
 use ab_farmer::single_disk_farm::farming::{PlotAudit, PlotAuditOptions};
 use ab_farmer::single_disk_farm::{SingleDiskFarm, SingleDiskFarmInfo, SingleDiskFarmSummary};
@@ -210,7 +210,13 @@ where
         }
         {
             let plot = RayonFiles::open_with(disk_farm.join(SingleDiskFarm::PLOT_FILE), |path| {
-                DirectIoFileWrapper::open(path)
+                let mut open_options = OpenOptions::new();
+                open_options
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .truncate(false);
+                DirectIoFile::open(open_options, path)
             })
             .map_err(|error| anyhow::anyhow!("Failed to open plot: {error}"))?;
             let plot_audit = PlotAudit::new(&plot);
@@ -396,7 +402,13 @@ where
         }
         {
             let plot = RayonFiles::open_with(disk_farm.join(SingleDiskFarm::PLOT_FILE), |path| {
-                DirectIoFileWrapper::open(path)
+                let mut open_options = OpenOptions::new();
+                open_options
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .truncate(false);
+                DirectIoFile::open(open_options, path)
             })
             .map_err(|error| anyhow::anyhow!("Failed to open plot: {error}"))?;
             let plot_audit = PlotAudit::new(&plot);

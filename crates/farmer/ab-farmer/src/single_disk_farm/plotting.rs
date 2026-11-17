@@ -1,7 +1,6 @@
 use crate::farm::{SectorExpirationDetails, SectorPlottingDetails, SectorUpdate};
 use crate::node_client::NodeClient;
 use crate::plotter::{Plotter, SectorPlottingProgress};
-use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::single_disk_farm::metrics::{SectorState, SingleDiskFarmMetrics};
 use crate::single_disk_farm::{
     BackgroundTaskError, Handlers, PlotMetadataHeader, RESERVED_PLOT_METADATA,
@@ -12,7 +11,6 @@ use ab_core_primitives::pieces::PieceOffset;
 use ab_core_primitives::sectors::{SectorId, SectorIndex};
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_direct_io_file::{DirectIoFile, IoBufError, OwnedPages};
-use ab_farmer_components::file_ext::FileExt;
 use ab_farmer_components::plotting::PlottedSector;
 use ab_farmer_components::sector::SectorMetadataChecksummed;
 use ab_farmer_components::shard_commitment::ShardCommitmentsRootsCache;
@@ -99,7 +97,7 @@ pub(super) struct SectorPlottingOptions<'a, NC> {
     pub(super) node_client: &'a NC,
     pub(super) pieces_in_sector: u16,
     pub(super) sector_size: usize,
-    pub(super) plot_file: StdArc<DirectIoFileWrapper>,
+    pub(super) plot_file: StdArc<DirectIoFile>,
     pub(super) metadata_file: Arc<DirectIoFile>,
     pub(super) handlers: &'a Handlers,
     pub(super) global_mutex: &'a AsyncMutex<()>,
@@ -564,7 +562,7 @@ where
 async fn plot_single_sector_internal(
     sector_index: SectorIndex,
     sector_size: usize,
-    plot_file: &StdArc<DirectIoFileWrapper>,
+    plot_file: &StdArc<DirectIoFile>,
     metadata_file: &Arc<DirectIoFile>,
     handlers: &Handlers,
     global_mutex: &AsyncMutex<()>,
@@ -686,7 +684,7 @@ async fn plot_single_sector_internal(
                 let write_fut = task::spawn_blocking({
                     let plot_file = StdArc::clone(plot_file);
 
-                    move || plot_file.write_all_at(&sector_chunk, sector_write_offset)
+                    move || plot_file.write_at(sector_chunk, sector_write_offset)
                 });
                 write_fut.await.map_err(|error| {
                     PlottingError::LowLevel(format!("Failed to spawn blocking tokio task: {error}"))

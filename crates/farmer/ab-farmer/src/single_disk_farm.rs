@@ -5,7 +5,6 @@
 //! notifications, producing solutions and sealing blocks.
 
 mod block_sealing;
-pub mod direct_io_file_wrapper;
 pub mod farming;
 pub mod identity;
 mod metrics;
@@ -25,7 +24,6 @@ use crate::farm::{
 use crate::node_client::NodeClient;
 use crate::plotter::Plotter;
 use crate::single_disk_farm::block_sealing::block_sealing;
-use crate::single_disk_farm::direct_io_file_wrapper::DirectIoFileWrapper;
 use crate::single_disk_farm::farming::rayon_files::RayonFiles;
 use crate::single_disk_farm::farming::{
     FarmingOptions, PlotAudit, farming, slot_notification_forwarder,
@@ -777,7 +775,7 @@ struct SingleDiskFarmInit {
     identity: Identity,
     single_disk_farm_info: SingleDiskFarmInfo,
     single_disk_farm_info_lock: Option<SingleDiskFarmInfoLock>,
-    plot_file: StdArc<DirectIoFileWrapper>,
+    plot_file: StdArc<DirectIoFile>,
     metadata_file: DirectIoFile,
     metadata_header: PlotMetadataHeader,
     target_sector_count: u16,
@@ -1010,7 +1008,13 @@ impl SingleDiskFarm {
             farming_thread_pool
                 .install(move || {
                     RayonFiles::open_with(directory.join(Self::PLOT_FILE), |path| {
-                        DirectIoFileWrapper::open(path)
+                        let mut open_options = OpenOptions::new();
+                        open_options
+                            .read(true)
+                            .write(true)
+                            .create(true)
+                            .truncate(false);
+                        DirectIoFile::open(open_options, path)
                     })
                 })
                 .map(|farming_plot| (farming_plot, farming_thread_pool))
@@ -1409,7 +1413,7 @@ impl SingleDiskFarm {
             .write(true)
             .create(true)
             .truncate(false);
-        let metadata_file = DirectIoFile::open(open_options, &metadata_file_path)?;
+        let metadata_file = DirectIoFile::open(open_options.clone(), &metadata_file_path)?;
 
         let metadata_size = metadata_file.len()?;
         let expected_metadata_size = allocated_space_distribution.metadata_file_size;
@@ -1512,13 +1516,13 @@ impl SingleDiskFarm {
             StdArc::new(AsyncRwLock::new(sectors_metadata))
         };
 
-        let plot_file = DirectIoFileWrapper::open(directory.join(Self::PLOT_FILE))?;
+        let plot_file = DirectIoFile::open(open_options, directory.join(Self::PLOT_FILE))?;
 
-        if plot_file.size()? != allocated_space_distribution.plot_file_size {
+        if plot_file.len()? != allocated_space_distribution.plot_file_size {
             // Allocating the whole file (`set_len` below can create a sparse file, which will cause
             // writes to fail later)
             plot_file
-                .preallocate(allocated_space_distribution.plot_file_size)
+                .allocate(allocated_space_distribution.plot_file_size)
                 .map_err(SingleDiskFarmError::CantPreallocatePlotFile)?;
             // Truncating file (if necessary)
             plot_file.set_len(allocated_space_distribution.plot_file_size)?;
