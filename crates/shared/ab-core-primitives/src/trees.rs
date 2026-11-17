@@ -4,7 +4,6 @@
 //! as a node of another tree. Trees with a number of leaves that isn't known at compile time also
 //! commit to it.
 
-mod alias;
 mod hashers;
 #[cfg(test)]
 mod tests;
@@ -17,7 +16,7 @@ use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::blake3::Blake3MerkleHasher;
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use ab_merkle_tree::sparse::SparseMerkleTree;
-use alias::UnbalancedMerkleTreeAlias;
+use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use array_reshape::FlattenEach;
 use hashers::{Blake3SizedMerkleHasher, Blake3StaticMerkleHasher};
 
@@ -98,7 +97,7 @@ const {
 const ADDRESS_BITS: u8 = Address::SIZE as u8 * u8::BITS as u8;
 
 /// Segment roots of own segments of a shard
-pub type SegmentRootsMerkleTree = <SegmentRootsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+pub type SegmentRootsMerkleTree = UnbalancedMerkleTree<SegmentRootsMerkleHasher>;
 /// Own segments of a shard
 pub type OwnSegmentsMerkleTree<'a> = BalancedMerkleTree<'a, 2, OwnSegmentsMerkleHasher>;
 /// Own segments of a leaf shard
@@ -106,35 +105,30 @@ pub type ShardOwnSegmentsMerkleTree<'a> = BalancedMerkleTree<'a, 2, ShardOwnSegm
 /// Leaf shard block body
 pub type LeafShardBodyMerkleTree<'a> = BalancedMerkleTree<'a, 2, LeafShardBodyMerkleHasher>;
 /// Transactions of a leaf shard block
-pub type TransactionsMerkleTree = <TransactionsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+pub type TransactionsMerkleTree = UnbalancedMerkleTree<TransactionsMerkleHasher>;
 /// Intermediate shard block body
-pub type IntermediateShardBodyMerkleTree =
-    <IntermediateShardBodyMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+pub type IntermediateShardBodyMerkleTree = UnbalancedMerkleTree<IntermediateShardBodyMerkleHasher>;
 /// Own segments of child leaf shard blocks of an intermediate shard block
-pub type LeafShardsSegmentsMerkleTree =
-    <LeafShardsSegmentsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+pub type LeafShardsSegmentsMerkleTree = UnbalancedMerkleTree<LeafShardsSegmentsMerkleHasher>;
 /// Child leaf shard block roots of an intermediate shard block
-pub type ChildLeafShardBlocksMerkleTree =
-    <ChildLeafShardBlocksMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+pub type ChildLeafShardBlocksMerkleTree = UnbalancedMerkleTree<ChildLeafShardBlocksMerkleHasher>;
 /// Child intermediate shard block roots of a beacon chain block
 pub type ChildIntermediateShardBlocksMerkleTree =
-    <ChildIntermediateShardBlocksMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+    UnbalancedMerkleTree<ChildIntermediateShardBlocksMerkleHasher>;
 /// Beacon chain block body
 pub type BeaconChainBodyMerkleTree<'a> = BalancedMerkleTree<'a, 4, BeaconChainBodyMerkleHasher>;
 /// Segments of child intermediate shard blocks of a beacon chain block
 pub type IntermediateShardsSegmentsMerkleTree =
-    <IntermediateShardsSegmentsMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+    UnbalancedMerkleTree<IntermediateShardsSegmentsMerkleHasher>;
 /// Beacon chain block header fields, its root is the block root
-pub type BeaconChainHeaderMerkleTree =
-    <BeaconChainHeaderMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+pub type BeaconChainHeaderMerkleTree = UnbalancedMerkleTree<BeaconChainHeaderMerkleHasher>;
 /// Intermediate shard block header fields, its root is the block root
 pub type IntermediateShardHeaderMerkleTree =
-    <IntermediateShardHeaderMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+    UnbalancedMerkleTree<IntermediateShardHeaderMerkleHasher>;
 /// Leaf shard block header fields, its root is the block root
-pub type LeafShardHeaderMerkleTree =
-    <LeafShardHeaderMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+pub type LeafShardHeaderMerkleTree = UnbalancedMerkleTree<LeafShardHeaderMerkleHasher>;
 /// Segment roots with their positions in a super segment
-pub type SuperSegmentMerkleTree = <SuperSegmentMerkleHasher as UnbalancedMerkleTreeAlias>::Tree;
+pub type SuperSegmentMerkleTree = UnbalancedMerkleTree<SuperSegmentMerkleHasher>;
 /// Global state: state roots of owners by owner address
 pub type StateOwnersSparseMerkleTree =
     SparseMerkleTree<ADDRESS_BITS, StateOwnersSparseMerkleHasher>;

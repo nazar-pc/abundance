@@ -7,7 +7,7 @@ pub mod zvexx;
 use crate::hart::{HartConfig, VectorHartConfig};
 use crate::instructions::{ImplementedExtension, Instruction, IsaExtension};
 use crate::registers::general_purpose::{RegType, Register};
-use core::hint::{assert_unchecked, cold_path};
+use core::hint::cold_path;
 use core::marker::{ConstParamTy, PhantomData};
 use core::ops::RangeInclusive;
 use core::{cmp, fmt};
@@ -405,7 +405,7 @@ impl Vlmul {
     /// `LMUL` in eighths, so that fractional multipliers are integers too
     #[inline(always)]
     const fn eighths(self) -> u32 {
-        let eighths: u32 = match self {
+        match self {
             Self::Mf8 => 1,
             Self::Mf4 => 2,
             Self::Mf2 => 4,
@@ -413,14 +413,7 @@ impl Vlmul {
             Self::M2 => 16,
             Self::M4 => 32,
             Self::M8 => 64,
-        };
-        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
-        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
-        // SAFETY: Every variant is a power of two
-        unsafe {
-            assert_unchecked(eighths.is_power_of_two());
         }
-        eighths
     }
 
     /// Inverse of [`Self::eighths()`], `None` outside the legal range `[1/8, 8]`
@@ -524,14 +517,7 @@ impl VRegGroupSize {
     /// Number of registers in the group
     #[inline(always)]
     pub const fn get(self) -> u8 {
-        let count = self as u8;
-        // TODO: Remove once rustc tells LLVM which values an enum can have rather than their
-        //  range, which hides the power of two: https://github.com/rust-lang/rust/issues/162513
-        // SAFETY: Every variant is a power of two
-        unsafe {
-            assert_unchecked(count.is_power_of_two());
-        }
-        count
+        self as u8
     }
 
     /// Size of a group with `factor` times fewer registers, at least one.
@@ -570,14 +556,7 @@ impl VsewFactor {
     /// Return the numeric divisor used to scale down a [`Vsew`] bit-width
     #[inline(always)]
     pub const fn factor(self) -> u8 {
-        let factor = self as u8;
-        // TODO: Remove once rustc tells LLVM which values an enum can have rather than their
-        //  range, which hides the power of two: https://github.com/rust-lang/rust/issues/162513
-        // SAFETY: Every variant is a power of two
-        unsafe {
-            assert_unchecked(factor.is_power_of_two());
-        }
-        factor
+        self as u8
     }
 }
 
@@ -681,37 +660,23 @@ impl Vsew {
     /// Element width in bits
     #[inline(always)]
     pub const fn bits_width(self) -> u8 {
-        let bits: u8 = match self {
+        match self {
             Self::E8 => 8,
             Self::E16 => 16,
             Self::E32 => 32,
             Self::E64 => 64,
-        };
-        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
-        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
-        // SAFETY: Every variant is a power of two
-        unsafe {
-            assert_unchecked(bits.is_power_of_two());
         }
-        bits
     }
 
     /// Element width in bytes
     #[inline(always)]
     pub const fn bytes_width(self) -> u8 {
-        let bytes: u8 = match self {
+        match self {
             Self::E8 => 1,
             Self::E16 => 2,
             Self::E32 => 4,
             Self::E64 => 8,
-        };
-        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
-        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
-        // SAFETY: Every variant is a power of two
-        unsafe {
-            assert_unchecked(bytes.is_power_of_two());
         }
-        bytes
     }
 
     /// Convert to the corresponding `Eew` variant.
@@ -791,19 +756,12 @@ impl Eew {
     /// Element width in bits
     #[inline(always)]
     pub const fn bits_width(self) -> u8 {
-        let bits: u8 = match self {
+        match self {
             Self::E8 => 8,
             Self::E16 => 16,
             Self::E32 => 32,
             Self::E64 => 64,
-        };
-        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
-        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
-        // SAFETY: Every variant is a power of two
-        unsafe {
-            assert_unchecked(bits.is_power_of_two());
         }
-        bits
     }
 
     /// Element width in bytes.
@@ -811,19 +769,12 @@ impl Eew {
     /// Guaranteed to be `<= Self::MAX_BYTES`.
     #[inline(always)]
     pub const fn bytes_width(self) -> u8 {
-        let bytes: u8 = match self {
+        match self {
             Self::E8 => 1,
             Self::E16 => 2,
             Self::E32 => 4,
             Self::E64 => 8,
-        };
-        // TODO: Remove once rustc stops folding this `match` into a cast, which hides the
-        //  power of two from LLVM: https://github.com/rust-lang/rust/issues/162513
-        // SAFETY: Every variant is a power of two
-        unsafe {
-            assert_unchecked(bytes.is_power_of_two());
         }
-        bytes
     }
 }
 
