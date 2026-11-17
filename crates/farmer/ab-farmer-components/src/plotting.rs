@@ -631,7 +631,7 @@ pub fn write_sector(
     {
         let (sector_contents_map_region, remaining_bytes) = sector_output
             .spare_capacity_mut()
-            .split_at_mut(SectorContentsMap::encoded_size(pieces_in_sector));
+            .split_at_mut(SectorContentsMap::encoded_size(pieces_in_sector) as usize);
         // Slice remaining memory into belonging to s-buckets and metadata
         let (s_buckets_region, remaining_bytes) =
             remaining_bytes.split_at_mut(sector_record_chunks_size(pieces_in_sector));

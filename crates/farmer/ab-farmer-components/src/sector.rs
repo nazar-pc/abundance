@@ -46,7 +46,7 @@ pub const fn sector_record_metadata_size(pieces_in_sector: u16) -> usize {
 pub const fn sector_padding_size(pieces_in_sector: u16) -> usize {
     let unpadded_size = sector_record_chunks_size(pieces_in_sector)
         + sector_record_metadata_size(pieces_in_sector)
-        + SectorContentsMap::encoded_size(pieces_in_sector)
+        + SectorContentsMap::encoded_size(pieces_in_sector) as usize
         + Blake3Hash::SIZE;
 
     unpadded_size.next_multiple_of(AlignedPage::SIZE) - unpadded_size
@@ -64,7 +64,7 @@ pub const fn sector_padding_size(pieces_in_sector: u16) -> usize {
 pub const fn sector_size(pieces_in_sector: u16) -> usize {
     sector_record_chunks_size(pieces_in_sector)
         + sector_record_metadata_size(pieces_in_sector)
-        + SectorContentsMap::encoded_size(pieces_in_sector)
+        + SectorContentsMap::encoded_size(pieces_in_sector) as usize
         + sector_padding_size(pieces_in_sector)
         + Blake3Hash::SIZE
 }
@@ -294,9 +294,9 @@ impl SectorContentsMap {
         bytes: &[u8],
         pieces_in_sector: u16,
     ) -> Result<Self, SectorContentsMapFromBytesError> {
-        if bytes.len() != Self::encoded_size(pieces_in_sector) {
+        if bytes.len() != Self::encoded_size(pieces_in_sector) as usize {
             return Err(SectorContentsMapFromBytesError::InvalidBytesLength {
-                expected: Self::encoded_size(pieces_in_sector),
+                expected: Self::encoded_size(pieces_in_sector) as usize,
                 actual: bytes.len(),
             });
         }
@@ -325,8 +325,15 @@ impl SectorContentsMap {
 
     /// Size of sector contents map when encoded and stored in the plot for specified number of
     /// pieces in sector
-    pub const fn encoded_size(pieces_in_sector: u16) -> usize {
-        size_of::<FoundProofs>() * pieces_in_sector as usize + Blake3Hash::SIZE
+    pub const fn encoded_size(pieces_in_sector: u16) -> u32 {
+        const {
+            assert!(
+                size_of::<FoundProofs>() * usize::from(u16::MAX) + Blake3Hash::SIZE
+                    <= u32::MAX as usize
+            );
+        }
+        // Lossless as checked above
+        size_of::<FoundProofs>() as u32 * u32::from(pieces_in_sector) + Blake3Hash::SIZE as u32
     }
 
     /// Encode internal contents into `output`, which doesn't need to be initialized.
@@ -336,9 +343,9 @@ impl SectorContentsMap {
         &self,
         output: &'a mut [MaybeUninit<u8>],
     ) -> Result<&'a mut [u8], SectorContentsMapEncodeIntoError> {
-        if output.len() != Self::encoded_size(self.record_chunks_used.len() as u16) {
+        if output.len() != Self::encoded_size(self.record_chunks_used.len() as u16) as usize {
             return Err(SectorContentsMapEncodeIntoError::InvalidBytesLength {
-                expected: Self::encoded_size(self.record_chunks_used.len() as u16),
+                expected: Self::encoded_size(self.record_chunks_used.len() as u16) as usize,
                 actual: output.len(),
             });
         }

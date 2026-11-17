@@ -166,7 +166,7 @@ where
         }
     }
 
-    let sector_contents_map_size = SectorContentsMap::encoded_size(pieces_in_sector) as u64;
+    let sector_contents_map_size = u64::from(SectorContentsMap::encoded_size(pieces_in_sector));
     match sector {
         ReadAt::Sync(sector) => {
             read_chunks_inputs
@@ -272,7 +272,7 @@ where
     S: ReadAtSync,
     A: ReadAtAsync,
 {
-    let sector_metadata_start = SectorContentsMap::encoded_size(pieces_in_sector) as u64
+    let sector_metadata_start = u64::from(SectorContentsMap::encoded_size(pieces_in_sector))
         + sector_record_chunks_size(pieces_in_sector) as u64;
     // Move to the beginning of the root and proof we care about
     let record_metadata_offset =
@@ -316,7 +316,7 @@ where
 
     let sector_contents_map = {
         let mut sector_contents_map_bytes =
-            vec![0; SectorContentsMap::encoded_size(pieces_in_sector)];
+            vec![0; SectorContentsMap::encoded_size(pieces_in_sector) as usize];
         match sector {
             ReadAt::Sync(sector) => {
                 sector.read_at(&mut sector_contents_map_bytes, 0)?;

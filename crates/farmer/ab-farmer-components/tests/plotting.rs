@@ -245,7 +245,7 @@ fn write_sector_writes_whole_output() {
     assert!(padding.iter().all(|&byte| byte == 0));
 
     let (sector_contents_map_bytes, _) =
-        sector.split_at(SectorContentsMap::encoded_size(PIECES_IN_SECTOR));
+        sector.split_at(SectorContentsMap::encoded_size(PIECES_IN_SECTOR) as usize);
     assert_eq!(
         SectorContentsMap::from_bytes(sector_contents_map_bytes, PIECES_IN_SECTOR).unwrap(),
         sector_contents_map

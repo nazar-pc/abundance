@@ -5,6 +5,8 @@
 
 #![feature(
     const_block_items,
+    const_convert,
+    const_trait_impl,
     iter_array_chunks,
     maybe_uninit_array_assume_init,
     maybe_uninit_fill,

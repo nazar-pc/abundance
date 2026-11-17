@@ -377,7 +377,7 @@ where
     ) -> Result<Self, ProvingError> {
         let sector_contents_map = {
             let mut sector_contents_map_bytes =
-                vec![0; SectorContentsMap::encoded_size(sector_metadata.pieces_in_sector)];
+                vec![0; SectorContentsMap::encoded_size(sector_metadata.pieces_in_sector) as usize];
 
             sector.read_at(&mut sector_contents_map_bytes, 0)?;
 

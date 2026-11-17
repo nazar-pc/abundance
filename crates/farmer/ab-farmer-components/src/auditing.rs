@@ -249,7 +249,8 @@ fn collect_sector_auditing_details(
     let sector_contents_map_size =
         SectorContentsMap::encoded_size(sector_metadata.pieces_in_sector);
 
-    let s_bucket_audit_offset_in_sector = sector_contents_map_size as u64 + s_bucket_audit_offset;
+    let s_bucket_audit_offset_in_sector =
+        u64::from(sector_contents_map_size) + s_bucket_audit_offset;
 
     SectorAuditingDetails {
         sector_id,
