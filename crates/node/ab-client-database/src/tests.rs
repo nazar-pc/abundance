@@ -3,10 +3,11 @@ use crate::storage_backend::{
 };
 use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::test_utils::{
-    Database, DatabaseOptions, MemoryStorageBackend, PAGE_GROUP_SIZE, beacon_chain_block,
+    Database, DatabaseOptions, IntermediateShardBlockSegments, MemoryStorageBackend,
+    PAGE_GROUP_SIZE, beacon_chain_block, beacon_chain_block_with_shard_segments,
     block_confirmation_depth, database_options, genesis_block_builder, highest_persisted_number,
-    open_database, open_database_with_options, persist_block, persist_chain, reopen,
-    segment_header, super_segment_header,
+    open_database, open_database_with_options, persist_beacon_chain_block, persist_block,
+    persist_chain, reopen, segment_header, super_segment_header,
 };
 use crate::{
     ClientDatabase, ClientDatabaseBlock, ClientDatabaseError, ClientDatabaseFormatError,
@@ -16,12 +17,13 @@ use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::{
     BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, ChainInfo, ChainInfoWrite,
     ContractSlotState, PersistBlockError, PersistSegmentHeadersError,
-    PersistSuperSegmentHeadersError, ReadBlockError,
+    PersistSuperSegmentHeadersError, ReadBlockError, ShardSegmentRoot,
 };
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
-use ab_core_primitives::segments::{LocalSegmentIndex, SuperSegmentIndex};
+use ab_core_primitives::segments::{LocalSegmentIndex, SegmentRoot, SuperSegmentIndex};
+use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::trees::BlockMerkleMountainRange;
 use futures::channel::oneshot;
 use futures::executor::block_on;
@@ -217,6 +219,138 @@ fn super_segment_headers_and_blocks_survive_reopen() {
         );
     }
     assert_persisted_chain(&database, chain, 12);
+}
+
+/// Check that blocks from genesis on have `shard_segment_roots`
+fn assert_shard_segment_roots(database: &Database, shard_segment_roots: &[&[ShardSegmentRoot]]) {
+    for (number, shard_segment_roots) in (0..).zip(shard_segment_roots) {
+        assert_eq!(
+            *database
+                .shard_segment_roots(BlockNumber::from(number))
+                .unwrap(),
+            **shard_segment_roots,
+            "{number}"
+        );
+    }
+}
+
+#[test]
+fn shard_segment_roots_survive_persisting_and_reopen() {
+    // genesis - c1 (segments of intermediate and leaf shards) - c2 (no segments) - c3 (segments of
+    // an intermediate shard) - c4 .. c6 (`c3` is written at soft confirmation depth, `c1` is
+    // confirmed, `c4 .. c6` are not persisted)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let intermediate_shard_1 = ShardIndex::new(1).unwrap();
+    let intermediate_shard_2 = ShardIndex::new(2).unwrap();
+    // Leaf shards are children of intermediate shards with the same least significant bits
+    let leaf_shard_1_1 = ShardIndex::new(1 | (1 << 10)).unwrap();
+    let leaf_shard_1_2 = ShardIndex::new(1 | (2 << 10)).unwrap();
+    let leaf_shard_2_1 = ShardIndex::new(2 | (1 << 10)).unwrap();
+    let segment = |local_segment_index, root| {
+        (
+            LocalSegmentIndex::from(local_segment_index),
+            SegmentRoot::from([root; _]),
+        )
+    };
+    let shard_segment_root = |shard_index, local_segment_index, root| ShardSegmentRoot {
+        shard_index,
+        segment_index: LocalSegmentIndex::from(local_segment_index),
+        segment_root: SegmentRoot::from([root; _]),
+    };
+
+    let mut chain = vec![database.best_root()];
+    chain.push(
+        persist_beacon_chain_block(
+            &database,
+            beacon_chain_block_with_shard_segments(
+                1,
+                chain[0],
+                &[
+                    IntermediateShardBlockSegments {
+                        shard_index: intermediate_shard_1,
+                        own_segments: &[segment(0, 1)],
+                        leaf_shard_blocks: &[
+                            (leaf_shard_1_1, &[]),
+                            (leaf_shard_1_1, &[segment(0, 2), segment(1, 3)]),
+                            (leaf_shard_1_2, &[segment(5, 4)]),
+                        ],
+                    },
+                    IntermediateShardBlockSegments {
+                        shard_index: intermediate_shard_1,
+                        own_segments: &[segment(1, 5)],
+                        leaf_shard_blocks: &[],
+                    },
+                    IntermediateShardBlockSegments {
+                        shard_index: intermediate_shard_2,
+                        own_segments: &[],
+                        leaf_shard_blocks: &[(leaf_shard_2_1, &[segment(0, 6)])],
+                    },
+                ],
+            ),
+        )
+        .unwrap(),
+    );
+    chain.push(persist_block(&database, 2, chain[1], 0).unwrap());
+    chain.push(
+        persist_beacon_chain_block(
+            &database,
+            beacon_chain_block_with_shard_segments(
+                3,
+                chain[2],
+                &[IntermediateShardBlockSegments {
+                    shard_index: intermediate_shard_1,
+                    own_segments: &[segment(2, 7)],
+                    leaf_shard_blocks: &[],
+                }],
+            ),
+        )
+        .unwrap(),
+    );
+    // Own segments of each intermediate shard block are followed by segments of its leaf shards
+    let shard_segment_roots = [
+        &[][..],
+        &[
+            shard_segment_root(intermediate_shard_1, 0, 1),
+            shard_segment_root(leaf_shard_1_1, 0, 2),
+            shard_segment_root(leaf_shard_1_1, 1, 3),
+            shard_segment_root(leaf_shard_1_2, 5, 4),
+            shard_segment_root(intermediate_shard_1, 1, 5),
+            shard_segment_root(leaf_shard_2_1, 0, 6),
+        ],
+        &[],
+        &[shard_segment_root(intermediate_shard_1, 2, 7)],
+    ];
+    assert_shard_segment_roots(&database, &shard_segment_roots);
+
+    chain.extend(persist_chain(&database, chain[3], 4..=6, 0));
+    {
+        let state = database.inner.state.read_blocking();
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
+        let persisted = matches!(
+            state.data.blocks[3].as_slice(),
+            [ClientDatabaseBlock::Persisted { .. }]
+        );
+        assert!(persisted);
+        #[expect(
+            clippy::rest_pattern_accessible_field,
+            reason = "Do not need other fields"
+        )]
+        let confirmed = matches!(
+            state.data.blocks[5].as_slice(),
+            [ClientDatabaseBlock::PersistedConfirmed { .. }]
+        );
+        assert!(confirmed);
+    }
+    assert_shard_segment_roots(&database, &shard_segment_roots);
+
+    // Bodies are read back up to `c3`
+    let database = reopen(database, &storage_backend);
+    assert_eq!(database.best_root(), chain[3]);
+    assert_shard_segment_roots(&database, &shard_segment_roots);
 }
 
 #[test]
