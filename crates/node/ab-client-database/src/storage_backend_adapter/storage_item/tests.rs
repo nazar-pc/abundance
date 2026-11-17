@@ -1,12 +1,18 @@
+use crate::page_group::permanent::StorageItemPermanent;
 use crate::page_group::temporary::StorageItemTemporary;
 use crate::page_group::temporary::segment_headers::StorageItemTemporarySegmentHeaders;
 use crate::storage_backend::OwnedPages;
 use crate::storage_backend_adapter::StorageBackendAdapter;
+use crate::storage_backend_adapter::page_group_header::StorageItemPageGroupHeader;
 use crate::storage_backend_adapter::storage_item::{
     StorageItem, StorageItemContainer, StorageItemError,
 };
 use crate::test_utils::{MemoryStorageBackend, segment_header};
+use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_core_primitives::segments::SegmentHeader;
+use ab_io_type::trivial_type::TrivialType;
+use std::assert_matches;
+use std::mem::offset_of;
 
 #[test]
 fn read_of_truncated_storage_item_needs_more_bytes() {
@@ -70,4 +76,53 @@ fn write_zeroes_prefix_padding() {
     let prefix_padding = &bytes[prefix_size..prefix_size.next_multiple_of(size_of::<u128>())];
     assert!(!prefix_padding.is_empty());
     assert!(prefix_padding.iter().all(|&byte| byte == 0));
+}
+
+#[test]
+fn read_of_unknown_storage_item_variant_fails() {
+    let buffer = SharedAlignedBuffer::from_bytes(&[0; 16]);
+
+    // Temporary storage items have variants 0 to 2
+    for variant in [3, u8::MAX] {
+        assert_matches!(
+            StorageItemTemporary::read(variant, &buffer),
+            Err(StorageItemError::UnknownStorageItemVariant(unknown_variant))
+                if unknown_variant == variant
+        );
+    }
+    // There are no permanent storage items yet
+    for variant in [0, u8::MAX] {
+        assert_matches!(
+            StorageItemPermanent::read(variant, &buffer),
+            Err(StorageItemError::UnknownStorageItemVariant(unknown_variant))
+                if unknown_variant == variant
+        );
+    }
+}
+
+#[test]
+fn read_of_invalid_page_group_header_fails() {
+    let size = StorageItemPageGroupHeader::SIZE as usize;
+    let mut bytes = vec![0; size];
+    assert_matches!(
+        StorageItemPageGroupHeader::read(0, &SharedAlignedBuffer::from_bytes(&bytes)),
+        Ok(_)
+    );
+
+    assert_matches!(
+        StorageItemPageGroupHeader::read(1, &SharedAlignedBuffer::from_bytes(&bytes)),
+        Err(StorageItemError::UnknownStorageItemVariant(1))
+    );
+    assert_matches!(
+        StorageItemPageGroupHeader::read(0, &SharedAlignedBuffer::from_bytes(&bytes[..size - 1])),
+        Err(StorageItemError::BufferTooSmall { expected, actual })
+            if expected == size && actual == size - 1
+    );
+
+    // Page group kinds are 0 and 1
+    bytes[offset_of!(StorageItemPageGroupHeader, page_group_kind)] = 2;
+    assert_matches!(
+        StorageItemPageGroupHeader::read(0, &SharedAlignedBuffer::from_bytes(&bytes)),
+        Err(StorageItemError::InvalidBufferContents)
+    );
 }
