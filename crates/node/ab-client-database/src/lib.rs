@@ -203,7 +203,7 @@ pub struct ClientDatabaseOptions<GBB, StorageBackend> {
     /// are confirmed at block offset `block_confirmation_depth` (see the block lifecycle in
     /// [`ClientDatabaseOptions`]).
     ///
-    /// Must be at least 2.
+    /// Must be at least 2 and the same every time the database is opened.
     pub block_confirmation_depth: BlockNumber,
     /// Soft confirmation depth for blocks.
     ///
@@ -702,8 +702,6 @@ impl SegmentHeadersCache {
         &mut self,
         mut segment_headers: Vec<SegmentHeader>,
     ) -> Result<Vec<SegmentHeader>, PersistSegmentHeadersError> {
-        self.segment_headers_cache.reserve(segment_headers.len());
-
         let mut maybe_last_local_segment_index = self.max_local_segment_index();
 
         if let Some(last_segment_index) = maybe_last_local_segment_index {
@@ -712,9 +710,9 @@ impl SegmentHeadersCache {
                 .retain(|segment_header| segment_header.index.as_inner() > last_segment_index);
         }
 
-        // Check all input segment headers to see which ones are not stored yet and verifying that
-        // segment indices are monotonically increasing
-        for segment_header in segment_headers.iter().copied() {
+        // Check that segment indices of all input segment headers are consecutive before adding
+        // any of them, such that the cache doesn't get ahead of what is stored on error
+        for segment_header in &segment_headers {
             let local_segment_index = segment_header.index.as_inner();
             if let Some(last_local_segment_index) = maybe_last_local_segment_index {
                 if local_segment_index != last_local_segment_index + LocalSegmentIndex::ONE {
@@ -723,20 +721,17 @@ impl SegmentHeadersCache {
                         last_local_segment_index,
                     });
                 }
-
-                self.segment_headers_cache.push(segment_header);
-                maybe_last_local_segment_index.replace(local_segment_index);
-            } else {
-                if local_segment_index != LocalSegmentIndex::ZERO {
-                    return Err(PersistSegmentHeadersError::FirstSegmentIndexZero {
-                        local_segment_index,
-                    });
-                }
-
-                self.segment_headers_cache.push(segment_header);
-                maybe_last_local_segment_index.replace(local_segment_index);
+            } else if local_segment_index != LocalSegmentIndex::ZERO {
+                return Err(PersistSegmentHeadersError::FirstSegmentIndexZero {
+                    local_segment_index,
+                });
             }
+
+            maybe_last_local_segment_index.replace(local_segment_index);
         }
+
+        self.segment_headers_cache
+            .extend_from_slice(&segment_headers);
 
         Ok(segment_headers)
     }
@@ -813,9 +808,6 @@ impl SuperSegmentHeadersCache {
         &mut self,
         mut super_segment_headers: Vec<SuperSegmentHeader>,
     ) -> Result<Vec<SuperSegmentHeader>, PersistSuperSegmentHeadersError> {
-        self.super_segment_headers_cache
-            .reserve(super_segment_headers.len());
-
         let mut maybe_last_super_segment_index = self
             .super_segment_headers_cache
             .last()
@@ -828,9 +820,10 @@ impl SuperSegmentHeadersCache {
             });
         }
 
-        // Check all input super segment headers to see which ones are not stored yet and verifying
-        // that super segment indices are monotonically increasing
-        for super_segment_header in super_segment_headers.iter().copied() {
+        // Check that super segment indices of all input super segment headers are consecutive
+        // before adding any of them, such that the cache doesn't get ahead of what is stored on
+        // error
+        for super_segment_header in &super_segment_headers {
             let super_segment_index = super_segment_header.index.as_inner();
             if let Some(last_super_segment_index) = maybe_last_super_segment_index {
                 if super_segment_index != last_super_segment_index + SuperSegmentIndex::ONE {
@@ -841,20 +834,17 @@ impl SuperSegmentHeadersCache {
                         },
                     );
                 }
-
-                self.super_segment_headers_cache.push(super_segment_header);
-                maybe_last_super_segment_index.replace(super_segment_index);
-            } else {
-                if super_segment_index != SuperSegmentIndex::ZERO {
-                    return Err(PersistSuperSegmentHeadersError::FirstSegmentIndexZero {
-                        super_segment_index,
-                    });
-                }
-
-                self.super_segment_headers_cache.push(super_segment_header);
-                maybe_last_super_segment_index.replace(super_segment_index);
+            } else if super_segment_index != SuperSegmentIndex::ZERO {
+                return Err(PersistSuperSegmentHeadersError::FirstSegmentIndexZero {
+                    super_segment_index,
+                });
             }
+
+            maybe_last_super_segment_index.replace(super_segment_index);
         }
+
+        self.super_segment_headers_cache
+            .extend_from_slice(&super_segment_headers);
 
         Ok(super_segment_headers)
     }

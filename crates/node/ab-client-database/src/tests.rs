@@ -15,7 +15,8 @@ use crate::{
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::{
     BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, ChainInfo, ChainInfoWrite,
-    ContractSlotState, PersistBlockError, ReadBlockError,
+    ContractSlotState, PersistBlockError, PersistSegmentHeadersError,
+    PersistSuperSegmentHeadersError, ReadBlockError,
 };
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
@@ -219,7 +220,91 @@ fn super_segment_headers_and_blocks_survive_reopen() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
+fn rejected_segment_headers_are_not_added() {
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+
+    assert_matches!(
+        block_on(database.persist_segment_headers(vec![segment_header(1)])),
+        Err(PersistSegmentHeadersError::FirstSegmentIndexZero { local_segment_index })
+            if local_segment_index == LocalSegmentIndex::ONE
+    );
+    assert_eq!(database.last_segment_header(), None);
+
+    block_on(database.persist_segment_headers(vec![segment_header(0), segment_header(1)])).unwrap();
+    // Segment header `2` follows the stored ones, but the batch is rejected as a whole
+    assert_matches!(
+        block_on(database.persist_segment_headers(vec![segment_header(2), segment_header(4)])),
+        Err(PersistSegmentHeadersError::MustFollowLastSegmentIndex {
+            local_segment_index,
+            last_local_segment_index,
+        }) if local_segment_index == LocalSegmentIndex::from(4)
+            && last_local_segment_index == LocalSegmentIndex::from(2)
+    );
+    assert_eq!(database.last_segment_header(), Some(segment_header(1)));
+    assert_eq!(
+        database.get_segment_header(LocalSegmentIndex::from(2)),
+        None
+    );
+
+    block_on(database.persist_segment_headers(vec![segment_header(2)])).unwrap();
+
+    let database = reopen(database, &storage_backend);
+
+    assert_eq!(database.last_segment_header(), Some(segment_header(2)));
+}
+
+#[test]
+fn rejected_super_segment_headers_are_not_added() {
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+
+    assert_matches!(
+        block_on(database.persist_super_segment_header(super_segment_header(1))),
+        Err(PersistSuperSegmentHeadersError::FirstSegmentIndexZero { super_segment_index })
+            if super_segment_index == SuperSegmentIndex::ONE
+    );
+    assert_eq!(database.last_super_segment_header(), None);
+
+    block_on(
+        database
+            .persist_super_segment_headers(vec![super_segment_header(0), super_segment_header(1)]),
+    )
+    .unwrap();
+    // Super segment header `2` follows the stored ones, but the batch is rejected as a whole
+    assert_matches!(
+        block_on(
+            database.persist_super_segment_headers(vec![
+                super_segment_header(2),
+                super_segment_header(4),
+            ])
+        ),
+        Err(PersistSuperSegmentHeadersError::MustFollowLastSegmentIndex {
+            super_segment_index,
+            last_super_segment_index,
+        }) if super_segment_index == SuperSegmentIndex::from(4)
+            && last_super_segment_index == SuperSegmentIndex::from(2)
+    );
+    assert_eq!(
+        database.last_super_segment_header(),
+        Some(super_segment_header(1))
+    );
+    assert_eq!(
+        database.get_super_segment_header(SuperSegmentIndex::from(2)),
+        None
+    );
+
+    assert!(block_on(database.persist_super_segment_header(super_segment_header(2))).unwrap());
+
+    let database = reopen(database, &storage_backend);
+
+    assert_eq!(
+        database.last_super_segment_header(),
+        Some(super_segment_header(2))
+    );
+}
+
+#[test]
 fn fork_below_best_block_keeps_best_block() {
     // genesis - c1 .. c3 -+- c4 - c5 - c6 (best block)
     //                     \- a4 - a5 (imported below the best block)
@@ -242,7 +327,6 @@ fn fork_below_best_block_keeps_best_block() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn pruned_fork_tip_is_unknown() {
     // genesis - c1 - c2 -+- c3 (best block)
     //                    +- a3 (oldest fork tip, pruned)
@@ -269,7 +353,6 @@ fn pruned_fork_tip_is_unknown() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn pruned_fork_tip_keeps_parent_with_other_children() {
     // genesis -+- c1 -+- c2
     //          |      \- d2 (added last, exceeds `max_fork_tips`)
@@ -395,7 +478,6 @@ fn reopen_moves_best_chain_to_fork_offset_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn block_with_unknown_parent_is_rejected() {
     let storage_backend = MemoryStorageBackend::new();
     let database = open_database(&storage_backend);
@@ -487,7 +569,6 @@ fn known_block_is_rejected() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn known_genesis_block_is_rejected() {
     // The genesis block on a fresh database takes the same path as the first block synced on top
     // of it, which replaces the whole state
