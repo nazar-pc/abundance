@@ -34,7 +34,10 @@ impl From<StorageBackendError> for io::Error {
     }
 }
 
-/// Storage backend to be used by [`ClientDatabase`]
+/// Storage backend to be used by [`ClientDatabase`].
+///
+/// Read and write errors are fatal: the database doesn't try to recover from them, and the node is
+/// expected to stop when it encounters one.
 ///
 /// [`ClientDatabase`]: crate::ClientDatabase
 pub trait ClientDatabaseStorageBackend: fmt::Debug + Send + Sync + 'static {

@@ -40,6 +40,34 @@
 //! specific size (it is possible to increase the size afterward) before it can be used. It is
 //! expected (but depends on the storage backend) that the whole file size is pre-allocated on disk
 //! and no writes will fail due to lack of disk space (which could be the case with a sparse file).
+//!
+//! ## Design constraints
+//!
+//! The goal is essentially fixed disk usage and fixed (upper bound) RAM usage. On disk, this is why
+//! the database is formatted with a specific size upfront and page groups are freed and reused
+//! whole instead of deleting individual storage items. In RAM, this is why only recent blocks are
+//! kept with their details (see the block lifecycle in [`ClientDatabaseOptions`]), why a new fork
+//! is only supposed to start being imported if it is going to become the new best block (which
+//! limits how many forks are in memory), and why the number of in-flight writes is bounded by
+//! [`ClientDatabaseOptions::write_buffer_size`]. Block headers stay in memory much longer than
+//! bodies, so they must not keep body allocations alive.
+//!
+//! The blockchain is a highly replicated database, on restart the node re-syncs to whatever the tip
+//! is at that point anyway. So the database avoids losing data when it can help it, but doesn't
+//! spend extra writes to keep a perfect state or order on disk. Pruning and confirmation are not
+//! recorded, [`ClientDatabase::open()`] replays all stored blocks in the order they were written
+//! and prunes them again, and the best block after opening doesn't have to be the best block
+//! before shutdown. The same data may also end up written more than once (for example, when page
+//! groups are compacted or recycled), which [`ClientDatabase::open()`] will have to handle.
+//!
+//! Storage backend read and write errors are fatal by design: if the storage backend fails, the
+//! node is broken and can't make progress anyway, so it is expected to stop. Nothing tries to
+//! recover from such errors (for example, a write buffer entry stays occupied after its write
+//! failed), and there is no need to add recovery logic.
+//!
+//! Other client crates don't depend on the database directly, they use abstract interfaces like
+//! [`ChainInfo`] and mock them in tests. The implementation is incomplete and has few tests, it is
+//! mostly exercised by running the node.
 
 #![feature(
     const_block_items,
