@@ -79,21 +79,6 @@ impl StorageItemTemporaryBlock {
         &self,
         mut buffer: &mut [MaybeUninit<u8>],
     ) -> Result<usize, StorageItemError> {
-        // The layout here is as follows:
-        // * header length: u32 as aligned little-endian bytes
-        // * body length: u32 as aligned little-endian bytes
-        // * MMR with block length: u32 as aligned little-endian bytes
-        // * number of system contract states: u32 as aligned little-endian bytes
-        // * block header: naturally aligned to 16-bytes boundary
-        // * padding to 16-bytes boundary (if needed)
-        // * block body
-        // * MMR with block bytes
-        // * for each system contract state:
-        //   * padding to the 8-bytes boundary (if needed)
-        //   * prefix: SystemContractStatePrefix
-        //   * padding to the 16-bytes boundary (if needed)
-        //   * contents: slot contents bytes
-
         let buffer_len = buffer.len();
         let total_bytes = self.total_bytes()? as usize;
 
@@ -230,9 +215,26 @@ impl StorageItemTemporaryBlock {
         Ok(written_len)
     }
 
+    /// Read the storage item from `item`.
+    ///
     /// Body references the storage item without copying it, while header and contents of system
     /// contract states are copied, since they are kept in memory for much longer than the body
-    /// and must not keep the memory of the whole storage item alive
+    /// and must not keep the memory of the whole storage item alive.
+    ///
+    /// The layout is as follows:
+    /// * header length: u32 as aligned little-endian bytes
+    /// * body length: u32 as aligned little-endian bytes
+    /// * MMR with block length: u32 as aligned little-endian bytes
+    /// * number of system contract states: u32 as aligned little-endian bytes
+    /// * block header: naturally aligned to 16-bytes boundary
+    /// * padding to 16-bytes boundary (if needed)
+    /// * block body
+    /// * MMR with block bytes
+    /// * for each system contract state:
+    ///   * padding to the 8-bytes boundary (if needed)
+    ///   * prefix: SystemContractStatePrefix
+    ///   * padding to the 16-bytes boundary (if needed)
+    ///   * contents: slot contents bytes
     pub(super) fn read(item: &SharedAlignedBuffer<Align16>) -> Result<Self, StorageItemError> {
         let mut reader = item.reader();
 

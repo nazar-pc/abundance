@@ -577,30 +577,30 @@ impl<'a> IntermediateShardBlocksInfo<'a> {
     /// of its shard, ordered by shard index, and segments of the same leaf shard by local segment
     /// index. The body root of each block must match its header.
     ///
+    /// The layout is as follows:
+    /// * number of blocks: u16 as unaligned little-endian bytes
+    /// * for each block:
+    ///   * number of own segment roots: u8
+    ///   * number of leaf shard blocks: u16 as unaligned little-endian bytes
+    ///   * number of leaf shard blocks with segments: u16 as unaligned little-endian bytes
+    /// * padding to 8-bytes boundary with zeroes
+    /// * for each block:
+    ///   * block header: IntermediateShardHeader
+    ///   * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
+    ///   * concatenated own segment roots
+    ///   * for each leaf shard block with segments:
+    ///     * number of own segment roots: NonZeroU8
+    ///   * for each leaf shard block with segments:
+    ///     * position among leaf shard blocks, strictly increasing: u16 as unaligned little-endian
+    ///       bytes
+    ///     * shard index: u32 as unaligned little-endian bytes
+    ///     * local segment index of the first segment root: unaligned `LocalSegmentIndex`
+    ///     * concatenated own segment roots
+    ///   * padding to 8-bytes boundary with zeroes
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of blocks: u16 as unaligned little-endian bytes
-        // * for each block:
-        //   * number of own segment roots: u8
-        //   * number of leaf shard blocks: u16 as unaligned little-endian bytes
-        //   * number of leaf shard blocks with segments: u16 as unaligned little-endian bytes
-        // * padding to 8-bytes boundary with zeroes
-        // * for each block:
-        //   * block header: IntermediateShardHeader
-        //   * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
-        //   * concatenated own segment roots
-        //   * for each leaf shard block with segments:
-        //     * number of own segment roots: NonZeroU8
-        //   * for each leaf shard block with segments:
-        //     * position among leaf shard blocks, strictly increasing: u16 as unaligned
-        //       little-endian bytes
-        //     * shard index: u32 as unaligned little-endian bytes
-        //     * local segment index of the first segment root: unaligned `LocalSegmentIndex`
-        //     * concatenated own segment roots
-        //   * padding to 8-bytes boundary with zeroes
-
         let num_blocks;
         (num_blocks, bytes) = bytes.split_first_chunk::<{ size_of::<u16>() }>()?;
         let num_blocks = usize::from(u16::from_le_bytes(*num_blocks));
@@ -837,17 +837,17 @@ impl<'a> BeaconChainBody<'a> {
     /// on the address of the bytes. Bodies longer than `u32::MAX` bytes are rejected, since owned
     /// bodies can't hold them.
     ///
+    /// The layout is as follows:
+    /// * number of PoT checkpoints: u32 as aligned little-endian bytes
+    /// * number of own segment roots: u8
+    /// * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
+    /// * concatenated own segment roots
+    /// * intermediate shard blocks: IntermediateShardBlocksInfo
+    /// * concatenated PoT checkpoints
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of PoT checkpoints: u32 as aligned little-endian bytes
-        // * number of own segment roots: u8
-        // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
-        // * concatenated own segment roots
-        // * intermediate shard blocks: IntermediateShardBlocksInfo
-        // * concatenated PoT checkpoints
-
         if !Alignment::MAX.is_slice_aligned(bytes) {
             return None;
         }
@@ -1076,21 +1076,21 @@ impl<'a> LeafShardBlocksInfo<'a> {
     /// Blocks must be ordered by shard index, and blocks of the same shard by block number and by
     /// local segment index of own segments. The body root of each block must match its header.
     ///
+    /// The layout is as follows:
+    /// * number of blocks: u16 as unaligned little-endian bytes
+    /// * for each block:
+    ///   * number of own segment roots: u8
+    /// * padding to 8-bytes boundary with zeroes
+    /// * for each block:
+    ///   * block header: LeafShardHeader
+    ///   * padding to 8-bytes boundary with zeroes
+    ///   * root of transactions: `Blake3Hash`
+    ///   * local segment index of the first segment root (if any): `LocalSegmentIndex`
+    ///   * concatenated own segment roots
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of blocks: u16 as unaligned little-endian bytes
-        // * for each block:
-        //   * number of own segment roots: u8
-        // * padding to 8-bytes boundary with zeroes
-        // * for each block:
-        //   * block header: LeafShardHeader
-        //   * padding to 8-bytes boundary with zeroes
-        //   * root of transactions: `Blake3Hash`
-        //   * local segment index of the first segment root (if any): `LocalSegmentIndex`
-        //   * concatenated own segment roots
-
         let num_blocks;
         (num_blocks, bytes) = bytes.split_first_chunk::<{ size_of::<u16>() }>()?;
         let num_blocks = u16::from_le_bytes(*num_blocks);
@@ -1315,15 +1315,15 @@ impl<'a> IntermediateShardBody<'a> {
     /// on the address of the bytes. Bodies longer than `u32::MAX` bytes are rejected, since owned
     /// bodies can't hold them.
     ///
+    /// The layout is as follows:
+    /// * number of own segment roots: u8
+    /// * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
+    /// * concatenated own segment roots
+    /// * leaf shard blocks: LeafShardBlocksInfo
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of own segment roots: u8
-        // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
-        // * concatenated own segment roots
-        // * leaf shard blocks: LeafShardBlocksInfo
-
         if !Alignment::MAX.is_slice_aligned(bytes) {
             return None;
         }
@@ -1424,16 +1424,16 @@ impl<'a> Transactions<'a> {
     /// `bytes` do not need to be aligned, but padding in the layout depends on their address and
     /// must be present in full.
     ///
+    /// The layout is as follows:
+    /// * number of transactions: u32 as unaligned little-endian bytes
+    /// * padding to 16-bytes boundary with zeroes
+    /// * for each transaction
+    ///   * transaction: Transaction
+    ///   * padding to 16-bytes boundary with zeroes
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of transactions: u32 as unaligned little-endian bytes
-        // * padding to 16-bytes boundary with zeroes
-        // * for each transaction
-        //   * transaction: Transaction
-        //   * padding to 16-bytes boundary with zeroes
-
         let num_transactions;
         (num_transactions, bytes) = bytes.split_first_chunk::<{ size_of::<u32>() }>()?;
         let num_transactions = u32::from_le_bytes(*num_transactions) as usize;
@@ -1537,15 +1537,15 @@ impl<'a> LeafShardBody<'a> {
     /// on the address of the bytes. Bodies longer than `u32::MAX` bytes are rejected, since owned
     /// bodies can't hold them.
     ///
+    /// The layout is as follows:
+    /// * number of own segment roots: u8
+    /// * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
+    /// * concatenated own segment roots
+    /// * transactions: Transactions
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * number of own segment roots: u8
-        // * local segment index of the first segment root (if any): unaligned `LocalSegmentIndex`
-        // * concatenated own segment roots
-        // * transactions: Transactions
-
         if !Alignment::MAX.is_slice_aligned(bytes) {
             return None;
         }

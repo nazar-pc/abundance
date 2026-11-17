@@ -35,10 +35,6 @@ impl StorageItemTemporarySegmentHeaders {
         &self,
         mut buffer: &mut [MaybeUninit<u8>],
     ) -> Result<usize, StorageItemError> {
-        // The layout here is as follows:
-        // * number of segment headers: u32 as aligned little-endian bytes
-        // * segment headers bytes concatenated
-
         let buffer_len = buffer.len();
         let total_bytes = self.total_bytes()? as usize;
 
@@ -78,6 +74,11 @@ impl StorageItemTemporarySegmentHeaders {
         Ok(total_bytes)
     }
 
+    /// Read the storage item from `buffer`.
+    ///
+    /// The layout is as follows:
+    /// * number of segment headers: u32 as aligned little-endian bytes
+    /// * segment headers bytes concatenated
     pub(super) fn read(mut buffer: &[u8]) -> Result<Self, StorageItemError> {
         let buffer_len = buffer.len();
         let prefix_bytes;

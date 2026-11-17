@@ -178,14 +178,14 @@ impl BlockHeaderFixedConsensusParameters {
     ///
     /// `bytes` do not need to be aligned.
     ///
+    /// The layout is as follows:
+    /// * solution range: SolutionRange as unaligned bytes
+    /// * PoT slot iterations: NonZeroU32 as unaligned little-endian bytes
+    /// * number of shards: NumShards as unaligned little-endian bytes
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &[u8]) -> Option<(Self, &[u8])> {
-        // Layout here is as follows:
-        // * solution range: SolutionRange as unaligned bytes
-        // * PoT slot iterations: NonZeroU32 as unaligned little-endian bytes
-        // * number of shards: NumShards as unaligned little-endian bytes
-
         let solution_range;
         (solution_range, bytes) = bytes.split_first_chunk::<{ size_of::<SolutionRange>() }>()?;
         let solution_range = SolutionRange::from_bytes(*solution_range);
@@ -263,14 +263,14 @@ impl BlockHeaderPotParametersChange {
     ///
     /// `bytes` do not need to be aligned.
     ///
+    /// The layout is as follows:
+    /// * slot number: SlotNumber as unaligned bytes
+    /// * slot iterations: NonZeroU32 as unaligned little-endian bytes
+    /// * entropy: Blake3Hash
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &[u8]) -> Option<(&Self, &[u8])> {
-        // Layout here is as follows:
-        // * slot number: SlotNumber as unaligned bytes
-        // * slot iterations: NonZeroU32 as unaligned little-endian bytes
-        // * entropy: Blake3Hash
-
         let pot_parameters_change_ptr = bytes.as_ptr().cast::<Self>();
 
         (_, bytes) = bytes.split_first_chunk::<{ size_of::<SlotNumber>() }>()?;
@@ -360,16 +360,16 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
     ///
     /// `bytes` do not need to be aligned.
     ///
+    /// The layout is as follows:
+    /// * fixed parameters: BlockHeaderFixedConsensusParameters
+    /// * bitflags: u8
+    /// * (optional, depends on bitflags) super segment root: SuperSegmentRoot
+    /// * (optional, depends on bitflags) next solution range: SolutionRange as unaligned bytes
+    /// * (optional, depends on bitflags) PoT parameters change: BlockHeaderPotParametersChange
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // Layout here is as follows:
-        // * fixed parameters: BlockHeaderFixedConsensusParameters
-        // * bitflags: u8
-        // * (optional, depends on bitflags) super segment root: SuperSegmentRoot
-        // * (optional, depends on bitflags) next solution range: SolutionRange as unaligned bytes
-        // * (optional, depends on bitflags) PoT parameters change: BlockHeaderPotParametersChange
-
         let (fixed_parameters, mut remainder) =
             BlockHeaderFixedConsensusParameters::try_from_bytes(bytes)?;
 
@@ -566,13 +566,13 @@ impl<'a> BlockHeaderSeal<'a> {
     ///
     /// `bytes` do not need to be aligned.
     ///
+    /// The layout is as follows:
+    /// * seal type: u8
+    /// * seal (depends on a seal type): BlockHeaderEd25519Seal
+    ///
     /// Returns an instance and remaining bytes on success.
     #[inline]
     pub fn try_from_bytes(mut bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * seal type: u8
-        // * seal (depends on a seal type): BlockHeaderEd25519Seal
-
         let seal_type = BlockHeaderSealType::try_from_byte(*bytes.split_off_first()?)?;
 
         match seal_type {
@@ -724,18 +724,18 @@ impl<'a> BeaconChainHeader<'a> {
     ///
     /// `bytes` should be 8-bytes aligned.
     ///
+    /// The layout is as follows:
+    /// * block header prefix: BlockHeaderPrefix
+    /// * block header result: BlockHeaderResult
+    /// * consensus info: BlockHeaderConsensusInfo
+    /// * root of intermediate shard block roots: Blake3Hash
+    /// * consensus parameters: BlockHeaderConsensusParameters
+    /// * block header seal: BlockHeaderSeal
+    ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * block header prefix: BlockHeaderPrefix
-        // * block header result: BlockHeaderResult
-        // * consensus info: BlockHeaderConsensusInfo
-        // * root of intermediate shard block roots: Blake3Hash
-        // * consensus parameters: BlockHeaderConsensusParameters
-        // * block header seal: BlockHeaderSeal
-
         let (prefix, consensus_info, result, remainder) =
             BlockHeader::try_from_bytes_shared(bytes, RealShardKind::BeaconChain)?;
 
@@ -946,18 +946,18 @@ impl<'a> IntermediateShardHeader<'a> {
     ///
     /// `bytes` should be 8-bytes aligned.
     ///
+    /// The layout is as follows:
+    /// * block header prefix: BlockHeaderPrefix
+    /// * block header result: BlockHeaderResult
+    /// * consensus info: BlockHeaderConsensusInfo
+    /// * beacon chain: BlockHeaderBeaconChainInfo
+    /// * root of leaf shard block roots: Blake3Hash
+    /// * block header seal: BlockHeaderSeal
+    ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * block header prefix: BlockHeaderPrefix
-        // * block header result: BlockHeaderResult
-        // * consensus info: BlockHeaderConsensusInfo
-        // * beacon chain: BlockHeaderBeaconChainInfo
-        // * root of leaf shard block roots: Blake3Hash
-        // * block header seal: BlockHeaderSeal
-
         let (prefix, consensus_info, result, remainder) =
             BlockHeader::try_from_bytes_shared(bytes, RealShardKind::IntermediateShard)?;
 
@@ -1166,17 +1166,17 @@ impl<'a> LeafShardHeader<'a> {
     ///
     /// `bytes` should be 8-bytes aligned.
     ///
+    /// The layout is as follows:
+    /// * block header prefix: BlockHeaderPrefix
+    /// * block header result: BlockHeaderResult
+    /// * consensus info: BlockHeaderConsensusInfo
+    /// * beacon chain: BlockHeaderBeaconChainInfo
+    /// * block header seal: BlockHeaderSeal
+    ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
     pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
-        // The layout here is as follows:
-        // * block header prefix: BlockHeaderPrefix
-        // * block header result: BlockHeaderResult
-        // * consensus info: BlockHeaderConsensusInfo
-        // * beacon chain: BlockHeaderBeaconChainInfo
-        // * block header seal: BlockHeaderSeal
-
         let (prefix, consensus_info, result, remainder) =
             BlockHeader::try_from_bytes_shared(bytes, RealShardKind::LeafShard)?;
 
