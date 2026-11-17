@@ -305,7 +305,6 @@ fn rejected_super_segment_headers_are_not_added() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn fork_below_best_block_keeps_best_block() {
     // genesis - c1 .. c3 -+- c4 - c5 - c6 (best block)
     //                     \- a4 - a5 (imported below the best block)
@@ -328,7 +327,6 @@ fn fork_below_best_block_keeps_best_block() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn pruned_fork_tip_is_unknown() {
     // genesis - c1 - c2 -+- c3 (best block)
     //                    +- a3 (oldest fork tip, pruned)
@@ -355,7 +353,6 @@ fn pruned_fork_tip_is_unknown() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn pruned_fork_tip_keeps_parent_with_other_children() {
     // genesis -+- c1 -+- c2
     //          |      \- d2 (added last, exceeds `max_fork_tips`)
@@ -481,7 +478,6 @@ fn reopen_moves_best_chain_to_fork_offset_zero() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn block_with_unknown_parent_is_rejected() {
     let storage_backend = MemoryStorageBackend::new();
     let database = open_database(&storage_backend);
@@ -573,7 +569,6 @@ fn known_block_is_rejected() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
 fn known_genesis_block_is_rejected() {
     // The genesis block on a fresh database takes the same path as the first block synced on top
     // of it, which replaces the whole state
