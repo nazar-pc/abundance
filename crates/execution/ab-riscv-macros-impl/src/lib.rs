@@ -207,7 +207,9 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// `ExecutableInstruction::execute()`, `ExecutableInstructionCsr::prepare_csr_read()` and
 /// `ExecutableInstructionCsr::prepare_csr_write()` methods will end up containing both inherited
-/// and own execution logic according to the ordering set in `#[instruction]`.
+/// and own execution logic according to the ordering set in `#[instruction]`. Inherited code is
+/// copied as written, so parameter names and generic parameters of these methods must be the same
+/// in every implementation composed together (`_env` in one and `env` in another will not work).
 ///
 /// There are constraints on the `ExecutableInstruction::execute()` method body, it must have one or
 /// both (but nothing else) of the following:
@@ -227,7 +229,9 @@ pub fn instruction(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// same enum, out of the very same arms. It is done in a somewhat opaque way here with the hopes
 /// that it would become possible to move the `ThreadedExecutableInstruction::execute_threaded()`
 /// method into `ExecutableInstruction` trait at some point. Right now it is not possible to mix
-/// const and non-const methods in the same trait.
+/// const and non-const methods in the same trait. The generated handlers rely on the
+/// `explicit_tail_calls` and `fn_align` features, so a crate that applies this macro has to enable
+/// both, even if it never calls `ThreadedExecutableInstruction::execute_threaded()`.
 ///
 /// If `execute()` carries `#[cfg_attr(feature = "no-panic", no_panic_const::no_panic(..))]`, it
 /// is stripped from `execute()` itself (which becomes a plain dispatcher, so the attribute would

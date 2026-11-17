@@ -45,6 +45,13 @@
 //! CLI exposes many key options to fine tune various aspects, but primarily for experimentation and
 //! improving defaults, the goal is for default behavior to be already as optimal as efficient as
 //! possible.
+//!
+//! # Memory allocation
+//!
+//! CLI uses mimalloc as the global allocator. Allocations are mostly of fixed sizes determined by
+//! the data being processed, and it is up to the allocator to handle them efficiently. Don't add
+//! application-level buffer pools or thread-locals to compensate for the allocator (allocating an
+//! element once and reusing it in a loop is fine).
 
 mod cache_element;
 #[cfg(feature = "cluster")]

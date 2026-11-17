@@ -701,6 +701,10 @@ async fn plot_single_sector_internal(
                 ))));
             }
         }
+        // Sector metadata is written after the sector on purpose. A sector is only (re)plotted when
+        // it is plotted for the first time, has expired or is corrupted, and in all those cases the
+        // old metadata is already invalid, so invalidating it before writing the sector would only
+        // increase write amplification.
         {
             let encoded_sector_metadata = plotted_sector.sector_metadata.encode_for_disk();
             let sector_metadata_offset = RESERVED_PLOT_METADATA

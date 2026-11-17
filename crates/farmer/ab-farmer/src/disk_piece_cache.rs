@@ -65,6 +65,11 @@ impl<B> From<IoBufError<B>> for DiskPieceCacheError {
     }
 }
 
+/// The same file opened [`PIECES_READING_CONCURRENCY`] times for concurrent reads.
+///
+/// Multiple handles were measured to give much better parallel read performance (especially on
+/// Windows) than a single one, so the pool stays even though one [`DirectIoFile`] can be used
+/// concurrently.
 #[derive(Debug)]
 struct FilePool {
     files: Box<[DirectIoFile; PIECES_READING_CONCURRENCY]>,

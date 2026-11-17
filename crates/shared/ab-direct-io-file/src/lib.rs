@@ -6,6 +6,11 @@
 //! NOTE: There are major alignment requirements described here:
 //! <https://learn.microsoft.com/en-us/windows/win32/fileio/file-buffering#alignment-and-file-access-requirements>
 //! <https://man7.org/linux/man-pages/man2/open.2.html>
+//!
+//! APIs deliberately only take page-aligned buffers ([`OwnedPages`]) or buffers that are as
+//! unaligned in memory as the offset is in the file, so whole pages go to and from disk without
+//! copies and there is no need to handle arbitrarily aligned input. Only partially written pages at
+//! the edges of a write are copied, see [`DirectIoFile::write_at()`].
 
 #![feature(core_io_borrowed_buf)]
 #![cfg_attr(unix, feature(read_buf_at))]
