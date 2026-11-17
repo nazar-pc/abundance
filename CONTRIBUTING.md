@@ -2,8 +2,9 @@
 
 Thanks for considering contributing to Abundance!
 
-This is an early-stage research project, so things move fast and change shape often. Read the [book] for architecture
-details, the [website] for updates, and join [Zulip chat] for questions and discussion.
+This is an early-stage research project, so things move fast and change shape often. There are no production users yet,
+so on-disk and network formats change without migrations or version bumps. Read the [book] for architecture details,
+the [website] for updates, and join [Zulip chat] for questions and discussion.
 
 [book]: https://abundance.build/book
 
@@ -49,6 +50,9 @@ CI additionally runs Clippy and tests for each crate and feature combination ind
 targets, and builds crates with a `no-panic` feature enabled. Running all of that locally is not expected, the workflows
 are your guide if you do, and you can always trigger CI on a branch in your fork before opening a PR.
 
+CI is complex enough as is, so changes to it should extend the existing structure (matrix entries, crates selected by
+their metadata or location) rather than add special-cased steps or lists of crate names to a loosely related job.
+
 Rustdoc is built with broken intra-doc links denied, so make sure links in documentation actually resolve.
 
 ## Code style
@@ -65,7 +69,12 @@ and prefer obvious code to clever code.
 * `.unwrap()` is forbidden outside of tests and benchmarks, use `.expect()` instead. The message is a proof for the
   reviewer that it will never panic (or, rarely, why panicking is the preferred outcome), ending with `; qed`, as in
   `NonZeroU8::new(1).expect("Not zero; qed")`. It must follow from local context for a standalone function, or from data
-  structure invariants for an internal method, otherwise return `Result<T, E>`.
+  structure invariants for an internal method, otherwise return `Result<T, E>`. The same goes for `assert!()` in
+  non-test code. Errors are propagated with `.map_err(...)?` (or a `From` impl when the same conversion repeats) rather
+  than checking `.is_err()` and returning.
+* Check an invariant once, where it is owned: in a constructor, a fallible allocation or at the boundary where untrusted
+  input enters, rather than with guards scattered across callers. Don't re-check what is already checked further along
+  the same path.
 * Avoid indexing with `[]`, prefer `.get()` and friends with explicit handling of the missing case.
 * Use explicit checked, wrapping, or saturating math, especially in consensus-critical code. Don't reach for saturating
   math just to make things compile: if business logic doesn't expect an overflow, use checked math with `.expect()` or
@@ -145,21 +154,35 @@ enforces those instead.
 * Generic parameters are ordered by dependency: `<Reg, Hart>` rather than `<Hart, Reg>` when `Hart` is bound by
   `HartConfig<Reg = Reg>`, and `where` clauses and associated types follow the same order.
 * Don't introduce type aliases that only rename a type used in a few places, the reader then has to look up what it is.
-  Aliases that shorten long generic types repeated many times, which is common in tests, are fine.
+  Aliases that shorten long generic types repeated many times, which is common in tests, are fine. The same applies to
+  helper functions, closures and constants used in a single place, inline them.
 * Use explicit generics over `impl Trait` in argument position.
 * Prefer longer variable names, 1-3 character names are usually a bad choice. Exceptions like `id` in an entity or `i`
-  in a simple loop are fine, though iterator chains often express the same thing without an explicit index.
+  in a simple loop are fine, though iterator chains often express the same thing without an explicit index. This
+  includes generic parameters (`Storage` rather than `S`) and documentation, which should not read like a formula.
+* Use the constant or method that says what you mean: `SBucket::MAX` rather than `u16::MAX` that happens to be the same,
+  `.ilog2()` rather than `.trailing_zeros()`. Reuse a constant that already exists instead of defining a duplicate.
+* Imports never use `self` (`use core::ptr;` next to `use core::ptr::NonNull;`), `pub use` re-exports are reserved for
+  rare exceptional cases.
 * Take advantage of type inference to remove noise, but keep the code readable without an IDE displaying inferred types.
   In particular, prefer `let collection = iter.collect::<Vec<_>>()` over `let collection: Vec<Type> = iter.collect()`:
   same meaning, better formatting, and the type stays where it is created.
 * A comment that is a single sentence has no `.` at the end, a comment with several sentences has one after each of
   them.
 * Comments are written on separate lines before the lines they comment on.
+* Comments and documentation describe the intent and the current state of the code, not the history of the branch or
+  alternatives that were considered (that is what commit messages and pull request descriptions are for). Don't restate
+  the obvious, enumerate the contents of data structures or refer to other crates, it all drifts out of sync quickly.
+  Documentation is updated in the same commit as the code it describes. Write it as plain prose, the way you would
+  explain it to a colleague.
 * Dependencies in `Cargo.toml` are kept sorted, adding one out of order introduces entropy and irritates maintainers.
 * Every file ends with exactly one newline, and no line ends with whitespace, in code, Markdown, configs, and everything
   else. Configure your editor to do it automatically.
 * Do not optimize things that compiler already does for you (replacing power-of-two divisions/multiplications with
   shifts, etc.), use compiler hints if necessary (`assert_unchecked()`) to guide the compiler.
+* Abstractions should compile to the same code as the straightforward implementation they replace, at least on x86-64
+  and aarch64. It is not always possible to achieve completely, but it often is, and then it is a free improvement, so
+  compare the generated code of hot paths before and after.
 
 ### Types and APIs
 
@@ -172,7 +195,13 @@ enforces those instead.
 * Fallible constructors return `Option` or `Result` instead of asserting internally, the caller then decides whether it
   is an error or an `.expect()` with a proof. In a constant, the latter turns into a compilation error.
 * Fields that can be read freely, but must only be set by the type itself to uphold its invariants, are
-  `pub mut(self)` rather than private with getter methods.
+  `pub mut(self)` rather than private with getter methods. Newtypes don't expose their inner field, they have a
+  constructor instead.
+* Low-level APIs are explicit and minimal: no implicit padding or reallocation behind the caller's back, and no bounds
+  beyond what is needed (`?Sized` is rarely required). An `*_unchecked` variant exists only when skipping an expensive
+  validity check is worth it, never to skip checks that prevent unsafety or panics.
+* Nothing is unbounded: concurrency, queues and buffers have explicit limits. Blocking calls stay visibly blocking,
+  don't hide them behind an `async` API.
 * Library crates define precise error types with `thiserror`, typically one enum per fallible operation, linked from
   documentation. `anyhow` is only for binaries:
   ```rust
@@ -201,6 +230,20 @@ enforces those instead.
 * Public items are documented, and crate-level `//!` documentation explains what the crate is for and how the pieces fit
   together, not just names it.
 * Performance-sensitive crates carry Criterion benchmarks in `benches/`, extend them when changing a hot path.
+
+### Testing
+
+Tests must be cheap and deterministic: no allocations of gigabytes, no reliance on what the allocator or the platform
+happens to do, and no tests of compiler guarantees or of behavior that is deliberately unspecified. Put tests in the
+crate that logically owns the functionality, with shared helpers in a `test_utils` module.
+
+Tests run under Miri in CI, where each should take a minute or two at most. Tests that are slower but do finish are
+marked with `#[cfg_attr(miri, ignore = "reason")]`, so they can still be run manually, tests that take an unreasonable
+amount of time or use APIs Miri doesn't support are compiled out with `#[cfg(not(miri))]`. When Miri on Windows can't
+access the file system or run the Tokio I/O driver, gate such tests with a `TODO` linking the Miri issue, and don't use
+`#[tokio::test]` where no runtime is needed.
+
+32-bit platforms are covered by `riscv32gc-unknown-linux-gnu`, there is no need to test on other 32-bit targets.
 
 ### API changes
 
@@ -241,6 +284,8 @@ More specifically:
   renaming and rewriting a file at once makes Git treat it as a delete plus an add, which breaks history tracking.
 * If refactoring is needed for a feature, consider extracting the refactoring commits into a separate branch, submitting
   that for review with the rationale, and rebasing the feature branch on top of it.
+* Fix warnings in the files you touch, and apply a fix consistently to sibling code (like RV32 and RV64 variants of the
+  same thing) rather than leaving it for later.
 * Keep the number of commits reasonable: 70 commits for 100 lines of changes is bad, and so is one commit changing
   thousands of lines all over the place.
 * Every commit must compile and pass tests on its own, check that after folding changes into earlier commits, not just

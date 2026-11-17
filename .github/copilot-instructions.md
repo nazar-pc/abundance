@@ -7,4 +7,6 @@ going to be caught by the CI anyway, they will likely be either redundant or fal
 
 Breaking API changes are most often intentional, do not warn about them unless you have a strong reason for it. Most
 crates are only used within the workspace, and even those that are published have no issues with bumping their version
-accordingly when breaking changes do happen.
+accordingly when breaking changes do happen. Updates to code and changelog often happen to crate versions that are not
+published yet, hence such changes are usually expected and not a problem. If you are unsure, check what the latest
+published version is on crates.io.
