@@ -1,5 +1,6 @@
 use crate::single_disk_farm::PlotMetadataHeader;
-use parity_scale_codec::Decode;
+use ab_direct_io_file::OwnedPages;
+use parity_scale_codec::{Decode, Encode};
 
 #[test]
 fn metadata_header_page() {
@@ -9,7 +10,8 @@ fn metadata_header_page() {
     };
 
     let page = metadata_header.encode_page();
-    let (header_bytes, padding) = page.split_at(PlotMetadataHeader::encoded_size());
+    assert_eq!(page.len(), OwnedPages::ALIGN);
+    let (header_bytes, padding) = page.split_at(metadata_header.encoded_size());
     let decoded = PlotMetadataHeader::decode(&mut &*header_bytes).unwrap();
     assert_eq!(decoded.version, metadata_header.version);
     assert_eq!(
