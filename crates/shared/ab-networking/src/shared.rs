@@ -1,5 +1,5 @@
 //! Data structures shared between node and node runner, facilitating exchange and creation of
-//! queries, subscriptions, various events and shared information.
+//! queries, various events and shared information.
 
 use crate::protocols::request_response::request_response_factory::RequestFailure;
 use crate::utils::Handler;
@@ -8,7 +8,6 @@ use crate::utils::rate_limiter::RateLimiter;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_aligned_buffer::alignment::Align1;
 use futures::channel::{mpsc, oneshot};
-use libp2p::gossipsub::{PublishError, Sha256Topic, SubscriptionError};
 use libp2p::{Multiaddr, PeerId};
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicUsize;
@@ -48,28 +47,7 @@ impl PeerDiscovered {
 }
 
 #[derive(Debug)]
-pub(crate) struct CreatedSubscription {
-    /// Subscription ID to be used for unsubscribing.
-    pub(crate) subscription_id: usize,
-    /// Receiver side of the channel with new messages.
-    pub(crate) receiver: mpsc::UnboundedReceiver<SharedAlignedBuffer>,
-}
-
-#[derive(Debug)]
 pub(crate) enum Command {
-    Subscribe {
-        topic: Sha256Topic,
-        result_sender: oneshot::Sender<Result<CreatedSubscription, SubscriptionError>>,
-    },
-    Unsubscribe {
-        topic: Sha256Topic,
-        subscription_id: usize,
-    },
-    Publish {
-        topic: Sha256Topic,
-        message: Vec<u8>,
-        result_sender: oneshot::Sender<Result<(), PublishError>>,
-    },
     GetClosestPeers {
         key: Multihash,
         result_sender: mpsc::UnboundedSender<PeerId>,
