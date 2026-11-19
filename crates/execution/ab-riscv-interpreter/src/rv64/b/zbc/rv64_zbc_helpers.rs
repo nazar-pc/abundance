@@ -12,7 +12,7 @@ pub fn clmul(a: u64, b: u64) -> u64 {
     cfg_select! {
         all(not(miri), target_arch = "riscv64", target_feature = "zbkc") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv64::clmul(a as usize, b as usize) as u64 }
+            unsafe { core::arch::riscv64::clmul_64(a, b) }
         }
         _ => clmul_internal(a, b) as u64,
     }
@@ -27,7 +27,7 @@ pub fn clmulh(a: u64, b: u64) -> u64 {
     cfg_select! {
         all(not(miri), target_arch = "riscv64", target_feature = "zbkc") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv64::clmulh(a as usize, b as usize) as u64 }
+            unsafe { core::arch::riscv64::clmulh_64(a, b) }
         }
         _ => (clmul_internal(a, b) >> 64) as u64,
     }
@@ -42,7 +42,7 @@ pub fn clmulr(a: u64, b: u64) -> u64 {
     cfg_select! {
         all(not(miri), target_arch = "riscv64", target_feature = "zbc") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv64::clmulr(a as usize, b as usize) as u64 }
+            unsafe { core::arch::riscv64::clmulr_64(a, b) }
         }
         _ => (clmul_internal(a, b) >> 63) as u64,
     }

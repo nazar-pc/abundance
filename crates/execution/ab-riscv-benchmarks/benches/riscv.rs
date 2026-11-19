@@ -26,6 +26,10 @@ const MEMORY_BASE_ADDRESS: u64 = 0x1000;
 const TRAP_ADDRESS: u64 = 0;
 const MEMORY_SIZE: usize = 128 * 1024;
 
+#[expect(
+    clippy::large_unopt_stack_frames,
+    reason = "Fine for benchmark function"
+)]
 fn criterion_benchmark(c: &mut Criterion) {
     let mut methods = HashMap::new();
     let contract_file = ContractFile::parse(RISCV_CONTRACT_BYTES, |contract_file_method| {

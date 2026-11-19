@@ -32,7 +32,7 @@ pub fn clmul(a: u32, b: u32) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbkc") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::clmul(a as usize, b as usize) as u32 }
+            unsafe { core::arch::riscv32::clmul_32(a, b) }
         }
         _ => clmul_internal(a, b) as u32,
     }
@@ -47,7 +47,7 @@ pub fn clmulh(a: u32, b: u32) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbkc") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::clmulh(a as usize, b as usize) as u32 }
+            unsafe { core::arch::riscv32::clmulh_32(a, b) }
         }
         _ => (clmul_internal(a, b) >> 32) as u32,
     }
@@ -62,7 +62,7 @@ pub fn clmulr(a: u32, b: u32) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbc") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::clmulr(a as usize, b as usize) as u32 }
+            unsafe { core::arch::riscv32::clmulr_32(a, b) }
         }
         _ => (clmul_internal(a, b) >> 31) as u32,
     }
