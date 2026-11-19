@@ -18,16 +18,16 @@ use futures::channel::mpsc;
 use futures::future::FusedFuture;
 use futures::stream::FuturesUnordered;
 use futures::{FutureExt, Stream, StreamExt, stream};
-use libp2p::kad::{K_VALUE, KBucketDistance, KBucketKey, RecordKey};
+use libp2p::kad::{K_VALUE, KBucketDistance, KBucketKey};
 use libp2p::{Multiaddr, PeerId};
 use rand::prelude::*;
 use std::any::type_name;
 use std::collections::{HashMap, HashSet};
-use std::fmt;
 use std::future::ready;
 use std::pin::Pin;
 use std::sync::Arc as StdArc;
 use std::task::Poll;
+use std::{fmt, iter};
 use tokio_stream::StreamMap;
 use tracing::{Instrument, debug, trace, warn};
 use triomphe::Arc;
@@ -143,53 +143,14 @@ where
     }
 
     /// Returns piece by its index from farmer's piece cache (L2)
+    // TODO: Implement more narrowly focused single piece retrieval instead of reusing batch
+    //  retrieval logic
     pub async fn get_piece_from_cache(&self, piece_index: PieceIndex) -> Option<Piece> {
-        let key = RecordKey::from(piece_index.to_multihash());
-
-        let request_batch = self.node.get_requests_batch_handle().await;
-        let mut get_providers_stream = request_batch
-            .get_providers(key.clone())
+        self.get_from_cache(iter::once(piece_index))
             .await
-            .inspect_err(|err| warn!(%piece_index,?key, ?err, "get_providers returned an error"))
-            .ok()?;
-
-        let key = hex::encode(&key);
-        while let Some(provider_id) = get_providers_stream.next().await {
-            trace!(%piece_index, key, %provider_id, "get_providers returned an item");
-
-            let Ok(PieceByIndexResponse {
-                piece,
-                cached_pieces: _,
-            }) = request_batch
-                .send_generic_request(
-                    provider_id,
-                    Vec::new(),
-                    PieceByIndexRequest {
-                        piece_index,
-                        cached_pieces: StdArc::default(),
-                    },
-                )
-                .await
-                .inspect_err(
-                    |error| debug!(%piece_index, key, %provider_id, ?error, "Piece request failed"),
-                )
-            else {
-                continue;
-            };
-
-            if let Some(piece) = piece {
-                trace!(%piece_index, key, %provider_id, "Piece request succeeded");
-
-                return self
-                    .piece_validator
-                    .validate_piece(provider_id, piece_index, piece)
-                    .await;
-            }
-
-            debug!(%piece_index, key, %provider_id, "Piece request returned empty piece");
-        }
-
-        None
+            .next()
+            .await
+            .and_then(|(_piece_index, maybe_piece)| maybe_piece)
     }
 
     /// Get piece from a particular peer.
