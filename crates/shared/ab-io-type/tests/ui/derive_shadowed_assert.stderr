@@ -24,7 +24,14 @@ error[E0080]: evaluation panicked: Discriminant of `A` must be equal to its inde
 note: erroneous constant encountered
   --> tests/ui/derive_shadowed_assert.rs:31:23
    |
-31 | #[derive(Copy, Clone, TrivialType)]
-   |                       ^^^^^^^^^^^
+31 |   #[derive(Copy, Clone, TrivialType)]
+   |                         ^----------
+   |                         |
+   |  _______________________in this derive macro expansion
+   | |
+32 | | #[repr(u8)]
+33 | | enum Shifted {
+34 | |     A = 1,
+   | |_________^
    |
    = note: this note originates in the derive macro `TrivialType` (in Nightly builds, run with -Z macro-backtrace for more info)

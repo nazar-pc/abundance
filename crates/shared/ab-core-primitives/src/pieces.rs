@@ -1,5 +1,10 @@
 //! Pieces-related data structures.
 
+#![expect(
+    clippy::large_unopt_stack_frames,
+    reason = "Intentional and documented"
+)]
+
 #[cfg(feature = "alloc")]
 mod flat_pieces;
 #[cfg(feature = "alloc")]

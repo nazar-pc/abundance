@@ -48,6 +48,7 @@ where
     CStr::from_bytes_until_nul(slice).ok()?.to_str().ok()
 }
 
+#[expect(clippy::large_unopt_stack_frames, reason = "Fine for main function")]
 fn main() -> anyhow::Result<()> {
     if COREMARK_ELF.is_empty() {
         return Err(anyhow::anyhow!(

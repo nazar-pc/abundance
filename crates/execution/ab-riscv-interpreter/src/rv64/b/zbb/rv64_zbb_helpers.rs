@@ -11,7 +11,7 @@ pub fn orc_b(src: u64) -> u64 {
     cfg_select! {
         all(not(miri), target_arch = "riscv64", target_feature = "zbb") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv64::orc_b(src as usize) as u64 }
+            unsafe { core::arch::riscv64::orc_b_64(src) }
         }
         _ => orc_b_generic(src),
     }

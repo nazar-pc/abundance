@@ -10,7 +10,7 @@ help: the trait `TrivialType` is not implemented for `NotTrivialType`
 5 | struct NotTrivialType;
   | ^^^^^^^^^^^^^^^^^^^^^
   = help: the following other types implement trait `TrivialType`:
-            ()
+            `(T₁, T₂, …, Tₙ)` up to tuples of arity 0
             [T; SIZE]
             ab_io_type::fixed_capacity_elements::FixedCapacityElements<Element, CAPACITY>
             ab_io_type::fixed_capacity_string::FixedCapacityString<CAPACITY>

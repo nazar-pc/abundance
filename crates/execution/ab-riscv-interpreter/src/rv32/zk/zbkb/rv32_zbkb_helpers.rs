@@ -11,7 +11,7 @@ pub fn zip(src: u32) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbkb") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::zip(src) }
+            unsafe { core::arch::riscv32::zip_32(src) }
         }
         _ => zip_generic(src),
     }
@@ -53,7 +53,7 @@ pub fn unzip(src: u32) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbkb") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::unzip(src) }
+            unsafe { core::arch::riscv32::unzip_32(src) }
         }
         _ => unzip_generic(src),
     }

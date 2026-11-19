@@ -12,7 +12,7 @@ pub fn xperm4(rs1: u32, rs2: u32) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbkx") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::xperm4(rs1 as usize, rs2 as usize) as u32 }
+            unsafe { core::arch::riscv32::xperm4_32(rs1, rs2) }
         }
         _ => {
             use core::simd::num::SimdUint;
@@ -63,7 +63,7 @@ pub fn xperm8(rs1: u32, rs2: u32) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbkx") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::xperm8(rs1 as usize, rs2 as usize) as u32 }
+            unsafe { core::arch::riscv32::xperm8_32(rs1, rs2) }
         }
         _ => {
             use core::simd::u8x4;

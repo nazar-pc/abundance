@@ -11,7 +11,7 @@ pub fn orc_b(src: u32) -> u32 {
     cfg_select! {
         all(not(miri), target_arch = "riscv32", target_feature = "zbb") => {
             // SAFETY: Compile-time checked for supported feature
-            unsafe { core::arch::riscv32::orc_b(src as usize) as u32 }
+            unsafe { core::arch::riscv32::orc_b_32(src) }
         }
         _ => orc_b_generic(src),
     }

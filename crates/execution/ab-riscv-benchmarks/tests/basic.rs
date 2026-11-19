@@ -32,6 +32,7 @@ enum RunType {
     EagerThreaded,
 }
 
+#[expect(clippy::large_unopt_stack_frames, reason = "Fine for test function")]
 fn call_method<IA, CIA>(method_name: &str, create_internal_args: CIA, run_type: RunType) -> IA
 where
     IA: TrivialType,

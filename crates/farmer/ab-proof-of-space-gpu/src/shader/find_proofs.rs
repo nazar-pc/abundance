@@ -1,3 +1,11 @@
+#![cfg_attr(
+    not(target_arch = "spirv"),
+    expect(
+        clippy::large_unopt_stack_frames,
+        reason = "Intentional and not too bad"
+    )
+)]
+
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]
 mod cpu_tests;
 #[cfg(all(test, not(miri), not(target_arch = "spirv")))]

@@ -1,5 +1,10 @@
 //! Segments-related data structures
 
+#![expect(
+    clippy::large_unopt_stack_frames,
+    reason = "Intentional and documented"
+)]
+
 #[cfg(feature = "alloc")]
 mod archival_history_segment;
 #[cfg(all(test, feature = "alloc"))]
