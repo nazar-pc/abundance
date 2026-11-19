@@ -1,3 +1,6 @@
+#[cfg(not(miri))]
+mod networking;
+
 use crate::utils::multihash::ToMultihash;
 use crate::utils::piece_provider::KnownClosestPeers;
 use ab_core_primitives::pieces::PieceIndex;
