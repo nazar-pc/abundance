@@ -470,6 +470,65 @@ where
     }
 }
 
+/// Shard segment roots included in a base block that the blocks of its shard confirmation window
+/// didn't postpone due to a shard reorg, in the order of the base block.
+///
+/// `shard_segment_roots` are included in the base block, `window_shard_segment_roots` in each block
+/// of its shard confirmation window.
+fn surviving_shard_segment_roots<'a>(
+    shard_segment_roots: &'a [ShardSegmentRoot],
+    window_shard_segment_roots: &[Arc<[ShardSegmentRoot]>],
+) -> impl Iterator<Item = ShardSegmentRoot> + use<'a> {
+    let mut shard_segment_roots_map =
+        HashMap::<ShardIndex, Vec<ShardSegmentRoot>>::with_capacity(shard_segment_roots.len());
+
+    // Group shard segment roots by shard index
+    for &shard_segment_root in shard_segment_roots {
+        // Segment indices are already sorted in the beacon chain block body, hence a simple
+        // vector for storing them
+        shard_segment_roots_map
+            .entry(shard_segment_root.shard_index)
+            .or_default()
+            .push(shard_segment_root);
+    }
+
+    // Clean up anything that might have reorged since and should not be included in the
+    // super segment yet
+    for block_shard_segment_roots in window_shard_segment_roots {
+        for shard_segment_root in block_shard_segment_roots.iter() {
+            if let Some(shard_segments) =
+                shard_segment_roots_map.get_mut(&shard_segment_root.shard_index)
+                && let Some(first_shard_segment) = shard_segments.first()
+            {
+                // Truncate the shard segments if there was a reorg, a segment index at or below
+                // the first one postpones all of them
+                let offset = shard_segment_root
+                    .segment_index
+                    .saturating_sub(first_shard_segment.segment_index);
+                shard_segments.truncate(u64::from(offset) as usize);
+            }
+        }
+    }
+
+    // Keep anything that was not reorged
+    shard_segment_roots
+        .iter()
+        .filter(move |shard_segment_root| {
+            if let Some(shard_segments) =
+                shard_segment_roots_map.get(&shard_segment_root.shard_index)
+                && let Some(first_shard_segment) = shard_segments.first()
+                && let Some(offset) = shard_segment_root
+                    .segment_index
+                    .checked_sub(first_shard_segment.segment_index)
+            {
+                (u64::from(offset) as usize) < shard_segments.len()
+            } else {
+                false
+            }
+        })
+        .copied()
+}
+
 /// Derive a super segment for a block with a specified parent block number and root.
 ///
 /// For block `n` shard segment roots of blocks
@@ -524,71 +583,24 @@ where
 
     let own_segment_roots = chain_info.segment_roots_for_block(target_block_number);
 
-    let shard_segment_roots = if let Some(base_shard_segment_roots_depth) = target_block_number
+    let shard_segment_roots_with_window = target_block_number
         .checked_sub(block_confirmation_depth.saturating_add(shard_confirmation_depth))
-    {
-        let shard_segment_roots =
-            chain_info.shard_segment_roots(base_shard_segment_roots_depth, parent_block_root)?;
-        let mut shard_segment_roots_map =
-            HashMap::<ShardIndex, Vec<ShardSegmentRoot>>::with_capacity(shard_segment_roots.len());
+        .map(|base_block_number| {
+            let shard_segment_roots =
+                chain_info.shard_segment_roots(base_block_number, parent_block_root)?;
+            let window_shard_segment_roots = (base_block_number + BlockNumber::ONE..)
+                .take(u64::from(shard_confirmation_depth) as usize)
+                .map(|block_number| chain_info.shard_segment_roots(block_number, parent_block_root))
+                .collect::<Result<Vec<_>, _>>()?;
 
-        // Group shard segment roots by shard index
-        for &shard_segment_root in shard_segment_roots.iter() {
-            // Segment indices are already sorted in the beacon chain block body, hence a simple
-            // vector for storing them
-            shard_segment_roots_map
-                .entry(shard_segment_root.shard_index)
-                .or_default()
-                .push(shard_segment_root);
-        }
-
-        // Clean up anything that might have reorged since and should not be included in the
-        // super segment yet
-        for block_number_to_check in (base_shard_segment_roots_depth + BlockNumber::ONE..)
-            .take(u64::from(shard_confirmation_depth) as usize)
-        {
-            for shard_segment_root in chain_info
-                .shard_segment_roots(block_number_to_check, parent_block_root)?
-                .iter()
-            {
-                if let Some(shard_segments) =
-                    shard_segment_roots_map.get_mut(&shard_segment_root.shard_index)
-                    && let Some(first_shard_segment) = shard_segments.first()
-                {
-                    // Truncate the shard segments if there was a reorg, a segment index at or below
-                    // the first one postpones all of them
-                    let offset = shard_segment_root
-                        .segment_index
-                        .saturating_sub(first_shard_segment.segment_index);
-                    shard_segments.truncate(u64::from(offset) as usize);
-                }
-            }
-        }
-
-        // Collect anything that was not reorged into a flat list of segment roots
-        Some(
-            shard_segment_roots
-                .iter()
-                .filter(|shard_segment_root| {
-                    if let Some(shard_segments) =
-                        shard_segment_roots_map.get(&shard_segment_root.shard_index)
-                        && let Some(first_shard_segment) = shard_segments.first()
-                        && let Some(offset) = shard_segment_root
-                            .segment_index
-                            .checked_sub(first_shard_segment.segment_index)
-                    {
-                        (u64::from(offset) as usize) < shard_segments.len()
-                    } else {
-                        false
-                    }
-                })
-                .copied()
-                .collect::<Vec<_>>(),
-        )
-    } else {
-        None
-    };
-    let shard_segment_roots = shard_segment_roots.into_flat_iter();
+            Ok::<_, ShardSegmentRootsError>((shard_segment_roots, window_shard_segment_roots))
+        })
+        .transpose()?;
+    let shard_segment_roots = shard_segment_roots_with_window.iter().flat_map(
+        |(shard_segment_roots, window_shard_segment_roots)| {
+            surviving_shard_segment_roots(shard_segment_roots, window_shard_segment_roots)
+        },
+    );
 
     let segment_roots = own_segment_roots
         .chain(shard_segment_roots)

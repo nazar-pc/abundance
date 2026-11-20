@@ -1,5 +1,3 @@
-#![feature(option_into_flat_iter)]
-
 pub mod consensus_parameters;
 pub mod state;
 #[cfg(test)]
