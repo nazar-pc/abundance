@@ -911,6 +911,73 @@ where
             .first()
             .expect("The best block is always present; qed")
     }
+
+    /// Block at `ancestor_block_number` on the chain ending at `descendant_block_root`.
+    ///
+    /// If `ancestor_block_number` is the descendant's own number, the descendant is returned.
+    /// Returns `None` if `ancestor_block_number` is higher than the descendant's number or if
+    /// either block is not available.
+    fn ancestor_block(
+        &self,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
+    ) -> Option<&ClientDatabaseBlock<Block>> {
+        let best_number = self.best_tip().number;
+
+        let ancestor_block_offset =
+            u64::from(best_number.checked_sub(ancestor_block_number)?) as usize;
+        let ancestor_block_candidates = self.data.blocks.get(ancestor_block_offset)?;
+
+        let descendant_block_number = *self.data.block_roots.get(descendant_block_root)?;
+        if ancestor_block_number > descendant_block_number {
+            return None;
+        }
+        let descendant_block_offset =
+            u64::from(best_number.checked_sub(descendant_block_number)?) as usize;
+
+        // Range of blocks where the first item is expected to contain a descendant
+        let mut blocks_range_iter = self
+            .data
+            .blocks
+            .iter()
+            .enumerate()
+            .skip(descendant_block_offset);
+
+        let (_offset, descendant_block_candidates) = blocks_range_iter.next()?;
+        let descendant_block = descendant_block_candidates
+            .iter()
+            .find(|block| &*block.header().header().root() == descendant_block_root)?;
+
+        if ancestor_block_number == descendant_block_number {
+            return Some(descendant_block);
+        }
+
+        // If there are no forks at this level, then this is the canonical chain and ancestor
+        // block number we're looking for is the first block at the corresponding block number.
+        // Similarly, if there is just a single ancestor candidate and descendant exists, it must be
+        // the one we care about.
+        if descendant_block_candidates.len() == 1 || ancestor_block_candidates.len() == 1 {
+            return ancestor_block_candidates.first();
+        }
+
+        let mut parent_block_root = &descendant_block.header().header().prefix.parent_root;
+
+        // Iterate over the blocks following descendant until ancestor is reached
+        for (block_offset, parent_candidates) in blocks_range_iter {
+            let parent_block = parent_candidates
+                .iter()
+                .find(|block| &*block.header().header().root() == parent_block_root)?;
+
+            // When block offset matches, we found the block
+            if block_offset == ancestor_block_offset {
+                return Some(parent_block);
+            }
+
+            parent_block_root = &parent_block.header().header().prefix.parent_root;
+        }
+
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -1079,66 +1146,10 @@ where
         // Blocking read lock is fine because where a write lock is only taken for a short time and
         // most locks are read locks
         let state = self.inner.state.read_blocking();
-        let best_number = state.best_tip().number;
 
-        let ancestor_block_offset =
-            u64::from(best_number.checked_sub(ancestor_block_number)?) as usize;
-        let ancestor_block_candidates = state.data.blocks.get(ancestor_block_offset)?;
-
-        let descendant_block_number = *state.data.block_roots.get(descendant_block_root)?;
-        if ancestor_block_number > descendant_block_number {
-            return None;
-        }
-        let descendant_block_offset =
-            u64::from(best_number.checked_sub(descendant_block_number)?) as usize;
-
-        // Range of blocks where the first item is expected to contain a descendant
-        let mut blocks_range_iter = state
-            .data
-            .blocks
-            .iter()
-            .enumerate()
-            .skip(descendant_block_offset);
-
-        let (_offset, descendant_block_candidates) = blocks_range_iter.next()?;
-        let descendant_header = descendant_block_candidates
-            .iter()
-            .find(|block| &*block.header().header().root() == descendant_block_root)?
-            .header();
-
-        if ancestor_block_number == descendant_block_number {
-            return Some(descendant_header.clone());
-        }
-
-        // If there are no forks at this level, then this is the canonical chain and ancestor
-        // block number we're looking for is the first block at the corresponding block number.
-        // Similarly, if there is just a single ancestor candidate and descendant exists, it must be
-        // the one we care about.
-        if descendant_block_candidates.len() == 1 || ancestor_block_candidates.len() == 1 {
-            return ancestor_block_candidates
-                .iter()
-                .next()
-                .map(|block| block.header().clone());
-        }
-
-        let mut parent_block_root = &descendant_header.header().prefix.parent_root;
-
-        // Iterate over the blocks following descendant until ancestor is reached
-        for (block_offset, parent_candidates) in blocks_range_iter {
-            let parent_header = parent_candidates
-                .iter()
-                .find(|header| &*header.header().header().root() == parent_block_root)?
-                .header();
-
-            // When header offset matches, we found the header
-            if block_offset == ancestor_block_offset {
-                return Some(parent_header.clone());
-            }
-
-            parent_block_root = &parent_header.header().prefix.parent_root;
-        }
-
-        None
+        state
+            .ancestor_block(ancestor_block_number, descendant_block_root)
+            .map(|block| block.header().clone())
     }
 
     #[inline]
@@ -1507,26 +1518,18 @@ where
 {
     fn shard_segment_roots(
         &self,
-        block_number: BlockNumber,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
     ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
         // Blocking read lock is fine because where a write lock is only taken for a short time and
         // most locks are read locks
         let state = self.inner.state.read_blocking();
-        let best_number = state.best_tip().number;
-
-        let block_offset = u64::from(
-            best_number
-                .checked_sub(block_number)
-                .ok_or(ShardSegmentRootsError::BlockMissing { block_number })?,
-        ) as usize;
 
         let block = state
-            .data
-            .blocks
-            .get(block_offset)
-            .ok_or(ShardSegmentRootsError::BlockMissing { block_number })?
-            .first()
-            .expect("There is always at least one block candidate; qed");
+            .ancestor_block(ancestor_block_number, descendant_block_root)
+            .ok_or(ShardSegmentRootsError::BlockMissing {
+                block_number: ancestor_block_number,
+            })?;
 
         Ok(Arc::clone(
             &block

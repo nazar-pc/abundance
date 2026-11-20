@@ -77,7 +77,6 @@ struct MockBlock {
 /// Mock of [`BeaconChainInfo`] with explicit forks: a tree of blocks, one of which is the best
 /// block.
 ///
-/// Like the database, it returns shard segment roots of blocks on the best chain by block number.
 /// Every block has a unique proof of time. Methods that are not needed by tests are not
 /// implemented.
 #[derive(Debug, Clone)]
@@ -152,19 +151,22 @@ impl ChainInfo<OwnedBeaconChainBlock> for MockBeaconChain {
 impl BeaconChainInfo for MockBeaconChain {
     fn shard_segment_roots(
         &self,
-        block_number: BlockNumber,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
     ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
-        let mut block_root = self.best_root;
+        let mut block_root = *descendant_block_root;
         while let Some(block) = self.blocks.get(&block_root)
-            && block.header.header().prefix.number >= block_number
+            && block.header.header().prefix.number >= ancestor_block_number
         {
-            if block.header.header().prefix.number == block_number {
+            if block.header.header().prefix.number == ancestor_block_number {
                 return Ok(Arc::clone(&block.shard_segment_roots));
             }
             block_root = block.header.header().prefix.parent_root;
         }
 
-        Err(ShardSegmentRootsError::BlockMissing { block_number })
+        Err(ShardSegmentRootsError::BlockMissing {
+            block_number: ancestor_block_number,
+        })
     }
 
     fn last_super_segment_header(&self) -> Option<SuperSegmentHeader> {

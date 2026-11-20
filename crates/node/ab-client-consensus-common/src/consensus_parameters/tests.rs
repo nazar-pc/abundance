@@ -39,11 +39,16 @@ fn add_chain(
 }
 
 /// Root and local segment indices of the super segment derived for the child of the block at
-/// `parent_number`
+/// `parent_number` on the best chain
 fn derive(chain: &MockBeaconChain, parent_number: u64) -> Option<(SuperSegmentRoot, Vec<u64>)> {
+    let parent_number = BlockNumber::from(parent_number);
+    let parent_header = chain
+        .ancestor_header(parent_number, &chain.best_root())
+        .unwrap();
     derive_super_segments_for_block(
         chain,
-        BlockNumber::from(parent_number),
+        parent_number,
+        &parent_header.header().root(),
         BlockNumber::from(BLOCK_CONFIRMATION_DEPTH),
         BlockNumber::from(SHARD_CONFIRMATION_DEPTH),
     )

@@ -417,14 +417,12 @@ pub trait DeriveSuperSegmentsForBlockChainInfo: Send + Sync {
         block_number: BlockNumber,
     ) -> Option<SuperSegmentHeader>;
 
-    /// Returns intermediate and leaf shard segment roots included in the specified block number.
-    ///
-    /// NOTE: Only meant for confirmed blocks (see
-    /// [`ConsensusConstants::block_confirmation_depth`]), which are the same on every chain that
-    /// can still be extended, so only a block number is needed as a reference.
+    /// Returns intermediate and leaf shard segment roots included in the block at
+    /// `ancestor_block_number` on the chain ending at `descendant_block_root`
     fn shard_segment_roots(
         &self,
-        block_number: BlockNumber,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
     ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError>;
 }
 
@@ -465,21 +463,23 @@ where
     #[inline(always)]
     fn shard_segment_roots(
         &self,
-        block_number: BlockNumber,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
     ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError> {
-        BeaconChainInfo::shard_segment_roots(self, block_number)
+        BeaconChainInfo::shard_segment_roots(self, ancestor_block_number, descendant_block_root)
     }
 }
 
-/// Derive a super segment for a block with a specified parent block number.
+/// Derive a super segment for a block with a specified parent block number and root.
 ///
-/// For block `n` shard segment roots of confirmed blocks
-/// `n - block_confirmation_depth - shard_confirmation_depth ..= n - block_confirmation_depth` are
-/// read (see [`ConsensusConstants::block_confirmation_depth`] and
+/// For block `n` shard segment roots of blocks
+/// `n - block_confirmation_depth - shard_confirmation_depth ..= n - block_confirmation_depth` on
+/// its chain are read (see [`ConsensusConstants::block_confirmation_depth`] and
 /// [`ConsensusConstants::shard_confirmation_depth`]).
 pub fn derive_super_segments_for_block<BCI>(
     chain_info: &BCI,
     parent_block_number: BlockNumber,
+    parent_block_root: &BlockRoot,
     block_confirmation_depth: BlockNumber,
     shard_confirmation_depth: BlockNumber,
 ) -> Result<Option<SuperSegment>, DeriveSuperSegmentForBlockError>
@@ -527,7 +527,8 @@ where
     let shard_segment_roots = if let Some(base_shard_segment_roots_depth) = target_block_number
         .checked_sub(block_confirmation_depth.saturating_add(shard_confirmation_depth))
     {
-        let shard_segment_roots = chain_info.shard_segment_roots(base_shard_segment_roots_depth)?;
+        let shard_segment_roots =
+            chain_info.shard_segment_roots(base_shard_segment_roots_depth, parent_block_root)?;
         let mut shard_segment_roots_map =
             HashMap::<ShardIndex, Vec<ShardSegmentRoot>>::with_capacity(shard_segment_roots.len());
 
@@ -547,7 +548,7 @@ where
             .take(u64::from(shard_confirmation_depth) as usize)
         {
             for shard_segment_root in chain_info
-                .shard_segment_roots(block_number_to_check)?
+                .shard_segment_roots(block_number_to_check, parent_block_root)?
                 .iter()
             {
                 if let Some(shard_segments) =
