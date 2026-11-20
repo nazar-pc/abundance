@@ -5,7 +5,7 @@ use ab_client_api::{BeaconChainInfo, BlockDetails, ContractSlotState};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersError, DeriveSuperSegmentForBlockError, derive_consensus_parameters,
-    derive_super_segments_for_block,
+    derive_super_segment_for_block,
 };
 use ab_client_consensus_common::state::GlobalState;
 use ab_core_primitives::block::body::owned::OwnedBeaconChainBodyError;
@@ -98,7 +98,7 @@ where
         // TODO: Handle super segment error caused by too many segments included in shard blocks.
         //  While not a concern any time soon, but it is theoretically possible and should be
         //  handled in a general case.
-        let maybe_super_segment = derive_super_segments_for_block(
+        let maybe_super_segment = derive_super_segment_for_block(
             &self.chain_info,
             parent_header.prefix.number,
             parent_block_root,

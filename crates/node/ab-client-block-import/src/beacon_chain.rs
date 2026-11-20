@@ -4,7 +4,7 @@ mod tests;
 use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlockImportStatus};
 use crate::{BlockImport, BlockImportError};
 use ab_client_api::{
-    BeaconChainInfoWrite, BlockDetails, BlockOrigin, ChainInfo, PersistSuperSegmentHeadersError,
+    BeaconChainInfoWrite, BlockDetails, BlockOrigin, ChainInfo, PersistSuperSegmentsError,
 };
 use ab_client_block_verification::{BlockVerification, BlockVerificationError};
 use ab_client_consensus_common::BlockImportingNotification;
@@ -25,6 +25,7 @@ use futures::channel::mpsc;
 use futures::prelude::*;
 use send_future::SendFuture;
 use std::marker::PhantomData;
+use std::slice;
 use tracing::{info, warn};
 use triomphe::Arc;
 
@@ -38,12 +39,12 @@ pub enum BeaconChainBlockImportError {
         #[from]
         error: BlockVerificationError,
     },
-    /// Failed to persist a new super segment header
-    #[error("Failed to persist a new super segment header: {error}")]
-    PersistSuperSegmentHeaders {
+    /// Failed to persist a new super segment
+    #[error("Failed to persist a new super segment: {error}")]
+    PersistSuperSegments {
         /// Low-level error
         #[from]
-        error: PersistSuperSegmentHeadersError,
+        error: PersistSuperSegmentsError,
     },
 }
 
@@ -343,11 +344,9 @@ where
             let mut super_segment_sender = self.super_segments_sender.lock().await;
             if self
                 .chain_info
-                .persist_super_segment_header(super_segment.header)
+                .persist_super_segments(slice::from_ref(&super_segment))
                 .await
-                .map_err(
-                    |error| BeaconChainBlockImportError::PersistSuperSegmentHeaders { error },
-                )?
+                .map_err(|error| BeaconChainBlockImportError::PersistSuperSegments { error })?
                 && let Err(error) = super_segment_sender.send(super_segment).await
             {
                 warn!(%error, "Failed to send a super segment notification");

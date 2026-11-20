@@ -201,6 +201,10 @@ impl BeaconChainInfo for MockBeaconChain {
     ) -> Option<SuperSegmentHeader> {
         unimplemented!()
     }
+
+    fn shard_max_local_segment_index(&self, _shard_index: ShardIndex) -> Option<LocalSegmentIndex> {
+        unimplemented!()
+    }
 }
 
 impl MockBeaconChain {

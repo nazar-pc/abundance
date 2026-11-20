@@ -1,13 +1,20 @@
+use crate::page_group::temporary::StorageItemTemporary;
+use crate::page_group::temporary::shard_max_local_segment_indices::{
+    ShardMaxLocalSegmentIndex, StorageItemTemporaryShardMaxLocalSegmentIndices,
+};
 use crate::storage_backend::{
     ClientDatabaseStorageBackend, OwnedPages, SharedPages, StorageBackendError,
 };
 use crate::storage_backend_adapter::storage_item::StorageItemError;
+use crate::storage_backend_adapter::{
+    StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers,
+};
 use crate::test_utils::{
     Database, DatabaseOptions, IntermediateShardBlockSegments, MemoryStorageBackend,
     PAGE_GROUP_SIZE, beacon_chain_block, beacon_chain_block_with_shard_segments,
     block_confirmation_depth, database_options, genesis_block_builder, highest_persisted_number,
     open_database, open_database_with_options, persist_beacon_chain_block, persist_block,
-    persist_chain, reopen, segment_header, super_segment_header,
+    persist_chain, reopen, segment_header, super_segment, super_segment_header,
 };
 use crate::{
     ClientDatabase, ClientDatabaseBlock, ClientDatabaseError, ClientDatabaseFormatError,
@@ -16,8 +23,8 @@ use crate::{
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::{
     BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, ChainInfo, ChainInfoWrite,
-    ContractSlotState, PersistBlockError, PersistSegmentHeadersError,
-    PersistSuperSegmentHeadersError, ReadBlockError, ShardSegmentRoot, ShardSegmentRootsError,
+    ContractSlotState, PersistBlockError, PersistSegmentHeadersError, PersistSuperSegmentsError,
+    ReadBlockError, ShardSegmentRoot, ShardSegmentRootsError,
 };
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
@@ -25,6 +32,7 @@ use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{LocalSegmentIndex, SegmentRoot, SuperSegmentIndex};
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::trees::BlockMerkleMountainRange;
+use ab_io_type::unaligned::Unaligned;
 use futures::channel::oneshot;
 use futures::executor::block_on;
 use std::num::{NonZeroU32, NonZeroUsize};
@@ -191,19 +199,25 @@ fn segment_headers_and_blocks_survive_reopen() {
 }
 
 #[test]
-fn super_segment_headers_and_blocks_survive_reopen() {
+fn super_segments_and_blocks_survive_reopen() {
     let storage_backend = MemoryStorageBackend::new();
     let database = open_database(&storage_backend);
     let mut chain = vec![database.best_root()];
+    let shard_index = ShardIndex::new(1).unwrap();
 
-    // Blocks are written after each super segment headers item
-    block_on(
-        database
-            .persist_super_segment_headers(vec![super_segment_header(0), super_segment_header(1)]),
-    )
+    // Blocks are written after each pair of storage items for super segments
+    block_on(database.persist_super_segments(&[
+        super_segment(0, &[(ShardIndex::BEACON_CHAIN, 0)]),
+        super_segment(1, &[(shard_index, 0)]),
+    ]))
     .unwrap();
     chain.extend(persist_chain(&database, chain[0], 1..=10, 0));
-    assert!(block_on(database.persist_super_segment_header(super_segment_header(2))).unwrap());
+    assert!(
+        block_on(
+            database.persist_super_segments(&[super_segment(2, &[(ShardIndex::BEACON_CHAIN, 1)])])
+        )
+        .unwrap()
+    );
     chain.extend(persist_chain(&database, chain[10], 11..=12, 0));
 
     let database = reopen(database, &storage_backend);
@@ -218,7 +232,230 @@ fn super_segment_headers_and_blocks_survive_reopen() {
             Some(super_segment_header(super_segment_index))
         );
     }
+    assert_eq!(
+        database.shard_max_local_segment_index(ShardIndex::BEACON_CHAIN),
+        Some(LocalSegmentIndex::ONE)
+    );
+    assert_eq!(
+        database.shard_max_local_segment_index(shard_index),
+        Some(LocalSegmentIndex::ZERO)
+    );
     assert_persisted_chain(&database, chain, 12);
+}
+
+#[test]
+fn super_segments_track_shard_max_local_segment_indices() {
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let [shard_index_1, shard_index_2, shard_index_3] =
+        [1, 2, 3].map(|shard_index| ShardIndex::new(shard_index).unwrap());
+    let shard_max_local_segment_indices = || {
+        [
+            ShardIndex::BEACON_CHAIN,
+            shard_index_1,
+            shard_index_2,
+            shard_index_3,
+        ]
+        .map(|shard_index| {
+            database
+                .shard_max_local_segment_index(shard_index)
+                .map(u64::from)
+        })
+    };
+
+    assert_eq!(shard_max_local_segment_indices(), [None; 4]);
+
+    assert!(
+        block_on(
+            database.persist_super_segments(&[super_segment(0, &[(ShardIndex::BEACON_CHAIN, 0)])])
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        shard_max_local_segment_indices(),
+        [Some(0), None, None, None]
+    );
+
+    // The highest local segment index of a shard wins, regardless of the order of segments
+    block_on(database.persist_super_segments(&[
+        super_segment(
+            1,
+            &[
+                (shard_index_1, 0),
+                (ShardIndex::BEACON_CHAIN, 1),
+                (shard_index_2, 5),
+            ],
+        ),
+        super_segment(2, &[(shard_index_1, 3), (shard_index_2, 4)]),
+    ]))
+    .unwrap();
+    assert_eq!(
+        shard_max_local_segment_indices(),
+        [Some(1), Some(3), Some(5), None]
+    );
+
+    // Already present super segments don't change anything, even with different segments
+    assert!(
+        !block_on(database.persist_super_segments(&[super_segment(2, &[(shard_index_1, 9)])]))
+            .unwrap()
+    );
+    assert!(
+        block_on(database.persist_super_segments(&[
+            super_segment(2, &[(shard_index_3, 9)]),
+            super_segment(3, &[(shard_index_1, 4)]),
+        ]))
+        .unwrap()
+    );
+    assert_eq!(
+        shard_max_local_segment_indices(),
+        [Some(1), Some(4), Some(5), None]
+    );
+}
+
+#[test]
+fn shard_max_local_segment_indices_are_merged_on_reopen() {
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let [shard_index_1, shard_index_2] =
+        [1, 2].map(|shard_index| ShardIndex::new(shard_index).unwrap());
+
+    block_on(database.persist_super_segments(&[super_segment(0, &[(shard_index_1, 5)])])).unwrap();
+    block_on(database.persist_super_segments(&[super_segment(1, &[(shard_index_2, 2)])])).unwrap();
+    // A later storage item that omits a shard and has a lower local segment index of another one
+    // changes neither of them
+    block_on(async {
+        let state = database.inner.state.read().await;
+        state
+            .storage_backend_adapter
+            .write()
+            .await
+            .write_storage_item(StorageItemTemporary::ShardMaxLocalSegmentIndices(
+                StorageItemTemporaryShardMaxLocalSegmentIndices {
+                    shard_max_local_segment_indices: vec![ShardMaxLocalSegmentIndex {
+                        shard_index: shard_index_1,
+                        local_segment_index: Unaligned::from(LocalSegmentIndex::ONE),
+                    }],
+                },
+            ))
+            .await
+    })
+    .unwrap();
+
+    let database = reopen(database, &storage_backend);
+
+    assert_eq!(
+        database.shard_max_local_segment_index(shard_index_1),
+        Some(LocalSegmentIndex::from(5))
+    );
+    assert_eq!(
+        database.shard_max_local_segment_index(shard_index_2),
+        Some(LocalSegmentIndex::from(2))
+    );
+}
+
+/// Each storage item of the highest local segment indices of shards holds changed entries, with the
+/// rest of its last page filled with the least recently written other entries
+#[test]
+fn shard_max_local_segment_indices_writes_cycle_through_all_entries() {
+    let num_entries_per_page = StorageItemTemporaryShardMaxLocalSegmentIndices {
+        shard_max_local_segment_indices: Vec::new(),
+    }
+    .num_free_entries_in_last_page();
+    // Shards don't fit into a single page, but those that one storage item doesn't hold fit into
+    // the next one
+    let shard_indices = (0..)
+        .map(|shard_index| ShardIndex::new(shard_index).unwrap())
+        .take(num_entries_per_page * 3 / 2)
+        .collect::<Vec<_>>();
+    let storage_backend = MemoryStorageBackend::new();
+    let mut database = open_database(&storage_backend);
+
+    block_on(
+        database.persist_super_segments(&[super_segment(
+            0,
+            &shard_indices
+                .iter()
+                .map(|&shard_index| (shard_index, 0))
+                .collect::<Vec<_>>(),
+        )]),
+    )
+    .unwrap();
+    // Only the beacon chain has new segments after that
+    for super_segment_index in 1..=4 {
+        block_on(database.persist_super_segments(&[super_segment(
+            super_segment_index,
+            &[(ShardIndex::BEACON_CHAIN, super_segment_index)],
+        )]))
+        .unwrap();
+
+        // The order of writes is restored on reopen
+        if super_segment_index == 1 {
+            database = reopen(database, &storage_backend);
+        }
+    }
+    // Nothing is written when no index changes
+    assert!(
+        block_on(
+            database.persist_super_segments(&[super_segment(5, &[(ShardIndex::BEACON_CHAIN, 4)],)])
+        )
+        .unwrap()
+    );
+    drop(database);
+
+    let mut storage_items = Vec::new();
+    block_on(StorageBackendAdapter::open(
+        0,
+        StorageItemHandlers {
+            permanent: |_arg| Ok(()),
+            temporary: |arg: StorageItemHandlerArg<StorageItemTemporary>| {
+                if let StorageItemTemporary::ShardMaxLocalSegmentIndices(storage_item) =
+                    arg.storage_item
+                {
+                    storage_items
+                        .push((storage_item.shard_max_local_segment_indices, arg.num_pages));
+                }
+                Ok(())
+            },
+        },
+        storage_backend,
+    ))
+    .unwrap();
+
+    let [_first_storage_item, storage_items @ ..] = storage_items.as_slice() else {
+        panic!(
+            "Unexpected number of storage items: {}",
+            storage_items.len()
+        );
+    };
+    assert_eq!(storage_items.len(), 4);
+    for ((entries, num_pages), super_segment_index) in storage_items.iter().zip(1..) {
+        assert_eq!(*num_pages, 1);
+        assert_eq!(entries.len(), num_entries_per_page);
+        for entry in entries {
+            let expected_local_segment_index = if entry.shard_index == ShardIndex::BEACON_CHAIN {
+                super_segment_index
+            } else {
+                0
+            };
+            assert_eq!(
+                u64::from(entry.local_segment_index.as_inner()),
+                expected_local_segment_index
+            );
+        }
+    }
+    // Shards that one storage item doesn't hold are the least recently written, the next one holds
+    // them
+    for ((previous_entries, _), (entries, _)) in storage_items.iter().zip(&storage_items[1..]) {
+        for shard_index in &shard_indices {
+            assert!(
+                previous_entries
+                    .iter()
+                    .chain(entries)
+                    .any(|entry| entry.shard_index == *shard_index),
+                "Shard {shard_index} is not written"
+            );
+        }
+    }
 }
 
 /// Check that blocks from genesis on have `shard_segment_roots`
@@ -436,31 +673,26 @@ fn rejected_segment_headers_are_not_added() {
 }
 
 #[test]
-fn rejected_super_segment_headers_are_not_added() {
+fn rejected_super_segments_are_not_added() {
     let storage_backend = MemoryStorageBackend::new();
     let database = open_database(&storage_backend);
 
     assert_matches!(
-        block_on(database.persist_super_segment_header(super_segment_header(1))),
-        Err(PersistSuperSegmentHeadersError::FirstSegmentIndexZero { super_segment_index })
+        block_on(database.persist_super_segments(&[super_segment(1, &[])])),
+        Err(PersistSuperSegmentsError::FirstSegmentIndexZero { super_segment_index })
             if super_segment_index == SuperSegmentIndex::ONE
     );
     assert_eq!(database.last_super_segment_header(), None);
 
-    block_on(
-        database
-            .persist_super_segment_headers(vec![super_segment_header(0), super_segment_header(1)]),
-    )
-    .unwrap();
-    // Super segment header `2` follows the stored ones, but the batch is rejected as a whole
+    block_on(database.persist_super_segments(&[super_segment(0, &[]), super_segment(1, &[])]))
+        .unwrap();
+    // Super segment `2` follows the stored ones, but the batch is rejected as a whole
     assert_matches!(
-        block_on(
-            database.persist_super_segment_headers(vec![
-                super_segment_header(2),
-                super_segment_header(4),
-            ])
-        ),
-        Err(PersistSuperSegmentHeadersError::MustFollowLastSegmentIndex {
+        block_on(database.persist_super_segments(&[
+            super_segment(2, &[(ShardIndex::BEACON_CHAIN, 5)]),
+            super_segment(4, &[]),
+        ])),
+        Err(PersistSuperSegmentsError::MustFollowLastSegmentIndex {
             super_segment_index,
             last_super_segment_index,
         }) if super_segment_index == SuperSegmentIndex::from(4)
@@ -474,14 +706,22 @@ fn rejected_super_segment_headers_are_not_added() {
         database.get_super_segment_header(SuperSegmentIndex::from(2)),
         None
     );
+    assert_eq!(
+        database.shard_max_local_segment_index(ShardIndex::BEACON_CHAIN),
+        None
+    );
 
-    assert!(block_on(database.persist_super_segment_header(super_segment_header(2))).unwrap());
+    assert!(block_on(database.persist_super_segments(&[super_segment(2, &[])])).unwrap());
 
     let database = reopen(database, &storage_backend);
 
     assert_eq!(
         database.last_super_segment_header(),
         Some(super_segment_header(2))
+    );
+    assert_eq!(
+        database.shard_max_local_segment_index(ShardIndex::BEACON_CHAIN),
+        None
     );
 }
 

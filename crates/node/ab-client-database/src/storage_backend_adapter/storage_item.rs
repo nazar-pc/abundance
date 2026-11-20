@@ -12,11 +12,9 @@ use blake3::hash;
 use std::fmt;
 use std::mem::MaybeUninit;
 
-// TODO: use this
 /// The minimum overhead that the storage item will have due to the way it is stored on disk
-#[expect(dead_code, reason = "Not used yet")]
 pub(crate) const fn min_segment_item_overhead() -> usize {
-    // Align buffer used by storage item to 128 bytes
+    // Align buffer used by storage item to 16 bytes
     let prefix_size = StorageItemContainer::<()>::prefix_size().next_multiple_of(size_of::<u128>());
 
     prefix_size + StorageItemContainer::<()>::suffix_size()
@@ -149,11 +147,9 @@ where
     pub(super) fn num_pages(&self) -> Result<u32, StorageItemError> {
         let storage_item_size = self.storage_item.total_bytes()?;
 
-        // Align buffer used by storage item to 128 bytes
-        let prefix_size = Self::prefix_size().next_multiple_of(size_of::<u128>());
-
-        let num_bytes = storage_item_size
-            .checked_add((prefix_size + Self::suffix_size()) as u32)
+        let num_bytes = u32::try_from(min_segment_item_overhead())
+            .ok()
+            .and_then(|overhead| storage_item_size.checked_add(overhead))
             .ok_or(StorageItemError::StorageItemTooLarge)?;
 
         Ok(num_bytes.div_ceil(OwnedPages::ALIGN))

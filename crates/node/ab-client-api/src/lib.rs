@@ -5,7 +5,7 @@ use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{
-    LocalSegmentIndex, SegmentHeader, SegmentIndex, SegmentRoot, SuperSegmentHeader,
+    LocalSegmentIndex, SegmentHeader, SegmentIndex, SegmentRoot, SuperSegment, SuperSegmentHeader,
     SuperSegmentIndex,
 };
 use ab_core_primitives::shard::ShardIndex;
@@ -139,14 +139,14 @@ pub enum ShardSegmentRootsError {
     },
 }
 
-/// Error for [`BeaconChainInfoWrite::persist_super_segment_headers()`]
+/// Error for [`BeaconChainInfoWrite::persist_super_segments()`]
 #[derive(Debug, thiserror::Error)]
-pub enum PersistSuperSegmentHeadersError {
+pub enum PersistSuperSegmentsError {
     /// Super segment index must strictly follow the last super segment index, can't store super
-    /// segment header
+    /// segment
     #[error(
         "Super segment index {super_segment_index} must strictly follow last super segment index \
-        {last_super_segment_index}, can't store super segment header"
+        {last_super_segment_index}, can't store super segment"
     )]
     MustFollowLastSegmentIndex {
         /// Super segment index that was attempted to be inserted
@@ -292,25 +292,24 @@ pub trait BeaconChainInfo: ChainInfo<OwnedBeaconChainBlock> {
         &self,
         segment_index: SegmentIndex,
     ) -> Option<SuperSegmentHeader>;
+
+    /// Returns the highest local segment index of a shard (the beacon chain included) that was
+    /// included in super segments.
+    ///
+    /// `None` is returned if no super segment included a segment of the shard yet.
+    fn shard_max_local_segment_index(&self, shard_index: ShardIndex) -> Option<LocalSegmentIndex>;
 }
 
 /// [`BeaconChainInfo`] extension for writing information
 pub trait BeaconChainInfoWrite: BeaconChainInfo + ChainInfoWrite<OwnedBeaconChainBlock> {
-    /// Persist a new super segment header.
+    /// Persist super segments.
     ///
-    /// Returns `Ok(true)` if the header was inserted, `Ok(false)` if it was already present.
-    fn persist_super_segment_header(
+    /// Returns `Ok(true)` if at least one super segment was inserted, `Ok(false)` if all of them
+    /// were already present.
+    fn persist_super_segments(
         &self,
-        super_segment_header: SuperSegmentHeader,
-    ) -> impl Future<Output = Result<bool, PersistSuperSegmentHeadersError>> + Send;
-
-    /// Persist super segment headers.
-    ///
-    /// Multiple can be inserted for efficiency purposes.
-    fn persist_super_segment_headers(
-        &self,
-        super_segment_headers: Vec<SuperSegmentHeader>,
-    ) -> impl Future<Output = Result<(), PersistSuperSegmentHeadersError>> + Send;
+        super_segments: &[SuperSegment],
+    ) -> impl Future<Output = Result<bool, PersistSuperSegmentsError>> + Send;
 }
 
 /// Chain sync status
