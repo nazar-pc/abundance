@@ -102,6 +102,41 @@ fn super_segment_of_deepest_fork_is_derived_from_own_ancestry() {
 }
 
 #[test]
+fn shard_reorg_below_first_segment_postpones_all_segments() {
+    // genesis - c1 .. c10 (best block)
+    //
+    // `c4` includes segment `9` again (a shard reorg), which `c3` doesn't include, but its segments
+    // `10 ..= 12` follow `9`, so they are postponed along with it and `c10` gets no super segment
+    let mut chain = MockBeaconChain::new();
+    let genesis_root = chain.best_root();
+    let canonical_chain = add_chain(
+        &mut chain,
+        genesis_root,
+        &[
+            &[],
+            &[7, 8, 9],
+            &[10, 11, 12],
+            &[9],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+        ],
+        0,
+    );
+    chain.set_best(*canonical_chain.last().unwrap());
+
+    let segment_indices = |parent_number| {
+        derive(&chain, parent_number).map(|(_root, segment_indices)| segment_indices)
+    };
+    assert_eq!(segment_indices(8), Some(vec![7, 8]));
+    assert_eq!(segment_indices(9), None);
+    assert_eq!(segment_indices(10), Some(vec![9]));
+}
+
+#[test]
 fn shard_membership_entropy_is_taken_from_own_ancestry() {
     // genesis - c1 .. c3 -+- c4 .. c10 (best block)
     //                     \- a4 .. a9
