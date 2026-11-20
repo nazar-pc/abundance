@@ -661,6 +661,7 @@ where
         let maybe_super_segment = derive_super_segments_for_block(
             &self.chain_info,
             parent_header.prefix.number,
+            &parent_header.root(),
             self.consensus_constants.block_confirmation_depth,
             self.consensus_constants.shard_confirmation_depth,
         )

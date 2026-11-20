@@ -258,14 +258,15 @@ where
 
 /// Beacon chain info
 pub trait BeaconChainInfo: ChainInfo<OwnedBeaconChainBlock> {
-    /// Returns intermediate and leaf shard segment roots included in the specified block number.
+    /// Returns intermediate and leaf shard segment roots included in the block at
+    /// `ancestor_block_number` on the chain ending at `descendant_block_root`.
     ///
-    /// NOTE: Only meant for confirmed blocks (see `ConsensusConstants::block_confirmation_depth`),
-    /// which are the same on every chain that can still be extended, so only a block number is
-    /// needed as a reference.
+    /// If `ancestor_block_number` is the descendant's own number, the descendant's shard segment
+    /// roots are returned.
     fn shard_segment_roots(
         &self,
-        block_number: BlockNumber,
+        ancestor_block_number: BlockNumber,
+        descendant_block_root: &BlockRoot,
     ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError>;
 
     /// Returns the last observed super segment header

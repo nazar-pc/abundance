@@ -17,7 +17,7 @@ use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::{
     BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, ChainInfo, ChainInfoWrite,
     ContractSlotState, PersistBlockError, PersistSegmentHeadersError,
-    PersistSuperSegmentHeadersError, ReadBlockError, ShardSegmentRoot,
+    PersistSuperSegmentHeadersError, ReadBlockError, ShardSegmentRoot, ShardSegmentRootsError,
 };
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
@@ -226,12 +226,59 @@ fn assert_shard_segment_roots(database: &Database, shard_segment_roots: &[&[Shar
     for (number, shard_segment_roots) in (0..).zip(shard_segment_roots) {
         assert_eq!(
             *database
-                .shard_segment_roots(BlockNumber::from(number))
+                .shard_segment_roots(BlockNumber::from(number), &database.best_root())
                 .unwrap(),
             **shard_segment_roots,
             "{number}"
         );
     }
+}
+
+#[test]
+fn shard_segment_roots_are_read_through_ancestry_of_forks() {
+    // genesis -+- c1 - c2 - c3 (best block)
+    //          \- a1 - a2 (with different segments in `a1`)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let shard_index = ShardIndex::new(1).unwrap();
+    let block_with_segment = |parent_root, root| {
+        beacon_chain_block_with_shard_segments(
+            1,
+            parent_root,
+            &[IntermediateShardBlockSegments {
+                shard_index,
+                own_segments: &[(LocalSegmentIndex::ZERO, SegmentRoot::from([root; _]))],
+                leaf_shard_blocks: &[],
+            }],
+        )
+    };
+    let shard_segment_roots = |root| {
+        [ShardSegmentRoot {
+            shard_index,
+            segment_index: LocalSegmentIndex::ZERO,
+            segment_root: SegmentRoot::from([root; _]),
+        }]
+    };
+
+    let genesis_root = database.best_root();
+    let c1 = persist_beacon_chain_block(&database, block_with_segment(genesis_root, 1)).unwrap();
+    let c3 = *persist_chain(&database, c1, 2..=3, 0).last().unwrap();
+    let a1 = persist_beacon_chain_block(&database, block_with_segment(genesis_root, 2)).unwrap();
+    let a2 = persist_block(&database, 2, a1, 1).unwrap();
+    assert_eq!(database.best_root(), c3);
+
+    for (descendant_block_root, root) in [(c3, 1), (c1, 1), (a2, 2), (a1, 2)] {
+        assert_eq!(
+            *database
+                .shard_segment_roots(BlockNumber::ONE, &descendant_block_root)
+                .unwrap(),
+            shard_segment_roots(root),
+        );
+    }
+    assert_matches!(
+        database.shard_segment_roots(BlockNumber::from(2), &a1),
+        Err(ShardSegmentRootsError::BlockMissing { block_number }) if block_number == BlockNumber::from(2)
+    );
 }
 
 #[test]
