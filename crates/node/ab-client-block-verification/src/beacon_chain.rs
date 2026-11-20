@@ -8,7 +8,7 @@ use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
     DeriveConsensusParametersChainInfo, DeriveConsensusParametersError,
     DeriveSuperSegmentForBlockError, ShardMembershipEntropySourceChainInfo,
-    derive_consensus_parameters, derive_super_segments_for_block, shard_membership_entropy_source,
+    derive_consensus_parameters, derive_super_segment_for_block, shard_membership_entropy_source,
 };
 use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::verifier::PotVerifier;
@@ -658,7 +658,7 @@ where
             return Err(BlockVerificationError::BelowArchivingPoint);
         }
 
-        let maybe_super_segment = derive_super_segments_for_block(
+        let maybe_super_segment = derive_super_segment_for_block(
             &self.chain_info,
             parent_header.prefix.number,
             &parent_header.root(),

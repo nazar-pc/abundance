@@ -371,7 +371,7 @@ where
     Ok(proof_of_time.shard_membership_entropy())
 }
 
-/// Error for [`derive_super_segments_for_block()`]
+/// Error for [`derive_super_segment_for_block()`]
 #[derive(Debug, thiserror::Error)]
 pub enum DeriveSuperSegmentForBlockError {
     /// Genesis beacon chain segment header not found
@@ -398,10 +398,10 @@ pub enum DeriveSuperSegmentForBlockError {
     },
 }
 
-/// Chain info for [`derive_super_segments_for_block()`].
+/// Chain info for [`derive_super_segment_for_block()`].
 ///
 /// Must have access to enough parent blocks.
-pub trait DeriveSuperSegmentsForBlockChainInfo: Send + Sync {
+pub trait DeriveSuperSegmentForBlockChainInfo: Send + Sync {
     /// Get genesis segment root of the beacon chain
     fn get_genesis_segment_root(&self) -> Result<SegmentRoot, DeriveSuperSegmentForBlockError>;
 
@@ -426,7 +426,7 @@ pub trait DeriveSuperSegmentsForBlockChainInfo: Send + Sync {
     ) -> Result<Arc<[ShardSegmentRoot]>, ShardSegmentRootsError>;
 }
 
-impl<T> DeriveSuperSegmentsForBlockChainInfo for T
+impl<T> DeriveSuperSegmentForBlockChainInfo for T
 where
     T: BeaconChainInfo,
 {
@@ -476,7 +476,7 @@ where
 /// `n - block_confirmation_depth - shard_confirmation_depth ..= n - block_confirmation_depth` on
 /// its chain are read (see [`ConsensusConstants::block_confirmation_depth`] and
 /// [`ConsensusConstants::shard_confirmation_depth`]).
-pub fn derive_super_segments_for_block<BCI>(
+pub fn derive_super_segment_for_block<BCI>(
     chain_info: &BCI,
     parent_block_number: BlockNumber,
     parent_block_root: &BlockRoot,
@@ -484,7 +484,7 @@ pub fn derive_super_segments_for_block<BCI>(
     shard_confirmation_depth: BlockNumber,
 ) -> Result<Option<SuperSegment>, DeriveSuperSegmentForBlockError>
 where
-    BCI: DeriveSuperSegmentsForBlockChainInfo,
+    BCI: DeriveSuperSegmentForBlockChainInfo,
 {
     if parent_block_number == BlockNumber::ZERO {
         let shard_segment_root = ShardSegmentRootWithPosition {

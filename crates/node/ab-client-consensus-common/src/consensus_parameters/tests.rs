@@ -1,5 +1,5 @@
 use crate::consensus_parameters::{
-    derive_super_segments_for_block, shard_membership_entropy_source,
+    derive_super_segment_for_block, shard_membership_entropy_source,
 };
 use crate::test_utils::MockBeaconChain;
 use ab_client_api::{ChainInfo, ShardSegmentRoot};
@@ -45,7 +45,7 @@ fn derive(chain: &MockBeaconChain, parent_number: u64) -> Option<(SuperSegmentRo
     let parent_header = chain
         .ancestor_header(parent_number, &chain.best_root())
         .unwrap();
-    derive_super_segments_for_block(
+    derive_super_segment_for_block(
         chain,
         parent_number,
         &parent_header.header().root(),
