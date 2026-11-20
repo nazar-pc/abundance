@@ -89,6 +89,9 @@ mod tests;
 use crate::page_group::temporary::StorageItemTemporary;
 use crate::page_group::temporary::block::StorageItemTemporaryBlock;
 use crate::page_group::temporary::segment_headers::StorageItemTemporarySegmentHeaders;
+use crate::page_group::temporary::shard_max_local_segment_indices::{
+    ShardMaxLocalSegmentIndex, StorageItemTemporaryShardMaxLocalSegmentIndices,
+};
 use crate::page_group::temporary::super_segment_headers::StorageItemTemporarySuperSegmentHeaders;
 use crate::storage_backend::ClientDatabaseStorageBackend;
 use crate::storage_backend_adapter::{
@@ -96,8 +99,8 @@ use crate::storage_backend_adapter::{
 };
 use ab_client_api::{
     BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, ChainInfo, ChainInfoWrite,
-    ContractSlotState, PersistBlockError, PersistSegmentHeadersError,
-    PersistSuperSegmentHeadersError, ReadBlockError, ShardSegmentRoot, ShardSegmentRootsError,
+    ContractSlotState, PersistBlockError, PersistSegmentHeadersError, PersistSuperSegmentsError,
+    ReadBlockError, ShardSegmentRoot, ShardSegmentRootsError,
 };
 use ab_core_primitives::block::body::BeaconChainBody;
 use ab_core_primitives::block::body::owned::{GenericOwnedBlockBody, OwnedBeaconChainBody};
@@ -106,11 +109,13 @@ use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::block::{BlockNumber, BlockRoot, GenericBlock};
 use ab_core_primitives::segments::{
-    LocalSegmentIndex, SegmentHeader, SegmentIndex, SuperSegmentHeader, SuperSegmentIndex,
+    LocalSegmentIndex, SegmentHeader, SegmentIndex, ShardSegmentRootWithPosition, SuperSegment,
+    SuperSegmentHeader, SuperSegmentIndex,
 };
-use ab_core_primitives::shard::RealShardKind;
+use ab_core_primitives::shard::{RealShardKind, ShardIndex};
 use ab_core_primitives::trees::BlockMerkleMountainRange;
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 use async_lock::{
     RwLock as AsyncRwLock, RwLockUpgradableReadGuard, RwLockWriteGuard as AsyncRwLockWriteGuard,
 };
@@ -118,7 +123,7 @@ use rand::rngs::SysError;
 use replace_with::replace_with_or_abort;
 use smallvec::{SmallVec, smallvec};
 use std::any::Any;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::hash::{BuildHasherDefault, Hasher};
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::Deref;
@@ -835,7 +840,7 @@ impl SuperSegmentHeadersCache {
     fn add_super_segment_headers(
         &mut self,
         mut super_segment_headers: Vec<SuperSegmentHeader>,
-    ) -> Result<Vec<SuperSegmentHeader>, PersistSuperSegmentHeadersError> {
+    ) -> Result<Vec<SuperSegmentHeader>, PersistSuperSegmentsError> {
         let mut maybe_last_super_segment_index = self
             .super_segment_headers_cache
             .last()
@@ -855,15 +860,13 @@ impl SuperSegmentHeadersCache {
             let super_segment_index = super_segment_header.index.as_inner();
             if let Some(last_super_segment_index) = maybe_last_super_segment_index {
                 if super_segment_index != last_super_segment_index + SuperSegmentIndex::ONE {
-                    return Err(
-                        PersistSuperSegmentHeadersError::MustFollowLastSegmentIndex {
-                            super_segment_index,
-                            last_super_segment_index,
-                        },
-                    );
+                    return Err(PersistSuperSegmentsError::MustFollowLastSegmentIndex {
+                        super_segment_index,
+                        last_super_segment_index,
+                    });
                 }
             } else if super_segment_index != SuperSegmentIndex::ZERO {
-                return Err(PersistSuperSegmentHeadersError::FirstSegmentIndexZero {
+                return Err(PersistSuperSegmentsError::FirstSegmentIndexZero {
                     super_segment_index,
                 });
             }
@@ -878,6 +881,47 @@ impl SuperSegmentHeadersCache {
     }
 }
 
+// TODO: These are consensus state that belongs to beacon chain state, which a snap-syncing node
+//  will download and verify against the state root of a block. Beacon chain state doesn't exist
+//  yet, so for now such a node has no verifiable way to get them.
+/// The highest local segment index of each shard included in super segments.
+///
+/// The number of shards is bounded and entries only ever increase.
+#[derive(Debug, Default)]
+struct ShardMaxLocalSegmentIndices {
+    max_local_segment_indices: BTreeMap<ShardIndex, LocalSegmentIndex>,
+    /// Shards from the least to the most recently written to the database
+    write_order: VecDeque<ShardIndex>,
+}
+
+impl ShardMaxLocalSegmentIndices {
+    /// Merge entries of a storage item written to the database, making them the most recently
+    /// written
+    fn add_written_entries(&mut self, entries: &[ShardMaxLocalSegmentIndex]) {
+        for entry in entries {
+            let ShardMaxLocalSegmentIndex {
+                shard_index,
+                local_segment_index,
+            } = *entry;
+            let local_segment_index = local_segment_index.as_inner();
+            let max_local_segment_index = self
+                .max_local_segment_indices
+                .entry(shard_index)
+                .or_insert(local_segment_index);
+            *max_local_segment_index = (*max_local_segment_index).max(local_segment_index);
+        }
+
+        let written_shard_indices = entries
+            .iter()
+            .map(|entry| entry.shard_index)
+            .collect::<HashSet<_>>();
+        self.write_order
+            .retain(|shard_index| !written_shard_indices.contains(shard_index));
+        self.write_order
+            .extend(entries.iter().map(|entry| entry.shard_index));
+    }
+}
+
 // TODO: Hide implementation details
 #[derive(Debug)]
 struct State<Block, StorageBackend>
@@ -887,6 +931,7 @@ where
     data: StateData<Block>,
     segment_headers_cache: SegmentHeadersCache,
     super_segment_headers_cache: SuperSegmentHeadersCache,
+    shard_max_local_segment_indices: ShardMaxLocalSegmentIndices,
     storage_backend_adapter: AsyncRwLock<StorageBackendAdapter<StorageBackend>>,
 }
 
@@ -1250,6 +1295,13 @@ where
                                     ),
                                 });
                             }
+                            StorageItemTemporary::ShardMaxLocalSegmentIndices(_) => {
+                                return Err(ReadBlockError::StorageItemReadError {
+                                    error: io::Error::other(
+                                        "Unexpected storage item: `ShardMaxLocalSegmentIndices`",
+                                    ),
+                                });
+                            }
                         };
 
                         let StorageItemTemporaryBlock {
@@ -1590,25 +1642,125 @@ where
             .super_segment_headers_cache
             .get_super_segment_header_for_segment_index(segment_index)
     }
+
+    #[inline]
+    fn shard_max_local_segment_index(&self, shard_index: ShardIndex) -> Option<LocalSegmentIndex> {
+        // Blocking read lock is fine because where a write lock is only taken for a short time and
+        // most locks are read locks
+        let state = self.inner.state.read_blocking();
+
+        state
+            .shard_max_local_segment_indices
+            .max_local_segment_indices
+            .get(&shard_index)
+            .copied()
+    }
 }
 
 impl<StorageBackend> BeaconChainInfoWrite for ClientDatabase<OwnedBeaconChainBlock, StorageBackend>
 where
     StorageBackend: ClientDatabaseStorageBackend,
 {
-    async fn persist_super_segment_header(
+    async fn persist_super_segments(
         &self,
-        super_segment_header: SuperSegmentHeader,
-    ) -> Result<bool, PersistSuperSegmentHeadersError> {
+        super_segments: &[SuperSegment],
+    ) -> Result<bool, PersistSuperSegmentsError> {
         let mut state = self.inner.state.write().await;
 
         let added_super_segment_headers = state
             .super_segment_headers_cache
-            .add_super_segment_headers(vec![super_segment_header])?;
+            .add_super_segment_headers(
+                super_segments
+                    .iter()
+                    .map(|super_segment| super_segment.header)
+                    .collect(),
+            )?;
 
-        if added_super_segment_headers.is_empty() {
+        let Some(first_added_super_segment_index) = added_super_segment_headers
+            .first()
+            .map(|super_segment_header| super_segment_header.index.as_inner())
+        else {
             return Ok(false);
+        };
+
+        let mut changed_entries = BTreeMap::<ShardIndex, LocalSegmentIndex>::new();
+        // Super segments that were already present are skipped
+        for super_segment in super_segments.iter().filter(|super_segment| {
+            super_segment.header.index.as_inner() >= first_added_super_segment_index
+        }) {
+            for segment_root in super_segment.segment_roots.iter() {
+                let ShardSegmentRootWithPosition {
+                    shard_index,
+                    segment_position: _,
+                    local_segment_index,
+                    segment_root: _,
+                } = *segment_root;
+
+                if state
+                    .shard_max_local_segment_indices
+                    .max_local_segment_indices
+                    .get(&shard_index)
+                    .is_none_or(|&max_local_segment_index| {
+                        max_local_segment_index < local_segment_index
+                    })
+                {
+                    let max_local_segment_index = changed_entries
+                        .entry(shard_index)
+                        .or_insert(local_segment_index);
+                    *max_local_segment_index = (*max_local_segment_index).max(local_segment_index);
+                }
+            }
         }
+
+        let maybe_shard_max_local_segment_indices = if changed_entries.is_empty() {
+            None
+        } else {
+            let mut storage_item = StorageItemTemporaryShardMaxLocalSegmentIndices {
+                shard_max_local_segment_indices: changed_entries
+                    .iter()
+                    .map(
+                        |(&shard_index, &local_segment_index)| ShardMaxLocalSegmentIndex {
+                            shard_index,
+                            local_segment_index: Unaligned::from(local_segment_index),
+                        },
+                    )
+                    .collect(),
+            };
+            // The rest of the last page is filled with the least recently written other entries,
+            // such that every entry is eventually written again and older page groups can be
+            // pruned without losing anything
+            let other_entries = state
+                .shard_max_local_segment_indices
+                .write_order
+                .iter()
+                .filter(|shard_index| !changed_entries.contains_key(shard_index))
+                .take(storage_item.num_free_entries_in_last_page())
+                .map(|&shard_index| {
+                    let max_local_segment_index = state
+                        .shard_max_local_segment_indices
+                        .max_local_segment_indices
+                        .get(&shard_index)
+                        .copied()
+                        .expect(
+                            "Shards are added to the write order together with their entries; qed",
+                        );
+
+                    ShardMaxLocalSegmentIndex {
+                        shard_index,
+                        local_segment_index: Unaligned::from(max_local_segment_index),
+                    }
+                })
+                .collect::<Vec<_>>();
+            storage_item
+                .shard_max_local_segment_indices
+                .extend(other_entries);
+
+            state
+                .shard_max_local_segment_indices
+                .add_written_entries(&storage_item.shard_max_local_segment_indices);
+
+            Some(storage_item)
+        };
 
         // Convert write lock into upgradable read lock to allow reads, while preventing super
         // segment headers modifications
@@ -1617,6 +1769,16 @@ where
         let state = AsyncRwLockWriteGuard::downgrade_to_upgradable(state);
 
         let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
+
+        // Written before super segment headers, so after a crash in between the map can only be
+        // ahead for a super segment that will be persisted again when its block is imported again
+        if let Some(storage_item) = maybe_shard_max_local_segment_indices {
+            storage_backend_adapter
+                .write_storage_item(StorageItemTemporary::ShardMaxLocalSegmentIndices(
+                    storage_item,
+                ))
+                .await?;
+        }
 
         storage_backend_adapter
             .write_storage_item(StorageItemTemporary::SuperSegmentHeaders(
@@ -1627,39 +1789,6 @@ where
             .await?;
 
         Ok(true)
-    }
-
-    async fn persist_super_segment_headers(
-        &self,
-        super_segment_headers: Vec<SuperSegmentHeader>,
-    ) -> Result<(), PersistSuperSegmentHeadersError> {
-        let mut state = self.inner.state.write().await;
-
-        let added_super_segment_headers = state
-            .super_segment_headers_cache
-            .add_super_segment_headers(super_segment_headers)?;
-
-        if added_super_segment_headers.is_empty() {
-            return Ok(());
-        }
-
-        // Convert write lock into upgradable read lock to allow reads, while preventing super
-        // segment headers modifications
-        // TODO: This assumes both guarantees in https://github.com/smol-rs/async-lock/issues/100
-        //  are satisfied. If not, blocking read locks in other places will cause issues.
-        let state = AsyncRwLockWriteGuard::downgrade_to_upgradable(state);
-
-        let mut storage_backend_adapter = state.storage_backend_adapter.write().await;
-
-        storage_backend_adapter
-            .write_storage_item(StorageItemTemporary::SuperSegmentHeaders(
-                StorageItemTemporarySuperSegmentHeaders {
-                    super_segment_headers: added_super_segment_headers,
-                },
-            ))
-            .await?;
-
-        Ok(())
     }
 }
 
@@ -1712,6 +1841,7 @@ where
         let mut super_segment_headers_cache = SuperSegmentHeadersCache {
             super_segment_headers_cache: Vec::new(),
         };
+        let mut shard_max_local_segment_indices = ShardMaxLocalSegmentIndices::default();
 
         // Deeper block offsets only have a single block, so ancestor walks stop there
         let fork_pruning_block_offset = options.fork_pruning_block_offset();
@@ -1765,6 +1895,11 @@ where
                                 Err(ClientDatabaseError::InvalidSegmentHeaders { page_offset })
                             }
                         };
+                    }
+                    StorageItemTemporary::ShardMaxLocalSegmentIndices(storage_item) => {
+                        shard_max_local_segment_indices
+                            .add_written_entries(&storage_item.shard_max_local_segment_indices);
+                        return Ok(());
                     }
                 };
 
@@ -1967,6 +2102,7 @@ where
             data: state_data,
             segment_headers_cache,
             super_segment_headers_cache,
+            shard_max_local_segment_indices,
             storage_backend_adapter: AsyncRwLock::new(storage_backend_adapter),
         };
 

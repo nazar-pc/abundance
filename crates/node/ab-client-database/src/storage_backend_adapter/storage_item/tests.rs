@@ -1,6 +1,9 @@
 use crate::page_group::permanent::StorageItemPermanent;
 use crate::page_group::temporary::StorageItemTemporary;
 use crate::page_group::temporary::segment_headers::StorageItemTemporarySegmentHeaders;
+use crate::page_group::temporary::shard_max_local_segment_indices::{
+    ShardMaxLocalSegmentIndex, StorageItemTemporaryShardMaxLocalSegmentIndices,
+};
 use crate::storage_backend::OwnedPages;
 use crate::storage_backend_adapter::StorageBackendAdapter;
 use crate::storage_backend_adapter::page_group_header::StorageItemPageGroupHeader;
@@ -9,8 +12,10 @@ use crate::storage_backend_adapter::storage_item::{
 };
 use crate::test_utils::{MemoryStorageBackend, segment_header};
 use ab_aligned_buffer::SharedAlignedBuffer;
-use ab_core_primitives::segments::SegmentHeader;
+use ab_core_primitives::segments::{LocalSegmentIndex, SegmentHeader};
+use ab_core_primitives::shard::ShardIndex;
 use ab_io_type::trivial_type::TrivialType;
+use ab_io_type::unaligned::Unaligned;
 use std::assert_matches;
 use std::mem::offset_of;
 
@@ -78,12 +83,58 @@ fn write_zeroes_prefix_padding() {
     assert!(prefix_padding.iter().all(|&byte| byte == 0));
 }
 
+/// Free entries fill the last page exactly, as the storage backend adapter allocates pages
+#[test]
+fn shard_max_local_segment_indices_free_entries_fill_last_page() {
+    let storage_item = |num_entries| StorageItemTemporaryShardMaxLocalSegmentIndices {
+        shard_max_local_segment_indices: (0..)
+            .map(|shard_index| ShardMaxLocalSegmentIndex {
+                shard_index: ShardIndex::new(shard_index).unwrap(),
+                local_segment_index: Unaligned::from(LocalSegmentIndex::ZERO),
+            })
+            .take(num_entries)
+            .collect(),
+    };
+    let num_pages = |num_entries| {
+        StorageItemContainer {
+            sequence_number: 0,
+            storage_item: StorageItemTemporary::ShardMaxLocalSegmentIndices(storage_item(
+                num_entries,
+            )),
+        }
+        .num_pages()
+        .unwrap()
+    };
+    let num_entries_per_page = storage_item(0).num_free_entries_in_last_page();
+
+    for num_entries in [
+        0,
+        1,
+        num_entries_per_page - 1,
+        num_entries_per_page,
+        num_entries_per_page + 1,
+        num_entries_per_page * 2 + 1,
+    ] {
+        let num_free_entries = storage_item(num_entries).num_free_entries_in_last_page();
+        assert_eq!(
+            num_pages(num_entries + num_free_entries),
+            num_pages(num_entries),
+            "{num_entries} entries"
+        );
+        assert_eq!(
+            num_pages(num_entries + num_free_entries + 1),
+            num_pages(num_entries) + 1,
+            "{num_entries} entries"
+        );
+    }
+}
+
 #[test]
 fn read_of_unknown_storage_item_variant_fails() {
     let buffer = SharedAlignedBuffer::from_bytes(&[0; 16]);
 
-    // Temporary storage items have variants 0 to 2
-    for variant in [3, u8::MAX] {
+    // Temporary storage items have variants 0 to 3
+    for variant in [4, u8::MAX] {
         assert_matches!(
             StorageItemTemporary::read(variant, &buffer),
             Err(StorageItemError::UnknownStorageItemVariant(unknown_variant))

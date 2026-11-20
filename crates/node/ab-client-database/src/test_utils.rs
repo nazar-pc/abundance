@@ -25,7 +25,8 @@ use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotOutput, SlotNumber};
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, LastArchivedBlock, LocalSegmentIndex, SegmentHeader, SegmentIndex,
-    SegmentRoot, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
+    SegmentPosition, SegmentRoot, ShardSegmentRootWithPosition, SuperSegment, SuperSegmentHeader,
+    SuperSegmentIndex, SuperSegmentRoot,
 };
 use ab_core_primitives::shard::{NumShards, ShardIndex};
 use ab_core_primitives::solutions::{Solution, SolutionRange};
@@ -508,6 +509,29 @@ pub(crate) fn super_segment_header(super_segment_index: u64) -> SuperSegmentHead
         max_segment_index: SegmentIndex::from(super_segment_index).into(),
         target_beacon_chain_block_number: BlockNumber::from(super_segment_index).into(),
         num_segments: 1,
+    }
+}
+
+/// Super segment with header [`super_segment_header()`] that includes segments with specified
+/// shard indices and local segment indices
+pub(crate) fn super_segment(
+    super_segment_index: u64,
+    shard_segments: &[(ShardIndex, u64)],
+) -> SuperSegment {
+    SuperSegment {
+        header: super_segment_header(super_segment_index),
+        segment_roots: shard_segments
+            .iter()
+            .zip(0..)
+            .map(|(&(shard_index, local_segment_index), segment_position)| {
+                ShardSegmentRootWithPosition {
+                    shard_index,
+                    segment_position: SegmentPosition::from(segment_position),
+                    local_segment_index: LocalSegmentIndex::from(local_segment_index),
+                    segment_root: SegmentRoot::default(),
+                }
+            })
+            .collect(),
     }
 }
 
