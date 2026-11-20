@@ -3,6 +3,7 @@ mod tests;
 
 use crate::{ConsensusConstants, PotConsensusConstants};
 use ab_client_api::{BeaconChainInfo, ChainInfo, ShardSegmentRoot, ShardSegmentRootsError};
+use ab_core_primitives::block::body::OwnSegments;
 use ab_core_primitives::block::header::{
     BlockHeaderConsensusInfo, BlockHeaderConsensusParameters, BlockHeaderFixedConsensusParameters,
     BlockHeaderPotParametersChange,
@@ -621,4 +622,153 @@ where
         }
     })
     .map(Some)
+}
+
+/// Error for [`check_shard_segments_not_confirmed()`]
+#[derive(Debug, thiserror::Error)]
+pub enum CheckShardSegmentsNotConfirmedError {
+    /// Shard segment is already confirmed
+    #[error(
+        "Segment {local_segment_index} of shard {shard_index} is already confirmed, max confirmed \
+        local segment index is {max_confirmed_local_segment_index}"
+    )]
+    ShardSegmentAlreadyConfirmed {
+        /// Shard index
+        shard_index: ShardIndex,
+        /// Local segment index listed in the block
+        local_segment_index: LocalSegmentIndex,
+        /// Highest confirmed local segment index of the shard
+        max_confirmed_local_segment_index: LocalSegmentIndex,
+    },
+    /// Shard segment roots error
+    #[error("Shard segment roots error: {error}")]
+    ShardSegmentRootsError {
+        /// Low-level error
+        #[from]
+        error: ShardSegmentRootsError,
+    },
+}
+
+/// Chain info for [`check_shard_segments_not_confirmed()`].
+///
+/// Must have access to enough parent blocks.
+pub trait CheckShardSegmentsNotConfirmedChainInfo: DeriveSuperSegmentForBlockChainInfo {
+    /// Returns the highest local segment index of a shard that was included in super segments
+    fn shard_max_local_segment_index(&self, shard_index: ShardIndex) -> Option<LocalSegmentIndex>;
+}
+
+impl<T> CheckShardSegmentsNotConfirmedChainInfo for T
+where
+    T: BeaconChainInfo,
+{
+    #[inline(always)]
+    fn shard_max_local_segment_index(&self, shard_index: ShardIndex) -> Option<LocalSegmentIndex> {
+        BeaconChainInfo::shard_max_local_segment_index(self, shard_index)
+    }
+}
+
+/// Check that shard segments listed in a block with a specified number and parent are not
+/// confirmed yet.
+///
+/// Shard segments of a base block that survive its shard confirmation window (see
+/// [`ConsensusConstants::shard_confirmation_depth`]) are confirmed and will be included in a super
+/// segment, a shard can't reorg them anymore. Such a segment listed again would be included in
+/// super segments twice. Shard segments of base blocks whose super segments are not persisted yet
+/// are read through the ancestry of `parent_block_root`, see
+/// [`ConsensusConstants::block_confirmation_depth`].
+///
+/// `shard_segments` are segments of intermediate and leaf shards listed in the block.
+pub fn check_shard_segments_not_confirmed<'a, BCI, Iter>(
+    chain_info: &BCI,
+    block_number: BlockNumber,
+    parent_block_root: &BlockRoot,
+    shard_segments: Iter,
+    block_confirmation_depth: BlockNumber,
+    shard_confirmation_depth: BlockNumber,
+) -> Result<(), CheckShardSegmentsNotConfirmedError>
+where
+    BCI: CheckShardSegmentsNotConfirmedChainInfo,
+    Iter: IntoIterator<Item = (ShardIndex, OwnSegments<'a>)>,
+{
+    let mut shard_segments = shard_segments.into_iter().peekable();
+
+    // Nothing to check, so no blocks need to be read either
+    if shard_segments.peek().is_none() {
+        return Ok(());
+    }
+
+    // Nothing is confirmed yet unless the last base block whose shard confirmation window ends
+    // before this block is above the genesis block, which lists no shard segments
+    if block_number
+        .checked_sub(shard_confirmation_depth)
+        .and_then(|block_number| block_number.checked_sub(BlockNumber::ONE))
+        .is_none_or(|last_confirmed_base_block_number| {
+            last_confirmed_base_block_number == BlockNumber::ZERO
+        })
+    {
+        return Ok(());
+    }
+    // The base block of this block's super segment, the first one whose super segment is not
+    // persisted yet. For early blocks it is block 1 instead, the genesis block lists no shard
+    // segments.
+    let first_unpersisted_base_block_number = block_number
+        .checked_sub(block_confirmation_depth)
+        .and_then(|block_number| block_number.checked_sub(shard_confirmation_depth))
+        .unwrap_or_default()
+        .max(BlockNumber::ONE);
+
+    // Each block is read once, as a base block and as a part of shard confirmation windows of
+    // earlier base blocks
+    let shard_segment_roots = (first_unpersisted_base_block_number..block_number)
+        .map(|ancestor_block_number| {
+            chain_info.shard_segment_roots(ancestor_block_number, parent_block_root)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let shard_confirmation_window_length = usize::try_from(u64::from(shard_confirmation_depth))
+        .ok()
+        .and_then(|shard_confirmation_depth| shard_confirmation_depth.checked_add(1))
+        .expect("At least `shard_confirmation_depth + 1` blocks were read above; qed");
+
+    let mut max_confirmed_local_segment_indices = HashMap::<ShardIndex, LocalSegmentIndex>::new();
+    for blocks_shard_segment_roots in shard_segment_roots.windows(shard_confirmation_window_length)
+    {
+        let (base_shard_segment_roots, window_shard_segment_roots) = blocks_shard_segment_roots
+            .split_first()
+            .expect("Window length is not zero; qed");
+
+        for shard_segment_root in
+            surviving_shard_segment_roots(base_shard_segment_roots, window_shard_segment_roots)
+        {
+            let max_local_segment_index = max_confirmed_local_segment_indices
+                .entry(shard_segment_root.shard_index)
+                .or_insert(shard_segment_root.segment_index);
+            *max_local_segment_index =
+                (*max_local_segment_index).max(shard_segment_root.segment_index);
+        }
+    }
+
+    for (shard_index, own_segments) in shard_segments {
+        // `None` is ordered below any local segment index
+        let max_confirmed_local_segment_index =
+            chain_info.shard_max_local_segment_index(shard_index).max(
+                max_confirmed_local_segment_indices
+                    .get(&shard_index)
+                    .copied(),
+            );
+
+        // Local segment indices of own segments increase, so it is enough to check the first one
+        if let Some(max_confirmed_local_segment_index) = max_confirmed_local_segment_index
+            && own_segments.first_local_segment_index <= max_confirmed_local_segment_index
+        {
+            return Err(
+                CheckShardSegmentsNotConfirmedError::ShardSegmentAlreadyConfirmed {
+                    shard_index,
+                    local_segment_index: own_segments.first_local_segment_index,
+                    max_confirmed_local_segment_index,
+                },
+            );
+        }
+    }
+
+    Ok(())
 }
