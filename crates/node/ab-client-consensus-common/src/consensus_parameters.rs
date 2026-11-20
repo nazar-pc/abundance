@@ -553,11 +553,12 @@ where
                 if let Some(shard_segments) =
                     shard_segment_roots_map.get_mut(&shard_segment_root.shard_index)
                     && let Some(first_shard_segment) = shard_segments.first()
-                    && let Some(offset) = shard_segment_root
-                        .segment_index
-                        .checked_sub(first_shard_segment.segment_index)
                 {
-                    // Truncate the shard segments if there was a reorg
+                    // Truncate the shard segments if there was a reorg, a segment index at or below
+                    // the first one postpones all of them
+                    let offset = shard_segment_root
+                        .segment_index
+                        .saturating_sub(first_shard_segment.segment_index);
                     shard_segments.truncate(u64::from(offset) as usize);
                 }
             }
