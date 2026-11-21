@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["METADATA"],"fn":["fungible_transfer"],"struct":["FungibleTransferArgs","InternalArgs"]};

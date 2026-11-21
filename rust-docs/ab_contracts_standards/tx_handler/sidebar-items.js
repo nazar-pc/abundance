@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["ffi"],"trait":["TxHandler","TxHandlerExt"],"type":["TxHandlerPayload","TxHandlerSeal","TxHandlerSlots"]};

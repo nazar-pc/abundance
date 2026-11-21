@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["sign_extend_to_reg"]};

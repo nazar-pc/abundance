@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SolutionVerifyError"],"struct":["ChunkProof","ShardCommitmentHash","ShardMembershipEntropy","Solution","SolutionDistance","SolutionRange","SolutionShardCommitment","SolutionVerifyFullParams","SolutionVerifyPieceParams","SolutionVerifyStatelessParams"],"trait":["SolutionPotVerifier"]};

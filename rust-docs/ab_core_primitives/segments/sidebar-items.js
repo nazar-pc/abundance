@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ArchivedBlockProgress","ArchivedHistorySegment","HistorySize","LastArchivedBlock","LocalSegmentIndex","RecordedHistorySegment","SegmentHeader","SegmentIndex","SegmentPosition","SegmentRoot","ShardSegmentRootWithPosition","SuperSegment","SuperSegmentHeader","SuperSegmentIndex","SuperSegmentRoot"]};

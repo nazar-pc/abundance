@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Rv32BInstruction"],"mod":["zba","zbb","zbc","zbs"]};

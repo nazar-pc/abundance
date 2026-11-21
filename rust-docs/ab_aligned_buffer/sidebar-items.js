@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AllocationError"],"mod":["alignment","reader"],"struct":["OwnedAlignedBuffer","SharedAlignedBuffer"],"trait":["AlignedBuffer"]};

@@ -1,0 +1,478 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Contracts overview - Project Abundance</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-e96d0476.css">
+        <link rel="stylesheet" href="../css/chrome-d279d366.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+        <!-- MathJax -->
+        <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "ayu";
+            window.path_to_searchindex_js = "../searchindex-b343dc2f.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-987a167c.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Project Abundance</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/nazar-pc/abundance/tree/main/website/book" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="everything-is-a-contract"><a class="header" href="#everything-is-a-contract">Everything is a contract</a></h1>
+<p>Every contract has an address, which is just a monotonically increasing number. This is in contrast to many blockchains
+where address might be derived from a public key (in case of end user wallet) or code (of “smart contracts”). There is
+no separate notion of Externally Owned Account (EOA) like in Ethereum, end user wallets are also just contracts.</p>
+<p>The address is allocated on contract creation and doesn’t change regardless of how the contract evolves in the future.
+This means that externally, all contracts essentially look the same regardless of what they represent. This enables a
+wallet contract to change its logic from verifying a single signature to multisig to 2FA to use a completely different
+cryptography in the future, all while retaining its address/identity.</p>
+<p>This not only includes contracts created/deployed by users/developers, but also some fundamental blockchain features.
+For example, there are system contracts like <code>code</code> and <code>state</code>. In most blockchains code of the contract is stored in a
+special location by the node and retrieved before processing a <a href="Transactions_overview#transactions-abstraction">transaction</a>. Here, <code>code</code> contract manages code of all
+contracts instead and deployment of a new contract is a call to system <code>code</code> contract. There is no special host
+function provided by the node. <code>code</code> contract will store the code in the corresponding slot of the newly created
+contract (see <a href="#storage-model">Storage model</a> below for more details), which can be read by execution environment (which knows about
+system contracts).</p>
+<p>A few examples of contracts:</p>
+<ul>
+<li>a wallet (can be something simple that only checks signature or a complex smart wallet with multisig/2FA)</li>
+<li>utility functions that offer some shared logic like exotic signature verification</li>
+<li>various kinds of tokens, including native token of the blockchain itself</li>
+<li>even fundamental pieces of logic that allocate addresses and deploy other contracts are contracts themselves</li>
+</ul>
+<p>It’ll be clear later how far this concept can be stretched, but so far the potential is quite high to make as many
+things as possible “just a contract.”</p>
+<p>This helps to reduce the number of special cases for built-in functions vs. something that blockchain user can deploy.</p>
+<h1 id="storage-model"><a class="header" href="#storage-model">Storage model</a></h1>
+<p>All storage owned by a contract is organized into a container that has slots inside. It forms a tree with the root
+being the root of contract’s storage, which can be used to generation inclusion/exclusion proofs when processing
+transactions (see <a href="Transactions_overview#transaction-processing">Transaction processing</a>). Having a per-contract tree with storage proofs allows consensus nodes to
+not be required to store the state of all contracts, just their storage roots. This is unlike many other blockchains
+where contract may have access to a form of key-value database.</p>
+<p>Each slot is managed by exactly one of the existing contracts and can only be read or modified by that contract.
+Contract’s code and state are also slots managed by contracts (system contracts), even though developer-facing API might
+abstract it in a more friendly way. It is possible for a contract to manage one of its slots too, like when a token
+contract owns some number of its own tokens.</p>
+<p>A bit wrong, but hopefully useful analogy is cloud server. A server is owned by a provider, but managed by a customer.
+A provider typically doesn’t have remote access to the server customer orders, all changes to the software that server
+runs are done by the customer. Similarly, slots owned by a contract are managed by other contracts.</p>
+<p>In contrast to most other blockchains by “state” we refer to the inherent state of the contract itself, rather than
+things that might belong to end-users. The right mental model is to think of it as a global state of a contract.</p>
+<p>Let’s take a generic fungible token as an example. System <code>state</code> contract will manage its state, stored in
+corresponding slot owned by the token contract. State will contain things like total supply and potentially useful
+metadata like number of decimal places and ticker, but not balances of individual users.</p>
+<p>In pseudocode, more traditional blockchains:</p>
+<pre><code>fancy_token = {
+    // Global state
+    totalSupply: 50_000,
+    ticker: "FANCY",
+
+    // Individual balances of accoutns in a global hashmap
+    balances: {
+        alice_wallet: 10,
+        bob_wallet: 15,
+    },
+}
+</code></pre>
+<p>Described storage model with slots:</p>
+<pre><code>fancy_token = {
+    // Global state owned by `fancy_token` in a slot managed by `state` contract
+    state: {
+      totalSupply: 50_000,
+      ticker: "FANCY",
+    },
+    code: "...",
+}
+
+alice_wallet = {
+    // Balance owned by `alice_wallet` in a slot managed by `fancy_token` contract
+    fancy_token: {
+        balance: 10,
+    },
+    code: "...",
+}
+
+bob_wallet = {
+    // Balance owned by `bob_wallet` in a slot managed by `fancy_token` contract
+    fancy_token: {
+        balance: 15,
+    },
+    code: "...",
+}
+</code></pre>
+<p>The state of the contract (and any other slot) is typically bounded in size and defined by contract developer upfront.
+Bounded size allows execution environment to allocate the necessary amount of memory and to limit the amount of data
+that potentially needs to be sent with the transaction over the network (see <a href="Transactions_overview#transaction-processing">Transaction processing</a>).</p>
+<p>This implies there can’t be more traditional unbounded hashmap there. Instead, balances are stored in slots of contracts
+that own the balance (like smart wallet owned by end user), but managed by the token contract. This is similar to how
+contract’s state and code are managed by corresponding system contracts.</p>
+<p>Visually, it looks something like this:</p>
+<pre><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" data-d2-version="v0.9.0" preserveaspectratio="xMinYMin meet" viewbox="0 0 830 638"><svg class="d2-2967575504 d2-svg" width="830" height="638" viewbox="-1 -1 830 638"><rect x="-1" y="-1" width="830" height="638" rx="0" class=" fill-N7" stroke-width="0" /><style type="text/css"><![CDATA[
+.d2-2967575504 .text {
+	font-family: "d2-2967575504-font-regular";
+}
+@font-face {
+	font-family: d2-2967575504-font-regular;
+	src: url("data:application/font-woff;base64,d09GRgABAAAAAAoIAAoAAAAAD7gAAguFAAAAAAAAAAAAAAAAAAAAAAAAAABPUy8yAAAA9AAAAGAAAABgXd/Vo2NtYXAAAAFUAAAAdAAAAJQClwKTZ2x5ZgAAAcgAAAQSAAAFBA1xmMRoZWFkAAAF3AAAADYAAAA2G4Ue32hoZWEAAAYUAAAAJAAAACQKhAXSaG10eAAABjgAAABAAAAAQB6HAzdsb2NhAAAGeAAAACIAAAAiC24KIG1heHAAAAacAAAAIAAAACAAKAD2bmFtZQAABrwAAAMrAAAIFAbDVU1wb3N0AAAJ6AAAACAAAAAg/9EAMgADAgkBkAAFAAACigJYAAAASwKKAlgAAAFeADIBIwAAAgsFAwMEAwICBGAAAvcAAAADAAAAAAAAAABBREJPAEAAIP//Au7/BgAAA9gBESAAAZ8AAAAAAeYClAAAACAAA3icbMw7DgFRGEDhb9wxXuNRqe3FEkjUIipCIhZhD4SGVuzAWqzkl1ytnO4rDgpJgVrphLGRpDIxNbewtLa1d3CMIPss+8rG7ufxiXe84hmPuMctrnGJc77+q9CQlJoqLW0dXT21voEhXwAAAP//AwDxMR0YeJx0k01MI2Ucxv/v26GzXYYtQz8G2H7QGTpDu7SF+QRapttCEZCPMl3cZbtgEJYS0I2pcTckxtXsGkk2KgcOm7AHoydPxovReNO4IWr05keiifFANu5B0/RgjEzNlILLwdt7ep/n+T3PH5pgAQAreBds4AAntIEHQKJDdDgkCBypSZrGMTZNQDS5gH42dxCakAlVJfqzj7Nbt2+jK6/i3cPnh+6WSl8u3bplvnXwyBTRt48AgVyr4vP4AfgBmlieV2RVlUQvQ/I8x9rtHrfXK4mqxtjtyDBef3rqbiF1zRfrzEb1RUks6onJYFx4jpq7v7lx3+jvUn1s5qZhbGV7WDkmAgCCaK2K/sAPIFb/X9Dq/ykyzwtCHJ9Ws8QYJoA9brsdteZuXhC5Z6XMuL8/uBQcjihLyeQqFwtMxLWRkNi5yA93q6uU0jsUjiX72B7fuUhLNNsnzsZi3ao/JPcGI53NPa2xTL88LwICHwD6B+8AaXHjlJCHo397iH59iCfHxg4/hrpXBgD/jXcgBCDZJJfXy0iqqrmeeNk4G88LnN1O2t6790zO4XYQze3Nxaki1U4Rjrazufz26orDeYYg284s4x1zT9lQlE0ZXTf35M2j1+GL6B4/wfMTvPkyYIs/+ghVoBO6ARjWKkCT6/BJoQ7HQ3OWoCCqmlIv5PPhuXf26As90Ul/F7sytJAfJW3snJfTua1lkZrI5Ofp4ADX5R70Rl4omt8P+aJZNvimM5WIhAFBvFZFH6IK+P6v7+O62y6upzKbel+uI+pJ+HtzQmGEHfJ2h/JUqpw3yimWUV3tifmBQsnv1vwhAAyJWhX9hPfBBV3HWawEjKBIxyE05UTor+KN5LIW1buIwihp8011XEwFBwNCmh+j3tiafUkPdBY+OxwY9EVyI6aPSRQGLq8Arvv/ClWgHYKnEnjcdjJ0MlZbSLZkEJPZ0NOr2uJ1hM1Pmi6Pccnz/uDs14hID0pz1HB5Nl/WX1lv6XBMX/PQqjuA+Mnp2foWDAB0gPeBsvYi0ZJLIl2cQHqMOdt3xfc/vfp2Ee+bAQRfmL/8vvHa0X6MWhV+xPvgPEpPS/QJzg/iEeOcgyDJ5jNealDBa4e7LhohnSAaWj+gCrjrWtbUrEA0R9dDkLQxStq4GXH6KaO3L5wMo4MxLrG8aH6DIqM6HzbfhQaXP1EFnHD+FBevdU2CqCpy48SQM1lKp0vJ1Fo6vZZKT0+n9ZmZRqepspEvp0ZLhUvr65cKpWMOS6gC9BPeGms5MtYxHvEzrZTbGRzpQAdX4urZcYIQdXP/iEl7rYpy+AYwDSacommSR/Jw/7F5PDM8PnU2d+dOKNoSoFrdCerqOGrRm7a3R8xKrN9B6GQzwL8AAAD//wMA894QHAAAAAEAAAACC4UcUm2dXw889QADA+gAAAAA2F2goQAAAADdZi82/jr+2whvA8gAAAADAAIAAAAAAAAAAQAAA9j+7wAACJj+Ov46CG8AAQAAAAAAAAAAAAAAAAAAABACjQBZAMgAAAI7ADQCFgAqAhgAHAMSABcB+AA0AcgALgIrAC8B8AAuAe8AUgD/AFICIwBSAh4ALgFbAFIBUgAYAAAALAAsAFwAoACyAOwBJAFSAYQBuAHSAe4CEAI8AlwCggAAAAEAAAAQAIwADABmAAcAAQAAAAAAAAAAAAAAAAAEAAN4nJyU32obVxDGf4oltaE0F8UE58acy7Y4KzXYIbGv1nVMlhor1Sr9A6WwltaSkLS77K7kuPQBet236Fvkqs/Rhyi9LjMaKdq0ECxCzLc6M998Z+abA+zyDzvU6veBP5s/GK6x3zw2fI8HzQPDO1w0/jJc34hpMGj8arjJl42u4Y94W//d8Mcc1n82fJ+9+rnhT3hS3zX86Y7jb8MPOOTtEtfgGb8ZrrFHZvgeu/xkeIeHGGetzkPahht8xr7hJvtAjzElU8YkDHFcM2bInJyYgpCYnDHXxAxwBPhMKfXXhEiRY/i/v0aElOREyjiixDElZEpEwcgYf9GslFdaUerkiqSaT8mIiCvNmBCR4EgZkpIQM1GekpKMY1q0KOir3oySAo+CMVM8UnKGtOhwzgU9RowpcJwrkygLSbmm5IZI6zuLkM70iUkoTNWchIHqdKov1uyACxwdMo3dZL6oMBzg+E6zRZvEOL7C0/9uQ1m17kpNxEL7KT28Yqo6b3SCI+241PX5VnHJMW6r/lSVfLhHA1Unsx5zxVznL/OTPFGS4NwePqE6KHSPcJzqd0CoHfmegB4v6fCann77dOnic0mPgBea26GL42s6XHKmGYHi5dm5OuaSH3F8Q6Axwh1bf6Tn8vWGzNwt2sUZco8ZmW6BzFjuL86Pt5qw7FBacUehrujrHkmk7IF0RfYsYmiuyNQVM+3lyhuF9W9gjpDTUmf77ly2YWG7t9riW1LdYcfcNMnkloo+NFXvPc/c6D+PiAEpVxrRJ2VGi5JbvdsrIuZMcZypj1/qlpT46xypc6suiZmpgoBEeXIy/RuZb0LT3q/43tlbIps30x2drG+1TRVhTjZm9Fq7tzoLrcvxxgRaNtXUcmTCwry8qXhfor2K/lDdX+jrlvKYLrG+rjL//D/vwBM82hxyxAkjrSP8CQt7I9r6TrR5zon2YEKsUfJqvtFuCcMRHk854ojnPK1w+pxxSoeTO2hcZnU45cV7J5scbs3ijOcPVdNWvY7H669nW8/r8zv48gsOKi+jKJc9yFkY2zv/XxIxEy1ub7Mv7hHevwAAAP//AwAHW0wwAAADAAAAAAAA/84AMgAAAAAAAAAAAAAAAAAAAAAAAAAA");
+}
+.d2-2967575504 .text-bold {
+	font-family: "d2-2967575504-font-bold";
+}
+@font-face {
+	font-family: d2-2967575504-font-bold;
+	src: url("data:application/font-woff;base64,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");
+}]]></style><style type="text/css"><![CDATA[.shape {
+  shape-rendering: geometricPrecision;
+  stroke-linejoin: round;
+}
+.connection {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.blend {
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+		.d2-2967575504 .fill-N1{fill:#0A0F25;}
+		.d2-2967575504 .fill-N7{fill:transparent;}
+		.d2-2967575504 .fill-B1{fill:#0A0F25;}
+		.d2-2967575504 .fill-B4{fill:#CFD2DD;}
+		.d2-2967575504 .fill-B5{fill:#DEE1EB;}
+		.d2-2967575504 .stroke-B1{stroke:#0A0F25;}
+		.d2-2967575504 .stroke-B2{stroke:#676C7E;}.appendix text.text{fill:#0A0F25}.md{--color-fg-default:#0A0F25;--color-fg-muted:#676C7E;--color-fg-subtle:#9499AB;--color-canvas-default:transparent;--color-canvas-subtle:#EEF1F8;--color-border-default:#0A0F25;--color-border-muted:#676C7E;--color-neutral-muted:#EEF1F8;--color-accent-fg:#676C7E;--color-accent-emphasis:#676C7E;--color-attention-subtle:#676C7E;--color-danger-fg:red;}.light-code{display: block}.dark-code{display: none}@media screen and (prefers-color-scheme:dark){
+		.d2-2967575504 .fill-N1{fill:#F4F6FA;}
+		.d2-2967575504 .fill-N7{fill:transparent;}
+		.d2-2967575504 .fill-B1{fill:#F4F6FA;}
+		.d2-2967575504 .fill-B4{fill:#070B67;}
+		.d2-2967575504 .fill-B5{fill:#0B1197;}
+		.d2-2967575504 .stroke-B1{stroke:#F4F6FA;}
+		.d2-2967575504 .stroke-B2{stroke:#6B8AFB;}.appendix text.text{fill:#F4F6FA}.md{--color-fg-default:#F4F6FA;--color-fg-muted:#BBBEC9;--color-fg-subtle:#868A96;--color-canvas-default:transparent;--color-canvas-subtle:#191C28;--color-border-default:#F4F6FA;--color-border-muted:#6B8AFB;--color-neutral-muted:#191C28;--color-accent-fg:#6B8AFB;--color-accent-emphasis:#6B8AFB;--color-attention-subtle:#BBBEC9;--color-danger-fg:red;}.light-code{display: none}.dark-code{display: block}}]]></style><g class="V2FsbGV0"><g class="shape"><rect x="608" y="0" width="220" height="576" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="718" y="33" class="text fill-N1" style="text-anchor:middle;font-size:28px">Wallet</text></g><g class="Q29kZUNvbnRyYWN0"><g class="shape"><rect x="0" y="304" width="201" height="186" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="100.5" y="337" class="text fill-N1" style="text-anchor:middle;font-size:28px">Code contract</text></g><g class="U3RhdGVDb250cmFjdA=="><g class="shape"><rect x="305" y="0" width="201" height="186" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="405.5" y="33" class="text fill-N1" style="text-anchor:middle;font-size:28px">State contract</text></g><g class="VG9rZW4="><g class="shape"><rect x="304" y="261" width="203" height="272" class=" stroke-B1 fill-B4" style="stroke-width:2;" /></g><text x="405.5" y="520" class="text fill-N1" style="text-anchor:middle;font-size:28px">Token contract</text></g><g class="V2FsbGV0LlN0YXRl"><g class="shape"><rect x="668" y="60" width="83" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="709.5" y="98.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">State</text></g><g class="V2FsbGV0LkJhbGFuY2U="><g class="shape"><rect x="668" y="364" width="100" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="718" y="402.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Balance</text></g><g class="V2FsbGV0LkNvZGU="><g class="shape"><rect x="668" y="450" width="81" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="708.5" y="488.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="Q29kZUNvbnRyYWN0LkNvZGU="><g class="shape"><rect x="60" y="364" width="81" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="100.5" y="402.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="U3RhdGVDb250cmFjdC5Db2Rl"><g class="shape"><rect x="365" y="60" width="81" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="405.5" y="98.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="VG9rZW4uU3RhdGU="><g class="shape"><rect x="364" y="321" width="83" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="405.5" y="359.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">State</text></g><g class="VG9rZW4uQ29kZQ=="><g class="shape"><rect x="364" y="407" width="81" height="66" class=" stroke-B1 fill-B5" style="stroke-width:2;" /></g><text x="404.5" y="445.5" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Code</text></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBXYWxsZXQuQ29kZSlbMF0="><marker id="mk-d2-2967575504-3488378134" markerwidth="10" markerheight="12" refx="7" refy="6" viewbox="0 0 10 12" orient="auto" markerunits="userSpaceOnUse"> <polygon points="0,0 10,6 0,12" class="connection fill-B1" stroke-width="2" /> </marker><path d="M 100 492 L 100 626 S 100 636 110 636 L 698 636 S 708 636 708 626 L 708 520" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBDb2RlQ29udHJhY3QuQ29kZSlbMF0="><path d="M 2 397 L 56 397" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBTdGF0ZUNvbnRyYWN0LkNvZGUpWzBd"><path d="M 100 302 L 100 103 S 100 93 110 93 L 361 93" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KENvZGVDb250cmFjdCAtJmd0OyBUb2tlbi5Db2RlKVswXQ=="><path d="M 203 440 L 360 440" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KFN0YXRlQ29udHJhY3QgLSZndDsgV2FsbGV0LlN0YXRlKVswXQ=="><path d="M 508 93 L 664 93" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KFN0YXRlQ29udHJhY3QgLSZndDsgVG9rZW4uU3RhdGUpWzBd"><path d="M 405 188 L 405 317" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><g class="KFRva2VuIC0mZ3Q7IFdhbGxldC5CYWxhbmNlKVswXQ=="><path d="M 509 397 L 664 397" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2967575504-3488378134)" mask="url(#d2-2967575504)" /></g><mask id="d2-2967575504" maskunits="userSpaceOnUse" x="-1" y="-1" width="830" height="638">
+<rect x="-1" y="-1" width="830" height="638" fill="white"></rect>
+
+</mask></svg></svg>
+</pre>
+
+<p>Contracts do not have access to underlying storage implementation in the form of key-value database, instead they modify
+slots as the only way of persisting data between transactions.</p>
+<h1 id="contract-io"><a class="header" href="#contract-io">Contract I/O</a></h1>
+<p>Not only contract methods do not have access to general purpose key-value store (even if private to the contract), they
+don’t have access to any other data except what was explicitly provided as method input. They also can’t return data in
+any other way except through return arguments. Execution environment will pre-allocate memory for all slots (and the
+caller for all outputs) and provide it to the method to work with, removing a need for heap allocation in many cases.</p>
+<p>One can think about contract logic as a pure function: it takes inputs and slots, potentially modifies slots and returns
+outputs.</p>
+<p>Conceptually, all methods look something like this:</p>
+<pre><code class="language-rust ignore">#[derive(Debug, Copy, Clone, TrivialType)]
+#[repr(C)]
+pub struct MyContract {
+    pub value: u32,
+}
+
+#[contract]
+impl MyContract {
+    /// Stateless compute
+    #[view]
+    pub fn add(
+        #[input] &amp;a: &amp;u32,
+        #[input] &amp;b: &amp;u32,
+    ) -&gt; u32 {
+        a + b
+    }
+
+    /// Calling another contract (in this case into itself)
+    #[view]
+    pub fn add_through_contract_call(
+        #[env] env: &amp;Env,
+        #[input] a: &amp;u32,
+        #[input] b: &amp;u32,
+    ) -&gt; Result&lt;u32, ContractError&gt; {
+        env.my_contract_add(env.own_address(), a, b)
+    }
+
+    /// Modifying its own state using the contents of the slot
+    #[update]
+    pub fn self_increment_by_slot(
+        &amp;mut self,
+        #[slot] slot: &amp;MaybeData&lt;'_, u32&gt;,
+    ) -&gt; Result&lt;u32, ContractError&gt; {
+        let old_value = self.value;
+
+        // The slot may or may not exist yet
+        let Some(slot_value) = slot.get().copied() else {
+            return Err(ContractError::Forbidden);
+        };
+
+        self.value = old_value
+            .checked_add(slot_value)
+            .ok_or(ContractError::BadInput)?;
+        Ok(old_value)
+    }
+}</code></pre>
+<p>Environment handle (<code>&amp;Env</code> or <code>&amp;mut Env</code>) allows calling other contracts and request ephemeral state, contract slots can
+be read and written to, inputs are read-only and outputs can be both read and written to (the caller provides their
+current contents, which allows updating values in-place). <code>&amp;</code> or <code>&amp;mut</code> in Rust limits what can be done with these
+types, there is no other implicit “global” way to read or update ephemeral or permanent state of the blockchain except
+through these explicit arguments.</p>
+<p>Handling everything through explicit inputs and outputs results in straightforward implementation, analysis and testing
+approach without side effects. In many cases, even heap allocations can be avoided completely, leading to fast and
+compact smart contract implementation.</p>
+<p><code>#[contract]</code> macro and attributes like <code>#[env]</code> do not impact the code in a method in any way, but help to generate
+additional helper data structures, functions and metadata about the contract. The macro also verifies a lot of different
+invariants about the contract with helpful compile-time error messages if something goes wrong. For example, when
+different methods use different types for <code>#[slot]</code> argument or when type not allowed for FFI is used in an argument.</p>
+<p>Inputs and the current contents of outputs come from the caller and can’t be trusted, so the generated code parses them
+before calling the method and returns <code>ContractError::BadInput</code> to the caller if they are not valid values of their
+types. A method only ever sees valid values, and for most types, which accept every bit pattern, there is nothing to
+check. Sizes, capacities and alignment of inputs and outputs must match the method’s metadata, which the executor
+guarantees. The state and slots of the contract are only written by the contract itself or on its behalf and are not
+checked.</p>
+<h1 id="method-call-context"><a class="header" href="#method-call-context">Method call context</a></h1>
+<p>When calling into another contract, a method context needs to be specified. The correct mental model for context is
+“user of the child process,” where “process” is a method call. Essentially, something executed with a context of a
+contract can be thought as done “on behalf” of that contract, which depending on circumstances may or may not be
+desired.</p>
+<p>Initially, context is “Null.” For each call into another contract, the context of the current method can be either
+preserved, reset to “Null” or replaced with the current contract’s address. Those are the only options. Contracts do not
+have privileges to change context to the address of an arbitrary contract.</p>
+<p>The safest option is to reset context to “Null,” which means called contract will be able to “know” who called it, but
+unable to convince any further calls in it. Preservation of the context allows to “delegate” certain operations to
+another contract, which while is potentially dangerous, allows for more advanced use cases.</p>
+<p>In addition to argument attributes mentioned before, there is also <code>#[tmp]</code>, which is essentially an ephemeral storage
+that only lives for the duration of a single <a href="Transactions_overview#transactions-abstraction">transaction</a>. It can be used for temporary approvals, allowing to use
+“Null” context for most operations, while also allowing for contracts to do certain operations effectively on behalf of
+the caller. For example, in a transaction, the first call might approve a defi contract to spend some tokens and then
+call defi contract to actually do the operation. Both calls are done with “Null” method context, but still achieve the
+desired impact with the least permission possible.</p>
+<h1 id="metadata"><a class="header" href="#metadata">Metadata</a></h1>
+<p>Metadata about contract is a crucial piece used in many places of the system. Metadata essentially describes in a
+compact binary format all traits and methods that the contract implements alongside recursive metadata of all types in
+those methods.</p>
+<p>Metadata contains exhaustive details about the method, allowing execution environment to encode and decode arguments
+from/to method calls from metadata alone.</p>
+<p>Metadata can also be used to auto-generate user-facing interfaces and FFI bindings to other languages since it contains
+relatively basic types.</p>
+<p>The same metadata can also be used by a transaction handler contract to encode/decode method calls in a <a href="Transactions_overview#transactions-abstraction">transaction</a>.
+This is huge because with metadata being an inherent part of the contract itself, enables hardware wallets to accurately
+and verifiably render transaction contents in a relatively user-friendly way, especially on those with larger screens.
+This means no blind signing anymore and no need to trust the computer wallet is connected to either, the wallet can
+verify and render everything on its own.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../How/Consensus.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../Execution_environment/Transactions_overview.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../How/Consensus.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../Execution_environment/Transactions_overview.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>
