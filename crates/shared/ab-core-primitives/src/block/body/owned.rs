@@ -930,7 +930,7 @@ impl OwnedIntermediateShardBody {
             }
             buffer
                 .append(first_local_segment_index.as_bytes())
-                .expect("Checked size above; qed");
+                .expect("Enough capacity was allocated above; qed");
         }
         let mut previous_local_segment_index = None;
         for (local_segment_index, own_segment_root) in own_segments {
@@ -950,7 +950,7 @@ impl OwnedIntermediateShardBody {
 
             buffer
                 .append(own_segment_root.as_ref())
-                .expect("Checked size above; qed");
+                .expect("Enough capacity was allocated above; qed");
         }
         // TODO: Would be nice for `LeafShardBlocksInfo` to have API to write this by itself
         {
@@ -959,11 +959,13 @@ impl OwnedIntermediateShardBody {
                 .expect("Fixed size data structures that are guaranteed to fit; qed");
             let mut own_segments_roots_num_cursor = buffer.len() as usize;
             for _ in 0..num_blocks {
-                buffer.append(&[0]).expect("Checked size above; qed");
+                buffer
+                    .append(&[0])
+                    .expect("Enough capacity was allocated above; qed");
             }
             buffer
                 .pad_to_alignment::<Align8>()
-                .expect("Checked size above; qed");
+                .expect("Enough capacity was allocated above; qed");
             for leaf_shard_block in leaf_shard_blocks {
                 if let Some(own_segments) = &leaf_shard_block.own_segments {
                     buffer.as_mut_slice()[own_segments_roots_num_cursor] =
@@ -1153,7 +1155,7 @@ impl OwnedLeafShardBody {
             }
             buffer
                 .append(first_local_segment_index.as_bytes())
-                .expect("Checked size above; qed");
+                .expect("Enough capacity was allocated above; qed");
         }
         let mut previous_local_segment_index = None;
         for (local_segment_index, own_segment_root) in own_segments {
@@ -1171,17 +1173,17 @@ impl OwnedLeafShardBody {
 
             buffer
                 .append(own_segment_root.as_ref())
-                .expect("Checked size above; qed");
+                .expect("Enough capacity was allocated above; qed");
         }
 
         let num_transactions_offset = buffer.len() as usize;
         buffer
             .append(&0u32.to_le_bytes())
-            .expect("Checked size above; qed");
+            .expect("Enough capacity was allocated above; qed");
         // The parser expects padding after the number of transactions even if there are none
         buffer
             .pad_to_alignment::<Align16>()
-            .expect("Checked size above; qed");
+            .expect("Enough capacity was allocated above; qed");
 
         Ok(OwnedLeafShardBlockBodyBuilder {
             transaction_builder: TransactionBuilder::new(num_transactions_offset, buffer),
