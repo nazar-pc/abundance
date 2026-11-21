@@ -142,6 +142,28 @@ fn shard_reorg_below_first_segment_postpones_all_segments() {
 }
 
 #[test]
+fn non_contiguous_shard_segments_are_kept() {
+    // genesis - c1 .. c8 (best block)
+    //
+    // `c2` includes segments `7` and `9` without `8`, both are kept because nothing includes either
+    // of them again
+    let mut chain = MockBeaconChain::new();
+    let genesis_root = chain.best_root();
+    let canonical_chain = add_chain(
+        &mut chain,
+        genesis_root,
+        &[&[], &[7, 9], &[], &[], &[], &[], &[], &[]],
+        0,
+    );
+    chain.set_best(*canonical_chain.last().unwrap());
+
+    assert_eq!(
+        derive(&chain, 8).map(|(_root, segment_indices)| segment_indices),
+        Some(vec![7, 9])
+    );
+}
+
+#[test]
 fn shard_membership_entropy_is_taken_from_own_ancestry() {
     // genesis - c1 .. c3 -+- c4 .. c10 (best block)
     //                     \- a4 .. a9

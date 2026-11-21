@@ -479,52 +479,29 @@ fn surviving_shard_segment_roots<'a>(
     shard_segment_roots: &'a [ShardSegmentRoot],
     window_shard_segment_roots: &[Arc<[ShardSegmentRoot]>],
 ) -> impl Iterator<Item = ShardSegmentRoot> + use<'a> {
-    let mut shard_segment_roots_map =
-        HashMap::<ShardIndex, Vec<ShardSegmentRoot>>::with_capacity(shard_segment_roots.len());
-
-    // Group shard segment roots by shard index
-    for &shard_segment_root in shard_segment_roots {
-        // Segment indices are already sorted in the beacon chain block body, hence a simple
-        // vector for storing them
-        shard_segment_roots_map
+    // A shard segment listed again means a shard reorg, which postpones that segment and every
+    // segment of the shard above it
+    let mut min_listed_again_local_segment_indices =
+        HashMap::<ShardIndex, LocalSegmentIndex>::new();
+    for shard_segment_root in window_shard_segment_roots
+        .iter()
+        .flat_map(|roots| roots.iter())
+    {
+        let min_local_segment_index = min_listed_again_local_segment_indices
             .entry(shard_segment_root.shard_index)
-            .or_default()
-            .push(shard_segment_root);
-    }
-
-    // Clean up anything that might have reorged since and should not be included in the
-    // super segment yet
-    for block_shard_segment_roots in window_shard_segment_roots {
-        for shard_segment_root in block_shard_segment_roots.iter() {
-            if let Some(shard_segments) =
-                shard_segment_roots_map.get_mut(&shard_segment_root.shard_index)
-                && let Some(first_shard_segment) = shard_segments.first()
-            {
-                // Truncate the shard segments if there was a reorg, a segment index at or below
-                // the first one postpones all of them
-                let offset = shard_segment_root
-                    .segment_index
-                    .saturating_sub(first_shard_segment.segment_index);
-                shard_segments.truncate(u64::from(offset) as usize);
-            }
-        }
+            .or_insert(shard_segment_root.segment_index);
+        *min_local_segment_index = (*min_local_segment_index).min(shard_segment_root.segment_index);
     }
 
     // Keep anything that was not reorged
     shard_segment_roots
         .iter()
         .filter(move |shard_segment_root| {
-            if let Some(shard_segments) =
-                shard_segment_roots_map.get(&shard_segment_root.shard_index)
-                && let Some(first_shard_segment) = shard_segments.first()
-                && let Some(offset) = shard_segment_root
-                    .segment_index
-                    .checked_sub(first_shard_segment.segment_index)
-            {
-                (u64::from(offset) as usize) < shard_segments.len()
-            } else {
-                false
-            }
+            min_listed_again_local_segment_indices
+                .get(&shard_segment_root.shard_index)
+                .is_none_or(|&min_local_segment_index| {
+                    shard_segment_root.segment_index < min_local_segment_index
+                })
         })
         .copied()
 }
