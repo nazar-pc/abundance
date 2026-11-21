@@ -6,8 +6,9 @@ use crate::{BlockVerification, BlockVerificationError, GenericHeader};
 use ab_client_api::{BeaconChainInfo, BlockOrigin, ChainSyncStatus};
 use ab_client_consensus_common::ConsensusConstants;
 use ab_client_consensus_common::consensus_parameters::{
-    DeriveConsensusParametersChainInfo, DeriveConsensusParametersError,
-    DeriveSuperSegmentForBlockError, ShardMembershipEntropySourceChainInfo,
+    CheckShardSegmentsNotConfirmedError, DeriveConsensusParametersChainInfo,
+    DeriveConsensusParametersError, DeriveSuperSegmentForBlockError,
+    ShardMembershipEntropySourceChainInfo, check_shard_segments_not_confirmed,
     derive_consensus_parameters, derive_super_segment_for_block, shard_membership_entropy_source,
 };
 use ab_client_proof_of_time::PotNextSlotInput;
@@ -53,6 +54,13 @@ pub enum BeaconChainBlockVerificationError {
         /// Super segment derivation error
         #[from]
         error: DeriveSuperSegmentForBlockError,
+    },
+    /// Shard segments check error
+    #[error("Shard segments check error: {error}")]
+    ShardSegmentsCheck {
+        /// Shard segments check error
+        #[from]
+        error: CheckShardSegmentsNotConfirmedError,
     },
     /// Invalid consensus parameters
     #[error("Invalid consensus parameters: expected {expected:?}, actual {actual:?}")]
@@ -489,8 +497,9 @@ where
     fn check_body(
         &self,
         block_number: BlockNumber,
+        parent_block_root: &BlockRoot,
         own_segments: Option<OwnSegments<'_>>,
-        _intermediate_shard_blocks: &IntermediateShardBlocksInfo<'_>,
+        intermediate_shard_blocks: &IntermediateShardBlocksInfo<'_>,
     ) -> Result<(), BlockVerificationError> {
         let expected_segment_headers = self.chain_info.segment_headers_for_block(block_number);
         let expected_first_local_segment_index = expected_segment_headers
@@ -522,7 +531,32 @@ where
             });
         }
 
-        // TODO: check intermediate shard blocks and all segment roots included in the body
+        // TODO: Check headers of intermediate shard blocks included in the body, like continuity of
+        //  their block numbers and parent links
+
+        check_shard_segments_not_confirmed(
+            &self.chain_info,
+            block_number,
+            parent_block_root,
+            intermediate_shard_blocks
+                .iter()
+                .flat_map(|intermediate_shard_block_info| {
+                    let shard_index = intermediate_shard_block_info.header.prefix.shard_index;
+
+                    intermediate_shard_block_info
+                        .own_segments
+                        .map(|own_segments| (shard_index, own_segments))
+                        .into_iter()
+                        .chain(intermediate_shard_block_info.leaf_shards_segments().map(
+                            |(_position, shard_index, own_segments)| (shard_index, own_segments),
+                        ))
+                }),
+            self.consensus_constants.block_confirmation_depth,
+            self.consensus_constants.shard_confirmation_depth,
+        )
+        .map_err(BeaconChainBlockVerificationError::from)?;
+
+        // TODO: Check continuity of local segment indices of each shard
 
         Ok(())
     }
@@ -658,10 +692,12 @@ where
             return Err(BlockVerificationError::BelowArchivingPoint);
         }
 
+        let parent_block_root = parent_header.root();
+
         let maybe_super_segment = derive_super_segment_for_block(
             &self.chain_info,
             parent_header.prefix.number,
-            &parent_header.root(),
+            &parent_block_root,
             self.consensus_constants.block_confirmation_depth,
             self.consensus_constants.shard_confirmation_depth,
         )
@@ -752,6 +788,7 @@ where
 
         self.check_body(
             block_number,
+            &parent_block_root,
             body.own_segments(),
             body.intermediate_shard_blocks(),
         )?;

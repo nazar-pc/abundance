@@ -1,11 +1,14 @@
 use crate::consensus_parameters::{
+    CheckShardSegmentsNotConfirmedError, check_shard_segments_not_confirmed,
     derive_super_segment_for_block, shard_membership_entropy_source,
 };
 use crate::test_utils::MockBeaconChain;
 use ab_client_api::{ChainInfo, ShardSegmentRoot};
+use ab_core_primitives::block::body::OwnSegments;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
 use ab_core_primitives::segments::{LocalSegmentIndex, SegmentRoot, SuperSegmentRoot};
 use ab_core_primitives::shard::ShardIndex;
+use std::iter;
 
 const BLOCK_CONFIRMATION_DEPTH: u64 = 5;
 const SHARD_CONFIRMATION_DEPTH: u64 = 2;
@@ -62,6 +65,92 @@ fn derive(chain: &MockBeaconChain, parent_number: u64) -> Option<(SuperSegmentRo
 
         (super_segment.header.root, segment_indices)
     })
+}
+
+/// Chain with blocks that include `segment_indices` of shard `1` on top of genesis and roots of all
+/// its blocks, the block number is the position in the list
+fn chain_with_blocks(segment_indices: &[&[u64]]) -> (MockBeaconChain, Vec<BlockRoot>) {
+    let mut chain = MockBeaconChain::new();
+    let genesis_root = chain.best_root();
+    let blocks = iter::once(genesis_root)
+        .chain(add_chain(&mut chain, genesis_root, segment_indices, 0))
+        .collect();
+
+    (chain, blocks)
+}
+
+/// Check segments listed in block `block_number` with parent `parent_root`, each with its shard
+/// index and local segment index.
+///
+/// Returns the shard index, the local segment index and the highest confirmed local segment index
+/// of the segment rejected as confirmed.
+fn check_shard_segments(
+    chain: &MockBeaconChain,
+    block_number: u64,
+    parent_root: &BlockRoot,
+    shard_segments: &[(ShardIndex, u64)],
+) -> Option<(ShardIndex, u64, u64)> {
+    let segment_roots = [SegmentRoot::default()];
+    let shard_segments = shard_segments
+        .iter()
+        .map(|&(shard_index, local_segment_index)| {
+            let own_segments =
+                OwnSegments::new(LocalSegmentIndex::from(local_segment_index), &segment_roots)
+                    .unwrap();
+            (shard_index, own_segments)
+        });
+
+    match check_shard_segments_not_confirmed(
+        chain,
+        BlockNumber::from(block_number),
+        parent_root,
+        shard_segments,
+        BlockNumber::from(BLOCK_CONFIRMATION_DEPTH),
+        BlockNumber::from(SHARD_CONFIRMATION_DEPTH),
+    ) {
+        Ok(()) => None,
+        Err(CheckShardSegmentsNotConfirmedError::ShardSegmentAlreadyConfirmed {
+            shard_index,
+            local_segment_index,
+            max_confirmed_local_segment_index,
+        }) => Some((
+            shard_index,
+            u64::from(local_segment_index),
+            u64::from(max_confirmed_local_segment_index),
+        )),
+        Err(error) => panic!("Unexpected error: {error}"),
+    }
+}
+
+/// Check segment `local_segment_index` of `shard_index` listed in block `block_number` on top of
+/// `blocks`.
+///
+/// Returns the highest confirmed local segment index if the segment is rejected as confirmed.
+fn check_shard_segment(
+    chain: &MockBeaconChain,
+    blocks: &[BlockRoot],
+    block_number: u64,
+    shard_index: ShardIndex,
+    local_segment_index: u64,
+) -> Option<u64> {
+    check_shard_segments(
+        chain,
+        block_number,
+        &blocks[usize::try_from(block_number - 1).unwrap()],
+        &[(shard_index, local_segment_index)],
+    )
+    .map(
+        |(
+            rejected_shard_index,
+            rejected_local_segment_index,
+            max_confirmed_local_segment_index,
+        )| {
+            assert_eq!(rejected_shard_index, shard_index);
+            assert_eq!(rejected_local_segment_index, local_segment_index);
+
+            max_confirmed_local_segment_index
+        },
+    )
 }
 
 #[test]
@@ -142,6 +231,28 @@ fn shard_reorg_below_first_segment_postpones_all_segments() {
 }
 
 #[test]
+fn non_contiguous_shard_segments_are_kept() {
+    // genesis - c1 .. c8 (best block)
+    //
+    // `c2` includes segments `7` and `9` without `8`, both are kept because nothing includes either
+    // of them again
+    let mut chain = MockBeaconChain::new();
+    let genesis_root = chain.best_root();
+    let canonical_chain = add_chain(
+        &mut chain,
+        genesis_root,
+        &[&[], &[7, 9], &[], &[], &[], &[], &[], &[]],
+        0,
+    );
+    chain.set_best(*canonical_chain.last().unwrap());
+
+    assert_eq!(
+        derive(&chain, 8).map(|(_root, segment_indices)| segment_indices),
+        Some(vec![7, 9])
+    );
+}
+
+#[test]
 fn shard_membership_entropy_is_taken_from_own_ancestry() {
     // genesis - c1 .. c3 -+- c4 .. c10 (best block)
     //                     \- a4 .. a9
@@ -182,5 +293,179 @@ fn shard_membership_entropy_is_taken_from_own_ancestry() {
     assert_ne!(
         chain.proof_of_time(&a8).shard_membership_entropy(),
         chain.proof_of_time(&c8).shard_membership_entropy()
+    );
+}
+
+#[test]
+fn shard_segment_at_or_below_persisted_maximum_is_rejected() {
+    let shard_index = ShardIndex::new(1).unwrap();
+    let (mut chain, blocks) = chain_with_blocks(&[[].as_slice(); 10]);
+    chain.set_shard_max_local_segment_index(shard_index, LocalSegmentIndex::from(7));
+
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 11, shard_index, 6),
+        Some(7)
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 11, shard_index, 7),
+        Some(7)
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 11, shard_index, 8),
+        None
+    );
+}
+
+#[test]
+fn confirmed_shard_segment_that_is_not_persisted_yet_is_rejected() {
+    // Segment `7` of block 10 is not included again in blocks 11 and 12, so it is confirmed for
+    // blocks from 13 on, but only becomes a part of the super segment of block 17
+    let shard_index = ShardIndex::new(1).unwrap();
+    let mut segment_indices = [[].as_slice(); 16];
+    segment_indices[9] = &[7];
+    let (chain, blocks) = chain_with_blocks(&segment_indices);
+
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 13, shard_index, 7),
+        Some(7)
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 14, shard_index, 7),
+        Some(7)
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 17, shard_index, 7),
+        Some(7)
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 13, shard_index, 8),
+        None
+    );
+}
+
+#[test]
+fn shard_segment_included_again_before_confirmation_is_accepted() {
+    // Segment `7` of block 10 is not confirmed until block 12 is known to not include it again
+    let shard_index = ShardIndex::new(1).unwrap();
+    let mut segment_indices = [[].as_slice(); 11];
+    segment_indices[9] = &[7];
+    let (chain, blocks) = chain_with_blocks(&segment_indices);
+
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 11, shard_index, 7),
+        None
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 12, shard_index, 7),
+        None
+    );
+}
+
+#[test]
+fn shard_segment_of_new_shard_is_accepted() {
+    let shard_index = ShardIndex::new(1).unwrap();
+    let new_shard_index = ShardIndex::new(2).unwrap();
+    let mut segment_indices = [[].as_slice(); 12];
+    segment_indices[9] = &[7];
+    let (mut chain, blocks) = chain_with_blocks(&segment_indices);
+    chain.set_shard_max_local_segment_index(shard_index, LocalSegmentIndex::from(6));
+
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 13, shard_index, 7),
+        Some(7)
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 13, new_shard_index, 0),
+        None
+    );
+}
+
+#[test]
+fn every_listed_shard_segment_is_checked() {
+    let shard_index = ShardIndex::new(1).unwrap();
+    let new_shard_index = ShardIndex::new(2).unwrap();
+    let mut segment_indices = [[].as_slice(); 12];
+    segment_indices[9] = &[7];
+    let (chain, blocks) = chain_with_blocks(&segment_indices);
+
+    assert_eq!(
+        check_shard_segments(
+            &chain,
+            13,
+            &blocks[12],
+            &[(new_shard_index, 0), (shard_index, 7)]
+        ),
+        Some((shard_index, 7, 7))
+    );
+}
+
+#[test]
+fn confirmed_shard_segments_are_taken_from_own_ancestry() {
+    // genesis - b1 .. b9 -+- a10 .. a12 (best block)
+    //                     \- c10 .. c12
+    //
+    // Only `a10` includes segment `7`, so it is confirmed on top of `a12`, but not on top of `c12`
+    let shard_index = ShardIndex::new(1).unwrap();
+    let (mut chain, blocks) = chain_with_blocks(&[[].as_slice(); 9]);
+    let a = add_chain(&mut chain, blocks[9], &[&[7], &[], &[]], 0);
+    let c = add_chain(&mut chain, blocks[9], &[&[], &[], &[]], 1);
+    chain.set_best(a[2]);
+
+    assert_eq!(
+        check_shard_segments(&chain, 13, &a[2], &[(shard_index, 7)]),
+        Some((shard_index, 7, 7))
+    );
+    assert_eq!(
+        check_shard_segments(&chain, 13, &c[2], &[(shard_index, 7)]),
+        None
+    );
+}
+
+#[test]
+fn postponed_shard_segment_is_not_confirmed() {
+    // Block 11 includes segment `9` of block 10 again (a shard reorg), so only segments `7` and `8`
+    // of block 10 are confirmed for block 13, while segment `9` of block 11 is confirmed for block
+    // 14
+    let shard_index = ShardIndex::new(1).unwrap();
+    let mut segment_indices = [[].as_slice(); 13];
+    segment_indices[9] = &[7, 8, 9];
+    segment_indices[10] = &[9];
+    let (chain, blocks) = chain_with_blocks(&segment_indices);
+
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 13, shard_index, 8),
+        Some(8)
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 13, shard_index, 9),
+        None
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 14, shard_index, 9),
+        Some(9)
+    );
+}
+
+#[test]
+fn shard_segments_of_early_blocks_are_checked() {
+    // Segment `7` of block 1 is the first one that can be confirmed, for blocks from 4 on
+    let shard_index = ShardIndex::new(1).unwrap();
+    let (chain, blocks) = chain_with_blocks(&[&[7], &[], &[]]);
+
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 1, shard_index, 7),
+        None
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 2, shard_index, 7),
+        None
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 3, shard_index, 7),
+        None
+    );
+    assert_eq!(
+        check_shard_segment(&chain, &blocks, 4, shard_index, 7),
+        Some(7)
     );
 }

@@ -83,6 +83,7 @@ struct MockBlock {
 pub(crate) struct MockBeaconChain {
     blocks: HashMap<BlockRoot, MockBlock>,
     best_root: BlockRoot,
+    shard_max_local_segment_indices: HashMap<ShardIndex, LocalSegmentIndex>,
 }
 
 impl ChainInfo<OwnedBeaconChainBlock> for MockBeaconChain {
@@ -202,8 +203,10 @@ impl BeaconChainInfo for MockBeaconChain {
         unimplemented!()
     }
 
-    fn shard_max_local_segment_index(&self, _shard_index: ShardIndex) -> Option<LocalSegmentIndex> {
-        unimplemented!()
+    fn shard_max_local_segment_index(&self, shard_index: ShardIndex) -> Option<LocalSegmentIndex> {
+        self.shard_max_local_segment_indices
+            .get(&shard_index)
+            .copied()
     }
 }
 
@@ -224,6 +227,7 @@ impl MockBeaconChain {
         Self {
             blocks: HashMap::from([(genesis_root, genesis_block)]),
             best_root: genesis_root,
+            shard_max_local_segment_indices: HashMap::new(),
         }
     }
 
@@ -264,6 +268,16 @@ impl MockBeaconChain {
     pub(crate) fn set_best(&mut self, block_root: BlockRoot) {
         assert!(self.blocks.contains_key(&block_root));
         self.best_root = block_root;
+    }
+
+    /// Set the highest local segment index of `shard_index` included in persisted super segments
+    pub(crate) fn set_shard_max_local_segment_index(
+        &mut self,
+        shard_index: ShardIndex,
+        local_segment_index: LocalSegmentIndex,
+    ) {
+        self.shard_max_local_segment_indices
+            .insert(shard_index, local_segment_index);
     }
 
     /// Proof of time of the block with `block_root`
