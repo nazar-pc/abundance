@@ -51,6 +51,22 @@ pub(super) fn contract(item: TokenStream) -> Result<TokenStream, Error> {
     let item_impl =
         parse2::<ItemImpl>(item).map_err(|error| Error::new(error.span(), error_message))?;
 
+    if !item_impl.generics.params.is_empty() {
+        return Err(Error::new(
+            item_impl.generics.span(),
+            "`#[contract]` does not support generics",
+        ));
+    }
+
+    // Generated code is named after the struct
+    if extract_ident_from_type(&item_impl.self_ty).is_none() {
+        return Err(Error::new(
+            item_impl.self_ty.span(),
+            "`#[contract]` must be applied to an implementation for a simple struct without \
+            generics",
+        ));
+    }
+
     if let Some((path, _for)) = &item_impl.trait_ {
         let trait_name = path
             .get_ident()
@@ -136,13 +152,6 @@ fn process_trait_definition(mut item_trait: ItemTrait) -> Result<TokenStream, Er
 
 fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<TokenStream, Error> {
     let struct_name = item_impl.self_ty.as_ref();
-
-    if !item_impl.generics.params.is_empty() {
-        return Err(Error::new(
-            item_impl.generics.span(),
-            "`#[contract]` does not support generics",
-        ));
-    }
 
     let mut guest_ffis = Vec::with_capacity(item_impl.items.len());
     let mut contract_details = ContractDetails::default();
@@ -338,13 +347,6 @@ fn generate_trait_metadata(
 fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
     let struct_name = item_impl.self_ty.as_ref();
 
-    if !item_impl.generics.params.is_empty() {
-        return Err(Error::new(
-            item_impl.generics.span(),
-            "`#[contract]` does not support generics",
-        ));
-    }
-
     // Needed for arguments
     item_impl.attrs.extend([
         parse_quote! { #[expect(clippy::allow_attributes, reason = "Attribute below")] },
@@ -463,12 +465,8 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         }
     };
 
-    let struct_name_ident = extract_ident_from_type(struct_name).ok_or_else(|| {
-        Error::new(
-            struct_name.span(),
-            "`#[contract]` must be applied to simple struct implementation",
-        )
-    })?;
+    let struct_name_ident = extract_ident_from_type(struct_name)
+        .expect("Checked in `contract()` before processing the implementation; qed");
 
     let ext_trait = generate_extension_trait(struct_name_ident, &trait_ext_components);
 

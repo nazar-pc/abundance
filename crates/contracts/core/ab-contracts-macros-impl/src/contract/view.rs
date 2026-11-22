@@ -99,7 +99,7 @@ pub(super) fn process_view_fn(
 
     let guest_ffi = methods_details.generate_guest_ffi(fn_sig, trait_name)?;
     let trait_ext_components =
-        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, trait_name)?;
+        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, trait_name);
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),
@@ -189,7 +189,7 @@ pub(super) fn process_view_fn_definition(
 
     let guest_ffi = methods_details.generate_guest_trait_ffi(fn_sig, Some(trait_name))?;
     let trait_ext_components =
-        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, Some(trait_name))?;
+        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, Some(trait_name));
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),

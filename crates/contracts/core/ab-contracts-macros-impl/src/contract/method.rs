@@ -18,6 +18,9 @@ const SLOT_NAMED_LIFETIME_ERROR: &str = "`#[slot]` must not have named lifetimes
     are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend \
     a copy made with `Lent::new()` instead";
 
+const SIMPLE_SELF_TYPE_PROOF: &str = "Self type of methods is the name of a trait or of a struct \
+    that `contract()` checked to be a simple identifier; qed";
+
 pub(super) const TRAIT_DEFINITION_STORAGE_ERROR: &str = "`#[tmp]` and `#[slot]` are not \
     supported in trait definitions, since their types are specific to each contract that \
     implements the trait";
@@ -708,8 +711,8 @@ impl MethodDetails {
 
         let original_method_name = &fn_sig.ident;
 
-        let guest_fn = self.generate_guest_fn(fn_sig, trait_name)?;
-        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name)?;
+        let guest_fn = self.generate_guest_fn(fn_sig, trait_name);
+        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name);
         let metadata = self.generate_metadata(fn_sig, trait_name)?;
 
         Ok(quote_spanned! {fn_sig.span() =>
@@ -731,7 +734,7 @@ impl MethodDetails {
     ) -> Result<TokenStream, Error> {
         let original_method_name = &fn_sig.ident;
 
-        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name)?;
+        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name);
         let metadata = self.generate_metadata(fn_sig, trait_name)?;
 
         Ok(quote_spanned! {fn_sig.span() =>
@@ -754,7 +757,7 @@ impl MethodDetails {
         &self,
         fn_sig: &Signature,
         trait_name: Option<&Ident>,
-    ) -> Result<TokenStream, Error> {
+    ) -> TokenStream {
         let self_type = &self.self_type;
         // Generated locals and parameters have mixed-site spans, so that they can't clash with
         // names from the method signature
@@ -1190,7 +1193,7 @@ impl MethodDetails {
         }
 
         let original_method_name = &fn_sig.ident;
-        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
+        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name);
         let return_type = self.return_type.return_type();
 
         let internal_args_struct = {
@@ -1378,7 +1381,7 @@ impl MethodDetails {
         let fn_pointer_static = {
             let adapter_ffi_fn_name = format_ident!("{ffi_fn_name}_adapter");
             let args_struct_name =
-                derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
+                derive_external_args_struct_name(self_type, trait_name, original_method_name);
 
             quote! {
                 #[doc(hidden)]
@@ -1413,23 +1416,23 @@ impl MethodDetails {
             }
         };
 
-        Ok(quote! {
+        quote! {
             #internal_args_struct
             #guest_fn
             #fn_pointer_static
-        })
+        }
     }
 
     fn generate_external_args_struct(
         &self,
         fn_sig: &Signature,
         trait_name: Option<&Ident>,
-    ) -> Result<TokenStream, Error> {
+    ) -> TokenStream {
         let self_type = &self.self_type;
         let original_method_name = &fn_sig.ident;
 
         let args_struct_name =
-            derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
+            derive_external_args_struct_name(self_type, trait_name, original_method_name);
         // `external_args_pointers` will generate pointers in `ExternalArgs` fields
         let mut external_args_fields = Vec::new();
         // Arguments of `::new()` method
@@ -1568,7 +1571,7 @@ impl MethodDetails {
             });
         }
 
-        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
+        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name);
 
         // Initializer's return type will be `()` for the caller of `#[init]` since the state is
         // stored by the host and not returned to the caller and explicit argument is not needed in
@@ -1596,7 +1599,7 @@ impl MethodDetails {
             struct directly in simpler cases."
         );
 
-        Ok(quote_spanned! {fn_sig.span() =>
+        quote_spanned! {fn_sig.span() =>
             #[doc = #args_struct_doc]
             // Fields are private and can only be set by `Self::new()`, so that pointers in them
             // always match the method signature, according to which the host dereferences them
@@ -1658,7 +1661,7 @@ impl MethodDetails {
 
                 #( #getters )*
             }
-        })
+        }
     }
 
     fn generate_metadata(
@@ -1824,7 +1827,7 @@ impl MethodDetails {
         let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
 
         let original_method_name = &fn_sig.ident;
-        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
+        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name);
         let method_name_metadata = derive_ident_metadata(&ffi_fn_name)?;
         Ok(quote_spanned! {fn_sig.span() =>
             #[expect(
@@ -1868,7 +1871,7 @@ impl MethodDetails {
         fn_sig: &Signature,
         fn_attrs: &[Attribute],
         trait_name: Option<&Ident>,
-    ) -> Result<ExtTraitComponents, Error> {
+    ) -> ExtTraitComponents {
         let self_type = &self.self_type;
 
         let mut method_args = Vec::new();
@@ -1954,7 +1957,7 @@ impl MethodDetails {
         }
 
         let original_method_name = &fn_sig.ident;
-        let ext_method_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
+        let ext_method_name = derive_ffi_fn_name(self_type, trait_name, original_method_name);
         // Non-`#[view]` methods can only be called on `&mut Env`
         let env_self = if matches!(self.method_type, MethodType::View) {
             quote_spanned! {fn_sig.span() => &self }
@@ -2029,7 +2032,7 @@ impl MethodDetails {
         };
 
         let args_struct_name =
-            derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
+            derive_external_args_struct_name(self_type, trait_name, original_method_name);
         // `#[view]` methods do not require explicit method context
         let method_context_value = if matches!(self.method_type, MethodType::View) {
             quote_spanned! {fn_sig.span() =>
@@ -2071,7 +2074,7 @@ impl MethodDetails {
                 }
             };
 
-            return Ok(ExtTraitComponents { definition, r#impl });
+            return ExtTraitComponents { definition, r#impl };
         };
 
         let r#impl = quote_spanned! {fn_sig.span() =>
@@ -2114,7 +2117,7 @@ impl MethodDetails {
             }
         };
 
-        Ok(ExtTraitComponents { definition, r#impl })
+        ExtTraitComponents { definition, r#impl }
     }
 }
 
@@ -2205,36 +2208,22 @@ fn extract_arg_name(mut pat: &Pat) -> Option<Ident> {
     }
 }
 
-fn derive_ffi_fn_name(
-    type_name: &Type,
-    trait_name: Option<&Ident>,
-    method_name: &Ident,
-) -> Result<Ident, Error> {
-    let type_name = extract_ident_from_type(type_name).ok_or_else(|| {
-        Error::new(
-            type_name.span(),
-            "`#[contract]` must be applied to a simple struct without generics",
-        )
-    })?;
+fn derive_ffi_fn_name(type_name: &Type, trait_name: Option<&Ident>, method_name: &Ident) -> Ident {
+    let type_name = extract_ident_from_type(type_name).expect(SIMPLE_SELF_TYPE_PROOF);
     let ffi_fn_prefix = trait_name.unwrap_or(type_name).to_string().to_snake_case();
 
-    Ok(format_ident!("{ffi_fn_prefix}_{method_name}"))
+    format_ident!("{ffi_fn_prefix}_{method_name}")
 }
 
 fn derive_external_args_struct_name(
     type_name: &Type,
     trait_name: Option<&Ident>,
     method_name: &Ident,
-) -> Result<Ident, Error> {
-    let type_name = extract_ident_from_type(type_name).ok_or_else(|| {
-        Error::new(
-            type_name.span(),
-            "`#[contract]` must be applied to a simple struct without generics",
-        )
-    })?;
-    Ok(format_ident!(
+) -> Ident {
+    let type_name = extract_ident_from_type(type_name).expect(SIMPLE_SELF_TYPE_PROOF);
+    format_ident!(
         "{}{}Args",
         trait_name.unwrap_or(type_name),
         method_name.to_string().to_upper_camel_case()
-    ))
+    )
 }

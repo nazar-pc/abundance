@@ -1,0 +1,5 @@
+error: `#[contract]` must be applied to an implementation for a simple struct without generics
+  --> tests/ui/items/applied_to.rs:14:10
+   |
+14 |     impl Example<u8> {
+   |          ^^^^^^^^^^^
