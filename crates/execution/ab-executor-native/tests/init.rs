@@ -1,3 +1,4 @@
+use crate::last_output::{InitLastOutput, InitLastOutputExt};
 use ab_contracts_common::Contract;
 use ab_contracts_common::env::MethodContext;
 use ab_contracts_macros::contract;
@@ -26,6 +27,37 @@ impl InitReturnAndOutput {
     #[view]
     pub fn value(&self) -> u64 {
         self.value
+    }
+}
+
+#[expect(
+    clippy::inline_modules,
+    reason = "`#[contract]` generates an `ffi` module for each contract, so each needs a module of \
+    its own"
+)]
+pub mod last_output {
+    use ab_contracts_macros::contract;
+    use ab_io_type::maybe_data::MaybeData;
+    use ab_io_type::trivial_type::TrivialType;
+
+    #[derive(Debug, Copy, Clone, TrivialType)]
+    #[repr(C)]
+    pub struct InitLastOutput {
+        pub value: u64,
+    }
+
+    #[contract]
+    impl InitLastOutput {
+        /// Without a return value, the last output is the state
+        #[init]
+        pub fn init(#[output] state: &mut MaybeData<'_, Self>) {
+            state.replace(Self { value: 1 });
+        }
+
+        #[view]
+        pub fn value(&self) -> u64 {
+            self.value
+        }
     }
 }
 
@@ -61,5 +93,31 @@ fn init_return_value_is_state() {
     let value = executor.with_env_ro(slots, |env| {
         env.init_return_and_output_value(contract).unwrap()
     });
+    assert_eq!(value, 1);
+}
+
+#[test]
+fn init_state_from_last_output() {
+    let executor = NativeExecutor::builder(ShardIndex::new(1).unwrap())
+        .with_contract::<InitLastOutput>()
+        .build()
+        .unwrap();
+    let slots = &mut executor.new_storage_slots().unwrap();
+
+    let contract = executor.transaction_emulate(Address::NULL, slots, |env| {
+        let contract = env
+            .code_deploy(
+                MethodContext::Keep,
+                Address::SYSTEM_CODE,
+                &InitLastOutput::code(),
+            )
+            .unwrap();
+        // The caller doesn't pass the state, the host allocates it
+        env.init_last_output_init(MethodContext::Keep, contract)
+            .unwrap();
+        contract
+    });
+
+    let value = executor.with_env_ro(slots, |env| env.init_last_output_value(contract).unwrap());
     assert_eq!(value, 1);
 }

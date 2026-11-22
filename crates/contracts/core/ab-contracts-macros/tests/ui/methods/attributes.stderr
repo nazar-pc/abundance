@@ -1,0 +1,17 @@
+error: The method `get` can only have one of `#[init]`, `#[update]` or `#[view]` attributes specified
+  --> tests/ui/methods/attributes.rs:18:9
+   |
+18 |         #[view]
+   |         ^^^^^^^
+
+error: The method `get` with `#[view]` attribute must be public
+  --> tests/ui/methods/attributes.rs:38:9
+   |
+38 |         fn get(&self) -> u8 {
+   |         ^^^^^^^^^^^^^^^^^^^
+
+error: The method `get` with `#[view]` attribute must have default ABI
+  --> tests/ui/methods/attributes.rs:57:13
+   |
+57 |         pub extern "C" fn get(&self) -> u8 {
+   |             ^^^^^^^^^^

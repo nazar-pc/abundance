@@ -1,0 +1,11 @@
+error: Each `#[update]` argument (except `&self`/`&mut self`) must be annotated with exactly one of: `#[env]`, `#[tmp]`, `#[slot]`, `#[input]` or `#[output]`, in that order
+  --> tests/ui/arguments/annotation.rs:18:20
+   |
+18 |         pub fn set(_value: &u8) {}
+   |                    ^^^^^^^^^^^
+
+error: Each `#[update]` argument (except `&self`/`&mut self`) must be annotated with exactly one of: `#[env]`, `#[tmp]`, `#[slot]`, `#[input]` or `#[output]`, in that order
+  --> tests/ui/arguments/annotation.rs:37:13
+   |
+37 |             #[output]
+   |             ^^^^^^^^^

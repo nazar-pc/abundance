@@ -1,0 +1,5 @@
+error: `#[update]` can't consume `Self`, use `&self` or `&mut self` instead
+  --> tests/ui/methods/update.rs:17:13
+   |
+17 |         pub fn take(self) -> u8 {
+   |             ^^^^^^^^^^^^^^^^^^^

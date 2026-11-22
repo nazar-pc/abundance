@@ -10,14 +10,23 @@ error: `#[slot]` is not allowed to mutate data here
 40 |         pub fn set(#[slot] _slot: &mut ab_io_type::maybe_data::MaybeData<'_, u8>) {}
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: `#[env]` is not allowed to mutate data here
-  --> tests/ui/methods/view.rs:58:28
+error: `#[slot]` is not allowed to mutate data here
+  --> tests/ui/methods/view.rs:58:13
    |
-58 |         pub fn call_others(#[env] _env: &mut ab_contracts_common::env::Env<'_>) {}
+58 | /             #[slot] (_owner, _slot): (
+59 | |                 &ab_core_primitives::address::Address,
+60 | |                 &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+61 | |             ),
+   | |_____________^
+
+error: `#[env]` is not allowed to mutate data here
+  --> tests/ui/methods/view.rs:81:28
+   |
+81 |         pub fn call_others(#[env] _env: &mut ab_contracts_common::env::Env<'_>) {}
    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: `#[tmp]` is not supported in `#[view]`, since it stores auxiliary data while processing a transaction, and `#[view]` can be called outside of the block context
-  --> tests/ui/methods/view.rs:75:20
+  --> tests/ui/methods/view.rs:98:20
    |
-75 |         pub fn get(#[tmp] _tmp: &ab_io_type::maybe_data::MaybeData<'_, u8>) {}
+98 |         pub fn get(#[tmp] _tmp: &ab_io_type::maybe_data::MaybeData<'_, u8>) {}
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

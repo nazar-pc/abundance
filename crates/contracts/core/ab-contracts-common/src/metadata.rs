@@ -132,13 +132,17 @@ pub enum ContractMetadataKind {
     TmpRw,
     // TODO: What if address is mandatory for slots? Then it would be possible to make `#[slot]`
     //  implicit
-    /// Read-only `#[slot]` argument with an address.
+    /// Read-only `#[slot]` argument, with or without the address of its owner, which doesn't change
+    /// metadata.
     ///
-    /// Example: `#[slot] (from_address, from): (&Address, &MaybeData<Slot>),`
+    /// Example: `#[slot] slot: &MaybeData<Slot>,` or
+    /// `#[slot] (owner, slot): (&Address, &MaybeData<Slot>),`
     SlotRo,
-    /// Read-write `#[slot]` argument with an address.
+    /// Read-write `#[slot]` argument, with or without the address of its owner, which doesn't
+    /// change metadata.
     ///
-    /// Example: `#[slot] (from_address, from): (&Address, &mut MaybeData<Slot>),`
+    /// Example: `#[slot] slot: &mut MaybeData<Slot>,` or
+    /// `#[slot] (owner, slot): (&Address, &mut MaybeData<Slot>),`
     SlotRw,
     /// `#[input]` argument.
     ///

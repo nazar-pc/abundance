@@ -1,5 +1,17 @@
 error: `#[input]` must be a shared reference
-  --> tests/ui/arguments/input.rs:16:16
+  --> tests/ui/arguments/input.rs:19:20
    |
-16 |     pub fn set(#[input] _value: &mut u8) {}
-   |                ^^^^^^^^^^^^^^^^^^^^^^^^
+19 |         pub fn set(#[input] _value: &mut u8) {}
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[input]` must be a shared reference to a type
+  --> tests/ui/arguments/input.rs:36:29
+   |
+36 |         pub fn set(#[input] _value: u8) {}
+   |                             ^^^^^^^^^^
+
+error: `#[input]` argument name must be either a simple variable or a reference
+  --> tests/ui/arguments/input.rs:53:29
+   |
+53 |         pub fn set(#[input] _: &u8) {}
+   |                             ^^^^^^

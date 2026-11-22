@@ -66,6 +66,27 @@ mod tmp_before_env {
     }
 }
 
+mod input_before_slot {
+    use ab_contracts_macros::contract;
+    use ab_io_type::trivial_type::TrivialType;
+
+    #[derive(Debug, Copy, Clone, TrivialType)]
+    #[repr(C)]
+    pub struct Example {
+        pub value: u8,
+    }
+
+    #[contract]
+    impl Example {
+        #[update]
+        pub fn store(
+            #[input] _input: &u8,
+            #[slot] _slot: &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+        ) {
+        }
+    }
+}
+
 mod output_before_input {
     use ab_contracts_macros::contract;
     use ab_io_type::trivial_type::TrivialType;
