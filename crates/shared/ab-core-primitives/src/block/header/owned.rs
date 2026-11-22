@@ -27,6 +27,7 @@ use crate::block::header::{
     BlockHeaderConsensusParameters, BlockHeaderConsistencyError,
     BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
     BlockHeaderSealType, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
+    OwnedBlockHeaderConsensusParameters,
 };
 use crate::hashes::Blake3Hash;
 use crate::shard::{NumShardsUnchecked, RealShardKind};
@@ -144,7 +145,7 @@ impl OwnedBeaconChainHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         intermediate_shard_blocks_root: &Blake3Hash,
-        consensus_parameters: &BlockHeaderConsensusParameters<'_>,
+        consensus_parameters: &OwnedBlockHeaderConsensusParameters,
     ) -> Result<OwnedBeaconChainHeaderUnsealed, BlockHeaderConsistencyError> {
         BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::BeaconChain)?;
 
@@ -178,7 +179,7 @@ impl OwnedBeaconChainHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         intermediate_shard_blocks_root: &Blake3Hash,
-        consensus_parameters: &BlockHeaderConsensusParameters<'_>,
+        consensus_parameters: &OwnedBlockHeaderConsensusParameters,
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedBeaconChainHeaderUnsealedRef<'a>, OwnedBeaconChainHeaderError> {
         BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::BeaconChain)?;
@@ -207,10 +208,10 @@ impl OwnedBeaconChainHeader {
         result: &BlockHeaderResult,
         consensus_info: &BlockHeaderConsensusInfo,
         intermediate_shard_blocks_root: &Blake3Hash,
-        consensus_parameters: &BlockHeaderConsensusParameters<'_>,
+        consensus_parameters: &OwnedBlockHeaderConsensusParameters,
         buffer: &mut OwnedAlignedBuffer,
     ) -> Result<(), OwnedBeaconChainHeaderError> {
-        let BlockHeaderConsensusParameters {
+        let OwnedBlockHeaderConsensusParameters {
             fixed_parameters,
             super_segment_root,
             next_solution_range,
@@ -240,8 +241,8 @@ impl OwnedBeaconChainHeader {
         buffer
             .append(intermediate_shard_blocks_root.as_bytes())
             .expect("Checked size above; qed");
-        // TODO: Would be nice for `BlockHeaderConsensusParameters` to have API to write this by
-        //  itself
+        // TODO: Would be nice for `OwnedBlockHeaderConsensusParameters` to have API to write this
+        //  by itself
         {
             buffer
                 .append(&solution_range.to_bytes())

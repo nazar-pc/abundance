@@ -5,10 +5,10 @@ use crate::block::header::owned::{
 };
 use crate::block::header::{
     BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
-    BlockHeaderConsensusParameters, BlockHeaderConsistencyError, BlockHeaderEd25519Seal,
-    BlockHeaderFixedConsensusParameters, BlockHeaderPotParametersChange, BlockHeaderPrefix,
-    BlockHeaderResult, BlockHeaderSeal, GenericBlockHeader, IntermediateShardHeader,
-    LeafShardHeader,
+    BlockHeaderConsistencyError, BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters,
+    BlockHeaderPotParametersChange, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
+    GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
+    OwnedBlockHeaderConsensusParameters,
 };
 use crate::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
@@ -64,8 +64,8 @@ fn seal() -> BlockHeaderEd25519Seal {
     }
 }
 
-fn consensus_parameters() -> BlockHeaderConsensusParameters<'static> {
-    BlockHeaderConsensusParameters {
+fn consensus_parameters() -> OwnedBlockHeaderConsensusParameters {
+    OwnedBlockHeaderConsensusParameters {
         fixed_parameters: BlockHeaderFixedConsensusParameters {
             solution_range: SolutionRange::MAX,
             slot_iterations: NonZeroU32::MIN,
@@ -200,16 +200,16 @@ fn max_allocation_is_enough_for_largest_headers() {
     // is smaller
     for (consensus_parameters, largest) in [
         (
-            BlockHeaderConsensusParameters {
+            OwnedBlockHeaderConsensusParameters {
                 fixed_parameters,
-                super_segment_root: Some(&super_segment_root),
+                super_segment_root: Some(super_segment_root),
                 next_solution_range: Some(SolutionRange::MAX),
-                pot_parameters_change: Some(&pot_parameters_change),
+                pot_parameters_change: Some(pot_parameters_change),
             },
             true,
         ),
         (
-            BlockHeaderConsensusParameters {
+            OwnedBlockHeaderConsensusParameters {
                 fixed_parameters,
                 super_segment_root: None,
                 next_solution_range: None,
@@ -452,7 +452,7 @@ fn seals_of_other_public_keys_are_rejected() {
 #[test]
 fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
     let child_shard_blocks_root = Blake3Hash::new([1; _]);
-    let consensus_parameters = BlockHeaderConsensusParameters {
+    let consensus_parameters = OwnedBlockHeaderConsensusParameters {
         fixed_parameters: BlockHeaderFixedConsensusParameters {
             solution_range: SolutionRange::MAX,
             slot_iterations: NonZeroU32::MIN,
@@ -609,10 +609,10 @@ fn from_parts_into_writes_headers_that_parse() {
         slot_iterations: NonZeroU32::MIN,
         entropy: Blake3Hash::default(),
     });
-    let largest_consensus_parameters = BlockHeaderConsensusParameters {
-        super_segment_root: Some(&super_segment_root),
+    let largest_consensus_parameters = OwnedBlockHeaderConsensusParameters {
+        super_segment_root: Some(super_segment_root),
         next_solution_range: Some(SolutionRange::MAX),
-        pot_parameters_change: Some(&pot_parameters_change),
+        pot_parameters_change: Some(pot_parameters_change),
         ..consensus_parameters()
     };
     let seal = seal();
@@ -696,7 +696,7 @@ fn from_parts_into_writes_headers_that_parse() {
 
 #[test]
 fn header_roots_commit_to_child_block_roots() {
-    let consensus_parameters = BlockHeaderConsensusParameters {
+    let consensus_parameters = OwnedBlockHeaderConsensusParameters {
         fixed_parameters: BlockHeaderFixedConsensusParameters {
             solution_range: SolutionRange::MAX,
             slot_iterations: NonZeroU32::MIN,
@@ -829,10 +829,10 @@ fn to_owned_of_headers_returns_the_bytes_written_from_parts() {
     let seal = BlockHeaderSeal::Ed25519(&seal);
 
     // Beacon chain headers with and without each optional consensus parameter
-    for super_segment_root in [None, Some(&super_segment_root)] {
+    for super_segment_root in [None, Some(super_segment_root)] {
         for next_solution_range in [None, Some(SolutionRange::from(6))] {
-            for pot_parameters_change in [None, Some(&pot_parameters_change)] {
-                let consensus_parameters = BlockHeaderConsensusParameters {
+            for pot_parameters_change in [None, Some(pot_parameters_change)] {
+                let consensus_parameters = OwnedBlockHeaderConsensusParameters {
                     super_segment_root,
                     next_solution_range,
                     pot_parameters_change,
@@ -849,6 +849,12 @@ fn to_owned_of_headers_returns_the_bytes_written_from_parts() {
                 .with_seal(seal)
                 .unwrap();
                 check_to_owned_returns_the_same_bytes(&header);
+                assert_eq!(
+                    OwnedBlockHeaderConsensusParameters::from(
+                        header.header().consensus_parameters()
+                    ),
+                    consensus_parameters
+                );
             }
         }
     }

@@ -290,7 +290,7 @@ impl BlockHeaderPotParametersChange {
 }
 
 /// Owned version of [`BlockHeaderConsensusParameters`]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct OwnedBlockHeaderConsensusParameters {
     /// Consensus parameters that are always present
     pub fixed_parameters: BlockHeaderFixedConsensusParameters,
@@ -302,30 +302,43 @@ pub struct OwnedBlockHeaderConsensusParameters {
     pub pot_parameters_change: Option<BlockHeaderPotParametersChange>,
 }
 
-impl OwnedBlockHeaderConsensusParameters {
-    /// Get a reference out of the owned version
+impl From<&BlockHeaderConsensusParameters<'_>> for OwnedBlockHeaderConsensusParameters {
     #[inline]
-    pub fn as_ref(&self) -> BlockHeaderConsensusParameters<'_> {
-        BlockHeaderConsensusParameters {
-            fixed_parameters: self.fixed_parameters,
-            super_segment_root: self.super_segment_root.as_ref(),
-            next_solution_range: self.next_solution_range,
-            pot_parameters_change: self.pot_parameters_change.as_ref(),
+    fn from(value: &BlockHeaderConsensusParameters<'_>) -> Self {
+        let BlockHeaderConsensusParameters {
+            fixed_parameters,
+            super_segment_root,
+            next_solution_range,
+            pot_parameters_change,
+            bytes: _,
+        } = value;
+
+        Self {
+            fixed_parameters: *fixed_parameters,
+            super_segment_root: super_segment_root.copied(),
+            next_solution_range: *next_solution_range,
+            pot_parameters_change: pot_parameters_change.copied(),
         }
     }
 }
 
 /// Consensus parameters (on the beacon chain)
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[expect(
+    clippy::partial_pub_fields,
+    reason = "Intentionally exposing decoded fields and hiding the bytes they were decoded from"
+)]
 pub struct BlockHeaderConsensusParameters<'a> {
     /// Consensus parameters that are always present
-    pub fixed_parameters: BlockHeaderFixedConsensusParameters,
+    pub mut(self) fixed_parameters: BlockHeaderFixedConsensusParameters,
     /// Super segment root
-    pub super_segment_root: Option<&'a SuperSegmentRoot>,
+    pub mut(self) super_segment_root: Option<&'a SuperSegmentRoot>,
     /// Solution range for the next block/interval (if any)
-    pub next_solution_range: Option<SolutionRange>,
+    pub mut(self) next_solution_range: Option<SolutionRange>,
     /// Change of parameters to apply to the proof of time chain (if any)
-    pub pot_parameters_change: Option<&'a BlockHeaderPotParametersChange>,
+    pub mut(self) pot_parameters_change: Option<&'a BlockHeaderPotParametersChange>,
+    /// Encoded consensus parameters the fields above were parsed from
+    bytes: &'a [u8],
 }
 
 impl<'a> BlockHeaderConsensusParameters<'a> {
@@ -417,6 +430,7 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
                 super_segment_root,
                 next_solution_range,
                 pot_parameters_change,
+                bytes: &bytes[..bytes.len() - remainder.len()],
             },
             remainder,
         ))
@@ -424,41 +438,14 @@ impl<'a> BlockHeaderConsensusParameters<'a> {
 
     /// Hash of the block consensus parameters, part of the eventual block root
     pub fn hash(&self) -> Blake3Hash {
-        let Self {
-            super_segment_root,
-            fixed_parameters,
-            next_solution_range,
-            pot_parameters_change,
-        } = self;
-        let BlockHeaderFixedConsensusParameters {
-            solution_range,
-            slot_iterations,
-            num_shards,
-        } = fixed_parameters;
-
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(solution_range.as_bytes());
-        hasher.update(&slot_iterations.get().to_le_bytes());
-        hasher.update(NumShardsUnchecked::from(*num_shards).as_bytes());
-
-        if let Some(super_segment_root) = super_segment_root {
-            hasher.update(super_segment_root.as_bytes());
+        const {
+            assert!(Self::MAX_SIZE as usize <= CHUNK_LEN);
         }
-        if let Some(next_solution_range) = next_solution_range {
-            hasher.update(next_solution_range.as_bytes());
-        }
-        if let Some(pot_parameters_change) = pot_parameters_change.copied() {
-            let BlockHeaderPotParametersChange {
-                slot,
-                slot_iterations,
-                entropy,
-            } = pot_parameters_change;
-            hasher.update(slot.as_bytes());
-            hasher.update(&slot_iterations.get().to_le_bytes());
-            hasher.update(entropy.as_bytes());
-        }
-
-        Blake3Hash::from(hasher.finalize())
+        Blake3Hash::new(
+            single_chunk_hash(self.bytes).expect(
+                "Parser stores at most `MAX_SIZE` bytes, which fit into a single chunk; qed",
+            ),
+        )
     }
 }
 

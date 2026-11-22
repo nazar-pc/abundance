@@ -48,7 +48,12 @@ where
     where
         Self: 'a;
 
-    /// Turn into an owned version
+    /// Turn into an owned version.
+    ///
+    /// # Panics
+    /// Where `usize` is 32-bit, if the body is longer than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    ///
+    /// [`OwnedAlignedBuffer::MAX_CAPACITY`]: ab_aligned_buffer::OwnedAlignedBuffer::MAX_CAPACITY
     #[cfg(feature = "alloc")]
     fn to_owned(self) -> Self::Owned;
 
@@ -902,7 +907,12 @@ impl<'a> BeaconChainBody<'a> {
         Some((body, remainder))
     }
 
-    /// Create an owned version of this body
+    /// Create an owned version of this body.
+    ///
+    /// # Panics
+    /// Where `usize` is 32-bit, if the body is longer than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    ///
+    /// [`OwnedAlignedBuffer::MAX_CAPACITY`]: ab_aligned_buffer::OwnedAlignedBuffer::MAX_CAPACITY
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedBeaconChainBody {
@@ -1381,7 +1391,12 @@ impl<'a> IntermediateShardBody<'a> {
         &self.leaf_shard_blocks
     }
 
-    /// Create an owned version of this body
+    /// Create an owned version of this body.
+    ///
+    /// # Panics
+    /// Where `usize` is 32-bit, if the body is longer than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    ///
+    /// [`OwnedAlignedBuffer::MAX_CAPACITY`]: ab_aligned_buffer::OwnedAlignedBuffer::MAX_CAPACITY
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedIntermediateShardBody {
@@ -1603,7 +1618,12 @@ impl<'a> LeafShardBody<'a> {
         &self.transactions
     }
 
-    /// Create an owned version of this body
+    /// Create an owned version of this body.
+    ///
+    /// # Panics
+    /// Where `usize` is 32-bit, if the body is longer than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    ///
+    /// [`OwnedAlignedBuffer::MAX_CAPACITY`]: ab_aligned_buffer::OwnedAlignedBuffer::MAX_CAPACITY
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedLeafShardBody {
@@ -1658,7 +1678,12 @@ impl<'a> BlockBody<'a> {
         }
     }
 
-    /// Create an owned version of this body
+    /// Create an owned version of this body.
+    ///
+    /// # Panics
+    /// Where `usize` is 32-bit, if the body is longer than [`OwnedAlignedBuffer::MAX_CAPACITY`]
+    ///
+    /// [`OwnedAlignedBuffer::MAX_CAPACITY`]: ab_aligned_buffer::OwnedAlignedBuffer::MAX_CAPACITY
     #[cfg(feature = "alloc")]
     #[inline(always)]
     pub fn to_owned(self) -> OwnedBlockBody {

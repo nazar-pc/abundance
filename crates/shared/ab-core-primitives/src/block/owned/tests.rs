@@ -5,9 +5,9 @@ use crate::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedIntermediateShardHeader,
 };
 use crate::block::header::{
-    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
-    BlockHeaderConsistencyError, BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters,
-    BlockHeaderPrefix, BlockHeaderSeal,
+    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsistencyError,
+    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
+    BlockHeaderSeal, OwnedBlockHeaderConsensusParameters,
 };
 use crate::block::owned::{
     GenericOwnedBlock, OwnedBeaconChainBlock, OwnedIntermediateShardBlock,
@@ -77,7 +77,7 @@ fn beacon_chain_block() -> OwnedBeaconChainBlock {
         &prefix(ShardIndex::BEACON_CHAIN),
         Blake3Hash::default(),
         &consensus_info(),
-        &BlockHeaderConsensusParameters {
+        &OwnedBlockHeaderConsensusParameters {
             fixed_parameters: BlockHeaderFixedConsensusParameters {
                 solution_range: SolutionRange::MAX,
                 slot_iterations: NonZeroU32::MIN,
@@ -288,7 +288,7 @@ fn block_builders_reject_inconsistent_header_parts() {
         &prefix(ShardIndex::BEACON_CHAIN),
         Blake3Hash::default(),
         &consensus_info,
-        &BlockHeaderConsensusParameters {
+        &OwnedBlockHeaderConsensusParameters {
             fixed_parameters: BlockHeaderFixedConsensusParameters {
                 solution_range: SolutionRange::MAX,
                 slot_iterations: NonZeroU32::MIN,
@@ -365,7 +365,7 @@ fn block_builders_reject_seals_of_other_public_keys() {
         &prefix(ShardIndex::BEACON_CHAIN),
         Blake3Hash::default(),
         &consensus_info(),
-        &BlockHeaderConsensusParameters {
+        &OwnedBlockHeaderConsensusParameters {
             fixed_parameters: BlockHeaderFixedConsensusParameters {
                 solution_range: SolutionRange::MAX,
                 slot_iterations: NonZeroU32::MIN,
@@ -548,7 +548,7 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
         header.result,
         header.consensus_info,
         &Blake3Hash::new([1; _]),
-        header.consensus_parameters(),
+        &OwnedBlockHeaderConsensusParameters::from(header.consensus_parameters()),
     )
     .unwrap()
     .with_seal(header.seal)

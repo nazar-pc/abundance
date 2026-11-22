@@ -134,7 +134,7 @@ where
             &header_prefix,
             state_root,
             consensus_info,
-            &consensus_parameters.as_ref(),
+            &consensus_parameters,
         )?;
 
         let pre_seal_hash = block_unsealed.pre_seal_hash();
