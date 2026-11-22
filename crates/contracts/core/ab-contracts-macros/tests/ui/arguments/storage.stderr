@@ -1,5 +1,27 @@
-error: All `#[slot]` arguments must be of the same type in all methods of a contract
-  --> tests/ui/arguments/storage.rs:22:36
+error: `#[tmp]` must be a reference to a type implementing `IoTypeOptional` (can be shared or exclusive) like `&MaybeData<'_, Tmp>` or `&mut VariableBytes<'_, 1024>`
+  --> tests/ui/arguments/storage.rs:19:27
    |
-22 |         pub fn get(#[slot] _slot: &ab_io_type::maybe_data::MaybeData<'_, u16>) {}
+19 |         pub fn set(#[tmp] _tmp: ab_io_type::maybe_data::MaybeData<'_, u8>) {}
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[slot]` must be a reference to a type implementing `IoTypeOptional` (can be shared or exclusive) like `&MaybeData<'_, Slot>` or a tuple of a shared reference to the address and a reference to the slot like `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`
+  --> tests/ui/arguments/storage.rs:36:28
+   |
+36 |         pub fn set(#[slot] _slot: ab_io_type::maybe_data::MaybeData<'_, u8>) {}
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[slot]` with address must be a tuple of a shared reference to the address and a reference to the slot, bound to a tuple of two variables, like `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`
+  --> tests/ui/arguments/storage.rs:54:21
+   |
+54 |               #[slot] (_owner, _slot): (
+   |  _____________________^
+55 | |                 &mut ab_core_primitives::address::Address,
+56 | |                 &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+57 | |             ),
+   | |_____________^
+
+error: All `#[slot]` arguments must be of the same type in all methods of a contract
+  --> tests/ui/arguments/storage.rs:79:36
+   |
+79 |         pub fn get(#[slot] _slot: &ab_io_type::maybe_data::MaybeData<'_, u16>) {}
    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
