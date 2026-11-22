@@ -6,15 +6,15 @@ error[E0277]: the trait bound `ab_io_type::variable_elements::VariableElements<'
    |
    = help: the following other types implement trait `TrivialType`:
              `(T₁, T₂, …, Tₙ)` up to tuples of arity 0
-             EnvState
-             MethodContext
-             MethodFingerprint
              [T; SIZE]
+             ab_contracts_common::env::EnvState
              ab_core_primitives::balance::Balance
              ab_core_primitives::block::BlockNumber
              ab_core_primitives::block::BlockRoot
+             ab_core_primitives::block::BlockTimestamp
+             ab_core_primitives::block::header::BlockHeaderBeaconChainInfo
            and $N others
-note: required by a bound in `<Env<'_> as ExampleExt>::example_get::{constant#1}::assert_impl_trivial_type`
+note: required by a bound in `<ab_contracts_macros::__private::Env<'_> as ExampleExt>::example_get::{constant#1}::assert_impl_trivial_type`
   --> tests/ui/arguments/return_trivial_type.rs:18:13
    |
 18 |         pub fn get(&self) -> VariableBytes<'static, 0> {
@@ -28,38 +28,16 @@ error[E0277]: the trait bound `ab_io_type::variable_elements::VariableElements<'
    |
    = help: the following other types implement trait `TrivialType`:
              `(T₁, T₂, …, Tₙ)` up to tuples of arity 0
-             EnvState
-             MethodContext
-             MethodFingerprint
              [T; SIZE]
+             ab_contracts_common::env::EnvState
              ab_core_primitives::balance::Balance
              ab_core_primitives::block::BlockNumber
              ab_core_primitives::block::BlockRoot
+             ab_core_primitives::block::BlockTimestamp
+             ab_core_primitives::block::header::BlockHeaderBeaconChainInfo
            and $N others
-note: required by a bound in `method::ffi::get::example_get::{constant#0}::assert_impl_trivial_type`
+note: required by a bound in `variable_bytes::ffi::get::example_get::{constant#0}::assert_impl_trivial_type`
   --> tests/ui/arguments/return_trivial_type.rs:18:30
    |
 18 |         pub fn get(&self) -> VariableBytes<'static, 0> {
    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `assert_impl_trivial_type`
-
-error[E0277]: the trait bound `ab_io_type::variable_elements::VariableElements<'static, u8>: TrivialType` is not satisfied
-  --> tests/ui/arguments/return_trivial_type.rs:32:41
-   |
-32 |         fn get(#[env] env: &Env<'_>) -> VariableBytes<'static, 0>;
-   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `TrivialType` is not implemented for `ab_io_type::variable_elements::VariableElements<'static, u8>`
-   |
-   = help: the following other types implement trait `TrivialType`:
-             `(T₁, T₂, …, Tₙ)` up to tuples of arity 0
-             EnvState
-             MethodContext
-             MethodFingerprint
-             [T; SIZE]
-             ab_core_primitives::balance::Balance
-             ab_core_primitives::block::BlockNumber
-             ab_core_primitives::block::BlockRoot
-           and $N others
-note: required by a bound in `<Env<'_> as GetterExt>::getter_get::{constant#1}::assert_impl_trivial_type`
-  --> tests/ui/arguments/return_trivial_type.rs:32:9
-   |
-32 |         fn get(#[env] env: &Env<'_>) -> VariableBytes<'static, 0>;
-   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `assert_impl_trivial_type`

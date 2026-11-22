@@ -17,37 +17,37 @@ error: `#[tmp]` must not have a named lifetime, since it is trusted without bein
    |                                                                ^^
 
 error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
-  --> tests/ui/lifetimes/named.rs:90:28
+  --> tests/ui/lifetimes/named.rs:93:28
    |
-90 |             #[slot] slot: &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+93 |             #[slot] slot: &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
    |                            ^^
 
 error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
-   --> tests/ui/lifetimes/named.rs:112:66
+   --> tests/ui/lifetimes/named.rs:115:66
     |
-112 |             #[slot] slot: &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
+115 |             #[slot] slot: &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
     |                                                                  ^^
 
 error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
-   --> tests/ui/lifetimes/named.rs:142:18
+   --> tests/ui/lifetimes/named.rs:139:18
     |
-142 |                 &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+139 |                 &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
     |                  ^^
 
 error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
-   --> tests/ui/lifetimes/named.rs:167:56
+   --> tests/ui/lifetimes/named.rs:164:56
     |
-167 |                 &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
+164 |                 &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
     |                                                        ^^
 
 error: The last `#[output]` of `#[init]` without a return value is the initial state, which must not have a named lifetime, since the state is trusted without being parsed and must not be lent to calls with `Env::lend_output()`
-   --> tests/ui/lifetimes/named.rs:198:31
+   --> tests/ui/lifetimes/named.rs:189:31
     |
-198 |             #[output] state: &'a mut MaybeData<'_, Self>,
+189 |             #[output] state: &'a mut MaybeData<'_, Self>,
     |                               ^^
 
 error: The last `#[output]` of `#[init]` without a return value is the initial state, which must not have a named lifetime, since the state is trusted without being parsed and must not be lent to calls with `Env::lend_output()`
-   --> tests/ui/lifetimes/named.rs:222:45
+   --> tests/ui/lifetimes/named.rs:213:45
     |
-222 |             #[output] state: &mut MaybeData<'a, Self>,
+213 |             #[output] state: &mut MaybeData<'a, Self>,
     |                                             ^^

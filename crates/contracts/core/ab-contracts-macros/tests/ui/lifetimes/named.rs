@@ -17,7 +17,7 @@ mod state {
     impl Example {
         #[update]
         pub fn lend_state<'a>(&'a mut self, #[env] env: &mut ab_contracts_common::env::Env<'a>) {
-            let _value = env.lend_output(&mut self.value);
+            unimplemented!()
         }
     }
 }
@@ -39,7 +39,7 @@ mod tmp {
             #[env] env: &mut ab_contracts_common::env::Env<'a>,
             #[tmp] tmp: &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
         ) {
-            let _tmp = env.lend_output(tmp);
+            unimplemented!()
         }
     }
 }
@@ -61,6 +61,9 @@ mod tmp_container {
             #[env] env: &mut ab_contracts_common::env::Env<'a>,
             #[tmp] tmp: &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
         ) {
+            // The body is never compiled, it shows what the signature would allow: lending the
+            // container of `tmp` to a call, which could leave contents behind that are not a valid
+            // value, while the host stores `#[tmp]` without parsing it
             let replacement = ab_io_type::maybe_data::MaybeData::from_mut(
                 Box::leak(Box::new(0)),
                 Box::leak(Box::new(0)),
@@ -89,7 +92,7 @@ mod slot {
             #[env] env: &mut ab_contracts_common::env::Env<'a>,
             #[slot] slot: &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
         ) {
-            let _slot = env.lend_output(slot);
+            unimplemented!()
         }
     }
 }
@@ -111,13 +114,7 @@ mod slot_container {
             #[env] env: &mut ab_contracts_common::env::Env<'a>,
             #[slot] slot: &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
         ) {
-            let replacement = ab_io_type::maybe_data::MaybeData::from_mut(
-                Box::leak(Box::new(0)),
-                Box::leak(Box::new(0)),
-            )
-            .unwrap();
-            let slot = Box::leak(Box::new(core::mem::replace(slot, replacement)));
-            let _slot = env.lend_output(slot);
+            unimplemented!()
         }
     }
 }
@@ -142,7 +139,7 @@ mod slot_with_address {
                 &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
             ),
         ) {
-            let _slot = env.lend_output(slot);
+            unimplemented!()
         }
     }
 }
@@ -167,13 +164,7 @@ mod slot_with_address_container {
                 &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
             ),
         ) {
-            let replacement = ab_io_type::maybe_data::MaybeData::from_mut(
-                Box::leak(Box::new(0)),
-                Box::leak(Box::new(0)),
-            )
-            .unwrap();
-            let slot = Box::leak(Box::new(core::mem::replace(slot, replacement)));
-            let _slot = env.lend_output(slot);
+            unimplemented!()
         }
     }
 }
@@ -197,7 +188,7 @@ mod init_state {
             #[env] env: &mut ab_contracts_common::env::Env<'a>,
             #[output] state: &'a mut MaybeData<'_, Self>,
         ) {
-            let _state = env.lend_output(state);
+            unimplemented!()
         }
     }
 }
@@ -221,13 +212,7 @@ mod init_state_container {
             #[env] env: &mut ab_contracts_common::env::Env<'a>,
             #[output] state: &mut MaybeData<'a, Self>,
         ) {
-            let replacement = MaybeData::from_mut(
-                Box::leak(Box::new(Self { value: 0 })),
-                Box::leak(Box::new(0)),
-            )
-            .unwrap();
-            let state = Box::leak(Box::new(core::mem::replace(state, replacement)));
-            let _state = env.lend_output(state);
+            unimplemented!()
         }
     }
 }

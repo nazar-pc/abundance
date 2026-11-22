@@ -1,6 +1,7 @@
 //! Arguments must be in this order: `#[env]`, `#[tmp]`, `#[slot]`, `#[input]`, `#[output]`. The
 //! method is called with arguments in that order, so any other order must be rejected rather than
-//! silently mixing up arguments of the same type.
+//! silently mixing up arguments of the same type. A second `#[env]` or `#[tmp]` is rejected by the
+//! same check, since it comes after an argument of the same kind.
 
 mod slot_before_tmp {
     use ab_contracts_macros::contract;

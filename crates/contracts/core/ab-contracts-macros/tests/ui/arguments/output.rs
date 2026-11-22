@@ -72,7 +72,7 @@ mod tuple {
     }
 }
 
-mod reference {
+mod reference_pattern {
     use ab_contracts_macros::contract;
     use ab_io_type::trivial_type::TrivialType;
 

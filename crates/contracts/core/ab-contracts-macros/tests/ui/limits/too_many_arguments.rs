@@ -1,6 +1,6 @@
 //! A method must not have more than `MAX_TOTAL_METHOD_ARGS` arguments in total, executors and
 //! wallets size argument buffers according to it. `self` counts towards the limit in methods that
-//! have it.
+//! have it, and so does the return value.
 
 mod without_self {
     use ab_contracts_macros::contract;

@@ -1,5 +1,6 @@
 //! A method can only lend its `#[output]` to calls with `Env::lend_output()` if it declares the
-//! output with the lifetime of `Env`, rustc suggests the signature, which compiles
+//! output with the lifetime of `Env`. rustc suggests the signature, which compiles, as
+//! `forward_suggested` shows by not having errors in the `.stderr`.
 
 use ab_contracts_common::ContractError;
 use ab_contracts_common::env::Env;

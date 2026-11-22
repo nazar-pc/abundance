@@ -18,9 +18,6 @@ mod direct {
     impl Example {
         #[view]
         pub fn keep_input(#[input] _input: &VariableBytes<'static, 8>) {}
-
-        #[view]
-        pub fn keep_output(#[output] _output: &mut VariableBytes<'static, 8>) {}
     }
 }
 
@@ -42,7 +39,6 @@ mod alias {
 
     thread_local! {
         static KEPT_OUTPUT: RefCell<Option<Bytes>> = const { RefCell::new(None) };
-        static KEPT_TMP: RefCell<Option<Tmp>> = const { RefCell::new(None) };
     }
 
     #[derive(Debug, Copy, Clone, TrivialType)]
@@ -57,13 +53,7 @@ mod alias {
         pub fn new(#[output] _state: &mut State<'_, Self>) {}
 
         #[update]
-        pub fn keep_tmp(#[tmp] tmp: &mut Tmp) {
-            let data = Box::leak(Box::new(0));
-            let size = Box::leak(Box::new(0));
-            let replacement = MaybeData::from_mut(data, size).unwrap();
-            let kept = mem::replace(tmp, replacement);
-            KEPT_TMP.with(|kept_tmp| *kept_tmp.borrow_mut() = Some(kept));
-        }
+        pub fn keep_tmp(#[tmp] _tmp: &mut Tmp) {}
 
         #[update]
         pub fn keep_slot(#[slot] _slot: &mut Slot) {}
@@ -76,6 +66,8 @@ mod alias {
 
         #[update]
         pub fn keep_output(#[output] output: &mut Bytes) {
+            // What `'static` would allow: keeping a container that views memory of the caller
+            // after the call
             let buffer = Box::leak(Box::new([0; 8]));
             let size = Box::leak(Box::new(8));
             let replacement = VariableBytes::from_buffer_mut(buffer, size).unwrap();

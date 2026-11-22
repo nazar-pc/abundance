@@ -1,7 +1,7 @@
 //! Return values are written by the callee into memory allocated for them by the caller according
 //! to metadata, which is only possible for `TrivialType`, other types must use `#[output]`
 
-mod method {
+mod variable_bytes {
     use ab_contracts_macros::contract;
     use ab_io_type::trivial_type::TrivialType;
     use ab_io_type::variable_bytes::VariableBytes;
@@ -18,18 +18,6 @@ mod method {
         pub fn get(&self) -> VariableBytes<'static, 0> {
             unimplemented!()
         }
-    }
-}
-
-mod trait_definition {
-    use ab_contracts_common::env::Env;
-    use ab_contracts_macros::contract;
-    use ab_io_type::variable_bytes::VariableBytes;
-
-    #[contract]
-    pub trait Getter {
-        #[view]
-        fn get(#[env] env: &Env<'_>) -> VariableBytes<'static, 0>;
     }
 }
 
