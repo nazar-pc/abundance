@@ -3,6 +3,7 @@
 use ab_blake3::OUT_LEN;
 use ab_contract_file::ContractFile;
 use ab_contract_file::instruction::{ContractInstruction, ContractRegisters};
+use ab_contracts_common::{ContractError, ExitCode};
 use ab_core_primitives::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use ab_io_type::trivial_type::TrivialType;
 use ab_io_type::unaligned::Unaligned;
@@ -93,7 +94,7 @@ where
     threaded_regs.write(Register::SP, stack_pointer);
 
     let pc = MEMORY_BASE_ADDRESS + u64::from(methods[method_name.as_bytes()]);
-    let memory = match run_type {
+    let (memory, exit_code) = match run_type {
         RunType::Lazy => {
             let instruction_fetcher =
                 BasicInstructionFetcher::<ContractInstruction>::new(TRAP_ADDRESS, pc);
@@ -106,7 +107,7 @@ where
             };
             state.execute().unwrap();
 
-            state.memory
+            (state.memory, state.regs.read(Register::A0))
         }
         RunType::Eager => {
             // SAFETY: `unimp` never continues to the next instruction, and
@@ -131,7 +132,7 @@ where
             };
             state.execute().unwrap();
 
-            state.memory
+            (state.memory, state.regs.read(Register::A0))
         }
         RunType::EagerThreaded => {
             // SAFETY: `unimp` never continues to the next instruction, and
@@ -157,9 +158,14 @@ where
             .outcome
             .unwrap();
 
-            memory
+            (memory, threaded_regs.read(Register::A0))
         }
     };
+    // A method that fails doesn't write its result, which may then look like a valid one
+    assert_eq!(
+        Result::<(), ContractError>::from(ExitCode::from_u64(exit_code)),
+        Ok(())
+    );
 
     Unaligned::<IA>::try_from_bytes_exact(
         memory

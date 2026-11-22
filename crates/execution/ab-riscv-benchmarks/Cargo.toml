@@ -33,6 +33,7 @@ ab-io-type = { workspace = true }
 ab-contract-file = { workspace = true }
 
 [dev-dependencies]
+ab-contracts-common = { workspace = true }
 ab-riscv-interpreter = { workspace = true, features = ["alloc"] }
 ab-riscv-primitives = { workspace = true }
 ed25519-dalek = { workspace = true }

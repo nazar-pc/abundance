@@ -780,6 +780,7 @@ version = "0.0.1"
 dependencies = [
  "ab-blake3",
  "ab-contract-file",
+ "ab-contracts-common",
  "ab-contracts-macros",
  "ab-contracts-tooling",
  "ab-core-primitives",
