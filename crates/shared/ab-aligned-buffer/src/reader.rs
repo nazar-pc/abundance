@@ -75,7 +75,7 @@ where
 
     /// Number of bytes read so far, including padding
     #[inline(always)]
-    pub const fn position(&self) -> u32 {
+    pub fn position(&self) -> u32 {
         self.position
     }
 

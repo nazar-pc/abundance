@@ -882,32 +882,43 @@ where
         unsafe { (&raw const this.inner).read() }
     }
 
+    /// Tells the compiler that the contents are aligned to `A`, which it can't see otherwise
     #[inline(always)]
-    pub const fn as_slice(&self) -> &[u8] {
+    fn assume_aligned(&self) {
+        // SAFETY: Contents are aligned to `A`, which is an invariant of the type
+        unsafe { hint::assert_unchecked(self.inner.is_aligned_to(align_usize::<A>())) }
+    }
+
+    #[inline(always)]
+    pub fn as_slice(&self) -> &[u8] {
+        self.assume_aligned();
         self.inner.as_slice()
     }
 
     #[inline(always)]
-    pub const fn as_mut_slice(&mut self) -> &mut [u8] {
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        self.assume_aligned();
         self.inner.as_mut_slice()
     }
 
     /// Pointer to the first byte of the contents
     #[inline(always)]
-    pub const fn as_byte_ptr(&self) -> *const u8 {
+    pub fn as_byte_ptr(&self) -> *const u8 {
+        self.assume_aligned();
         self.inner.as_ptr()
     }
 
     /// Mutable pointer to the first byte of the contents
     #[inline(always)]
-    pub const fn as_mut_byte_ptr(&mut self) -> *mut u8 {
+    pub fn as_mut_byte_ptr(&mut self) -> *mut u8 {
+        self.assume_aligned();
         self.inner.as_mut_ptr()
     }
 
     /// Spare capacity of the buffer after its contents, which can be written to and then included
     /// in the contents with [`Self::set_len()`]
     #[inline(always)]
-    pub const fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<u8>] {
+    pub fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         let len = self.len() as usize;
         let spare_capacity = (self.capacity() - self.len()) as usize;
         // SAFETY: Spare capacity is within the allocation right after the contents, the buffer is
@@ -1088,24 +1099,24 @@ where
     }
 
     #[inline(always)]
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
 
     #[inline(always)]
-    pub const fn len(&self) -> u32 {
+    pub fn len(&self) -> u32 {
         self.inner.len()
     }
 
     /// Capacity from the beginning of the contents
     #[inline(always)]
-    pub const fn capacity(&self) -> u32 {
+    pub fn capacity(&self) -> u32 {
         self.inner.capacity()
     }
 
     /// Offset of the contents from the beginning of the data region of the allocation
     #[inline(always)]
-    pub const fn offset(&self) -> u32 {
+    pub fn offset(&self) -> u32 {
         self.inner.offset()
     }
 
@@ -1292,7 +1303,7 @@ where
     /// Only whole `u128`s are included: when the length is not a multiple of `u128` size, the
     /// bytes after the last whole `u128` are not.
     #[inline(always)]
-    pub const fn as_u128_slice(&self) -> &[u128] {
+    pub fn as_u128_slice(&self) -> &[u128] {
         let len = self.len() as usize / size_of::<u128>();
         // SAFETY: Not null, correctly aligned (contents are aligned to at least `u128`), and the
         // first `len` elements are initialized, since they are within `self.len()` bytes, which
@@ -1305,7 +1316,7 @@ where
         clippy::cast_ptr_alignment,
         reason = "Contents are aligned to at least `u128`"
     )]
-    pub const fn as_ptr(&self) -> *const u128 {
+    pub fn as_ptr(&self) -> *const u128 {
         self.as_byte_ptr().cast::<u128>()
     }
 
@@ -1314,7 +1325,7 @@ where
         clippy::cast_ptr_alignment,
         reason = "Contents are aligned to at least `u128`"
     )]
-    pub const fn as_mut_ptr(&mut self) -> *mut u128 {
+    pub fn as_mut_ptr(&mut self) -> *mut u128 {
         self.as_mut_byte_ptr().cast::<u128>()
     }
 }
@@ -1485,6 +1496,13 @@ where
         unsafe { (&raw const this.inner).read() }
     }
 
+    /// Tells the compiler that the contents are aligned to `A`, which it can't see otherwise
+    #[inline(always)]
+    fn assume_aligned(&self) {
+        // SAFETY: Contents are aligned to `A`, which is an invariant of the type
+        unsafe { hint::assert_unchecked(self.inner.is_aligned_to(align_usize::<A>())) }
+    }
+
     /// Static reference to an empty buffer
     #[inline(always)]
     pub const fn empty_ref() -> &'static Self {
@@ -1548,6 +1566,7 @@ where
         }
 
         if self.is_last_reference() {
+            self.assume_aligned();
             // This is the last reference to the allocation, and it is borrowed mutably
             Some(self.inner.as_mut_slice())
         } else {
@@ -1573,6 +1592,7 @@ where
             );
         }
 
+        self.assume_aligned();
         // This is the last reference to the allocation (either checked above or just allocated),
         // and it is borrowed mutably
         self.inner.as_mut_slice()
@@ -1654,7 +1674,7 @@ where
 
     /// Read the contents front to back, see [`SharedAlignedBufferReader`]
     #[inline(always)]
-    pub const fn reader(&self) -> SharedAlignedBufferReader<'_, A> {
+    pub fn reader(&self) -> SharedAlignedBufferReader<'_, A> {
         SharedAlignedBufferReader::new(self)
     }
 
@@ -1718,35 +1738,37 @@ where
     }
 
     #[inline(always)]
-    pub const fn as_slice(&self) -> &[u8] {
+    pub fn as_slice(&self) -> &[u8] {
+        self.assume_aligned();
         self.inner.as_slice()
     }
 
     /// Pointer to the first byte of the contents
     #[inline(always)]
-    pub const fn as_byte_ptr(&self) -> *const u8 {
+    pub fn as_byte_ptr(&self) -> *const u8 {
+        self.assume_aligned();
         self.inner.as_ptr()
     }
 
     #[inline(always)]
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
 
     #[inline(always)]
-    pub const fn len(&self) -> u32 {
+    pub fn len(&self) -> u32 {
         self.inner.len()
     }
 
     /// Capacity from the beginning of the contents
     #[inline(always)]
-    pub const fn capacity(&self) -> u32 {
+    pub fn capacity(&self) -> u32 {
         self.inner.capacity()
     }
 
     /// Offset of the contents from the beginning of the data region of the allocation
     #[inline(always)]
-    pub const fn offset(&self) -> u32 {
+    pub fn offset(&self) -> u32 {
         self.inner.offset()
     }
 
@@ -1770,7 +1792,7 @@ where
         clippy::cast_ptr_alignment,
         reason = "Contents are aligned to at least `u128`"
     )]
-    pub const fn as_ptr(&self) -> *const u128 {
+    pub fn as_ptr(&self) -> *const u128 {
         self.as_byte_ptr().cast::<u128>()
     }
 }
