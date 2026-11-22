@@ -128,7 +128,11 @@ impl<'a> PreparedMethod<'a> {
 
 #[cfg(feature = "guest")]
 unsafe extern "C" {
-    /// Host-level API
+    /// Host-level API.
+    ///
+    /// The host checks sizes, capacities and alignment of arguments against the metadata of the
+    /// called method and writes outputs and the return value the way `ExecutorContext` requires
+    /// from executors.
     fn __ab_host_call_import(method: &PreparedMethod<'_>) -> crate::ExitCode;
 }
 
@@ -140,7 +144,8 @@ unsafe extern "C" {
 #[inline(never)]
 #[doc(hidden)]
 pub extern "C" fn __ab_host_call(method: &PreparedMethod<'_>) -> crate::ExitCode {
-    // SAFETY: FFI call with correct argument, there are no other safety requirements
+    // SAFETY: FFI call with correct argument, the host checks the rest against metadata of the
+    // called method
     unsafe { __ab_host_call_import(method) }
 }
 
