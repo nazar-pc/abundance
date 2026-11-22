@@ -11,7 +11,7 @@ use crate::sector::{
 use crate::shard_commitment::{ShardCommitmentsRootsCache, derive_solution_shard_commitment};
 use crate::{ReadAt, ReadAtSync};
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{ExtendedRecord, PieceOffset, Record, RecordChunk, RecordRoot};
+use ab_core_primitives::pieces::{ExtendedRecord, PieceOffset, Record, RecordRoot};
 use ab_core_primitives::pos::PosSeed;
 use ab_core_primitives::sectors::{SBucket, SectorId};
 use ab_core_primitives::shard::NumShards;
@@ -26,6 +26,7 @@ use futures::FutureExt;
 use std::collections::VecDeque;
 use std::io;
 use thiserror::Error;
+use transparent_wrapper::TransparentWrapper;
 
 /// Solutions that can be proven if necessary.
 ///
@@ -282,7 +283,10 @@ where
                 .map_err(ProvingError::RecordReadingError)?;
 
             let record_merkle_tree = BalancedMerkleTree::<{ Record::NUM_S_BUCKETS }>::new_boxed(
-                RecordChunk::array_to_repr(sector_record_chunks.extended_record.as_s_buckets()),
+                sector_record_chunks
+                    .extended_record
+                    .as_s_buckets()
+                    .peel_ref(),
             );
 
             // NOTE: We do not check plot consistency using checksum because it is more

@@ -282,18 +282,6 @@ impl BlockRoot {
     pub const fn new(hash: Blake3Hash) -> Self {
         Self(hash)
     }
-
-    /// Convenient conversion from slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        Self::wrap_slice(Blake3Hash::slice_from_repr(value))
-    }
-
-    /// Convenient conversion to slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        Blake3Hash::repr_from_slice(Self::peel_slice(value))
-    }
 }
 
 /// Generic block.

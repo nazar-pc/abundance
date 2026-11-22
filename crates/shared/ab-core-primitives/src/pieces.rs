@@ -364,70 +364,6 @@ impl fmt::Debug for RecordChunk {
 impl RecordChunk {
     /// Size of the chunk in bytes
     pub const SIZE: usize = 32;
-
-    /// Convenient conversion from slice to underlying representation for efficiency purposes
-    #[inline]
-    pub fn slice_to_repr(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        Self::peel_slice(value)
-    }
-
-    /// Convenient conversion from slice of underlying representation for efficiency purposes
-    #[inline]
-    pub fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        Self::wrap_slice(value)
-    }
-
-    /// Convenient conversion from mutable slice to underlying representation for efficiency
-    /// purposes
-    #[inline]
-    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; Self::SIZE]] {
-        Self::peel_slice_mut(value)
-    }
-
-    /// Convenient conversion from mutable slice of underlying representation for efficiency
-    /// purposes
-    #[inline]
-    pub fn slice_mut_from_repr(value: &mut [[u8; Self::SIZE]]) -> &mut [Self] {
-        Self::wrap_slice_mut(value)
-    }
-
-    /// Convenient conversion from an array to underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn array_to_repr<const N: usize>(value: &[Self; N]) -> &[[u8; Self::SIZE]; N] {
-        // SAFETY: `RecordChunk` is `#[repr(C)]` with a single field, so it has the same memory
-        // layout as its inner value, and arrays of them have the same memory layout too
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from an array of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn array_from_repr<const N: usize>(value: &[[u8; Self::SIZE]; N]) -> &[Self; N] {
-        // SAFETY: `RecordChunk` is `#[repr(C)]` with a single field, so it has the same memory
-        // layout as its inner value, and arrays of them have the same memory layout too
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from a mutable array to underlying representation for efficiency
-    /// purposes
-    #[inline(always)]
-    pub const fn array_mut_to_repr<const N: usize>(
-        value: &mut [Self; N],
-    ) -> &mut [[u8; Self::SIZE]; N] {
-        // SAFETY: `RecordChunk` is `#[repr(C)]` with a single field, so it has the same memory
-        // layout as its inner value, and arrays of them have the same memory layout too
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from a mutable array of underlying representation for efficiency
-    /// purposes
-    #[inline(always)]
-    pub const fn array_mut_from_repr<const N: usize>(
-        value: &mut [[u8; Self::SIZE]; N],
-    ) -> &mut [Self; N] {
-        // SAFETY: `RecordChunk` is `#[repr(C)]` with a single field, so it has the same memory
-        // layout as its inner value, and arrays of them have the same memory layout too
-        unsafe { mem::transmute(value) }
-    }
 }
 
 /// Record contained within a piece.
@@ -533,82 +469,6 @@ impl Record {
         unsafe { Box::<[Self]>::new_zeroed_slice(length).assume_init() }.into_vec()
     }
 
-    /// Convenient conversion from slice of record to underlying representation for efficiency
-    /// purposes.
-    #[inline(always)]
-    pub fn slice_to_repr(value: &[Self]) -> &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
-        Self::peel_slice(value)
-    }
-
-    /// Convenient conversion from slice of underlying representation to record for efficiency
-    /// purposes.
-    #[inline(always)]
-    pub fn slice_from_repr(value: &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]]) -> &[Self] {
-        Self::wrap_slice(value)
-    }
-
-    /// Convenient conversion from mutable slice of record to underlying representation for
-    /// efficiency purposes.
-    #[inline(always)]
-    pub fn slice_mut_to_repr(
-        value: &mut [Self],
-    ) -> &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]] {
-        Self::peel_slice_mut(value)
-    }
-
-    /// Convenient conversion from mutable slice of underlying representation to record for
-    /// efficiency purposes.
-    #[inline(always)]
-    pub fn slice_mut_from_repr(
-        value: &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]],
-    ) -> &mut [Self] {
-        Self::wrap_slice_mut(value)
-    }
-
-    /// Convenient conversion from an array of records to underlying representation for efficiency
-    /// purposes.
-    #[inline(always)]
-    pub const fn array_to_repr<const N: usize>(
-        value: &[Self; N],
-    ) -> &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]; N] {
-        // SAFETY: `Record` is `#[repr(C)]` with a single field, so it has the same memory layout as
-        // its inner value, and arrays of them have the same memory layout too
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from an array of underlying representation to records for efficiency
-    /// purposes.
-    #[inline(always)]
-    pub const fn array_from_repr<const N: usize>(
-        value: &[[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]; N],
-    ) -> &[Self; N] {
-        // SAFETY: `Record` is `#[repr(C)]` with a single field, so it has the same memory layout as
-        // its inner value, and arrays of them have the same memory layout too
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from a mutable array of records to underlying representation for
-    /// efficiency purposes.
-    #[inline(always)]
-    pub const fn array_mut_to_repr<const N: usize>(
-        value: &mut [Self; N],
-    ) -> &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]; N] {
-        // SAFETY: `Record` is `#[repr(C)]` with a single field, so it has the same memory layout as
-        // its inner value, and arrays of them have the same memory layout too
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from a mutable array of underlying representation to records for
-    /// efficiency purposes.
-    #[inline(always)]
-    pub const fn array_mut_from_repr<const N: usize>(
-        value: &mut [[[u8; RecordChunk::SIZE]; Record::NUM_CHUNKS]; N],
-    ) -> &mut [Self; N] {
-        // SAFETY: `Record` is `#[repr(C)]` with a single field, so it has the same memory layout as
-        // its inner value, and arrays of them have the same memory layout too
-        unsafe { mem::transmute(value) }
-    }
-
     /// Derive source chunks root on-demand
     #[inline(always)]
     pub fn source_chunks_root(&self) -> RecordChunksRoot {
@@ -686,15 +546,13 @@ impl ExtendedRecord {
     /// Chunks of all s-buckets, source chunks followed by parity chunks
     #[inline(always)]
     pub fn as_s_buckets(&self) -> &[RecordChunk; Record::NUM_S_BUCKETS] {
-        RecordChunk::array_from_repr(Record::array_to_repr(self.as_records()).flatten_ref())
+        <[RecordChunk; _]>::wrap_ref(self.as_records().peel_ref().flatten_ref())
     }
 
     /// Mutable chunks of all s-buckets, source chunks followed by parity chunks
     #[inline(always)]
     pub fn as_s_buckets_mut(&mut self) -> &mut [RecordChunk; Record::NUM_S_BUCKETS] {
-        RecordChunk::array_mut_from_repr(
-            Record::array_mut_to_repr(self.as_records_mut()).flatten_mut(),
-        )
+        <[RecordChunk; _]>::wrap_mut(self.as_records_mut().peel_mut().flatten_mut())
     }
 }
 
@@ -1317,41 +1175,5 @@ impl InnerPiece {
         ]);
 
         RecordRoot::from(record_merkle_tree_root)
-    }
-
-    /// Convenient conversion from slice of pieces to underlying representation for efficiency
-    /// purposes.
-    #[inline]
-    pub fn slice_to_repr(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        // SAFETY: `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both
-        // checked above), it is `TrivialType`, so it has no padding
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from slice of underlying representation to pieces for efficiency
-    /// purposes.
-    #[inline]
-    pub fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        // SAFETY: `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both
-        // checked above), it is `TrivialType`, so it has no padding
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from mutable slice of pieces to underlying representation for
-    /// efficiency purposes.
-    #[inline]
-    pub fn slice_mut_to_repr(value: &mut [Self]) -> &mut [[u8; Self::SIZE]] {
-        // SAFETY: `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both
-        // checked above), it is `TrivialType`, so it has no padding
-        unsafe { mem::transmute(value) }
-    }
-
-    /// Convenient conversion from mutable slice of underlying representation to pieces for
-    /// efficiency purposes.
-    #[inline]
-    pub fn slice_mut_from_repr(value: &mut [[u8; Self::SIZE]]) -> &mut [Self] {
-        // SAFETY: `InnerPiece` has alignment of 1 and any bit pattern is a valid value (both
-        // checked above), it is `TrivialType`, so it has no padding
-        unsafe { mem::transmute(value) }
     }
 }

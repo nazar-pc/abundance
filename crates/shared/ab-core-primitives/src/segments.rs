@@ -676,18 +676,6 @@ impl SegmentRoot {
     /// Size in bytes
     pub const SIZE: usize = 32;
 
-    /// Convenient conversion from a slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        Self::wrap_slice(value)
-    }
-
-    /// Convenient conversion to a slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        Self::peel_slice(value)
-    }
-
     /// Check whether a segment root is a part of the super segment
     pub fn is_valid(
         &self,
@@ -922,16 +910,14 @@ impl fmt::Debug for RecordedHistorySegment {
 impl AsRef<[u8]> for RecordedHistorySegment {
     #[inline]
     fn as_ref(&self) -> &[u8] {
-        Record::slice_to_repr(&self.0).as_flattened().as_flattened()
+        self.0.peel_ref().as_flattened().as_flattened()
     }
 }
 
 impl AsMut<[u8]> for RecordedHistorySegment {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
-        Record::slice_mut_to_repr(&mut self.0)
-            .as_flattened_mut()
-            .as_flattened_mut()
+        self.0.peel_mut().as_flattened_mut().as_flattened_mut()
     }
 }
 

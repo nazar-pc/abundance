@@ -126,12 +126,6 @@ impl Y {
     pub(in super::super) const fn first_k_bits(self) -> u32 {
         self.0 >> PARAM_EXT
     }
-
-    #[cfg(any(feature = "alloc", test))]
-    #[inline(always)]
-    pub(super) const fn array_from_repr<const N: usize>(array: [u32; N]) -> [Self; N] {
-        <[Self; N]>::wrap(array)
-    }
 }
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, From, Into)]
@@ -260,13 +254,5 @@ impl From<R> for usize {
     #[inline(always)]
     fn from(value: R) -> Self {
         Self::from(value.0)
-    }
-}
-
-impl R {
-    #[cfg(feature = "alloc")]
-    #[inline(always)]
-    pub(super) const fn array_from_repr<const N: usize>(array: [u16; N]) -> [Self; N] {
-        <[Self; N]>::wrap(array)
     }
 }

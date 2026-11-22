@@ -8,10 +8,11 @@ mod tests;
 #[cfg(target_arch = "x86_64")]
 mod x86_64;
 
-use ab_core_primitives::pot::{PotCheckpoints, PotKey, PotOutput, PotSeed};
+use ab_core_primitives::pot::{PotCheckpoints, PotKey, PotSeed};
 use aes::Aes128;
 use aes::cipher::array::Array;
 use aes::cipher::{BlockCipherDecrypt, BlockCipherEncrypt, KeyInit};
+use transparent_wrapper::TransparentWrapper;
 
 /// Creates an AES-based proof
 #[inline(always)]
@@ -161,14 +162,13 @@ fn verify_sequential_generic(
     let key = Array::from(*key);
     let cipher = Aes128::new(&key);
 
+    let checkpoints = checkpoints.peel_ref().peel_ref();
+
     let mut inputs = [[0u8; 16]; PotCheckpoints::NUM_CHECKPOINTS.get() as usize];
     inputs[0] = *seed;
-    inputs[1..].copy_from_slice(PotOutput::repr_from_slice(
-        &checkpoints[..PotCheckpoints::NUM_CHECKPOINTS.get() as usize - 1],
-    ));
+    inputs[1..].copy_from_slice(&checkpoints[..PotCheckpoints::NUM_CHECKPOINTS.get() as usize - 1]);
 
-    let mut outputs = [[0u8; 16]; PotCheckpoints::NUM_CHECKPOINTS.get() as usize];
-    outputs.copy_from_slice(PotOutput::repr_from_slice(checkpoints.as_slice()));
+    let mut outputs = *checkpoints;
 
     for _ in 0..checkpoint_iterations / 2 {
         cipher.encrypt_blocks(Array::cast_slice_from_core_mut(&mut inputs));

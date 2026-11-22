@@ -4,6 +4,8 @@ use core::array;
 use core::ops::{Add, Sub};
 use core::simd::prelude::*;
 use core::simd::{Mask, Simd, SimdElement};
+#[cfg(feature = "alloc")]
+use transparent_wrapper::TransparentWrapper;
 
 /// Number of left targets calculated at a time
 #[cfg(feature = "alloc")]
@@ -109,7 +111,7 @@ impl LeftTargets {
             *targets = (target_c * param_c + target_d).to_array();
         }
 
-        R::array_from_repr(targets)
+        <[R; _]>::wrap(targets)
     }
 
     /// Calculate all [`PARAM_M`] targets of `r` at once and check whether `r_target` is one of

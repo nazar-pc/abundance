@@ -21,6 +21,7 @@ use core::f64::consts::{LN_2, PI, SQRT_2};
 #[cfg(feature = "alloc")]
 use core::mem::MaybeUninit;
 use core::simd::prelude::*;
+use transparent_wrapper::TransparentWrapper;
 
 /// Chia does this for some reason 🤷
 fn to_chia_seed(seed: &Seed) -> Seed {
@@ -248,7 +249,7 @@ fn verify_fn<const K: u8, const TABLE_NUMBER: u8, const PARENT_TABLE_NUMBER: u8>
         [Metadata::from(left_metadata); _],
         [Metadata::from(right_metadata); _],
     );
-    let y_outputs = Y::array_from_repr(y_outputs.to_array());
+    let y_outputs = <[Y; _]>::wrap(y_outputs.to_array());
     assert_eq!([y_output; _], y_outputs);
     if metadata_expected != 0 {
         assert_eq!([metadata; _], metadatas);

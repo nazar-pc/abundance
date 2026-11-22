@@ -1,4 +1,4 @@
-use ab_core_primitives::pot::{PotCheckpoints, PotOutput};
+use ab_core_primitives::pot::PotCheckpoints;
 use core::arch::x86_64::{
     __m128i, __m256i, __m512i, _mm_aesdec_si128, _mm_aesdeclast_si128, _mm_aesenc_si128,
     _mm_aesenclast_si128, _mm_aesimc_si128, _mm_aeskeygenassist_si128, _mm_set1_epi8,
@@ -10,6 +10,7 @@ use core::arch::x86_64::{
 };
 use core::array;
 use core::simd::{u8x16, u8x32, u8x64};
+use transparent_wrapper::TransparentWrapper;
 
 const NUM_ROUND_KEYS: usize = 11;
 
@@ -59,7 +60,7 @@ pub(super) fn verify_sequential_aes_sse41(
     checkpoints: &PotCheckpoints,
     checkpoint_iterations: u32,
 ) -> bool {
-    let checkpoints = PotOutput::repr_from_slice(checkpoints.as_slice());
+    let checkpoints = checkpoints.peel_ref().peel_ref();
 
     let keys = expand_key(key);
     let xor_key = _mm_xor_si128(keys[10], keys[0]);
@@ -127,7 +128,7 @@ pub(super) fn verify_sequential_avx2_vaes(
     checkpoints: &PotCheckpoints,
     checkpoint_iterations: u32,
 ) -> bool {
-    let checkpoints = PotOutput::repr_from_slice(checkpoints.as_slice());
+    let checkpoints = checkpoints.peel_ref().peel_ref();
 
     let keys = expand_key(key);
     let xor_key = _mm_xor_si128(keys[10], keys[0]);
@@ -239,7 +240,7 @@ pub(super) fn verify_sequential_avx512f_vaes(
     checkpoints: &PotCheckpoints,
     checkpoint_iterations: u32,
 ) -> bool {
-    let checkpoints = PotOutput::repr_from_slice(checkpoints.as_slice());
+    let checkpoints = checkpoints.peel_ref().peel_ref();
 
     let keys = expand_key(key);
     let xor_key = _mm_xor_si128(keys[10], keys[0]);

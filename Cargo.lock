@@ -551,6 +551,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "transparent-wrapper",
  "triomphe",
  "windows",
 ]
@@ -756,6 +757,7 @@ dependencies = [
  "criterion",
  "no-panic",
  "thiserror 2.0.21",
+ "transparent-wrapper",
 ]
 
 [[package]]
@@ -1097,9 +1099,9 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "array-reshape"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e88ea8f13a4f89b874524ffaccd8e36a3f90476437ff7b17d9ff79cb4fb58a0"
+checksum = "a35813b0867e7ee23cd83f8c136a698ae4fd3492370c582357aa686b064209c6"
 
 [[package]]
 name = "arrayref"

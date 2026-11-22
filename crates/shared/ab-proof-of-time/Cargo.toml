@@ -30,6 +30,7 @@ ab-core-primitives = { workspace = true }
 aes = { workspace = true }
 no-panic = { workspace = true, optional = true }
 thiserror = { workspace = true }
+transparent-wrapper = { workspace = true }
 
 [target.'cfg(any(target_arch = "aarch64", target_arch = "x86_64"))'.dependencies]
 cpufeatures = { workspace = true }

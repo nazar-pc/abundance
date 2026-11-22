@@ -48,13 +48,12 @@ impl MerkleHasher for Blake3MerkleHasher {
         &self,
         pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
     ) -> [[u8; OUT_LEN]; NUM_PAIRS] {
-        let pairs = pairs
-            .as_slice()
-            .flatten_each_ref::<BLOCK_LEN>()
-            .as_array::<NUM_PAIRS>()
-            .expect("Same number of pairs as in the input; qed");
         let mut hashes = [[0; OUT_LEN]; NUM_PAIRS];
-        ab_blake3::single_block_keyed_hash_many_exact(&Self::KEY, pairs, &mut hashes);
+        ab_blake3::single_block_keyed_hash_many_exact(
+            &Self::KEY,
+            pairs.flatten_each_ref::<BLOCK_LEN>(),
+            &mut hashes,
+        );
         hashes
     }
 }

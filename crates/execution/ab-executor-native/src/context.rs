@@ -109,9 +109,6 @@ unsafe impl ExecutorContext for NativeExecutorContext<'_> {
         // outputs are not checked against metadata, the native executor trusts callers instead and
         // mismatches are only caught by debug assertions of the called method, which parses the
         // contents (see `NativeExecutor`).
-        // TODO: Check sizes, capacities and alignment of inputs and outputs in `external_args`
-        //  against the method's metadata, which `PreparedMethod::new_untyped()` leaves to the
-        //  executor
         unsafe {
             make_ffi_call(
                 self.allow_env_mutation,

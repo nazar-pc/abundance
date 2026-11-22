@@ -60,7 +60,7 @@ ab-system-contract-simple-wallet-base = { version = "0.0.1", path = "crates/cont
 ab-system-contract-state = { version = "0.0.1", path = "crates/contracts/system/ab-system-contract-state" }
 aes = "0.9.4"
 anyhow = { version = "1.0.104", default-features = false }
-array-reshape = { version = "0.1.1", features = ["const-trait"] }
+array-reshape = { version = "0.2.0", features = ["const-trait"] }
 arrayvec = { version = "0.7.8", default-features = false }
 async-lock = { version = "3.5.0", default-features = false }
 async-nats = { version = "0.53.0", default-features = false, features = ["ring"] }

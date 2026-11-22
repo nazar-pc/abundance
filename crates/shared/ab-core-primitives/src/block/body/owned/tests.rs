@@ -36,9 +36,11 @@ use crate::trees::{
 };
 use ab_aligned_buffer::alignment::Align16;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
+use array_reshape::UnflattenEach;
 use core::num::{NonZeroU16, NonZeroU32};
 use core::ptr;
 use std::{assert_matches, iter, slice};
+use transparent_wrapper::TransparentWrapper;
 
 fn transaction_header() -> TransactionHeader {
     TransactionHeader {
@@ -729,7 +731,9 @@ fn bodies_larger_than_max_capacity_are_rejected() {
 
     {
         let (pot_checkpoints, _remainder) = bytes.as_chunks::<{ PotCheckpoints::SIZE }>();
-        let pot_checkpoints = PotCheckpoints::slice_from_repr(pot_checkpoints);
+        let pot_checkpoints = PotCheckpoints::wrap_slice(<[PotOutput; _]>::wrap_slice(
+            pot_checkpoints.unflatten_each_ref(),
+        ));
         // Numbers of PoT checkpoints, own segment roots and intermediate shard blocks, local
         // segment index of the first own segment root and padding take 16 bytes
         let num_own_segment_roots = 4;

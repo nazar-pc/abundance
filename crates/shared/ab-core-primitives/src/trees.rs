@@ -169,15 +169,10 @@ pub type BlockMerkleMountainRange =
 //         &self,
 //         pairs: &[[[u8; <Self as MerkleHasher>::OUT_LEN]; 2]; NUM_PAIRS],
 //     ) -> [[u8; <Self as MerkleHasher>::OUT_LEN]; NUM_PAIRS] {
-//         let pairs = pairs
-//             .as_slice()
-//             .flatten_each_ref::<BLOCK_LEN>()
-//             .as_array::<NUM_PAIRS>()
-//             .expect("Same number of pairs as in the input; qed");
 //         let mut hashes = [[0; <Self as MerkleHasher>::OUT_LEN]; NUM_PAIRS];
 //         ab_blake3::single_block_keyed_hash_many_exact(
 //             self.node_key(),
-//             pairs,
+//             pairs.flatten_each_ref::<BLOCK_LEN>(),
 //             hashes.rechunk_mut(),
 //         );
 //         hashes
@@ -211,15 +206,10 @@ macro_rules! impl_merkle_hasher {
                     &self,
                     pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
                 ) -> [[u8; OUT_LEN]; NUM_PAIRS] {
-                    let pairs = pairs
-                        .as_slice()
-                        .flatten_each_ref::<BLOCK_LEN>()
-                        .as_array::<NUM_PAIRS>()
-                        .expect("Same number of pairs as in the input; qed");
                     let mut hashes = [[0; OUT_LEN]; NUM_PAIRS];
                     ab_blake3::single_block_keyed_hash_many_exact(
                         self.node_key(),
-                        pairs,
+                        pairs.flatten_each_ref::<BLOCK_LEN>(),
                         &mut hashes,
                     );
                     hashes
