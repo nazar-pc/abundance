@@ -14,9 +14,9 @@ use crate::block::header::owned::{
     OwnedBeaconChainHeader, OwnedIntermediateShardHeader, OwnedLeafShardHeader,
 };
 use crate::block::header::{
-    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
-    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
-    BlockHeaderResult, BlockHeaderSeal,
+    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderEd25519Seal,
+    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
+    OwnedBlockHeaderConsensusParameters,
 };
 use crate::block::owned::{
     OwnedBeaconChainBlock, OwnedIntermediateShardBlock, OwnedLeafShardBlock,
@@ -480,7 +480,7 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
             &header_result(body_root),
             &consensus_info(),
             intermediate_shard_blocks_root,
-            &BlockHeaderConsensusParameters {
+            &OwnedBlockHeaderConsensusParameters {
                 fixed_parameters: BlockHeaderFixedConsensusParameters {
                     solution_range: SolutionRange::MAX,
                     slot_iterations: NonZeroU32::MIN,

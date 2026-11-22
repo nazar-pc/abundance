@@ -14,8 +14,7 @@ use ab_client_proof_of_time::PotNextSlotInput;
 use ab_client_proof_of_time::verifier::PotVerifier;
 use ab_core_primitives::block::body::{IntermediateShardBlocksInfo, OwnSegments};
 use ab_core_primitives::block::header::{
-    BeaconChainHeader, BlockHeaderConsensusParameters, BlockHeaderPrefix,
-    OwnedBlockHeaderConsensusParameters,
+    BeaconChainHeader, BlockHeaderPrefix, OwnedBlockHeaderConsensusParameters,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
@@ -167,7 +166,7 @@ fn check_proof_of_time(
     parent_slot: SlotNumber,
     parent_proof_of_time: PotOutput,
     parent_future_proof_of_time: PotOutput,
-    parent_consensus_parameters: &BlockHeaderConsensusParameters<'_>,
+    parent_consensus_parameters: &OwnedBlockHeaderConsensusParameters,
     slot: SlotNumber,
     proof_of_time: PotOutput,
     future_proof_of_time: PotOutput,
@@ -182,7 +181,6 @@ fn check_proof_of_time(
 
     let parent_pot_parameters_change = parent_consensus_parameters
         .pot_parameters_change
-        .copied()
         .map(PotParametersChange::from);
 
     // The last checkpoint must be the future proof of time
@@ -462,30 +460,21 @@ where
             header.consensus_info.slot,
         )?;
 
+        let actual_consensus_parameters =
+            OwnedBlockHeaderConsensusParameters::from(header.consensus_parameters());
         let expected_consensus_parameters = OwnedBlockHeaderConsensusParameters {
             fixed_parameters: derived_consensus_parameters.fixed_parameters,
             // TODO: This field is verified separately in the sequential part
-            super_segment_root: header.consensus_parameters().super_segment_root.copied(),
+            super_segment_root: actual_consensus_parameters.super_segment_root,
             next_solution_range: derived_consensus_parameters.next_solution_range,
             pot_parameters_change: derived_consensus_parameters.pot_parameters_change,
         };
 
-        if header.consensus_parameters() != &expected_consensus_parameters.as_ref() {
+        if actual_consensus_parameters != expected_consensus_parameters {
             return Err(
                 BeaconChainBlockVerificationError::InvalidConsensusParameters {
                     expected: Box::new(expected_consensus_parameters),
-                    actual: Box::new(OwnedBlockHeaderConsensusParameters {
-                        fixed_parameters: header.consensus_parameters().fixed_parameters,
-                        super_segment_root: header
-                            .consensus_parameters()
-                            .super_segment_root
-                            .copied(),
-                        next_solution_range: header.consensus_parameters().next_solution_range,
-                        pot_parameters_change: header
-                            .consensus_parameters()
-                            .pot_parameters_change
-                            .copied(),
-                    }),
+                    actual: Box::new(actual_consensus_parameters),
                 },
             );
         }
@@ -642,7 +631,7 @@ where
             parent_header.consensus_info.slot,
             parent_header.consensus_info.proof_of_time,
             parent_header.consensus_info.future_proof_of_time,
-            parent_header.consensus_parameters(),
+            &OwnedBlockHeaderConsensusParameters::from(parent_header.consensus_parameters()),
             consensus_info.slot,
             consensus_info.proof_of_time,
             consensus_info.future_proof_of_time,

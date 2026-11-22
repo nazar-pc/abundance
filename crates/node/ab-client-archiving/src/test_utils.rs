@@ -11,9 +11,9 @@ use ab_client_consensus_common::{
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::header::{
-    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
-    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
-    BlockHeaderSeal, GenericBlockHeader,
+    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderEd25519Seal,
+    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderSeal, GenericBlockHeader,
+    OwnedBlockHeaderConsensusParameters,
 };
 use ab_core_primitives::block::owned::{
     GenericOwnedBlock, OwnedBeaconChainBlock, OwnedBeaconChainBlockBuilder, OwnedLeafShardBlock,
@@ -92,7 +92,7 @@ impl BeaconChainBlockBuilder {
                     future_proof_of_time: PotOutput::default(),
                     solution: Solution::genesis_solution(),
                 },
-                &BlockHeaderConsensusParameters {
+                &OwnedBlockHeaderConsensusParameters {
                     fixed_parameters: BlockHeaderFixedConsensusParameters {
                         solution_range: SolutionRange::from_pieces(1000, (1, 10)),
                         slot_iterations: NonZeroU32::new(256).unwrap(),

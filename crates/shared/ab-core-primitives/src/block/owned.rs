@@ -34,9 +34,8 @@ use crate::block::header::owned::{
     OwnedLeafShardHeader, OwnedLeafShardHeaderUnsealed,
 };
 use crate::block::header::{
-    BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
-    BlockHeaderConsensusParameters, BlockHeaderConsistencyError, BlockHeaderPrefix,
-    BlockHeaderResult, BlockHeaderSeal,
+    BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsistencyError,
+    BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal, OwnedBlockHeaderConsensusParameters,
 };
 use crate::block::{BeaconChainBlock, Block, GenericBlock, IntermediateShardBlock, LeafShardBlock};
 use crate::hashes::Blake3Hash;
@@ -202,7 +201,7 @@ impl OwnedBeaconChainBlockBuilder {
         prefix: &BlockHeaderPrefix,
         state_root: Blake3Hash,
         consensus_info: &BlockHeaderConsensusInfo,
-        consensus_parameters: &BlockHeaderConsensusParameters<'_>,
+        consensus_parameters: &OwnedBlockHeaderConsensusParameters,
     ) -> Result<OwnedBeaconChainBlockUnsealed, BlockHeaderConsistencyError> {
         let body = self.body;
         let header = OwnedBeaconChainHeader::from_parts(

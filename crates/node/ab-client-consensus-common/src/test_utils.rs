@@ -4,8 +4,8 @@ use ab_client_api::{
 };
 use ab_core_primitives::block::header::owned::OwnedBeaconChainHeader;
 use ab_core_primitives::block::header::{
-    BlockHeaderConsensusInfo, BlockHeaderConsensusParameters, BlockHeaderEd25519Seal,
-    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
+    BlockHeaderConsensusInfo, BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters,
+    BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal, OwnedBlockHeaderConsensusParameters,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
@@ -49,7 +49,7 @@ fn beacon_chain_header(
             solution: Solution::genesis_solution(),
         },
         &Blake3Hash::default(),
-        &BlockHeaderConsensusParameters {
+        &OwnedBlockHeaderConsensusParameters {
             fixed_parameters: BlockHeaderFixedConsensusParameters {
                 solution_range: SolutionRange::MAX,
                 slot_iterations: NonZeroU32::MIN,

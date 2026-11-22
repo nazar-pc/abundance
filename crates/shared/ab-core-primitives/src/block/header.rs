@@ -290,7 +290,7 @@ impl BlockHeaderPotParametersChange {
 }
 
 /// Owned version of [`BlockHeaderConsensusParameters`]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct OwnedBlockHeaderConsensusParameters {
     /// Consensus parameters that are always present
     pub fixed_parameters: BlockHeaderFixedConsensusParameters,
@@ -302,15 +302,21 @@ pub struct OwnedBlockHeaderConsensusParameters {
     pub pot_parameters_change: Option<BlockHeaderPotParametersChange>,
 }
 
-impl OwnedBlockHeaderConsensusParameters {
-    /// Get a reference out of the owned version
+impl From<&BlockHeaderConsensusParameters<'_>> for OwnedBlockHeaderConsensusParameters {
     #[inline]
-    pub fn as_ref(&self) -> BlockHeaderConsensusParameters<'_> {
-        BlockHeaderConsensusParameters {
-            fixed_parameters: self.fixed_parameters,
-            super_segment_root: self.super_segment_root.as_ref(),
-            next_solution_range: self.next_solution_range,
-            pot_parameters_change: self.pot_parameters_change.as_ref(),
+    fn from(value: &BlockHeaderConsensusParameters<'_>) -> Self {
+        let BlockHeaderConsensusParameters {
+            fixed_parameters,
+            super_segment_root,
+            next_solution_range,
+            pot_parameters_change,
+        } = value;
+
+        Self {
+            fixed_parameters: *fixed_parameters,
+            super_segment_root: super_segment_root.copied(),
+            next_solution_range: *next_solution_range,
+            pot_parameters_change: pot_parameters_change.copied(),
         }
     }
 }

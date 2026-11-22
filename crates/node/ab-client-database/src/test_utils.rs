@@ -11,9 +11,9 @@ use ab_core_primitives::block::body::owned::{
     OwnedIntermediateShardBlockInfo, OwnedLeafShardBlockInfo,
 };
 use ab_core_primitives::block::header::{
-    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsensusParameters,
-    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
-    BlockHeaderSeal,
+    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderEd25519Seal,
+    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderSeal,
+    OwnedBlockHeaderConsensusParameters,
 };
 use ab_core_primitives::block::owned::{
     OwnedBeaconChainBlock, OwnedBeaconChainBlockBuilder, OwnedIntermediateShardBlock,
@@ -252,7 +252,7 @@ fn beacon_chain_block_with_body(
             },
             Blake3Hash::default(),
             &consensus_info(),
-            &BlockHeaderConsensusParameters {
+            &OwnedBlockHeaderConsensusParameters {
                 fixed_parameters: BlockHeaderFixedConsensusParameters {
                     solution_range: SolutionRange::from_pieces(1000, (1, 10)),
                     slot_iterations: NonZeroU32::new(256).unwrap(),

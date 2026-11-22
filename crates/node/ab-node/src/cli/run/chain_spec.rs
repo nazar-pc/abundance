@@ -1,7 +1,7 @@
 use ab_client_consensus_common::{ConsensusConstants, PotConsensusConstants};
 use ab_core_primitives::block::header::{
-    BlockHeaderConsensusInfo, BlockHeaderConsensusParameters, BlockHeaderEd25519Seal,
-    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderSeal,
+    BlockHeaderConsensusInfo, BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters,
+    BlockHeaderPrefix, BlockHeaderSeal, OwnedBlockHeaderConsensusParameters,
 };
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
@@ -105,7 +105,7 @@ impl ChainSpec {
                     future_proof_of_time: PotOutput::default(),
                     solution: Solution::genesis_solution(),
                 },
-                &BlockHeaderConsensusParameters {
+                &OwnedBlockHeaderConsensusParameters {
                     fixed_parameters: BlockHeaderFixedConsensusParameters {
                         // TODO: Genesis solution range should come from the chain spec
                         solution_range: SolutionRange::from_pieces(
