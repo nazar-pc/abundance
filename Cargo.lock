@@ -757,6 +757,7 @@ dependencies = [
  "criterion",
  "no-panic",
  "thiserror 2.0.21",
+ "transparent-wrapper",
 ]
 
 [[package]]

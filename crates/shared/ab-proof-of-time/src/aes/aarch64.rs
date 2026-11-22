@@ -1,10 +1,11 @@
-use ab_core_primitives::pot::{PotCheckpoints, PotOutput};
+use ab_core_primitives::pot::PotCheckpoints;
 use core::arch::aarch64::{
     uint8x16_t, vaesdq_u8, vaeseq_u8, vaesimcq_u8, vaesmcq_u8, vceqq_u8, vdupq_n_u8, vdupq_n_u32,
     veorq_u8, vgetq_lane_u32, vminvq_u8, vreinterpretq_u8_u32, vreinterpretq_u32_u8,
 };
 use core::simd::u8x16;
 use core::slice;
+use transparent_wrapper::TransparentWrapper;
 
 const NUM_ROUND_KEYS: usize = 11;
 
@@ -54,7 +55,7 @@ pub(super) fn verify_sequential_aes(
     checkpoints: &PotCheckpoints,
     checkpoint_iterations: u32,
 ) -> bool {
-    let checkpoints = PotOutput::repr_from_slice(checkpoints.as_slice());
+    let checkpoints = checkpoints.peel_ref().peel_ref();
 
     let keys = expand_key(key);
     let xor_key = veorq_u8(keys[10], keys[0]);
