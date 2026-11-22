@@ -600,17 +600,22 @@ impl InnerBuffer {
         if ptr::eq(self.header(), &raw const EMPTY_ALLOCATION.header) {
             content_alignment.max(Align16::ALIGN)
         } else {
-            2_u32.pow(self.header().alignment_log2)
+            2_u32.pow(self.alignment_log2())
         }
     }
 
     #[inline(always)]
     const fn alignment(&self) -> usize {
-        let alignment = 2_usize.pow(self.header().alignment_log2);
+        2_usize.pow(self.alignment_log2())
+    }
+
+    #[inline(always)]
+    const fn alignment_log2(&self) -> u32 {
+        let alignment_log2 = self.header().alignment_log2;
         // SAFETY: The header stores the binary logarithm of a supported alignment, which is never
         // larger than `MAX_ALIGNMENT`
-        unsafe { hint::assert_unchecked(alignment != 0) }
-        alignment
+        unsafe { hint::assert_unchecked(alignment_log2 <= MAX_ALIGNMENT.ilog2()) }
+        alignment_log2
     }
 
     #[inline(always)]
