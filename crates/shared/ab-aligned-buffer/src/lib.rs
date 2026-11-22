@@ -674,6 +674,7 @@ where
     A: Alignment,
 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn drop(&mut self) {
         // Owned buffer is not shared, so the reference counter is not used, and an empty buffer
         // with zero capacity is not backed by an allocation
@@ -693,6 +694,7 @@ where
     type Target = [u8];
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }
@@ -703,6 +705,7 @@ where
     A: Alignment,
 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
@@ -720,31 +723,37 @@ where
     type Alignment = A;
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn len(&self) -> u32 {
         self.len()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn is_empty(&self) -> bool {
         self.is_empty()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn offset(&self) -> u32 {
         self.offset()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn set_offset(&mut self, offset: u32) -> bool {
         self.set_offset(offset)
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn allocation_alignment(&self) -> u32 {
         self.allocation_alignment()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn into_shared(self) -> SharedAlignedBuffer<Self::Alignment> {
         self.into_shared()
     }
@@ -755,6 +764,7 @@ where
     A: Alignment,
 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn default() -> Self {
         Self::EMPTY
     }
@@ -809,6 +819,7 @@ where
     ///
     /// Returns an error if `capacity` is larger than [`Self::MAX_CAPACITY`] or allocation fails.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn try_with_capacity(capacity: u32) -> Result<Self, AllocationError> {
         InnerBuffer::try_allocate(
             capacity,
@@ -854,6 +865,7 @@ where
     ///
     /// Returns an error if `len` is larger than [`Self::MAX_CAPACITY`] or allocation fails.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn try_zeroed(len: u32) -> Result<Self, AllocationError> {
         let mut instance = Self::from_inner(InnerBuffer::try_allocate_zeroed(
             len,
@@ -890,12 +902,14 @@ where
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_slice(&self) -> &[u8] {
         self.assume_aligned();
         self.inner.as_slice()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
         self.assume_aligned();
         self.inner.as_mut_slice()
@@ -903,6 +917,7 @@ where
 
     /// Pointer to the first byte of the contents
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_byte_ptr(&self) -> *const u8 {
         self.assume_aligned();
         self.inner.as_ptr()
@@ -910,6 +925,7 @@ where
 
     /// Mutable pointer to the first byte of the contents
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_mut_byte_ptr(&mut self) -> *mut u8 {
         self.assume_aligned();
         self.inner.as_mut_ptr()
@@ -918,6 +934,7 @@ where
     /// Spare capacity of the buffer after its contents, which can be written to and then included
     /// in the contents with [`Self::set_len()`]
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<u8>] {
         let len = self.len() as usize;
         let spare_capacity = (self.capacity() - self.len()) as usize;
@@ -935,6 +952,7 @@ where
     ///
     /// Allocation is reused, except for empty buffer, which doesn't need an allocation.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn into_shared(self) -> SharedAlignedBuffer<A> {
         if self.is_empty() {
             return SharedAlignedBuffer::EMPTY;
@@ -957,6 +975,7 @@ where
     /// ```
     #[inline(always)]
     #[must_use = "The buffer is dropped otherwise"]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn into_start_align<B>(self) -> OwnedAlignedBuffer<B>
     where
         A: AtLeast<B>,
@@ -969,6 +988,7 @@ where
     ///
     /// Returns the buffer back if its contents are not aligned to `B`.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn try_into_start_align<B>(self) -> Result<OwnedAlignedBuffer<B>, Self>
     where
         B: Alignment,
@@ -999,6 +1019,7 @@ where
     /// Returns an error and leaves the buffer unchanged if `capacity` with [`Self::offset()`] is
     /// larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn try_ensure_capacity(&mut self, capacity: u32) -> Result<(), AllocationError> {
         if capacity > self.capacity() {
             self.inner.try_resize(capacity, align_usize::<A>())?;
@@ -1044,6 +1065,7 @@ where
     /// Returns an error and leaves the buffer unchanged if `self.len() + bytes.len()` with
     /// [`Self::offset()`] is larger than [`OwnedAlignedBuffer::MAX_CAPACITY`] or allocation fails.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn append(&mut self, bytes: &[u8]) -> Result<(), AllocationError> {
         let new_len = u32::try_from(bytes.len())
             .ok()
@@ -1082,6 +1104,7 @@ where
     ///
     /// Re-allocates like [`Self::append()`] if capacity is not enough.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn pad_to_alignment<B>(&mut self) -> Result<(), AllocationError>
     where
         B: Alignment,
@@ -1099,23 +1122,27 @@ where
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn len(&self) -> u32 {
         self.inner.len()
     }
 
     /// Capacity from the beginning of the contents
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn capacity(&self) -> u32 {
         self.inner.capacity()
     }
 
     /// Offset of the contents from the beginning of the data region of the allocation
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn offset(&self) -> u32 {
         self.inner.offset()
     }
@@ -1127,6 +1154,7 @@ where
     /// [`Self::realign()`]). Empty buffer without an allocation reports the alignment it grows
     /// into.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn allocation_alignment(&self) -> u32 {
         self.inner.allocation_alignment(A::ALIGN)
     }
@@ -1135,6 +1163,7 @@ where
     ///
     /// Does nothing if `len` is not smaller than the current length.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn truncate(&mut self, len: u32) {
         if len < self.len() {
             self.inner.len = len;
@@ -1149,6 +1178,7 @@ where
     /// new beginning.
     #[inline(always)]
     #[must_use = "Check for invalid offset"]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn set_offset(&mut self, offset: u32) -> bool {
         self.inner.set_offset(offset, A::ALIGN)
     }
@@ -1161,6 +1191,7 @@ where
     /// are aligned less strictly than the next contents need.
     #[inline]
     #[must_use = "The buffer is dropped otherwise"]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn into_empty<B>(mut self) -> OwnedAlignedBuffer<B>
     where
         B: Alignment,
@@ -1286,6 +1317,7 @@ where
     /// # Safety
     /// There must be `new_len` bytes initialized in the buffer.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub unsafe fn set_len(&mut self, new_len: u32) {
         // SAFETY: Guaranteed by method contract
         unsafe {
@@ -1303,6 +1335,7 @@ where
     /// Only whole `u128`s are included: when the length is not a multiple of `u128` size, the
     /// bytes after the last whole `u128` are not.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_u128_slice(&self) -> &[u128] {
         let len = self.len() as usize / size_of::<u128>();
         // SAFETY: Not null, correctly aligned (contents are aligned to at least `u128`), and the
@@ -1316,6 +1349,7 @@ where
         clippy::cast_ptr_alignment,
         reason = "Contents are aligned to at least `u128`"
     )]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_ptr(&self) -> *const u128 {
         self.as_byte_ptr().cast::<u128>()
     }
@@ -1325,6 +1359,7 @@ where
         clippy::cast_ptr_alignment,
         reason = "Contents are aligned to at least `u128`"
     )]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_mut_ptr(&mut self) -> *mut u128 {
         self.as_mut_byte_ptr().cast::<u128>()
     }
@@ -1353,6 +1388,7 @@ where
     A: Alignment,
 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn default() -> Self {
         Self::EMPTY
     }
@@ -1363,6 +1399,11 @@ where
     A: Alignment,
 {
     #[inline(always)]
+    // Panics on 32-bit targets before the reference counter would wrap around
+    #[cfg_attr(
+        all(feature = "no-panic", target_pointer_width = "64"),
+        no_panic::no_panic
+    )]
     fn clone(&self) -> Self {
         if !self.is_empty() {
             self.inner.increment_strong_count();
@@ -1381,6 +1422,7 @@ where
     A: Alignment,
 {
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn drop(&mut self) {
         if !self.is_empty()
             && self
@@ -1407,6 +1449,7 @@ where
     type Target = [u8];
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }
@@ -1428,31 +1471,37 @@ where
     type Alignment = A;
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn len(&self) -> u32 {
         self.len()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn is_empty(&self) -> bool {
         self.is_empty()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn offset(&self) -> u32 {
         self.offset()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn set_offset(&mut self, offset: u32) -> bool {
         self.set_offset(offset)
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn allocation_alignment(&self) -> u32 {
         self.allocation_alignment()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn into_shared(self) -> SharedAlignedBuffer<Self::Alignment> {
         self
     }
@@ -1542,6 +1591,7 @@ where
     ///
     /// Returns the buffer back if the allocation is still shared.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn try_into_owned(self) -> Result<OwnedAlignedBuffer<A>, Self> {
         if self.is_empty() {
             return Ok(OwnedAlignedBuffer::EMPTY);
@@ -1560,6 +1610,7 @@ where
     ///
     /// Returns `None` if the allocation is still shared.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn get_mut(&mut self) -> Option<&mut [u8]> {
         if self.is_empty() {
             return Some(&mut []);
@@ -1625,6 +1676,11 @@ where
     /// keeps the whole allocation alive, see [`Self::into_standalone()`].
     #[inline]
     #[must_use = "The slice is dropped otherwise"]
+    // Panics on 32-bit targets before the reference counter would wrap around
+    #[cfg_attr(
+        all(feature = "no-panic", target_pointer_width = "64"),
+        no_panic::no_panic
+    )]
     pub fn get_slice<R>(&self, range: R) -> Option<SharedAlignedBuffer<Align1>>
     where
         R: RangeBounds<u32>,
@@ -1661,6 +1717,11 @@ where
     /// see [`Self::into_standalone()`].
     #[inline]
     #[must_use = "Buffers are dropped otherwise"]
+    // Panics on 32-bit targets before the reference counter would wrap around
+    #[cfg_attr(
+        all(feature = "no-panic", target_pointer_width = "64"),
+        no_panic::no_panic
+    )]
     pub fn split_at(&self, mid: u32) -> Option<(Self, SharedAlignedBuffer<Align1>)> {
         let rest = self.get_slice(mid..)?;
         let first = if mid == 0 {
@@ -1674,6 +1735,7 @@ where
 
     /// Read the contents front to back, see [`SharedAlignedBufferReader`]
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn reader(&self) -> SharedAlignedBufferReader<'_, A> {
         SharedAlignedBufferReader::new(self)
     }
@@ -1683,6 +1745,7 @@ where
     /// Does nothing if `len` is not smaller than the current length. Empty buffer doesn't keep the
     /// allocation alive.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn truncate(&mut self, len: u32) {
         if len == 0 {
             *self = Self::EMPTY;
@@ -1700,6 +1763,7 @@ where
     /// allocation alive, see [`Self::truncate()`].
     #[inline(always)]
     #[must_use = "Check for invalid offset"]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn set_offset(&mut self, offset: u32) -> bool {
         if offset.checked_sub(self.offset()) == Some(self.len())
             && self.len().is_multiple_of(A::ALIGN)
@@ -1714,6 +1778,7 @@ where
     /// Convert into a buffer with a weaker alignment of the contents, which is free
     #[inline(always)]
     #[must_use = "The buffer is dropped otherwise"]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn into_start_align<B>(self) -> SharedAlignedBuffer<B>
     where
         A: AtLeast<B>,
@@ -1726,6 +1791,7 @@ where
     ///
     /// Returns the buffer back if its contents are not aligned to `B`.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn try_into_start_align<B>(self) -> Result<SharedAlignedBuffer<B>, Self>
     where
         B: Alignment,
@@ -1738,6 +1804,7 @@ where
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_slice(&self) -> &[u8] {
         self.assume_aligned();
         self.inner.as_slice()
@@ -1745,29 +1812,34 @@ where
 
     /// Pointer to the first byte of the contents
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_byte_ptr(&self) -> *const u8 {
         self.assume_aligned();
         self.inner.as_ptr()
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
 
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn len(&self) -> u32 {
         self.inner.len()
     }
 
     /// Capacity from the beginning of the contents
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn capacity(&self) -> u32 {
         self.inner.capacity()
     }
 
     /// Offset of the contents from the beginning of the data region of the allocation
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn offset(&self) -> u32 {
         self.inner.offset()
     }
@@ -1778,6 +1850,7 @@ where
     /// aligned more strictly than the allocation (see [`Self::try_into_start_align()`]). Empty
     /// buffer without an allocation reports the alignment it grows into.
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn allocation_alignment(&self) -> u32 {
         self.inner.allocation_alignment(A::ALIGN)
     }
@@ -1792,6 +1865,7 @@ where
         clippy::cast_ptr_alignment,
         reason = "Contents are aligned to at least `u128`"
     )]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn as_ptr(&self) -> *const u128 {
         self.as_byte_ptr().cast::<u128>()
     }

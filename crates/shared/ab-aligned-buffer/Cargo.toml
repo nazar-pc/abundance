@@ -28,6 +28,7 @@ harness = false
 
 [dependencies]
 ab-io-type = { workspace = true, optional = true }
+no-panic = { workspace = true, optional = true }
 stable_deref_trait = { workspace = true }
 yoke = { workspace = true }
 
@@ -38,6 +39,13 @@ criterion = { workspace = true }
 # Typed reads of `ab-io-type`'s trivial types, requires nightly Rust like `ab-io-type` itself
 io-type = [
     "dep:ab-io-type",
+]
+# Check that the crate can't panic, except for infallible allocations that are too large or that the
+# allocator fails, and creation of too many references to a shared allocation on 32-bit targets
+no-panic = [
+    "dep:no-panic",
+    # Typed reads are checked too
+    "io-type",
 ]
 
 [lints]

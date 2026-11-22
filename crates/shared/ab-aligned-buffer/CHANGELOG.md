@@ -63,6 +63,8 @@ New features:
 * `OwnedAlignedBuffer::try_with_capacity()`, `try_zeroed()` and `try_ensure_capacity()` return `AllocationError` instead
   of panicking when the capacity is too large or allocation fails
 * `AlignedBuffer` trait implemented for both buffers, for APIs that accept either of them
+* `no-panic` feature checks at compile time that methods that don't allocate, as well as fallible allocations, can't
+  panic
 * `OwnedAlignedBuffer::as_u128_slice()` returns the contents as whole `u128`s
 * `OwnedAlignedBuffer::MAX_CAPACITY` is the largest capacity of a buffer, which is smaller than `u32::MAX` on 32-bit
   targets, the same for allocations with any alignment

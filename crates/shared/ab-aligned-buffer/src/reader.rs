@@ -75,12 +75,14 @@ where
 
     /// Number of bytes read so far, including padding
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn position(&self) -> u32 {
         self.position
     }
 
     /// Bytes that were not read yet
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn remaining(&self) -> &'a [u8] {
         // SAFETY: Position is never larger than the length of the buffer, which can't change while
         // it is borrowed
@@ -96,6 +98,7 @@ where
     /// Returns padding bytes, which are empty if the position is already a multiple of `B`, so
     /// that formats that require zero padding can check them.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_to_alignment<B>(&mut self) -> Result<&'a [u8], ReadError>
     where
         B: Alignment,
@@ -111,6 +114,7 @@ where
 
     /// Read the next `len` bytes
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_bytes(&mut self, len: u32) -> Result<&'a [u8], ReadError> {
         let start = self.advance(u64::from(len))?;
         let contents: &'a [u8] = self.buffer.as_slice();
@@ -122,6 +126,7 @@ where
 
     /// Read the next `N` bytes
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_bytes_array<const N: usize>(&mut self) -> Result<&'a [u8; N], ReadError> {
         const {
             assert!(
@@ -139,6 +144,11 @@ where
     /// front of them if necessary. The new buffer keeps the whole allocation alive unless it is
     /// empty, see [`SharedAlignedBuffer::into_standalone()`].
     #[inline]
+    // Panics on 32-bit targets before the reference counter would wrap around
+    #[cfg_attr(
+        all(feature = "no-panic", target_pointer_width = "64"),
+        no_panic::no_panic
+    )]
     pub fn read_buffer<B>(&mut self, len: u32) -> Result<SharedAlignedBuffer<B>, ReadError>
     where
         B: Alignment,
@@ -162,6 +172,7 @@ where
     /// [`Unaligned`]: ab_io_type::unaligned::Unaligned
     #[cfg(feature = "io-type")]
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_trivial<T>(&mut self) -> Result<&'a T, ReadError>
     where
         T: AnyBitPattern,
@@ -174,6 +185,7 @@ where
     /// Read `N` values of a trivial type, like [`Self::read_trivial()`]
     #[cfg(feature = "io-type")]
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_trivial_array<T, const N: usize>(&mut self) -> Result<&'a [T; N], ReadError>
     where
         [T; N]: AnyBitPattern,
@@ -184,6 +196,7 @@ where
     /// Read `count` values of a trivial type, like [`Self::read_trivial()`]
     #[cfg(feature = "io-type")]
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_trivial_slice<T>(&mut self, count: u32) -> Result<&'a [T], ReadError>
     where
         T: AnyBitPattern,
