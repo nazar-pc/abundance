@@ -16,8 +16,14 @@ error: `#[env]` must be the first non-Self argument and only appear once
 63 |             #[env] _env: &mut ab_contracts_common::env::Env<'_>,
    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: `#[input]` must appear before any `#[output]`
+error: `#[slot]` must appear before any `#[input]` or `#[output]`
   --> tests/ui/arguments/order.rs:84:13
    |
-84 |             #[input] _input: &u8,
-   |             ^^^^^^^^^^^^^^^^^^^^
+84 |             #[slot] _slot: &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[input]` must appear before any `#[output]`
+   --> tests/ui/arguments/order.rs:105:13
+    |
+105 |             #[input] _input: &u8,
+    |             ^^^^^^^^^^^^^^^^^^^^
