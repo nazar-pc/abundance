@@ -344,7 +344,7 @@ impl<'a, 'metadata> MethodsMetadataDecoder<'a, 'metadata> {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MethodKind {
     /// Corresponds to [`ContractMetadataKind::Init`]
     Init,
@@ -543,7 +543,7 @@ impl<'a, 'metadata> MethodMetadataDecoder<'a, 'metadata> {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ArgumentKind {
     /// Corresponds to [`ContractMetadataKind::EnvRo`]
     EnvRo,
