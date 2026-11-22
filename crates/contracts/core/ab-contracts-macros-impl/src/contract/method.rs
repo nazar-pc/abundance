@@ -601,6 +601,9 @@ impl MethodDetails {
                 self.set_return_type(MethodReturnType::Unit(MethodReturnType::unit_type()));
             }
             ReturnType::Type(_r_arrow, return_type) => match return_type.as_ref() {
+                Type::Tuple(type_tuple) if type_tuple.elems.is_empty() => {
+                    self.set_return_type(MethodReturnType::Unit(MethodReturnType::unit_type()));
+                }
                 Type::Array(_type_array) => {
                     self.set_return_type(MethodReturnType::Regular(return_type.as_ref().clone()));
                 }
