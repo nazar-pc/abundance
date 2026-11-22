@@ -18,6 +18,10 @@ const SLOT_NAMED_LIFETIME_ERROR: &str = "`#[slot]` must not have named lifetimes
     are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend \
     a copy made with `Lent::new()` instead";
 
+pub(super) const TRAIT_DEFINITION_STORAGE_ERROR: &str = "`#[tmp]` and `#[slot]` are not \
+    supported in trait definitions, since their types are specific to each contract that \
+    implements the trait";
+
 #[derive(Copy, Clone)]
 pub(super) enum MethodType {
     Init,
@@ -2178,6 +2182,11 @@ fn bind_to_reference_type(type_name: &Type, value: TokenStream) -> TokenStream {
         let argument: #user_type = #value;
         argument
     }}
+}
+
+/// Whether `attrs` contain `#[name]`
+pub(super) fn has_attribute(attrs: &[Attribute], name: &str) -> bool {
+    attrs.iter().any(|attr| attr.path().is_ident(name))
 }
 
 fn extract_arg_name(mut pat: &Pat) -> Option<Ident> {

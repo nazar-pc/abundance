@@ -1,4 +1,6 @@
-use crate::contract::method::{MethodDetails, MethodType};
+use crate::contract::method::{
+    MethodDetails, MethodType, TRAIT_DEFINITION_STORAGE_ERROR, has_attribute,
+};
 use crate::contract::{ContractDetails, Method, MethodOutput};
 use proc_macro2::Ident;
 use quote::format_ident;
@@ -136,6 +138,10 @@ pub(super) fn process_update_fn_definition(
                 ));
             }
             FnArg::Typed(pat_type) => {
+                if has_attribute(&pat_type.attrs, "tmp") || has_attribute(&pat_type.attrs, "slot") {
+                    return Err(Error::new(input_span, TRAIT_DEFINITION_STORAGE_ERROR));
+                }
+
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {
                     Meta::Path(path) => {
                         path.leading_colon.is_none()

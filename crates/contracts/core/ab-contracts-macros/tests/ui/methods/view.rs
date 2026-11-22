@@ -1,5 +1,7 @@
 //! `#[view]` method only gets read-only access to state, slots and environment, it can't persist
-//! changes and must not be able to call `#[update]` methods
+//! changes and must not be able to call `#[update]` methods. It has no `#[tmp]` either, since
+//! `#[tmp]` stores auxiliary data while processing a transaction, and `#[view]` can be called
+//! outside of the block context.
 
 mod self_mut {
     use ab_contracts_macros::contract;
@@ -54,6 +56,23 @@ mod env_mut {
     impl Example {
         #[view]
         pub fn call_others(#[env] _env: &mut ab_contracts_common::env::Env<'_>) {}
+    }
+}
+
+mod tmp {
+    use ab_contracts_macros::contract;
+    use ab_io_type::trivial_type::TrivialType;
+
+    #[derive(Debug, Copy, Clone, TrivialType)]
+    #[repr(C)]
+    pub struct Example {
+        pub value: u8,
+    }
+
+    #[contract]
+    impl Example {
+        #[view]
+        pub fn get(#[tmp] _tmp: &ab_io_type::maybe_data::MaybeData<'_, u8>) {}
     }
 }
 

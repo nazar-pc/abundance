@@ -1,4 +1,6 @@
-use crate::contract::method::{MethodDetails, MethodType};
+use crate::contract::method::{
+    MethodDetails, MethodType, TRAIT_DEFINITION_STORAGE_ERROR, has_attribute,
+};
 use crate::contract::{ContractDetails, Method, MethodOutput};
 use proc_macro2::Ident;
 use quote::format_ident;
@@ -47,6 +49,15 @@ pub(super) fn process_view_fn(
                 methods_details.process_state_arg(lifetime.as_ref(), None)?;
             }
             FnArg::Typed(pat_type) => {
+                if has_attribute(&pat_type.attrs, "tmp") {
+                    return Err(Error::new(
+                        input_span,
+                        "`#[tmp]` is not supported in `#[view]`, since it stores auxiliary data \
+                        while processing a transaction, and `#[view]` can be called outside of \
+                        the block context",
+                    ));
+                }
+
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {
                     Meta::Path(path) => {
                         path.leading_colon.is_none()
@@ -135,6 +146,10 @@ pub(super) fn process_view_fn_definition(
                 ));
             }
             FnArg::Typed(pat_type) => {
+                if has_attribute(&pat_type.attrs, "tmp") || has_attribute(&pat_type.attrs, "slot") {
+                    return Err(Error::new(input_span, TRAIT_DEFINITION_STORAGE_ERROR));
+                }
+
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {
                     Meta::Path(path) => {
                         path.leading_colon.is_none()
