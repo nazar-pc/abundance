@@ -1632,8 +1632,8 @@ impl MethodDetails {
                 const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
                     ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA)
                         .expect(
-                            "Generated metadata is correct and its types are not nested deeper \
-                            than `MAX_METADATA_DEPTH`; qed"
+                            "Generated metadata is correct unless a type in it is nested deeper \
+                            than `MAX_METADATA_DEPTH`, which is reported by a separate error; qed"
                         );
                 const METADATA: &'static [::core::primitive::u8] = METADATA;
             }

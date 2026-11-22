@@ -259,16 +259,16 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
             let (impl_compact_metadata, impl_compact_metadata_size) =
                 ::ab_contracts_macros::__private::ContractMetadataKind::compact(METADATA)
                     .expect(
-                        "Generated metadata is correct and its types are not nested deeper than \
-                        `MAX_METADATA_DEPTH`; qed"
+                        "Generated metadata is correct unless a type in it is nested deeper than \
+                        `MAX_METADATA_DEPTH`, which is reported by a separate error; qed"
                     );
             let (def_compact_metadata, def_compact_metadata_size) =
                 ::ab_contracts_macros::__private::ContractMetadataKind::compact(
                     <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA,
                 )
                     .expect(
-                        "Generated metadata is correct and its types are not nested deeper than \
-                        `MAX_METADATA_DEPTH`; qed"
+                        "Generated metadata is correct unless a type in it is nested deeper than \
+                        `MAX_METADATA_DEPTH`, which is reported by a separate error; qed"
                     );
             ::core::assert!(
                 impl_compact_metadata_size == def_compact_metadata_size,
