@@ -378,7 +378,7 @@ impl MethodDetails {
         Err(Error::new(
             pat_type.span(),
             "`#[tmp]` must be a reference to a type implementing `IoTypeOptional` (can be \
-            shared or exclusive) like `&MaybeData<'_, Slot>` or `&mut VariableBytes<'_, 1024>`",
+            shared or exclusive) like `&MaybeData<'_, Tmp>` or `&mut VariableBytes<'_, 1024>`",
         ))
     }
 
@@ -472,8 +472,9 @@ impl MethodDetails {
 
                 return Err(Error::new(
                     pat_type.span(),
-                    "`#[slot]` with address must be a tuple of arguments, each of which is \
-                        either a simple variable or a reference",
+                    "`#[slot]` with address must be a tuple of a shared reference to the address \
+                    and a reference to the slot, bound to a tuple of two variables, like \
+                    `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`",
                 ));
             }
             _ => {
@@ -484,8 +485,9 @@ impl MethodDetails {
         Err(Error::new(
             pat_type.span(),
             "`#[slot]` must be a reference to a type implementing `IoTypeOptional` (can be \
-            shared or exclusive) like `&MaybeData<'_, Slot>` or a tuple of references to address \
-            and to slot type like `(&Address, &mut VariableBytes<'_, 1024>)`",
+            shared or exclusive) like `&MaybeData<'_, Slot>` or a tuple of a shared reference to \
+            the address and a reference to the slot like \
+            `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`",
         ))
     }
 
