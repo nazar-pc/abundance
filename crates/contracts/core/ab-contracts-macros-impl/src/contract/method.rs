@@ -10,8 +10,8 @@ use syn::spanned::Spanned;
 use syn::token::Paren;
 use syn::visit::Visit;
 use syn::{
-    Attribute, Error, GenericArgument, Lifetime, Meta, Pat, PatType, PathArguments, Receiver,
-    ReceiverKind, ReturnType, Signature, Token, Type, TypeTuple,
+    Attribute, Error, GenericArgument, Lifetime, Meta, Pat, PatType, PathArguments, ReturnType,
+    Signature, Token, Type, TypeTuple,
 };
 
 const SLOT_NAMED_LIFETIME_ERROR: &str = "`#[slot]` must not have named lifetimes, since slots \
@@ -300,36 +300,14 @@ impl MethodDetails {
         }
     }
 
-    pub(super) fn process_state_arg_ro(
+    /// Process `&self` or `&mut self`, callers reject other receivers and `&mut self` where it is
+    /// not allowed
+    pub(super) fn process_state_arg(
         &mut self,
-        input_span: Span,
-        receiver: &Receiver,
+        lifetime: Option<&Lifetime>,
+        mutability: Option<Token![mut]>,
     ) -> Result<(), Error> {
-        self.process_state_arg(input_span, receiver, false)
-    }
-
-    pub(super) fn process_state_arg_rw(
-        &mut self,
-        input_span: Span,
-        receiver: &Receiver,
-    ) -> Result<(), Error> {
-        self.process_state_arg(input_span, receiver, true)
-    }
-
-    fn process_state_arg(
-        &mut self,
-        input_span: Span,
-        receiver: &Receiver,
-        allow_mut: bool,
-    ) -> Result<(), Error> {
-        // Only accept `&self` or `&mut self`
-        let ReceiverKind::Reference(_, lifetime, mutability) = &receiver.kind else {
-            return Err(Error::new(
-                input_span,
-                "Can't consume `Self`, use `&self` or `&mut self` instead",
-            ));
-        };
-        if let Some(lifetime) = named_lifetime(lifetime.as_ref()) {
+        if let Some(lifetime) = named_lifetime(lifetime) {
             return Err(Error::new(
                 lifetime.span(),
                 "The state must not have a named lifetime, since it is trusted without being \
@@ -337,14 +315,8 @@ impl MethodDetails {
                 with `Lent::new()` instead",
             ));
         }
-        if mutability.is_some() && !allow_mut {
-            return Err(Error::new(
-                input_span,
-                "`#[arg]` is not allowed to mutate data here",
-            ));
-        }
 
-        self.state.replace(*mutability);
+        self.state.replace(mutability);
         Ok(())
     }
 
@@ -1824,15 +1796,9 @@ impl MethodDetails {
                     "UpdateStateless"
                 }
             }
+            // `&mut self` is rejected while processing arguments of `#[view]`
             MethodType::View => {
-                if let Some(mutable) = &self.state {
-                    if mutable.is_some() {
-                        return Err(Error::new(
-                            fn_sig.span(),
-                            "Stateful view methods are not supported",
-                        ));
-                    }
-
+                if self.state.is_some() {
                     "ViewStateful"
                 } else {
                     "ViewStateless"

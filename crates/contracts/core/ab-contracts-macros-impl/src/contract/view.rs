@@ -37,14 +37,14 @@ pub(super) fn process_view_fn(
 
         match input {
             FnArg::Receiver(receiver) => {
-                if !matches!(receiver.kind, ReceiverKind::Reference(_, _, None)) {
+                let ReceiverKind::Reference(_, lifetime, None) = &receiver.kind else {
                     return Err(Error::new(
                         fn_sig.span(),
                         "`#[view]` can't consume `Self` or `&mut self`, use `&self` instead",
                     ));
-                }
+                };
 
-                methods_details.process_state_arg_ro(input_span, receiver)?;
+                methods_details.process_state_arg(lifetime.as_ref(), None)?;
             }
             FnArg::Typed(pat_type) => {
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {

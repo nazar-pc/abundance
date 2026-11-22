@@ -38,14 +38,14 @@ pub(super) fn process_update_fn(
 
         match input {
             FnArg::Receiver(receiver) => {
-                if !matches!(receiver.kind, ReceiverKind::Reference(..)) {
+                let ReceiverKind::Reference(_, lifetime, mutability) = &receiver.kind else {
                     return Err(Error::new(
                         fn_sig.span(),
                         "`#[update]` can't consume `Self`, use `&self` or `&mut self` instead",
                     ));
-                }
+                };
 
-                methods_details.process_state_arg_rw(input_span, receiver)?;
+                methods_details.process_state_arg(lifetime.as_ref(), *mutability)?;
             }
             FnArg::Typed(pat_type) => {
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {
