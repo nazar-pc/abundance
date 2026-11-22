@@ -1,7 +1,27 @@
-//! The host stores the return value of `#[init]` as the initial state of the contract, so if there
-//! is a return value, it must be `Self`, even when the last `#[output]` argument is `Self`
+//! `#[init]` method must return `Self` or, without a return value, have `Self` as the last
+//! `#[output]` argument, which the host stores as the initial state of the contract. If there is a
+//! return value, it must be `Self`, even when the last `#[output]` argument is `Self`.
 
-mod regular {
+mod without_state {
+    use ab_contracts_macros::contract;
+    use ab_io_type::trivial_type::TrivialType;
+
+    #[derive(Debug, Copy, Clone, TrivialType)]
+    #[repr(C)]
+    pub struct Example {
+        pub value: u8,
+    }
+
+    #[contract]
+    impl Example {
+        #[init]
+        pub fn new() -> u8 {
+            0
+        }
+    }
+}
+
+mod return_with_state_output {
     use ab_contracts_macros::contract;
     use ab_io_type::trivial_type::TrivialType;
 
@@ -21,7 +41,7 @@ mod regular {
     }
 }
 
-mod result {
+mod result_with_state_output {
     use ab_contracts_macros::contract;
     use ab_io_type::trivial_type::TrivialType;
 

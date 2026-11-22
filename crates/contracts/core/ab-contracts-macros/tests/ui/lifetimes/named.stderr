@@ -1,0 +1,53 @@
+error: The state must not have a named lifetime, since it is trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+  --> tests/ui/lifetimes/named.rs:19:32
+   |
+19 |         pub fn lend_state<'a>(&'a mut self, #[env] env: &mut ab_contracts_common::env::Env<'a>) {
+   |                                ^^
+
+error: `#[tmp]` must not have a named lifetime, since it is trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+  --> tests/ui/lifetimes/named.rs:40:26
+   |
+40 |             #[tmp] tmp: &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+   |                          ^^
+
+error: `#[tmp]` must not have a named lifetime, since it is trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+  --> tests/ui/lifetimes/named.rs:62:64
+   |
+62 |             #[tmp] tmp: &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
+   |                                                                ^^
+
+error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+  --> tests/ui/lifetimes/named.rs:90:28
+   |
+90 |             #[slot] slot: &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+   |                            ^^
+
+error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+   --> tests/ui/lifetimes/named.rs:112:66
+    |
+112 |             #[slot] slot: &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
+    |                                                                  ^^
+
+error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+   --> tests/ui/lifetimes/named.rs:142:18
+    |
+142 |                 &'a mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+    |                  ^^
+
+error: `#[slot]` must not have named lifetimes, since slots are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
+   --> tests/ui/lifetimes/named.rs:167:56
+    |
+167 |                 &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
+    |                                                        ^^
+
+error: The last `#[output]` of `#[init]` without a return value is the initial state, which must not have a named lifetime, since the state is trusted without being parsed and must not be lent to calls with `Env::lend_output()`
+   --> tests/ui/lifetimes/named.rs:198:31
+    |
+198 |             #[output] state: &'a mut MaybeData<'_, Self>,
+    |                               ^^
+
+error: The last `#[output]` of `#[init]` without a return value is the initial state, which must not have a named lifetime, since the state is trusted without being parsed and must not be lent to calls with `Env::lend_output()`
+   --> tests/ui/lifetimes/named.rs:222:45
+    |
+222 |             #[output] state: &mut MaybeData<'a, Self>,
+    |                                             ^^

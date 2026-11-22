@@ -1,5 +1,0 @@
-error: `#[init]` must return `Self` or, without a return value, have `Self` as the last `#[output]` argument
-  --> tests/ui/methods/init_without_state.rs:16:9
-   |
-16 |     pub fn new() -> u8 {
-   |         ^^^^^^^^^^^^^^

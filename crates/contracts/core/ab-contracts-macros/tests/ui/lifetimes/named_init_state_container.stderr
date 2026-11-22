@@ -1,5 +1,0 @@
-error: The last `#[output]` of `#[init]` without a return value is the initial state, which must not have a named lifetime, since the state is trusted without being parsed and must not be lent to calls with `Env::lend_output()`
-  --> tests/ui/lifetimes/named_init_state_container.rs:21:41
-   |
-21 |         #[output] state: &mut MaybeData<'a, Self>,
-   |                                         ^^

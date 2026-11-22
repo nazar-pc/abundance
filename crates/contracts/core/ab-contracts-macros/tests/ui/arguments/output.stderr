@@ -1,0 +1,29 @@
+error: `#[output]` must be an exclusive reference to a type implementing `IoType` (it can be both read and written to) like `&mut MaybeData<'_, Output>` or `&mut VariableBytes<'_, 1024>`
+  --> tests/ui/arguments/output.rs:20:30
+   |
+20 |         pub fn get(#[output] _value: &u8) {}
+   |                              ^^^^^^^^^^^
+
+error: `#[output]` must be an exclusive reference to a type implementing `IoType` (it can be both read and written to) like `&mut MaybeData<'_, Output>` or `&mut VariableBytes<'_, 1024>`
+  --> tests/ui/arguments/output.rs:37:30
+   |
+37 |         pub fn get(#[output] _value: u8) {}
+   |                              ^^^^^^^^^^
+
+error: `#[output]` argument name must be a simple variable
+  --> tests/ui/arguments/output.rs:54:30
+   |
+54 |         pub fn get(#[output] _: &mut u8) {}
+   |                              ^^^^^^^^^^
+
+error: `#[output]` argument name must be a simple variable
+  --> tests/ui/arguments/output.rs:71:30
+   |
+71 |         pub fn get(#[output] (_first, _second): &mut (u8, u8)) {}
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[output]` argument name must be a simple variable
+  --> tests/ui/arguments/output.rs:88:30
+   |
+88 |         pub fn get(#[output] &mut _value: &mut u8) {}
+   |                              ^^^^^^^^^^^^^^^^^^^^

@@ -1,5 +1,0 @@
-error: `#[tmp]` must not have a named lifetime, since it is trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend a copy made with `Lent::new()` instead
-  --> tests/ui/lifetimes/named_tmp_container.rs:19:60
-   |
-19 |         #[tmp] tmp: &mut ab_io_type::maybe_data::MaybeData<'a, u8>,
-   |                                                            ^^
