@@ -35,8 +35,8 @@ use std::collections::HashSet;
 const PAGE_SIZE: u64 = 0x1000;
 /// Alignment of 64-bit words, ELF structures and tables containing them
 const WORD_ALIGNMENT: u64 = size_of::<u64>() as u64;
-/// Alignment of instructions with compressed instructions support
-const INSTRUCTION_ALIGNMENT: u64 = size_of::<u16>() as u64;
+/// Alignment of contract instructions
+const INSTRUCTION_ALIGNMENT: u64 = <ContractInstruction as Instruction>::ALIGNMENT as u64;
 const PROGRAM_HEADER_SIZE: u64 = size_of::<ProgramHeader64<LittleEndian>>() as u64;
 const SYMBOL_SIZE: u64 = size_of::<Sym64<LittleEndian>>() as u64;
 const RELA_SIZE: u64 = size_of::<Rela64<LittleEndian>>() as u64;

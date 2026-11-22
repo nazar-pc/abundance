@@ -77,7 +77,9 @@ where
 
     {
         let internal_args = create_internal_args(internal_args_addr);
-        // `as_bytes()` does not work here, its array length depends on a generic parameter
+        // TODO: Use `as_bytes()` once its array length, which depends on a generic parameter, can
+        //  be inferred in crates without `gca_const_items`:
+        //  https://github.com/rust-lang/rust/issues/166244
         let internal_args_bytes = IA::slice_as_bytes(slice::from_ref(&internal_args));
 
         memory
