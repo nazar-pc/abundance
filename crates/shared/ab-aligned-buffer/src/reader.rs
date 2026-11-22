@@ -7,8 +7,8 @@ use crate::SharedAlignedBuffer;
 use crate::alignment::Alignment;
 #[cfg(feature = "io-type")]
 use ab_io_type::trivial_type::AnyBitPattern;
-use core::fmt;
 use core::num::{NonZeroU32, NonZeroU64};
+use core::{fmt, hint};
 
 /// Error of a read with [`SharedAlignedBufferReader`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -75,13 +75,18 @@ where
 
     /// Number of bytes read so far, including padding
     #[inline(always)]
-    pub const fn position(&self) -> u32 {
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    pub fn position(&self) -> u32 {
         self.position
     }
 
     /// Bytes that were not read yet
     #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn remaining(&self) -> &'a [u8] {
+        // SAFETY: Position is never larger than the length of the buffer, which can't change while
+        // it is borrowed
+        unsafe { hint::assert_unchecked(self.position <= self.buffer.len()) }
         let contents: &'a [u8] = self.buffer.as_slice();
         contents
             .get(self.position as usize..)
@@ -93,6 +98,7 @@ where
     /// Returns padding bytes, which are empty if the position is already a multiple of `B`, so
     /// that formats that require zero padding can check them.
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_to_alignment<B>(&mut self) -> Result<&'a [u8], ReadError>
     where
         B: Alignment,
@@ -108,6 +114,7 @@ where
 
     /// Read the next `len` bytes
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_bytes(&mut self, len: u32) -> Result<&'a [u8], ReadError> {
         let start = self.advance(u64::from(len))?;
         let contents: &'a [u8] = self.buffer.as_slice();
@@ -119,6 +126,7 @@ where
 
     /// Read the next `N` bytes
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_bytes_array<const N: usize>(&mut self) -> Result<&'a [u8; N], ReadError> {
         const {
             assert!(
@@ -136,6 +144,11 @@ where
     /// front of them if necessary. The new buffer keeps the whole allocation alive unless it is
     /// empty, see [`SharedAlignedBuffer::into_standalone()`].
     #[inline]
+    // Panics on 32-bit targets before the reference counter would wrap around
+    #[cfg_attr(
+        all(feature = "no-panic", target_pointer_width = "64"),
+        no_panic::no_panic
+    )]
     pub fn read_buffer<B>(&mut self, len: u32) -> Result<SharedAlignedBuffer<B>, ReadError>
     where
         B: Alignment,
@@ -159,6 +172,7 @@ where
     /// [`Unaligned`]: ab_io_type::unaligned::Unaligned
     #[cfg(feature = "io-type")]
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_trivial<T>(&mut self) -> Result<&'a T, ReadError>
     where
         T: AnyBitPattern,
@@ -171,6 +185,7 @@ where
     /// Read `N` values of a trivial type, like [`Self::read_trivial()`]
     #[cfg(feature = "io-type")]
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_trivial_array<T, const N: usize>(&mut self) -> Result<&'a [T; N], ReadError>
     where
         [T; N]: AnyBitPattern,
@@ -181,6 +196,7 @@ where
     /// Read `count` values of a trivial type, like [`Self::read_trivial()`]
     #[cfg(feature = "io-type")]
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn read_trivial_slice<T>(&mut self, count: u32) -> Result<&'a [T], ReadError>
     where
         T: AnyBitPattern,
@@ -213,14 +229,15 @@ where
     /// Advance by `len` bytes, returns the position before advancing
     #[inline(always)]
     fn advance(&mut self, len: u64) -> Result<u32, ReadError> {
-        let remaining = self.buffer.len() - self.position;
-        let Some(len) = u32::try_from(len).ok().filter(|&len| len <= remaining) else {
-            let missing = NonZeroU64::new(len - u64::from(remaining))
-                .expect("More bytes are needed than remain as checked above; qed");
+        // SAFETY: Position is never larger than the length of the buffer, which can't change while
+        // it is borrowed
+        let remaining = unsafe { self.buffer.len().unchecked_sub(self.position) };
+        if let Some(missing) = NonZeroU64::new(len.saturating_sub(u64::from(remaining))) {
             return Err(ReadError::NotEnoughBytes {
                 missing: NonZeroU32::try_from(missing).unwrap_or(NonZeroU32::MAX),
             });
-        };
+        }
+        let len = u32::try_from(len).expect("Not larger than the number of remaining bytes; qed");
 
         let start = self.position;
         // Within the contents, whose length is a `u32`, as checked above

@@ -8,6 +8,7 @@ version = "0.2.0"
 dependencies = [
  "ab-io-type",
  "criterion",
+ "no-panic",
  "stable_deref_trait",
  "yoke",
 ]

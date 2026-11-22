@@ -13,6 +13,9 @@ Breaking changes:
   by default, the same alignment as before
 * `as_ptr()`, `as_mut_ptr()` and `as_u128_slice()` that return `u128`s are only available for alignment of the
   contents of at least 16 bytes, `as_byte_ptr()` and `as_mut_byte_ptr()` are available for any alignment
+* Methods of buffers other than `SharedAlignedBuffer::empty_ref()` are no longer `const fn`, which allows methods that
+  access the contents, like `as_slice()` and `as_ptr()`, to tell the compiler about alignment of the contents and
+  removes alignment checks in code using them
 * Constructors, `MAX_CAPACITY`, `Default`, `EMPTY` and `empty_ref()` are generic over alignment of the contents, so
   call sites need type annotations where it can't be inferred
 * `OwnedAlignedBuffer::append()` returns `Result<(), AllocationError>` instead of `bool`, and it returns an error
@@ -60,6 +63,8 @@ New features:
 * `OwnedAlignedBuffer::try_with_capacity()`, `try_zeroed()` and `try_ensure_capacity()` return `AllocationError` instead
   of panicking when the capacity is too large or allocation fails
 * `AlignedBuffer` trait implemented for both buffers, for APIs that accept either of them
+* `no-panic` feature checks at compile time that methods that don't allocate, as well as fallible allocations, can't
+  panic
 * `OwnedAlignedBuffer::as_u128_slice()` returns the contents as whole `u128`s
 * `OwnedAlignedBuffer::MAX_CAPACITY` is the largest capacity of a buffer, which is smaller than `u32::MAX` on 32-bit
   targets, the same for allocations with any alignment
