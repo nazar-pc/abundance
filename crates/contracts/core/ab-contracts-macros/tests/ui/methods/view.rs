@@ -41,6 +41,29 @@ mod slot_mut {
     }
 }
 
+mod slot_with_address_mut {
+    use ab_contracts_macros::contract;
+    use ab_io_type::trivial_type::TrivialType;
+
+    #[derive(Debug, Copy, Clone, TrivialType)]
+    #[repr(C)]
+    pub struct Example {
+        pub value: u8,
+    }
+
+    #[contract]
+    impl Example {
+        #[view]
+        pub fn set(
+            #[slot] (_owner, _slot): (
+                &ab_core_primitives::address::Address,
+                &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+            ),
+        ) {
+        }
+    }
+}
+
 mod env_mut {
     use ab_contracts_macros::contract;
     use ab_io_type::trivial_type::TrivialType;
