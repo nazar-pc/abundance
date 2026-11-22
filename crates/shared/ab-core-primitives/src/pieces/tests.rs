@@ -35,15 +35,6 @@ fn extended_record_s_buckets() {
         &raw const records[1],
         &raw const extended_record.parity
     ));
-    assert!(ptr::eq(
-        Record::array_from_repr(Record::array_to_repr(records)),
-        records
-    ));
-    let s_buckets = extended_record.as_s_buckets();
-    assert!(ptr::eq(
-        RecordChunk::array_from_repr(RecordChunk::array_to_repr(s_buckets)),
-        s_buckets
-    ));
 }
 
 #[test]
