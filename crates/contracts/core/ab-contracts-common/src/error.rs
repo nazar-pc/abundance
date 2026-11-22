@@ -125,6 +125,12 @@ impl ExitCode {
         Self(0)
     }
 
+    /// Convert from `u64`, for example from a register after a call
+    #[inline(always)]
+    pub const fn from_u64(code: u64) -> Self {
+        Self(code)
+    }
+
     /// Convert into `u64`
     #[inline(always)]
     pub const fn into_u64(self) -> u64 {
