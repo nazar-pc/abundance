@@ -42,6 +42,8 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use rayon::prelude::*;
 #[cfg(any(feature = "alloc", test))]
 use seq_macro::seq;
+#[cfg(any(feature = "alloc", test))]
+use transparent_wrapper::TransparentWrapper;
 
 #[cfg(any(feature = "alloc", test))]
 const COMPUTE_F1_SIMD_FACTOR: usize = 8;
@@ -565,7 +567,7 @@ pub(super) fn compute_f1_simd<const K: u8>(
     // [padding zero bits][`K` bits rom `partial_y`][`PARAM_EXT` bits from `x`]
     let ys = (pre_ys.cast() & pre_ys_mask) | pre_exts;
 
-    Y::array_from_repr(ys.to_array())
+    <[Y; _]>::wrap(ys.to_array())
 }
 
 /// For verification use [`has_match`] instead.
@@ -997,7 +999,7 @@ unsafe fn matches_to_results<const K: u8, const TABLE_NUMBER: u8, const PARENT_T
         // SAFETY: Guaranteed by function contract
         let (ys_group, positions_group, metadatas_group) =
             unsafe { match_to_result_simd(parent_table, grouped_matches) };
-        let ys_group = Y::array_from_repr(ys_group.to_array());
+        let ys_group = <[Y; _]>::wrap(ys_group.to_array());
         grouped_ys.write_copy_of_slice(&ys_group);
         grouped_positions.write_copy_of_slice(&positions_group);
 
