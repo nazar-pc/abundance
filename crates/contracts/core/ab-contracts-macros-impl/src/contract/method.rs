@@ -94,12 +94,13 @@ impl Output {
     /// these methods need to declare for it, if any.
     ///
     /// `'_` is not allowed in `impl Trait` in arguments, so lifetimes in the type are replaced with
-    /// one named after the output.
+    /// one named after the output. The `_output` suffix keeps it distinct from lifetimes that
+    /// generated code declares itself, like `'external_args`.
     fn output_arg_type(&self) -> (Type, Option<Lifetime>) {
         let mut type_name = self.type_name.clone();
         let lifetime = Lifetime {
             apostrophe: self.arg_name.span(),
-            ident: self.arg_name.clone(),
+            ident: format_ident!("{}_output", self.arg_name),
         };
         let replaced = replace_lifetimes(&mut type_name, &lifetime);
         (type_name, replaced.then_some(lifetime))

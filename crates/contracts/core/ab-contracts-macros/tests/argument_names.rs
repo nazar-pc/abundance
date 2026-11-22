@@ -1,5 +1,5 @@
-//! Arguments can have the same names as fields, locals and parameters of generated code. This
-//! compiles only if generated code doesn't clash with them.
+//! Arguments can have the same names as fields, locals, parameters and lifetimes of generated code.
+//! This compiles only if generated code doesn't clash with them.
 
 use ab_contracts_common::env::Env;
 use ab_contracts_macros::contract;
@@ -59,5 +59,15 @@ impl ArgumentNames {
     ) {
         slot.replace(shorten_env);
         result.replace(env.own_address());
+    }
+
+    /// Name of the lifetime of `ExternalArgs`, for an `#[output]` with a lifetime in its type,
+    /// which generated code names after the output
+    #[update]
+    pub fn lifetime_names(
+        #[env] env: &Env<'_>,
+        #[output] external_args: &mut MaybeData<'_, Address>,
+    ) {
+        external_args.replace(env.own_address());
     }
 }
