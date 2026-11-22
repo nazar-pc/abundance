@@ -71,6 +71,37 @@ pub trait GenericOwnedBlockBody:
     fn body(&self) -> &Self::Body<'_>;
 }
 
+/// Errors for [`OwnedLeafShardBody`]
+#[derive(Debug, thiserror::Error)]
+pub enum OwnedLeafShardBodyError {
+    /// Too many own segment roots
+    #[error("Too many own segment roots: {actual}")]
+    TooManyOwnSegmentRoots {
+        /// Actual number of own segment roots
+        actual: usize,
+    },
+    /// Local segment index after the last own segment root doesn't fit into `u64`
+    #[error("Own segment index overflow, first local segment index: {first_local_segment_index}")]
+    OwnSegmentIndexOverflow {
+        /// Local segment index of the first own segment root
+        first_local_segment_index: LocalSegmentIndex,
+    },
+    /// Local segment indices of own segment roots are not consecutive
+    #[error(
+        "Own segment indices are not consecutive: {local_segment_index} after \
+        {previous_local_segment_index}"
+    )]
+    NonConsecutiveOwnSegmentIndices {
+        /// Local segment index of the previous own segment root
+        previous_local_segment_index: LocalSegmentIndex,
+        /// Local segment index that doesn't follow the previous one
+        local_segment_index: LocalSegmentIndex,
+    },
+    /// Block body is too large
+    #[error("Block body is too large")]
+    BlockBodyIsTooLarge,
+}
+
 /// Transaction that can be written into the body.
 ///
 /// Can't be implemented outside of this module, because block body builders rely on it appending
@@ -1033,37 +1064,6 @@ impl OwnedIntermediateShardBody {
     pub fn body(&self) -> &IntermediateShardBody<'_> {
         self.inner.get()
     }
-}
-
-/// Errors for [`OwnedLeafShardBody`]
-#[derive(Debug, thiserror::Error)]
-pub enum OwnedLeafShardBodyError {
-    /// Too many own segment roots
-    #[error("Too many own segment roots: {actual}")]
-    TooManyOwnSegmentRoots {
-        /// Actual number of own segment roots
-        actual: usize,
-    },
-    /// Local segment index after the last own segment root doesn't fit into `u64`
-    #[error("Own segment index overflow, first local segment index: {first_local_segment_index}")]
-    OwnSegmentIndexOverflow {
-        /// Local segment index of the first own segment root
-        first_local_segment_index: LocalSegmentIndex,
-    },
-    /// Local segment indices of own segment roots are not consecutive
-    #[error(
-        "Own segment indices are not consecutive: {local_segment_index} after \
-        {previous_local_segment_index}"
-    )]
-    NonConsecutiveOwnSegmentIndices {
-        /// Local segment index of the previous own segment root
-        previous_local_segment_index: LocalSegmentIndex,
-        /// Local segment index that doesn't follow the previous one
-        local_segment_index: LocalSegmentIndex,
-    },
-    /// Block body is too large
-    #[error("Block body is too large")]
-    BlockBodyIsTooLarge,
 }
 
 /// An owned version of [`LeafShardBody`].
