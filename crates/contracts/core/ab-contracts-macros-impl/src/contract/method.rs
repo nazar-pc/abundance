@@ -473,8 +473,8 @@ impl MethodDetails {
                 return Err(Error::new(
                     pat_type.span(),
                     "`#[slot]` with address must be a tuple of a shared reference to the address \
-                    and a reference to the slot, bound to a tuple of two variables, like \
-                    `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`",
+                    and a reference to the slot, bound to a tuple pattern whose second element is \
+                    a variable, like `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`",
                 ));
             }
             _ => {

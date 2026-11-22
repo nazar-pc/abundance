@@ -10,7 +10,7 @@ error: `#[slot]` must be a reference to a type implementing `IoTypeOptional` (ca
 36 |         pub fn set(#[slot] _slot: ab_io_type::maybe_data::MaybeData<'_, u8>) {}
    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: `#[slot]` with address must be a tuple of a shared reference to the address and a reference to the slot, bound to a tuple of two variables, like `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`
+error: `#[slot]` with address must be a tuple of a shared reference to the address and a reference to the slot, bound to a tuple pattern whose second element is a variable, like `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`
   --> tests/ui/arguments/storage.rs:54:21
    |
 54 |               #[slot] (_owner, _slot): (
