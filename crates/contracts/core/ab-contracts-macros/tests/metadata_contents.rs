@@ -5,6 +5,8 @@
 //! derived from method metadata alone, so it is not checked separately.
 
 use crate::contracts::{arguments, counter, init, kinds};
+#[cfg(not(feature = "guest"))]
+use crate::contracts::{return_type, slot};
 use ab_contracts_common::metadata::MAX_METADATA_DEPTH;
 use ab_contracts_common::metadata::decode::{
     ArgumentKind, MetadataDecoder, MetadataItem, MethodKind,
@@ -200,6 +202,104 @@ pub mod contracts {
             }
         }
     }
+
+    // With `guest` feature each contract exports its metadata under a symbol named after its
+    // struct, so contracts with the same name can't be in one binary, but contracts compared below
+    // need the same name for their metadata to be the same
+    #[cfg(not(feature = "guest"))]
+    pub mod slot {
+        pub mod plain {
+            use ab_contracts_macros::contract;
+            use ab_io_type::maybe_data::MaybeData;
+            use ab_io_type::trivial_type::TrivialType;
+
+            #[derive(Debug, Copy, Clone, TrivialType)]
+            #[repr(C)]
+            pub struct Example {
+                pub value: u8,
+            }
+
+            #[contract]
+            impl Example {
+                #[update]
+                pub fn write(#[slot] slot: &mut MaybeData<'_, u8>) {
+                    slot.replace(0);
+                }
+            }
+        }
+
+        pub mod with_address {
+            use ab_contracts_macros::contract;
+            use ab_core_primitives::address::Address;
+            use ab_io_type::maybe_data::MaybeData;
+            use ab_io_type::trivial_type::TrivialType;
+
+            #[derive(Debug, Copy, Clone, TrivialType)]
+            #[repr(C)]
+            pub struct Example {
+                pub value: u8,
+            }
+
+            #[contract]
+            impl Example {
+                #[update]
+                pub fn write(#[slot] (_owner, slot): (&Address, &mut MaybeData<'_, u8>)) {
+                    slot.replace(0);
+                }
+            }
+        }
+    }
+
+    // Not compiled with `guest` feature for the same reason as `slot`
+    #[cfg(not(feature = "guest"))]
+    pub mod return_type {
+        pub mod infallible {
+            use ab_contracts_macros::contract;
+            use ab_io_type::trivial_type::TrivialType;
+
+            #[derive(Debug, Copy, Clone, TrivialType)]
+            #[repr(C)]
+            pub struct Example {
+                pub value: u8,
+            }
+
+            #[contract]
+            impl Example {
+                #[view]
+                pub fn get() -> u64 {
+                    0
+                }
+
+                #[update]
+                pub fn set() {}
+            }
+        }
+
+        pub mod fallible {
+            use ab_contracts_common::ContractError;
+            use ab_contracts_macros::contract;
+            use ab_io_type::trivial_type::TrivialType;
+
+            #[derive(Debug, Copy, Clone, TrivialType)]
+            #[repr(C)]
+            pub struct Example {
+                pub value: u8,
+            }
+
+            #[contract]
+            impl Example {
+                #[view]
+                pub fn get() -> Result<u64, ContractError> {
+                    Ok(0)
+                }
+
+                #[update]
+                pub fn set() -> Result<(), ContractError> {
+                    Ok(())
+                }
+            }
+        }
+    }
 }
 
 /// The attribute and the receiver of a method determine its kind, and its name is prefixed with
@@ -351,4 +451,34 @@ fn contract_records_state_slot_and_tmp_types() {
     };
     assert_eq!(details(slot_type_details), details_of::<()>());
     assert_eq!(details(tmp_type_details), details_of::<()>());
+}
+
+/// The address of the owner of a slot is only a convenience in the source, metadata is the same as
+/// without it and records the name of the slot
+#[test]
+#[cfg(not(feature = "guest"))]
+fn slot_with_address_has_same_metadata() {
+    assert_eq!(
+        slot::with_address::Example::MAIN_CONTRACT_METADATA,
+        slot::plain::Example::MAIN_CONTRACT_METADATA
+    );
+    assert_eq!(
+        decode_methods(slot::with_address::Example::MAIN_CONTRACT_METADATA),
+        [(
+            MethodKind::UpdateStateless,
+            "example_write",
+            vec![(ArgumentKind::SlotRw, "slot", false)],
+        )]
+    );
+}
+
+/// Whether a method can fail doesn't change its metadata, so switching between a fallible and an
+/// infallible return type doesn't affect callers
+#[test]
+#[cfg(not(feature = "guest"))]
+fn fallible_return_has_same_metadata() {
+    assert_eq!(
+        return_type::fallible::Example::MAIN_CONTRACT_METADATA,
+        return_type::infallible::Example::MAIN_CONTRACT_METADATA
+    );
 }
