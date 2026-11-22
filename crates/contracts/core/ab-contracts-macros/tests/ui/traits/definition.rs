@@ -35,4 +35,14 @@ mod slot {
     }
 }
 
+mod init {
+    use ab_contracts_macros::contract;
+
+    #[contract]
+    pub trait Factory {
+        #[init]
+        fn create();
+    }
+}
+
 fn main() {}

@@ -565,6 +565,18 @@ fn process_fn_definition(
     trait_item_fn: &mut TraitItemFn,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
+    if let Some(init_attr) = trait_item_fn
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("init"))
+    {
+        return Err(Error::new(
+            init_attr.span(),
+            "`#[init]` is not supported in trait definitions, since the initial state is specific \
+            to each contract that implements the trait",
+        ));
+    }
+
     let supported_attrs = HashMap::<_, fn(_, _, _, _) -> _>::from_iter([
         (format_ident!("update"), process_update_fn_definition as _),
         (format_ident!("view"), process_view_fn_definition as _),

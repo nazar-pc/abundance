@@ -17,3 +17,9 @@ error: `#[tmp]` and `#[slot]` are not supported in trait definitions, since thei
    |
 34 |         fn read(#[slot] slot: &ab_io_type::maybe_data::MaybeData<'_, u8>);
    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[init]` is not supported in trait definitions, since the initial state is specific to each contract that implements the trait
+  --> tests/ui/traits/definition.rs:43:9
+   |
+43 |         #[init]
+   |         ^^^^^^^
