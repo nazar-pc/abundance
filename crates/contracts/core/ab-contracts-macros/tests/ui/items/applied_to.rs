@@ -3,6 +3,31 @@
 //! implementation of each method, so the struct must be named by a simple identifier and generics
 //! are not supported.
 
+mod not_impl {
+    use ab_contracts_macros::contract;
+
+    #[contract]
+    pub struct Example {
+        pub value: u8,
+    }
+}
+
+mod generics {
+    use ab_contracts_macros::contract;
+
+    pub struct Example<T> {
+        pub value: T,
+    }
+
+    #[contract]
+    impl<T> Example<T> {
+        #[view]
+        pub fn get(&self) -> u8 {
+            0
+        }
+    }
+}
+
 mod generic_self_type {
     use ab_contracts_macros::contract;
 
