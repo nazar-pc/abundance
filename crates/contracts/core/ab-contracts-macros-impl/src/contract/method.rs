@@ -574,7 +574,7 @@ impl MethodDetails {
     pub(super) fn process_return(&mut self, output: &ReturnType) -> Result<(), Error> {
         // Check if return type is `T` or `Result<T, ContractError>`
         let error_message = format!(
-            "`#[{}]` must return `()` or `T` or `Result<T, ContractError>",
+            "`#[{}]` must return `()` or `T` or `Result<T, ContractError>`",
             self.method_type.attr_str()
         );
         match output {

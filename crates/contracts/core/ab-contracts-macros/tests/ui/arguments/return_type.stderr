@@ -1,0 +1,11 @@
+error: `#[view]` must return `()` or `T` or `Result<T, ContractError>`
+  --> tests/ui/arguments/return_type.rs:20:25
+   |
+20 |         pub fn get() -> Result<u8, OtherError> {
+   |                         ^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[view]` must return `()` or `T` or `Result<T, ContractError>`
+  --> tests/ui/arguments/return_type.rs:39:25
+   |
+39 |         pub fn get() -> (u8, u8) {
+   |                         ^^^^^^^^
