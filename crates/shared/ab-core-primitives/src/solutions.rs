@@ -595,18 +595,6 @@ impl ShardMembershipEntropy {
     pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
         &self.0
     }
-
-    /// Convenient conversion from slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        Self::wrap_slice(value)
-    }
-
-    /// Convenient conversion to slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        Self::peel_slice(value)
-    }
 }
 
 /// Reduced hash used for shard assignment
@@ -730,30 +718,6 @@ impl ShardCommitmentHash {
     #[inline(always)]
     pub const fn as_bytes(&self) -> &[u8; Self::SIZE] {
         &self.0
-    }
-
-    /// Convenient conversion from slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        Self::wrap_slice(value)
-    }
-
-    /// Convenient conversion from array of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn array_from_repr<const N: usize>(value: [[u8; Self::SIZE]; N]) -> [Self; N] {
-        <[Self; N]>::wrap(value)
-    }
-
-    /// Convenient conversion to a slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        Self::peel_slice(value)
-    }
-
-    /// Convenient conversion to an array of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn repr_from_array<const N: usize>(value: [Self; N]) -> [[u8; Self::SIZE]; N] {
-        value.peel()
     }
 }
 
@@ -957,7 +921,7 @@ impl Solution {
 
         if !BalancedMerkleTree::<{ SolutionShardCommitment::NUM_LEAVES }>::verify(
             &self.shard_commitment.root,
-            &ShardCommitmentHash::repr_from_array(self.shard_commitment.proof),
+            self.shard_commitment.proof.peel_ref(),
             shard_commitment_index as usize,
             *self.shard_commitment.leaf,
         ) {

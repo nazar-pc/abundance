@@ -6,7 +6,6 @@ use crate::pieces::RecordChunk;
 use crate::solutions::ShardMembershipEntropy;
 use ab_blake3::single_block_hash;
 use ab_io_type::trivial_type::TrivialType;
-use array_reshape::{FlattenEach, UnflattenEach};
 use core::fmt;
 use core::iter::Step;
 use core::num::{NonZeroU8, NonZeroU32};
@@ -490,18 +489,6 @@ impl PotOutput {
     pub fn shard_membership_entropy(&self) -> ShardMembershipEntropy {
         ShardMembershipEntropy::new(self.0)
     }
-
-    /// Convenient conversion from slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        Self::wrap_slice(value)
-    }
-
-    /// Convenient conversion to slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        Self::peel_slice(value)
-    }
 }
 
 /// Proof of time checkpoints, result of proving
@@ -532,18 +519,6 @@ impl PotCheckpoints {
     #[inline]
     pub fn output(&self) -> PotOutput {
         self.0[Self::NUM_CHECKPOINTS.get() as usize - 1]
-    }
-
-    /// Convenient conversion from slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn slice_from_repr(value: &[[u8; Self::SIZE]]) -> &[Self] {
-        Self::wrap_slice(<[PotOutput; _]>::wrap_slice(value.unflatten_each_ref()))
-    }
-
-    /// Convenient conversion to slice of underlying representation for efficiency purposes
-    #[inline(always)]
-    pub const fn repr_from_slice(value: &[Self]) -> &[[u8; Self::SIZE]] {
-        <[PotOutput; _]>::peel_slice(Self::peel_slice(value)).flatten_each_ref()
     }
 }
 
