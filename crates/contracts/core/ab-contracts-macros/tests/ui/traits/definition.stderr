@@ -1,5 +1,19 @@
-error: `#[tmp]` and `#[slot]` are not supported in trait definitions, since their types are specific to each contract that implements the trait
-  --> tests/ui/traits/definition.rs:11:17
+error: `#[update]` in trait definition can't access state through `Self` directly, call implementation method through `Env` instead if necessary
+  --> tests/ui/traits/definition.rs:12:9
    |
-11 |         fn read(#[slot] slot: &ab_io_type::maybe_data::MaybeData<'_, u8>);
+12 |         fn increment(&mut self);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[contract]` does not support `#[update]` or `#[view]` methods with default implementation in trait definition
+  --> tests/ui/traits/definition.rs:22:9
+   |
+22 | /         fn get() -> u8 {
+23 | |             0
+24 | |         }
+   | |_________^
+
+error: `#[tmp]` and `#[slot]` are not supported in trait definitions, since their types are specific to each contract that implements the trait
+  --> tests/ui/traits/definition.rs:34:17
+   |
+34 |         fn read(#[slot] slot: &ab_io_type::maybe_data::MaybeData<'_, u8>);
    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
