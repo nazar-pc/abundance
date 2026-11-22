@@ -1,4 +1,6 @@
-use crate::contract::method::{MethodDetails, MethodType};
+use crate::contract::method::{
+    MethodDetails, MethodType, TRAIT_DEFINITION_STORAGE_ERROR, has_attribute,
+};
 use crate::contract::{ContractDetails, Method, MethodOutput};
 use proc_macro2::Ident;
 use quote::format_ident;
@@ -37,16 +39,25 @@ pub(super) fn process_view_fn(
 
         match input {
             FnArg::Receiver(receiver) => {
-                if !matches!(receiver.kind, ReceiverKind::Reference(_, _, None)) {
+                let ReceiverKind::Reference(_, lifetime, None) = &receiver.kind else {
                     return Err(Error::new(
                         fn_sig.span(),
                         "`#[view]` can't consume `Self` or `&mut self`, use `&self` instead",
                     ));
-                }
+                };
 
-                methods_details.process_state_arg_ro(input_span, receiver)?;
+                methods_details.process_state_arg(lifetime.as_ref(), None)?;
             }
             FnArg::Typed(pat_type) => {
+                if has_attribute(&pat_type.attrs, "tmp") {
+                    return Err(Error::new(
+                        input_span,
+                        "`#[tmp]` is not supported in `#[view]`, since it stores auxiliary data \
+                        while processing a transaction, and `#[view]` can be called outside of \
+                        the block context",
+                    ));
+                }
+
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {
                     Meta::Path(path) => {
                         path.leading_colon.is_none()
@@ -88,7 +99,7 @@ pub(super) fn process_view_fn(
 
     let guest_ffi = methods_details.generate_guest_ffi(fn_sig, trait_name)?;
     let trait_ext_components =
-        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, trait_name)?;
+        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, trait_name);
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),
@@ -135,6 +146,10 @@ pub(super) fn process_view_fn_definition(
                 ));
             }
             FnArg::Typed(pat_type) => {
+                if has_attribute(&pat_type.attrs, "tmp") || has_attribute(&pat_type.attrs, "slot") {
+                    return Err(Error::new(input_span, TRAIT_DEFINITION_STORAGE_ERROR));
+                }
+
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {
                     Meta::Path(path) => {
                         path.leading_colon.is_none()
@@ -174,7 +189,7 @@ pub(super) fn process_view_fn_definition(
 
     let guest_ffi = methods_details.generate_guest_trait_ffi(fn_sig, Some(trait_name))?;
     let trait_ext_components =
-        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, Some(trait_name))?;
+        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, Some(trait_name));
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),

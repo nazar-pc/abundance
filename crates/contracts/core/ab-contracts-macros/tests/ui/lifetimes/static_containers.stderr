@@ -1,0 +1,82 @@
+error: lifetime may not live long enough
+  --> tests/ui/lifetimes/static_containers.rs:20:45
+   |
+20 |         pub fn keep_input(#[input] _input: &VariableBytes<'static, 8>) {}
+   |             --------------------------------^^^^^^^^^^^^^^^^^^^^^^^^^-
+   |             |                               |
+   |             |                               type annotation requires that `'args` must outlive `'static`
+   |             lifetime `'args` defined here
+
+error: lifetime may not live long enough
+  --> tests/ui/lifetimes/static_containers.rs:53:43
+   |
+53 |         pub fn new(#[output] _state: &mut State<'_, Self>) {}
+   |             ------------------------------^^^^^^^^^^^^^^^-
+   |             |                             |
+   |             |                             type annotation requires that `'args` must outlive `'static`
+   |             lifetime `'args` defined here
+   |
+   = note: requirement occurs because of a mutable reference to `ab_io_type::maybe_data::MaybeData<'_, alias::Example>`
+   = note: mutable references are invariant over their type parameter
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error: lifetime may not live long enough
+  --> tests/ui/lifetimes/static_containers.rs:56:43
+   |
+56 |         pub fn keep_tmp(#[tmp] _tmp: &mut Tmp) {}
+   |             ------------------------------^^^-
+   |             |                             |
+   |             |                             type annotation requires that `'args` must outlive `'static`
+   |             lifetime `'args` defined here
+   |
+   = note: requirement occurs because of a mutable reference to `ab_io_type::maybe_data::MaybeData<'_, u64>`
+   = note: mutable references are invariant over their type parameter
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error: lifetime may not live long enough
+  --> tests/ui/lifetimes/static_containers.rs:59:46
+   |
+59 |         pub fn keep_slot(#[slot] _slot: &mut Slot) {}
+   |             ---------------------------------^^^^-
+   |             |                                |
+   |             |                                type annotation requires that `'args` must outlive `'static`
+   |             lifetime `'args` defined here
+   |
+   = note: requirement occurs because of a mutable reference to `ab_io_type::maybe_data::MaybeData<'_, u64>`
+   = note: mutable references are invariant over their type parameter
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error: lifetime may not live long enough
+  --> tests/ui/lifetimes/static_containers.rs:62:82
+   |
+62 |         pub fn keep_slot_with_address(#[slot] (_address, _slot): (&Address, &mut Slot)) {}
+   |             ---------------------------------------------------------------------^^^^--
+   |             |                                                                    |
+   |             |                                                                    type annotation requires that `'args` must outlive `'static`
+   |             lifetime `'args` defined here
+   |
+   = note: requirement occurs because of a mutable reference to `ab_io_type::maybe_data::MaybeData<'_, u64>`
+   = note: mutable references are invariant over their type parameter
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error: lifetime may not live long enough
+  --> tests/ui/lifetimes/static_containers.rs:65:45
+   |
+65 |         pub fn keep_input(#[input] _input: &Bytes) {}
+   |             --------------------------------^^^^^-
+   |             |                               |
+   |             |                               type annotation requires that `'args` must outlive `'static`
+   |             lifetime `'args` defined here
+
+error: lifetime may not live long enough
+  --> tests/ui/lifetimes/static_containers.rs:68:51
+   |
+68 |         pub fn keep_output(#[output] output: &mut Bytes) {
+   |             --------------------------------------^^^^^-
+   |             |                                     |
+   |             |                                     type annotation requires that `'args` must outlive `'static`
+   |             lifetime `'args` defined here
+   |
+   = note: requirement occurs because of a mutable reference to `ab_io_type::variable_elements::VariableElements<'_, u8, 8>`
+   = note: mutable references are invariant over their type parameter
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance

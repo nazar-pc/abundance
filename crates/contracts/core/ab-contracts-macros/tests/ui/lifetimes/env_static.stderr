@@ -1,0 +1,19 @@
+error: lifetime may not live long enough
+  --> tests/ui/lifetimes/env_static.rs:17:33
+   |
+17 |     pub fn keep_env(#[env] env: &'static Env<'static>) {
+   |         ------------------------^^^^^^^^^^^^^^^^^^^^^-
+   |         |                       |
+   |         |                       type annotation requires that `'1` must outlive `'static`
+   |         has type `&mut ffi::keep_env::InternalArgs<'1>`
+   |         lifetime `'1` introduced here
+
+error: lifetime may not live long enough
+  --> tests/ui/lifetimes/env_static.rs:22:43
+   |
+22 |     pub fn keep_env_reference(#[env] env: &'static Env<'_>) {
+   |         ----------------------------------^^^^^^^^^^^^^^^^-
+   |         |                                 |
+   |         |                                 type annotation requires that `'1` must outlive `'static`
+   |         has type `&mut ffi::keep_env_reference::InternalArgs<'1>`
+   |         lifetime `'1` introduced here

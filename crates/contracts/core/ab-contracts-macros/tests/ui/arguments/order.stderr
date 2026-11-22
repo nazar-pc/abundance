@@ -1,0 +1,23 @@
+error: `#[tmp]` must appear only once before any `#[slot]`, `#[input]` or `#[output]`
+  --> tests/ui/arguments/order.rs:21:13
+   |
+21 |             #[tmp] _tmp: &mut ab_io_type::maybe_data::MaybeData<'_, u8>,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[env]` must be the first non-Self argument and only appear once
+  --> tests/ui/arguments/order.rs:42:13
+   |
+42 |             #[env] _env: &ab_contracts_common::env::Env<'_>,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[env]` must be the first non-Self argument and only appear once
+  --> tests/ui/arguments/order.rs:63:13
+   |
+63 |             #[env] _env: &mut ab_contracts_common::env::Env<'_>,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `#[input]` must appear before any `#[output]`
+  --> tests/ui/arguments/order.rs:84:13
+   |
+84 |             #[input] _input: &u8,
+   |             ^^^^^^^^^^^^^^^^^^^^

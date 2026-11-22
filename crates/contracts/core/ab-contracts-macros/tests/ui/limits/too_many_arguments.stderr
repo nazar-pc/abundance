@@ -1,0 +1,93 @@
+error[E0080]: evaluation panicked: Too many arguments
+  --> tests/ui/limits/too_many_arguments.rs:18:13
+   |
+18 |           pub fn many(
+   |  _____________^
+19 | |             #[input] _a: &u8,
+20 | |             #[input] _b: &u8,
+21 | |             #[input] _c: &u8,
+...  |
+27 | |             #[input] _i: &u8,
+28 | |         ) {
+   | |_________^ evaluation of `without_self::ffi::many::METADATA` failed inside this call
+   |
+note: inside `without_self::ffi::many::metadata`
+  --> tests/ui/limits/too_many_arguments.rs:18:13
+   |
+18 |           pub fn many(
+   |  _____________^
+19 | |             #[input] _a: &u8,
+20 | |             #[input] _b: &u8,
+21 | |             #[input] _c: &u8,
+...  |
+27 | |             #[input] _i: &u8,
+28 | |         ) {
+   | |_________^ the failure occurred here
+
+note: erroneous constant encountered
+  --> tests/ui/limits/too_many_arguments.rs:18:13
+   |
+18 |           pub fn many(
+   |  _____________^
+19 | |             #[input] _a: &u8,
+20 | |             #[input] _b: &u8,
+21 | |             #[input] _c: &u8,
+...  |
+27 | |             #[input] _i: &u8,
+28 | |         ) {
+   | |_________^
+
+note: erroneous constant encountered
+  --> tests/ui/limits/too_many_arguments.rs:15:5
+   |
+15 |     #[contract]
+   |     ^^^^^^^^^^^
+   |
+   = note: this note originates in the attribute macro `contract` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0080]: evaluation panicked: Too many arguments
+  --> tests/ui/limits/too_many_arguments.rs:46:13
+   |
+46 |           pub fn many(
+   |  _____________^
+47 | |             &mut self,
+48 | |             #[input] _a: &u8,
+49 | |             #[input] _b: &u8,
+...  |
+55 | |             #[input] _h: &u8,
+56 | |         ) {
+   | |_________^ evaluation of `with_self::ffi::many::METADATA` failed inside this call
+   |
+note: inside `with_self::ffi::many::metadata`
+  --> tests/ui/limits/too_many_arguments.rs:46:13
+   |
+46 |           pub fn many(
+   |  _____________^
+47 | |             &mut self,
+48 | |             #[input] _a: &u8,
+49 | |             #[input] _b: &u8,
+...  |
+55 | |             #[input] _h: &u8,
+56 | |         ) {
+   | |_________^ the failure occurred here
+
+note: erroneous constant encountered
+  --> tests/ui/limits/too_many_arguments.rs:46:13
+   |
+46 |           pub fn many(
+   |  _____________^
+47 | |             &mut self,
+48 | |             #[input] _a: &u8,
+49 | |             #[input] _b: &u8,
+...  |
+55 | |             #[input] _h: &u8,
+56 | |         ) {
+   | |_________^
+
+note: erroneous constant encountered
+  --> tests/ui/limits/too_many_arguments.rs:43:5
+   |
+43 |     #[contract]
+   |     ^^^^^^^^^^^
+   |
+   = note: this note originates in the attribute macro `contract` (in Nightly builds, run with -Z macro-backtrace for more info)

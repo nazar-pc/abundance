@@ -1,4 +1,6 @@
-use crate::contract::method::{MethodDetails, MethodType};
+use crate::contract::method::{
+    MethodDetails, MethodType, TRAIT_DEFINITION_STORAGE_ERROR, has_attribute,
+};
 use crate::contract::{ContractDetails, Method, MethodOutput};
 use proc_macro2::Ident;
 use quote::format_ident;
@@ -38,14 +40,14 @@ pub(super) fn process_update_fn(
 
         match input {
             FnArg::Receiver(receiver) => {
-                if !matches!(receiver.kind, ReceiverKind::Reference(..)) {
+                let ReceiverKind::Reference(_, lifetime, mutability) = &receiver.kind else {
                     return Err(Error::new(
                         fn_sig.span(),
                         "`#[update]` can't consume `Self`, use `&self` or `&mut self` instead",
                     ));
-                }
+                };
 
-                methods_details.process_state_arg_rw(input_span, receiver)?;
+                methods_details.process_state_arg(lifetime.as_ref(), *mutability)?;
             }
             FnArg::Typed(pat_type) => {
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {
@@ -89,7 +91,7 @@ pub(super) fn process_update_fn(
 
     let guest_ffi = methods_details.generate_guest_ffi(fn_sig, trait_name)?;
     let trait_ext_components =
-        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, trait_name)?;
+        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, trait_name);
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),
@@ -136,6 +138,10 @@ pub(super) fn process_update_fn_definition(
                 ));
             }
             FnArg::Typed(pat_type) => {
+                if has_attribute(&pat_type.attrs, "tmp") || has_attribute(&pat_type.attrs, "slot") {
+                    return Err(Error::new(input_span, TRAIT_DEFINITION_STORAGE_ERROR));
+                }
+
                 let mut attrs = pat_type.attrs.extract_if(.., |attr| match &attr.meta {
                     Meta::Path(path) => {
                         path.leading_colon.is_none()
@@ -175,7 +181,7 @@ pub(super) fn process_update_fn_definition(
 
     let guest_ffi = methods_details.generate_guest_trait_ffi(fn_sig, Some(trait_name))?;
     let trait_ext_components =
-        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, Some(trait_name))?;
+        methods_details.generate_trait_ext_components(fn_sig, fn_attrs, Some(trait_name));
 
     contract_details.methods.push(Method {
         original_ident: fn_sig.ident.clone(),

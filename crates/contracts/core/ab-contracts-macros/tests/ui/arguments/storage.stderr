@@ -1,0 +1,5 @@
+error: All `#[slot]` arguments must be of the same type in all methods of a contract
+  --> tests/ui/arguments/storage.rs:22:36
+   |
+22 |         pub fn get(#[slot] _slot: &ab_io_type::maybe_data::MaybeData<'_, u16>) {}
+   |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

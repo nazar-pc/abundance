@@ -1,0 +1,5 @@
+error: `#[tmp]` and `#[slot]` are not supported in trait definitions, since their types are specific to each contract that implements the trait
+  --> tests/ui/traits/definition.rs:11:17
+   |
+11 |         fn read(#[slot] slot: &ab_io_type::maybe_data::MaybeData<'_, u8>);
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

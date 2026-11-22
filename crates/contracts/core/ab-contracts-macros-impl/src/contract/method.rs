@@ -10,13 +10,20 @@ use syn::spanned::Spanned;
 use syn::token::Paren;
 use syn::visit::Visit;
 use syn::{
-    Attribute, Error, GenericArgument, Lifetime, Meta, Pat, PatType, PathArguments, Receiver,
-    ReceiverKind, ReturnType, Signature, Token, Type, TypeTuple,
+    Attribute, Error, GenericArgument, Lifetime, Meta, Pat, PatType, PathArguments, ReturnType,
+    Signature, Token, Type, TypeTuple,
 };
 
 const SLOT_NAMED_LIFETIME_ERROR: &str = "`#[slot]` must not have named lifetimes, since slots \
     are trusted without being parsed and must not be lent to calls with `Env::lend_output()`, lend \
     a copy made with `Lent::new()` instead";
+
+const SIMPLE_SELF_TYPE_PROOF: &str = "Self type of methods is the name of a trait or of a struct \
+    that `contract()` checked to be a simple identifier; qed";
+
+pub(super) const TRAIT_DEFINITION_STORAGE_ERROR: &str = "`#[tmp]` and `#[slot]` are not \
+    supported in trait definitions, since their types are specific to each contract that \
+    implements the trait";
 
 #[derive(Copy, Clone)]
 pub(super) enum MethodType {
@@ -167,24 +174,29 @@ impl MethodDetails {
         }
     }
 
-    /// Returns `#[tmp]` type (or `()` if it is not used) if all methods have the same slots type.
+    /// Returns `#[tmp]` type (or `()` if it is not used), or an error at the first `#[tmp]` whose
+    /// type differs from the previous ones.
     ///
     /// Lifetimes in the type are replaced with `'static`, so that `Contract::Tmp` can name it.
     /// `'static` is only used at the type level, like for the pointer type in `InternalArgs`,
     /// metadata and type checks. The value a method gets is created by an `IoType` method like
     /// `IoType::from_mut_ptr()`. It gives the value the lifetime of the borrow of `args` of the FFI
     /// function instead, whatever lifetime the type has (see `IoType::WithLifetime`).
-    pub(super) fn tmp_type<'a, I>(iter: I) -> Option<Type>
+    pub(super) fn tmp_type<'a, I>(iter: I) -> Result<Type, Error>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
         let mut tmp_type = None;
-        for slot in iter.flat_map(|method_details| &method_details.tmp) {
-            let type_name = with_lifetime(&slot.type_name, "'static");
+        for tmp in iter.flat_map(|method_details| &method_details.tmp) {
+            let type_name = with_lifetime(&tmp.type_name, "'static");
             match &tmp_type {
                 Some(tmp_type) => {
                     if tmp_type != &type_name {
-                        return None;
+                        return Err(Error::new(
+                            tmp.type_name.span(),
+                            "All `#[tmp]` arguments must be of the same type in all methods of a \
+                            contract",
+                        ));
                     }
                 }
                 None => {
@@ -193,13 +205,14 @@ impl MethodDetails {
             }
         }
 
-        Some(tmp_type.unwrap_or_else(MethodReturnType::unit_type))
+        Ok(tmp_type.unwrap_or_else(MethodReturnType::unit_type))
     }
 
-    /// Returns `#[slot]` type (or `()` if it is not used) if all methods have the same slots type.
+    /// Returns `#[slot]` type (or `()` if it is not used), or an error at the first `#[slot]` whose
+    /// type differs from the previous ones.
     ///
     /// Lifetimes in the type are replaced with `'static`, like in [`Self::tmp_type()`].
-    pub(super) fn slot_type<'a, I>(iter: I) -> Option<Type>
+    pub(super) fn slot_type<'a, I>(iter: I) -> Result<Type, Error>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
@@ -209,7 +222,11 @@ impl MethodDetails {
             match &slot_type {
                 Some(slot_type) => {
                     if slot_type != &type_name {
-                        return None;
+                        return Err(Error::new(
+                            slot.type_name.span(),
+                            "All `#[slot]` arguments must be of the same type in all methods of a \
+                            contract",
+                        ));
                     }
                 }
                 None => {
@@ -218,7 +235,7 @@ impl MethodDetails {
             }
         }
 
-        Some(slot_type.unwrap_or_else(MethodReturnType::unit_type))
+        Ok(slot_type.unwrap_or_else(MethodReturnType::unit_type))
     }
 
     /// The kind of the last argument processed so far
@@ -300,36 +317,14 @@ impl MethodDetails {
         }
     }
 
-    pub(super) fn process_state_arg_ro(
+    /// Process `&self` or `&mut self`, callers reject other receivers and `&mut self` where it is
+    /// not allowed
+    pub(super) fn process_state_arg(
         &mut self,
-        input_span: Span,
-        receiver: &Receiver,
+        lifetime: Option<&Lifetime>,
+        mutability: Option<Token![mut]>,
     ) -> Result<(), Error> {
-        self.process_state_arg(input_span, receiver, false)
-    }
-
-    pub(super) fn process_state_arg_rw(
-        &mut self,
-        input_span: Span,
-        receiver: &Receiver,
-    ) -> Result<(), Error> {
-        self.process_state_arg(input_span, receiver, true)
-    }
-
-    fn process_state_arg(
-        &mut self,
-        input_span: Span,
-        receiver: &Receiver,
-        allow_mut: bool,
-    ) -> Result<(), Error> {
-        // Only accept `&self` or `&mut self`
-        let ReceiverKind::Reference(_, lifetime, mutability) = &receiver.kind else {
-            return Err(Error::new(
-                input_span,
-                "Can't consume `Self`, use `&self` or `&mut self` instead",
-            ));
-        };
-        if let Some(lifetime) = named_lifetime(lifetime.as_ref()) {
+        if let Some(lifetime) = named_lifetime(lifetime) {
             return Err(Error::new(
                 lifetime.span(),
                 "The state must not have a named lifetime, since it is trusted without being \
@@ -337,14 +332,8 @@ impl MethodDetails {
                 with `Lent::new()` instead",
             ));
         }
-        if mutability.is_some() && !allow_mut {
-            return Err(Error::new(
-                input_span,
-                "`#[arg]` is not allowed to mutate data here",
-            ));
-        }
 
-        self.state.replace(*mutability);
+        self.state.replace(mutability);
         Ok(())
     }
 
@@ -389,7 +378,7 @@ impl MethodDetails {
         Err(Error::new(
             pat_type.span(),
             "`#[tmp]` must be a reference to a type implementing `IoTypeOptional` (can be \
-            shared or exclusive) like `&MaybeData<'_, Slot>` or `&mut VariableBytes<'_, 1024>`",
+            shared or exclusive) like `&MaybeData<'_, Tmp>` or `&mut VariableBytes<'_, 1024>`",
         ))
     }
 
@@ -483,8 +472,9 @@ impl MethodDetails {
 
                 return Err(Error::new(
                     pat_type.span(),
-                    "`#[slot]` with address must be a tuple of arguments, each of which is \
-                        either a simple variable or a reference",
+                    "`#[slot]` with address must be a tuple of a shared reference to the address \
+                    and a reference to the slot, bound to a tuple of two variables, like \
+                    `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`",
                 ));
             }
             _ => {
@@ -495,8 +485,9 @@ impl MethodDetails {
         Err(Error::new(
             pat_type.span(),
             "`#[slot]` must be a reference to a type implementing `IoTypeOptional` (can be \
-            shared or exclusive) like `&MaybeData<'_, Slot>` or a tuple of references to address \
-            and to slot type like `(&Address, &mut VariableBytes<'_, 1024>)`",
+            shared or exclusive) like `&MaybeData<'_, Slot>` or a tuple of a shared reference to \
+            the address and a reference to the slot like \
+            `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`",
         ))
     }
 
@@ -602,7 +593,7 @@ impl MethodDetails {
     pub(super) fn process_return(&mut self, output: &ReturnType) -> Result<(), Error> {
         // Check if return type is `T` or `Result<T, ContractError>`
         let error_message = format!(
-            "`#[{}]` must return `()` or `T` or `Result<T, ContractError>",
+            "`#[{}]` must return `()` or `T` or `Result<T, ContractError>`",
             self.method_type.attr_str()
         );
         match output {
@@ -732,8 +723,8 @@ impl MethodDetails {
 
         let original_method_name = &fn_sig.ident;
 
-        let guest_fn = self.generate_guest_fn(fn_sig, trait_name)?;
-        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name)?;
+        let guest_fn = self.generate_guest_fn(fn_sig, trait_name);
+        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name);
         let metadata = self.generate_metadata(fn_sig, trait_name)?;
 
         Ok(quote_spanned! {fn_sig.span() =>
@@ -755,7 +746,7 @@ impl MethodDetails {
     ) -> Result<TokenStream, Error> {
         let original_method_name = &fn_sig.ident;
 
-        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name)?;
+        let external_args_struct = self.generate_external_args_struct(fn_sig, trait_name);
         let metadata = self.generate_metadata(fn_sig, trait_name)?;
 
         Ok(quote_spanned! {fn_sig.span() =>
@@ -778,7 +769,7 @@ impl MethodDetails {
         &self,
         fn_sig: &Signature,
         trait_name: Option<&Ident>,
-    ) -> Result<TokenStream, Error> {
+    ) -> TokenStream {
         let self_type = &self.self_type;
         // Generated locals and parameters have mixed-site spans, so that they can't clash with
         // names from the method signature
@@ -1214,7 +1205,7 @@ impl MethodDetails {
         }
 
         let original_method_name = &fn_sig.ident;
-        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
+        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name);
         let return_type = self.return_type.return_type();
 
         let internal_args_struct = {
@@ -1402,7 +1393,7 @@ impl MethodDetails {
         let fn_pointer_static = {
             let adapter_ffi_fn_name = format_ident!("{ffi_fn_name}_adapter");
             let args_struct_name =
-                derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
+                derive_external_args_struct_name(self_type, trait_name, original_method_name);
 
             quote! {
                 #[doc(hidden)]
@@ -1437,23 +1428,23 @@ impl MethodDetails {
             }
         };
 
-        Ok(quote! {
+        quote! {
             #internal_args_struct
             #guest_fn
             #fn_pointer_static
-        })
+        }
     }
 
     fn generate_external_args_struct(
         &self,
         fn_sig: &Signature,
         trait_name: Option<&Ident>,
-    ) -> Result<TokenStream, Error> {
+    ) -> TokenStream {
         let self_type = &self.self_type;
         let original_method_name = &fn_sig.ident;
 
         let args_struct_name =
-            derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
+            derive_external_args_struct_name(self_type, trait_name, original_method_name);
         // `external_args_pointers` will generate pointers in `ExternalArgs` fields
         let mut external_args_fields = Vec::new();
         // Arguments of `::new()` method
@@ -1592,7 +1583,7 @@ impl MethodDetails {
             });
         }
 
-        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
+        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name);
 
         // Initializer's return type will be `()` for the caller of `#[init]` since the state is
         // stored by the host and not returned to the caller and explicit argument is not needed in
@@ -1620,7 +1611,7 @@ impl MethodDetails {
             struct directly in simpler cases."
         );
 
-        Ok(quote_spanned! {fn_sig.span() =>
+        quote_spanned! {fn_sig.span() =>
             #[doc = #args_struct_doc]
             // Fields are private and can only be set by `Self::new()`, so that pointers in them
             // always match the method signature, according to which the host dereferences them
@@ -1682,7 +1673,7 @@ impl MethodDetails {
 
                 #( #getters )*
             }
-        })
+        }
     }
 
     fn generate_metadata(
@@ -1824,15 +1815,9 @@ impl MethodDetails {
                     "UpdateStateless"
                 }
             }
+            // `&mut self` is rejected while processing arguments of `#[view]`
             MethodType::View => {
-                if let Some(mutable) = &self.state {
-                    if mutable.is_some() {
-                        return Err(Error::new(
-                            fn_sig.span(),
-                            "Stateful view methods are not supported",
-                        ));
-                    }
-
+                if self.state.is_some() {
                     "ViewStateful"
                 } else {
                     "ViewStateless"
@@ -1854,7 +1839,7 @@ impl MethodDetails {
         let number_of_arguments = Literal::u8_unsuffixed(number_of_arguments);
 
         let original_method_name = &fn_sig.ident;
-        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
+        let ffi_fn_name = derive_ffi_fn_name(self_type, trait_name, original_method_name);
         let method_name_metadata = derive_ident_metadata(&ffi_fn_name)?;
         Ok(quote_spanned! {fn_sig.span() =>
             #[expect(
@@ -1898,7 +1883,7 @@ impl MethodDetails {
         fn_sig: &Signature,
         fn_attrs: &[Attribute],
         trait_name: Option<&Ident>,
-    ) -> Result<ExtTraitComponents, Error> {
+    ) -> ExtTraitComponents {
         let self_type = &self.self_type;
 
         let mut method_args = Vec::new();
@@ -1984,7 +1969,7 @@ impl MethodDetails {
         }
 
         let original_method_name = &fn_sig.ident;
-        let ext_method_name = derive_ffi_fn_name(self_type, trait_name, original_method_name)?;
+        let ext_method_name = derive_ffi_fn_name(self_type, trait_name, original_method_name);
         // Non-`#[view]` methods can only be called on `&mut Env`
         let env_self = if matches!(self.method_type, MethodType::View) {
             quote_spanned! {fn_sig.span() => &self }
@@ -2059,7 +2044,7 @@ impl MethodDetails {
         };
 
         let args_struct_name =
-            derive_external_args_struct_name(self_type, trait_name, original_method_name)?;
+            derive_external_args_struct_name(self_type, trait_name, original_method_name);
         // `#[view]` methods do not require explicit method context
         let method_context_value = if matches!(self.method_type, MethodType::View) {
             quote_spanned! {fn_sig.span() =>
@@ -2101,7 +2086,7 @@ impl MethodDetails {
                 }
             };
 
-            return Ok(ExtTraitComponents { definition, r#impl });
+            return ExtTraitComponents { definition, r#impl };
         };
 
         let r#impl = quote_spanned! {fn_sig.span() =>
@@ -2144,7 +2129,7 @@ impl MethodDetails {
             }
         };
 
-        Ok(ExtTraitComponents { definition, r#impl })
+        ExtTraitComponents { definition, r#impl }
     }
 }
 
@@ -2214,6 +2199,11 @@ fn bind_to_reference_type(type_name: &Type, value: TokenStream) -> TokenStream {
     }}
 }
 
+/// Whether `attrs` contain `#[name]`
+pub(super) fn has_attribute(attrs: &[Attribute], name: &str) -> bool {
+    attrs.iter().any(|attr| attr.path().is_ident(name))
+}
+
 fn extract_arg_name(mut pat: &Pat) -> Option<Ident> {
     loop {
         match pat {
@@ -2230,36 +2220,22 @@ fn extract_arg_name(mut pat: &Pat) -> Option<Ident> {
     }
 }
 
-fn derive_ffi_fn_name(
-    type_name: &Type,
-    trait_name: Option<&Ident>,
-    method_name: &Ident,
-) -> Result<Ident, Error> {
-    let type_name = extract_ident_from_type(type_name).ok_or_else(|| {
-        Error::new(
-            type_name.span(),
-            "`#[contract]` must be applied to a simple struct without generics",
-        )
-    })?;
+fn derive_ffi_fn_name(type_name: &Type, trait_name: Option<&Ident>, method_name: &Ident) -> Ident {
+    let type_name = extract_ident_from_type(type_name).expect(SIMPLE_SELF_TYPE_PROOF);
     let ffi_fn_prefix = trait_name.unwrap_or(type_name).to_string().to_snake_case();
 
-    Ok(format_ident!("{ffi_fn_prefix}_{method_name}"))
+    format_ident!("{ffi_fn_prefix}_{method_name}")
 }
 
 fn derive_external_args_struct_name(
     type_name: &Type,
     trait_name: Option<&Ident>,
     method_name: &Ident,
-) -> Result<Ident, Error> {
-    let type_name = extract_ident_from_type(type_name).ok_or_else(|| {
-        Error::new(
-            type_name.span(),
-            "`#[contract]` must be applied to a simple struct without generics",
-        )
-    })?;
-    Ok(format_ident!(
+) -> Ident {
+    let type_name = extract_ident_from_type(type_name).expect(SIMPLE_SELF_TYPE_PROOF);
+    format_ident!(
         "{}{}Args",
         trait_name.unwrap_or(type_name),
         method_name.to_string().to_upper_camel_case()
-    ))
+    )
 }
