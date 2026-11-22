@@ -70,7 +70,17 @@ pub(super) fn contract(item: TokenStream) -> Result<TokenStream, Error> {
     if let Some((path, _for)) = &item_impl.trait_ {
         let trait_name = path
             .get_ident()
-            .ok_or_else(|| Error::new(path.span(), error_message))?
+            .ok_or_else(|| {
+                if path.leading_colon.is_some() || path.segments.len() > 1 {
+                    Error::new(
+                        path.span(),
+                        "`#[contract]` requires the implemented trait to be named by a simple \
+                        identifier, import it with `use` instead of using a path",
+                    )
+                } else {
+                    Error::new(path.span(), "`#[contract]` does not support generics")
+                }
+            })?
             .clone();
         // Trait implementation
         process_trait_impl(item_impl, &trait_name)

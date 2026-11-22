@@ -15,3 +15,15 @@ error: `#[contract]` must be applied to an implementation for a simple struct wi
    |
 39 |     impl Example<u8> {
    |          ^^^^^^^^^^^
+
+error: `#[contract]` requires the implemented trait to be named by a simple identifier, import it with `use` instead of using a path
+  --> tests/ui/items/applied_to.rs:68:10
+   |
+68 |     impl counter::Counter for Example {
+   |          ^^^^^^^^^^^^^^^^
+
+error: `#[contract]` does not support generics
+  --> tests/ui/items/applied_to.rs:88:10
+   |
+88 |     impl Counter<u8> for Example {
+   |          ^^^^^^^^^^^
