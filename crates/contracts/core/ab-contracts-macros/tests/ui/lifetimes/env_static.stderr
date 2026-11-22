@@ -1,5 +1,5 @@
 error: lifetime may not live long enough
-  --> tests/ui/env_static_lifetime.rs:17:33
+  --> tests/ui/lifetimes/env_static.rs:17:33
    |
 17 |     pub fn keep_env(#[env] env: &'static Env<'static>) {
    |         ------------------------^^^^^^^^^^^^^^^^^^^^^-
@@ -9,7 +9,7 @@ error: lifetime may not live long enough
    |         lifetime `'1` introduced here
 
 error: lifetime may not live long enough
-  --> tests/ui/env_static_lifetime.rs:22:43
+  --> tests/ui/lifetimes/env_static.rs:22:43
    |
 22 |     pub fn keep_env_reference(#[env] env: &'static Env<'_>) {
    |         ----------------------------------^^^^^^^^^^^^^^^^-

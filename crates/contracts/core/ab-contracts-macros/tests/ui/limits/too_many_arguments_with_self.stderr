@@ -1,5 +1,5 @@
 error[E0080]: evaluation panicked: Too many arguments
-  --> tests/ui/too_many_arguments_with_self.rs:16:9
+  --> tests/ui/limits/too_many_arguments_with_self.rs:16:9
    |
 16 |       pub fn many(
    |  _________^
@@ -12,7 +12,7 @@ error[E0080]: evaluation panicked: Too many arguments
    | |_____^ evaluation of `ffi::many::METADATA` failed inside this call
    |
 note: inside `ffi::many::metadata`
-  --> tests/ui/too_many_arguments_with_self.rs:16:9
+  --> tests/ui/limits/too_many_arguments_with_self.rs:16:9
    |
 16 |       pub fn many(
    |  _________^
@@ -25,7 +25,7 @@ note: inside `ffi::many::metadata`
    | |_____^ the failure occurred here
 
 note: erroneous constant encountered
-  --> tests/ui/too_many_arguments_with_self.rs:16:9
+  --> tests/ui/limits/too_many_arguments_with_self.rs:16:9
    |
 16 |       pub fn many(
    |  _________^
@@ -38,7 +38,7 @@ note: erroneous constant encountered
    | |_____^
 
 note: erroneous constant encountered
-  --> tests/ui/too_many_arguments_with_self.rs:13:1
+  --> tests/ui/limits/too_many_arguments_with_self.rs:13:1
    |
 13 | #[contract]
    | ^^^^^^^^^^^

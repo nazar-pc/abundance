@@ -1,5 +1,5 @@
 error: lifetime may not live long enough
-  --> tests/ui/container_alias_static_lifetime.rs:33:39
+  --> tests/ui/lifetimes/static_containers_alias.rs:33:39
    |
 33 |     pub fn new(#[output] _state: &mut State<'_, Self>) {}
    |         ------------------------------^^^^^^^^^^^^^^^-
@@ -12,7 +12,7 @@ error: lifetime may not live long enough
    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
 
 error: lifetime may not live long enough
-  --> tests/ui/container_alias_static_lifetime.rs:36:38
+  --> tests/ui/lifetimes/static_containers_alias.rs:36:38
    |
 36 |     pub fn keep_tmp(#[tmp] tmp: &mut Tmp) {
    |         -----------------------------^^^-
@@ -25,7 +25,7 @@ error: lifetime may not live long enough
    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
 
 error: lifetime may not live long enough
-  --> tests/ui/container_alias_static_lifetime.rs:45:42
+  --> tests/ui/lifetimes/static_containers_alias.rs:45:42
    |
 45 |     pub fn keep_slot(#[slot] _slot: &mut Slot) {}
    |         ---------------------------------^^^^-
@@ -38,7 +38,7 @@ error: lifetime may not live long enough
    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
 
 error: lifetime may not live long enough
-  --> tests/ui/container_alias_static_lifetime.rs:48:78
+  --> tests/ui/lifetimes/static_containers_alias.rs:48:78
    |
 48 |     pub fn keep_slot_with_address(#[slot] (_address, _slot): (&Address, &mut Slot)) {}
    |         ---------------------------------------------------------------------^^^^--
@@ -51,7 +51,7 @@ error: lifetime may not live long enough
    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
 
 error: lifetime may not live long enough
-  --> tests/ui/container_alias_static_lifetime.rs:51:41
+  --> tests/ui/lifetimes/static_containers_alias.rs:51:41
    |
 51 |     pub fn keep_input(#[input] _input: &Bytes) {}
    |         --------------------------------^^^^^-
@@ -60,7 +60,7 @@ error: lifetime may not live long enough
    |         lifetime `'args` defined here
 
 error: lifetime may not live long enough
-  --> tests/ui/container_alias_static_lifetime.rs:54:47
+  --> tests/ui/lifetimes/static_containers_alias.rs:54:47
    |
 54 |     pub fn keep_output(#[output] output: &mut Bytes) {
    |         --------------------------------------^^^^^-

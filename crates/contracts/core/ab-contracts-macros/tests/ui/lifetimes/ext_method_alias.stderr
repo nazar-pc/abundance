@@ -1,5 +1,5 @@
 error[E0597]: `buffer` does not live long enough
-  --> tests/ui/ext_method_alias_static_lifetime.rs:23:62
+  --> tests/ui/lifetimes/ext_method_alias.rs:23:62
    |
 21 |     let mut buffer = [MaybeUninit::<u8>::uninit(); 8];
    |         ---------- binding `buffer` declared here
@@ -12,13 +12,13 @@ error[E0597]: `buffer` does not live long enough
    | - `buffer` dropped here while still borrowed
    |
 note: requirement that the value outlives `'static` introduced here
-  --> tests/ui/ext_method_alias_static_lifetime.rs:17:58
+  --> tests/ui/lifetimes/ext_method_alias.rs:17:58
    |
 17 |     fn read(#[env] env: &Env<'_>, #[output] output: &mut Bytes) -> Result<(), ContractError>;
    |                                                          ^^^^^
 
 error[E0597]: `size` does not live long enough
-  --> tests/ui/ext_method_alias_static_lifetime.rs:23:75
+  --> tests/ui/lifetimes/ext_method_alias.rs:23:75
    |
 22 |     let mut size = 0;
    |         -------- binding `size` declared here
@@ -30,7 +30,7 @@ error[E0597]: `size` does not live long enough
    | - `size` dropped here while still borrowed
    |
 note: requirement that the value outlives `'static` introduced here
-  --> tests/ui/ext_method_alias_static_lifetime.rs:17:58
+  --> tests/ui/lifetimes/ext_method_alias.rs:17:58
    |
 17 |     fn read(#[env] env: &Env<'_>, #[output] output: &mut Bytes) -> Result<(), ContractError>;
    |                                                          ^^^^^
