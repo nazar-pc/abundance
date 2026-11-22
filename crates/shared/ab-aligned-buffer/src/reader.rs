@@ -7,8 +7,8 @@ use crate::SharedAlignedBuffer;
 use crate::alignment::Alignment;
 #[cfg(feature = "io-type")]
 use ab_io_type::trivial_type::AnyBitPattern;
-use core::fmt;
 use core::num::{NonZeroU32, NonZeroU64};
+use core::{fmt, hint};
 
 /// Error of a read with [`SharedAlignedBufferReader`]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -82,6 +82,9 @@ where
     /// Bytes that were not read yet
     #[inline(always)]
     pub fn remaining(&self) -> &'a [u8] {
+        // SAFETY: Position is never larger than the length of the buffer, which can't change while
+        // it is borrowed
+        unsafe { hint::assert_unchecked(self.position <= self.buffer.len()) }
         let contents: &'a [u8] = self.buffer.as_slice();
         contents
             .get(self.position as usize..)
@@ -213,14 +216,15 @@ where
     /// Advance by `len` bytes, returns the position before advancing
     #[inline(always)]
     fn advance(&mut self, len: u64) -> Result<u32, ReadError> {
-        let remaining = self.buffer.len() - self.position;
-        let Some(len) = u32::try_from(len).ok().filter(|&len| len <= remaining) else {
-            let missing = NonZeroU64::new(len - u64::from(remaining))
-                .expect("More bytes are needed than remain as checked above; qed");
+        // SAFETY: Position is never larger than the length of the buffer, which can't change while
+        // it is borrowed
+        let remaining = unsafe { self.buffer.len().unchecked_sub(self.position) };
+        if let Some(missing) = NonZeroU64::new(len.saturating_sub(u64::from(remaining))) {
             return Err(ReadError::NotEnoughBytes {
                 missing: NonZeroU32::try_from(missing).unwrap_or(NonZeroU32::MAX),
             });
-        };
+        }
+        let len = u32::try_from(len).expect("Not larger than the number of remaining bytes; qed");
 
         let start = self.position;
         // Within the contents, whose length is a `u32`, as checked above
