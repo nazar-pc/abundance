@@ -370,32 +370,18 @@ fn process_struct_impl(mut item_impl: ItemImpl) -> Result<TokenStream, Error> {
         }
     }
 
-    let maybe_slot_type = MethodDetails::slot_type(
+    let slot_type = MethodDetails::slot_type(
         contract_details
             .methods
             .iter()
             .map(|method| &method.methods_details),
-    );
-    let Some(slot_type) = maybe_slot_type else {
-        return Err(Error::new(
-            item_impl.span(),
-            "All `#[slot]` arguments must be of the same type in all methods of a contract",
-        ));
-    };
-
-    let maybe_tmp_type = MethodDetails::tmp_type(
+    )?;
+    let tmp_type = MethodDetails::tmp_type(
         contract_details
             .methods
             .iter()
             .map(|method| &method.methods_details),
-    );
-
-    let Some(tmp_type) = maybe_tmp_type else {
-        return Err(Error::new(
-            item_impl.span(),
-            "All `#[tmp]` arguments must be of the same type in all methods of a contract",
-        ));
-    };
+    )?;
 
     let max_depth_assertions = [
         max_depth_assertion(

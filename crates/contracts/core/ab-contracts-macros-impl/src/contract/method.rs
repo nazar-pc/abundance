@@ -174,24 +174,29 @@ impl MethodDetails {
         }
     }
 
-    /// Returns `#[tmp]` type (or `()` if it is not used) if all methods have the same slots type.
+    /// Returns `#[tmp]` type (or `()` if it is not used), or an error at the first `#[tmp]` whose
+    /// type differs from the previous ones.
     ///
     /// Lifetimes in the type are replaced with `'static`, so that `Contract::Tmp` can name it.
     /// `'static` is only used at the type level, like for the pointer type in `InternalArgs`,
     /// metadata and type checks. The value a method gets is created by an `IoType` method like
     /// `IoType::from_mut_ptr()`. It gives the value the lifetime of the borrow of `args` of the FFI
     /// function instead, whatever lifetime the type has (see `IoType::WithLifetime`).
-    pub(super) fn tmp_type<'a, I>(iter: I) -> Option<Type>
+    pub(super) fn tmp_type<'a, I>(iter: I) -> Result<Type, Error>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
         let mut tmp_type = None;
-        for slot in iter.flat_map(|method_details| &method_details.tmp) {
-            let type_name = with_lifetime(&slot.type_name, "'static");
+        for tmp in iter.flat_map(|method_details| &method_details.tmp) {
+            let type_name = with_lifetime(&tmp.type_name, "'static");
             match &tmp_type {
                 Some(tmp_type) => {
                     if tmp_type != &type_name {
-                        return None;
+                        return Err(Error::new(
+                            tmp.type_name.span(),
+                            "All `#[tmp]` arguments must be of the same type in all methods of a \
+                            contract",
+                        ));
                     }
                 }
                 None => {
@@ -200,13 +205,14 @@ impl MethodDetails {
             }
         }
 
-        Some(tmp_type.unwrap_or_else(MethodReturnType::unit_type))
+        Ok(tmp_type.unwrap_or_else(MethodReturnType::unit_type))
     }
 
-    /// Returns `#[slot]` type (or `()` if it is not used) if all methods have the same slots type.
+    /// Returns `#[slot]` type (or `()` if it is not used), or an error at the first `#[slot]` whose
+    /// type differs from the previous ones.
     ///
     /// Lifetimes in the type are replaced with `'static`, like in [`Self::tmp_type()`].
-    pub(super) fn slot_type<'a, I>(iter: I) -> Option<Type>
+    pub(super) fn slot_type<'a, I>(iter: I) -> Result<Type, Error>
     where
         I: Iterator<Item = &'a Self> + 'a,
     {
@@ -216,7 +222,11 @@ impl MethodDetails {
             match &slot_type {
                 Some(slot_type) => {
                     if slot_type != &type_name {
-                        return None;
+                        return Err(Error::new(
+                            slot.type_name.span(),
+                            "All `#[slot]` arguments must be of the same type in all methods of a \
+                            contract",
+                        ));
                     }
                 }
                 None => {
@@ -225,7 +235,7 @@ impl MethodDetails {
             }
         }
 
-        Some(slot_type.unwrap_or_else(MethodReturnType::unit_type))
+        Ok(slot_type.unwrap_or_else(MethodReturnType::unit_type))
     }
 
     /// The kind of the last argument processed so far
