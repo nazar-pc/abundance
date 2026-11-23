@@ -23,7 +23,7 @@ jobs:
           submodules: 'true'
 
       - name: Install mdbook with extra preprocessors
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # 2.90.2
+        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # 2.90.6
         with:
           tool: d2@0.9.0,mdbook@0.5,mdbook-d2@0.3.10
 
@@ -38,7 +38,7 @@ jobs:
           RUSTDOCFLAGS: -D rustdoc::broken-intra-doc-links -D rustdoc::private_intra_doc_links -Z unstable-options --enable-index-page
 
       - name: Install Hugo
-        uses: peaceiris/actions-hugo@2752ce1d29631191ea3f27c23495fa06139a5b78 # 3.2.1
+        uses: peaceiris/actions-hugo@d1c81a15d4e6dca7086a17b9c2565cb70fd576bf # 3.3.0
         with:
           hugo-version: 0.165.0
 
