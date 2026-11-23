@@ -43,6 +43,22 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
 };
 
 const {
+    // The farmer RPC server keeps solutions for this many slots, so zero drops all of them
+    assert!(u64::from(CONSENSUS_CONSTANTS.block_authoring_delay) > 0);
+    // A previous PoT parameters change must take effect by the next injection block, which keeps
+    // it and skips its own injection otherwise, this also rules out a zero interval
+    assert!(
+        u64::from(CONSENSUS_CONSTANTS.pot.entropy_injection_interval)
+            > u64::from(CONSENSUS_CONSTANTS.pot.entropy_injection_delay)
+    );
+    // Entropy injected at or before the future slot of the block announcing it is never mixed in,
+    // and one more slot avoids PoT reorgs on nodes that reach that slot before receiving the block
+    assert!(
+        u64::from(CONSENSUS_CONSTANTS.pot.entropy_injection_delay)
+            > u64::from(CONSENSUS_CONSTANTS.block_authoring_delay) + 1
+    );
+    // Zero disables solution range adjustment
+    assert!(u64::from(CONSENSUS_CONSTANTS.retarget_interval) > 0);
     assert!(u64::from(CONSENSUS_CONSTANTS.shard_rotation_interval) > 0);
     // With a delay of zero, the shard membership entropy source block of every block whose block
     // number is a multiple of the interval is that block itself, which isn't on the chain of its
