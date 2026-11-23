@@ -167,39 +167,28 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
     let mut contract_details = ContractDetails::default();
 
     for item in &mut item_impl.items {
-        match item {
-            ImplItem::Fn(impl_item_fn) => {
-                let method_output = process_fn(
-                    struct_name.clone(),
-                    Some(trait_name),
-                    impl_item_fn,
-                    &mut contract_details,
-                )?;
-                guest_ffis.push(method_output.guest_ffi);
+        if let ImplItem::Fn(impl_item_fn) = item {
+            let method_output = process_fn(
+                struct_name.clone(),
+                Some(trait_name),
+                impl_item_fn,
+                &mut contract_details,
+            )?;
+            guest_ffis.push(method_output.guest_ffi);
 
-                if let Some(where_clause) = &mut impl_item_fn.sig.generics.where_clause {
-                    where_clause.predicates.push(parse_quote! {
-                        Self: ::core::marker::Sized
+            if let Some(where_clause) = &mut impl_item_fn.sig.generics.where_clause {
+                where_clause.predicates.push(parse_quote! {
+                    Self: ::core::marker::Sized
+                });
+            } else {
+                impl_item_fn
+                    .sig
+                    .generics
+                    .where_clause
+                    .replace(parse_quote! {
+                        where
+                            Self: ::core::marker::Sized
                     });
-                } else {
-                    impl_item_fn
-                        .sig
-                        .generics
-                        .where_clause
-                        .replace(parse_quote! {
-                            where
-                                Self: ::core::marker::Sized
-                        });
-                }
-            }
-            ImplItem::Const(impl_item_const) if impl_item_const.ident == "METADATA" => {
-                return Err(Error::new(
-                    impl_item_const.span(),
-                    "`#[contract]` doesn't allow overriding `METADATA` constant",
-                ));
-            }
-            _ => {
-                // Ignore
             }
         }
     }
