@@ -70,7 +70,17 @@ pub(super) fn contract(item: TokenStream) -> Result<TokenStream, Error> {
     if let Some((path, _for)) = &item_impl.trait_ {
         let trait_name = path
             .get_ident()
-            .ok_or_else(|| Error::new(path.span(), error_message))?
+            .ok_or_else(|| {
+                if path.leading_colon.is_some() || path.segments.len() > 1 {
+                    Error::new(
+                        path.span(),
+                        "`#[contract]` requires the implemented trait to be named by a simple \
+                        identifier, import it with `use` instead of using a path",
+                    )
+                } else {
+                    Error::new(path.span(), "`#[contract]` does not support generics")
+                }
+            })?
             .clone();
         // Trait implementation
         process_trait_impl(item_impl, &trait_name)
@@ -249,16 +259,16 @@ fn process_trait_impl(mut item_impl: ItemImpl, trait_name: &Ident) -> Result<Tok
             let (impl_compact_metadata, impl_compact_metadata_size) =
                 ::ab_contracts_macros::__private::ContractMetadataKind::compact(METADATA)
                     .expect(
-                        "Generated metadata is correct and its types are not nested deeper than \
-                        `MAX_METADATA_DEPTH`; qed"
+                        "Generated metadata is correct unless a type in it is nested deeper than \
+                        `MAX_METADATA_DEPTH`, which is reported by a separate error; qed"
                     );
             let (def_compact_metadata, def_compact_metadata_size) =
                 ::ab_contracts_macros::__private::ContractMetadataKind::compact(
                     <dyn #trait_name as ::ab_contracts_macros::__private::ContractTraitDefinition>::METADATA,
                 )
                     .expect(
-                        "Generated metadata is correct and its types are not nested deeper than \
-                        `MAX_METADATA_DEPTH`; qed"
+                        "Generated metadata is correct unless a type in it is nested deeper than \
+                        `MAX_METADATA_DEPTH`, which is reported by a separate error; qed"
                     );
             ::core::assert!(
                 impl_compact_metadata_size == def_compact_metadata_size,
@@ -565,6 +575,18 @@ fn process_fn_definition(
     trait_item_fn: &mut TraitItemFn,
     contract_details: &mut ContractDetails,
 ) -> Result<MethodOutput, Error> {
+    if let Some(init_attr) = trait_item_fn
+        .attrs
+        .iter()
+        .find(|attr| attr.path().is_ident("init"))
+    {
+        return Err(Error::new(
+            init_attr.span(),
+            "`#[init]` is not supported in trait definitions, since the initial state is specific \
+            to each contract that implements the trait",
+        ));
+    }
+
     let supported_attrs = HashMap::<_, fn(_, _, _, _) -> _>::from_iter([
         (format_ident!("update"), process_update_fn_definition as _),
         (format_ident!("view"), process_view_fn_definition as _),

@@ -632,11 +632,11 @@ pub mod __private;
 ///         target: &Address,
 ///     ) -> Result<Balance, ContractError>;
 ///
-///     fn token_balances<'balances>(
+///     fn token_balances<'balances_output>(
 ///         &self,
 ///         contract: Address,
 ///         target: &Address,
-///         balances: &mut impl OutputArg<VariableElements<'balances, Balance>>,
+///         balances: &mut impl OutputArg<VariableElements<'balances_output, Balance>>,
 ///     ) -> Result<(), ContractError>;
 ///
 ///     fn token_transfer(
@@ -664,7 +664,7 @@ pub mod __private;
 /// value of its type, with sizes of outputs already set.
 ///
 /// An `#[output]` whose type has a lifetime parameter gets a lifetime named after it, like
-/// `'balances` above, since `'_` is not allowed in `impl Trait` in arguments.
+/// `'balances_output` above, since `'_` is not allowed in `impl Trait` in arguments.
 ///
 /// The name of the extension trait is created as struct or trait name followed by `Ext`
 /// suffix.

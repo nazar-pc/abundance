@@ -299,6 +299,29 @@ pub mod contracts {
                 }
             }
         }
+
+        #[expect(clippy::unused_unit, reason = "Explicit `()` is what is tested")]
+        pub mod explicit_unit {
+            use ab_contracts_macros::contract;
+            use ab_io_type::trivial_type::TrivialType;
+
+            #[derive(Debug, Copy, Clone, TrivialType)]
+            #[repr(C)]
+            pub struct Example {
+                pub value: u8,
+            }
+
+            #[contract]
+            impl Example {
+                #[view]
+                pub fn get() -> u64 {
+                    0
+                }
+
+                #[update]
+                pub fn set() -> () {}
+            }
+        }
     }
 }
 
@@ -479,6 +502,16 @@ fn slot_with_address_has_same_metadata() {
 fn fallible_return_has_same_metadata() {
     assert_eq!(
         return_type::fallible::Example::MAIN_CONTRACT_METADATA,
+        return_type::infallible::Example::MAIN_CONTRACT_METADATA
+    );
+}
+
+/// An explicit `-> ()` is the same as no return type
+#[test]
+#[cfg(not(feature = "guest"))]
+fn explicit_unit_return_has_same_metadata() {
+    assert_eq!(
+        return_type::explicit_unit::Example::MAIN_CONTRACT_METADATA,
         return_type::infallible::Example::MAIN_CONTRACT_METADATA
     );
 }

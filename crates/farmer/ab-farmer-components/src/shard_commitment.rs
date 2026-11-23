@@ -155,7 +155,9 @@ pub fn derive_solution_shard_commitment(
     .expect("Index is always within the list of leaves; qed");
     debug_assert_eq!(computed_proof.len(), proof.len());
 
-    // SAFETY: Checked above that it is fully initialized
+    // SAFETY: The iterator yields exactly `NUM_LEAVES` leaves, which is a power of two, so the tree
+    // is full and the proof of any leaf has exactly `NUM_LEAVES.ilog2()` elements, which is the
+    // length of the array
     let proof = unsafe { MaybeUninit::array_assume_init(proof) };
 
     SolutionShardCommitment {

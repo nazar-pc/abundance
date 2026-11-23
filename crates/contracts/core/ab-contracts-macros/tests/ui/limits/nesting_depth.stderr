@@ -1,4 +1,4 @@
-error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+error[E0080]: evaluation panicked: Generated metadata is correct unless a type in it is nested deeper than `MAX_METADATA_DEPTH`, which is reported by a separate error; qed
   --> tests/ui/limits/nesting_depth.rs:39:13
    |
 39 |         pub fn get(#[input] _value: &L33) {}
@@ -18,7 +18,7 @@ error[E0080]: evaluation panicked: `#[input]` type must not be nested deeper tha
 39 |         pub fn get(#[input] _value: &L33) {}
    |                                      ^^^ evaluation of `input::ffi::get::_` failed here
 
-error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+error[E0080]: evaluation panicked: Generated metadata is correct unless a type in it is nested deeper than `MAX_METADATA_DEPTH`, which is reported by a separate error; qed
   --> tests/ui/limits/nesting_depth.rs:57:13
    |
 57 |         pub fn get(#[output] _value: &mut L33) {}
@@ -38,7 +38,7 @@ error[E0080]: evaluation panicked: `#[output]` type must not be nested deeper th
 57 |         pub fn get(#[output] _value: &mut L33) {}
    |                                           ^^^ evaluation of `output::ffi::get::_` failed here
 
-error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+error[E0080]: evaluation panicked: Generated metadata is correct unless a type in it is nested deeper than `MAX_METADATA_DEPTH`, which is reported by a separate error; qed
   --> tests/ui/limits/nesting_depth.rs:75:13
    |
 75 |         pub fn get() -> L33 {
@@ -64,7 +64,7 @@ error[E0080]: evaluation panicked: `#[input]` type must not be nested deeper tha
 89 |         fn get(#[env] env: &Env<'_>, #[input] value: &L33);
    |                                                       ^^^ evaluation of `trait_definition::ffi::get::_` failed here
 
-error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+error[E0080]: evaluation panicked: Generated metadata is correct unless a type in it is nested deeper than `MAX_METADATA_DEPTH`, which is reported by a separate error; qed
    --> tests/ui/limits/nesting_depth.rs:109:5
     |
 109 |     #[contract]
@@ -72,7 +72,7 @@ error[E0080]: evaluation panicked: Generated metadata is correct and its types a
     |
     = note: this error originates in the attribute macro `contract` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0080]: evaluation panicked: Generated metadata is correct and its types are not nested deeper than `MAX_METADATA_DEPTH`; qed
+error[E0080]: evaluation panicked: Generated metadata is correct unless a type in it is nested deeper than `MAX_METADATA_DEPTH`, which is reported by a separate error; qed
    --> tests/ui/limits/nesting_depth.rs:112:9
     |
 112 |         fn get(#[env] _env: &Env<'_>, #[input] _value: &L33) {}

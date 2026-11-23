@@ -94,12 +94,13 @@ impl Output {
     /// these methods need to declare for it, if any.
     ///
     /// `'_` is not allowed in `impl Trait` in arguments, so lifetimes in the type are replaced with
-    /// one named after the output.
+    /// one named after the output. The `_output` suffix keeps it distinct from lifetimes that
+    /// generated code declares itself, like `'external_args`.
     fn output_arg_type(&self) -> (Type, Option<Lifetime>) {
         let mut type_name = self.type_name.clone();
         let lifetime = Lifetime {
             apostrophe: self.arg_name.span(),
-            ident: self.arg_name.clone(),
+            ident: format_ident!("{}_output", self.arg_name),
         };
         let replaced = replace_lifetimes(&mut type_name, &lifetime);
         (type_name, replaced.then_some(lifetime))
@@ -473,8 +474,8 @@ impl MethodDetails {
                 return Err(Error::new(
                     pat_type.span(),
                     "`#[slot]` with address must be a tuple of a shared reference to the address \
-                    and a reference to the slot, bound to a tuple of two variables, like \
-                    `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`",
+                    and a reference to the slot, bound to a tuple pattern whose second element is \
+                    a variable, like `(owner, slot): (&Address, &mut MaybeData<'_, Slot>)`",
                 ));
             }
             _ => {
@@ -601,6 +602,9 @@ impl MethodDetails {
                 self.set_return_type(MethodReturnType::Unit(MethodReturnType::unit_type()));
             }
             ReturnType::Type(_r_arrow, return_type) => match return_type.as_ref() {
+                Type::Tuple(type_tuple) if type_tuple.elems.is_empty() => {
+                    self.set_return_type(MethodReturnType::Unit(MethodReturnType::unit_type()));
+                }
                 Type::Array(_type_array) => {
                     self.set_return_type(MethodReturnType::Regular(return_type.as_ref().clone()));
                 }
@@ -1629,8 +1633,8 @@ impl MethodDetails {
                 const FINGERPRINT: ::ab_contracts_macros::__private::MethodFingerprint =
                     ::ab_contracts_macros::__private::MethodFingerprint::new(METADATA)
                         .expect(
-                            "Generated metadata is correct and its types are not nested deeper \
-                            than `MAX_METADATA_DEPTH`; qed"
+                            "Generated metadata is correct unless a type in it is nested deeper \
+                            than `MAX_METADATA_DEPTH`, which is reported by a separate error; qed"
                         );
                 const METADATA: &'static [::core::primitive::u8] = METADATA;
             }
