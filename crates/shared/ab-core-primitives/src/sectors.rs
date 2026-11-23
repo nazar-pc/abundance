@@ -205,11 +205,11 @@ impl SectorId {
             * recent_history_fraction.1.in_pieces().get()
             / recent_history_fraction.0.in_pieces();
         let input_hash = {
-            let piece_offset_bytes = piece_offset.to_bytes();
-            let mut key = [0; 32];
-            key[..piece_offset_bytes.len()].copy_from_slice(&piece_offset_bytes);
+            let mut bytes_to_hash = [0; Self::SIZE + PieceOffset::SIZE];
+            bytes_to_hash[..Self::SIZE].copy_from_slice(self.as_ref());
+            bytes_to_hash[Self::SIZE..].copy_from_slice(&piece_offset.to_bytes());
             NanoU256::from_le_bytes(
-                single_block_keyed_hash(&key, self.as_ref())
+                single_block_hash(&bytes_to_hash)
                     .expect("Less than a single block worth of bytes; qed"),
             )
         };
