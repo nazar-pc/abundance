@@ -22,6 +22,7 @@
 ))]
 mod tests;
 
+use crate::block::BlockRoot;
 use crate::block::header::{
     BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
     BlockHeaderConsensusParameters, BlockHeaderConsistencyError,
@@ -35,6 +36,7 @@ use ab_aligned_buffer::alignment::Align16;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
 use core::fmt;
+use core::ops::Deref;
 use derive_more::From;
 use triomphe::Arc;
 use yoke::Yoke;
@@ -62,6 +64,9 @@ pub trait GenericOwnedBlockHeader:
 
     /// Get a regular block header out of the owned version
     fn header(&self) -> &Self::Header<'_>;
+
+    /// Block root, see [`GenericBlockHeader::root()`] for details
+    fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync;
 }
 
 fn append_seal(buffer: &mut OwnedAlignedBuffer, seal: BlockHeaderSeal<'_>) {
@@ -125,6 +130,11 @@ impl GenericOwnedBlockHeader for OwnedBeaconChainHeader {
     #[inline(always)]
     fn header(&self) -> &Self::Header<'_> {
         self.header()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
+        self.root()
     }
 }
 
@@ -339,6 +349,12 @@ impl OwnedBeaconChainHeader {
     pub fn header(&self) -> &BeaconChainHeader<'_> {
         self.inner.get()
     }
+
+    /// Block root, see [`BeaconChainHeader::root()`] for details
+    #[inline(always)]
+    pub fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
+        self.header().root()
+    }
 }
 
 /// Owned beacon chain block header, which is not sealed yet
@@ -470,6 +486,11 @@ impl GenericOwnedBlockHeader for OwnedIntermediateShardHeader {
     #[inline(always)]
     fn header(&self) -> &Self::Header<'_> {
         self.header()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
+        self.root()
     }
 }
 
@@ -622,6 +643,12 @@ impl OwnedIntermediateShardHeader {
     pub fn header(&self) -> &IntermediateShardHeader<'_> {
         self.inner.get()
     }
+
+    /// Block root, see [`IntermediateShardHeader::root()`] for details
+    #[inline(always)]
+    pub fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
+        self.header().root()
+    }
 }
 
 /// Owned intermediate shard block header, which is not sealed yet
@@ -753,6 +780,11 @@ impl GenericOwnedBlockHeader for OwnedLeafShardHeader {
     #[inline(always)]
     fn header(&self) -> &Self::Header<'_> {
         self.header()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
+        self.root()
     }
 }
 
@@ -887,6 +919,12 @@ impl OwnedLeafShardHeader {
     #[inline(always)]
     pub fn header(&self) -> &LeafShardHeader<'_> {
         self.inner.get()
+    }
+
+    /// Block root, see [`LeafShardHeader::root()`] for details
+    #[inline(always)]
+    pub fn root(&self) -> impl Deref<Target = BlockRoot> + Send + Sync {
+        self.header().root()
     }
 }
 
