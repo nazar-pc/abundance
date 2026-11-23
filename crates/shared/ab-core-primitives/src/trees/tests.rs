@@ -13,8 +13,8 @@ fn random_pairs<const NUM_PAIRS: usize>() -> [[[u8; OUT_LEN]; 2]; NUM_PAIRS] {
     pairs
 }
 
-// A function generic over the hasher would need `[u8; H::OUT_LEN]`, which this crate doesn't
-// support (see `impl_merkle_hasher!`)
+// A function generic over the hasher would need `[u8; gca!(Hasher::OUT_LEN)]`, which doesn't
+// unify with `OUT_LEN` without reshaping
 macro_rules! test_hasher {
     ($hasher:expr, $key:expr, $($num_pairs:literal),+) => {
         $({
