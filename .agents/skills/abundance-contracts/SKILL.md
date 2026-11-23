@@ -90,3 +90,14 @@ Contract tests run on `NativeExecutor`, which is also how soundness problems get
 crate that owns the functionality: `ab-system-contract-simple-wallet-base` is the canonical wallet implementation with
 the payload, seal and integration tests, while `ab-example-contract-wallet` is just a small adapter over it, so wallet
 behavior is not tested there.
+
+`#[contract]` ui tests live in `ab-contracts-macros/tests/ui/<concept>/`: one file per rule, with a `//!` header
+stating the rule and why it exists, and one `mod` per case, since the macro stops at the first error. One case per
+rule a user can plausibly hit, pinning the macro's own message rather than rustc's where possible.
+`tests/metadata_contents.rs` is the positive counterpart, showing what each accepted form turns into in metadata.
+
+CI runs these tests with and without the `guest` feature, and the same `.stderr` must match both, so run both locally.
+With `guest`, every contract and trait exports its metadata through a `#[no_mangle]` static named after it, whose type
+reads `METADATA`. That changes when rustc evaluates metadata, so a check moved into `METADATA` can reorder diagnostics
+between the two runs, and two contracts with the same name can't be in one test binary (tests that need that are
+compiled out with `#[cfg(not(feature = "guest"))]`).

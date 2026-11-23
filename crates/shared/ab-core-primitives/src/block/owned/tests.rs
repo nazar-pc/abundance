@@ -187,8 +187,8 @@ fn beacon_chain_block_bytes_must_be_16_bytes_aligned() {
     let aligned = block_bytes(&block, 0);
     let (parsed, remainder) = BeaconChainBlock::try_from_bytes(aligned.as_slice()).unwrap();
     assert!(remainder.is_empty());
-    assert_eq!(*parsed.header().root(), *block.header.header().root());
-    assert_eq!(parsed.body().root(), block.body.body().root());
+    assert_eq!(*parsed.header().root(), *block.header.root());
+    assert_eq!(parsed.body().root(), block.body.root());
 
     // 8 bytes after a 16-byte boundary, which is enough for the header, and padding after it
     // puts the body at a 16-byte boundary again
@@ -205,8 +205,8 @@ fn intermediate_shard_block_bytes_must_be_16_bytes_aligned() {
     let aligned = block_bytes(&block, 0);
     let (parsed, remainder) = IntermediateShardBlock::try_from_bytes(aligned.as_slice()).unwrap();
     assert!(remainder.is_empty());
-    assert_eq!(*parsed.header().root(), *block.header.header().root());
-    assert_eq!(parsed.body().root(), block.body.body().root());
+    assert_eq!(*parsed.header().root(), *block.header.root());
+    assert_eq!(parsed.body().root(), block.body.root());
 
     // 8 bytes after a 16-byte boundary, which is enough for the header, and padding after it
     // puts the body at a 16-byte boundary again
@@ -223,8 +223,8 @@ fn leaf_shard_block_bytes_must_be_16_bytes_aligned() {
     let aligned = block_bytes(&block, 0);
     let (parsed, remainder) = LeafShardBlock::try_from_bytes(aligned.as_slice()).unwrap();
     assert!(remainder.is_empty());
-    assert_eq!(*parsed.header().root(), *block.header.header().root());
-    assert_eq!(parsed.body().root(), block.body.body().root());
+    assert_eq!(*parsed.header().root(), *block.header.root());
+    assert_eq!(parsed.body().root(), block.body.root());
 
     // 8 bytes after a 16-byte boundary, which is enough for the header, and padding after it
     // puts the body at a 16-byte boundary again
@@ -511,7 +511,7 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
         Blake3Hash::default(),
         other_block.body.body().leaf_shard_blocks().headers_root(),
         // The root of the only leaf shard block
-        **leaf_shard_block.header.header().root(),
+        **leaf_shard_block.header.root(),
     ] {
         // The same header with a different root of leaf shard block roots
         let inconsistent_header = OwnedIntermediateShardHeader::from_parts(
@@ -584,7 +584,7 @@ fn child_block_roots_are_tree_roots_of_header_roots() {
         );
         let leaf_shard_block_roots = leaf_shard_blocks
             .iter()
-            .map(|leaf_shard_block| **leaf_shard_block.header.header().root())
+            .map(|leaf_shard_block| **leaf_shard_block.header.root())
             .collect::<Vec<_>>();
 
         let leaf_shard_blocks_root = *block.header.header().leaf_shard_blocks_root();

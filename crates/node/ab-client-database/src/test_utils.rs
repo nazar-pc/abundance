@@ -448,7 +448,7 @@ pub(crate) fn persist_beacon_chain_block(
     database: &Database,
     block: OwnedBeaconChainBlock,
 ) -> Result<BlockRoot, PersistBlockError> {
-    let block_root = *block.header.header().root();
+    let block_root = *block.header.root();
     let block_details = BlockDetails {
         mmr_with_block: Arc::new(BlockMerkleMountainRange::new()),
         system_contract_states: [].into_iter().collect(),

@@ -277,7 +277,7 @@ fn unreadable_block_is_an_error() {
         let c4 = block_builder.child(&c3);
         let c5 = block_builder.child(&c4);
         let c6 = block_builder.child(&c5);
-        let c3_root = *c3.header.header().root();
+        let c3_root = *c3.header.root();
         for block in [c1, c2, c3, c4, c5] {
             task.import(block).await;
         }
@@ -315,7 +315,7 @@ fn unreadable_block_on_initialization_is_an_error() {
             .persist_segment_headers(synced_segment_headers(BlockNumber::from(20)))
             .await
             .unwrap();
-        chain.make_block_unreadable(*c22.header.header().root());
+        chain.make_block_unreadable(*c22.header.root());
         for block in [c21, c22, c23, c24, c25] {
             chain.add_block(block);
         }

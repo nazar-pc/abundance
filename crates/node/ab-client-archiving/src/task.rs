@@ -99,7 +99,7 @@ where
             continue;
         };
 
-        let last_archived_block_root = &*last_archived_block_header.header().root();
+        let last_archived_block_root = &*last_archived_block_header.root();
 
         let Ok(last_archived_block) = chain_info.block(last_archived_block_root).await else {
             // Block might have been pruned between ancestor search and disk read
@@ -251,7 +251,7 @@ where
     CI: ChainInfoWrite<Block>,
 {
     let best_block_header = chain_info.best_header();
-    let best_block_root = *best_block_header.header().root();
+    let best_block_root = *best_block_header.root();
     let best_block_number: BlockNumber = best_block_header.header().prefix.number;
 
     let mut best_block_to_archive = best_block_number.saturating_sub(block_confirmation_depth);
@@ -341,13 +341,12 @@ where
                         block_number: block_number_to_archive,
                     })?;
 
-                let block = chain_info
-                    .block(&header.header().root())
-                    .await
-                    .map_err(|error| SegmentArchiverTaskError::ReadBlock {
+                let block = chain_info.block(&header.root()).await.map_err(|error| {
+                    SegmentArchiverTaskError::ReadBlock {
                         block_number: block_number_to_archive,
                         error,
-                    })?;
+                    }
+                })?;
 
                 let encoded_block = encode_block(&block);
 
@@ -377,7 +376,7 @@ where
                 }
 
                 if block_number_to_archive == blocks_to_archive_to {
-                    best_archived_block.replace((*header.header().root(), block_number_to_archive));
+                    best_archived_block.replace((*header.root(), block_number_to_archive));
                 }
             }
         }
@@ -583,7 +582,7 @@ where
         });
     }
 
-    let block_root_to_archive = *header.header().root();
+    let block_root_to_archive = *header.root();
 
     let block = chain_info
         .block(&block_root_to_archive)

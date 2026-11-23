@@ -51,7 +51,7 @@ fn derive(chain: &MockBeaconChain, parent_number: u64) -> Option<(SuperSegmentRo
     derive_super_segment_for_block(
         chain,
         parent_number,
-        &parent_header.header().root(),
+        &parent_header.root(),
         BlockNumber::from(BLOCK_CONFIRMATION_DEPTH),
         BlockNumber::from(SHARD_CONFIRMATION_DEPTH),
     )

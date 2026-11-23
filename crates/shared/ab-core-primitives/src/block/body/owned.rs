@@ -69,6 +69,9 @@ pub trait GenericOwnedBlockBody:
 
     /// Get a regular block body out of the owned version
     fn body(&self) -> &Self::Body<'_>;
+
+    /// Compute block body root, see [`GenericBlockBody::root()`] for details
+    fn root(&self) -> Blake3Hash;
 }
 
 /// Errors for [`OwnedLeafShardBody`]
@@ -594,6 +597,11 @@ impl GenericOwnedBlockBody for OwnedBeaconChainBody {
     fn body(&self) -> &Self::Body<'_> {
         self.body()
     }
+
+    #[inline(always)]
+    fn root(&self) -> Blake3Hash {
+        self.root()
+    }
 }
 
 impl OwnedBeaconChainBody {
@@ -823,6 +831,12 @@ impl OwnedBeaconChainBody {
     pub fn body(&self) -> &BeaconChainBody<'_> {
         self.inner.get()
     }
+
+    /// Compute block body root, see [`BeaconChainBody::root()`] for details
+    #[inline(always)]
+    pub fn root(&self) -> Blake3Hash {
+        self.body().root()
+    }
 }
 
 /// Errors for [`OwnedIntermediateShardBody`]
@@ -898,6 +912,11 @@ impl GenericOwnedBlockBody for OwnedIntermediateShardBody {
     #[inline(always)]
     fn body(&self) -> &Self::Body<'_> {
         self.body()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> Blake3Hash {
+        self.root()
     }
 }
 
@@ -1064,6 +1083,12 @@ impl OwnedIntermediateShardBody {
     pub fn body(&self) -> &IntermediateShardBody<'_> {
         self.inner.get()
     }
+
+    /// Compute block body root, see [`IntermediateShardBody::root()`] for details
+    #[inline(always)]
+    pub fn root(&self) -> Blake3Hash {
+        self.body().root()
+    }
 }
 
 /// An owned version of [`LeafShardBody`].
@@ -1098,6 +1123,11 @@ impl GenericOwnedBlockBody for OwnedLeafShardBody {
     #[inline(always)]
     fn body(&self) -> &Self::Body<'_> {
         self.body()
+    }
+
+    #[inline(always)]
+    fn root(&self) -> Blake3Hash {
+        self.root()
     }
 }
 
@@ -1229,6 +1259,12 @@ impl OwnedLeafShardBody {
     pub fn body(&self) -> &LeafShardBody<'_> {
         self.inner.get()
     }
+
+    /// Compute block body root, see [`LeafShardBody::root()`] for details
+    #[inline(always)]
+    pub fn root(&self) -> Blake3Hash {
+        self.body().root()
+    }
 }
 
 /// Builder for [`OwnedLeafShardBody`] that allows to add more transactions
@@ -1318,6 +1354,16 @@ impl OwnedBlockBody {
             Self::BeaconChain(owned_body) => BlockBody::BeaconChain(*owned_body.body()),
             Self::IntermediateShard(owned_body) => BlockBody::IntermediateShard(*owned_body.body()),
             Self::LeafShard(owned_body) => BlockBody::LeafShard(*owned_body.body()),
+        }
+    }
+
+    /// Compute block body root, see [`BlockBody::root()`] for details
+    #[inline]
+    pub fn root(&self) -> Blake3Hash {
+        match self {
+            Self::BeaconChain(owned_body) => owned_body.root(),
+            Self::IntermediateShard(owned_body) => owned_body.root(),
+            Self::LeafShard(owned_body) => owned_body.root(),
         }
     }
 }

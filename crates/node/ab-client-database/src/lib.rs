@@ -991,7 +991,7 @@ where
         let (_offset, descendant_block_candidates) = blocks_range_iter.next()?;
         let descendant_block = descendant_block_candidates
             .iter()
-            .find(|block| &*block.header().header().root() == descendant_block_root)?;
+            .find(|block| &*block.header().root() == descendant_block_root)?;
 
         if ancestor_block_number == descendant_block_number {
             return Some(descendant_block);
@@ -1011,7 +1011,7 @@ where
         for (block_offset, parent_candidates) in blocks_range_iter {
             let parent_block = parent_candidates
                 .iter()
-                .find(|block| &*block.header().header().root() == parent_block_root)?;
+                .find(|block| &*block.header().root() == parent_block_root)?;
 
             // When block offset matches, we found the block
             if block_offset == ancestor_block_offset {
@@ -1211,7 +1211,7 @@ where
         block_candidates.iter().find_map(|block| {
             let header = block.header();
 
-            if &*header.header().root() == block_root {
+            if &*header.root() == block_root {
                 Some(header.clone())
             } else {
                 None
@@ -1234,7 +1234,7 @@ where
             let header = block.header();
             let block_details = block.block_details().cloned()?;
 
-            if &*header.header().root() == block_root {
+            if &*header.root() == block_root {
                 Some((header.clone(), block_details))
             } else {
                 None
@@ -1266,7 +1266,7 @@ where
         for block_candidate in block_candidates {
             let header = block_candidate.header();
 
-            if &*header.header().root() == block_root {
+            if &*header.root() == block_root {
                 return match block_candidate.full_block() {
                     FullBlock::InMemory(block) => Ok(block.clone()),
                     FullBlock::Persisted {
@@ -1921,7 +1921,7 @@ where
                     ClientDatabaseError::InvalidBlock { page_offset }
                 })?;
 
-                let block_root = *header.header().root();
+                let block_root = *header.root();
                 let block_number = header.header().prefix.number;
 
                 state_data.block_roots.insert(block_root, block_number);
@@ -2475,9 +2475,7 @@ where
                 .enumerate()
                 // Skip ancestor of the best block, it is certainly not a fork to be pruned
                 .skip(1)
-                .find(|(_fork_offset, block)| {
-                    *block.header().header().root() == block_root_to_prune
-                })
+                .find(|(_fork_offset, block)| *block.header().root() == block_root_to_prune)
             else {
                 if !pruned_tip {
                     error!(
@@ -2624,7 +2622,7 @@ where
 
         let mut block_roots_to_prune = fork_blocks
             .drain(1..)
-            .map(|block| *block.header().header().root())
+            .map(|block| *block.header().root())
             .collect::<Vec<_>>();
         let mut current_block_offset = block_offset;
         while !block_roots_to_prune.is_empty() {
@@ -2658,7 +2656,7 @@ where
 
                     block_roots_to_prune.contains(&header.prefix.parent_root)
                 })
-                .map(|block| *block.header().header().root())
+                .map(|block| *block.header().root())
                 .collect();
         }
     }

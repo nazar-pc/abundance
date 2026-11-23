@@ -156,7 +156,7 @@ where
 
         let mut block_mmr = *parent_block_details.mmr_with_block;
 
-        if !block_mmr.add_leaf(&block.header.header().root()) {
+        if !block_mmr.add_leaf(&block.header.root()) {
             return Err(BlockBuilderError::CantExtendMmr);
         }
 

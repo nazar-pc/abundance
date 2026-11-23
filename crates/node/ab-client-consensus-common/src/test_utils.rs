@@ -218,7 +218,7 @@ impl MockBeaconChain {
             BlockRoot::default(),
             PotOutput::default(),
         );
-        let genesis_root = *genesis_header.header().root();
+        let genesis_root = *genesis_header.root();
         let genesis_block = MockBlock {
             header: genesis_header,
             shard_segment_roots: Arc::from(Vec::new()),
@@ -251,7 +251,7 @@ impl MockBeaconChain {
             .copy_from_slice(&u64::try_from(self.blocks.len()).unwrap().to_le_bytes());
         let header =
             beacon_chain_header(parent_number + BlockNumber::ONE, parent_root, proof_of_time);
-        let block_root = *header.header().root();
+        let block_root = *header.root();
 
         self.blocks.insert(
             block_root,

@@ -9,15 +9,12 @@ mod hashers;
 mod tests;
 
 use crate::address::Address;
-use ab_blake3::{BLOCK_LEN, OUT_LEN};
 use ab_io_type::trivial_type::TrivialType;
-use ab_merkle_tree::MerkleHasher;
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::blake3::Blake3MerkleHasher;
 use ab_merkle_tree::mmr::MerkleMountainRange;
 use ab_merkle_tree::sparse::SparseMerkleTree;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
-use array_reshape::FlattenEach;
 use hashers::{Blake3SizedMerkleHasher, Blake3StaticMerkleHasher};
 
 type SegmentRootsMerkleHasher =
@@ -141,106 +138,3 @@ pub type StateOwnerContractsSparseMerkleTree =
 /// time and substantially decrease the size of the in-memory data structure.
 pub type BlockMerkleMountainRange =
     MerkleMountainRange<{ u64::from(u32::MAX) }, BlockMerkleMountainRangeHasher>;
-
-// `MerkleHasher` is implemented for each hasher separately, a generic implementation would need
-// `<Self as MerkleHasher>::OUT_LEN` with generic `Self` in method signatures, which requires
-// `gca_macroless_args` that this crate doesn't use
-// TODO: Replace the macro with generic implementations once `gca_macroless_args` is
-//  enabled in this crate:
-// // `<Self as MerkleHasher>::OUT_LEN` doesn't unify with `OUT_LEN` in generic code, hence
-// // reshaping
-// impl<const KEY: [u8; KEY_LEN]> MerkleHasher for Blake3StaticMerkleHasher<KEY> {
-//     const OUT_LEN: usize = OUT_LEN;
-//
-//     #[inline(always)]
-//     fn hash_pair(
-//         &self,
-//         pair: &[[u8; <Self as MerkleHasher>::OUT_LEN]; 2],
-//     ) -> [u8; <Self as MerkleHasher>::OUT_LEN] {
-//         let hash =
-//             ab_blake3::single_block_keyed_hash(self.node_key(), pair.flatten_ref::<BLOCK_LEN>());
-//         // Reshaping inside `Option` results in fewer copies of the hash than after `expect()`
-//         hash.map(|hash| [hash].flatten())
-//             .expect("Exactly one block worth of data; qed")
-//     }
-//
-//     #[inline(always)]
-//     fn hash_pairs<const NUM_PAIRS: usize>(
-//         &self,
-//         pairs: &[[[u8; <Self as MerkleHasher>::OUT_LEN]; 2]; NUM_PAIRS],
-//     ) -> [[u8; <Self as MerkleHasher>::OUT_LEN]; NUM_PAIRS] {
-//         let mut hashes = [[0; <Self as MerkleHasher>::OUT_LEN]; NUM_PAIRS];
-//         ab_blake3::single_block_keyed_hash_many_exact(
-//             self.node_key(),
-//             pairs.flatten_each_ref::<BLOCK_LEN>(),
-//             hashes.rechunk_mut(),
-//         );
-//         hashes
-//     }
-//
-//     #[inline(always)]
-//     fn hash_single_leaf(
-//         &self,
-//         leaf: &[u8; <Self as MerkleHasher>::OUT_LEN],
-//     ) -> [u8; <Self as MerkleHasher>::OUT_LEN] {
-//         [self.single_leaf_root(array::from_ref(leaf).flatten_ref::<OUT_LEN>())].flatten()
-//     }
-// }
-//
-// // Same body as above
-// impl<const BASE_KEY: [u8; KEY_LEN]> MerkleHasher for Blake3SizedMerkleHasher<BASE_KEY> { ... }
-macro_rules! impl_merkle_hasher {
-    ($($hasher:ty),+ $(,)?) => {
-        $(
-            impl MerkleHasher for $hasher {
-                const OUT_LEN: usize = OUT_LEN;
-
-                #[inline(always)]
-                fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
-                    ab_blake3::single_block_keyed_hash(self.node_key(), pair.as_flattened())
-                        .expect("Exactly one block worth of data; qed")
-                }
-
-                #[inline(always)]
-                fn hash_pairs<const NUM_PAIRS: usize>(
-                    &self,
-                    pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
-                ) -> [[u8; OUT_LEN]; NUM_PAIRS] {
-                    let mut hashes = [[0; OUT_LEN]; NUM_PAIRS];
-                    ab_blake3::single_block_keyed_hash_many_exact(
-                        self.node_key(),
-                        pairs.flatten_each_ref::<BLOCK_LEN>(),
-                        &mut hashes,
-                    );
-                    hashes
-                }
-
-                #[inline(always)]
-                fn hash_single_leaf(&self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
-                    self.single_leaf_root(leaf)
-                }
-            }
-        )+
-    };
-}
-
-impl_merkle_hasher!(
-    SegmentRootsMerkleHasher,
-    OwnSegmentsMerkleHasher,
-    ShardOwnSegmentsMerkleHasher,
-    LeafShardBodyMerkleHasher,
-    TransactionsMerkleHasher,
-    IntermediateShardBodyMerkleHasher,
-    LeafShardsSegmentsMerkleHasher,
-    ChildLeafShardBlocksMerkleHasher,
-    ChildIntermediateShardBlocksMerkleHasher,
-    BeaconChainBodyMerkleHasher,
-    IntermediateShardsSegmentsMerkleHasher,
-    BeaconChainHeaderMerkleHasher,
-    IntermediateShardHeaderMerkleHasher,
-    LeafShardHeaderMerkleHasher,
-    SuperSegmentMerkleHasher,
-    StateOwnersSparseMerkleHasher,
-    StateOwnerContractsSparseMerkleHasher,
-    BlockMerkleMountainRangeHasher,
-);

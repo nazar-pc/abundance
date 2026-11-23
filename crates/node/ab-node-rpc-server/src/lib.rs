@@ -636,7 +636,7 @@ where
         };
 
         let farmer_app_info = FarmerAppInfo {
-            genesis_root: *self.genesis_block.header.header().root(),
+            genesis_root: *self.genesis_block.header.root(),
             dsn_bootstrap_nodes: self.dsn_bootstrap_nodes.clone(),
             syncing: self.chain_sync_status.is_syncing(),
             farming_timeout: consensus_constants

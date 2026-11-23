@@ -48,7 +48,7 @@ fn assert_persisted_chain(database: &Database, mut chain: Vec<BlockRoot>, best_n
     for block_root in &chain {
         assert!(database.header(block_root).is_some());
         let block = block_on(database.block(block_root)).unwrap();
-        assert_eq!(*block.header.header().root(), *block_root);
+        assert_eq!(*block.header.root(), *block_root);
     }
 
     persist_block(
@@ -68,7 +68,7 @@ fn ancestor_root(
 ) -> Option<BlockRoot> {
     database
         .ancestor_header(BlockNumber::from(number), descendant_root)
-        .map(|header| *header.header().root())
+        .map(|header| *header.root())
 }
 
 /// Check that `chain` (block roots from genesis to the best block) is the canonical chain
@@ -141,7 +141,7 @@ fn assert_consistent(database: &Database, best_number: u64) {
 
     for block_root in &canonical_roots {
         let block = block_on(database.block(block_root)).unwrap();
-        assert_eq!(*block.header.header().root(), *block_root);
+        assert_eq!(*block.header.root(), *block_root);
     }
 }
 
@@ -795,7 +795,7 @@ fn pruned_fork_tip_keeps_parent_with_other_children() {
     assert_eq!(
         database
             .ancestor_header(BlockNumber::ONE, &b2)
-            .map(|header| *header.header().root()),
+            .map(|header| *header.root()),
         Some(a1)
     );
 
@@ -903,10 +903,7 @@ fn block_with_unknown_parent_is_rejected() {
     let storage_backend = MemoryStorageBackend::new();
     let database = open_database(&storage_backend);
     let genesis_root = database.best_root();
-    let unknown_root = *beacon_chain_block(0, BlockRoot::default(), 1)
-        .header
-        .header()
-        .root();
+    let unknown_root = *beacon_chain_block(0, BlockRoot::default(), 1).header.root();
 
     // With only the genesis block and with more blocks in memory
     for number in 1..=2 {
@@ -1511,7 +1508,7 @@ fn block_and_fork_tip_roots(database: &Database) -> (Vec<Vec<BlockRoot>>, Vec<Bl
         .map(|block_forks| {
             block_forks
                 .iter()
-                .map(|block| *block.header().header().root())
+                .map(|block| *block.header().root())
                 .collect()
         })
         .collect();
@@ -1650,7 +1647,7 @@ fn fork_in_use_is_kept_beyond_max_fork_tip_distance() {
 
     chain.push(persist_block(&database, 8, chain[7], 0).unwrap());
     assert!(database.header(&b4).is_none());
-    assert_eq!(*b4_header.header().root(), b4);
+    assert_eq!(*b4_header.root(), b4);
     assert_best_chain(&database, &chain);
 }
 
@@ -1673,7 +1670,7 @@ fn persisted_fork_beyond_max_fork_tip_distance_is_kept_until_fork_pruning_block_
     chain.extend(persist_chain(&database, chain[3], 4..=5, 0));
     assert!(!is_fork_tip(&database, &a3));
     let block = block_on(database.block(&a3)).unwrap();
-    assert_eq!(*block.header.header().root(), a3);
+    assert_eq!(*block.header.root(), a3);
 
     chain.push(persist_block(&database, 6, chain[5], 0).unwrap());
     assert!(database.header(&a3).is_some());
@@ -1801,7 +1798,7 @@ fn block_with_too_large_system_contract_states_is_not_written() {
     let storage_backend = MemoryStorageBackend::new();
     let database = open_database(&storage_backend);
     let c1 = beacon_chain_block(1, database.best_root(), 0);
-    let c1_root = *c1.header.header().root();
+    let c1_root = *c1.header.root();
     let block_details = BlockDetails {
         mmr_with_block: Arc::new(BlockMerkleMountainRange::new()),
         // All states share the same contents to keep memory usage low
