@@ -4,7 +4,6 @@ mod tests;
 use crate::importing_blocks::private::ImportingBlockEntryInner;
 use ab_client_api::ContractSlotState;
 use ab_core_primitives::block::BlockRoot;
-use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::trees::BlockMerkleMountainRange;
 use async_lock::{RwLock, RwLockWriteGuard};
@@ -83,7 +82,7 @@ where
     BlockHeader: GenericOwnedBlockHeader,
 {
     fn new(header: BlockHeader, mmr: Arc<BlockMerkleMountainRange>) -> Self {
-        let block_root = *header.header().root();
+        let block_root = *header.root();
 
         Self {
             inner: Arc::new(ImportingBlockEntryInner {

@@ -12,7 +12,7 @@ use ab_core_primitives::address::Address;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::header::{
     BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderEd25519Seal,
-    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderSeal, GenericBlockHeader,
+    BlockHeaderFixedConsensusParameters, BlockHeaderPrefix, BlockHeaderSeal,
     OwnedBlockHeaderConsensusParameters,
 };
 use ab_core_primitives::block::owned::{
@@ -369,7 +369,7 @@ where
     /// Chain with just `first_block`, which is the genesis block or a block that Snap sync
     /// inserted directly
     pub(crate) fn new(first_block: Block) -> Self {
-        let first_block_root = *first_block.header().header().root();
+        let first_block_root = *first_block.header().root();
 
         Self {
             state: Arc::new(Mutex::new(MockChainState {
@@ -387,7 +387,7 @@ where
     /// block
     pub(crate) fn add_block(&self, block: Block) {
         let mut state = self.state.lock().unwrap();
-        let block_root = *block.header().header().root();
+        let block_root = *block.header().root();
 
         if block.header().header().prefix.number
             > state

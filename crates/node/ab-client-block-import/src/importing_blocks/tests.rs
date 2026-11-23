@@ -9,7 +9,7 @@ use triomphe::Arc;
 fn duplicate_insert_keeps_original_entry() {
     let importing_blocks = ImportingBlocks::<OwnedBeaconChainHeader>::new();
     let header = beacon_chain_header(1, BlockRoot::default(), 1);
-    let block_root = *header.header().root();
+    let block_root = *header.root();
 
     let importing_handle = importing_blocks
         .insert(header.clone(), Arc::new(BlockMerkleMountainRange::new()))

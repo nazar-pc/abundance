@@ -168,7 +168,7 @@ where
     let (parsed_header, remainder) =
         BlockHeader::try_from_bytes(header_bytes, Header::SHARD_KIND).unwrap();
     assert!(remainder.is_empty());
-    assert_eq!(*parsed_header.root(), *header.header().root());
+    assert_eq!(*parsed_header.root(), *header.root());
 }
 
 /// The buffer of an owned header, which keeps the capacity it was allocated with unless it had to
@@ -729,7 +729,7 @@ fn header_roots_commit_to_child_block_roots() {
     {
         assert_eq!(header.header().intermediate_shard_blocks_root(), root);
     }
-    assert_ne!(*header_a.header().root(), *header_b.header().root());
+    assert_ne!(*header_a.root(), *header_b.root());
     assert_ne!(
         header_a.header().pre_seal_hash(),
         header_b.header().pre_seal_hash()
@@ -753,7 +753,7 @@ fn header_roots_commit_to_child_block_roots() {
     {
         assert_eq!(header.header().leaf_shard_blocks_root(), root);
     }
-    assert_ne!(*header_a.header().root(), *header_b.header().root());
+    assert_ne!(*header_a.root(), *header_b.root());
     assert_ne!(
         header_a.header().pre_seal_hash(),
         header_b.header().pre_seal_hash()

@@ -242,7 +242,7 @@ fn leaf_shard_body_root_commits_to_transaction_field_boundaries() {
     .map(|transaction| {
         let mut builder = OwnedLeafShardBody::init(iter::empty()).unwrap();
         builder.add_transaction(&transaction).unwrap();
-        builder.finish().body().root()
+        builder.finish().root()
     });
 
     assert_ne!(root_read, root_write);
@@ -534,7 +534,7 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
             Blake3Hash::default(),
             other_root,
             // The root of the first intermediate shard block
-            **intermediate_shard_blocks[0].header.header().root(),
+            **intermediate_shard_blocks[0].header.root(),
         ] {
             assert!(!is_consistent(&body, body_root, &wrong_root));
         }
@@ -861,7 +861,7 @@ fn intermediate_shard_body_bytes(
 
 /// Check that a parsed `info` has the same contents as `block`
 fn assert_leaf_shard_block_info_eq(info: &LeafShardBlockInfo<'_>, block: &TestLeafShardBlock) {
-    assert_eq!(*info.header.root(), *block.header.header().root());
+    assert_eq!(*info.header.root(), *block.header.root());
     assert_eq!(*info.transactions_root, block.transactions_root);
     match (&info.own_segments, &block.segments) {
         (Some(own_segments), Some(segments)) => {
@@ -1150,7 +1150,7 @@ fn assert_intermediate_shard_block_info_eq(
 ) {
     // The parser with checks has already compared `info.body_root()` with the body root in the
     // header, which is too expensive to compute again under Miri
-    assert_eq!(*info.header.root(), *block.header.header().root());
+    assert_eq!(*info.header.root(), *block.header.root());
     match (&info.own_segments, &block.own_segments) {
         (Some(info_own_segments), Some(own_segments)) => {
             assert_segments_eq(info_own_segments, own_segments);
@@ -1516,7 +1516,7 @@ fn intermediate_shard_block_roots_are_tree_roots_of_header_roots() {
         let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
         let block_roots = intermediate_shard_blocks
             .iter()
-            .map(|block| **block.header.header().root())
+            .map(|block| **block.header.root())
             .collect::<Vec<_>>();
 
         let headers_root = body.intermediate_shard_blocks().headers_root();
@@ -1940,7 +1940,7 @@ fn leaf_shard_blocks() -> Vec<(OwnedLeafShardBlock, TestLeafShardBlock)> {
             builder.add_transaction(&transaction()).unwrap();
         }
         let body = builder.finish();
-        let header = leaf_shard_header(shard_index, number, body.body().root());
+        let header = leaf_shard_header(shard_index, number, body.root());
         let block =
             OwnedLeafShardBlock::from_buffers(header.buffer().clone(), body.buffer().clone())
                 .unwrap();

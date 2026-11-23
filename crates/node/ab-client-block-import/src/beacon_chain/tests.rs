@@ -19,7 +19,7 @@ fn start_importing(
     importing_handles: &mut ImportingHandles,
     header: OwnedBeaconChainHeader,
 ) -> BlockRoot {
-    let block_root = *header.header().root();
+    let block_root = *header.root();
     importing_handles.push(
         importing_blocks
             .insert(header, Arc::new(BlockMerkleMountainRange::new()))
@@ -132,9 +132,7 @@ fn ancestor_lookup_misses() {
     //
     // a3 (unknown) - a4 (being imported)
     let (chain_info, importing_blocks, mut importing_handles, [.., c5]) = chain();
-    let a3 = *beacon_chain_header(3, BlockRoot::default(), 103)
-        .header()
-        .root();
+    let a3 = *beacon_chain_header(3, BlockRoot::default(), 103).root();
     let a4 = start_importing(
         &importing_blocks,
         &mut importing_handles,

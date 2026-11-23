@@ -138,7 +138,7 @@ impl ChainInfo<OwnedBeaconChainBlock> for MockChainInfo {
 impl MockChainInfo {
     /// Add a header of a persisted block and return its root
     pub(crate) fn add_header(&mut self, header: OwnedBeaconChainHeader) -> BlockRoot {
-        let block_root = *header.header().root();
+        let block_root = *header.root();
         self.headers.insert(block_root, header);
         block_root
     }

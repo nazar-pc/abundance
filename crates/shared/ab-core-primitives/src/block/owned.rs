@@ -207,7 +207,7 @@ impl OwnedBeaconChainBlockBuilder {
         let header = OwnedBeaconChainHeader::from_parts(
             prefix,
             &BlockHeaderResult {
-                body_root: body.body().root(),
+                body_root: body.root(),
                 state_root,
             },
             consensus_info,
@@ -388,7 +388,7 @@ impl OwnedIntermediateShardBlockBuilder {
         let header = OwnedIntermediateShardHeader::from_parts(
             prefix,
             &BlockHeaderResult {
-                body_root: body.body().root(),
+                body_root: body.root(),
                 state_root,
             },
             consensus_info,
@@ -570,7 +570,7 @@ impl OwnedLeafShardBlockBuilder {
         let header = OwnedLeafShardHeader::from_parts(
             prefix,
             &BlockHeaderResult {
-                body_root: body.body().root(),
+                body_root: body.root(),
                 state_root,
             },
             consensus_info,

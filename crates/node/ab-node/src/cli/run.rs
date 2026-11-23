@@ -462,7 +462,7 @@ impl Run {
         );
 
         let pot_verifier = PotVerifier::new(
-            PotSeed::from_genesis(&genesis_block.header.header().root(), pot_external_entropy),
+            PotSeed::from_genesis(&genesis_block.header.root(), pot_external_entropy),
             POT_VERIFIER_CACHE_SIZE,
         );
 

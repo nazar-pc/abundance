@@ -199,7 +199,7 @@ where
         );
         let mut block_mmr = *parent_block_mmr;
 
-        if !block_mmr.add_leaf(&block.header.header().root()) {
+        if !block_mmr.add_leaf(&block.header.root()) {
             return Err(BlockImportError::CantExtendMmr);
         }
 
@@ -208,11 +208,7 @@ where
             .insert(block.header.clone(), Arc::new(block_mmr))
             .ok_or(BlockImportError::AlreadyImporting)?;
 
-        if self
-            .chain_info
-            .header(&block.header.header().root())
-            .is_some()
-        {
+        if self.chain_info.header(&block.header.root()).is_some() {
             return Err(BlockImportError::AlreadyImported);
         }
 

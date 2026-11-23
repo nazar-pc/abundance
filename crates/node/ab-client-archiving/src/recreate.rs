@@ -5,7 +5,6 @@ use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, NewArchivedSe
 use ab_archiving::objects::BlockObject;
 use ab_client_api::{ChainInfo, ReadBlockError};
 use ab_core_primitives::block::BlockNumber;
-use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::pieces::SegmentProof;
@@ -108,7 +107,7 @@ where
         let archiver = {
             let Some(first_block_root) = chain_info
                 .ancestor_header(first_block_number, &best_block_root)
-                .map(|header| *header.header().root())
+                .map(|header| *header.root())
             else {
                 return Ok(None);
             };
@@ -140,7 +139,7 @@ where
         let (encoded_block, block_objects) = {
             let Some(block_root) = chain_info
                 .ancestor_header(block_number, &best_block_root)
-                .map(|header| *header.header().root())
+                .map(|header| *header.root())
             else {
                 return Ok(None);
             };

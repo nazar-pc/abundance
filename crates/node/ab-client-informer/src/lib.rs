@@ -1,7 +1,6 @@
 //! Client informer, which logs node state periodically
 
 use ab_client_api::ChainInfo;
-use ab_core_primitives::block::header::GenericBlockHeader;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::GenericOwnedBlock;
 use ab_core_primitives::shard::RealShardKind;
@@ -39,7 +38,7 @@ where
         info!(
             %shard,
             best_number = %best_header.header().prefix.number,
-            best_root = %*best_header.header().root(),
+            best_root = %*best_header.root(),
             "💤"
         );
 
