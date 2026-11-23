@@ -57,6 +57,11 @@ chain. This drives several choices that look odd in isolation:
   absence could cause unsafety or a panic.
 - Owned types (`Owned*Header`, `Owned*Body`, `Owned*Block`) hold a `SharedAlignedBuffer` with the borrowed view attached
   through `Yoke`, and cache roots/hashes so they are computed once. `to_owned()` is meant to be cheap and infallible.
+- A parsed view may keep the bytes it was parsed from and hash them in one go, with its fields read-only
+  (`pub mut(self)`) so they can't diverge from those bytes, like `BlockHeaderConsensusParameters`. Such a view only
+  comes from its parser, and builders take the owned counterpart (`OwnedBlockHeaderConsensusParameters`). Hashing the
+  encoding instead of feeding fields one by one keeps the hash unambiguous (presence flags included) without a second
+  encoder that can drift from the parser.
 - Size limits are a consensus matter and will live in `ConsensusConstants` (a maximum block size of a few MB that will
   grow over time). They are checked on raw bytes at the untrusted boundary where blocks come from the network, not
   during parsing. Parsers stay size-agnostic except for structural bounds, such as rejecting bodies longer than
@@ -78,6 +83,28 @@ live in `ab_core_primitives::trees`, where every tree has its own BLAKE3 key. Ru
   free. Anything that pre-hashes, prefixes a size or otherwise adds bytes to a node pair costs an extra compression per
   node, so it needs a very good reason. Batch APIs in `ab-blake3` (`single_block_keyed_hash_many_exact()`, `const`
   variants) already exist, check before adding new ones.
+
+## Super segments and shard segments
+
+Rustdoc of `derive_super_segment_for_block()` and `check_shard_segments()` in `ab-client-consensus-common` has the
+details, this is the intent behind them:
+
+- Beacon chain blocks list shard segments: own segments of intermediate shard blocks and segments of their leaf
+  shards. Those listed in the base block `n - block_confirmation_depth - shard_confirmation_depth` are candidates for
+  the super segment of block `n`. Listing a segment of a shard again in one of the `shard_confirmation_depth` blocks
+  after the base means that shard reorged, which postpones the candidate at the lowest index listed again and every
+  candidate of that shard above it. The rest are confirmed and go into the super segment.
+- A confirmed shard segment can't be listed again, otherwise it would end up in super segments twice. Indices of each
+  shard are gap-free: the first segments of a shard in a block continue its most recent listing on the block's own fork
+  or go back to list segments again after a shard reorg, but never below the confirmed ones, and later segments of the
+  same shard in that block continue exactly. Going back within one block isn't allowed, the builder puts such a reorg
+  into the next block.
+- Recent blocks may differ between forks, so they are always read through the ancestry of the block being verified
+  (`shard_segment_roots()` takes a descendant root), never by number on the best chain. Super segments themselves don't
+  depend on the fork, their base block and the blocks after it are confirmed.
+- The highest confirmed local segment index of each shard is consensus state that belongs to beacon chain state, which
+  doesn't exist yet. Until then the database derives it from persisted super segments, and Snap sync has no verifiable
+  way to get it (see the `TODO` in the database).
 
 ## Archiving and sync
 
