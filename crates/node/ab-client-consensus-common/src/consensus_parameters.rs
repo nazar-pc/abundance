@@ -248,7 +248,7 @@ where
     } else {
         let lookback_in_blocks = BlockNumber::from(
             u64::from(pot_entropy_injection_interval)
-                * u64::from(pot_entropy_injection_lookback_depth),
+                * u64::from(pot_entropy_injection_lookback_depth.get()),
         );
         let last_entropy_injection_block_number = BlockNumber::from(
             u64::from(block_number) / u64::from(pot_entropy_injection_interval)

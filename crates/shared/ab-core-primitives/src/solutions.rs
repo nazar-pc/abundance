@@ -60,7 +60,6 @@ impl SolutionDistance {
         chunk: &[u8; 32],
         sector_slot_challenge: &SectorSlotChallenge,
     ) -> Self {
-        // TODO: Is keyed hash really needed here?
         let audit_chunk = single_block_keyed_hash(sector_slot_challenge, chunk)
             .expect("Less than a single block worth of bytes; qed");
         let audit_chunk_as_solution_range = SolutionRange::from_bytes([

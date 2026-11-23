@@ -75,12 +75,7 @@ where
     ///
     /// The data structure is statically allocated and might be too large to fit on the stack!
     /// If that is the case, use `new_boxed()` method.
-    // TODO: Unlock on RISC-V, it started failing since https://github.com/nazar-pc/abundance/pull/551
-    //  for unknown reason
-    #[cfg_attr(
-        all(feature = "no-panic", not(target_arch = "riscv64")),
-        no_panic::no_panic
-    )]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new(leaves: &'a [[u8; H::OUT_LEN]; N]) -> Self {
         // TODO: Technically redundant with the where-clause, which is not enforced in generic code
         //  due to https://github.com/rust-lang/rust/issues/164019, remove once fixed
@@ -98,12 +93,7 @@ where
     }
 
     /// Like [`Self::new()`], but used pre-allocated memory for instantiation
-    // TODO: Unlock on RISC-V, it started failing since https://github.com/nazar-pc/abundance/pull/551
-    //  for unknown reason
-    #[cfg_attr(
-        all(feature = "no-panic", not(target_arch = "riscv64")),
-        no_panic::no_panic
-    )]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     pub fn new_in<'b>(
         instance: &'b mut MaybeUninit<Self>,
         leaves: &'a [[u8; H::OUT_LEN]; N],
@@ -146,12 +136,7 @@ where
         unsafe { instance.assume_init() }
     }
 
-    // TODO: Unlock on RISC-V, it started failing since https://github.com/nazar-pc/abundance/pull/551
-    //  for unknown reason
-    #[cfg_attr(
-        all(feature = "no-panic", not(target_arch = "riscv64")),
-        no_panic::no_panic
-    )]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn init_internal(
         leaves: &[[u8; H::OUT_LEN]; N],
         tree: &mut [MaybeUninit<[u8; H::OUT_LEN]>; TREE_SIZE_WITHOUT_LEAVES::<N>],

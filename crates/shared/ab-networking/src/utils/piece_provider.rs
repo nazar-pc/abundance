@@ -143,8 +143,6 @@ where
     }
 
     /// Returns piece by its index from farmer's piece cache (L2)
-    // TODO: Implement more narrowly focused single piece retrieval instead of reusing batch
-    //  retrieval logic
     pub async fn get_piece_from_cache(&self, piece_index: PieceIndex) -> Option<Piece> {
         self.get_from_cache(iter::once(piece_index))
             .await

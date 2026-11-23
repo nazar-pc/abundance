@@ -32,7 +32,7 @@ use ab_erasure_coding::ErasureCoding;
 use futures::channel::mpsc;
 use futures::prelude::*;
 use std::collections::{HashMap, HashSet};
-use std::num::{NonZeroU16, NonZeroU32, NonZeroU64};
+use std::num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64};
 use std::sync::Mutex;
 use std::{future, panic};
 use tokio::task::JoinHandle;
@@ -440,7 +440,7 @@ pub(crate) fn consensus_constants(block_confirmation_depth: BlockNumber) -> Cons
         block_authoring_delay: SlotNumber::from(4),
         pot: PotConsensusConstants {
             entropy_injection_interval: BlockNumber::from(50),
-            entropy_injection_lookback_depth: 2,
+            entropy_injection_lookback_depth: NonZeroU8::new(2).unwrap(),
             entropy_injection_delay: SlotNumber::from(15),
         },
         retarget_interval: BlockNumber::from(180),
