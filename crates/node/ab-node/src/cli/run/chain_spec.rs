@@ -11,7 +11,7 @@ use ab_core_primitives::pot::{PotOutput, SlotDuration, SlotNumber};
 use ab_core_primitives::segments::HistorySize;
 use ab_core_primitives::shard::{NumShards, ShardIndex};
 use ab_core_primitives::solutions::{Solution, SolutionRange};
-use std::num::{NonZeroU16, NonZeroU32, NonZeroU64};
+use std::num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64};
 
 const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
     block_confirmation_depth: BlockNumber::from(100),
@@ -21,7 +21,7 @@ const CONSENSUS_CONSTANTS: ConsensusConstants = ConsensusConstants {
     block_authoring_delay: SlotNumber::from(4),
     pot: PotConsensusConstants {
         entropy_injection_interval: BlockNumber::from(50),
-        entropy_injection_lookback_depth: 2,
+        entropy_injection_lookback_depth: NonZeroU8::new(2).expect("Not zero; qed"),
         entropy_injection_delay: SlotNumber::from(15),
     },
     retarget_interval: BlockNumber::from(180),

@@ -7,6 +7,7 @@ use ab_core_primitives::block::{BlockNumber, BlockTimestamp};
 use ab_core_primitives::pot::{SlotDuration, SlotNumber};
 use ab_core_primitives::segments::HistorySize;
 use futures::channel::mpsc;
+use std::num::NonZeroU8;
 
 /// Proof-of-time consensus constants
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -14,7 +15,7 @@ pub struct PotConsensusConstants {
     /// Interval, in blocks, between blockchain entropy injection into the proof of time chain
     pub entropy_injection_interval: BlockNumber,
     /// Interval, in entropy injection intervals, where to take entropy for injection from
-    pub entropy_injection_lookback_depth: u8,
+    pub entropy_injection_lookback_depth: NonZeroU8,
     /// Delay after block, in slots, when entropy injection takes effect
     pub entropy_injection_delay: SlotNumber,
 }
