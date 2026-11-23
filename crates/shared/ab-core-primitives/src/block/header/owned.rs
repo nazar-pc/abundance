@@ -353,7 +353,6 @@ impl OwnedBeaconChainHeaderUnsealed {
     /// Hash of the block before seal is applied to it
     #[inline(always)]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(self.buffer.as_slice()))
     }
 
@@ -400,7 +399,6 @@ impl OwnedBeaconChainHeaderUnsealedRef<'_> {
             .as_slice()
             .get(self.header_offset as usize..)
             .expect("The buffer only grew since `header_offset` was its length; qed");
-        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(header_bytes))
     }
 
@@ -636,7 +634,6 @@ impl OwnedIntermediateShardHeaderUnsealed {
     /// Hash of the block before seal is applied to it
     #[inline(always)]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(self.buffer.as_slice()))
     }
 
@@ -683,7 +680,6 @@ impl OwnedIntermediateShardHeaderUnsealedRef<'_> {
             .as_slice()
             .get(self.header_offset as usize..)
             .expect("The buffer only grew since `header_offset` was its length; qed");
-        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(header_bytes))
     }
 
@@ -902,7 +898,6 @@ impl OwnedLeafShardHeaderUnsealed {
     /// Hash of the block before seal is applied to it
     #[inline(always)]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(self.buffer.as_slice()))
     }
 
@@ -949,7 +944,6 @@ impl OwnedLeafShardHeaderUnsealedRef<'_> {
             .as_slice()
             .get(self.header_offset as usize..)
             .expect("The buffer only grew since `header_offset` was its length; qed");
-        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(header_bytes))
     }
 

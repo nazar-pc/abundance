@@ -182,7 +182,6 @@ impl SectorId {
             .copy_from_slice(&history_size.as_non_zero_u64().get().to_le_bytes());
         bytes_to_hash[SectorIndex::SIZE + HistorySize::SIZE as usize..]
             .copy_from_slice(shard_commitments_root.as_bytes());
-        // TODO: Is keyed hash really needed here?
         Self(Blake3Hash::new(
             single_block_keyed_hash(public_key_hash, &bytes_to_hash)
                 .expect("Less than a single block worth of bytes; qed"),
@@ -209,7 +208,6 @@ impl SectorId {
             let piece_offset_bytes = piece_offset.to_bytes();
             let mut key = [0; 32];
             key[..piece_offset_bytes.len()].copy_from_slice(&piece_offset_bytes);
-            // TODO: Is keyed hash really needed here?
             NanoU256::from_le_bytes(
                 single_block_keyed_hash(&key, self.as_ref())
                     .expect("Less than a single block worth of bytes; qed"),

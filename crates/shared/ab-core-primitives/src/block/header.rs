@@ -795,7 +795,6 @@ impl<'a> BeaconChainHeader<'a> {
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
@@ -1024,7 +1023,6 @@ impl<'a> IntermediateShardHeader<'a> {
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
@@ -1237,7 +1235,6 @@ impl<'a> LeafShardHeader<'a> {
     /// Hash of the block before seal is applied to it
     #[inline]
     pub fn pre_seal_hash(&self) -> Blake3Hash {
-        // TODO: Keyed hash with `block_header_seal` as a key
         Blake3Hash::from(blake3::hash(self.pre_seal_bytes))
     }
 
