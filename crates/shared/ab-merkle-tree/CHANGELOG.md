@@ -42,6 +42,8 @@ Fixes:
 * `SparseMerkleTree::compute_root_only()` and `SparseMerkleTree::verify()` with unsupported `BITS` and
   `UnbalancedMerkleTree::compute_root_only_array()` with an empty array no longer compile when called from generic code
   in crates with `generic_const_args`, previously they returned wrong results or panicked at runtime
+* `SparseMerkleTree::verify()` now accepts proofs of empty leaves next to an empty sibling, previously it hashed two
+  empty nodes together instead of treating their parent as empty like `SparseMerkleTree::compute_root_only()` does
 
 # 0.2.0
 

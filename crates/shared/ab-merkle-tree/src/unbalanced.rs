@@ -88,6 +88,7 @@ where
     }
 
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn compute_root_only_with<const MAX_N: u64, Item, Iter>(
         hasher: &H,
         leaves: Iter,

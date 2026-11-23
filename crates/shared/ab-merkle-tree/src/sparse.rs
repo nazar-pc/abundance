@@ -275,11 +275,14 @@ where
 
         let mut position = leaf_index;
         for hash in proof {
-            computed_root = if position.is_multiple_of(2) {
-                hasher.hash_pair(&[computed_root, *hash])
-            } else {
-                hasher.hash_pair(&[*hash, computed_root])
-            };
+            // Hash together unless both are zero
+            if !(computed_root == Self::ZERO && hash == &Self::ZERO) {
+                computed_root = if position.is_multiple_of(2) {
+                    hasher.hash_pair(&[computed_root, *hash])
+                } else {
+                    hasher.hash_pair(&[*hash, computed_root])
+                };
+            }
 
             position /= 2;
         }

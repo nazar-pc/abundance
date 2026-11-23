@@ -244,6 +244,41 @@ fn smt_128_bit() {
     }
 }
 
+#[test]
+fn smt_32_verify() {
+    const N: usize = 32;
+    const BITS: u8 = N.ilog2() as u8;
+
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    let leaves = {
+        let mut leaves = [[0u8; OUT_LEN]; N];
+        for hash in &mut leaves {
+            rng.fill_bytes(hash);
+        }
+        leaves
+    };
+
+    for total_skip_size in [0, 1, 2, 5, 16, 31] {
+        for offset in 0..N - total_skip_size {
+            let mut modified_leaves = leaves;
+            modified_leaves[offset..][..total_skip_size].fill(ZERO);
+
+            let root = naive_sparse_merkle_tree_root(&modified_leaves);
+
+            // Proofs of both occupied and empty leaves must verify
+            for (index, leaf) in modified_leaves.iter().enumerate() {
+                let proof = naive_sparse_merkle_tree_proof(&modified_leaves, index);
+                let proof = <[[u8; OUT_LEN]; BITS as usize]>::try_from(proof).unwrap();
+                assert!(
+                    SparseMerkleTree::<BITS>::verify(&root, &proof, index as u128, *leaf),
+                    "offset={offset} total_skip_size={total_skip_size} index={index}"
+                );
+            }
+        }
+    }
+}
+
 /// Inefficient, full of allocations, but very simple to understand implementation
 fn naive_sparse_merkle_tree_root(leaves: &[[u8; OUT_LEN]]) -> [u8; OUT_LEN] {
     let mut level = leaves.to_vec();
@@ -264,6 +299,34 @@ fn naive_sparse_merkle_tree_root(leaves: &[[u8; OUT_LEN]]) -> [u8; OUT_LEN] {
     }
 
     level.into_iter().next().unwrap()
+}
+
+/// Inefficient, full of allocations, but very simple to understand implementation
+fn naive_sparse_merkle_tree_proof(
+    leaves: &[[u8; OUT_LEN]],
+    mut index: usize,
+) -> Vec<[u8; OUT_LEN]> {
+    let mut level = leaves.to_vec();
+    let mut proof = Vec::new();
+
+    while level.len() > 1 {
+        proof.push(level[index ^ 1]);
+        index /= 2;
+        level = level
+            .as_chunks()
+            .0
+            .iter()
+            .map(|[left, right]| {
+                if left == &ZERO && right == &ZERO {
+                    ZERO
+                } else {
+                    hash_pair(left, right)
+                }
+            })
+            .collect();
+    }
+
+    proof
 }
 
 fn test_32(total_skip_size: usize) {
