@@ -1,5 +1,9 @@
-use crate::test_hasher::{BalancedMerkleTree, OUT_LEN, SparseMerkleTree, hash_pair};
+use crate::test_hasher::{
+    BalancedMerkleTree, OUT_LEN, ParallelTestHasher2, ParallelTestHasher4, ParallelTestHasher8,
+    ParallelTestHasher16, ParallelTestHasher32, ParallelTestHasher64, SparseMerkleTree, hash_pair,
+};
 use ab_merkle_tree::sparse::Leaf;
+use ab_merkle_tree::{MerkleHasher, sparse};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use std::num::NonZeroU128;
@@ -276,6 +280,194 @@ fn smt_32_verify() {
                 );
             }
         }
+    }
+}
+
+/// Hashers that hash pairs in parallel buffer consecutive occupied leaves and hash them as
+/// perfect subtrees, which must not change the root, especially around boundaries of the buffer
+#[test]
+#[cfg_attr(miri, ignore = "Takes too long")]
+fn smt_buffered() {
+    test_buffered::<ParallelTestHasher2>();
+    test_buffered::<ParallelTestHasher4>();
+    test_buffered::<ParallelTestHasher8>();
+    test_buffered::<ParallelTestHasher16>();
+    test_buffered::<ParallelTestHasher32>();
+    test_buffered::<ParallelTestHasher64>();
+}
+
+/// Small trees, such that Miri checks buffering too
+#[test]
+fn smt_buffered_small() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    check_buffered::<4, ParallelTestHasher2>(&mut rng, &[(0, 16)], false);
+    check_buffered::<5, ParallelTestHasher2>(&mut rng, &[(1, 17), (1, 13)], false);
+    check_buffered::<5, ParallelTestHasher2>(&mut rng, &[(3, 20)], true);
+    for offset in [0, 1, 15, 16, 17, u128::MAX - 50] {
+        check_buffered::<128, ParallelTestHasher2>(&mut rng, &[(offset, 33), (1, 17)], true);
+    }
+}
+
+fn test_buffered<H>()
+where
+    H: MerkleHasher + Default,
+{
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    // Full trees, including those that are not larger than the buffer
+    check_buffered::<1, H>(&mut rng, &[(0, 2)], false);
+    check_buffered::<5, H>(&mut rng, &[(0, 32)], false);
+    check_buffered::<7, H>(&mut rng, &[(0, 128)], false);
+    check_buffered::<8, H>(&mut rng, &[(0, 256)], false);
+    check_buffered::<10, H>(&mut rng, &[(0, 1024)], false);
+
+    let middle = 1 << 64;
+    for run in [
+        1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 255, 256, 257, 300, 1000,
+    ] {
+        for offset in [
+            0,
+            1,
+            15,
+            16,
+            17,
+            127,
+            128,
+            129,
+            1000,
+            middle - 1,
+            middle,
+            middle + 12345,
+            (1 << 127) - 129,
+            0x0123_4567_89ab_cdef_0123_4567_89ab_cdef,
+        ] {
+            check_buffered::<128, H>(&mut rng, &[(offset, run)], true);
+            check_buffered::<128, H>(&mut rng, &[(offset, run)], false);
+            // Runs separated by a single empty leaf
+            check_buffered::<128, H>(&mut rng, &[(offset, run), (1, run), (1, 7)], true);
+            // The second run starts at a multiple of the largest buffer
+            let gap = 128 - (offset + run as u128) % 128;
+            check_buffered::<128, H>(&mut rng, &[(offset, run), (gap, 130)], false);
+        }
+
+        // Runs that end with the last leaf
+        let offset = 0u128.wrapping_sub(run as u128);
+        check_buffered::<128, H>(&mut rng, &[(offset, run)], false);
+        check_buffered::<128, H>(&mut rng, &[(5, 3), (offset - 8, run)], false);
+
+        if run <= 256 {
+            check_buffered::<8, H>(&mut rng, &[(256 - run as u128, run)], false);
+            check_buffered::<8, H>(&mut rng, &[(0, run)], true);
+        }
+        if run < 256 {
+            check_buffered::<8, H>(&mut rng, &[(1, run / 2), (1, run / 2)], true);
+        }
+    }
+
+    // Random runs with random gaps
+    for _ in 0..100 {
+        let mut runs = Vec::new();
+        let mut num_leaves = 0u128;
+        for _ in 0..(rng.next_u32() % 8) {
+            let gap = match rng.next_u32() % 4 {
+                0 => 1,
+                1 => u128::from(rng.next_u32() % 300),
+                2 => u128::from(rng.next_u64()),
+                _ => 128 - num_leaves % 128,
+            };
+            let run = (rng.next_u32() % 400) as usize;
+            num_leaves += gap + run as u128;
+            runs.push((gap, run));
+        }
+        let trailing_gap = rng.next_u32().is_multiple_of(2);
+        check_buffered::<128, H>(&mut rng, &runs, trailing_gap);
+    }
+}
+
+/// Check the root of a tree with runs of occupied leaves, each is a pair of the number of empty
+/// leaves before the run and the number of occupied leaves in it. The rest of the leaves are
+/// explicitly empty with `trailing_gap` and implicitly otherwise.
+fn check_buffered<const BITS: u8, H>(
+    rng: &mut ChaCha8Rng,
+    runs: &[(u128, usize)],
+    trailing_gap: bool,
+) where
+    H: MerkleHasher + Default,
+{
+    let parallel_pairs = H::PARALLEL_PAIRS;
+    let mut leaves = Vec::new();
+    let mut num_leaves = 0u128;
+    for &(gap, run) in runs {
+        num_leaves += gap;
+        for _ in 0..run {
+            let mut leaf = [0u8; H::OUT_LEN];
+            rng.fill_bytes(&mut leaf);
+            leaves.push((num_leaves, leaf));
+            // Wraps after the last leaf of a tree with `2^128` leaves
+            num_leaves = num_leaves.wrapping_add(1);
+        }
+    }
+
+    let mut tree_leaves = Vec::new();
+    let mut occupied_leaves = leaves.iter();
+    for (index, &(gap, run)) in runs.iter().enumerate() {
+        if let Some(skip_count) = NonZeroU128::new(gap) {
+            tree_leaves.push(Leaf::Empty { skip_count });
+        }
+        for (_, leaf) in occupied_leaves.by_ref().take(run) {
+            // Both kinds of occupied leaves must be handled the same way
+            if index.is_multiple_of(2) {
+                tree_leaves.push(Leaf::Occupied { leaf });
+            } else {
+                tree_leaves.push(Leaf::OccupiedOwned { leaf: *leaf });
+            }
+        }
+    }
+    let num_trailing_empty = if u32::from(BITS) == u128::BITS {
+        0u128.wrapping_sub(num_leaves)
+    } else {
+        (1 << BITS) - num_leaves
+    };
+    if trailing_gap && let Some(skip_count) = NonZeroU128::new(num_trailing_empty) {
+        tree_leaves.push(Leaf::Empty { skip_count });
+    }
+
+    assert_eq!(
+        sparse::SparseMerkleTree::<BITS, H>::compute_root_only(tree_leaves)
+            .unwrap()
+            .as_slice(),
+        naive_subtree_root::<H>(0, u32::from(BITS), &leaves).as_slice(),
+        "PARALLEL_PAIRS {parallel_pairs} BITS {BITS} runs {runs:?} trailing_gap {trailing_gap}"
+    );
+}
+
+/// Root of a subtree of `2^height` leaves that starts at leaf `first_leaf` by definition, `leaves`
+/// are occupied leaves of the subtree with their indices, all other leaves are empty
+fn naive_subtree_root<H>(
+    first_leaf: u128,
+    height: u32,
+    leaves: &[(u128, [u8; H::OUT_LEN])],
+) -> [u8; H::OUT_LEN]
+where
+    H: MerkleHasher + Default,
+{
+    let zero = [0u8; H::OUT_LEN];
+    if leaves.is_empty() {
+        return zero;
+    }
+    if height == 0 {
+        return leaves[0].1;
+    }
+
+    let middle = first_leaf + (1 << (height - 1));
+    let (left, right) = leaves.split_at(leaves.partition_point(|&(index, _)| index < middle));
+    let left = naive_subtree_root::<H>(first_leaf, height - 1, left);
+    let right = naive_subtree_root::<H>(middle, height - 1, right);
+    if left == zero && right == zero {
+        zero
+    } else {
+        H::default().hash_pair(&[left, right])
     }
 }
 

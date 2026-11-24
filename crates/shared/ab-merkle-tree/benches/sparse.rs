@@ -23,6 +23,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     sparse_skip::<32>(c);
     sparse_skip::<64>(c);
     sparse_skip::<128>(c);
+    sparse_run(c);
 }
 
 /// Benchmarks a fully occupied tree of `2^BITS == N` leaves
@@ -91,6 +92,25 @@ fn sparse_skip<const BITS: u8>(c: &mut Criterion) {
                 black_box(Leaf::Occupied { leaf: &leaf }),
                 black_box(Leaf::Empty { skip_count }),
             ]));
+        });
+    });
+}
+
+/// Benchmarks a tree of intractable `2^128` size with a run of consecutive occupied leaves at an
+/// offset that is not aligned to a power of two, the rest of the leaves are empty
+fn sparse_run(c: &mut Criterion) {
+    let input = (0..1000)
+        .map(|index| [(index % u8::MAX as usize + 1) as u8; 32])
+        .collect::<Vec<_>>();
+    let offset = NonZeroU128::new(0x0123_4567_89ab_cdef_0123_4567_89ab_cdef).unwrap();
+
+    c.bench_function("128/sparse/compute-root-only-run", |b| {
+        b.iter(|| {
+            black_box(SparseMerkleTree::<128>::compute_root_only(
+                [Leaf::Empty { skip_count: offset }]
+                    .into_iter()
+                    .chain(black_box(&input).iter().map(|leaf| Leaf::Occupied { leaf })),
+            ));
         });
     });
 }

@@ -82,7 +82,9 @@ macro_rules! parallel_test_hashers {
 
 parallel_test_hashers!(
     ParallelTestHasher2: 2,
+    ParallelTestHasher4: 4,
     ParallelTestHasher8: 8,
+    ParallelTestHasher16: 16,
     ParallelTestHasher32: 32,
     ParallelTestHasher64: 64,
 );

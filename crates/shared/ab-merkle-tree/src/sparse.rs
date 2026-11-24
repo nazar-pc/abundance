@@ -6,7 +6,9 @@
 //! zeroes, otherwise inner nodes are hashed like in a Balanced Merkle Tree.
 
 use crate::MerkleHasher;
+use crate::batching::{BUFFER_NUM_LEAVES, hash_buffered_leaves};
 use core::marker::PhantomCovariant;
+use core::mem::MaybeUninit;
 use core::num::NonZeroU128;
 
 /// Number of elements in a proof for a tree with `BITS`
@@ -37,7 +39,6 @@ pub enum Leaf<'a, H>
 where
     H: MerkleHasher,
 {
-    // TODO: Batch of leaves for efficiently, especially with SIMD?
     /// Leaf contains a value
     Occupied {
         /// Leaf value
@@ -78,7 +79,9 @@ where
 #[derive(Debug)]
 pub struct SparseMerkleTree<const BITS: u8, H>(PhantomCovariant<H>);
 
-// TODO: Optimize by hashing multiple pairs at once with `MerkleHasher::hash_pairs()`
+// TODO: Isolated occupied leaves and merges with empty subtrees in `skip_leaves()` are still hashed
+//  one pair at a time, paths of different leaves could be hashed in parallel with
+//  `MerkleHasher::hash_pairs()`
 impl<const BITS: u8, H> SparseMerkleTree<BITS, H>
 where
     [(); ENSURE_SUPPORTED_BITS::<BITS>]:,
@@ -112,6 +115,11 @@ where
         let mut stack = [[0u8; H::OUT_LEN]; _];
         let mut processed_some = false;
         let mut num_leaves = 0u128;
+        // Consecutive occupied leaves within a multiple of the buffer size, hashed together once
+        // the buffer is full, on the next empty leaf or at the end
+        let mut buffer = [MaybeUninit::<[u8; H::OUT_LEN]>::uninit(); BUFFER_NUM_LEAVES::<H>];
+        // Index of the first leaf in the buffer, `None` if the buffer is empty
+        let mut buffer_start = None;
 
         for leaf in leaves {
             if u32::from(BITS) < u128::BITS {
@@ -134,6 +142,20 @@ where
                 Leaf::Occupied { leaf } => *leaf,
                 Leaf::OccupiedOwned { leaf } => leaf,
                 Leaf::Empty { skip_count } => {
+                    if let Some(start) = buffer_start.take() {
+                        // SAFETY: Leaves were written to the buffer from `start` up to the index
+                        // of the current leaf, which is smaller than `2^BITS` as checked above
+                        unsafe {
+                            Self::push_buffered_leaves(
+                                &hasher,
+                                &mut stack,
+                                &mut buffer,
+                                num_leaves,
+                                start,
+                                num_leaves as usize % BUFFER_NUM_LEAVES::<H>,
+                            );
+                        }
+                    }
                     num_leaves = Self::skip_leaves(
                         &hasher,
                         &mut stack,
@@ -145,21 +167,64 @@ where
                 }
             };
 
-            let mut current = leaf;
+            if BUFFER_NUM_LEAVES::<H> > 1 {
+                // Truncation keeps the lowest bits, which are the index in the buffer
+                let buffer_index = num_leaves as usize % BUFFER_NUM_LEAVES::<H>;
+                buffer
+                    .get_mut(buffer_index)
+                    .expect("Index is a remainder of division by the buffer size; qed")
+                    .write(leaf);
+                let start = *buffer_start.get_or_insert(buffer_index);
 
-            // Every bit set to `1` corresponds to an active Merkle Tree level
-            let lowest_active_levels = num_leaves.trailing_ones() as usize;
-            for item in stack.iter().take(lowest_active_levels) {
-                current = hasher.hash_pair(&[*item, current]);
+                if buffer_index == BUFFER_NUM_LEAVES::<H> - 1 {
+                    buffer_start = None;
+                    // SAFETY: Leaves were written to the buffer from `start` up to its end, the
+                    // current leaf is smaller than `2^BITS` as checked above
+                    unsafe {
+                        Self::push_buffered_leaves(
+                            &hasher,
+                            &mut stack,
+                            &mut buffer,
+                            num_leaves,
+                            start,
+                            BUFFER_NUM_LEAVES::<H>,
+                        );
+                    }
+                }
+            } else {
+                let mut current = leaf;
+
+                // Every bit set to `1` corresponds to an active Merkle Tree level
+                let lowest_active_levels = num_leaves.trailing_ones() as usize;
+                for item in stack.iter().take(lowest_active_levels) {
+                    current = hasher.hash_pair(&[*item, current]);
+                }
+
+                // Place the current hash at the first inactive level
+                *stack
+                    .get_mut(lowest_active_levels)
+                    .expect("Stack has `BITS + 1` levels, enough for `num_leaves < 2^BITS`; qed") =
+                    current;
             }
-
-            // Place the current hash at the first inactive level
-            *stack.get_mut(lowest_active_levels).expect(
-                "Stack has `BITS + 1` levels, enough for `num_leaves < 2^BITS` checked above; qed",
-            ) = current;
             // Wrapping is needed for `BITS == u128::BITS`, where number of leaves narrowly
             // doesn't fit into `u128` itself
             num_leaves = num_leaves.wrapping_add(1);
+        }
+
+        if let Some(start) = buffer_start {
+            // SAFETY: Leaves were written to the buffer from `start` up to the index of the last
+            // leaf, which was smaller than `2^BITS`. The buffer is not full, so `num_leaves`
+            // didn't wrap around to zero.
+            unsafe {
+                Self::push_buffered_leaves(
+                    &hasher,
+                    &mut stack,
+                    &mut buffer,
+                    num_leaves,
+                    start,
+                    num_leaves as usize % BUFFER_NUM_LEAVES::<H>,
+                );
+            }
         }
 
         if u32::from(BITS) < u128::BITS {
@@ -183,6 +248,61 @@ where
         }
 
         Some(stack[BITS as usize])
+    }
+
+    /// Push the root of a subtree of `2^height` leaves that starts at leaf `first_leaf`, merging it
+    /// with the nodes on the stack it completes.
+    ///
+    /// # Safety
+    /// `height` must not be larger than `BITS` and `first_leaf` must be smaller than `2^BITS`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    unsafe fn push_subtree(
+        hasher: &H,
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<BITS>],
+        first_leaf: u128,
+        height: u32,
+        mut node: [u8; H::OUT_LEN],
+    ) {
+        // Every bit set to `1` corresponds to an active Merkle Tree level
+        let active_levels = (first_leaf >> height).trailing_ones() as usize;
+        for item in stack.iter().skip(height as usize).take(active_levels) {
+            node = hasher.hash_pair(&[*item, node]);
+        }
+
+        // Place the node at the first inactive level.
+        //
+        // SAFETY: `height <= BITS` and `first_leaf < 2^BITS`, so the level is at most `BITS`,
+        // while the stack has `BITS + 1` levels
+        *unsafe { stack.get_unchecked_mut(height as usize + active_levels) } = node;
+    }
+
+    /// Push leaves `buffer[start..end]` as perfect subtrees, `leaf_index` is the index of any
+    /// leaf within the same multiple of the buffer size.
+    ///
+    /// # Safety
+    /// `end` must not be larger than the buffer size, leaves `buffer[start..end]` must be
+    /// initialized and the leaf corresponding to `buffer[end - 1]` must be smaller than `2^BITS`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    unsafe fn push_buffered_leaves(
+        hasher: &H,
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<BITS>],
+        buffer: &mut [MaybeUninit<[u8; H::OUT_LEN]>; BUFFER_NUM_LEAVES::<H>],
+        leaf_index: u128,
+        start: usize,
+        end: usize,
+    ) {
+        // Truncation keeps the lowest bits, which are the index in the buffer
+        let first_leaf = leaf_index - (leaf_index as usize % BUFFER_NUM_LEAVES::<H>) as u128;
+        // SAFETY: Guaranteed by the function contract. Subtrees are within the buffer, which is
+        // not larger than the tree, so `height <= BITS`, and they start at leaves
+        // `first_leaf + offset < 2^BITS`, as `Self::push_subtree()` requires.
+        unsafe {
+            hash_buffered_leaves(hasher, buffer, start, end, |offset, height, root| {
+                Self::push_subtree(hasher, stack, first_leaf + offset as u128, height, root);
+            });
+        }
     }
 
     /// Returns updated number of leaves

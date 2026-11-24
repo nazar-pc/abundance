@@ -40,6 +40,8 @@ Improvements:
 * `UnbalancedMerkleTree::compute_root_only*()` (except `compute_root_only_sparse()`) hash leaves as perfect subtrees
   of up to 8 times `MerkleHasher::PARALLEL_PAIRS` leaves with `MerkleHasher::hash_pairs()`, which is about 4 times
   faster for 256 leaves and more and 2-3 times faster for 16-32 leaves with BLAKE3 on x86-64 with AVX-512
+* `SparseMerkleTree::compute_root_only()` hashes runs of consecutive occupied leaves the same way, which is 3.5-5 times
+  faster for 1000 consecutive leaves and more with BLAKE3 on x86-64 with AVX-512
 
 Fixes:
 
