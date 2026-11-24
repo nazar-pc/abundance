@@ -183,7 +183,7 @@ where
 
             if self.chain_sync_status.is_syncing() {
                 debug!(%slot, "Skipping farming due to syncing");
-                return;
+                continue;
             }
 
             // TODO: Maybe handle the boundary in some way, like checking already received
