@@ -1,5 +1,10 @@
 # 0.2.1
 
+New features:
+
+* `MAX_SIMD_DEGREE` is the maximum number of inputs hashed in parallel with SIMD on the target, such that callers
+  can size batches of inputs accordingly
+
 Improvements:
 
 * `single_block_hash_many_exact()` and `single_block_keyed_hash_many_exact()` hash inputs beyond a multiple of 16 with

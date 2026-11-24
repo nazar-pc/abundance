@@ -1,5 +1,9 @@
-use crate::test_hasher::{BalancedMerkleTree, MerkleMountainRange, OUT_LEN, UnbalancedMerkleTree};
+use crate::test_hasher::{
+    BalancedMerkleTree, MerkleMountainRange, OUT_LEN, ParallelTestHasher8, ParallelTestHasher32,
+    UnbalancedMerkleTree,
+};
 use ab_merkle_tree::balanced::PROOF_ELEMENTS;
+use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize, balanced};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
 use std::mem::MaybeUninit;
@@ -34,6 +38,63 @@ fn mt_balanced_32_leaves() {
 #[cfg_attr(miri, ignore)]
 fn mt_balanced_64_leaves() {
     test_basic::<64, 64>();
+}
+
+#[test]
+fn mt_balanced_parallel_pairs() {
+    test_parallel_pairs::<2>();
+    test_parallel_pairs::<4>();
+    test_parallel_pairs::<8>();
+    test_parallel_pairs::<16>();
+    test_parallel_pairs::<32>();
+}
+
+/// Trees are the same regardless of how many pairs the hasher hashes in parallel
+fn test_parallel_pairs<const N: usize>() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    let leaves = {
+        let mut leaves = [[0u8; OUT_LEN]; N];
+        for hash in &mut leaves {
+            rng.fill_bytes(hash);
+        }
+        leaves
+    };
+
+    let expected_tree = BalancedMerkleTree::new(&leaves);
+
+    test_parallel_pairs_hasher::<N, ParallelTestHasher8>(&leaves, &expected_tree);
+    test_parallel_pairs_hasher::<N, ParallelTestHasher32>(&leaves, &expected_tree);
+}
+
+fn test_parallel_pairs_hasher<const N: usize, H>(
+    leaves: &[[u8; H::OUT_LEN]; N],
+    expected_tree: &BalancedMerkleTree<'_, N>,
+) where
+    H: MerkleHasher + const NewMerkleHasherForTreeSize,
+{
+    let parallel_pairs = H::PARALLEL_PAIRS;
+    let expected_root = expected_tree.root();
+    let tree = balanced::BalancedMerkleTree::<N, H>::new(leaves);
+
+    assert_eq!(
+        tree.root().as_slice(),
+        expected_root.as_slice(),
+        "N {N} PARALLEL_PAIRS {parallel_pairs}"
+    );
+    assert_eq!(
+        balanced::BalancedMerkleTree::<N, H>::compute_root_only(leaves).as_slice(),
+        expected_root.as_slice(),
+        "N {N} PARALLEL_PAIRS {parallel_pairs}"
+    );
+    assert!(
+        tree.all_proofs()
+            .map(|proof| proof.as_flattened().to_vec())
+            .eq(expected_tree
+                .all_proofs()
+                .map(|proof| proof.as_flattened().to_vec())),
+        "N {N} PARALLEL_PAIRS {parallel_pairs}"
+    );
 }
 
 fn test_basic<const N: usize, const N_U64: u64>() {

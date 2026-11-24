@@ -72,6 +72,12 @@ extern crate alloc;
 pub trait MerkleHasher {
     /// Size of a node hash in bytes
     const OUT_LEN: usize;
+    /// Number of pairs [`Self::hash_pairs()`] hashes in parallel, 1 for hashers that hash pairs one
+    /// by one.
+    ///
+    /// Trees size batches of pairs and buffers for them accordingly, such that hashers without
+    /// parallelism don't pay for batching. Must be a power of two that is not larger than 64.
+    const PARALLEL_PAIRS: usize = 1;
 
     /// Hash a pair of nodes together
     fn hash_pair(&self, pair: &[[u8; Self::OUT_LEN]; 2]) -> [u8; Self::OUT_LEN];

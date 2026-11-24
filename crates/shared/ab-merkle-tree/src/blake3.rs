@@ -1,7 +1,7 @@
 //! BLAKE3 hasher and aliases of Merkle Trees that use it
 
 use crate::{MerkleHasher, balanced, mmr, sparse, unbalanced};
-use ab_blake3::{BLOCK_LEN, KEY_LEN, OUT_LEN};
+use ab_blake3::{BLOCK_LEN, KEY_LEN, MAX_SIMD_DEGREE, OUT_LEN};
 use array_reshape::{Flatten, FlattenEach};
 
 /// [`BalancedMerkleTree`](balanced::BalancedMerkleTree) with the default BLAKE3 hasher
@@ -34,6 +34,7 @@ impl Blake3MerkleHasher {
 
 impl MerkleHasher for Blake3MerkleHasher {
     const OUT_LEN: usize = OUT_LEN;
+    const PARALLEL_PAIRS: usize = MAX_SIMD_DEGREE;
 
     #[inline(always)]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]

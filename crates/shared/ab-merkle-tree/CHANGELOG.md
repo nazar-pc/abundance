@@ -27,10 +27,16 @@ New features:
 * `UnbalancedMerkleTree::compute_root_only_sparse()` computes the root of a tree whose leaves are mostly zeroes, it
   hashes runs of zero leaves as whole subtrees, so the cost depends on the number of non-zero leaves and the height of
   the tree rather than on the number of leaves
+* `MerkleHasher::PARALLEL_PAIRS` is the number of pairs `MerkleHasher::hash_pairs()` hashes in parallel (1 by
+  default, a power of two up to 64), which trees use to size batches of pairs, `blake3::Blake3MerkleHasher` sets it to
+  the number of blocks BLAKE3 can hash in parallel on the target
 
 Improvements:
 
 * BLAKE3 is optional, so users of other hash functions don't need to compile it
+* `BalancedMerkleTree::compute_root_only()` hashes batches of `MerkleHasher::PARALLEL_PAIRS` pairs rather than 16, so
+  it uses less stack with hashers that hash fewer pairs in parallel, including BLAKE3 on targets with narrower or no
+  SIMD
 
 Fixes:
 
