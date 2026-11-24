@@ -1,4 +1,5 @@
-use crate::{MerkleHasher, NewMerkleHasherForTreeSize, hash_pairs};
+use crate::batching::hash_pairs;
+use crate::{MerkleHasher, NewMerkleHasherForTreeSize};
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::iter::TrustedLen;
