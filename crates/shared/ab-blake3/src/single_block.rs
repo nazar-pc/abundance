@@ -49,8 +49,9 @@ fn hash_block_many_exact<const NUM_BLOCKS: usize>(
 ) {
     let platform = Platform::detect();
 
+    // Inputs are hashed in chunks to limit the size of the array of references to them
     let (input_chunks, remaining_inputs) = inputs.as_chunks::<16>();
-    let (output_chunks, remaining_output_chunks) = outputs.as_chunks_mut::<16>();
+    let (output_chunks, remaining_outputs) = outputs.as_chunks_mut::<16>();
 
     for (inputs, outputs) in input_chunks.iter().zip(output_chunks) {
         // TODO: This is a very awkward API, ideally we wouldn't have this array allocated inline
@@ -67,18 +68,61 @@ fn hash_block_many_exact<const NUM_BLOCKS: usize>(
         );
     }
 
-    for (input, output) in remaining_inputs.iter().zip(remaining_output_chunks) {
-        let mut cv = key;
+    // A single input is hashed faster without `blake3::platform::Platform::hash_many()`
+    if remaining_inputs.len() < 2 {
+        for (input, output) in remaining_inputs.iter().zip(remaining_outputs) {
+            let mut cv = key;
 
-        platform.compress_in_place(
-            &mut cv,
-            input,
-            BLOCK_LEN as u8,
-            0,
-            flags | CHUNK_START | CHUNK_END | ROOT,
-        );
+            platform.compress_in_place(
+                &mut cv,
+                input,
+                BLOCK_LEN as u8,
+                0,
+                flags | CHUNK_START | CHUNK_END | ROOT,
+            );
 
-        output.copy_from_slice(le_bytes_from_words_32(&cv));
+            output.copy_from_slice(le_bytes_from_words_32(&cv));
+        }
+        return;
+    }
+
+    let mut input_refs = [&[0; BLOCK_LEN]; 16];
+    for (input_ref, input) in input_refs.iter_mut().zip(remaining_inputs) {
+        *input_ref = input;
+    }
+
+    cfg_select! {
+        // A varying number of inputs prevents the compiler from proving that `blake3` doesn't
+        // panic, so inputs are padded to 16 instead
+        feature = "no-panic" => {
+            let mut padded_outputs = [[0; OUT_LEN]; 16];
+            platform.hash_many(
+                &input_refs,
+                &key,
+                0,
+                IncrementCounter::No,
+                flags | CHUNK_START | CHUNK_END | ROOT,
+                0,
+                0,
+                padded_outputs.as_flattened_mut(),
+            );
+            for (output, padded_output) in remaining_outputs.iter_mut().zip(&padded_outputs) {
+                *output = *padded_output;
+            }
+        }
+        // `blake3` hashes inputs that don't fill the widest SIMD with narrower SIMD
+        _ => {
+            platform.hash_many(
+                &input_refs[..remaining_inputs.len()],
+                &key,
+                0,
+                IncrementCounter::No,
+                flags | CHUNK_START | CHUNK_END | ROOT,
+                0,
+                0,
+                remaining_outputs.as_flattened_mut(),
+            );
+        }
     }
 }
 
