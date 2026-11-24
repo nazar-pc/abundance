@@ -33,6 +33,13 @@ pub struct BlockDetails {
     pub system_contract_states: Arc<[ContractSlotState]>,
 }
 
+/// Information about a block persisted with [`ChainInfoWrite::persist_block()`]
+#[derive(Debug, Copy, Clone)]
+pub struct PersistedBlockInfo {
+    /// Whether the block became the new best block
+    pub is_new_best: bool,
+}
+
 // TODO: Probably move it elsewhere
 /// Origin
 #[derive(Debug, Clone)]
@@ -245,7 +252,7 @@ where
         &self,
         block: Block,
         block_details: BlockDetails,
-    ) -> impl Future<Output = Result<(), PersistBlockError>> + Send;
+    ) -> impl Future<Output = Result<PersistedBlockInfo, PersistBlockError>> + Send;
 
     /// Persist segment headers.
     ///

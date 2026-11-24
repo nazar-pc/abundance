@@ -3,7 +3,7 @@ use crate::task::{
 };
 use ab_client_api::{
     BlockDetails, ChainInfo, ChainInfoWrite, PersistBlockError, PersistSegmentHeadersError,
-    ReadBlockError,
+    PersistedBlockInfo, ReadBlockError,
 };
 use ab_client_consensus_common::{
     BlockImportingNotification, ConsensusConstants, PotConsensusConstants,
@@ -342,7 +342,7 @@ where
         &self,
         _block: Block,
         _block_details: BlockDetails,
-    ) -> Result<(), PersistBlockError> {
+    ) -> Result<PersistedBlockInfo, PersistBlockError> {
         unimplemented!()
     }
 

@@ -100,7 +100,7 @@ use crate::storage_backend_adapter::{
 use ab_client_api::{
     BeaconChainInfo, BeaconChainInfoWrite, BlockDetails, ChainInfo, ChainInfoWrite,
     ContractSlotState, PersistBlockError, PersistSegmentHeadersError, PersistSuperSegmentsError,
-    ReadBlockError, ShardSegmentRoot, ShardSegmentRootsError,
+    PersistedBlockInfo, ReadBlockError, ShardSegmentRoot, ShardSegmentRootsError,
 };
 use ab_core_primitives::block::body::BeaconChainBody;
 use ab_core_primitives::block::body::owned::{GenericOwnedBlockBody, OwnedBeaconChainBody};
@@ -1433,7 +1433,7 @@ where
         &self,
         block: Block,
         block_details: BlockDetails,
-    ) -> Result<(), PersistBlockError> {
+    ) -> Result<PersistedBlockInfo, PersistBlockError> {
         let mut state = self.inner.state.write().await;
         let best_number = state.best_tip().number;
 
@@ -1452,11 +1452,13 @@ where
             // Special case when syncing on top of the fresh database
             Self::insert_first_block(&mut state.data, block, block_details);
 
-            return Ok(());
+            return Ok(PersistedBlockInfo { is_new_best: true });
         }
 
         if block_number == best_number + BlockNumber::ONE {
-            return Self::insert_new_best_block(state, &self.inner, block, block_details).await;
+            Self::insert_new_best_block(state, &self.inner, block, block_details).await?;
+
+            return Ok(PersistedBlockInfo { is_new_best: true });
         }
 
         let block_offset = u64::from(
@@ -1527,7 +1529,7 @@ where
 
         Self::prune_outdated_fork_tips(best_number, &mut state.data, &self.inner.options);
 
-        Ok(())
+        Ok(PersistedBlockInfo { is_new_best: false })
     }
 
     async fn persist_segment_headers(

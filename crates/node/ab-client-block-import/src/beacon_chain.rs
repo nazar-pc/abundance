@@ -2,7 +2,7 @@
 mod tests;
 
 use crate::importing_blocks::{ImportingBlockHandle, ImportingBlocks, ParentBlockImportStatus};
-use crate::{BlockImport, BlockImportError};
+use crate::{BlockImport, BlockImportError, BlockImportedNotification};
 use ab_client_api::{
     BeaconChainInfoWrite, BlockDetails, BlockOrigin, ChainInfo, PersistSuperSegmentsError,
 };
@@ -149,7 +149,8 @@ pub struct BeaconChainBlockImport<PosTable, CI, BV> {
     importing_blocks: ImportingBlocks<OwnedBeaconChainHeader>,
     block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
     super_segments_sender: AsyncMutex<mpsc::Sender<SuperSegment>>,
-    block_import_notification_sender: mpsc::Sender<OwnedBeaconChainBlock>,
+    block_import_notification_sender:
+        AsyncMutex<mpsc::Sender<BlockImportedNotification<OwnedBeaconChainBlock>>>,
     _pos_table: PhantomData<PosTable>,
 }
 
@@ -236,7 +237,9 @@ where
         block_verification: BV,
         block_importing_notification_sender: mpsc::Sender<BlockImportingNotification>,
         super_segments_sender: mpsc::Sender<SuperSegment>,
-        block_import_notification_sender: mpsc::Sender<OwnedBeaconChainBlock>,
+        block_import_notification_sender: mpsc::Sender<
+            BlockImportedNotification<OwnedBeaconChainBlock>,
+        >,
     ) -> Self {
         Self {
             chain_info,
@@ -244,7 +247,7 @@ where
             importing_blocks: ImportingBlocks::new(),
             block_importing_notification_sender,
             super_segments_sender: AsyncMutex::new(super_segments_sender),
-            block_import_notification_sender,
+            block_import_notification_sender: AsyncMutex::new(block_import_notification_sender),
             _pos_table: PhantomData,
         }
     }
@@ -349,7 +352,13 @@ where
             }
         }
 
-        self.chain_info
+        // Blocks are imported concurrently, the lock ensures notifications are sent in the same
+        // order as blocks are persisted
+        let mut block_import_notification_sender =
+            self.block_import_notification_sender.lock().await;
+
+        let persisted_block_info = self
+            .chain_info
             .persist_block(
                 block.clone(),
                 BlockDetails {
@@ -361,10 +370,11 @@ where
 
         importing_handle.set_success(system_contract_states);
 
-        if let Err(error) = self
-            .block_import_notification_sender
-            .clone()
-            .send(block)
+        if let Err(error) = block_import_notification_sender
+            .send(BlockImportedNotification {
+                block,
+                is_new_best: persisted_block_info.is_new_best,
+            })
             .await
         {
             warn!(

@@ -1,6 +1,8 @@
 //! Client-side proof of time implementation.
 
 pub mod source;
+#[cfg(test)]
+mod test_utils;
 pub mod verifier;
 
 use ab_core_primitives::pot::{PotOutput, PotParametersChange, PotSeed, SlotNumber};

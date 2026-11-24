@@ -569,8 +569,13 @@ impl Run {
         );
 
         tokio::spawn(async move {
-            while let Some(block) = block_imported_notification_receiver.next().await {
-                let header = block.header().header();
+            while let Some(notification) = block_imported_notification_receiver.next().await {
+                if !notification.is_new_best {
+                    // Fork blocks don't change the PoT chain that is followed
+                    continue;
+                }
+
+                let header = notification.block.header().header();
                 let slot = header.consensus_info.slot + consensus_constants.block_authoring_delay;
                 let pot_parameters_change = header
                     .consensus_parameters()

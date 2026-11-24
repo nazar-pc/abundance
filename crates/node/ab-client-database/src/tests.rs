@@ -748,6 +748,37 @@ fn fork_below_best_block_keeps_best_block() {
 }
 
 #[test]
+fn persisted_block_indicates_new_best_block() {
+    // genesis - c1 -+- c2
+    //               \- a2 - a3 (the new best block)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let is_new_best = |block: OwnedBeaconChainBlock| {
+        let block_details = BlockDetails {
+            mmr_with_block: Arc::new(BlockMerkleMountainRange::new()),
+            system_contract_states: [].into_iter().collect(),
+        };
+        block_on(database.persist_block(block, block_details))
+            .unwrap()
+            .is_new_best
+    };
+
+    let c1 = beacon_chain_block(1, database.best_root(), 0);
+    let c1_root = *c1.header.root();
+    assert!(is_new_best(c1));
+    assert!(is_new_best(beacon_chain_block(2, c1_root, 0)));
+
+    let a2 = beacon_chain_block(2, c1_root, 1);
+    let a2_root = *a2.header.root();
+    assert!(!is_new_best(a2));
+
+    let a3 = beacon_chain_block(3, a2_root, 1);
+    let a3_root = *a3.header.root();
+    assert!(is_new_best(a3));
+    assert_eq!(database.best_root(), a3_root);
+}
+
+#[test]
 fn pruned_fork_tip_is_unknown() {
     // genesis - c1 - c2 -+- c3 (best block)
     //                    +- a3 (oldest fork tip, pruned)
