@@ -61,6 +61,18 @@ pub enum BlockImportError {
     },
 }
 
+/// Notification about a successfully imported block
+#[derive(Debug, Clone)]
+pub struct BlockImportedNotification<Block> {
+    /// Imported block
+    pub block: Block,
+    /// Whether the block became the new best block on import.
+    ///
+    /// Notifications are sent in the same order as blocks are persisted, so the most recent
+    /// notification with this flag set corresponds to the current best block.
+    pub is_new_best: bool,
+}
+
 /// Block import interface
 pub trait BlockImport<Block>: Send + Sync {
     /// Import provided block.
