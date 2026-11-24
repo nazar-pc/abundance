@@ -1,6 +1,8 @@
 pub mod block_import;
 pub mod gossip;
 pub mod state;
+#[cfg(test)]
+mod tests;
 pub mod timekeeper;
 
 use crate::PotNextSlotInput;
@@ -191,6 +193,26 @@ where
                 %slot_iterations,
                 output = %checkpoints.output(),
                 "Ignore timekeeper proof due to major syncing",
+            );
+
+            return;
+        }
+
+        // Timekeeper may have produced the proof before PoT chain was changed by block import
+        if !self.pot_state.is_on_current_chain(
+            PotNextSlotInput {
+                slot,
+                slot_iterations,
+                seed,
+            },
+            checkpoints.output(),
+        ) {
+            debug!(
+                ?slot,
+                %seed,
+                %slot_iterations,
+                output = %checkpoints.output(),
+                "Ignore timekeeper proof that is not on the current proof of time chain",
             );
 
             return;
