@@ -81,8 +81,10 @@ macro_rules! parallel_test_hashers {
 }
 
 parallel_test_hashers!(
+    ParallelTestHasher2: 2,
     ParallelTestHasher8: 8,
     ParallelTestHasher32: 32,
+    ParallelTestHasher64: 64,
 );
 
 /// Hasher that depends on the tree size, it only implements [`NewMerkleHasherForTreeSize`]

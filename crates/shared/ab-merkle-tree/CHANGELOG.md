@@ -37,6 +37,9 @@ Improvements:
 * `BalancedMerkleTree::compute_root_only()` hashes batches of `MerkleHasher::PARALLEL_PAIRS` pairs rather than 16, so
   it uses less stack with hashers that hash fewer pairs in parallel, including BLAKE3 on targets with narrower or no
   SIMD
+* `UnbalancedMerkleTree::compute_root_only*()` (except `compute_root_only_sparse()`) hash leaves as perfect subtrees
+  of up to 8 times `MerkleHasher::PARALLEL_PAIRS` leaves with `MerkleHasher::hash_pairs()`, which is about 4 times
+  faster for 256 leaves and more and 2-3 times faster for 16-32 leaves with BLAKE3 on x86-64 with AVX-512
 
 Fixes:
 

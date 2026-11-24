@@ -1,6 +1,7 @@
 //! Helpers for hashing many pairs of nodes at once
 
 use crate::MerkleHasher;
+use core::mem::MaybeUninit;
 use core::{hint, mem};
 
 /// [`MerkleHasher::PARALLEL_PAIRS`] that is checked to be supported
@@ -14,6 +15,16 @@ pub(crate) const PARALLEL_PAIRS<H: MerkleHasher>: usize = {
 };
 /// Number of leaves of [`MerkleHasher::PARALLEL_PAIRS`] pairs, which are hashed as a batch
 pub(crate) const BATCH_NUM_LEAVES<H: MerkleHasher>: usize = PARALLEL_PAIRS::<H> * 2;
+/// Number of consecutive leaves that trees buffer to hash them together as perfect subtrees.
+///
+/// 8 times [`MerkleHasher::PARALLEL_PAIRS`] keeps the extra stack small (4 KiB for BLAKE3 with
+/// AVX-512), while a larger buffer barely helps. Hashers without parallelism don't benefit from
+/// it, so the buffer is a single leaf for them, which trees don't use.
+pub(crate) const BUFFER_NUM_LEAVES<H: MerkleHasher>: usize = if PARALLEL_PAIRS::<H> == 1 {
+    1
+} else {
+    PARALLEL_PAIRS::<H> * 8
+};
 
 // TODO: Combine `NUM_PAIRS` and `NUM_LEAVES` into a single generic parameter once compiler is
 //  smart enough to deal with it
@@ -110,5 +121,43 @@ fn hash_level<const NUM_PAIRS: usize, const NUM_NODES: usize, H>(
         *level
             .first_chunk_mut()
             .expect("There are fewer parents than nodes; qed") = parents;
+    }
+}
+
+/// Hash leaves `buffer[start..end]` as the fewest perfect subtrees that start at multiples of
+/// their sizes, calling `push(offset, height, root)` for each of them from left to right, where
+/// `offset` is the index of the first leaf of the subtree in the buffer.
+///
+/// Contents of the buffer are meaningless afterward.
+///
+/// # Safety
+/// `end` must not be larger than `BUFFER_LEN` and leaves `buffer[start..end]` must be initialized.
+#[inline(always)]
+#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+pub(crate) unsafe fn hash_buffered_leaves<const BUFFER_LEN: usize, H, Push>(
+    hasher: &H,
+    buffer: &mut [MaybeUninit<[u8; H::OUT_LEN]>; BUFFER_LEN],
+    mut start: usize,
+    end: usize,
+    mut push: Push,
+) where
+    H: MerkleHasher,
+    Push: FnMut(usize, u32, [u8; H::OUT_LEN]),
+{
+    while start < end {
+        // The largest subtree that starts at a multiple of its size and ends within the range
+        let height = (end - start).ilog2().min(start.trailing_zeros());
+        let subtree_end = start + 2usize.pow(height);
+        // SAFETY: `start < subtree_end <= end <= BUFFER_LEN` and leaves within the range are
+        // initialized
+        let leaves = unsafe {
+            buffer
+                .get_unchecked_mut(start..subtree_end)
+                .assume_init_mut()
+        };
+        // SAFETY: Number of leaves is a power of two
+        let root = unsafe { perfect_subtree_root(hasher, leaves) };
+        push(start, height, root);
+        start = subtree_end;
     }
 }
