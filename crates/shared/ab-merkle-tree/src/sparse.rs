@@ -6,7 +6,7 @@
 //! zeroes, otherwise inner nodes are hashed like in a Balanced Merkle Tree.
 
 use crate::MerkleHasher;
-use crate::batching::{BUFFER_NUM_LEAVES, hash_buffered_leaves};
+use crate::batching::{BUFFER_NUM_LEAVES, PARALLEL_PAIRS, hash_buffered_leaves};
 use core::marker::PhantomCovariant;
 use core::mem::MaybeUninit;
 use core::num::NonZeroU128;
@@ -115,84 +115,42 @@ where
         let mut stack = [[0u8; H::OUT_LEN]; _];
         let mut processed_some = false;
         let mut num_leaves = 0u128;
-        // Consecutive occupied leaves within a multiple of the buffer size, hashed together once
-        // the buffer is full, on the next empty leaf or at the end
-        let mut buffer = [MaybeUninit::<[u8; H::OUT_LEN]>::uninit(); BUFFER_NUM_LEAVES::<H>];
-        // Index of the first leaf in the buffer, `None` if the buffer is empty
-        let mut buffer_start = None;
 
-        for leaf in leaves {
-            if u32::from(BITS) < u128::BITS {
-                // How many leaves were processed so far. Should have been
-                // `num_leaves == 2^BITS`, but `>=` helps compiler with panic safety checks.
-                // TODO: Use `==` once https://github.com/rust-lang/rust/issues/162834 is resolved
-                if num_leaves >= 2u128.pow(u32::from(BITS)) {
-                    return None;
-                }
-            } else {
-                // For `BITS == u128::BITS` `num_leaves` will wrap around back to zero right at the
-                // very end
-                if processed_some && num_leaves == 0 {
-                    return None;
-                }
-                processed_some = true;
-            }
-
-            let leaf = match leaf {
-                Leaf::Occupied { leaf } => *leaf,
-                Leaf::OccupiedOwned { leaf } => leaf,
-                Leaf::Empty { skip_count } => {
-                    if let Some(start) = buffer_start.take() {
-                        // SAFETY: Leaves were written to the buffer from `start` up to the index
-                        // of the current leaf, which is smaller than `2^BITS` as checked above
-                        unsafe {
-                            Self::push_buffered_leaves(
-                                &hasher,
-                                &mut stack,
-                                &mut buffer,
-                                num_leaves,
-                                start,
-                                num_leaves as usize % BUFFER_NUM_LEAVES::<H>,
-                            );
-                        }
+        if PARALLEL_PAIRS::<H> == 1 {
+            // Hashers that hash pairs one by one push each leaf into the stack right away, a loop
+            // doesn't need a frame for a closure like internal iteration below
+            for leaf in leaves {
+                if u32::from(BITS) < u128::BITS {
+                    // How many leaves were processed so far. Should have been
+                    // `num_leaves == 2^BITS`, but `>=` helps compiler with panic safety checks.
+                    // TODO: Use `==` once
+                    //  https://github.com/rust-lang/rust/issues/162834 is resolved
+                    if num_leaves >= 2u128.pow(u32::from(BITS)) {
+                        return None;
                     }
-                    num_leaves = Self::skip_leaves(
-                        &hasher,
-                        &mut stack,
-                        &mut processed_some,
-                        num_leaves,
-                        skip_count.get(),
-                    )?;
-                    continue;
+                } else {
+                    // For `BITS == u128::BITS` `num_leaves` will wrap around back to zero right at
+                    // the very end
+                    if processed_some && num_leaves == 0 {
+                        return None;
+                    }
+                    processed_some = true;
                 }
-            };
 
-            if BUFFER_NUM_LEAVES::<H> > 1 {
-                // Truncation keeps the lowest bits, which are the index in the buffer
-                let buffer_index = num_leaves as usize % BUFFER_NUM_LEAVES::<H>;
-                buffer
-                    .get_mut(buffer_index)
-                    .expect("Index is a remainder of division by the buffer size; qed")
-                    .write(leaf);
-                let start = *buffer_start.get_or_insert(buffer_index);
-
-                if buffer_index == BUFFER_NUM_LEAVES::<H> - 1 {
-                    buffer_start = None;
-                    // SAFETY: Leaves were written to the buffer from `start` up to its end, the
-                    // current leaf is smaller than `2^BITS` as checked above
-                    unsafe {
-                        Self::push_buffered_leaves(
+                let mut current = match leaf {
+                    Leaf::Occupied { leaf } => *leaf,
+                    Leaf::OccupiedOwned { leaf } => leaf,
+                    Leaf::Empty { skip_count } => {
+                        num_leaves = Self::skip_leaves(
                             &hasher,
                             &mut stack,
-                            &mut buffer,
+                            &mut processed_some,
                             num_leaves,
-                            start,
-                            BUFFER_NUM_LEAVES::<H>,
-                        );
+                            skip_count.get(),
+                        )?;
+                        continue;
                     }
-                }
-            } else {
-                let mut current = leaf;
+                };
 
                 // Every bit set to `1` corresponds to an active Merkle Tree level
                 let lowest_active_levels = num_leaves.trailing_ones() as usize;
@@ -205,25 +163,116 @@ where
                     .get_mut(lowest_active_levels)
                     .expect("Stack has `BITS + 1` levels, enough for `num_leaves < 2^BITS`; qed") =
                     current;
-            }
-            // Wrapping is needed for `BITS == u128::BITS`, where number of leaves narrowly
-            // doesn't fit into `u128` itself
-            num_leaves = num_leaves.wrapping_add(1);
-        }
 
-        if let Some(start) = buffer_start {
-            // SAFETY: Leaves were written to the buffer from `start` up to the index of the last
-            // leaf, which was smaller than `2^BITS`. The buffer is not full, so `num_leaves`
-            // didn't wrap around to zero.
-            unsafe {
-                Self::push_buffered_leaves(
-                    &hasher,
-                    &mut stack,
-                    &mut buffer,
-                    num_leaves,
-                    start,
-                    num_leaves as usize % BUFFER_NUM_LEAVES::<H>,
-                );
+                // Wrapping is needed for `BITS == u128::BITS`, where number of leaves narrowly
+                // doesn't fit into `u128` itself
+                num_leaves = num_leaves.wrapping_add(1);
+            }
+        } else {
+            // Consecutive occupied leaves within a multiple of the buffer size, hashed together
+            // once the buffer is full, on the next empty leaf or at the end
+            let mut buffer = [MaybeUninit::<[u8; H::OUT_LEN]>::uninit(); BUFFER_NUM_LEAVES::<H>];
+            // Index of the first leaf in the buffer, which is empty if it is the index of the next
+            // leaf
+            let mut buffer_start = 0;
+
+            // Adapters like `FlatMap` implement internal iteration as a loop over each inner
+            // iterator, which is much faster than pulling leaves with `Iterator::next()`
+            leaves.into_iter().try_for_each(|leaf| {
+                if u32::from(BITS) < u128::BITS {
+                    // How many leaves were processed so far. Should have been
+                    // `num_leaves == 2^BITS`, but `>=` helps compiler with panic safety checks.
+                    // TODO: Use `==` once
+                    //  https://github.com/rust-lang/rust/issues/162834 is resolved
+                    if num_leaves >= 2u128.pow(u32::from(BITS)) {
+                        return None;
+                    }
+                } else {
+                    // For `BITS == u128::BITS` `num_leaves` will wrap around back to zero right at
+                    // the very end
+                    if processed_some && num_leaves == 0 {
+                        return None;
+                    }
+                    processed_some = true;
+                }
+
+                let leaf = match leaf {
+                    Leaf::Occupied { leaf } => *leaf,
+                    Leaf::OccupiedOwned { leaf } => leaf,
+                    Leaf::Empty { skip_count } => {
+                        let buffer_end = num_leaves as usize % BUFFER_NUM_LEAVES::<H>;
+                        if buffer_start != buffer_end {
+                            // SAFETY: Leaves were written to the buffer from `buffer_start` up to
+                            // the index of the current leaf, which is smaller than `2^BITS` as
+                            // checked above
+                            unsafe {
+                                Self::push_buffered_leaves(
+                                    &hasher,
+                                    &mut stack,
+                                    &mut buffer,
+                                    num_leaves,
+                                    buffer_start,
+                                    buffer_end,
+                                );
+                            }
+                        }
+                        num_leaves = Self::skip_leaves(
+                            &hasher,
+                            &mut stack,
+                            &mut processed_some,
+                            num_leaves,
+                            skip_count.get(),
+                        )?;
+                        // Truncation keeps the lowest bits, which are the index in the buffer
+                        buffer_start = num_leaves as usize % BUFFER_NUM_LEAVES::<H>;
+                        return Some(());
+                    }
+                };
+
+                // Truncation keeps the lowest bits, which are the index in the buffer
+                let buffer_index = num_leaves as usize % BUFFER_NUM_LEAVES::<H>;
+                buffer
+                    .get_mut(buffer_index)
+                    .expect("Index is a remainder of division by the buffer size; qed")
+                    .write(leaf);
+
+                if buffer_index == BUFFER_NUM_LEAVES::<H> - 1 {
+                    // SAFETY: Leaves were written to the buffer from `buffer_start` up to its end,
+                    // the current leaf is smaller than `2^BITS` as checked above
+                    unsafe {
+                        Self::push_buffered_leaves(
+                            &hasher,
+                            &mut stack,
+                            &mut buffer,
+                            num_leaves,
+                            buffer_start,
+                            BUFFER_NUM_LEAVES::<H>,
+                        );
+                    }
+                    buffer_start = 0;
+                }
+
+                // Wrapping is needed for `BITS == u128::BITS`, where number of leaves narrowly
+                // doesn't fit into `u128` itself
+                num_leaves = num_leaves.wrapping_add(1);
+                Some(())
+            })?;
+
+            let buffer_end = num_leaves as usize % BUFFER_NUM_LEAVES::<H>;
+            if buffer_start != buffer_end {
+                // SAFETY: Leaves were written to the buffer from `buffer_start` up to the index of
+                // the last leaf, which was smaller than `2^BITS`. The buffer is not full, so
+                // `num_leaves` didn't wrap around to zero.
+                unsafe {
+                    Self::push_buffered_leaves(
+                        &hasher,
+                        &mut stack,
+                        &mut buffer,
+                        num_leaves,
+                        buffer_start,
+                        buffer_end,
+                    );
+                }
             }
         }
 
