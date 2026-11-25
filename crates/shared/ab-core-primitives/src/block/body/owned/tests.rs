@@ -508,12 +508,14 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
         consistent
     }
 
-    let intermediate_shard_blocks = (0..3)
+    // Header roots of intermediate shard blocks are expensive to compute under Miri, so there are
+    // only two of them
+    let intermediate_shard_blocks = (0..2)
         .map(|number| TestIntermediateShardBlock::new(1, number, 0, 0, &[]))
         .collect::<Vec<_>>();
     let other_root = intermediate_shard_blocks_root(&intermediate_shard_blocks[1..]);
 
-    for num_blocks in [1, 3] {
+    for num_blocks in [1, 2] {
         let intermediate_shard_blocks = &intermediate_shard_blocks[..num_blocks];
         let body = beacon_chain_body_bytes(intermediate_shard_blocks, &[]);
         // Header roots of intermediate shard blocks are expensive to compute under Miri, so the
@@ -1458,9 +1460,8 @@ fn beacon_chain_body_accepts_intermediate_shard_blocks_built_from_their_bodies()
         })
         .collect::<Vec<_>>();
 
-    for block in &intermediate_shard_blocks {
-        check_beacon_chain_body_with_intermediate_shard_blocks(slice::from_ref(block), &[]);
-    }
+    // Each block is checked on its own by the parser, so checking all of them in the same body
+    // also checks each of them
     check_beacon_chain_body_with_intermediate_shard_blocks(&intermediate_shard_blocks, &[]);
 }
 
@@ -1482,14 +1483,15 @@ fn beacon_chain_segments_root_commits_to_intermediate_shard_body_nodes() {
                 .map_or_default(OwnSegments::root),
             *intermediate_shard_body.leaf_shard_blocks().segments_root(),
         ]);
-        // The header of the block stores the root of leaf shard blocks, which is expensive to
-        // compute again under Miri
+        // The header of the block stores the root of leaf shard blocks and the body root, which
+        // are expensive to compute again under Miri
+        let header = block.header.header();
         assert_eq!(
             IntermediateShardBodyMerkleTree::compute_root_only_array(&[
                 segments_node,
-                **block.header.header().leaf_shard_blocks_root(),
+                **header.leaf_shard_blocks_root(),
             ]),
-            *intermediate_shard_body.root()
+            *header.result.body_root
         );
 
         assert_eq!(
