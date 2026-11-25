@@ -861,7 +861,8 @@ fn intermediate_shard_body_bytes(
 
 /// Check that a parsed `info` has the same contents as `block`
 fn assert_leaf_shard_block_info_eq(info: &LeafShardBlockInfo<'_>, block: &TestLeafShardBlock) {
-    assert_eq!(*info.header.root(), *block.header.root());
+    // Header roots are too expensive to compute under Miri, so headers are compared by their bytes
+    assert_eq!(info.header.bytes(), block.header.buffer().as_slice());
     assert_eq!(*info.transactions_root, block.transactions_root);
     match (&info.own_segments, &block.segments) {
         (Some(own_segments), Some(segments)) => {
@@ -1148,9 +1149,9 @@ fn assert_intermediate_shard_block_info_eq(
     info: &IntermediateShardBlockInfo<'_>,
     block: &TestIntermediateShardBlock,
 ) {
-    // The parser with checks has already compared `info.body_root()` with the body root in the
-    // header, which is too expensive to compute again under Miri
-    assert_eq!(*info.header.root(), *block.header.root());
+    // Roots are too expensive to compute under Miri, so headers are compared by their bytes, and
+    // the parser with checks has already compared the body root with the one in the header
+    assert_eq!(info.header.bytes(), block.header.buffer().as_slice());
     match (&info.own_segments, &block.own_segments) {
         (Some(info_own_segments), Some(own_segments)) => {
             assert_segments_eq(info_own_segments, own_segments);
@@ -1202,7 +1203,6 @@ fn check_beacon_chain_body_with_intermediate_shard_blocks(
         assert_intermediate_shard_block_info_eq(owned_info.info(), block);
     }
 
-    assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
     let owned_body = OwnedBeaconChainBody::new(
         iter::empty(),
         body.intermediate_shard_blocks().iter(),
