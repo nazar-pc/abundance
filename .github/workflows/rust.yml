@@ -31,8 +31,6 @@ env:
 jobs:
   cargo-fmt:
     runs-on: ubuntu-26.04
-    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
-    needs: act4
 
     steps:
       - &checkout-step
@@ -58,8 +56,6 @@ jobs:
 
   cargo-test-rust-version:
     runs-on: ubuntu-26.04
-    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
-    needs: act4
 
     steps:
       - *checkout-step
@@ -132,8 +128,8 @@ jobs:
             '^(ab-cli-utils|ab-data-retrieval|ab-direct-io-file|ab-networking)$' ||
           ''
         }}
-    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
-    needs: act4
+    # Gives the slow jobs a head start, forcing others to start after this quick job instead
+    needs: cargo-fmt
 
     steps:
       - &rust-gpu-cache
@@ -400,8 +396,8 @@ jobs:
       fail-fast: false
 
     runs-on: ${{ matrix.platform.runner }}
-    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
-    needs: act4
+    # Gives the slow jobs a head start, forcing others to start after this quick job instead
+    needs: cargo-fmt
     env: &test-env
       # NOTE: Running tests under Miri with nextest is SLOWER than without it:
       #  https://github.com/nextest-rs/nextest/issues/27#issuecomment-4187292411
@@ -914,8 +910,6 @@ jobs:
 
   contracts:
     runs-on: ubuntu-26.04-arm
-    # Gives the slow cargo test jobs a head start, forcing others to start after this relatively quick job instead
-    needs: act4
 
     steps:
       - *checkout-step
