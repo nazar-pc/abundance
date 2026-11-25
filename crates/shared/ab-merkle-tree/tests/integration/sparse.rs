@@ -1,11 +1,13 @@
 use crate::test_hasher::{
-    BalancedMerkleTree, OUT_LEN, ParallelTestHasher2, ParallelTestHasher4, ParallelTestHasher8,
-    ParallelTestHasher16, ParallelTestHasher32, ParallelTestHasher64, SparseMerkleTree, hash_pair,
+    BalancedMerkleTree, OUT_LEN, ParallelTestHasher1, ParallelTestHasher2, ParallelTestHasher4,
+    ParallelTestHasher8, ParallelTestHasher16, ParallelTestHasher32, ParallelTestHasher64,
+    SparseMerkleTree, hash_pair,
 };
 use ab_merkle_tree::sparse::Leaf;
 use ab_merkle_tree::{MerkleHasher, sparse};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
+use std::iter;
 use std::num::NonZeroU128;
 
 const ZERO: [u8; OUT_LEN] = [0; OUT_LEN];
@@ -296,19 +298,6 @@ fn smt_buffered() {
     test_buffered::<ParallelTestHasher64>();
 }
 
-/// Small trees, such that Miri checks buffering too
-#[test]
-fn smt_buffered_small() {
-    let mut rng = ChaCha8Rng::from_seed(Default::default());
-
-    check_buffered::<4, ParallelTestHasher2>(&mut rng, &[(0, 16)], false);
-    check_buffered::<5, ParallelTestHasher2>(&mut rng, &[(1, 17), (1, 13)], false);
-    check_buffered::<5, ParallelTestHasher2>(&mut rng, &[(3, 20)], true);
-    for offset in [0, 1, 15, 16, 17, u128::MAX - 50] {
-        check_buffered::<128, ParallelTestHasher2>(&mut rng, &[(offset, 33), (1, 17)], true);
-    }
-}
-
 fn test_buffered<H>()
 where
     H: MerkleHasher + Default,
@@ -589,5 +578,469 @@ fn test_32(total_skip_size: usize) {
                 "offset={offset} total_skip_size={total_skip_size}"
             );
         }
+    }
+}
+
+/// An item of the iterator of leaves, where occupied leaves come from a separate list
+#[derive(Debug, Copy, Clone)]
+enum Item {
+    Occupied,
+    Empty(NonZeroU128),
+}
+
+/// Hashers that hash pairs in parallel lift subtrees of occupied leaves with empty siblings in
+/// lanes, which must not change the root
+#[test]
+#[cfg_attr(miri, ignore = "Takes too long")]
+fn smt_lanes() {
+    test_lanes::<ParallelTestHasher2, ParallelTestHasher1>();
+    test_lanes::<ParallelTestHasher4, ParallelTestHasher1>();
+    test_lanes::<ParallelTestHasher8, ParallelTestHasher1>();
+    test_lanes::<ParallelTestHasher16, ParallelTestHasher1>();
+    test_lanes::<ParallelTestHasher32, ParallelTestHasher1>();
+    test_lanes::<ParallelTestHasher64, ParallelTestHasher1>();
+}
+
+/// Small trees and few leaves, such that Miri checks lanes too
+#[test]
+fn smt_lanes_small() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+
+    for indices in [
+        &[1, 2, 4, 7][..],
+        &[0, 3, 4, 6],
+        &[2, 3, 5],
+        &[0, 1, 2, 3, 4, 5, 6, 7],
+    ] {
+        for zeroes in [false, true] {
+            check_lanes::<3, ParallelTestHasher2, ParallelTestHasher1>(
+                &mut rng, indices, zeroes, true,
+            );
+        }
+    }
+    check_lanes::<5, ParallelTestHasher2, ParallelTestHasher1>(
+        &mut rng,
+        &[1, 9, 10, 17, 30, 31],
+        false,
+        false,
+    );
+    // A run across multiples of the buffer size, followed by an isolated leaf
+    let indices = (0..20).chain([40]).collect::<Vec<_>>();
+    for zeroes in [false, true] {
+        check_lanes::<6, ParallelTestHasher2, ParallelTestHasher1>(
+            &mut rng, &indices, zeroes, true,
+        );
+    }
+    check_lanes::<128, ParallelTestHasher4, ParallelTestHasher1>(
+        &mut rng,
+        &[0, 5, 1 << 64, (1 << 127) + 3, u128::MAX - 1, u128::MAX],
+        false,
+        true,
+    );
+    check_lanes::<128, ParallelTestHasher2, ParallelTestHasher1>(
+        &mut rng,
+        &[(1 << 127) + 1, (1 << 127) + 1000, u128::MAX - 2],
+        true,
+        false,
+    );
+    check_too_many_leaves::<ParallelTestHasher2, ParallelTestHasher1>();
+}
+
+fn test_lanes<H, Sequential>()
+where
+    H: MerkleHasher + Default,
+    Sequential: MerkleHasher + Default,
+{
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let parallel_pairs = H::PARALLEL_PAIRS;
+
+    // All combinations of occupied leaves in small trees
+    test_lanes_exhaustive::<1, H, Sequential>(&mut rng);
+    test_lanes_exhaustive::<2, H, Sequential>(&mut rng);
+    test_lanes_exhaustive::<3, H, Sequential>(&mut rng);
+    test_lanes_exhaustive::<4, H, Sequential>(&mut rng);
+
+    test_lanes_random::<5, H, Sequential>(&mut rng);
+    test_lanes_random::<6, H, Sequential>(&mut rng);
+    test_lanes_random::<7, H, Sequential>(&mut rng);
+    test_lanes_random::<8, H, Sequential>(&mut rng);
+    test_lanes_random::<9, H, Sequential>(&mut rng);
+    test_lanes_random::<10, H, Sequential>(&mut rng);
+    test_lanes_random::<11, H, Sequential>(&mut rng);
+    test_lanes_random::<12, H, Sequential>(&mut rng);
+    test_lanes_random::<128, H, Sequential>(&mut rng);
+
+    // Leaves that share long prefixes of their indices, such that subtrees are lifted by
+    // different numbers of levels
+    for count in [1, parallel_pairs, parallel_pairs * 3 + 5] {
+        let base = random_up_to(&mut rng, u128::MAX);
+        let mut indices = iter::repeat_with(|| base ^ (1 << (rng.next_u32() % 128)))
+            .take(count)
+            .chain([base])
+            .collect::<Vec<_>>();
+        indices.sort_unstable();
+        indices.dedup();
+        check_lanes::<128, H, Sequential>(&mut rng, &indices, false, false);
+
+        let mut indices = iter::repeat_with(|| base.wrapping_add(u128::from(rng.next_u32() % 64)))
+            .take(count)
+            .collect::<Vec<_>>();
+        indices.sort_unstable();
+        indices.dedup();
+        check_lanes::<128, H, Sequential>(&mut rng, &indices, false, true);
+    }
+
+    // Leaves at multiples of `2^64`, alone and followed by the next leaf
+    for count in [1, parallel_pairs, parallel_pairs * 3 + 5] {
+        let indices = (0..u128::try_from(count).unwrap())
+            .map(|index| index << 64)
+            .collect::<Vec<_>>();
+        check_lanes::<128, H, Sequential>(&mut rng, &indices, false, true);
+        let indices = indices
+            .iter()
+            .flat_map(|&index| [index, index + 1])
+            .collect::<Vec<_>>();
+        check_lanes::<128, H, Sequential>(&mut rng, &indices, true, false);
+    }
+
+    test_lanes_mixed::<12, H, Sequential>(&mut rng);
+    test_lanes_mixed::<128, H, Sequential>(&mut rng);
+}
+
+/// Check all combinations of occupied leaves in a tree of `2^BITS` leaves
+fn test_lanes_exhaustive<const BITS: u8, H, Sequential>(rng: &mut ChaCha8Rng)
+where
+    H: MerkleHasher + Default,
+    Sequential: MerkleHasher + Default,
+{
+    for combination in 0..1u32 << (1 << BITS) {
+        let indices = (0..1 << BITS)
+            .filter(|&index| combination & (1 << index) != 0)
+            .collect::<Vec<u128>>();
+        for zeroes in [false, true] {
+            for trailing_gap in [false, true] {
+                check_lanes::<BITS, H, Sequential>(rng, &indices, zeroes, trailing_gap);
+            }
+        }
+    }
+}
+
+/// Check occupied leaves at random and adversarial positions in a tree of `2^BITS` leaves
+fn test_lanes_random<const BITS: u8, H, Sequential>(rng: &mut ChaCha8Rng)
+where
+    H: MerkleHasher + Default,
+    Sequential: MerkleHasher + Default,
+{
+    let parallel_pairs = H::PARALLEL_PAIRS as u128;
+    let last_leaf = u128::MAX >> (u128::BITS - u32::from(BITS));
+    // Number of leaves that is valid in a tree of `2^BITS` leaves
+    let valid_count = |count: u128| count >= 1 && count <= last_leaf / 2;
+
+    for count in [1, parallel_pairs, parallel_pairs * 3 + 5] {
+        if !valid_count(count) {
+            continue;
+        }
+
+        for _ in 0..4 {
+            // Random positions, some of which may happen to be next to each other
+            let mut indices = iter::repeat_with(|| random_up_to(rng, last_leaf))
+                .take(usize::try_from(count).unwrap())
+                .collect::<Vec<_>>();
+            indices.sort_unstable();
+            indices.dedup();
+            let trailing_gap = rng.next_u32().is_multiple_of(2);
+            check_lanes::<BITS, H, Sequential>(rng, &indices, false, trailing_gap);
+            check_lanes::<BITS, H, Sequential>(rng, &indices, true, trailing_gap);
+
+            // The first and the last leaves of the tree occupied too
+            let mut with_ends = indices.clone();
+            with_ends.extend([0, last_leaf]);
+            with_ends.sort_unstable();
+            with_ends.dedup();
+            check_lanes::<BITS, H, Sequential>(rng, &with_ends, false, false);
+
+            // Pairs of adjacent leaves
+            let mut pairs = indices
+                .iter()
+                .flat_map(|&index| [index & !1, index | 1])
+                .collect::<Vec<_>>();
+            pairs.sort_unstable();
+            pairs.dedup();
+            check_lanes::<BITS, H, Sequential>(rng, &pairs, false, trailing_gap);
+
+            // Leaves only in the right half of the tree
+            let mut right_half = indices
+                .iter()
+                .map(|&index| index | (1 << (BITS - 1)))
+                .collect::<Vec<_>>();
+            right_half.sort_unstable();
+            right_half.dedup();
+            check_lanes::<BITS, H, Sequential>(rng, &right_half, false, trailing_gap);
+        }
+    }
+}
+
+/// Check isolated leaves mixed with runs of occupied leaves, which are hashed as perfect subtrees
+/// and cross boundaries of buffers
+fn test_lanes_mixed<const BITS: u8, H, Sequential>(rng: &mut ChaCha8Rng)
+where
+    H: MerkleHasher + Default,
+    Sequential: MerkleHasher + Default,
+{
+    let last_leaf = u128::MAX >> (u128::BITS - u32::from(BITS));
+
+    for _ in 0..200 {
+        let mut indices = Vec::new();
+        let mut next_index = 0u128;
+        for _ in 0..rng.next_u32() % 50 {
+            let gap = match rng.next_u32() % 4 {
+                0 => 1,
+                1 => u128::from(rng.next_u32() % 20),
+                2 => u128::from(rng.next_u32() % 300),
+                _ => random_up_to(rng, last_leaf >> 4),
+            };
+            let run = match rng.next_u32() % 4 {
+                0 | 1 => 1,
+                2 => rng.next_u32() % 4 + 1,
+                _ => rng.next_u32() % 300 + 1,
+            };
+            next_index = next_index.saturating_add(gap);
+            for _ in 0..run {
+                if next_index > last_leaf {
+                    break;
+                }
+                indices.push(next_index);
+                next_index = next_index.saturating_add(1);
+            }
+        }
+        indices.dedup();
+
+        let zeroes = rng.next_u32().is_multiple_of(4);
+        let trailing_gap = rng.next_u32().is_multiple_of(2);
+        check_lanes::<BITS, H, Sequential>(rng, &indices, zeroes, trailing_gap);
+    }
+}
+
+/// Check that too many leaves are rejected while subtrees are in lanes
+fn check_too_many_leaves<H, Sequential>()
+where
+    H: MerkleHasher + Default,
+    Sequential: MerkleHasher + Default,
+{
+    let leaf = vec![1; H::OUT_LEN];
+    let one = NonZeroU128::new(1).unwrap();
+
+    let cases = [
+        // Empty leaves after isolated leaves overflow the tree
+        (
+            4,
+            &[
+                Item::Occupied,
+                Item::Empty(one),
+                Item::Occupied,
+                Item::Empty(NonZeroU128::new(14).unwrap()),
+            ][..],
+        ),
+        // Occupied and empty leaves after a full tree
+        (
+            4,
+            &[
+                Item::Empty(one),
+                Item::Occupied,
+                Item::Empty(NonZeroU128::new(14).unwrap()),
+                Item::Occupied,
+            ],
+        ),
+        (
+            4,
+            &[
+                Item::Occupied,
+                Item::Empty(NonZeroU128::new(15).unwrap()),
+                Item::Empty(one),
+            ],
+        ),
+        (
+            128,
+            &[
+                Item::Occupied,
+                Item::Empty(NonZeroU128::MAX),
+                Item::Occupied,
+            ],
+        ),
+        (
+            128,
+            &[
+                Item::Empty(NonZeroU128::MAX),
+                Item::Occupied,
+                Item::Empty(one),
+            ],
+        ),
+        (
+            128,
+            &[
+                Item::Empty(NonZeroU128::MAX),
+                Item::Occupied,
+                Item::Occupied,
+            ],
+        ),
+        // Empty leaves that go past the end of the largest tree
+        (
+            128,
+            &[
+                Item::Occupied,
+                Item::Occupied,
+                Item::Empty(NonZeroU128::MAX),
+            ],
+        ),
+    ];
+    for (bits, layout) in cases {
+        let values = vec![leaf.clone(); layout.len()];
+        let (root, sequential_root) = if bits == 4 {
+            (
+                layout_root::<4, H>(layout, &values),
+                layout_root::<4, Sequential>(layout, &values),
+            )
+        } else {
+            (
+                layout_root::<128, H>(layout, &values),
+                layout_root::<128, Sequential>(layout, &values),
+            )
+        };
+        assert_eq!(root, None, "BITS {bits} layout {layout:?}");
+        assert_eq!(sequential_root, None, "BITS {bits} layout {layout:?}");
+    }
+
+    // The last leaf of the largest tree after leaves in lanes is still accepted
+    let layout = [
+        Item::Occupied,
+        Item::Empty(NonZeroU128::new(u128::MAX - 1).unwrap()),
+        Item::Occupied,
+    ];
+    let values = vec![leaf; 2];
+    let root = layout_root::<128, H>(&layout, &values);
+    assert!(root.is_some());
+    assert_eq!(root, layout_root::<128, Sequential>(&layout, &values));
+}
+
+/// Check the root of a tree with occupied leaves at increasing `indices`, all other leaves are
+/// empty, explicitly at the end with `trailing_gap` and implicitly otherwise. Some of the leaves
+/// are all zeroes with `zeroes`, in which case the root is compared to the root that the hasher
+/// that hashes pairs one by one computes, but not to the naive root, since occupied leaves of all
+/// zeroes are not treated as empty.
+fn check_lanes<const BITS: u8, H, Sequential>(
+    rng: &mut ChaCha8Rng,
+    indices: &[u128],
+    zeroes: bool,
+    trailing_gap: bool,
+) where
+    H: MerkleHasher + Default,
+    Sequential: MerkleHasher + Default,
+{
+    let parallel_pairs = H::PARALLEL_PAIRS;
+    let values = indices
+        .iter()
+        .map(|_| {
+            let mut value = vec![0; H::OUT_LEN];
+            if !(zeroes && rng.next_u32().is_multiple_of(3)) {
+                rng.fill_bytes(&mut value);
+            }
+            value
+        })
+        .collect::<Vec<_>>();
+
+    // Empty leaves are split into a few consecutive items at random
+    let mut layout = Vec::new();
+    let mut push_empty = |layout: &mut Vec<Item>, mut count: u128| {
+        while count > 0 {
+            let part = if rng.next_u32().is_multiple_of(2) {
+                count
+            } else {
+                1 + random_up_to(rng, count - 1)
+            };
+            layout.push(Item::Empty(NonZeroU128::new(part).unwrap()));
+            count -= part;
+        }
+    };
+    let mut next_index = 0u128;
+    for &index in indices {
+        push_empty(&mut layout, index - next_index);
+        layout.push(Item::Occupied);
+        // Wraps after the last leaf of a tree with `2^128` leaves
+        next_index = index.wrapping_add(1);
+    }
+    if trailing_gap {
+        if u32::from(BITS) < u128::BITS {
+            push_empty(&mut layout, (1 << BITS) - next_index);
+        } else if indices.is_empty() {
+            push_empty(&mut layout, u128::MAX);
+            push_empty(&mut layout, 1);
+        } else {
+            push_empty(&mut layout, 0u128.wrapping_sub(next_index));
+        }
+    }
+
+    let root = layout_root::<BITS, H>(&layout, &values)
+        .unwrap_or_else(|| panic!("BITS {BITS} layout {layout:?} indices {indices:?}"));
+    assert_eq!(
+        root,
+        layout_root::<BITS, Sequential>(&layout, &values).unwrap(),
+        "PARALLEL_PAIRS {parallel_pairs} BITS {BITS} layout {layout:?} indices {indices:?} \
+        values {values:?}"
+    );
+    if !zeroes {
+        let leaves = indices
+            .iter()
+            .zip(&values)
+            .map(|(&index, value)| {
+                (
+                    index,
+                    <[u8; H::OUT_LEN]>::try_from(value.as_slice()).unwrap(),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            root,
+            naive_subtree_root::<H>(0, u32::from(BITS), &leaves),
+            "PARALLEL_PAIRS {parallel_pairs} BITS {BITS} indices {indices:?}"
+        );
+    }
+}
+
+/// Root of a tree of `2^BITS` leaves with items in `layout`, occupied leaves have `values`
+fn layout_root<const BITS: u8, H>(layout: &[Item], values: &[Vec<u8>]) -> Option<Vec<u8>>
+where
+    H: MerkleHasher + Default,
+{
+    let values = values
+        .iter()
+        .map(|value| <[u8; H::OUT_LEN]>::try_from(value.as_slice()).unwrap())
+        .collect::<Vec<_>>();
+    let mut values = values.iter();
+    let leaves = layout
+        .iter()
+        .enumerate()
+        .map(|(index, item)| match item {
+            Item::Occupied => {
+                let leaf = values.next().unwrap();
+                // Both kinds of occupied leaves must be handled the same way
+                if index.is_multiple_of(2) {
+                    Leaf::Occupied { leaf }
+                } else {
+                    Leaf::OccupiedOwned { leaf: *leaf }
+                }
+            }
+            &Item::Empty(skip_count) => Leaf::Empty { skip_count },
+        })
+        .collect::<Vec<_>>();
+
+    sparse::SparseMerkleTree::<BITS, H>::compute_root_only(leaves).map(|root| root.to_vec())
+}
+
+/// Random number in `0..=max`
+fn random_up_to(rng: &mut ChaCha8Rng, max: u128) -> u128 {
+    let random = (u128::from(rng.next_u64()) << 64) | u128::from(rng.next_u64());
+    match max.checked_add(1) {
+        Some(bound) => random % bound,
+        None => random,
     }
 }

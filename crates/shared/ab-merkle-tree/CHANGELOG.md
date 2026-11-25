@@ -45,6 +45,10 @@ Improvements:
 * `SparseMerkleTree::compute_root_only()` iterates over leaves with `Iterator::try_for_each()` with hashers that hash
   pairs in parallel, which is about 2 times faster with BLAKE3 on x86-64 with AVX-512 for full trees with leaves from a
   `FlatMap` of `Chain` iterators like the ones of state roots
+* `SparseMerkleTree::compute_root_only()` hashes subtrees of occupied leaves with empty siblings up to the largest
+  subtree that contains no other occupied leaves, `MerkleHasher::PARALLEL_PAIRS` subtrees at a time with
+  `MerkleHasher::hash_pairs()`, which is 3-5 times faster for isolated leaves at random positions of a 128-bit tree with
+  BLAKE3 on x86-64 with AVX-512
 
 Fixes:
 
