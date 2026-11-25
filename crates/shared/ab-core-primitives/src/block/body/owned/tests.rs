@@ -1245,6 +1245,10 @@ fn beacon_chain_body_with_intermediate_shard_blocks() {
 }
 
 #[test]
+#[cfg_attr(
+    miri,
+    ignore = "Hashes segments of 256 leaf shard blocks, too slow under Miri"
+)]
 fn beacon_chain_body_with_many_leaf_shards_segments() {
     // More leaf shard blocks with segments than fit into `u8`, each after a leaf shard block
     // without segments
@@ -1641,7 +1645,10 @@ fn beacon_chain_body_checks_intermediate_shard_blocks_without_segments() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
+#[cfg_attr(
+    miri,
+    ignore = "Hashes trees of 65535 leaf shard blocks, too slow under Miri"
+)]
 fn beacon_chain_body_with_many_empty_leaf_shard_blocks() {
     // The largest number of leaf shard blocks, without segments and with segments in the last one
     for leaf_shards_segments in [&[][..], &[(u16::MAX - 1, 1 | (1 << 10), 1)]] {
