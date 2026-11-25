@@ -157,7 +157,7 @@ jobs:
             name: Install kache
             uses: kunobi-ninja/kache-action@061011817fd04b0e460f79d6bb3c115b1fc8f029
             with:
-              version: v2.3.0
+              version: v2.3.1
               cache-c-cpp: 'true'
               cache-dir: ${{ runner.temp }}/kache
               github-cache: 'false'
