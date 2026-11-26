@@ -18,8 +18,7 @@ pub use crate::pieces::flat_pieces::FlatPieces;
 pub use crate::pieces::piece::Piece;
 use crate::sectors::SBucket;
 use crate::segments::{
-    LocalSegmentIndex, RecordedHistorySegment, SegmentIndex, SegmentPosition, SegmentRoot,
-    SuperSegmentIndex, SuperSegmentRoot,
+    LocalSegmentIndex, RecordedHistorySegment, SegmentIndex, SegmentRoot, SuperSegmentRoot,
 };
 use crate::shard::ShardIndex;
 #[cfg(feature = "serde")]
@@ -1074,10 +1073,6 @@ pub struct PieceHeader {
     pub shard_index: Unaligned<ShardIndex>,
     /// Local segment index
     pub local_segment_index: Unaligned<LocalSegmentIndex>,
-    /// Super segment index
-    pub super_segment_index: Unaligned<SuperSegmentIndex>,
-    /// Position of the segment in the super segment
-    pub segment_position: Unaligned<SegmentPosition>,
     /// Segment root
     pub segment_root: SegmentRoot,
     /// Segment proof
@@ -1140,17 +1135,29 @@ impl InnerPiece {
         unsafe { Box::<Self>::new_zeroed().assume_init() }
     }
 
-    /// Check whether the piece is valid against the matching super segment root
+    /// Check whether the piece is the piece at `piece_index` of the global history.
+    ///
+    /// `super_segment_root`, `num_segments` and `max_segment_index` are those of the super segment
+    /// that contains the segment of `piece_index`, which determines the position of the segment in
+    /// the super segment. Returns `false` if the super segment doesn't contain it.
     pub fn is_valid(
         &self,
         super_segment_root: &SuperSegmentRoot,
         num_segments: u32,
-        position: PiecePosition,
+        max_segment_index: SegmentIndex,
+        piece_index: PieceIndex,
     ) -> bool {
+        let Some(segment_position) = piece_index
+            .segment_index()
+            .position_in_super_segment(max_segment_index, num_segments)
+        else {
+            return false;
+        };
+
         if !self.header.segment_root.is_valid(
             self.header.shard_index.as_inner(),
             self.header.local_segment_index.as_inner(),
-            self.header.segment_position.as_inner(),
+            segment_position,
             &self.header.segment_proof,
             num_segments,
             super_segment_root,
@@ -1160,7 +1167,7 @@ impl InnerPiece {
         self.record_root().is_valid(
             &self.header.segment_root,
             &self.header.record_proof,
-            position,
+            piece_index.position(),
         )
     }
 

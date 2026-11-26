@@ -44,27 +44,28 @@ where
 
         let segment_index = piece_index.segment_index();
 
-        let super_segment_headers = match self
+        let maybe_super_segment_header = match self
             .node_client
-            .super_segment_headers(vec![piece.header.super_segment_index.as_inner()])
+            .super_segment_header_for_segment_index(segment_index)
             .await
         {
-            Ok(super_segment_headers) => super_segment_headers,
+            Ok(maybe_super_segment_header) => maybe_super_segment_header,
             Err(error) => {
                 error!(
                     %piece_index,
+                    %segment_index,
                     ?error,
-                    "Failed to retrieve super segment headers from node"
+                    "Failed to retrieve super segment header from node"
                 );
                 return None;
             }
         };
 
-        let Some(super_segment_header) = super_segment_headers.into_iter().next().flatten() else {
+        let Some(super_segment_header) = maybe_super_segment_header else {
             error!(
                 %piece_index,
                 %segment_index,
-                "Super segment root for super segment index wasn't found on node"
+                "Super segment header for segment index wasn't found on node"
             );
             return None;
         };
@@ -74,7 +75,8 @@ where
                 .is_valid(
                     &super_segment_header.root,
                     super_segment_header.num_segments,
-                    piece_index.position(),
+                    super_segment_header.max_segment_index.as_inner(),
+                    piece_index,
                 )
                 .then_some(piece)
         });

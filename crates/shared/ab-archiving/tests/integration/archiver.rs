@@ -2,7 +2,7 @@ use ab_archiving::archiver::{Archiver, ArchiverInstantiationError, SegmentItem};
 use ab_archiving::objects::{BlockObject, GlobalObject};
 use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::hashes::Blake3Hash;
-use ab_core_primitives::pieces::{Piece, PiecePosition, Record};
+use ab_core_primitives::pieces::{Piece, PieceIndex, PiecePosition, Record};
 use ab_core_primitives::segments::{
     ArchivedBlockProgress, ArchivedHistorySegment, LastArchivedBlock, LocalSegmentIndex,
     RecordedHistorySegment, SegmentHeader, SegmentIndex, SegmentPosition, SegmentRoot,
@@ -216,10 +216,9 @@ fn archiver() {
             .proof_for_segment(SegmentPosition::ZERO)
             .unwrap();
         for piece in first_archived_segment.pieces.iter_mut() {
-            piece.header.super_segment_index = super_segment.header.index;
-            piece.header.segment_position = SegmentPosition::from(0).into();
             piece.header.segment_proof = segment_proof;
         }
+        let segment_index = super_segment.header.max_segment_index.as_inner();
 
         #[cfg(not(feature = "parallel"))]
         let iter = first_archived_segment.pieces.iter().enumerate();
@@ -232,7 +231,8 @@ fn archiver() {
                     piece.is_valid(
                         &super_segment.header.root,
                         super_segment.segment_roots.len() as u32,
-                        PiecePosition::from(position as u8),
+                        super_segment.header.max_segment_index.as_inner(),
+                        segment_index.first_piece_index() + PieceIndex::from(position as u64),
                     ),
                 )
             })
@@ -357,11 +357,14 @@ fn archiver() {
         let mut expected_segment_index = LocalSegmentIndex::ONE;
         let mut previous_segment_header_hash = first_archived_segment.segment_header.hash();
         for (segment_position, archived_segment) in archived_segments.iter_mut().enumerate() {
+            let segment_index = PLACEHOLDER_SUPER_SEGMENT_HEADER
+                .max_segment_index
+                .as_inner()
+                + SegmentIndex::ONE
+                + SegmentIndex::from(segment_position as u64);
             let segment_position = SegmentPosition::from(segment_position as u32);
             let segment_proof = super_segment.proof_for_segment(segment_position).unwrap();
             for piece in archived_segment.pieces.iter_mut() {
-                piece.header.super_segment_index = super_segment.header.index;
-                piece.header.segment_position = segment_position.into();
                 piece.header.segment_proof = segment_proof;
             }
 
@@ -389,7 +392,8 @@ fn archiver() {
                         piece.is_valid(
                             &super_segment.header.root,
                             super_segment.segment_roots.len() as u32,
-                            PiecePosition::from(position as u8),
+                            super_segment.header.max_segment_index.as_inner(),
+                            segment_index.first_piece_index() + PieceIndex::from(position as u64),
                         ),
                     )
                 })
@@ -469,10 +473,9 @@ fn archiver() {
             .proof_for_segment(SegmentPosition::ZERO)
             .unwrap();
         for piece in archived_segment.pieces.iter_mut() {
-            piece.header.super_segment_index = super_segment.header.index;
-            piece.header.segment_position = SegmentPosition::ZERO.into();
             piece.header.segment_proof = segment_proof;
         }
+        let segment_index = super_segment.header.max_segment_index.as_inner();
 
         #[cfg(not(feature = "parallel"))]
         let iter = archived_segment.pieces.iter().enumerate();
@@ -485,7 +488,8 @@ fn archiver() {
                     piece.is_valid(
                         &super_segment.header.root,
                         super_segment.segment_roots.len() as u32,
-                        PiecePosition::from(position as u8),
+                        super_segment.header.max_segment_index.as_inner(),
+                        segment_index.first_piece_index() + PieceIndex::from(position as u64),
                     ),
                 )
             })

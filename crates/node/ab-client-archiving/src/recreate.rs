@@ -8,7 +8,7 @@ use ab_core_primitives::block::BlockNumber;
 use ab_core_primitives::block::header::owned::GenericOwnedBlockHeader;
 use ab_core_primitives::block::owned::{GenericOwnedBlock, OwnedBeaconChainBlock};
 use ab_core_primitives::pieces::SegmentProof;
-use ab_core_primitives::segments::{SegmentHeader, SegmentPosition, SuperSegmentIndex};
+use ab_core_primitives::segments::SegmentHeader;
 use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::ErasureCoding;
 use tokio::task::{JoinError, spawn_blocking};
@@ -27,20 +27,13 @@ pub fn recreate_genesis_segment(
     let block_outcome = Archiver::new(ShardIndex::BEACON_CHAIN, erasure_coding)
         .add_block(encoded_block, Vec::new())
         .expect("Genesis block is much smaller than `u32::MAX` bytes; qed");
-    let mut archived_segment = block_outcome
+    // Since there is a single segment in the genesis super segment, the segment proof is empty and
+    // pieces are complete as they are
+    block_outcome
         .archived_segments
         .into_iter()
         .next()
-        .expect("Genesis block fills at least one segment; qed");
-
-    for piece in archived_segment.pieces.iter_mut() {
-        piece.header.super_segment_index = SuperSegmentIndex::ZERO.into();
-        // Since there is a single segment in super segment, the proof is empty
-    }
-
-    archived_segment.pieces = archived_segment.pieces.to_shared();
-
-    archived_segment
+        .expect("Genesis block fills at least one segment; qed")
 }
 
 /// Error for [`recreate_segment()`]
@@ -65,22 +58,11 @@ pub enum RecreateSegmentError {
     BlockingTaskJoinError(#[from] JoinError),
 }
 
-/// Super segment details for [`recreate_segment()`]
-#[derive(Debug, Copy, Clone)]
-#[repr(C)]
-pub struct RecreateSegmentSuperSegmentDetails {
-    /// Super segment index
-    pub super_segment_index: SuperSegmentIndex,
-    /// Segment position in a super segment
-    pub segment_position: SegmentPosition,
-    /// Segment proof
-    pub segment_proof: SegmentProof,
-}
-
 /// Re-create a segment on demand.
 ///
 /// `last_segment_header` corresponds to the last segment before the segment being re-created and
-/// indicates where segment archiving should start.
+/// indicates where segment archiving should start. `segment_proof` is the proof of the segment in
+/// its super segment, which is written into all pieces.
 ///
 /// `extract_block_objects` allows extracting objects stored in blocks to translate them into global
 /// objects.
@@ -90,7 +72,7 @@ pub async fn recreate_segment<Block, CI, EBO>(
     last_segment_header: Option<SegmentHeader>,
     chain_info: &CI,
     erasure_coding: ErasureCoding,
-    super_segment_details: &RecreateSegmentSuperSegmentDetails,
+    segment_proof: &SegmentProof,
     mut extract_block_objects: EBO,
 ) -> Result<Option<NewArchivedSegment>, RecreateSegmentError>
 where
@@ -168,16 +150,8 @@ where
             for piece in archived_segment.pieces.iter_mut() {
                 piece
                     .header
-                    .super_segment_index
-                    .replace(super_segment_details.super_segment_index);
-                piece
-                    .header
-                    .segment_position
-                    .replace(super_segment_details.segment_position);
-                piece
-                    .header
                     .segment_proof
-                    .copy_from_slice(super_segment_details.segment_proof.as_slice());
+                    .copy_from_slice(segment_proof.as_slice());
             }
 
             archived_segment.pieces = archived_segment.pieces.to_shared();

@@ -3,8 +3,7 @@ use ab_core_primitives::pieces::{
     SegmentProof,
 };
 use ab_core_primitives::segments::{
-    ArchivedHistorySegment, LocalSegmentIndex, RecordedHistorySegment, SegmentPosition,
-    SegmentRoot, SuperSegmentIndex,
+    ArchivedHistorySegment, LocalSegmentIndex, RecordedHistorySegment, SegmentRoot,
 };
 use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, ShardsPresent};
@@ -26,8 +25,6 @@ pub enum ReconstructorError {
 struct SharedPieceDetails {
     shard_index: ShardIndex,
     local_segment_index: LocalSegmentIndex,
-    super_segment_index: SuperSegmentIndex,
-    segment_position: SegmentPosition,
     segment_root: SegmentRoot,
     segment_proof: SegmentProof,
 }
@@ -64,8 +61,6 @@ impl PiecesReconstructor {
                 .map(|input_piece| SharedPieceDetails {
                     shard_index: input_piece.header.shard_index.as_inner(),
                     local_segment_index: input_piece.header.local_segment_index.as_inner(),
-                    super_segment_index: input_piece.header.super_segment_index.as_inner(),
-                    segment_position: input_piece.header.segment_position.as_inner(),
                     segment_root: input_piece.header.segment_root,
                     segment_proof: input_piece.header.segment_proof,
                 });
@@ -118,8 +113,6 @@ impl PiecesReconstructor {
         let SharedPieceDetails {
             shard_index,
             local_segment_index,
-            super_segment_index,
-            segment_position,
             segment_root,
             segment_proof,
         } = shared_piece_details.expect(
@@ -196,8 +189,6 @@ impl PiecesReconstructor {
                 piece.header = PieceHeader {
                     shard_index: shard_index.into(),
                     local_segment_index: local_segment_index.into(),
-                    super_segment_index: super_segment_index.into(),
-                    segment_position: segment_position.into(),
                     segment_root,
                     segment_proof,
                     parity_chunks_root: piece.header.parity_chunks_root,
