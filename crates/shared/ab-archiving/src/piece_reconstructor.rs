@@ -56,8 +56,19 @@ impl PiecesReconstructor {
         }
         let mut reconstructed_pieces = ArchivedHistorySegment::default();
 
-        // TODO: Fix up piece metadata
-        let mut shared_piece_details = None;
+        let shared_piece_details =
+            input_pieces
+                .iter()
+                .flatten()
+                .next()
+                .map(|input_piece| SharedPieceDetails {
+                    shard_index: input_piece.header.shard_index.as_inner(),
+                    local_segment_index: input_piece.header.local_segment_index.as_inner(),
+                    super_segment_index: input_piece.header.super_segment_index.as_inner(),
+                    segment_position: input_piece.header.segment_position.as_inner(),
+                    segment_root: input_piece.header.segment_root,
+                    segment_proof: input_piece.header.segment_proof,
+                });
         {
             let (source_input_pieces, parity_input_pieces) =
                 input_pieces.split_at(RecordedHistorySegment::NUM_RAW_RECORDS);
@@ -72,16 +83,6 @@ impl PiecesReconstructor {
                 .enumerate()
             {
                 if let Some(input_piece) = maybe_input_piece {
-                    if shared_piece_details.is_none() {
-                        shared_piece_details.replace(SharedPieceDetails {
-                            shard_index: input_piece.header.shard_index.as_inner(),
-                            local_segment_index: input_piece.header.local_segment_index.as_inner(),
-                            super_segment_index: input_piece.header.super_segment_index.as_inner(),
-                            segment_position: input_piece.header.segment_position.as_inner(),
-                            segment_root: input_piece.header.segment_root,
-                            segment_proof: input_piece.header.segment_proof,
-                        });
-                    }
                     // Fancy way to insert value to avoid going through stack (if naive
                     // dereferencing is used) and potentially causing stack overflow as the result
                     output_piece.record.copy_from_slice(&*input_piece.record);
@@ -122,7 +123,7 @@ impl PiecesReconstructor {
             segment_root,
             segment_proof,
         } = shared_piece_details.expect(
-            "Sucessful recovery means there was at least one piece to fill this Option; qed",
+            "Successful recovery means at least one source or parity piece was present; qed",
         );
 
         let mut record_roots = [[0; _]; ArchivedHistorySegment::NUM_PIECES];

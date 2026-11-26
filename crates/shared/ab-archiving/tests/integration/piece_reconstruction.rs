@@ -125,6 +125,90 @@ fn piece_reconstruction_works() {
 }
 
 #[test]
+fn segment_reconstruction_from_parity_pieces_works() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let erasure_coding = ErasureCoding::new();
+    let mut archiver = Archiver::new(TEST_SHARD_INDEX, erasure_coding.clone());
+    let block = get_random_block(&mut rng);
+
+    let archived_segments = archiver
+        .add_block(block, Vec::new())
+        .unwrap()
+        .archived_segments;
+
+    assert_eq!(archived_segments.len(), 1);
+
+    let mut maybe_pieces = pieces_to_option_of_pieces(&archived_segments.first().unwrap().pieces);
+
+    // Remove all source pieces, leaving only parity pieces
+    maybe_pieces
+        .iter_mut()
+        .take(RecordedHistorySegment::NUM_RAW_RECORDS)
+        .for_each(|piece| {
+            piece.take();
+        });
+
+    let reconstructor = PiecesReconstructor::new(erasure_coding);
+
+    let flat_pieces = reconstructor.reconstruct_segment(&maybe_pieces).unwrap();
+
+    assert_eq!(flat_pieces.len(), ArchivedHistorySegment::NUM_PIECES);
+    archived_segments
+        .first()
+        .unwrap()
+        .pieces
+        .iter()
+        .zip(flat_pieces.iter())
+        .enumerate()
+        .for_each(|(position, (original_piece, reconstructed_piece))| {
+            assert!(
+                original_piece == reconstructed_piece,
+                "Piece position {position}"
+            );
+        });
+}
+
+#[test]
+fn piece_reconstruction_from_parity_pieces_works() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let erasure_coding = ErasureCoding::new();
+    let mut archiver = Archiver::new(TEST_SHARD_INDEX, erasure_coding.clone());
+    let block = get_random_block(&mut rng);
+
+    let archived_segments = archiver
+        .add_block(block, Vec::new())
+        .unwrap()
+        .archived_segments;
+
+    assert_eq!(archived_segments.len(), 1);
+
+    let mut maybe_pieces = pieces_to_option_of_pieces(&archived_segments.first().unwrap().pieces);
+
+    // Remove all source pieces, leaving only parity pieces
+    let missing_pieces = maybe_pieces
+        .iter_mut()
+        .take(RecordedHistorySegment::NUM_RAW_RECORDS)
+        .map(|piece| piece.take().unwrap())
+        .collect::<Vec<_>>();
+
+    let reconstructor = PiecesReconstructor::new(erasure_coding);
+
+    for missing_piece_position in [0, RecordedHistorySegment::NUM_RAW_RECORDS - 1] {
+        let reconstructed_piece = reconstructor
+            .reconstruct_piece(
+                &maybe_pieces,
+                PiecePosition::from(missing_piece_position as u8),
+            )
+            .unwrap();
+
+        assert!(
+            missing_pieces[missing_piece_position] == reconstructed_piece,
+            "Piece position {missing_piece_position}"
+        );
+    }
+}
+
+#[test]
 fn segment_reconstruction_fails() {
     let erasure_coding = ErasureCoding::new();
     let reconstructor = PiecesReconstructor::new(erasure_coding.clone());
