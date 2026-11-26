@@ -200,11 +200,10 @@ impl TransactionPool {
             self.total_size -= tx.tx.buffer().len() as usize;
 
             let block_root = &tx.tx.transaction().header.block_root;
+            // The entry is kept even when it becomes empty, new transactions can still be added at
+            // this block root until it is pruned in `add_best_block()`
             if let Some(set) = self.by_block_root.get_mut(block_root) {
                 set.txs.remove(tx_hash);
-                if set.txs.is_empty() {
-                    self.by_block_root.remove(block_root);
-                }
             }
         }
     }
