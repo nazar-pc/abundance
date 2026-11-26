@@ -55,9 +55,9 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
+use core::fmt;
+use core::hint::cold_path;
 use object::{Object, ObjectSection};
-use std::fmt;
-use std::hint::cold_path;
 
 /// The guest program, see `examples/guests` in the repository
 const GUEST_ELF: &[u8] = include_bytes!("prebuilt/dot-product.elf");

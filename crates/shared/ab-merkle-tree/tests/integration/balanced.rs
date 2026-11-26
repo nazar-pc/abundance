@@ -6,7 +6,7 @@ use ab_merkle_tree::balanced::PROOF_ELEMENTS;
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize, balanced};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 #[test]
 fn mt_balanced_2_leaves() {

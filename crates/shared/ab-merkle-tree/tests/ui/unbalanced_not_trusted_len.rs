@@ -2,7 +2,7 @@
 //! iterators even with hashers that don't depend on the tree size
 
 use ab_merkle_tree::blake3::UnbalancedMerkleTree;
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 fn main() {
     let leaves = [[0u8; 32]; 4];

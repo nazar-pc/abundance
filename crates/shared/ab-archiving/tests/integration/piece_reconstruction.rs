@@ -6,9 +6,9 @@ use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
+use core::assert_matches;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
-use std::assert_matches;
 
 const TEST_SHARD_INDEX: ShardIndex = ShardIndex::new(ShardIndex::MAX_SHARD_INDEX - 1).unwrap();
 

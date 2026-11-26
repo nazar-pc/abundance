@@ -7,8 +7,8 @@ use ab_merkle_tree::sparse::Leaf;
 use ab_merkle_tree::{MerkleHasher, sparse};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
-use std::iter;
-use std::num::NonZeroU128;
+use core::iter;
+use core::num::NonZeroU128;
 
 const ZERO: [u8; OUT_LEN] = [0; OUT_LEN];
 

@@ -1,4 +1,4 @@
-#![feature(core_io_borrowed_buf)]
+#![feature(core_io, core_io_borrowed_buf)]
 
 use ab_contract_file::{
     CONTRACT_FILE_MAGIC, ContractFile, ContractFileHeader, ContractFileMethodMetadata,
@@ -6,9 +6,9 @@ use ab_contract_file::{
 };
 use ab_contracts_common::metadata::ContractMetadataKind;
 use ab_io_type::trivial_type::TrivialType;
-use std::assert_matches;
-use std::io::BorrowedBuf;
-use std::mem::offset_of;
+use core::assert_matches;
+use core::io::BorrowedBuf;
+use core::mem::offset_of;
 
 /// `c.li a0, 0`
 const LI_A0_0: [u8; 2] = 0x4501_u16.to_le_bytes();

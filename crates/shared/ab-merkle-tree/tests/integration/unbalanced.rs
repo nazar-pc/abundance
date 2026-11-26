@@ -5,9 +5,9 @@ use crate::test_hasher::{
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize, unbalanced};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
-use std::mem::MaybeUninit;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::{iter, mem};
+use core::mem::MaybeUninit;
+use core::sync::atomic::{AtomicU32, Ordering};
+use core::{iter, mem};
 
 const MAX_N: u64 = 100;
 
