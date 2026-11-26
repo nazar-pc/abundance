@@ -328,7 +328,6 @@ where
                 public_key_hash: *self.public_key_hash,
                 shard_commitment,
                 piece_local_segment_index: piece_header.local_segment_index.as_inner(),
-                piece_super_segment_index: piece_header.super_segment_index.as_inner(),
                 segment_root: piece_header.segment_root,
                 segment_proof: piece_header.segment_proof,
                 record_root: RecordRoot::from(record_merkle_tree.root()),
@@ -339,9 +338,7 @@ where
                 history_size,
                 sector_index: self.sector_metadata.sector_index,
                 piece_offset,
-                segment_position: piece_header.segment_position.as_inner(),
                 piece_shard_index: piece_header.shard_index.as_inner(),
-                padding: [0; _],
             }
         };
 

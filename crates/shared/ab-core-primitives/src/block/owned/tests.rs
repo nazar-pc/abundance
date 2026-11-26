@@ -274,8 +274,11 @@ fn block_parsers_reject_seals_of_other_public_keys() {
 fn block_builders_reject_inconsistent_header_parts() {
     let seal = seal();
     let seal = BlockHeaderSeal::Ed25519(&seal);
-    let mut consensus_info = consensus_info();
-    consensus_info.solution.padding = [1, 0, 0, 0];
+    let consensus_info = consensus_info();
+    let inconsistent_prefix = |shard_index| BlockHeaderPrefix {
+        padding_0: [1, 0, 0, 0],
+        ..prefix(shard_index)
+    };
 
     // Sealing parses the header, so inconsistent parts must be rejected before it
     let maybe_block = OwnedBeaconChainBlock::init(
@@ -285,7 +288,7 @@ fn block_builders_reject_inconsistent_header_parts() {
     )
     .unwrap()
     .with_header(
-        &prefix(ShardIndex::BEACON_CHAIN),
+        &inconsistent_prefix(ShardIndex::BEACON_CHAIN),
         Blake3Hash::default(),
         &consensus_info,
         &OwnedBlockHeaderConsensusParameters {
@@ -302,14 +305,14 @@ fn block_builders_reject_inconsistent_header_parts() {
     .and_then(|block_unsealed| block_unsealed.with_seal(seal));
     assert_eq!(
         maybe_block.err(),
-        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+        Some(BlockHeaderConsistencyError::NonZeroPrefixPadding)
     );
 
     let maybe_block =
         OwnedIntermediateShardBlock::init(iter::empty(), iter::empty::<LeafShardBlockInfo<'_>>())
             .unwrap()
             .with_header(
-                &prefix(ShardIndex::new(1).unwrap()),
+                &inconsistent_prefix(ShardIndex::new(1).unwrap()),
                 Blake3Hash::default(),
                 &consensus_info,
                 &beacon_chain_info(),
@@ -323,7 +326,7 @@ fn block_builders_reject_inconsistent_header_parts() {
         maybe_block.err(),
         Some(
             OwnedIntermediateShardBlockBuilderError::InvalidHeaderParts {
-                error: BlockHeaderConsistencyError::NonZeroSolutionPadding
+                error: BlockHeaderConsistencyError::NonZeroPrefixPadding
             }
         )
     );
@@ -331,7 +334,7 @@ fn block_builders_reject_inconsistent_header_parts() {
     let maybe_block = OwnedLeafShardBlock::init(iter::empty())
         .unwrap()
         .with_header(
-            &prefix(ShardIndex::new(1 | (1 << 10)).unwrap()),
+            &inconsistent_prefix(ShardIndex::new(1 | (1 << 10)).unwrap()),
             Blake3Hash::default(),
             &consensus_info,
             &beacon_chain_info(),
@@ -339,7 +342,7 @@ fn block_builders_reject_inconsistent_header_parts() {
         .and_then(|block_unsealed| block_unsealed.with_seal(seal));
     assert_eq!(
         maybe_block.err(),
-        Some(BlockHeaderConsistencyError::NonZeroSolutionPadding)
+        Some(BlockHeaderConsistencyError::NonZeroPrefixPadding)
     );
 }
 

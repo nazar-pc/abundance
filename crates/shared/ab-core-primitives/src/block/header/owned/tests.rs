@@ -77,16 +77,12 @@ fn consensus_parameters() -> OwnedBlockHeaderConsensusParameters {
     }
 }
 
-/// Parts that are not consistent with a header of `shard_kind` with `prefix` and
-/// [`consensus_info()`], each with the error it is rejected with
+/// Prefixes that are not consistent with a header of `shard_kind` with `prefix`, each with the
+/// error it is rejected with
 fn inconsistent_parts(
     prefix: BlockHeaderPrefix,
     shard_kind: RealShardKind,
-) -> Vec<(
-    BlockHeaderPrefix,
-    BlockHeaderConsensusInfo,
-    BlockHeaderConsistencyError,
-)> {
+) -> Vec<(BlockHeaderPrefix, BlockHeaderConsistencyError)> {
     let mut parts = Vec::new();
 
     parts.push((
@@ -94,7 +90,6 @@ fn inconsistent_parts(
             padding_0: [0, 0, 0, 1],
             ..prefix
         },
-        consensus_info(),
         BlockHeaderConsistencyError::NonZeroPrefixPadding,
     ));
 
@@ -117,21 +112,12 @@ fn inconsistent_parts(
                 shard_index,
                 ..prefix
             },
-            consensus_info(),
             BlockHeaderConsistencyError::InvalidShardIndex {
                 shard_index,
                 shard_kind,
             },
         ));
     }
-
-    let mut consensus_info = consensus_info();
-    consensus_info.solution.padding = [1, 0, 0, 0];
-    parts.push((
-        prefix,
-        consensus_info,
-        BlockHeaderConsistencyError::NonZeroSolutionPadding,
-    ));
 
     parts
 }
@@ -232,7 +218,7 @@ fn max_allocation_is_enough_for_largest_headers() {
         assert_eq!(buffer.capacity(), OwnedBeaconChainHeader::MAX_ALLOCATION);
         assert_eq!(buffer.len() == buffer.capacity(), largest);
     }
-    assert_eq!(OwnedBeaconChainHeader::MAX_ALLOCATION, 2862);
+    assert_eq!(OwnedBeaconChainHeader::MAX_ALLOCATION, 2846);
 
     // Intermediate shard headers have a fixed size
     let header = OwnedIntermediateShardHeader::from_parts(
@@ -251,7 +237,7 @@ fn max_allocation_is_enough_for_largest_headers() {
         OwnedIntermediateShardHeader::MAX_ALLOCATION
     );
     assert_eq!(buffer.len(), buffer.capacity());
-    assert_eq!(OwnedIntermediateShardHeader::MAX_ALLOCATION, 2801);
+    assert_eq!(OwnedIntermediateShardHeader::MAX_ALLOCATION, 2785);
 
     let header = OwnedLeafShardHeader::from_parts(
         &prefix(1 | (1 << 10)),
@@ -287,19 +273,19 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
     let header = header.buffer().as_slice();
     let bytes = with_shared_parts(header, &prefix, &consensus_info());
     assert!(BeaconChainHeader::try_from_bytes(bytes.as_slice()).is_some());
-    for (prefix, consensus_info, error) in inconsistent_parts(prefix, RealShardKind::BeaconChain) {
+    for (prefix, error) in inconsistent_parts(prefix, RealShardKind::BeaconChain) {
         // Sealing parses the header, so inconsistent parts must be rejected before it
         let maybe_header = OwnedBeaconChainHeader::from_parts(
             &prefix,
             &result(),
-            &consensus_info,
+            &consensus_info(),
             &child_shard_blocks_root,
             &consensus_parameters(),
         )
         .and_then(|unsealed| unsealed.with_seal(seal));
         assert_eq!(maybe_header.err(), Some(error));
 
-        let bytes = with_shared_parts(header, &prefix, &consensus_info);
+        let bytes = with_shared_parts(header, &prefix, &consensus_info());
         assert!(BeaconChainHeader::try_from_bytes(bytes.as_slice()).is_none());
     }
 
@@ -317,20 +303,18 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
     let header = header.buffer().as_slice();
     let bytes = with_shared_parts(header, &prefix, &consensus_info());
     assert!(IntermediateShardHeader::try_from_bytes(bytes.as_slice()).is_some());
-    for (prefix, consensus_info, error) in
-        inconsistent_parts(prefix, RealShardKind::IntermediateShard)
-    {
+    for (prefix, error) in inconsistent_parts(prefix, RealShardKind::IntermediateShard) {
         let maybe_header = OwnedIntermediateShardHeader::from_parts(
             &prefix,
             &result(),
-            &consensus_info,
+            &consensus_info(),
             &beacon_chain_info(),
             &child_shard_blocks_root,
         )
         .and_then(|unsealed| unsealed.with_seal(seal));
         assert_eq!(maybe_header.err(), Some(error));
 
-        let bytes = with_shared_parts(header, &prefix, &consensus_info);
+        let bytes = with_shared_parts(header, &prefix, &consensus_info());
         assert!(IntermediateShardHeader::try_from_bytes(bytes.as_slice()).is_none());
     }
 
@@ -347,17 +331,17 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
     let header = header.buffer().as_slice();
     let bytes = with_shared_parts(header, &prefix, &consensus_info());
     assert!(LeafShardHeader::try_from_bytes(bytes.as_slice()).is_some());
-    for (prefix, consensus_info, error) in inconsistent_parts(prefix, RealShardKind::LeafShard) {
+    for (prefix, error) in inconsistent_parts(prefix, RealShardKind::LeafShard) {
         let maybe_header = OwnedLeafShardHeader::from_parts(
             &prefix,
             &result(),
-            &consensus_info,
+            &consensus_info(),
             &beacon_chain_info(),
         )
         .and_then(|unsealed| unsealed.with_seal(seal));
         assert_eq!(maybe_header.err(), Some(error));
 
-        let bytes = with_shared_parts(header, &prefix, &consensus_info);
+        let bytes = with_shared_parts(header, &prefix, &consensus_info());
         assert!(LeafShardHeader::try_from_bytes(bytes.as_slice()).is_none());
     }
 }
@@ -544,13 +528,12 @@ fn from_parts_into_rejects_inconsistent_parts() {
     // Nothing must be written after these bytes on error
     let bytes_before = [1, 2, 3];
 
-    for (prefix, consensus_info, error) in inconsistent_parts(prefix(0), RealShardKind::BeaconChain)
-    {
+    for (prefix, error) in inconsistent_parts(prefix(0), RealShardKind::BeaconChain) {
         let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
         let header = OwnedBeaconChainHeader::from_parts_into(
             &prefix,
             &result(),
-            &consensus_info,
+            &consensus_info(),
             &child_shard_blocks_root,
             &consensus_parameters(),
             &mut buffer,
@@ -562,14 +545,12 @@ fn from_parts_into_rejects_inconsistent_parts() {
         assert_eq!(buffer.as_slice(), bytes_before);
     }
 
-    for (prefix, consensus_info, error) in
-        inconsistent_parts(prefix(1), RealShardKind::IntermediateShard)
-    {
+    for (prefix, error) in inconsistent_parts(prefix(1), RealShardKind::IntermediateShard) {
         let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
         let header = OwnedIntermediateShardHeader::from_parts_into(
             &prefix,
             &result(),
-            &consensus_info,
+            &consensus_info(),
             &beacon_chain_info(),
             &child_shard_blocks_root,
             &mut buffer,
@@ -581,14 +562,12 @@ fn from_parts_into_rejects_inconsistent_parts() {
         assert_eq!(buffer.as_slice(), bytes_before);
     }
 
-    for (prefix, consensus_info, error) in
-        inconsistent_parts(prefix(1 | (1 << 10)), RealShardKind::LeafShard)
-    {
+    for (prefix, error) in inconsistent_parts(prefix(1 | (1 << 10)), RealShardKind::LeafShard) {
         let mut buffer = OwnedAlignedBuffer::from_bytes(&bytes_before);
         let header = OwnedLeafShardHeader::from_parts_into(
             &prefix,
             &result(),
-            &consensus_info,
+            &consensus_info(),
             &beacon_chain_info(),
             &mut buffer,
         );

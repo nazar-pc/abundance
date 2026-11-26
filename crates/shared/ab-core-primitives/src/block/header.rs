@@ -623,9 +623,6 @@ pub enum BlockHeaderConsistencyError {
         /// Shard kind of the header
         shard_kind: RealShardKind,
     },
-    /// Solution padding is not all zeroes
-    #[error("Solution padding is not all zeroes")]
-    NonZeroSolutionPadding,
     /// Public key hash of the seal doesn't match the solution
     #[error(
         "Seal public key hash {seal_public_key_hash} doesn't match solution public key hash \
@@ -1382,7 +1379,7 @@ impl<'a> BlockHeader<'a> {
         let consensus_info;
         (consensus_info, bytes) = BlockHeaderConsensusInfo::from_bytes(bytes)?;
 
-        Self::check_shared_parts(prefix, consensus_info, shard_kind).ok()?;
+        Self::check_shared_parts(prefix, shard_kind).ok()?;
 
         Some((prefix, consensus_info, result, bytes))
     }
@@ -1393,7 +1390,6 @@ impl<'a> BlockHeader<'a> {
     #[inline]
     fn check_shared_parts(
         prefix: &BlockHeaderPrefix,
-        consensus_info: &BlockHeaderConsensusInfo,
         shard_kind: RealShardKind,
     ) -> Result<(), BlockHeaderConsistencyError> {
         if prefix.padding_0 != [0; _] {
@@ -1406,10 +1402,6 @@ impl<'a> BlockHeader<'a> {
                 shard_index: prefix.shard_index,
                 shard_kind,
             });
-        }
-
-        if consensus_info.solution.padding != [0; _] {
-            return Err(BlockHeaderConsistencyError::NonZeroSolutionPadding);
         }
 
         Ok(())
