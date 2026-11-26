@@ -38,8 +38,7 @@ use ab_aligned_buffer::alignment::Align16;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use array_reshape::UnflattenEach;
 use core::num::{NonZeroU16, NonZeroU32};
-use core::ptr;
-use std::{assert_matches, iter, slice};
+use core::{assert_matches, iter, ptr, slice};
 use transparent_wrapper::TransparentWrapper;
 
 fn transaction_header() -> TransactionHeader {

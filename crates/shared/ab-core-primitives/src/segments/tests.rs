@@ -5,7 +5,7 @@ use crate::segments::{
     SuperSegment, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
 };
 use crate::shard::ShardIndex;
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// Zero padding of segment proofs must be at the end, so that a proof has a single encoding
 #[test]

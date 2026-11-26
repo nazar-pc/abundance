@@ -20,7 +20,7 @@ use crate::solutions::{Solution, SolutionRange};
 use ab_aligned_buffer::OwnedAlignedBuffer;
 use ab_aligned_buffer::alignment::Align16;
 use ab_io_type::trivial_type::TrivialType;
-use std::num::{NonZeroU16, NonZeroU32};
+use core::num::{NonZeroU16, NonZeroU32};
 
 fn prefix(shard_index: u32) -> BlockHeaderPrefix {
     BlockHeaderPrefix {

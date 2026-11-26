@@ -27,9 +27,9 @@ use crate::transaction::{Gas, TransactionHeader};
 use crate::trees::ChildLeafShardBlocksMerkleTree;
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_aligned_buffer::alignment::Align16;
+use core::iter;
 use core::iter::TrustedLen;
-use std::iter;
-use std::num::{NonZeroU16, NonZeroU32};
+use core::num::{NonZeroU16, NonZeroU32};
 
 fn prefix(shard_index: ShardIndex) -> BlockHeaderPrefix {
     BlockHeaderPrefix {
