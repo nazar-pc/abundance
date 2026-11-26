@@ -153,7 +153,7 @@ jobs:
             name: Install kache
             uses: kunobi-ninja/kache-action@061011817fd04b0e460f79d6bb3c115b1fc8f029
             with:
-              version: v2.3.1
+              version: v2.4.0
               cache-c-cpp: 'true'
               cache-dir: ${{ runner.temp }}/kache
               github-cache: 'false'
@@ -373,8 +373,10 @@ jobs:
             { name: linux-x86_64, runner: ubuntu-26.04, target: '', miri: false }
           - &linux-x86_64-test-miri
             { name: linux-x86_64, runner: ubuntu-26.04, target: '', miri: true }
-          - { name: macos-aarch64, runner: macos-26, target: '', miri: false }
-          - { name: macos-aarch64, runner: macos-26, target: '', miri: true }
+          # TODO: We would like to test on macOS, but it is too slow and delays the whole CI substantially with limited
+          #  value
+          #- { name: macos-aarch64, runner: macos-26, target: '', miri: false }
+          #- { name: macos-aarch64, runner: macos-26, target: '', miri: true }
           - { name: windows-aarch64, runner: windows-11-arm, target: '', miri: false }
           - { name: windows-aarch64, runner: windows-11-arm, target: '', miri: true }
           - { name: windows-x86_64, runner: windows-2025, target: '', miri: false }
