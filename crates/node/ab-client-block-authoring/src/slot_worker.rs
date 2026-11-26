@@ -46,6 +46,15 @@ pub struct NewSlotInfo {
     pub num_shards: NumShards,
 }
 
+/// Parameters a solution depends on in addition to the slot and its proof of time, derived from the
+/// parent block of the block the solution is for
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+struct SolutionParameters {
+    solution_range: SolutionRange,
+    shard_membership_entropy: ShardMembershipEntropy,
+    num_shards: NumShards,
+}
+
 /// New slot notification with slot information and sender for a solution for the slot.
 #[derive(Debug, Clone)]
 pub struct NewSlotNotification {
@@ -96,9 +105,9 @@ pub struct SlotWorker<PosTable, BP, BCI, CSS> {
     force_authoring: bool,
     new_slot_notification_sender: mpsc::Sender<NewSlotNotification>,
     block_sealing_notification_sender: mpsc::Sender<BlockSealNotification>,
-    /// Solution receivers for challenges that were sent to farmers and expected to be received
-    /// eventually
-    pending_solutions: BTreeMap<SlotNumber, mpsc::Receiver<Solution>>,
+    /// Parameters of challenges that were sent to farmers and receivers for solutions that are
+    /// expected to be received eventually
+    pending_solutions: BTreeMap<SlotNumber, (SolutionParameters, mpsc::Receiver<Solution>)>,
     /// Collection of PoT slots that can be retrieved later if needed by block production
     pot_checkpoints: BTreeMap<SlotNumber, PotCheckpoints>,
     consensus_constants: ConsensusConstants,
@@ -188,18 +197,19 @@ where
             }
             // Remove receivers for slots that can't be claimed anymore
             self.pending_solutions
-                .retain(|&stored_slot, _solution_receiver| stored_slot >= oldest_claimable_slot);
+                .retain(|&stored_slot, _pending_solutions| stored_slot >= oldest_claimable_slot);
 
             if self.chain_sync_status.is_syncing() {
                 debug!(%slot, "Skipping farming due to syncing");
                 continue;
             }
 
-            // TODO: Maybe handle the boundary in some way, like checking already received
-            //  solutions (which are waiting for future PoT to produce a block) or send both entropy
-            //  sources at the interval boundary
-            // NOTE: Beacon chain block number may change before the next block is produced,
-            // rendering the entropy source invalid, but it should not happen often.
+            // TODO: Maybe send both entropy sources at the shard rotation interval boundary, such
+            //  that solutions remain valid when a new block arrives before the slot is claimed
+            // NOTE: Best block is not necessarily going to be the parent of the corresponding block
+            // once it is created. Solution parameters for its child may then be different (for
+            // example, at the shard rotation or solution range retarget boundary), in which case
+            // the slot will not be claimed, but it should not happen often.
             let shard_membership_entropy = match shard_membership_entropy_source(
                 best_beacon_chain_header.prefix.number + BlockNumber::ONE,
                 &best_beacon_chain_header.root(),
@@ -213,24 +223,26 @@ where
                     break;
                 }
             };
+            let solution_parameters = {
+                let consensus_parameters = best_beacon_chain_header.consensus_parameters();
 
-            let proof_of_time = checkpoints.output();
+                SolutionParameters {
+                    solution_range: consensus_parameters
+                        .next_solution_range
+                        .unwrap_or(consensus_parameters.fixed_parameters.solution_range),
+                    shard_membership_entropy,
+                    num_shards: consensus_parameters.fixed_parameters.num_shards,
+                }
+            };
 
             // Send slot notification to farmers
             {
-                let consensus_parameters = best_beacon_chain_header.consensus_parameters();
-                // NOTE: Best bock is not necessarily going to be the parent of the corresponding
-                // block once it is created, but solution range and number of shards should be the
-                // same most of the time
-                let solution_range = consensus_parameters
-                    .next_solution_range
-                    .unwrap_or(consensus_parameters.fixed_parameters.solution_range);
                 let new_slot_info = NewSlotInfo {
                     slot,
-                    proof_of_time,
-                    solution_range,
-                    shard_membership_entropy,
-                    num_shards: consensus_parameters.fixed_parameters.num_shards,
+                    proof_of_time: checkpoints.output(),
+                    solution_range: solution_parameters.solution_range,
+                    shard_membership_entropy: solution_parameters.shard_membership_entropy,
+                    num_shards: solution_parameters.num_shards,
                 };
                 let (solution_sender, solution_receiver) =
                     mpsc::channel(PENDING_SOLUTIONS_CHANNEL_CAPACITY);
@@ -245,7 +257,8 @@ where
                     warn!(%error, "Failed to send a new slot notification");
                 }
 
-                self.pending_solutions.insert(slot, solution_receiver);
+                self.pending_solutions
+                    .insert(slot, (solution_parameters, solution_receiver));
             }
 
             // Slots that we claim must be `block_authoring_delay` behind the best slot we know of
@@ -263,7 +276,7 @@ where
             }
 
             let Some(claimed_slot) = self
-                .claim_slot(best_beacon_chain_header, slot_to_claim)
+                .claim_slot(best_beacon_chain_header, solution_parameters, slot_to_claim)
                 .await
             else {
                 continue;
@@ -307,9 +320,12 @@ where
         }
     }
 
+    /// `child_solution_parameters` are solution parameters for a child of
+    /// `parent_beacon_chain_header`
     async fn claim_slot(
         &mut self,
         parent_beacon_chain_header: &BeaconChainHeader<'_>,
+        child_solution_parameters: SolutionParameters,
         slot: SlotNumber,
     ) -> Option<ClaimedSlot> {
         let parent_number = parent_beacon_chain_header.prefix.number;
@@ -324,6 +340,20 @@ where
         }
 
         debug!(%slot, "Attempting to claim a slot");
+
+        let (solution_parameters, mut solution_receiver) = self.pending_solutions.remove(&slot)?;
+
+        if solution_parameters != child_solution_parameters {
+            debug!(
+                %slot,
+                ?solution_parameters,
+                ?child_solution_parameters,
+                "Skipping claiming slot, solutions were requested with parameters that are not \
+                valid for the current parent block"
+            );
+
+            return None;
+        }
 
         let parent_consensus_parameters = parent_beacon_chain_header.consensus_parameters();
 
@@ -422,12 +452,8 @@ where
             (proof_of_time, future_proof_of_time, checkpoints)
         };
 
-        let mut solution_receiver = {
-            let mut solution_receiver = self.pending_solutions.remove(&slot)?;
-            // Time is out, we will not accept any more solutions
-            solution_receiver.close();
-            solution_receiver
-        };
+        // Time is out, we will not accept any more solutions
+        solution_receiver.close();
 
         let mut maybe_consensus_info = None;
 
