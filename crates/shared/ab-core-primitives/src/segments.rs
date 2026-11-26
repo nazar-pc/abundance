@@ -297,6 +297,18 @@ pub struct SuperSegmentHeader {
     pub num_segments: u32,
 }
 
+impl SuperSegmentHeader {
+    /// Position of a segment in the super segment.
+    ///
+    /// Returns `None` if the segment is not in the super segment, see
+    /// [`SegmentIndex::position_in_super_segment()`].
+    #[inline(always)]
+    pub const fn segment_position(&self, segment_index: SegmentIndex) -> Option<SegmentPosition> {
+        segment_index
+            .position_in_super_segment(self.max_segment_index.as_inner(), self.num_segments)
+    }
+}
+
 /// Super segment
 #[cfg(feature = "alloc")]
 #[derive(Debug, Clone)]
@@ -591,6 +603,26 @@ impl SegmentIndex {
     #[inline]
     pub const fn saturating_sub(self, rhs: Self) -> Self {
         Self(self.0.saturating_sub(rhs.0))
+    }
+
+    /// Position of this segment in a super segment with `num_segments` segments and
+    /// `max_segment_index`.
+    ///
+    /// A super segment contains segments with consecutive indices ending with `max_segment_index`,
+    /// in the order of their positions. Returns `None` if this segment is not in the super segment.
+    #[inline]
+    pub const fn position_in_super_segment(
+        self,
+        max_segment_index: Self,
+        num_segments: u32,
+    ) -> Option<SegmentPosition> {
+        let segments_after = max_segment_index.0.checked_sub(self.0)?;
+        let Ok(segments_after) = u32::try_from(segments_after) else {
+            return None;
+        };
+        let position = num_segments.checked_sub(segments_after)?.checked_sub(1)?;
+
+        Some(SegmentPosition(position))
     }
 }
 

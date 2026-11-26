@@ -66,3 +66,57 @@ fn segment_proofs_only_have_padding_at_the_end() {
         assert!(!is_valid(segment_proof));
     }
 }
+
+#[test]
+fn super_segment_header_segment_position() {
+    let header = |max_segment_index: u64, num_segments: u32| SuperSegmentHeader {
+        index: SuperSegmentIndex::ONE.into(),
+        root: SuperSegmentRoot::default(),
+        prev_super_segment_header_hash: Blake3Hash::default(),
+        max_segment_index: SegmentIndex::from(max_segment_index).into(),
+        target_beacon_chain_block_number: BlockNumber::ONE.into(),
+        num_segments,
+    };
+    let segment_position = |header: SuperSegmentHeader, segment_index: u64| {
+        header
+            .segment_position(SegmentIndex::from(segment_index))
+            .map(u32::from)
+    };
+
+    // Genesis super segment
+    let genesis_header = header(0, 1);
+    assert_eq!(segment_position(genesis_header, 0), Some(0));
+    assert_eq!(segment_position(genesis_header, 1), None);
+
+    let header_10_3 = header(10, 3);
+    assert_eq!(segment_position(header_10_3, 7), None);
+    assert_eq!(segment_position(header_10_3, 8), Some(0));
+    assert_eq!(segment_position(header_10_3, 9), Some(1));
+    assert_eq!(segment_position(header_10_3, 10), Some(2));
+    assert_eq!(segment_position(header_10_3, 11), None);
+    assert_eq!(segment_position(header_10_3, u64::MAX), None);
+
+    // Largest values
+    let header_max = header(u64::MAX, u32::MAX);
+    assert_eq!(segment_position(header_max, u64::MAX), Some(u32::MAX - 1));
+    let first_segment_index = u64::MAX - u64::from(u32::MAX - 1);
+    assert_eq!(segment_position(header_max, first_segment_index), Some(0));
+    assert_eq!(segment_position(header_max, first_segment_index - 1), None);
+    assert_eq!(segment_position(header_max, 0), None);
+
+    // Headers that can't be produced by a super segment don't cause overflows: an empty one
+    // contains nothing, and one with more segments than indices up to the max segment index
+    // contains segments from zero at the last positions
+    for max_segment_index in [0, 5, u64::MAX] {
+        for segment_index in [0, 5, u64::MAX] {
+            assert_eq!(
+                segment_position(header(max_segment_index, 0), segment_index),
+                None
+            );
+        }
+    }
+    let header_1_5 = header(1, 5);
+    assert_eq!(segment_position(header_1_5, 0), Some(3));
+    assert_eq!(segment_position(header_1_5, 1), Some(4));
+    assert_eq!(segment_position(header_1_5, 2), None);
+}

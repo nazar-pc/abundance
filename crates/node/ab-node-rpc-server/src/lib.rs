@@ -250,12 +250,10 @@ impl Default for CachedSuperSegments {
 impl CachedSuperSegments {
     fn get_for_segment_index(&self, segment_index: SegmentIndex) -> Option<&SuperSegment> {
         self.super_segments.iter().find(|super_segment| {
-            let max_segment_index = super_segment.header.max_segment_index.as_inner();
-            let first_segment_index = max_segment_index
-                - SegmentIndex::from(u64::from(super_segment.header.num_segments))
-                + SegmentIndex::ONE;
-
-            (first_segment_index..=max_segment_index).contains(&segment_index)
+            super_segment
+                .header
+                .segment_position(segment_index)
+                .is_some()
         })
     }
 
@@ -830,11 +828,13 @@ where
             };
 
             let Some(shard_segment_root_with_position) = super_segment
-                .segment_roots
-                .iter()
-                .nth_back(u64::from(
-                    super_segment.header.max_segment_index.as_inner() - segment_index,
-                ) as usize)
+                .header
+                .segment_position(segment_index)
+                .and_then(|segment_position| {
+                    super_segment
+                        .segment_roots
+                        .get(u32::from(segment_position) as usize)
+                })
                 .copied()
             else {
                 error!(

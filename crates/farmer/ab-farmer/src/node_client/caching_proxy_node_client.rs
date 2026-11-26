@@ -87,15 +87,11 @@ impl SuperSegmentHeaders {
             })
             .unwrap_or_else(|insert_index| insert_index);
 
-        let super_segment_header = self.super_segment_headers.get(index).copied()?;
+        let super_segment_header = self.super_segment_headers.get(index)?;
 
-        let max_segment_index = super_segment_header.max_segment_index.as_inner();
-        let first_segment_index = max_segment_index
-            - SegmentIndex::from(u64::from(super_segment_header.num_segments))
-            + SegmentIndex::ONE;
-
-        (first_segment_index..=max_segment_index)
-            .contains(&segment_index)
+        super_segment_header
+            .segment_position(segment_index)
+            .is_some()
             .then_some(super_segment_header.root)
     }
 
