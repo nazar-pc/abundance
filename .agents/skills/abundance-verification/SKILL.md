@@ -108,6 +108,11 @@ RUSTFLAGS="-Cllvm-args=--inline-threshold=10000 -C embed-bitcode -C lto -Z dylib
   cargo build --release --all-targets --features no-panic --package ab-foo
 ```
 
+Crates that also have an `alloc` feature are built a second time with it, which covers more of their API, so add
+`--features ab-foo/alloc` when a change is behind it. Proofs only mean something in this optimized build: Clippy and
+`cargo check` never link, so they can't see what `no_panic` checks, and debug builds keep panicking branches that
+optimizations remove, so don't use the `no-panic` feature with them.
+
 `cargo-test-rust-version` runs `cargo +<rust-version> nextest run` for each crate that declares `rust-version`, these
 are the crates meant to work on stable. Only tests are run there, not Clippy.
 
@@ -142,6 +147,12 @@ do the same for callers that become unprovable because of it. Crates with such g
 the `no-panic` feature in `Cargo.toml`, see `ab-system-contract-simple-wallet-base`. Don't comment it out to get around
 a panic you introduced: an allocation that can grow, like `Vec::resize()`, is usually replaceable by a preallocated
 buffer that returns an error when its capacity would be exceeded.
+
+Proofs rely on inlining (see `CONTRIBUTING.md`). A helper kept out of line on purpose, to keep a large stack frame off
+the hot path for example, prevents inlining only in normal builds with
+`#[cfg_attr(not(feature = "no-panic"), inline(never))]`, as in `ab-merkle-tree`'s `sparse.rs`. Array `map()` can leave
+code that cleans up a partially initialized output on unwinding, which keeps `no_panic` from proving the callers, so
+fill arrays in a loop instead (see the parallel test hashers of `ab-merkle-tree`).
 
 ## Changing CI
 

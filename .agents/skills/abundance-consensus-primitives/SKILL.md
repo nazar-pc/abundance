@@ -1,6 +1,6 @@
 ---
 name: abundance-consensus-primitives
-description: Design intent behind the blockchain structure of the `abundance` repository. Use when working on blocks, headers, bodies, segments, super segments, archiving, Merkle trees, consensus constants or sync in `ab-core-primitives`, `ab-merkle-tree`, `ab-archiving` or the `ab-client-*` crates, and before reporting a bug or proposing a change to block formats, parsers, builders or commitment structure there.
+description: Design intent behind the blockchain structure of the `abundance` repository. Use when working on blocks, headers, bodies, segments, super segments, pieces, solutions, archiving, Merkle trees, consensus constants or sync in `ab-core-primitives`, `ab-merkle-tree`, `ab-archiving` or the `ab-client-*` crates, and before reporting a bug or proposing a change to block formats, parsers, builders or commitment structure there.
 ---
 
 # Consensus primitives: design intent
@@ -62,10 +62,11 @@ chain. This drives several choices that look odd in isolation:
   comes from its parser, and builders take the owned counterpart (`OwnedBlockHeaderConsensusParameters`). Hashing the
   encoding instead of feeding fields one by one keeps the hash unambiguous (presence flags included) without a second
   encoder that can drift from the parser.
-- Size limits are a consensus matter and will live in `ConsensusConstants` (a maximum block size of a few MB that will
-  grow over time). They are checked on raw bytes at the untrusted boundary where blocks come from the network, not
-  during parsing. Parsers stay size-agnostic except for structural bounds, such as rejecting bodies longer than
-  `u32::MAX` bytes because an owned buffer can't hold them. Such bounds stay even where they "can't be hit today".
+- Size limits are a consensus matter (a maximum block size of a few MB that will grow over time, so it is part of chain
+  state, see "Terminology and constants"). They are checked on raw bytes at the untrusted boundary where blocks come
+  from the network, not during parsing. Parsers stay size-agnostic except for structural bounds, such as rejecting
+  bodies longer than `u32::MAX` bytes because an owned buffer can't hold them. Such bounds stay even where they "can't
+  be hit today".
 
 ## Merkle trees
 
@@ -83,6 +84,22 @@ live in `ab_core_primitives::trees`, where every tree has its own BLAKE3 key. Ru
   free. Anything that pre-hashes, prefixes a size or otherwise adds bytes to a node pair costs an extra compression per
   node, so it needs a very good reason. Batch APIs in `ab-blake3` (`single_block_keyed_hash_many_exact()`, `const`
   variants) already exist, check before adding new ones.
+
+## Merkle tree performance
+
+Trees hash as many pairs at once as `MerkleHasher::PARALLEL_PAIRS` declares, aiming at peak performance with as little
+extra stack as possible:
+
+- A hasher with `PARALLEL_PAIRS == 1` must compile to the same code as a plain sequential tree, which is why trees keep
+  a separate sequential path next to the batched one (`SparseMerkleTree::compute_root_only()`, for example). Don't
+  merge them to share code, and compare the generated code of both when changing either.
+- `SparseMerkleTree` is tuned for the state trees in `ab_core_primitives::trees`. The tree of owners has a contiguous
+  range of entries at the offset of its shard, sparse ranges from other shards with more gaps than entries, and
+  scattered entries, while trees of individual owners have very few entries, mostly without neighbors. Isolated leaves
+  dominate both, which is why their paths are lifted together in lanes. Merging lanes of clustered leaves was tried and
+  rejected: the gain on the tree of owners wasn't worth the extra code, and trees of individual owners got slower.
+  Measure changes with the `sparse_scattered()` cases in `benches/sparse.rs`, which are the closest to these
+  distributions.
 
 ## Super segments and shard segments
 
@@ -106,6 +123,18 @@ details, this is the intent behind them:
   doesn't exist yet. Until then the database derives it from persisted super segments, and Snap sync has no verifiable
   way to get it (see the `TODO` in the database).
 
+## Solutions and pieces
+
+- Solutions and pieces don't carry the super segment index or the position of the segment in it: both follow from the
+  segment index of the piece index (`PieceIndex::segment_index()`, `SuperSegmentHeader::segment_position()`). A field
+  that can be derived and would have to be checked against the derivation anyway is removed rather than validated,
+  since a value chosen by the farmer or a peer is one more check every verifier has to remember. Finding the super
+  segment header with a binary search by segment index is cheap enough, don't add the super segment index back to
+  save it.
+- Block production doesn't verify solutions again, block import does that, and so does every other node. The slot
+  worker in `ab-client-block-authoring` uses the first solution for a slot, more than one per slot is assumed too rare
+  to be worth handling.
+
 ## Archiving and sync
 
 - Archiver code in `ab-archiving` and `ab-client-archiving` derives from single-chain Subspace. Conditions that only
@@ -126,6 +155,10 @@ details, this is the intent behind them:
   `soft_confirmation_depth` on the database side, which only controls when blocks are written to disk). The database and
   other client crates take the individual values they need instead of the whole `ConsensusConstants`, to make mocking
   easier and keep arguments minimal.
+- `ConsensusConstants` is for parameters that are not expected to change once the chain is running. The maximum block
+  size and `max_pieces_in_sector` (as storage gets cheaper) are expected to rise over time, so they belong to chain
+  state, which doesn't exist yet. That is why `max_pieces_in_sector` is a literal `1000` with a `TODO` where it is
+  needed and there is no maximum block size yet. Don't move either into `ConsensusConstants`.
 - Several values in `ab-node`'s chain spec are reduced 10x for testing, with the production value in a `TODO` comment
   next to them. Reason about relationships between constants (such as whether one depth exceeds another) with both sets
   in mind, and don't call the test values bugs.

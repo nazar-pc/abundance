@@ -779,8 +779,10 @@ where
             .get_super_segment_header_for_segment_index(segment_index))
     }
 
-    // Note: this RPC uses the cached archived segment, which is only updated by archived segments
-    // subscriptions
+    // The segment of the last requested piece is cached. On a cache miss, the genesis segment is
+    // recreated from the genesis block, and other segments from blocks, but only if they belong to
+    // one of the last `CACHED_SUPER_SEGMENTS_CAPACITY` super segments. The cache is cleared once
+    // it has not been used for `CACHED_ARCHIVED_SEGMENT_TIMEOUT`.
     async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, FarmerRpcApiError> {
         let segment_index = piece_index.segment_index();
         let cached_archived_segment = &mut *self.cached_archived_segment.lock().await;

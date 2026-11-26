@@ -69,7 +69,7 @@ pub enum BlockVerificationError {
     /// Custom verification error
     #[error("Custom verification error: {error}")]
     Custom {
-        // Custom block verification error
+        /// Custom block verification error
         #[from]
         error: anyhow::Error,
     },
@@ -104,7 +104,6 @@ where
     fn verify_sequential(
         &self,
         parent_header: &GenericHeader<'_, Block>,
-        parent_block_mmr_root: &Blake3Hash,
         block: &Block,
         origin: &BlockOrigin,
     ) -> impl Future<Output = Result<ExtraBlockVerificationDetails, BlockVerificationError>> + Send;

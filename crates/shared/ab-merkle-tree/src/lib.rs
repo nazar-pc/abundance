@@ -69,6 +69,11 @@ extern crate alloc;
 ///
 /// Hashing of many pairs at once is a part of the API, such that hash functions like BLAKE3 can use
 /// SIMD to hash multiple pairs in parallel.
+///
+/// Hashers used with [`SparseMerkleTree`] must never hash nodes into all zeroes, see its docs for
+/// details.
+///
+/// [`SparseMerkleTree`]: sparse::SparseMerkleTree
 pub trait MerkleHasher {
     /// Size of a node hash in bytes
     const OUT_LEN: usize;

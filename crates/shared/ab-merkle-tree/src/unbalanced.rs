@@ -53,9 +53,6 @@ const USIZE_TO_U64<const N: usize>: u64 = N as u64;
 #[derive(Debug)]
 pub struct UnbalancedMerkleTree<H>(PhantomCovariant<H>);
 
-// TODO: Experiment with replacing a single pass with splitting the whole data set with a sequence
-//  of power-of-two elements that can be processed in parallel and do it recursively until a single
-//  element is left. This can be done for both root creation and proof generation.
 impl<H> UnbalancedMerkleTree<H>
 where
     H: MerkleHasher,

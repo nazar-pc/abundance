@@ -338,12 +338,15 @@ impl SuperSegment {
             u64::from(previous_header.max_segment_index.as_inner()) + u64::from(num_segments),
         );
 
-        let maybe_super_segment_root =
-            SuperSegmentMerkleTree::compute_root_only::<
-                { u64::from(SuperSegmentRoot::MAX_SEGMENTS) },
-                _,
-                _,
-            >(segment_roots.iter().map(ShardSegmentRootWithPosition::hash))?;
+        let maybe_super_segment_root = SuperSegmentMerkleTree::compute_root_only::<
+            { u64::from(SuperSegmentRoot::MAX_SEGMENTS) },
+            _,
+            _,
+        >(
+            // TODO: Hash multiple entries at once with SIMD once
+            //  https://github.com/BLAKE3-team/BLAKE3/issues/478 is resolved
+            segment_roots.iter().map(ShardSegmentRootWithPosition::hash),
+        )?;
 
         Some(Self {
             header: SuperSegmentHeader {
@@ -369,10 +372,11 @@ impl SuperSegment {
             _,
             _,
         >(
-            self.segment_roots.iter().map(|shard_segment_root| {
-                single_block_hash(shard_segment_root.as_bytes())
-                    .expect("Less than a single block worth of bytes; qed")
-            }),
+            // TODO: Hash multiple entries at once with SIMD once
+            //  https://github.com/BLAKE3-team/BLAKE3/issues/478 is resolved
+            self.segment_roots
+                .iter()
+                .map(ShardSegmentRootWithPosition::hash),
             u32::from(segment_position) as usize,
             &mut segment_proof,
         )?;

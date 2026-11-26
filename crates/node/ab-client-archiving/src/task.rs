@@ -45,17 +45,6 @@ use triomphe::Arc;
 /// Do not wait for acknowledgements beyond this time limit
 const ACKNOWLEDGEMENT_TIMEOUT: Duration = Duration::from_mins(2);
 
-// TODO: Maybe use or remove if database handles this completely on its own
-// /// How deep (in segments) should block be in order to be finalized.
-// ///
-// /// This is required for full nodes to not prune recent history such that keep-up sync in
-// /// Substrate works even without archival nodes (initial sync will be done from DSN).
-// ///
-// /// Ideally, we'd decouple pruning from finalization, but it may require invasive changes in
-// /// Substrate and is not worth it right now.
-// /// https://github.com/paritytech/substrate/discussions/14359
-// const FINALIZATION_DEPTH_IN_SEGMENTS: SegmentIndex = SegmentIndex::from(5);
-
 /// Notification with a new archived segment that was just archived
 #[derive(Debug)]
 pub struct ArchivedSegmentNotification {

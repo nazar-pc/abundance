@@ -299,7 +299,7 @@ where
         //  https://github.com/rust-lang/rust/issues/100013#issuecomment-2210995259
         let maybe_super_segment = self
             .block_verification
-            .verify_sequential(parent_header, &parent_block_mmr_root, &block, &origin)
+            .verify_sequential(parent_header, &block, &origin)
             .send()
             .await
             .map_err(BeaconChainBlockImportError::from)?;
