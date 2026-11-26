@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::farm::{SectorExpirationDetails, SectorPlottingDetails, SectorUpdate};
 use crate::node_client::NodeClient;
 use crate::plotter::{Plotter, SectorPlottingProgress};
@@ -141,8 +144,7 @@ where
             .await
             .iter()
             .map(|sector_metadata| sector_metadata.history_size)
-            .max()
-            .unwrap_or(HistorySize::ONE),
+            .max(),
     );
     let mut sectors_being_plotted = FuturesOrdered::new();
     // Channel size is intentionally unbounded for easier analysis, but it is bounded by plotting
@@ -301,13 +303,40 @@ struct SectorPlottingResult<'a> {
     plotting_permit: SemaphoreGuard<'a>,
 }
 
+/// Select the history size to plot a sector at.
+///
+/// The max history size used so far is maintained unless it is too old. This reduces the diversity
+/// of shard assignment, making it easier for farmers to run nodes. The current history size is
+/// used instead when nothing was plotted yet, when the sector being replotted was plotted at the
+/// max used history size, and when the max used history size is too old: a sector plotted at it
+/// may already be expired or about to expire by the same margin replotting uses, so it would have
+/// to be replotted right away.
+fn select_history_size(
+    max_used_history_size: Option<HistorySize>,
+    old_sector_history_size: Option<HistorySize>,
+    current_history_size: HistorySize,
+    min_sector_lifetime: HistorySize,
+) -> HistorySize {
+    if let Some(max_used_history_size) = max_used_history_size
+        && old_sector_history_size != Some(max_used_history_size)
+        && let Some(expiration_check_history_size) =
+            max_used_history_size.sector_expiration_check(min_sector_lifetime)
+        && expiration_check_history_size.segment_index()
+            > current_history_size.segment_index() + SegmentIndex::ONE
+    {
+        max_used_history_size
+    } else {
+        current_history_size
+    }
+}
+
 async fn plot_single_sector<'a, NC>(
     sector_to_plot: SectorToPlot,
     sector_plotting_options: &'a SectorPlottingOptions<'a, NC>,
     sectors_metadata: &'a AsyncRwLock<Vec<SectorMetadataChecksummed>>,
     sectors_being_modified: &'a AsyncRwLock<HashSet<SectorIndex>>,
     plotting_semaphore: &'a Semaphore,
-    max_used_history_size: &RwLock<HistorySize>,
+    max_used_history_size: &RwLock<Option<HistorySize>>,
 ) -> PlotSingleSectorResult<
     impl Future<Output = Result<SectorPlottingResult<'a>, PlottingError>> + 'a,
 >
@@ -409,21 +438,17 @@ where
         break protocol_info;
     };
 
-    // Maintain the current max history size unless it is too old. This reduces the diversity of
-    // shard assignment, making it easier for farmers to run nodes.
     {
         let mut max_used_history_size = max_used_history_size.write();
-        if maybe_old_sector_metadata
-            .as_ref()
-            .map(|sector_metadata| sector_metadata.history_size)
-            == Some(*max_used_history_size)
-        {
-            *max_used_history_size = protocol_info.history_size;
-        } else {
-            // TODO: This may hypothetically result in plotting expired sectors. Add sector
-            //  expiration check in the future if it ends up being a real concern.
-            protocol_info.history_size = *max_used_history_size;
-        }
+        protocol_info.history_size = select_history_size(
+            *max_used_history_size,
+            maybe_old_sector_metadata
+                .as_ref()
+                .map(|sector_metadata| sector_metadata.history_size),
+            protocol_info.history_size,
+            protocol_info.min_sector_lifetime,
+        );
+        max_used_history_size.replace(protocol_info.history_size);
     }
 
     let (progress_sender, mut progress_receiver) = mpsc::channel(10);
