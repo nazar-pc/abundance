@@ -1,5 +1,6 @@
 //! Utilities related to shard commitments
 
+use ab_blake3::{BLOCK_LEN, MAX_SIMD_DEGREE};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::segments::{HistorySize, SegmentIndex};
 use ab_core_primitives::shard::NumShards;
@@ -11,12 +12,23 @@ use ab_merkle_tree::blake3::UnbalancedMerkleTree;
 use blake3::Hasher;
 use parking_lot::RwLock;
 use schnellru::{ByLength, LruMap};
-use std::iter;
 use std::mem::MaybeUninit;
 use transparent_wrapper::TransparentWrapper;
 use triomphe::Arc;
 
 const SHARD_COMMITMENTS_ROOT_CACHE_SIZE: ByLength = ByLength::new(32);
+
+/// Number of shard commitment leaves read from the XOF stream at once.
+///
+/// BLAKE3 computes up to `MAX_SIMD_DEGREE` whole output blocks of the XOF stream in parallel with
+/// SIMD, but recomputes a whole block for every read shorter than a block. Reading this many leaves
+/// at once keeps SIMD saturated with a small buffer on the stack instead of all leaves on the heap.
+const LEAVES_PER_XOF_READ: usize = MAX_SIMD_DEGREE * BLOCK_LEN / ShardCommitmentHash::SIZE;
+
+const _: () = {
+    assert!((LEAVES_PER_XOF_READ * ShardCommitmentHash::SIZE).is_multiple_of(BLOCK_LEN));
+    assert!(SolutionShardCommitment::NUM_LEAVES.is_multiple_of(LEAVES_PER_XOF_READ));
+};
 
 #[derive(Debug)]
 struct Inner {
@@ -66,30 +78,38 @@ impl ShardCommitmentsRootsCache {
     }
 }
 
-/// Derive shard commitments root from the seed and history size
-pub fn derive_shard_commitments_root(
+/// Shard commitment leaves derived from the seed and history size.
+///
+/// Yields exactly [`SolutionShardCommitment::NUM_LEAVES`] leaves, which are consecutive chunks of
+/// the XOF stream.
+#[inline(always)]
+fn shard_commitment_leaves(
     shard_commitments_seed: &Blake3Hash,
     history_size: HistorySize,
-) -> ShardCommitmentHash {
+) -> impl Iterator<Item = [u8; ShardCommitmentHash::SIZE]> {
     let mut stream = {
         let mut hasher = Hasher::new_keyed(shard_commitments_seed);
         hasher.update(SegmentIndex::from(history_size).as_bytes());
         hasher.finalize_xof()
     };
 
-    let mut index = 0;
-    let leaves = iter::from_fn(|| {
-        if index < SolutionShardCommitment::NUM_LEAVES {
-            let mut bytes = [0; ShardCommitmentHash::SIZE];
-            stream.fill(&mut bytes);
-
-            index += 1;
-
-            Some(bytes)
-        } else {
-            None
+    gen move {
+        for _ in 0..SolutionShardCommitment::NUM_LEAVES / LEAVES_PER_XOF_READ {
+            let mut leaves = [[0; ShardCommitmentHash::SIZE]; LEAVES_PER_XOF_READ];
+            stream.fill(leaves.as_flattened_mut());
+            for leaf in leaves {
+                yield leaf;
+            }
         }
-    });
+    }
+}
+
+/// Derive shard commitments root from the seed and history size
+pub fn derive_shard_commitments_root(
+    shard_commitments_seed: &Blake3Hash,
+    history_size: HistorySize,
+) -> ShardCommitmentHash {
+    let leaves = shard_commitment_leaves(shard_commitments_seed, history_size);
 
     // NOTE: Using unbalanced implementation since balanced implementation requires allocation of
     // leaves
@@ -112,12 +132,6 @@ pub fn derive_solution_shard_commitment(
     shard_membership_entropy: &ShardMembershipEntropy,
     num_shards: NumShards,
 ) -> SolutionShardCommitment {
-    let mut stream = {
-        let mut hasher = Hasher::new_keyed(shard_commitments_seed);
-        hasher.update(SegmentIndex::from(history_size).as_bytes());
-        hasher.finalize_xof()
-    };
-
     let leaf_index = num_shards.derive_shard_commitment_index(
         public_key_hash,
         shard_commitments_root,
@@ -126,23 +140,15 @@ pub fn derive_solution_shard_commitment(
     ) as usize;
 
     let mut leaf = [0; _];
-    let mut index = 0;
-    let leaves = iter::from_fn(|| {
-        if index < SolutionShardCommitment::NUM_LEAVES {
-            let mut bytes = [0; ShardCommitmentHash::SIZE];
-            stream.fill(&mut bytes);
-
+    let leaves = shard_commitment_leaves(shard_commitments_seed, history_size)
+        .enumerate()
+        .map(|(index, bytes)| {
             if index == leaf_index {
                 leaf = bytes;
             }
 
-            index += 1;
-
-            Some(bytes)
-        } else {
-            None
-        }
-    });
+            bytes
+        });
 
     let mut proof = [MaybeUninit::uninit(); _];
     // NOTE: Using unbalanced implementation since balanced implementation requires an allocation
