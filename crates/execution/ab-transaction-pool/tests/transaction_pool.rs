@@ -36,9 +36,16 @@ fn transactions_are_indexed_by_their_hash() {
 
     pool.add(tx.clone()).unwrap();
     assert!(pool.contains(&tx_hash));
-    assert_matches!(pool.add(tx), Err(TransactionAddError::AlreadyExists));
+    assert_matches!(
+        pool.add(tx.clone()),
+        Err(TransactionAddError::AlreadyExists)
+    );
 
     pool.remove(iter::once(&tx_hash));
     assert!(!pool.contains(&tx_hash));
     assert_eq!(pool.iter().len(), 0);
+
+    // The block remains known after its last transaction was removed
+    pool.add(tx).unwrap();
+    assert!(pool.contains(&tx_hash));
 }
