@@ -6,8 +6,8 @@ use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
-use std::iter;
-use std::mem::MaybeUninit;
+use core::iter;
+use core::mem::MaybeUninit;
 
 type Balanced<'a, const N: usize> = BalancedMerkleTree<'a, N, TreeSizeTestHasher>;
 type Unbalanced = UnbalancedMerkleTree<TreeSizeTestHasher>;

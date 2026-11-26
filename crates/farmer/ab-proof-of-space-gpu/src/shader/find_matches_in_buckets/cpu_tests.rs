@@ -7,7 +7,7 @@ use crate::shader::find_matches_in_buckets::LeftTarget;
 use crate::shader::types::{Match, PositionR};
 use crate::shader::types::{Position, PositionExt};
 #[cfg(all(not(miri), not(target_arch = "spirv")))]
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 pub(in super::super) struct Rmap {
     /// `0` is a sentinel value indicating no virtual pointer is stored yet.

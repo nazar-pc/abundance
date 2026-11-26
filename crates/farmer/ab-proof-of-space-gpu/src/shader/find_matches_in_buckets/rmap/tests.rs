@@ -3,8 +3,8 @@ use crate::shader::find_matches_in_buckets::cpu_tests::Rmap as CorrectRmap;
 use crate::shader::find_matches_in_buckets::rmap::Rmap;
 use crate::shader::types::{Position, PositionExt, PositionR, R};
 use chacha20::ChaCha8Rng;
+use core::array;
 use rand::prelude::*;
-use std::array;
 
 #[test]
 fn test_rmap_against_reference() {

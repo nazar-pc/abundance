@@ -17,8 +17,8 @@ use ab_riscv_interpreter::basic::{
 use ab_riscv_interpreter::prelude::*;
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
+use core::str;
 use object::{Object, ObjectSection};
-use std::str;
 
 /// The guest program, see `examples/guests` in the repository
 const GUEST_ELF: &[u8] = include_bytes!("prebuilt/hello.elf");

@@ -41,9 +41,9 @@ use ab_riscv_interpreter::prelude::*;
 use ab_riscv_macros::{instruction, instruction_execution};
 use ab_riscv_primitives::prelude::*;
 use anyhow::Context;
+use core::fmt;
+use core::mem::variant_count;
 use object::{Object, ObjectSection};
-use std::fmt;
-use std::mem::variant_count;
 
 /// The guest program, see `examples/guests` in the repository
 const GUEST_ELF: &[u8] = include_bytes!("prebuilt/vector-sum.elf");

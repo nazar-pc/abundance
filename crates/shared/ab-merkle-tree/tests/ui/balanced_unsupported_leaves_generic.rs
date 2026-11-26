@@ -11,7 +11,7 @@
 
 use ab_merkle_tree::balanced::PROOF_ELEMENTS;
 use ab_merkle_tree::blake3::BalancedMerkleTree;
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 fn root<const N: usize>(leaves: &[[u8; 32]; N]) -> [u8; 32] {
     BalancedMerkleTree::compute_root_only(leaves)

@@ -7,7 +7,7 @@ use crate::shader::find_matches_and_compute_f7::{
 };
 use crate::shader::find_matches_in_buckets::cpu_tests::find_matches_in_buckets_correct;
 use crate::shader::types::{Metadata, Position, PositionExt, PositionR, Y};
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 #[expect(clippy::large_unopt_stack_frames, reason = "Fine for test function")]
 pub(super) fn find_matches_and_compute_f7_correct<'a>(

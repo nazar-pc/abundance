@@ -11,9 +11,9 @@ use ab_core_primitives::shard::ShardIndex;
 use ab_erasure_coding::ErasureCoding;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
+use core::num::NonZeroU32;
+use core::{assert_matches, iter};
 use parity_scale_codec::Encode;
-use std::num::NonZeroU32;
-use std::{assert_matches, iter};
 
 const TEST_SHARD_INDEX: ShardIndex = ShardIndex::new(ShardIndex::MAX_SHARD_INDEX - 1).unwrap();
 

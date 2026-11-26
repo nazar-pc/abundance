@@ -1,9 +1,9 @@
 use ab_erasure_coding::{ErasureCoding, ErasureCodingError, ShardsBitmap, ShardsPresent};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
+use core::ops::Range;
+use core::{array, assert_matches};
 use reed_solomon_simd::Error;
-use std::ops::Range;
-use std::{array, assert_matches};
 
 // Miri is very slow, use less data for it
 const NUM_SHARDS: usize = if cfg!(miri) {

@@ -9,7 +9,7 @@ use ab_merkle_tree::mmr::{self, MerkleMountainRangeBytes, MmrPeaks};
 use ab_merkle_tree::{MerkleHasher, unbalanced};
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 fn random_leaves<const N: usize>(rng: &mut ChaCha8Rng) -> [[u8; OUT_LEN]; N] {
     let mut leaves = [[0u8; OUT_LEN]; N];

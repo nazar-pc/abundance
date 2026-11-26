@@ -10,7 +10,7 @@
 
 use ab_aligned_buffer::alignment::{Align1, Align8, Align16, Align4096, Alignment, AtLeast};
 use ab_aligned_buffer::{AlignedBuffer, OwnedAlignedBuffer, SharedAlignedBuffer};
-use std::hint::black_box;
+use core::hint::black_box;
 
 fn owned<A>()
 where

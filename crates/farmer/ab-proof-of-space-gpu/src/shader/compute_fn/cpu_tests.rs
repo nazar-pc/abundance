@@ -4,7 +4,7 @@ use crate::shader::types::{Metadata, Y};
 use crate::shader::u32n::U32N;
 use chacha20::ChaCha8Rng;
 use chacha20::rand_core::{Rng, SeedableRng};
-use std::array;
+use core::array;
 
 // TODO: Reuse code from `ab-proof-of-space`, right now this is copy-pasted from there
 pub(in super::super) fn correct_compute_fn<

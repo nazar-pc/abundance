@@ -7,7 +7,7 @@ use ab_merkle_tree::mmr::{MerkleMountainRange, MmrPeaks};
 use ab_merkle_tree::sparse::SparseMerkleTree;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize};
-use std::mem::MaybeUninit;
+use core::mem::MaybeUninit;
 
 #[derive(Debug, Copy, Clone)]
 struct TreeSizeHasher(u64);

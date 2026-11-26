@@ -63,7 +63,7 @@ impl LeftTargets {
     /// the range of a splat is whatever the scalar's range was, but `LazyValueInfo` has no rule
     /// for `shufflevector`, and `InstCombine` canonicalizes a masked splat into exactly that
     /// shape, so no way of writing this expression reaches the conditional subtraction.
-    /// `std::hint::assert_unchecked()` doesn't help either. What is emitted instead is the generic
+    /// `core::hint::assert_unchecked()` doesn't help either. What is emitted instead is the generic
     /// reciprocal multiply, which for `u16x16` is 7 instructions with two multiplications against
     /// 4 here on x86-64, and 16 with six against 7 on aarch64.
     // TODO: Use `%` once LLVM looks through splats when computing ranges:
