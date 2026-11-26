@@ -34,6 +34,9 @@ enum Cli {
         /// Do not activate the `default` feature
         #[arg(long)]
         no_default_features: bool,
+        /// Extra flags for `rustc`, `RUSTFLAGS` are not used for contracts
+        #[arg(long, allow_hyphen_values = true)]
+        rustflags: Option<String>,
     },
     /// Convert `.contract.so` ELF file to `.contract` for execution environment
     Convert {
@@ -83,6 +86,7 @@ pub fn main() -> anyhow::Result<()> {
             features,
             no_default_features,
             profile,
+            rustflags,
         } => {
             let target_specification =
                 TargetSpecification::create(&TargetSpecification::default_base_dir()?)?;
@@ -94,6 +98,7 @@ pub fn main() -> anyhow::Result<()> {
                 profile: &profile,
                 target_specification_path: target_specification.path(),
                 target_dir: None,
+                extra_rustflags: rustflags.as_deref(),
             })?;
 
             let contract_path = cdylib_path.with_extension("");

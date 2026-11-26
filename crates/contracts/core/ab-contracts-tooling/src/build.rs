@@ -25,6 +25,11 @@ pub struct BuildOptions<'a> {
     pub target_specification_path: &'a Path,
     /// Custom target directory to use instead of the default one
     pub target_dir: Option<&'a Path>,
+    /// Extra flags for `rustc`, appended to `RUSTFLAGS` of the contract build.
+    ///
+    /// `RUSTFLAGS` of the host build are not used, since they don't apply to a contract built for
+    /// a different target.
+    pub extra_rustflags: Option<&'a str>,
 }
 
 /// Build a `cdylib` with the contract and return the path to the resulting ELF file
@@ -36,7 +41,17 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
         profile,
         target_specification_path,
         target_dir,
+        extra_rustflags,
     } = options;
+
+    // Hack for enabling RISC-V Zknh backend in `sha2` crate since it is a nightly-only feature,
+    // and they really don't like using normal features for it.
+    let mut rustflags =
+        String::from(r#"--cfg sha2_backend="riscv-zknh" --cfg sha2_backend_riscv_zknh="compact""#);
+    if let Some(extra_rustflags) = extra_rustflags {
+        rustflags.push(' ');
+        rustflags.push_str(extra_rustflags);
+    }
 
     let mut command_builder = Command::new("cargo");
     command_builder
@@ -46,12 +61,7 @@ pub fn build_cdylib(options: BuildOptions<'_>) -> anyhow::Result<PathBuf> {
         // differently under `cargo clippy` than under `cargo build`, rebuilding all of them on
         // every switch between the two
         .env_remove("RUSTC_WORKSPACE_WRAPPER")
-        // Hack for enabling RISC-V Zknh backend in `sha2` crate since it is a nightly-only feature,
-        // and they really don't like using normal features for it.
-        .env(
-            "RUSTFLAGS",
-            r#"--cfg sha2_backend="riscv-zknh" --cfg sha2_backend_riscv_zknh="compact""#,
-        )
+        .env("RUSTFLAGS", rustflags)
         .args([
             "rustc",
             "-Zbuild-std=core",

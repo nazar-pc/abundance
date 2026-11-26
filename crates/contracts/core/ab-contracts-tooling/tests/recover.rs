@@ -697,6 +697,7 @@ fn check_example_contract(package: &str) {
         profile: "contract",
         target_specification_path: target_specification.path(),
         target_dir: None,
+        extra_rustflags: None,
     })
     .unwrap();
     let original_elf_bytes = fs::read(cdylib_path).unwrap();

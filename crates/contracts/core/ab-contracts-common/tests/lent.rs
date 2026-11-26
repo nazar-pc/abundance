@@ -288,3 +288,66 @@ fn from_mut_unchecked_container() {
     let parsed = unsafe { MaybeData::<Mode>::try_from_mut_ptr(&mut ptr, &mut size, capacity) };
     assert_eq!(parsed.unwrap().get(), Some(&Mode::B));
 }
+
+#[test]
+fn clear_container() {
+    let mut uninit = [MaybeUninit::<Mode>::uninit(); 4];
+    let mut size = 0;
+    {
+        let mut lent =
+            Lent::<VariableElements<'_, Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
+        // Valid contents, with the size changed through the parsed value
+        call(&mut lent, &[0, 1, 1], Some(3));
+        assert!(lent.get_mut().unwrap().truncate(2));
+        assert_eq!(lent.clear().get_initialized(), []);
+        assert_eq!(lent.as_raw_output().1, 0);
+
+        call(&mut lent, &[0, 2], Some(2));
+        assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
+        assert_eq!(lent.clear().get_initialized(), []);
+        assert_eq!(lent.get_mut().unwrap().get_initialized(), []);
+        // The next call gets empty contents with the same capacity
+        let (_ptr, size, capacity) = lent.as_raw_output();
+        assert_eq!((size, capacity), (0, 4));
+        call(&mut lent, &[1], Some(1));
+        assert_eq!(lent.get_mut().unwrap().get_initialized(), [Mode::B]);
+
+        // A call that reports empty contents leaves a size that needs no change
+        call(&mut lent, &[9], Some(0));
+        assert_eq!(lent.clear().get_initialized(), []);
+    }
+    // The size reaches the memory the container describes
+    assert_eq!(size, 0);
+
+    let mut uninit = MaybeUninit::<Mode>::uninit();
+    let mut size = 0;
+    {
+        let mut lent = Lent::<MaybeData<'_, Mode>>::from_uninit(&mut uninit, &mut size).unwrap();
+        call(&mut lent, &[1], Some(1));
+        // A failed call leaves an invalid value behind within the size and reports no size
+        call(&mut lent, &[9], None);
+        assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
+        assert_eq!(lent.clear().get(), None);
+        call(&mut lent, &[0], Some(1));
+        assert_eq!(lent.get_mut().unwrap().get(), Some(&Mode::A));
+    }
+    assert_eq!(size, 1);
+}
+
+/// A borrowed container, like one lent with `Env::lend_output()`, can be accessed without parsing
+/// after the `Lent` emptied it
+#[test]
+fn clear_borrowed() {
+    let mut uninit = [MaybeUninit::<Mode>::uninit(); 2];
+    let mut size = 0;
+    let mut elements = VariableElements::<Mode>::from_uninit(&mut uninit, &mut size).unwrap();
+    {
+        // SAFETY: The contents of `elements` are only accessed after `clear()` below
+        let mut lent = unsafe { Lent::from_mut_unchecked(&mut elements) };
+        call(&mut lent, &[1, 7], Some(2));
+        assert_eq!(lent.get_mut().unwrap_err(), ContractError::BadOutput);
+        lent.clear();
+    }
+    assert_eq!(elements.get_initialized(), []);
+    assert_eq!(elements.capacity(), 2);
+}

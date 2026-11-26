@@ -25,6 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         profile: "contract",
         target_specification_path: target_specification.path(),
         target_dir: None,
+        extra_rustflags: None,
     })?;
 
     let contract_path = cdylib_path.with_extension("");

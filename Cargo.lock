@@ -527,6 +527,7 @@ version = "0.1.0"
 dependencies = [
  "ab-aligned-buffer",
  "ab-archiving",
+ "ab-blake3",
  "ab-core-primitives",
  "ab-data-retrieval",
  "ab-direct-io-file",

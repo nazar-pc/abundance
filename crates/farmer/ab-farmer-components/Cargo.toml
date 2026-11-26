@@ -37,6 +37,7 @@ harness = false
 [dependencies]
 ab-aligned-buffer = { workspace = true }
 ab-archiving = { workspace = true, features = ["parallel"] }
+ab-blake3 = { workspace = true }
 ab-core-primitives = { workspace = true, features = ["parallel", "scale-codec", "serde"] }
 ab-data-retrieval = { workspace = true }
 ab-direct-io-file = { workspace = true }
