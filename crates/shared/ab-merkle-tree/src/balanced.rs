@@ -35,7 +35,7 @@ const ROOT_ONLY_LARGE_STACK_SIZE<const N: usize, H: MerkleHasher>: usize = {
 /// Merkle Tree variant that has hash-sized leaves and is fully balanced according to configured
 /// generic parameter.
 ///
-/// This can be considered a general case of [`UnbalancedMerkleTree`]. The root and proofs are
+/// This can be considered a special case of [`UnbalancedMerkleTree`]. The root and proofs are
 /// identical for both in case the number of leaves is a power of two. For the number of leaves that
 /// is a power of two [`UnbalancedMerkleTree`] is useful when a single proof needs to be generated
 /// and the number of leaves is very large (it can generate proofs with very little RAM usage
