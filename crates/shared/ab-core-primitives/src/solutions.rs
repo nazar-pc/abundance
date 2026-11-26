@@ -1,5 +1,8 @@
 //! Solutions-related data structures and functions.
 
+#[cfg(all(test, feature = "alloc"))]
+mod tests;
+
 use crate::block::BlockNumber;
 use crate::ed25519::Ed25519PublicKey;
 use crate::hashes::Blake3Hash;
@@ -8,8 +11,7 @@ use crate::pos::{PosProof, PosSeed};
 use crate::pot::{PotOutput, SlotNumber};
 use crate::sectors::{SBucket, SectorId, SectorIndex, SectorSlotChallenge};
 use crate::segments::{
-    HistorySize, LocalSegmentIndex, SegmentIndex, SegmentPosition, SegmentRoot, SuperSegmentIndex,
-    SuperSegmentRoot,
+    HistorySize, LocalSegmentIndex, SegmentIndex, SegmentRoot, SuperSegmentRoot,
 };
 use crate::shard::{NumShards, RealShardKind, ShardIndex, ShardKind};
 use ab_blake3::single_block_keyed_hash;
@@ -375,6 +377,19 @@ pub enum SolutionVerifyError {
         /// Current history size
         current_history_size: HistorySize,
     },
+    /// Segment of the piece the sector requires is not in the super segment
+    #[error(
+        "Segment {segment_index} is not in the super segment with max segment index \
+        {max_segment_index} and {num_segments} segments"
+    )]
+    PieceSegmentNotInSuperSegment {
+        /// Segment index of the piece the sector requires at the piece offset
+        segment_index: SegmentIndex,
+        /// Max index of the segment in the super segment
+        max_segment_index: SegmentIndex,
+        /// Number of segments in the super segment
+        num_segments: u32,
+    },
     /// Record does not belong to the segment
     #[error("Record does not belong to the segment")]
     RecordNotInSegment,
@@ -451,10 +466,13 @@ pub struct SolutionVerifyStatelessParams {
 pub struct SolutionVerifyPieceParams {
     /// How many pieces one sector is supposed to contain (max)
     pub max_pieces_in_sector: u16,
-    /// Super segment root of the segment to which piece belongs
+    /// Root of the super segment that contains the segment of the piece the sector requires at the
+    /// piece offset, see [`SectorId::derive_piece_index()`]
     pub super_segment_root: SuperSegmentRoot,
     /// Number of segments in the super segment
     pub num_segments: u32,
+    /// Max index of the segment in the super segment
+    pub max_segment_index: SegmentIndex,
     /// Number of latest archived segments that are considered "recent history"
     pub recent_segments: HistorySize,
     /// Fraction of pieces from the "recent history" (`recent_segments`) in each sector
@@ -753,8 +771,6 @@ pub struct Solution {
     pub shard_commitment: SolutionShardCommitment,
     /// Local segment index of the piece
     pub piece_local_segment_index: LocalSegmentIndex,
-    /// Super segment index
-    pub piece_super_segment_index: SuperSegmentIndex,
     /// Segment root
     pub segment_root: SegmentRoot,
     /// Segment proof
@@ -775,12 +791,8 @@ pub struct Solution {
     pub sector_index: SectorIndex,
     /// Pieces offset within sector
     pub piece_offset: PieceOffset,
-    /// Position of the segment in the super segment
-    pub segment_position: SegmentPosition,
     /// Shard index on which the piece was archived
     pub piece_shard_index: ShardIndex,
-    /// Padding for data structure alignment
-    pub padding: [u8; 4],
 }
 
 impl Solution {
@@ -794,7 +806,6 @@ impl Solution {
                 leaf: ShardCommitmentHash::default(),
             },
             piece_local_segment_index: LocalSegmentIndex::ZERO,
-            piece_super_segment_index: SuperSegmentIndex::ZERO,
             segment_root: SegmentRoot::default(),
             segment_proof: SegmentProof::default(),
             record_root: RecordRoot::default(),
@@ -805,10 +816,18 @@ impl Solution {
             history_size: HistorySize::from(SegmentIndex::ZERO),
             sector_index: SectorIndex::ZERO,
             piece_offset: PieceOffset::default(),
-            segment_position: SegmentPosition::default(),
             piece_shard_index: ShardIndex::BEACON_CHAIN,
-            padding: [0; _],
         }
+    }
+
+    #[inline]
+    fn sector_id(&self) -> SectorId {
+        SectorId::new(
+            &self.public_key_hash,
+            &self.shard_commitment.root,
+            self.sector_index,
+            self.history_size,
+        )
     }
 
     /// Check solution validity
@@ -820,12 +839,7 @@ impl Solution {
     where
         PotVerifier: SolutionPotVerifier,
     {
-        let sector_id = SectorId::new(
-            &self.public_key_hash,
-            &self.shard_commitment.root,
-            self.sector_index,
-            self.history_size,
-        );
+        let sector_id = self.sector_id();
 
         self.verify_stateless_inner::<PotVerifier>(&sector_id, slot, &params.stateless)?;
 
@@ -846,12 +860,7 @@ impl Solution {
     where
         PotVerifier: SolutionPotVerifier,
     {
-        let sector_id = SectorId::new(
-            &self.public_key_hash,
-            &self.shard_commitment.root,
-            self.sector_index,
-            self.history_size,
-        );
+        let sector_id = self.sector_id();
 
         self.verify_stateless_inner::<PotVerifier>(&sector_id, slot, params)
     }
@@ -971,12 +980,7 @@ impl Solution {
         &self,
         piece_check_params: &SolutionVerifyPieceParams,
     ) -> Result<(), SolutionVerifyError> {
-        let sector_id = SectorId::new(
-            &self.public_key_hash,
-            &self.shard_commitment.root,
-            self.sector_index,
-            self.history_size,
-        );
+        let sector_id = self.sector_id();
 
         self.verify_piece_inner(&sector_id, piece_check_params)
     }
@@ -990,6 +994,7 @@ impl Solution {
             max_pieces_in_sector,
             super_segment_root,
             num_segments,
+            max_segment_index,
             recent_segments,
             recent_history_fraction,
             min_sector_lifetime,
@@ -1030,21 +1035,31 @@ impl Solution {
             }
         }
 
-        let position = sector_id
-            .derive_piece_index(
-                self.piece_offset,
-                self.history_size,
-                *max_pieces_in_sector,
-                *recent_segments,
-                *recent_history_fraction,
-            )
-            .position();
+        let piece_index = sector_id.derive_piece_index(
+            self.piece_offset,
+            self.history_size,
+            *max_pieces_in_sector,
+            *recent_segments,
+            *recent_history_fraction,
+        );
+        let segment_index = piece_index.segment_index();
+
+        let Some(segment_position) =
+            segment_index.position_in_super_segment(*max_segment_index, *num_segments)
+        else {
+            return Err(SolutionVerifyError::PieceSegmentNotInSuperSegment {
+                segment_index,
+                max_segment_index: *max_segment_index,
+                num_segments: *num_segments,
+            });
+        };
 
         // Check that record belongs to the segment
-        if !self
-            .record_root
-            .is_valid(&self.segment_root, &self.record_proof, position)
-        {
+        if !self.record_root.is_valid(
+            &self.segment_root,
+            &self.record_proof,
+            piece_index.position(),
+        ) {
             return Err(SolutionVerifyError::RecordNotInSegment);
         }
 
@@ -1052,7 +1067,7 @@ impl Solution {
         if !self.segment_root.is_valid(
             self.piece_shard_index,
             self.piece_local_segment_index,
-            self.segment_position,
+            segment_position,
             &self.segment_proof,
             *num_segments,
             super_segment_root,

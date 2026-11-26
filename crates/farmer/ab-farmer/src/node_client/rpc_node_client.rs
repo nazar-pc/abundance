@@ -2,9 +2,7 @@
 
 use crate::node_client::{NodeClient, NodeClientExt};
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{
-    SegmentIndex, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
-};
+use ab_core_primitives::segments::{SegmentIndex, SuperSegmentHeader, SuperSegmentIndex};
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
     SolutionResponse,
@@ -135,14 +133,14 @@ impl NodeClient for RpcNodeClient {
             .await?)
     }
 
-    async fn super_segment_root_for_segment_index(
+    async fn super_segment_header_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> anyhow::Result<Option<SuperSegmentRoot>> {
+    ) -> anyhow::Result<Option<SuperSegmentHeader>> {
         Ok(self
             .client
             .request(
-                "superSegmentRootForSegmentIndex",
+                "superSegmentHeaderForSegmentIndex",
                 rpc_params![&segment_index],
             )
             .await?)

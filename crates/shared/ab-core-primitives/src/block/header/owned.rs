@@ -157,7 +157,7 @@ impl OwnedBeaconChainHeader {
         intermediate_shard_blocks_root: &Blake3Hash,
         consensus_parameters: &OwnedBlockHeaderConsensusParameters,
     ) -> Result<OwnedBeaconChainHeaderUnsealed, BlockHeaderConsistencyError> {
-        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::BeaconChain)?;
+        BlockHeader::check_shared_parts(prefix, RealShardKind::BeaconChain)?;
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
@@ -192,7 +192,7 @@ impl OwnedBeaconChainHeader {
         consensus_parameters: &OwnedBlockHeaderConsensusParameters,
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedBeaconChainHeaderUnsealedRef<'a>, OwnedBeaconChainHeaderError> {
-        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::BeaconChain)?;
+        BlockHeader::check_shared_parts(prefix, RealShardKind::BeaconChain)?;
 
         let header_offset = buffer.len();
 
@@ -511,7 +511,7 @@ impl OwnedIntermediateShardHeader {
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
         leaf_shard_blocks_root: &Blake3Hash,
     ) -> Result<OwnedIntermediateShardHeaderUnsealed, BlockHeaderConsistencyError> {
-        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::IntermediateShard)?;
+        BlockHeader::check_shared_parts(prefix, RealShardKind::IntermediateShard)?;
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
@@ -547,7 +547,7 @@ impl OwnedIntermediateShardHeader {
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedIntermediateShardHeaderUnsealedRef<'a>, OwnedIntermediateShardHeaderError>
     {
-        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::IntermediateShard)?;
+        BlockHeader::check_shared_parts(prefix, RealShardKind::IntermediateShard)?;
 
         let header_offset = buffer.len();
 
@@ -801,7 +801,7 @@ impl OwnedLeafShardHeader {
         consensus_info: &BlockHeaderConsensusInfo,
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
     ) -> Result<OwnedLeafShardHeaderUnsealed, BlockHeaderConsistencyError> {
-        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::LeafShard)?;
+        BlockHeader::check_shared_parts(prefix, RealShardKind::LeafShard)?;
 
         let mut buffer = OwnedAlignedBuffer::with_capacity(Self::MAX_ALLOCATION);
 
@@ -834,7 +834,7 @@ impl OwnedLeafShardHeader {
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
         buffer: &'a mut OwnedAlignedBuffer,
     ) -> Result<OwnedLeafShardHeaderUnsealedRef<'a>, OwnedLeafShardHeaderError> {
-        BlockHeader::check_shared_parts(prefix, consensus_info, RealShardKind::LeafShard)?;
+        BlockHeader::check_shared_parts(prefix, RealShardKind::LeafShard)?;
 
         let header_offset = buffer.len();
 

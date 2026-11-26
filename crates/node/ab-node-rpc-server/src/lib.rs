@@ -8,8 +8,7 @@ mod tests;
 use ab_archiving::archiver::NewArchivedSegment;
 use ab_client_api::{BeaconChainInfo, ChainSyncStatus};
 use ab_client_archiving::recreate::{
-    RecreateSegmentError, RecreateSegmentSuperSegmentDetails, recreate_genesis_segment,
-    recreate_segment,
+    RecreateSegmentError, recreate_genesis_segment, recreate_segment,
 };
 use ab_client_block_authoring::slot_worker::{
     BlockSealNotification, NewSlotInfo, NewSlotNotification,
@@ -22,7 +21,7 @@ use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::segments::{
     HistorySize, LocalSegmentIndex, SegmentIndex, SuperSegment, SuperSegmentHeader,
-    SuperSegmentIndex, SuperSegmentRoot,
+    SuperSegmentIndex,
 };
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::solutions::Solution;
@@ -164,11 +163,11 @@ pub trait FarmerRpcApi {
         limit: u32,
     ) -> Result<Vec<Option<SuperSegmentHeader>>, FarmerRpcApiError>;
 
-    #[method(name = "superSegmentRootForSegmentIndex")]
-    async fn super_segment_root_for_segment_index(
+    #[method(name = "superSegmentHeaderForSegmentIndex")]
+    async fn super_segment_header_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> Result<Option<SuperSegmentRoot>, FarmerRpcApiError>;
+    ) -> Result<Option<SuperSegmentHeader>, FarmerRpcApiError>;
 
     #[method(name = "piece")]
     async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, FarmerRpcApiError>;
@@ -250,12 +249,10 @@ impl Default for CachedSuperSegments {
 impl CachedSuperSegments {
     fn get_for_segment_index(&self, segment_index: SegmentIndex) -> Option<&SuperSegment> {
         self.super_segments.iter().find(|super_segment| {
-            let max_segment_index = super_segment.header.max_segment_index.as_inner();
-            let first_segment_index = max_segment_index
-                - SegmentIndex::from(u64::from(super_segment.header.num_segments))
-                + SegmentIndex::ONE;
-
-            (first_segment_index..=max_segment_index).contains(&segment_index)
+            super_segment
+                .header
+                .segment_position(segment_index)
+                .is_some()
         })
     }
 
@@ -773,14 +770,13 @@ where
         Ok(last_super_segment_headers)
     }
 
-    async fn super_segment_root_for_segment_index(
+    async fn super_segment_header_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> Result<Option<SuperSegmentRoot>, FarmerRpcApiError> {
+    ) -> Result<Option<SuperSegmentHeader>, FarmerRpcApiError> {
         Ok(self
             .beacon_chain_info
-            .get_super_segment_header_for_segment_index(segment_index)
-            .map(|super_segment_header| super_segment_header.root))
+            .get_super_segment_header_for_segment_index(segment_index))
     }
 
     // Note: this RPC uses the cached archived segment, which is only updated by archived segments
@@ -822,7 +818,7 @@ where
                 .nth(usize::from(piece_index.position())));
         }
 
-        let (super_segment_index, shard_segment_root_with_position, segment_proof) = {
+        let (shard_segment_root_with_position, segment_proof) = {
             let cached_super_segments = self.cached_super_segments.lock();
             let Some(super_segment) = cached_super_segments.get_for_segment_index(segment_index)
             else {
@@ -830,11 +826,13 @@ where
             };
 
             let Some(shard_segment_root_with_position) = super_segment
-                .segment_roots
-                .iter()
-                .nth_back(u64::from(
-                    super_segment.header.max_segment_index.as_inner() - segment_index,
-                ) as usize)
+                .header
+                .segment_position(segment_index)
+                .and_then(|segment_position| {
+                    super_segment
+                        .segment_roots
+                        .get(u32::from(segment_position) as usize)
+                })
                 .copied()
             else {
                 error!(
@@ -860,17 +858,7 @@ where
                 return Ok(None);
             };
 
-            (
-                super_segment.header.index.as_inner(),
-                shard_segment_root_with_position,
-                segment_proof,
-            )
-        };
-
-        let recreate_segment_super_segment_details = RecreateSegmentSuperSegmentDetails {
-            super_segment_index,
-            segment_position: shard_segment_root_with_position.segment_position,
-            segment_proof,
+            (shard_segment_root_with_position, segment_proof)
         };
 
         if shard_segment_root_with_position.shard_index != ShardIndex::BEACON_CHAIN {
@@ -891,7 +879,7 @@ where
             last_archived_segment,
             &self.beacon_chain_info,
             self.erasure_coding.clone(),
-            &recreate_segment_super_segment_details,
+            &segment_proof,
             |_| Vec::new(),
         )
         .await?;

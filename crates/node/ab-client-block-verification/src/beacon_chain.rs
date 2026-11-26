@@ -20,9 +20,8 @@ use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use ab_core_primitives::hashes::Blake3Hash;
 use ab_core_primitives::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
-use ab_core_primitives::segments::{
-    HistorySize, SuperSegment, SuperSegmentIndex, SuperSegmentRoot,
-};
+use ab_core_primitives::sectors::SectorId;
+use ab_core_primitives::segments::{HistorySize, SegmentIndex, SuperSegment, SuperSegmentRoot};
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::solutions::{
     SolutionVerifyError, SolutionVerifyPieceParams, SolutionVerifyStatelessParams,
@@ -74,11 +73,11 @@ pub enum BeaconChainBlockVerificationError {
     /// Previous super segment header not found
     #[error("Previous super segment header not found")]
     PreviousSuperSegmentHeaderNotFound,
-    /// Solution super segment not found
-    #[error("Solution super segment {index} not found")]
+    /// Super segment of the solution's piece not found
+    #[error("Super segment of the solution's piece in segment {segment_index} not found")]
     SolutionSuperSegmentNotFound {
-        /// Expected super segment index
-        index: SuperSegmentIndex,
+        /// Segment index of the piece the solution's sector requires
+        segment_index: SegmentIndex,
     },
     /// Invalid history size
     #[error("Invalid history size {history_size} (current {current_history_size})")]
@@ -703,43 +702,54 @@ where
 
         // Verify that the solution is valid (piece verification half)
         {
-            let (current_history_size, solution_num_segments, solution_super_segment_root) =
-                if block_number == BlockNumber::ONE {
-                    let latest_super_segment = maybe_super_segment.as_ref().ok_or(
-                        BeaconChainBlockVerificationError::MissingSuperSegmentInFirstBlock,
+            // TODO: Query it from an actual chain
+            let max_pieces_in_sector = 1000;
+
+            let (current_history_size, solution_super_segment_header) = if block_number
+                == BlockNumber::ONE
+            {
+                // With history size one the piece is in the genesis segment, which is in the super
+                // segment this block creates
+                let latest_super_segment = maybe_super_segment
+                    .as_ref()
+                    .ok_or(BeaconChainBlockVerificationError::MissingSuperSegmentInFirstBlock)?;
+
+                (HistorySize::ONE, latest_super_segment.header)
+            } else {
+                let max_segment_index = self
+                    .chain_info
+                    .previous_super_segment_header(block_number)
+                    .ok_or(BeaconChainBlockVerificationError::PreviousSuperSegmentHeaderNotFound)?
+                    .max_segment_index
+                    .as_inner();
+                let current_history_size = HistorySize::from(max_segment_index);
+
+                let solution = &consensus_info.solution;
+                let segment_index = SectorId::new(
+                    &solution.public_key_hash,
+                    &solution.shard_commitment.root,
+                    solution.sector_index,
+                    solution.history_size,
+                )
+                .derive_piece_index(
+                    solution.piece_offset,
+                    solution.history_size,
+                    max_pieces_in_sector,
+                    self.consensus_constants.recent_segments,
+                    self.consensus_constants.recent_history_fraction,
+                )
+                .segment_index();
+                let solution_super_segment_header = self
+                    .chain_info
+                    .get_super_segment_header_for_segment_index(segment_index)
+                    .ok_or(
+                        BeaconChainBlockVerificationError::SolutionSuperSegmentNotFound {
+                            segment_index,
+                        },
                     )?;
 
-                    (
-                        HistorySize::ONE,
-                        latest_super_segment.header.num_segments,
-                        latest_super_segment.header.root,
-                    )
-                } else {
-                    let max_segment_index = self
-                        .chain_info
-                        .previous_super_segment_header(block_number)
-                        .ok_or(
-                            BeaconChainBlockVerificationError::PreviousSuperSegmentHeaderNotFound,
-                        )?
-                        .max_segment_index
-                        .as_inner();
-                    let current_history_size = HistorySize::from(max_segment_index);
-
-                    let solution_super_segment_header = self
-                        .chain_info
-                        .get_super_segment_header(consensus_info.solution.piece_super_segment_index)
-                        .ok_or(
-                            BeaconChainBlockVerificationError::SolutionSuperSegmentNotFound {
-                                index: consensus_info.solution.piece_super_segment_index,
-                            },
-                        )?;
-
-                    (
-                        current_history_size,
-                        solution_super_segment_header.num_segments,
-                        solution_super_segment_header.root,
-                    )
-                };
+                (current_history_size, solution_super_segment_header)
+            };
 
             let sector_expiration_check_super_segment_root = self
                 .chain_info
@@ -759,10 +769,10 @@ where
             consensus_info
                 .solution
                 .verify_piece(&SolutionVerifyPieceParams {
-                    // TODO: Query it from an actual chain
-                    max_pieces_in_sector: 1000,
-                    super_segment_root: solution_super_segment_root,
-                    num_segments: solution_num_segments,
+                    max_pieces_in_sector,
+                    super_segment_root: solution_super_segment_header.root,
+                    num_segments: solution_super_segment_header.num_segments,
+                    max_segment_index: solution_super_segment_header.max_segment_index.as_inner(),
                     recent_segments: self.consensus_constants.recent_segments,
                     recent_history_fraction: self.consensus_constants.recent_history_fraction,
                     min_sector_lifetime: self.consensus_constants.min_sector_lifetime,

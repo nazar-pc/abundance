@@ -4,9 +4,7 @@
 use crate::node_client::{NodeClient, NodeClientExt};
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{
-    SegmentIndex, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
-};
+use ab_core_primitives::segments::{SegmentIndex, SuperSegmentHeader, SuperSegmentIndex};
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo,
     MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST, SlotInfo, SolutionResponse,
@@ -14,7 +12,6 @@ use ab_farmer_rpc_primitives::{
 use async_lock::{
     Mutex as AsyncMutex, RwLock as AsyncRwLock,
     RwLockUpgradableReadGuardArc as AsyncRwLockUpgradableReadGuard,
-    RwLockWriteGuardArc as AsyncRwLockWriteGuard,
 };
 use async_trait::async_trait;
 use futures::{FutureExt, Stream, StreamExt, select};
@@ -76,10 +73,10 @@ impl SuperSegmentHeaders {
 
     // TODO: Maybe caching or more compact storage that points segment indices to super segments
     //  when this is called thousands of times during replotting?
-    fn super_segment_root_for_segment_index(
+    fn super_segment_header_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> Option<SuperSegmentRoot> {
+    ) -> Option<SuperSegmentHeader> {
         let index = self
             .super_segment_headers
             .binary_search_by_key(&segment_index, |super_segment_header| {
@@ -89,14 +86,10 @@ impl SuperSegmentHeaders {
 
         let super_segment_header = self.super_segment_headers.get(index).copied()?;
 
-        let max_segment_index = super_segment_header.max_segment_index.as_inner();
-        let first_segment_index = max_segment_index
-            - SegmentIndex::from(u64::from(super_segment_header.num_segments))
-            + SegmentIndex::ONE;
-
-        (first_segment_index..=max_segment_index)
-            .contains(&segment_index)
-            .then_some(super_segment_header.root)
+        super_segment_header
+            .segment_position(segment_index)
+            .is_some()
+            .then_some(super_segment_header)
     }
 
     /// Whether the last sync was too recent to sync again
@@ -341,6 +334,37 @@ where
     }
 }
 
+impl<NC> CachingProxyNodeClient<NC>
+where
+    NC: NodeClient,
+{
+    /// Sync cached super segment headers with the node, unless the last sync was too recent
+    async fn sync_super_segment_headers(&self) -> anyhow::Result<()> {
+        // If we took a write lock here, a queue of writers could starve all the readers, even if
+        // those writers are rate-limited. So we take an upgradable read lock for the rate limit
+        // check.
+        let super_segment_headers = self.super_segment_headers.upgradable_read_arc().await;
+
+        // Skip the sync if we're still within the sync rate limit
+        if super_segment_headers.is_sync_rate_limited() {
+            return Ok(());
+        }
+
+        let extra_super_segment_headers = super_segment_headers
+            .request_uncached_headers(&self.inner)
+            .await?;
+
+        if !extra_super_segment_headers.is_empty() {
+            // Need to update the cached super segment headers, so take the write lock
+            AsyncRwLockUpgradableReadGuard::upgrade(super_segment_headers)
+                .await
+                .write_cache(extra_super_segment_headers);
+        }
+
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl<NC> NodeClient for CachingProxyNodeClient<NC>
 where
@@ -412,58 +436,51 @@ where
             return Ok(retrieved_super_segment_headers);
         }
 
-        // We might be missing a requested super segment header.
-        // Sync the cache with the node, apply a rate limit, and return cached super segment
-        // headers.
+        // We might be missing a requested super segment header
+        self.sync_super_segment_headers().await?;
 
-        // If we took a write lock here, a queue of writers could starve all the readers, even if
-        // those writers are rate-limited. So we take an upgradable read lock for the rate limit
-        // check.
-        let super_segment_headers = self.super_segment_headers.upgradable_read_arc().await;
-
-        // Try again after acquiring the upgradeable read lock, in case another caller already
-        // synced the headers
-        let retrieved_super_segment_headers =
-            super_segment_headers.get_super_segment_headers(&super_segment_indices);
-        if retrieved_super_segment_headers.iter().all(Option::is_some) {
-            return Ok(retrieved_super_segment_headers);
-        }
-
-        // Skip the sync if we're still within the sync rate limit
-        if super_segment_headers.is_sync_rate_limited() {
-            return Ok(retrieved_super_segment_headers);
-        }
-
-        // Try to sync the cache with the node
-        let extra_super_segment_headers = super_segment_headers
-            .request_uncached_headers(&self.inner)
-            .await?;
-
-        if extra_super_segment_headers.is_empty() {
-            // No extra super segment headers on the node, so just return what is in the cache
-            return Ok(retrieved_super_segment_headers);
-        }
-
-        // Need to update the cached super segment headers, so take the write lock
-        let mut super_segment_headers =
-            AsyncRwLockUpgradableReadGuard::upgrade(super_segment_headers).await;
-        super_segment_headers.write_cache(extra_super_segment_headers);
-
-        // Downgrade the write lock to a read lock to get the updated super segment headers for the
-        // query
-        Ok(AsyncRwLockWriteGuard::downgrade(super_segment_headers)
-            .get_super_segment_headers(&super_segment_indices))
-    }
-
-    async fn super_segment_root_for_segment_index(
-        &self,
-        segment_index: SegmentIndex,
-    ) -> anyhow::Result<Option<SuperSegmentRoot>> {
         Ok(self
             .super_segment_headers
             .read()
             .await
-            .super_segment_root_for_segment_index(segment_index))
+            .get_super_segment_headers(&super_segment_indices))
+    }
+
+    async fn super_segment_header_for_segment_index(
+        &self,
+        segment_index: SegmentIndex,
+    ) -> anyhow::Result<Option<SuperSegmentHeader>> {
+        let maybe_super_segment_header = self
+            .super_segment_headers
+            .read()
+            .await
+            .super_segment_header_for_segment_index(segment_index);
+
+        if maybe_super_segment_header.is_some() {
+            return Ok(maybe_super_segment_header);
+        }
+
+        // Segments past the history size reported by the node don't exist yet, which is routinely
+        // the case for sector expiration checks, so the cache is only synced for segments the node
+        // should already have, like those of pieces being validated
+        let history_size = self
+            .last_farmer_app_info
+            .lock()
+            .await
+            .0
+            .protocol_info
+            .history_size;
+        if segment_index > history_size.segment_index() {
+            return Ok(None);
+        }
+
+        self.sync_super_segment_headers().await?;
+
+        Ok(self
+            .super_segment_headers
+            .read()
+            .await
+            .super_segment_header_for_segment_index(segment_index))
     }
 
     async fn piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {

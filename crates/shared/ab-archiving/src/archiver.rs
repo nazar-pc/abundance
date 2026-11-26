@@ -450,8 +450,8 @@ impl Archiver {
     /// NOTE:
     /// * pieces inside [`NewArchivedSegment`] are shared initially for efficient memory reuse when
     ///   working with pieces
-    /// * pieces do not have a segment position and a segment proof filled in because it is not yet
-    ///   known at the time of local segment creation
+    /// * pieces do not have a segment proof filled in because the super segment is not yet known at
+    ///   the time of local segment creation
     ///
     /// Returns `None` if the block is larger than [`u32::MAX`] bytes.
     pub fn add_block(

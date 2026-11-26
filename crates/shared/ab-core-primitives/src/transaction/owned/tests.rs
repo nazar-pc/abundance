@@ -9,8 +9,7 @@ use crate::transaction::{
 use ab_aligned_buffer::alignment::Align16;
 use ab_aligned_buffer::{OwnedAlignedBuffer, SharedAlignedBuffer};
 use ab_io_type::trivial_type::TrivialType;
-use core::ptr;
-use std::assert_matches;
+use core::{assert_matches, ptr};
 
 fn header() -> TransactionHeader {
     TransactionHeader {
