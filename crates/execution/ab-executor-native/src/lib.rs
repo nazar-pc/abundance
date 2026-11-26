@@ -516,8 +516,6 @@ impl NativeExecutor {
     ///
     /// NOTE: This is primarily useful for testing environment, usually changes are done in the
     /// transaction execution using [`Self::transaction_execute()`].
-    ///
-    /// Returns `None` if the read-only [`Slots`] instance was given.
     pub fn transaction_emulate<Calls, T>(
         &self,
         contract: Address,
