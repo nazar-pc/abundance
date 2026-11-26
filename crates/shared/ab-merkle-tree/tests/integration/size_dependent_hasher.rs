@@ -1,6 +1,6 @@
 //! Trees that know the number of leaves upfront support hashers that depend on the tree size
 
-use crate::test_hasher::{OUT_LEN, TestHasher, TreeSizeTestHasher};
+use crate::test_hasher::{OUT_LEN, ParallelTreeSizeTestHasher, TestHasher, TreeSizeTestHasher};
 use ab_merkle_tree::balanced::BalancedMerkleTree;
 use ab_merkle_tree::unbalanced::UnbalancedMerkleTree;
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize};
@@ -11,6 +11,7 @@ use core::mem::MaybeUninit;
 
 type Balanced<'a, const N: usize> = BalancedMerkleTree<'a, N, TreeSizeTestHasher>;
 type Unbalanced = UnbalancedMerkleTree<TreeSizeTestHasher>;
+type ParallelUnbalanced = UnbalancedMerkleTree<ParallelTreeSizeTestHasher>;
 type SizeIndependent = UnbalancedMerkleTree<TestHasher>;
 
 fn random_leaves<const N: usize>() -> [[u8; OUT_LEN]; N] {
@@ -154,6 +155,66 @@ fn size_dependent_hasher_single_leaf() {
     // hasher
     let root = SizeIndependent::compute_root_only_array(&leaves);
     assert!(SizeIndependent::verify(&root, &[], 0, root, 1));
+}
+
+/// Hashing pairs in parallel doesn't change roots and proofs of a hasher that depends on the tree
+/// size, including the root of a single leaf
+#[test]
+fn size_dependent_hasher_parallel() {
+    let leaves = random_leaves::<33>();
+
+    // Trees within a buffer of 32 leaves and around its end
+    for num_leaves in [0, 1, 2, 3, 5, 8, 31, 32, 33] {
+        let leaves = &leaves[..num_leaves];
+        assert_eq!(
+            ParallelUnbalanced::compute_root_only::<64, _, _>(leaves.iter().copied()),
+            Unbalanced::compute_root_only::<64, _, _>(leaves.iter().copied()),
+            "num_leaves {num_leaves}"
+        );
+
+        for target_index in 0..=num_leaves {
+            let expected = Unbalanced::compute_root_and_proof_in::<64, _, _>(
+                leaves.iter().copied(),
+                target_index,
+                &mut [MaybeUninit::uninit(); _],
+            )
+            .map(|(root, proof)| (root, proof.to_vec()));
+
+            let proof_buffer = &mut [MaybeUninit::uninit(); _];
+            let computed = ParallelUnbalanced::compute_root_and_proof_in::<64, _, _>(
+                leaves.iter().copied(),
+                target_index,
+                proof_buffer,
+            );
+            if let Some((root, proof)) = &computed {
+                assert!(
+                    Unbalanced::verify(
+                        root,
+                        proof,
+                        target_index as u64,
+                        leaves[target_index],
+                        num_leaves as u64
+                    ),
+                    "num_leaves {num_leaves} target_index {target_index}"
+                );
+            }
+            assert_eq!(
+                computed.map(|(root, proof)| (root, proof.to_vec())),
+                expected,
+                "num_leaves {num_leaves} target_index {target_index}"
+            );
+
+            #[cfg(feature = "alloc")]
+            assert_eq!(
+                ParallelUnbalanced::compute_root_and_proof::<64, _, _>(
+                    leaves.iter().copied(),
+                    target_index
+                ),
+                expected,
+                "num_leaves {num_leaves} target_index {target_index}"
+            );
+        }
+    }
 }
 
 /// `TrustedLen` iterators of unsupported length are rejected

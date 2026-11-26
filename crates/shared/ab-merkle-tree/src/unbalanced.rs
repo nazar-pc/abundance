@@ -4,6 +4,7 @@ use crate::{MerkleHasher, NewMerkleHasherForTreeSize};
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use core::cmp::Ordering;
 use core::iter::TrustedLen;
 use core::marker::PhantomCovariant;
 use core::mem::MaybeUninit;
@@ -11,8 +12,9 @@ use core::mem::MaybeUninit;
 /// Number of elements in a proof for a tree with `MAX_N` leaves
 pub const PROOF_ELEMENTS<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize;
 const STACK_SIZE<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize + 1;
-/// Number of leaves in the buffer of [`UnbalancedMerkleTree::compute_root_only()`], which doesn't
-/// need to be larger than the largest perfect subtree of `MAX_N` leaves
+/// Number of leaves in the buffer of [`UnbalancedMerkleTree::compute_root_only()`] and
+/// [`UnbalancedMerkleTree::compute_root_and_proof_in()`], which doesn't need to be larger than the
+/// largest perfect subtree of `MAX_N` leaves
 const BUFFER_NUM_LEAVES_FOR<const MAX_N: u64, H: MerkleHasher>: usize =
     if MAX_N < BUFFER_NUM_LEAVES::<H> as u64 {
         match MAX_N.checked_ilog2() {
@@ -622,8 +624,8 @@ where
         Some((root, proof))
     }
 
-    // TODO: Leaves that are not on the path of the target leaf could be buffered and hashed as
-    //  perfect subtrees like in `compute_root_only()`
+    /// Returns the root and the number of proof elements, which are initialized at the beginning
+    /// of `proof`
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn compute_root_and_proof_inner<const MAX_N: u64, Item, Iter>(
@@ -637,6 +639,19 @@ where
         Item: Into<[u8; H::OUT_LEN]>,
         Iter: IntoIterator<Item = Item>,
     {
+        // The buffer that contains the target leaf is split at it, such that its perfect subtrees
+        // have at most half of its leaves, so buffers of fewer than 8 leaves hash at most one pair
+        // at once for it, which is slower than hashing pairs one by one
+        if BUFFER_NUM_LEAVES_FOR::<MAX_N, H> >= 8 {
+            return Self::compute_root_and_proof_buffered::<MAX_N, _, _>(
+                hasher,
+                leaves,
+                target_index,
+                stack,
+                proof,
+            );
+        }
+
         let mut proof_length = 0;
         let mut num_leaves = 0u64;
 
@@ -766,6 +781,191 @@ where
         }
 
         Some((stack[0], proof_length))
+    }
+
+    /// Similar to [`Self::compute_root_and_proof_inner()`], but buffers leaves and hashes them as
+    /// perfect subtrees, which hashes many pairs at once
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    fn compute_root_and_proof_buffered<const MAX_N: u64, Item, Iter>(
+        hasher: &H,
+        leaves: Iter,
+        target_index: usize,
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>],
+        proof: &mut [MaybeUninit<[u8; H::OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
+    ) -> Option<([u8; H::OUT_LEN], usize)>
+    where
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = Item>,
+    {
+        let target_index = target_index as u64;
+        let mut buffer =
+            [MaybeUninit::<[u8; H::OUT_LEN]>::uninit(); BUFFER_NUM_LEAVES_FOR::<MAX_N, H>];
+        let mut num_leaves = 0u64;
+
+        for hash in leaves {
+            // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
+            // `>=` helps compiler with panic safety checks.
+            // TODO: Use `==` once https://github.com/rust-lang/rust/issues/162834 is resolved
+            if num_leaves >= MAX_N {
+                return None;
+            }
+
+            // Truncation keeps the lowest bits, which are the index in the buffer
+            let buffer_index = num_leaves as usize % BUFFER_NUM_LEAVES_FOR::<MAX_N, H>;
+            buffer
+                .get_mut(buffer_index)
+                .expect("Index is a remainder of division by the buffer size; qed")
+                .write(hash.into());
+            num_leaves += 1;
+
+            if buffer_index == BUFFER_NUM_LEAVES_FOR::<MAX_N, H> - 1 {
+                // SAFETY: Leaves were written to all indices of the buffer
+                unsafe {
+                    Self::push_buffered_leaves_with_proof::<MAX_N>(
+                        hasher,
+                        stack,
+                        proof,
+                        &mut buffer,
+                        target_index,
+                        num_leaves,
+                        BUFFER_NUM_LEAVES_FOR::<MAX_N, H>,
+                    );
+                }
+            }
+        }
+
+        if target_index >= num_leaves {
+            // If the target leaf was not provided
+            return None;
+        }
+
+        // Truncation keeps the lowest bits, which are the number of leaves in the buffer
+        let num_buffered = num_leaves as usize % BUFFER_NUM_LEAVES_FOR::<MAX_N, H>;
+        // SAFETY: Leaves were written to the buffer up to `num_buffered`
+        unsafe {
+            Self::push_buffered_leaves_with_proof::<MAX_N>(
+                hasher,
+                stack,
+                proof,
+                &mut buffer,
+                target_index,
+                num_leaves,
+                num_buffered,
+            );
+        }
+
+        // The peak that contains the target leaf is at the highest level in which its index and the
+        // number of leaves differ
+        let target_level = (target_index ^ num_leaves).ilog2();
+        // Proof elements below that level are initialized already. The target leaf was pushed
+        // alone, so every node that contains it below that level was created by merging two nodes
+        // in the stack, one of which contains it, and each of these merges wrote the other one into
+        // the proof at its level, which is within the proof because the merged node has at most
+        // `MAX_N` leaves.
+        let mut proof_length = target_level as usize;
+        // Peaks are at levels of bits set to `1` in the number of leaves and are hashed together
+        // from the lowest to the highest
+        let mut peaks = (0..u64::BITS)
+            .zip(stack.iter())
+            .filter(|&(level, _)| num_leaves & (1 << level) != 0);
+        // A tree with leaves has at least one peak
+        let (_, root) = peaks.next()?;
+        let mut root = *root;
+        for (level, peak) in peaks {
+            // Peaks below the peak that contains the target leaf are hashed into its sibling, peaks
+            // above it are siblings of nodes that contain it
+            if level >= target_level
+                && let Some(element) = proof.get_mut(proof_length)
+            {
+                element.write(if level == target_level { root } else { *peak });
+                proof_length += 1;
+            }
+
+            root = hasher.hash_pair(&[*peak, root]);
+        }
+
+        if num_leaves == 1 {
+            root = hasher.hash_single_leaf(&root);
+        }
+
+        Some((root, proof_length))
+    }
+
+    /// Push the last `num_buffered` leaves of `num_leaves` leaves, which are at the beginning of
+    /// the buffer, like [`Self::push_buffered_leaves()`], and collect the proof of the leaf at
+    /// `target_index` below the peak that contains it.
+    ///
+    /// `num_leaves - num_buffered` must be a multiple of the buffer size and `num_leaves` must not
+    /// be larger than `MAX_N`. Every merge of two nodes in the stack, one of which contains the
+    /// target leaf, writes the other one into the proof at their level. The target leaf is pushed
+    /// alone, such that the leaves before and after it are hashed as perfect subtrees that don't
+    /// contain it.
+    ///
+    /// # Safety
+    /// `num_buffered` leaves must be initialized.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    unsafe fn push_buffered_leaves_with_proof<const MAX_N: u64>(
+        hasher: &H,
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>],
+        proof: &mut [MaybeUninit<[u8; H::OUT_LEN]>; PROOF_ELEMENTS::<MAX_N>],
+        buffer: &mut [MaybeUninit<[u8; H::OUT_LEN]>; BUFFER_NUM_LEAVES_FOR::<MAX_N, H>],
+        target_index: u64,
+        num_leaves: u64,
+        num_buffered: usize,
+    ) {
+        let first_leaf = num_leaves - num_buffered as u64;
+        // Index of the target leaf in the buffer, or the number of buffered leaves if it is not
+        // there
+        let target_offset = target_index
+            .wrapping_sub(first_leaf)
+            .min(num_buffered as u64) as usize;
+        let mut start = 0;
+        while start < num_buffered {
+            let end = match start.cmp(&target_offset) {
+                Ordering::Less => target_offset,
+                Ordering::Equal => start + 1,
+                Ordering::Greater => num_buffered,
+            };
+            // SAFETY: `end` is not larger than `num_buffered`, and that many leaves are
+            // initialized according to the function contract. Hashing leaves before `start` didn't
+            // change the leaves after it.
+            unsafe {
+                hash_buffered_leaves(hasher, buffer, start, end, |offset, height, mut node| {
+                    // Subtrees are pushed the same way as in `Self::push_subtree()`
+                    let processed = first_leaf + offset as u64;
+                    let height = height as usize;
+
+                    // Every bit set to `1` corresponds to an active Merkle Tree level
+                    let active_levels = (processed >> height).trailing_ones() as usize;
+                    for (level, item) in stack.iter().enumerate().skip(height).take(active_levels) {
+                        // The node is at the odd position `processed >> level` of its level and
+                        // the one in the stack is right before it, so if one of them contains the
+                        // target leaf, the other one is a proof element
+                        let target_position = target_index >> level;
+                        if target_position | 1 == processed >> level
+                            && let Some(element) = proof.get_mut(level)
+                        {
+                            element.write(if target_position.is_multiple_of(2) {
+                                node
+                            } else {
+                                *item
+                            });
+                        }
+
+                        node = hasher.hash_pair(&[*item, node]);
+                    }
+
+                    // Place the node at the first inactive level, which is within the stack for
+                    // subtrees within `MAX_N` leaves
+                    if let Some(slot) = stack.get_mut(height + active_levels) {
+                        *slot = node;
+                    }
+                });
+            }
+            start = end;
+        }
     }
 
     /// Verify a Merkle proof for a leaf at the given index

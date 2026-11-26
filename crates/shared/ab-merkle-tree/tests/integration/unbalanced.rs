@@ -380,6 +380,54 @@ where
     );
 }
 
+/// Proofs of hashers that hash pairs in parallel must not change either, especially for target
+/// leaves around boundaries of buffers and in the last buffer, which isn't full
+#[test]
+fn mt_unbalanced_buffered_proofs() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let leaves = random_leaves::<ParallelTestHasher2>(&mut rng, 33);
+
+    // Every number of leaves in the last buffer of 8 and 16 leaves, and a few full buffers
+    for num_leaves in (0..=17).chain([31, 32, 33]) {
+        let leaves = &leaves[..num_leaves];
+        for target_index in 0..=num_leaves {
+            check_buffered_proof::<12, ParallelTestHasher2>(leaves, target_index);
+            check_buffered_proof::<64, ParallelTestHasher2>(leaves, target_index);
+        }
+    }
+}
+
+/// Check that the root and the proof of the leaf at `target_index` are the same as with
+/// `TestHasher`, which hashes the same pairs one by one
+fn check_buffered_proof<const MAX_N: u64, H>(leaves: &[[u8; H::OUT_LEN]], target_index: usize)
+where
+    H: MerkleHasher + NewMerkleHasherForTreeSize + Default,
+{
+    let expected = UnbalancedMerkleTree::compute_root_and_proof_in::<MAX_N, _, _>(
+        leaves
+            .iter()
+            .map(|leaf| <[u8; OUT_LEN]>::try_from(leaf.as_slice()).unwrap()),
+        target_index,
+        &mut [MaybeUninit::uninit(); _],
+    )
+    .map(|(root, proof)| (root.to_vec(), proof.as_flattened().to_vec()));
+
+    let computed = unbalanced::UnbalancedMerkleTree::<H>::compute_root_and_proof_in::<MAX_N, _, _>(
+        leaves.iter().copied(),
+        target_index,
+        &mut [MaybeUninit::uninit(); _],
+    )
+    .map(|(root, proof)| (root.to_vec(), proof.as_flattened().to_vec()));
+
+    assert_eq!(
+        computed,
+        expected,
+        "PARALLEL_PAIRS {} MAX_N {MAX_N} num_leaves {} target_index {target_index}",
+        H::PARALLEL_PAIRS,
+        leaves.len()
+    );
+}
+
 fn random_leaves<H>(rng: &mut ChaCha8Rng, num_leaves: usize) -> Vec<[u8; H::OUT_LEN]>
 where
     H: MerkleHasher,
