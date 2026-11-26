@@ -1,3 +1,7 @@
+#[cfg(test)]
+mod tests;
+
+use crate::PotNextSlotInput;
 use crate::source::state::PotState;
 use crate::verifier::PotVerifier;
 use ab_core_primitives::pot::{PotCheckpoints, PotSeed, SlotDuration, SlotNumber};
@@ -70,53 +74,12 @@ impl Timekeeper {
         let mut next_slot_input = state.next_slot_input();
 
         loop {
-            trace!(
-                "Proving for slot {} with {} iterations",
-                next_slot_input.slot, next_slot_input.slot_iterations
-            );
-            let checkpoints =
-                ab_proof_of_time::prove(next_slot_input.seed, next_slot_input.slot_iterations)?;
-
-            let proof = TimekeeperProof {
-                seed: next_slot_input.seed,
-                slot_iterations: next_slot_input.slot_iterations,
-                slot: next_slot_input.slot,
-                checkpoints,
+            let Some(new_next_slot_input) =
+                Self::prove_slot(&state, &pot_verifier, &mut proof_sender, next_slot_input)?
+            else {
+                return Ok(());
             };
-
-            pot_verifier.inject_verified_checkpoints(
-                next_slot_input.seed,
-                next_slot_input.slot_iterations,
-                checkpoints,
-            );
-
-            match state.try_extend(
-                next_slot_input,
-                next_slot_input.slot,
-                checkpoints.output(),
-                None,
-            ) {
-                Ok(new_next_slot_input) => {
-                    next_slot_input = new_next_slot_input;
-
-                    if let Err(error) = proof_sender.try_send(proof)
-                        && let Err(error) = block_on(proof_sender.send(error.into_inner()))
-                    {
-                        debug!(%error, "Couldn't send proof, the channel is closed");
-                        return Ok(());
-                    }
-                }
-                Err(existing_next_slot_input) => {
-                    // PoT chain was changed while proving, the proof is either known already or not
-                    // on the chain that is followed anymore
-                    trace!(
-                        slot = %next_slot_input.slot,
-                        "Proof of time chain was changed while proving, not sending the proof",
-                    );
-
-                    next_slot_input = existing_next_slot_input;
-                }
-            }
+            next_slot_input = new_next_slot_input;
         }
     }
 
@@ -148,56 +111,74 @@ impl Timekeeper {
         };
 
         loop {
-            trace!(
-                "Proving for slot {} with {} iterations",
-                next_slot_input.slot, next_slot_input.slot_iterations
-            );
-            let checkpoints =
-                ab_proof_of_time::prove(next_slot_input.seed, next_slot_input.slot_iterations)?;
-
-            let proof = TimekeeperProof {
-                seed: next_slot_input.seed,
-                slot_iterations: next_slot_input.slot_iterations,
-                slot: next_slot_input.slot,
-                checkpoints,
+            let Some(new_next_slot_input) =
+                Self::prove_slot(state, pot_verifier, proof_sender, next_slot_input)?
+            else {
+                return Ok(());
             };
-
-            pot_verifier.inject_verified_checkpoints(
-                next_slot_input.seed,
-                next_slot_input.slot_iterations,
-                checkpoints,
-            );
-
-            match state.try_extend(
-                next_slot_input,
-                next_slot_input.slot,
-                checkpoints.output(),
-                None,
-            ) {
-                Ok(new_next_slot_input) => {
-                    next_slot_input = new_next_slot_input;
-
-                    if let Err(error) = proof_sender.try_send(proof)
-                        && let Err(error) = block_on(proof_sender.send(error.into_inner()))
-                    {
-                        debug!(%error, "Couldn't send proof, the channel is closed");
-                        return Ok(());
-                    }
-                }
-                Err(existing_next_slot_input) => {
-                    // PoT chain was changed while proving, the proof is either known already or not
-                    // on the chain that is followed anymore
-                    trace!(
-                        slot = %next_slot_input.slot,
-                        "Proof of time chain was changed while proving, not sending the proof",
-                    );
-
-                    next_slot_input = existing_next_slot_input;
-                }
-            }
+            next_slot_input = new_next_slot_input;
 
             // Artificial delay
             sleep(delay);
+        }
+    }
+
+    /// Prove the slot with `next_slot_input`, extend PoT chain with the proof and send it if the
+    /// chain was extended.
+    ///
+    /// Returns the input of the next slot to prove or `None` if the proof channel is closed.
+    fn prove_slot(
+        state: &PotState,
+        pot_verifier: &PotVerifier,
+        proof_sender: &mut mpsc::Sender<TimekeeperProof>,
+        next_slot_input: PotNextSlotInput,
+    ) -> Result<Option<PotNextSlotInput>, PotError> {
+        trace!(
+            "Proving for slot {} with {} iterations",
+            next_slot_input.slot, next_slot_input.slot_iterations
+        );
+        let checkpoints =
+            ab_proof_of_time::prove(next_slot_input.seed, next_slot_input.slot_iterations)?;
+
+        let proof = TimekeeperProof {
+            seed: next_slot_input.seed,
+            slot_iterations: next_slot_input.slot_iterations,
+            slot: next_slot_input.slot,
+            checkpoints,
+        };
+
+        pot_verifier.inject_verified_checkpoints(
+            next_slot_input.seed,
+            next_slot_input.slot_iterations,
+            checkpoints,
+        );
+
+        match state.try_extend(
+            next_slot_input,
+            next_slot_input.slot,
+            checkpoints.output(),
+            None,
+        ) {
+            Ok(new_next_slot_input) => {
+                if let Err(error) = proof_sender.try_send(proof)
+                    && let Err(error) = block_on(proof_sender.send(error.into_inner()))
+                {
+                    debug!(%error, "Couldn't send proof, the channel is closed");
+                    return Ok(None);
+                }
+
+                Ok(Some(new_next_slot_input))
+            }
+            Err(existing_next_slot_input) => {
+                // PoT chain was changed while proving, the proof is either known already or not on
+                // the chain that is followed anymore
+                trace!(
+                    slot = %next_slot_input.slot,
+                    "Proof of time chain was changed while proving, not sending the proof",
+                );
+
+                Ok(Some(existing_next_slot_input))
+            }
         }
     }
 }

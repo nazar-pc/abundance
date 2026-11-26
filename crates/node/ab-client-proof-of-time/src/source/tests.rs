@@ -96,9 +96,9 @@ impl TestSetup {
             slot_input.slot_iterations,
             checkpoints,
         );
-        let _: Result<_, _> =
-            self.pot_state
-                .try_extend(slot_input, slot_input.slot, checkpoints.output(), None);
+        self.pot_state
+            .try_extend(slot_input, slot_input.slot, checkpoints.output(), None)
+            .unwrap();
         self.worker.handle_timekeeper_proof(TimekeeperProof {
             slot: slot_input.slot,
             seed: slot_input.seed,
