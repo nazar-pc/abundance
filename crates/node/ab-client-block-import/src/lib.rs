@@ -13,21 +13,15 @@ pub enum BlockImportError {
     /// Already importing
     #[error("Already importing")]
     AlreadyImporting,
-    /// Already importing
+    /// Already imported
     #[error("Already imported")]
     AlreadyImported,
     /// Unknown parent block
     #[error("Unknown parent block: {block_root}")]
     UnknownParentBlock {
-        // Block root that was not found
+        /// Block root that was not found
         block_root: BlockRoot,
     },
-    // TODO: Use or remove
-    // /// Parent block details are missing; this is an implementation bug and must never happen
-    // #[error(
-    //     "Parent block details are missing; this is an implementation bug and must never happen"
-    // )]
-    // ParentBlockDetailsMissing,
     /// Invalid parent MMR; this is an implementation bug and must never happen
     #[error("Invalid parent MMR; this is an implementation bug and must never happen")]
     ParentBlockMmrInvalid,
@@ -55,7 +49,7 @@ pub enum BlockImportError {
     /// Custom import error
     #[error("Custom import error: {error}")]
     Custom {
-        // Custom block import error
+        /// Custom block import error
         #[from]
         error: anyhow::Error,
     },

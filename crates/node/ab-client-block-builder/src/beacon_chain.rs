@@ -45,7 +45,7 @@ pub enum BeaconChainBlockBuilderError {
     /// Failed to create body
     #[error("Failed to create body: {error}")]
     FailedToCreateBody {
-        // Body creation error
+        /// Body creation error
         #[from]
         error: OwnedBeaconChainBodyError,
     },

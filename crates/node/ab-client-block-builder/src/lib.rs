@@ -23,7 +23,7 @@ pub enum BlockBuilderError {
     /// Custom builder error
     #[error("Custom builder error: {error}")]
     Custom {
-        // Custom block builder error
+        /// Custom block builder error
         #[from]
         error: anyhow::Error,
     },

@@ -354,11 +354,10 @@ where
     fn verify_sequential(
         &self,
         parent_header: &GenericHeader<'_, OwnedBeaconChainBlock>,
-        parent_block_mmr_root: &Blake3Hash,
         block: &OwnedBeaconChainBlock,
         origin: &BlockOrigin,
     ) -> impl Future<Output = Result<Option<SuperSegment>, BlockVerificationError>> {
-        ready(self.verify_sequential(parent_header, parent_block_mmr_root, block, origin))
+        ready(self.verify_sequential(parent_header, block, origin))
     }
 }
 
@@ -646,8 +645,6 @@ where
     fn verify_sequential(
         &self,
         parent_header: &BeaconChainHeader<'_>,
-        // TODO: Probably remove unused arguments
-        _parent_block_mmr_root: &Blake3Hash,
         block: &OwnedBeaconChainBlock,
         _origin: &BlockOrigin,
     ) -> Result<Option<SuperSegment>, BlockVerificationError> {
