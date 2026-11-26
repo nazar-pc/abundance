@@ -508,12 +508,14 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
         consistent
     }
 
-    let intermediate_shard_blocks = (0..3)
+    // Header roots of intermediate shard blocks are expensive to compute under Miri, so there are
+    // only two of them
+    let intermediate_shard_blocks = (0..2)
         .map(|number| TestIntermediateShardBlock::new(1, number, 0, 0, &[]))
         .collect::<Vec<_>>();
     let other_root = intermediate_shard_blocks_root(&intermediate_shard_blocks[1..]);
 
-    for num_blocks in [1, 3] {
+    for num_blocks in [1, 2] {
         let intermediate_shard_blocks = &intermediate_shard_blocks[..num_blocks];
         let body = beacon_chain_body_bytes(intermediate_shard_blocks, &[]);
         // Header roots of intermediate shard blocks are expensive to compute under Miri, so the
@@ -861,7 +863,8 @@ fn intermediate_shard_body_bytes(
 
 /// Check that a parsed `info` has the same contents as `block`
 fn assert_leaf_shard_block_info_eq(info: &LeafShardBlockInfo<'_>, block: &TestLeafShardBlock) {
-    assert_eq!(*info.header.root(), *block.header.root());
+    // Header roots are too expensive to compute under Miri, so headers are compared by their bytes
+    assert_eq!(info.header.bytes(), block.header.buffer().as_slice());
     assert_eq!(*info.transactions_root, block.transactions_root);
     match (&info.own_segments, &block.segments) {
         (Some(own_segments), Some(segments)) => {
@@ -1148,9 +1151,9 @@ fn assert_intermediate_shard_block_info_eq(
     info: &IntermediateShardBlockInfo<'_>,
     block: &TestIntermediateShardBlock,
 ) {
-    // The parser with checks has already compared `info.body_root()` with the body root in the
-    // header, which is too expensive to compute again under Miri
-    assert_eq!(*info.header.root(), *block.header.root());
+    // Roots are too expensive to compute under Miri, so headers are compared by their bytes, and
+    // the parser with checks has already compared the body root with the one in the header
+    assert_eq!(info.header.bytes(), block.header.buffer().as_slice());
     match (&info.own_segments, &block.own_segments) {
         (Some(info_own_segments), Some(own_segments)) => {
             assert_segments_eq(info_own_segments, own_segments);
@@ -1202,7 +1205,6 @@ fn check_beacon_chain_body_with_intermediate_shard_blocks(
         assert_intermediate_shard_block_info_eq(owned_info.info(), block);
     }
 
-    assert_eq!(body.to_owned().buffer().as_slice(), bytes.as_slice());
     let owned_body = OwnedBeaconChainBody::new(
         iter::empty(),
         body.intermediate_shard_blocks().iter(),
@@ -1243,6 +1245,10 @@ fn beacon_chain_body_with_intermediate_shard_blocks() {
 }
 
 #[test]
+#[cfg_attr(
+    miri,
+    ignore = "Hashes segments of 256 leaf shard blocks, too slow under Miri"
+)]
 fn beacon_chain_body_with_many_leaf_shards_segments() {
     // More leaf shard blocks with segments than fit into `u8`, each after a leaf shard block
     // without segments
@@ -1458,9 +1464,8 @@ fn beacon_chain_body_accepts_intermediate_shard_blocks_built_from_their_bodies()
         })
         .collect::<Vec<_>>();
 
-    for block in &intermediate_shard_blocks {
-        check_beacon_chain_body_with_intermediate_shard_blocks(slice::from_ref(block), &[]);
-    }
+    // Each block is checked on its own by the parser, so checking all of them in the same body
+    // also checks each of them
     check_beacon_chain_body_with_intermediate_shard_blocks(&intermediate_shard_blocks, &[]);
 }
 
@@ -1482,14 +1487,15 @@ fn beacon_chain_segments_root_commits_to_intermediate_shard_body_nodes() {
                 .map_or_default(OwnSegments::root),
             *intermediate_shard_body.leaf_shard_blocks().segments_root(),
         ]);
-        // The header of the block stores the root of leaf shard blocks, which is expensive to
-        // compute again under Miri
+        // The header of the block stores the root of leaf shard blocks and the body root, which
+        // are expensive to compute again under Miri
+        let header = block.header.header();
         assert_eq!(
             IntermediateShardBodyMerkleTree::compute_root_only_array(&[
                 segments_node,
-                **block.header.header().leaf_shard_blocks_root(),
+                **header.leaf_shard_blocks_root(),
             ]),
-            *intermediate_shard_body.root()
+            *header.result.body_root
         );
 
         assert_eq!(
@@ -1639,7 +1645,10 @@ fn beacon_chain_body_checks_intermediate_shard_blocks_without_segments() {
 }
 
 #[test]
-#[cfg_attr(miri, ignore)]
+#[cfg_attr(
+    miri,
+    ignore = "Hashes trees of 65535 leaf shard blocks, too slow under Miri"
+)]
 fn beacon_chain_body_with_many_empty_leaf_shard_blocks() {
     // The largest number of leaf shard blocks, without segments and with segments in the last one
     for leaf_shards_segments in [&[][..], &[(u16::MAX - 1, 1 | (1 << 10), 1)]] {

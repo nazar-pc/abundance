@@ -198,17 +198,26 @@ fn read_of_truncated_bytes_needs_more_bytes() {
         let (result, pages) =
             write_to_aligned_pages(total_bytes, |buffer| storage_item.write(buffer));
         result.unwrap();
+        let mmr_start = size_of::<u128>()
+            + (storage_item.header.len() as usize).next_multiple_of(size_of::<u128>())
+            + storage_item.body.len() as usize;
+        let mmr_end = mmr_start + storage_item.mmr_with_block.as_bytes().len();
         // Without system contract states, trailing padding after MMR is not needed for reading
         let min_read_len = if storage_item.system_contract_states.is_empty() {
-            size_of::<u128>()
-                + (storage_item.header.len() as usize).next_multiple_of(size_of::<u128>())
-                + storage_item.body.len() as usize
-                + storage_item.mmr_with_block.as_bytes().len()
+            mmr_end
         } else {
             total_bytes
         };
+        // MMR is read in one go, so all lengths that end inside it are handled the same way. Under
+        // Miri, where checking every length is too slow, only those around its start and end are
+        // checked.
+        let skipped_read_lens = if cfg!(miri) {
+            mmr_start + 16..mmr_end - 16
+        } else {
+            0..0
+        };
 
-        for read_len in 0..min_read_len {
+        for read_len in (0..min_read_len).filter(|read_len| !skipped_read_lens.contains(read_len)) {
             let result = StorageItemTemporaryBlock::read(&item_prefix(&pages, read_len));
             let Err(StorageItemError::NeedMoreBytes(missing_bytes)) = result else {
                 panic!("Unexpected result for read length {read_len}: {result:?}");

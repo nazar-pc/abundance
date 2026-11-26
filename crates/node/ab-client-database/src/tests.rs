@@ -35,6 +35,7 @@ use ab_core_primitives::trees::BlockMerkleMountainRange;
 use ab_io_type::unaligned::Unaligned;
 use futures::channel::oneshot;
 use futures::executor::block_on;
+use std::collections::BTreeSet;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::{assert_matches, io, iter};
 use triomphe::Arc;
@@ -446,12 +447,15 @@ fn shard_max_local_segment_indices_writes_cycle_through_all_entries() {
     // Shards that one storage item doesn't hold are the least recently written, the next one holds
     // them
     for ((previous_entries, _), (entries, _)) in storage_items.iter().zip(&storage_items[1..]) {
+        // Collected into a set, searching entries for every shard is too slow under Miri
+        let written_shard_indices = previous_entries
+            .iter()
+            .chain(entries)
+            .map(|entry| entry.shard_index)
+            .collect::<BTreeSet<_>>();
         for shard_index in &shard_indices {
             assert!(
-                previous_entries
-                    .iter()
-                    .chain(entries)
-                    .any(|entry| entry.shard_index == *shard_index),
+                written_shard_indices.contains(shard_index),
                 "Shard {shard_index} is not written"
             );
         }

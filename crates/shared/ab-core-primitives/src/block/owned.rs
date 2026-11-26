@@ -204,14 +204,19 @@ impl OwnedBeaconChainBlockBuilder {
         consensus_parameters: &OwnedBlockHeaderConsensusParameters,
     ) -> Result<OwnedBeaconChainBlockUnsealed, BlockHeaderConsistencyError> {
         let body = self.body;
+        // Header roots of intermediate shard blocks are expensive to compute, so they are only
+        // computed once for both the header field and the body root
+        let intermediate_shard_blocks_root = body.body().intermediate_shard_blocks().headers_root();
         let header = OwnedBeaconChainHeader::from_parts(
             prefix,
             &BlockHeaderResult {
-                body_root: body.root(),
+                body_root: body
+                    .body()
+                    .root_with_intermediate_shard_blocks_root(&intermediate_shard_blocks_root),
                 state_root,
             },
             consensus_info,
-            &body.body().intermediate_shard_blocks().headers_root(),
+            &intermediate_shard_blocks_root,
             consensus_parameters,
         )?;
 
@@ -385,15 +390,20 @@ impl OwnedIntermediateShardBlockBuilder {
         beacon_chain_info: &BlockHeaderBeaconChainInfo,
     ) -> Result<OwnedIntermediateShardBlockUnsealed, OwnedIntermediateShardBlockBuilderError> {
         let body = self.body;
+        // Header roots of leaf shard blocks are expensive to compute, so they are only computed
+        // once for both the header field and the body root
+        let leaf_shard_blocks_root = body.body().leaf_shard_blocks().headers_root();
         let header = OwnedIntermediateShardHeader::from_parts(
             prefix,
             &BlockHeaderResult {
-                body_root: body.root(),
+                body_root: body
+                    .body()
+                    .root_with_leaf_shard_blocks_root(&leaf_shard_blocks_root),
                 state_root,
             },
             consensus_info,
             beacon_chain_info,
-            &body.body().leaf_shard_blocks().headers_root(),
+            &leaf_shard_blocks_root,
         )?;
 
         if let Some(leaf_shard_index) =

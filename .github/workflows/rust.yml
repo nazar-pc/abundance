@@ -323,6 +323,13 @@ jobs:
             run: &parallel_worker |
               set -e
 
+              # Workers beyond the number of CPUs only compete with the others for CPU time and memory, macOS runners
+              # have fewer CPUs than there are workers. `getconf` is used because `nproc` is not available on macOS.
+              num_cpus=$(getconf _NPROCESSORS_ONLN)
+              if (( WORKER_ID > num_cpus )); then
+                exit 0
+              fi
+
               mkdir -p "${{ runner.temp }}/claims"
               export CARGO_TARGET_DIR="target_${WORKER_ID}"
               while IFS= read -r message && IFS= read -r command; do
