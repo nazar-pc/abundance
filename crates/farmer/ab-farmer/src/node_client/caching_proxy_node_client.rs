@@ -4,9 +4,7 @@
 use crate::node_client::{NodeClient, NodeClientExt};
 use crate::utils::AsyncJoinOnDrop;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{
-    SegmentIndex, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
-};
+use ab_core_primitives::segments::{SegmentIndex, SuperSegmentHeader, SuperSegmentIndex};
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo,
     MAX_SUPER_SEGMENT_HEADERS_PER_REQUEST, SlotInfo, SolutionResponse,
@@ -76,10 +74,10 @@ impl SuperSegmentHeaders {
 
     // TODO: Maybe caching or more compact storage that points segment indices to super segments
     //  when this is called thousands of times during replotting?
-    fn super_segment_root_for_segment_index(
+    fn super_segment_header_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> Option<SuperSegmentRoot> {
+    ) -> Option<SuperSegmentHeader> {
         let index = self
             .super_segment_headers
             .binary_search_by_key(&segment_index, |super_segment_header| {
@@ -87,12 +85,12 @@ impl SuperSegmentHeaders {
             })
             .unwrap_or_else(|insert_index| insert_index);
 
-        let super_segment_header = self.super_segment_headers.get(index)?;
+        let super_segment_header = self.super_segment_headers.get(index).copied()?;
 
         super_segment_header
             .segment_position(segment_index)
             .is_some()
-            .then_some(super_segment_header.root)
+            .then_some(super_segment_header)
     }
 
     /// Whether the last sync was too recent to sync again
@@ -451,15 +449,15 @@ where
             .get_super_segment_headers(&super_segment_indices))
     }
 
-    async fn super_segment_root_for_segment_index(
+    async fn super_segment_header_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> anyhow::Result<Option<SuperSegmentRoot>> {
+    ) -> anyhow::Result<Option<SuperSegmentHeader>> {
         Ok(self
             .super_segment_headers
             .read()
             .await
-            .super_segment_root_for_segment_index(segment_index))
+            .super_segment_header_for_segment_index(segment_index))
     }
 
     async fn piece(&self, piece_index: PieceIndex) -> anyhow::Result<Option<Piece>> {

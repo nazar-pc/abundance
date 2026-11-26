@@ -18,9 +18,7 @@ use crate::farm::{PieceCacheId, PieceCacheOffset};
 use crate::farmer_cache::FarmerCache;
 use crate::node_client::NodeClient;
 use ab_core_primitives::pieces::{Piece, PieceIndex};
-use ab_core_primitives::segments::{
-    SegmentIndex, SuperSegmentHeader, SuperSegmentIndex, SuperSegmentRoot,
-};
+use ab_core_primitives::segments::{SegmentIndex, SuperSegmentHeader, SuperSegmentIndex};
 use ab_data_retrieval::piece_getter::PieceGetter;
 use ab_farmer_rpc_primitives::{
     BlockSealInfo, BlockSealResponse, FarmerAppInfo, FarmerShardMembershipInfo, SlotInfo,
@@ -155,15 +153,15 @@ impl GenericRequest for ClusterControllerSuperSegmentHeadersRequest {
     type Response = Vec<Option<SuperSegmentHeader>>;
 }
 
-/// Request super segment root for a specified segment index
+/// Request the header of the super segment that contains a specified segment index
 #[derive(Debug, Clone, Encode, Decode)]
-struct ClusterControllerSuperSegmentRootForSegmentIndexRequest {
+struct ClusterControllerSuperSegmentHeaderForSegmentIndexRequest {
     segment_index: SegmentIndex,
 }
 
-impl GenericRequest for ClusterControllerSuperSegmentRootForSegmentIndexRequest {
-    const SUBJECT: &'static str = "ab.controller.super-segment-root-for-segment-index";
-    type Response = Option<SuperSegmentRoot>;
+impl GenericRequest for ClusterControllerSuperSegmentHeaderForSegmentIndexRequest {
+    const SUBJECT: &'static str = "ab.controller.super-segment-header-for-segment-index";
+    type Response = Option<SuperSegmentHeader>;
 }
 
 /// Find piece with specified index in cache
@@ -600,14 +598,14 @@ impl NodeClient for ClusterNodeClient {
             .await?)
     }
 
-    async fn super_segment_root_for_segment_index(
+    async fn super_segment_header_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> anyhow::Result<Option<SuperSegmentRoot>> {
+    ) -> anyhow::Result<Option<SuperSegmentHeader>> {
         Ok(self
             .nats_client
             .request(
-                &ClusterControllerSuperSegmentRootForSegmentIndexRequest { segment_index },
+                &ClusterControllerSuperSegmentHeaderForSegmentIndexRequest { segment_index },
                 None,
             )
             .await?)
@@ -669,7 +667,7 @@ where
             result = super_segment_headers_responder(nats_client, node_client).fuse() => {
                 result
             },
-            result = super_segment_root_for_segment_index_responder(nats_client, node_client).fuse() => {
+            result = super_segment_header_for_segment_index_responder(nats_client, node_client).fuse() => {
                 result
             },
             result = find_piece_responder(nats_client, farmer_caches).fuse() => {
@@ -693,7 +691,7 @@ where
             result = super_segment_headers_responder(nats_client, node_client).fuse() => {
                 result
             },
-            result = super_segment_root_for_segment_index_responder(nats_client, node_client).fuse() => {
+            result = super_segment_header_for_segment_index_responder(nats_client, node_client).fuse() => {
                 result
             },
             result = find_piece_responder(nats_client, farmer_caches).fuse() => {
@@ -928,7 +926,7 @@ where
         .await
 }
 
-async fn super_segment_root_for_segment_index_responder<NC>(
+async fn super_segment_header_for_segment_index_responder<NC>(
     nats_client: &NatsClient,
     node_client: &NC,
 ) -> anyhow::Result<()>
@@ -939,15 +937,15 @@ where
         .request_responder(
             None,
             Some("ab.controller".to_string()),
-            |ClusterControllerSuperSegmentRootForSegmentIndexRequest { segment_index }| async move {
+            |ClusterControllerSuperSegmentHeaderForSegmentIndexRequest { segment_index }| async move {
                 node_client
-                    .super_segment_root_for_segment_index(segment_index)
+                    .super_segment_header_for_segment_index(segment_index)
                     .await
                     .inspect_err(|error| {
                         warn!(
                             %error,
                             %segment_index,
-                            "Failed to get super segment root for segment index"
+                            "Failed to get super segment header for segment index"
                         );
                     })
                     .ok()

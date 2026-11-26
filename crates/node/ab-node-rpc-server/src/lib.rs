@@ -22,7 +22,7 @@ use ab_core_primitives::pieces::{Piece, PieceIndex};
 use ab_core_primitives::pot::SlotNumber;
 use ab_core_primitives::segments::{
     HistorySize, LocalSegmentIndex, SegmentIndex, SuperSegment, SuperSegmentHeader,
-    SuperSegmentIndex, SuperSegmentRoot,
+    SuperSegmentIndex,
 };
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::solutions::Solution;
@@ -164,11 +164,11 @@ pub trait FarmerRpcApi {
         limit: u32,
     ) -> Result<Vec<Option<SuperSegmentHeader>>, FarmerRpcApiError>;
 
-    #[method(name = "superSegmentRootForSegmentIndex")]
-    async fn super_segment_root_for_segment_index(
+    #[method(name = "superSegmentHeaderForSegmentIndex")]
+    async fn super_segment_header_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> Result<Option<SuperSegmentRoot>, FarmerRpcApiError>;
+    ) -> Result<Option<SuperSegmentHeader>, FarmerRpcApiError>;
 
     #[method(name = "piece")]
     async fn piece(&self, piece_index: PieceIndex) -> Result<Option<Piece>, FarmerRpcApiError>;
@@ -771,14 +771,13 @@ where
         Ok(last_super_segment_headers)
     }
 
-    async fn super_segment_root_for_segment_index(
+    async fn super_segment_header_for_segment_index(
         &self,
         segment_index: SegmentIndex,
-    ) -> Result<Option<SuperSegmentRoot>, FarmerRpcApiError> {
+    ) -> Result<Option<SuperSegmentHeader>, FarmerRpcApiError> {
         Ok(self
             .beacon_chain_info
-            .get_super_segment_header_for_segment_index(segment_index)
-            .map(|super_segment_header| super_segment_header.root))
+            .get_super_segment_header_for_segment_index(segment_index))
     }
 
     // Note: this RPC uses the cached archived segment, which is only updated by archived segments

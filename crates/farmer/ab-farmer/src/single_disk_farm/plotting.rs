@@ -980,9 +980,10 @@ where
                     "Determined sector expiration check segment index"
                 );
                 let maybe_sector_expiration_check_super_segment_root = node_client
-                    .super_segment_root_for_segment_index(expiration_check_segment_index)
+                    .super_segment_header_for_segment_index(expiration_check_segment_index)
                     .await
-                    .map_err(|error| PlottingError::FailedToGetSuperSegmentRoot { error })?;
+                    .map_err(|error| PlottingError::FailedToGetSuperSegmentRoot { error })?
+                    .map(|super_segment_header| super_segment_header.root);
 
                 if let Some(sector_expiration_check_super_segment_root) =
                     maybe_sector_expiration_check_super_segment_root

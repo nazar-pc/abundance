@@ -121,10 +121,10 @@ impl NodeClient for MockNodeClient {
         ))
     }
 
-    async fn super_segment_root_for_segment_index(
+    async fn super_segment_header_for_segment_index(
         &self,
         _segment_index: SegmentIndex,
-    ) -> anyhow::Result<Option<SuperSegmentRoot>> {
+    ) -> anyhow::Result<Option<SuperSegmentHeader>> {
         unimplemented!()
     }
 
