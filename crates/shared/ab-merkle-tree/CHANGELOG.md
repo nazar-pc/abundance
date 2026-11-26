@@ -3,10 +3,10 @@
 Trees are generic over the new `MerkleHasher` trait, so hash functions other than BLAKE3 and nodes of other sizes can be
 used, and hashers of balanced and unbalanced trees can commit to the size of the tree. BLAKE3 is behind the optional
 `blake3` feature, trees that use it are aliased in the `blake3` module, and their roots and proofs are the same as in
-0.2.0. Hashers tell trees how many pairs they hash in parallel, so roots of unbalanced trees and runs of consecutive
-occupied leaves of sparse trees are hashed as perfect subtrees with SIMD, which is about 4 times faster for large inputs
-with BLAKE3 on x86-64 with AVX-512, and paths of isolated occupied leaves of sparse trees are hashed together, which is
-3-5 times faster for them, while hashers without parallelism pay no extra stack for it.
+0.2.0. Hashers tell trees how many pairs they hash in parallel, so roots and proofs of unbalanced trees and runs of
+consecutive occupied leaves of sparse trees are hashed as perfect subtrees with SIMD, which is 3-4 times faster for
+large inputs with BLAKE3 on x86-64 with AVX-512, and paths of isolated occupied leaves of sparse trees are hashed
+together, which is 3-5 times faster for them, while hashers without parallelism pay no extra stack for it.
 `UnbalancedMerkleTree::compute_root_only_sparse()` computes roots of trees whose leaves are mostly zeroes without
 hashing every leaf, and several invalid parameters and inputs that resulted in wrong roots, rejected proofs or panics
 are now rejected at compile time or handled correctly. Existing code needs the `blake3` feature, the aliases from the
@@ -52,6 +52,8 @@ Improvements:
 * `UnbalancedMerkleTree::compute_root_only*()` (except `compute_root_only_sparse()`) hash leaves as perfect subtrees
   of up to 8 times `MerkleHasher::PARALLEL_PAIRS` leaves with `MerkleHasher::hash_pairs()`, which is about 4 times
   faster for 256 leaves and more and 2-3 times faster for 16-32 leaves with BLAKE3 on x86-64 with AVX-512
+* `UnbalancedMerkleTree::compute_root_and_proof*()` hash leaves the same way when `MAX_N` is at least 8, which is 3-3.8
+  times faster for 256 leaves and more with BLAKE3 on x86-64 with AVX-512, about as fast as computing the root alone
 * `SparseMerkleTree::compute_root_only()` hashes runs of consecutive occupied leaves the same way, which is 3.5-5 times
   faster for 1000 consecutive leaves and more with BLAKE3 on x86-64 with AVX-512
 * `SparseMerkleTree::compute_root_only()` iterates over leaves with `Iterator::try_for_each()` with hashers that hash

@@ -114,6 +114,45 @@ impl MerkleHasher for TreeSizeTestHasher {
     }
 }
 
+/// Same as [`TreeSizeTestHasher`], but hashes pairs in parallel and checks that trees don't hash
+/// more than 4 pairs at once
+#[derive(Debug, Copy, Clone)]
+pub(crate) struct ParallelTreeSizeTestHasher(TreeSizeTestHasher);
+
+const impl NewMerkleHasherForTreeSize for ParallelTreeSizeTestHasher {
+    fn new_for_tree_size(num_leaves: u64) -> Self {
+        Self(TreeSizeTestHasher::new_for_tree_size(num_leaves))
+    }
+}
+
+impl MerkleHasher for ParallelTreeSizeTestHasher {
+    const OUT_LEN: usize = OUT_LEN;
+    const PARALLEL_PAIRS: usize = 4;
+
+    fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
+        self.0.hash_pair(pair)
+    }
+
+    fn hash_pairs<const NUM_PAIRS: usize>(
+        &self,
+        pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
+    ) -> [[u8; OUT_LEN]; NUM_PAIRS] {
+        assert!(NUM_PAIRS <= Self::PARALLEL_PAIRS, "NUM_PAIRS {NUM_PAIRS}");
+
+        // Not `map()`, cleanup of its partially initialized output on unwinding prevents
+        // `no_panic` from proving that callers do not panic
+        let mut parents = [[0; OUT_LEN]; NUM_PAIRS];
+        for (parent, pair) in parents.iter_mut().zip(pairs) {
+            *parent = self.hash_pair(pair);
+        }
+        parents
+    }
+
+    fn hash_single_leaf(&self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
+        self.0.hash_single_leaf(leaf)
+    }
+}
+
 /// Hash a pair of nodes with [`TestHasher`]
 pub(crate) fn hash_pair(left: &[u8; OUT_LEN], right: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
     TestHasher.hash_pair(&[*left, *right])

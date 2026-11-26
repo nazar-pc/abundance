@@ -128,7 +128,7 @@ fn hash_level<const NUM_PAIRS: usize, const NUM_NODES: usize, H>(
 /// their sizes, calling `push(offset, height, root)` for each of them from left to right, where
 /// `offset` is the index of the first leaf of the subtree in the buffer.
 ///
-/// Contents of the buffer are meaningless afterward.
+/// Contents of `buffer[start..end]` are meaningless afterward, other leaves are not changed.
 ///
 /// # Safety
 /// `end` must not be larger than `BUFFER_LEN` and leaves `buffer[start..end]` must be initialized.
