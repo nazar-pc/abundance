@@ -1,0 +1,146 @@
+error[E0080]: evaluation panicked: `MerkleHasher::PARALLEL_PAIRS` must be a power of two that is not larger than 64
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::batching::PARALLEL_PAIRS::<ZeroPairsHasher>` failed here
+  |
+ ::: src/batching.rs
+  |
+  |   pub(crate) const PARALLEL_PAIRS<H: MerkleHasher>: usize = {
+  | /     assert!(
+  | |         H::PARALLEL_PAIRS.is_power_of_two() && H::PARALLEL_PAIRS <= 64,
+  | |         "`MerkleHasher::PARALLEL_PAIRS` must be a power of two that is not larger than 64"
+  | |     );
+  | |_____- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/batching.rs
+  |
+  | pub(crate) const BATCH_NUM_LEAVES<H: MerkleHasher>: usize = PARALLEL_PAIRS::<H> * 2;
+  |                                                             ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/balanced.rs
+  |
+  |     if N < BATCH_NUM_LEAVES::<H> {
+  |            ^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/balanced.rs
+  |
+  |         if N < BATCH_NUM_LEAVES::<H> {
+  |                ^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/balanced.rs
+  |
+  |             let current_half = &mut parent_current[PARALLEL_PAIRS::<H>..];
+  |                                                    ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/balanced.rs
+  |
+  |         unsafe { perfect_subtree_root(&hasher, &mut stack[ROOT_ONLY_LARGE_STACK_SIZE::<N, H> - 1]) }
+  |                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/balanced.rs
+  |
+  |                 let parent_half = &mut parent_current[..PARALLEL_PAIRS::<H>];
+  |                                                         ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/balanced.rs
+  |
+  |             let current_half = &mut parent_current[PARALLEL_PAIRS::<H>..];
+  |                                                    ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/balanced.rs
+  |
+  |                 let current_half = &mut parent_current[PARALLEL_PAIRS::<H>..];
+  |                                                        ^^^^^^^^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 64, ZeroPairsHasher>::compute_root_only`
+  --> tests/ui/balanced_unsupported_parallel_pairs.rs:49:5
+   |
+49 |     BalancedMerkleTree::<64, ZeroPairsHasher>::compute_root_only(&[[0; 32]; 64]);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/batching.rs
+  |
+  |     while nodes.len() >= BATCH_NUM_LEAVES::<H> {
+  |                          ^^^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/batching.rs
+  |
+  |             64 if PARALLEL_PAIRS::<H> >= 64 => hash_level::<32, 64, _>(hasher, nodes),
+  |                   ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/batching.rs
+  |
+  |             32 if PARALLEL_PAIRS::<H> >= 32 => hash_level::<16, 32, _>(hasher, nodes),
+  |                   ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/batching.rs
+  |
+  |             16 if PARALLEL_PAIRS::<H> >= 16 => hash_level::<8, 16, _>(hasher, nodes),
+  |                   ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/batching.rs
+  |
+  |             8 if PARALLEL_PAIRS::<H> >= 8 => hash_level::<4, 8, _>(hasher, nodes),
+  |                  ^^^^^^^^^^^^^^^^^^^
+
+note: erroneous constant encountered
+ --> src/batching.rs
+  |
+  |             4 if PARALLEL_PAIRS::<H> >= 4 => hash_level::<2, 4, _>(hasher, nodes),
+  |                  ^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: `MerkleHasher::PARALLEL_PAIRS` must be a power of two that is not larger than 64
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::batching::PARALLEL_PAIRS::<ThreePairsHasher>` failed here
+  |
+ ::: src/batching.rs
+  |
+  |   pub(crate) const PARALLEL_PAIRS<H: MerkleHasher>: usize = {
+  | /     assert!(
+  | |         H::PARALLEL_PAIRS.is_power_of_two() && H::PARALLEL_PAIRS <= 64,
+  | |         "`MerkleHasher::PARALLEL_PAIRS` must be a power of two that is not larger than 64"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 64, ThreePairsHasher>::init_internal`
+ --> src/balanced.rs
+  |
+  |         Self::init_internal(leaves, &mut tree);
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0080]: evaluation panicked: `MerkleHasher::PARALLEL_PAIRS` must be a power of two that is not larger than 64
+ --> $RUST/core/src/panic.rs
+  |
+  |           $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `ab_merkle_tree::batching::PARALLEL_PAIRS::<ManyPairsHasher>` failed here
+  |
+ ::: src/batching.rs
+  |
+  |   pub(crate) const PARALLEL_PAIRS<H: MerkleHasher>: usize = {
+  | /     assert!(
+  | |         H::PARALLEL_PAIRS.is_power_of_two() && H::PARALLEL_PAIRS <= 64,
+  | |         "`MerkleHasher::PARALLEL_PAIRS` must be a power of two that is not larger than 64"
+  | |     );
+  | |_____- in this macro invocation
+
+note: the above error was encountered while instantiating `fn BalancedMerkleTree::<'_, 512, ManyPairsHasher>::compute_root_only`
+  --> tests/ui/balanced_unsupported_parallel_pairs.rs:51:5
+   |
+51 |     BalancedMerkleTree::<512, ManyPairsHasher>::compute_root_only(&[[0; 32]; 512]);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

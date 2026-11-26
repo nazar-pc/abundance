@@ -1,3 +1,4 @@
+use crate::batching::{BUFFER_NUM_LEAVES, hash_buffered_leaves};
 use crate::{MerkleHasher, NewMerkleHasherForTreeSize};
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
@@ -10,6 +11,17 @@ use core::mem::MaybeUninit;
 /// Number of elements in a proof for a tree with `MAX_N` leaves
 pub const PROOF_ELEMENTS<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize;
 const STACK_SIZE<const MAX_N: u64>: usize = MAX_N.next_power_of_two().ilog2() as usize + 1;
+/// Number of leaves in the buffer of [`UnbalancedMerkleTree::compute_root_only()`], which doesn't
+/// need to be larger than the largest perfect subtree of `MAX_N` leaves
+const BUFFER_NUM_LEAVES_FOR<const MAX_N: u64, H: MerkleHasher>: usize =
+    if MAX_N < BUFFER_NUM_LEAVES::<H> as u64 {
+        match MAX_N.checked_ilog2() {
+            Some(height) => 2usize.pow(height),
+            None => 1,
+        }
+    } else {
+        BUFFER_NUM_LEAVES::<H>
+    };
 const SUPPORTED_LEAVES_ARRAY_SIZE<const N: usize>: usize = {
     assert!(N != 0, "Number of leaves must be greater than 0");
     0
@@ -88,6 +100,7 @@ where
     }
 
     #[inline]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn compute_root_only_with<const MAX_N: u64, Item, Iter>(
         hasher: &H,
         leaves: Iter,
@@ -96,6 +109,10 @@ where
         Item: Into<[u8; H::OUT_LEN]>,
         Iter: IntoIterator<Item = Item>,
     {
+        if BUFFER_NUM_LEAVES_FOR::<MAX_N, H> > 1 {
+            return Self::compute_root_only_buffered::<MAX_N, _, _>(hasher, leaves);
+        }
+
         // Stack of intermediate nodes per tree level
         let mut stack = [[0u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>];
         let mut num_leaves = 0u64;
@@ -129,6 +146,111 @@ where
         // SAFETY: `num_leaves` is not zero, not larger than `MAX_N`, and peaks of all `num_leaves`
         // leaves are on the stack
         Some(unsafe { Self::root_from_peaks::<MAX_N>(hasher, &mut stack, num_leaves) })
+    }
+
+    /// Similar to [`Self::compute_root_only_with()`], but buffers leaves and hashes them as
+    /// perfect subtrees, which hashes many pairs at once
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    fn compute_root_only_buffered<const MAX_N: u64, Item, Iter>(
+        hasher: &H,
+        leaves: Iter,
+    ) -> Option<[u8; H::OUT_LEN]>
+    where
+        Item: Into<[u8; H::OUT_LEN]>,
+        Iter: IntoIterator<Item = Item>,
+    {
+        // Stack of intermediate nodes per tree level
+        let mut stack = [[0u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>];
+        let mut buffer =
+            [MaybeUninit::<[u8; H::OUT_LEN]>::uninit(); BUFFER_NUM_LEAVES_FOR::<MAX_N, H>];
+        let mut num_leaves = 0u64;
+
+        for hash in leaves {
+            // How many leaves were processed so far. Should have been `num_leaves == MAX_N`, but
+            // `>=` helps compiler with panic safety checks.
+            // TODO: Use `==` once https://github.com/rust-lang/rust/issues/162834 is resolved
+            if num_leaves >= MAX_N {
+                return None;
+            }
+
+            // Truncation keeps the lowest bits, which are the index in the buffer
+            let buffer_index = num_leaves as usize % BUFFER_NUM_LEAVES_FOR::<MAX_N, H>;
+            buffer
+                .get_mut(buffer_index)
+                .expect("Index is a remainder of division by the buffer size; qed")
+                .write(hash.into());
+            num_leaves += 1;
+
+            if buffer_index == BUFFER_NUM_LEAVES_FOR::<MAX_N, H> - 1 {
+                // SAFETY: Leaves were written to all indices of the buffer, which starts at a
+                // multiple of its size, and `num_leaves` is not larger than `MAX_N`
+                unsafe {
+                    Self::push_buffered_leaves::<MAX_N>(
+                        hasher,
+                        &mut stack,
+                        &mut buffer,
+                        num_leaves,
+                        BUFFER_NUM_LEAVES_FOR::<MAX_N, H>,
+                    );
+                }
+            }
+        }
+
+        if num_leaves == 0 {
+            // If no leaves were provided
+            return None;
+        }
+
+        // Truncation keeps the lowest bits, which are the number of leaves in the buffer
+        let num_buffered = num_leaves as usize % BUFFER_NUM_LEAVES_FOR::<MAX_N, H>;
+        // SAFETY: Leaves were written to the buffer up to `num_buffered`, it starts at a multiple
+        // of its size, and `num_leaves` is not larger than `MAX_N`
+        unsafe {
+            Self::push_buffered_leaves::<MAX_N>(
+                hasher,
+                &mut stack,
+                &mut buffer,
+                num_leaves,
+                num_buffered,
+            );
+        }
+
+        // SAFETY: `num_leaves` is not zero, not larger than `MAX_N`, and peaks of all `num_leaves`
+        // leaves are on the stack
+        Some(unsafe { Self::root_from_peaks::<MAX_N>(hasher, &mut stack, num_leaves) })
+    }
+
+    /// Push the last `num_buffered` leaves of `num_leaves` leaves, which are at the beginning of
+    /// the buffer, as perfect subtrees.
+    ///
+    /// # Safety
+    /// `num_buffered` leaves must be initialized, `num_leaves - num_buffered` must be a multiple of
+    /// the buffer size and `num_leaves` must not be larger than `MAX_N`.
+    #[inline(always)]
+    #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
+    unsafe fn push_buffered_leaves<const MAX_N: u64>(
+        hasher: &H,
+        stack: &mut [[u8; H::OUT_LEN]; STACK_SIZE::<MAX_N>],
+        buffer: &mut [MaybeUninit<[u8; H::OUT_LEN]>; BUFFER_NUM_LEAVES_FOR::<MAX_N, H>],
+        num_leaves: u64,
+        num_buffered: usize,
+    ) {
+        let first_leaf = num_leaves - num_buffered as u64;
+        // SAFETY: `num_buffered` is not larger than the buffer, and these leaves are initialized.
+        // Subtrees start at multiples of their sizes because the buffer does, and end within
+        // `num_leaves`, which is not larger than `MAX_N`, as `Self::push_subtree()` requires.
+        unsafe {
+            hash_buffered_leaves(hasher, buffer, 0, num_buffered, |offset, height, root| {
+                Self::push_subtree::<MAX_N>(
+                    hasher,
+                    stack,
+                    first_leaf + offset as u64,
+                    height as usize,
+                    root,
+                );
+            });
+        }
     }
 
     /// Hash peaks of `num_leaves` leaves on the `stack` together into the root.
@@ -200,6 +322,8 @@ where
         Item: Into<[u8; H::OUT_LEN]>,
         Iter: IntoIterator<Item = (u64, Item)>,
     {
+        // TODO: Runs of consecutive leaves could be buffered and hashed as perfect subtrees like
+        //  in `compute_root_only()`
         if num_leaves == 0 || num_leaves > MAX_N {
             return None;
         }
@@ -501,6 +625,8 @@ where
         Some((root, proof))
     }
 
+    // TODO: Leaves that are not on the path of the target leaf could be buffered and hashed as
+    //  perfect subtrees like in `compute_root_only()`
     #[inline]
     #[cfg_attr(feature = "no-panic", no_panic::no_panic)]
     fn compute_root_and_proof_inner<const MAX_N: u64, Item, Iter>(

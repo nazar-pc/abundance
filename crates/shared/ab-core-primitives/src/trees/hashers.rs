@@ -1,4 +1,4 @@
-use ab_blake3::{BLOCK_LEN, KEY_LEN, OUT_LEN};
+use ab_blake3::{BLOCK_LEN, KEY_LEN, MAX_SIMD_DEGREE, OUT_LEN};
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize};
 use array_reshape::{Flatten, FlattenEach, Rechunk};
 use const_fn_specialization::const_fn_specialization;
@@ -15,6 +15,7 @@ pub struct Blake3StaticMerkleHasher<const KEY: [u8; KEY_LEN]>;
 //  https://github.com/rust-lang/rust/issues/166409 is resolved
 impl<const KEY: [u8; KEY_LEN]> MerkleHasher for Blake3StaticMerkleHasher<KEY> {
     const OUT_LEN: usize = OUT_LEN;
+    const PARALLEL_PAIRS: usize = MAX_SIMD_DEGREE;
 
     #[inline(always)]
     fn hash_pair(&self, pair: &[[u8; gca!(Self::OUT_LEN)]; 2]) -> [u8; gca!(Self::OUT_LEN)] {
@@ -77,6 +78,7 @@ pub struct Blake3SizedMerkleHasher<const BASE_KEY: [u8; KEY_LEN]> {
 
 impl<const BASE_KEY: [u8; KEY_LEN]> MerkleHasher for Blake3SizedMerkleHasher<BASE_KEY> {
     const OUT_LEN: usize = OUT_LEN;
+    const PARALLEL_PAIRS: usize = MAX_SIMD_DEGREE;
 
     #[inline(always)]
     fn hash_pair(&self, pair: &[[u8; gca!(Self::OUT_LEN)]; 2]) -> [u8; gca!(Self::OUT_LEN)] {

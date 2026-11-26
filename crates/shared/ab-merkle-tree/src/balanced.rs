@@ -1,15 +1,10 @@
-use crate::{MerkleHasher, NewMerkleHasherForTreeSize, hash_pairs};
+use crate::batching::{BATCH_NUM_LEAVES, PARALLEL_PAIRS, hash_pairs, perfect_subtree_root};
+use crate::{MerkleHasher, NewMerkleHasherForTreeSize};
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use core::iter::TrustedLen;
 use core::mem::MaybeUninit;
 use core::num::NonZero;
-
-/// Optimal number of pairs for hashing at once to saturate SIMD of hash functions like BLAKE3 on
-/// any hardware
-const BATCH_HASH_NUM_PAIRS: usize = 16;
-/// Number of leaves that corresponds to [`BATCH_HASH_NUM_PAIRS`]
-const BATCH_HASH_NUM_LEAVES: usize = BATCH_HASH_NUM_PAIRS * 2;
 
 const TREE_SIZE_WITHOUT_LEAVES<const N: usize>: usize = {
     // Ensuring only supported `N` can be specified for [`BalancedMerkleTree`]
@@ -27,13 +22,13 @@ const TREE_SIZE_WITHOUT_LEAVES<const N: usize>: usize = {
 };
 /// Number of elements in a proof for a tree with `N` leaves
 pub const PROOF_ELEMENTS<const N: usize>: usize = N.ilog2() as usize;
-const ROOT_ONLY_LARGE_STACK_SIZE<const N: usize>: usize = {
+const ROOT_ONLY_LARGE_STACK_SIZE<const N: usize, H: MerkleHasher>: usize = {
     // For small trees the large stack is not used, so the returned value does not matter as long as
     // it compiles
-    if N < BATCH_HASH_NUM_LEAVES {
+    if N < BATCH_NUM_LEAVES::<H> {
         1
     } else {
-        (N / BATCH_HASH_NUM_LEAVES).ilog2() as usize + 1
+        (N / BATCH_NUM_LEAVES::<H>).ilog2() as usize + 1
     }
 };
 
@@ -153,10 +148,10 @@ where
             (parent_hashes, tree_hashes) = unsafe { tree_hashes.split_at_mut_unchecked(num_pairs) };
 
             let (parent_hashes_chunks, parent_hashes_remainder) =
-                parent_hashes.as_chunks_mut::<BATCH_HASH_NUM_PAIRS>();
+                parent_hashes.as_chunks_mut::<{ PARALLEL_PAIRS::<H> }>();
             if parent_hashes_remainder.is_empty() {
                 for (pairs, hashes) in level_hashes
-                    .as_chunks::<BATCH_HASH_NUM_LEAVES>()
+                    .as_chunks::<{ BATCH_NUM_LEAVES::<H> }>()
                     .0
                     .iter()
                     .zip(parent_hashes_chunks)
@@ -195,85 +190,53 @@ where
 
         let hasher = const { H::new_for_tree_size(N as u64) };
 
-        // Special case for small trees below optimal SIMD width
-        match N {
-            2 => {
-                let [root] = hash_pairs(&hasher, leaves);
-
-                return root;
-            }
-            4 => {
-                let hashes = hash_pairs::<2, _, _>(&hasher, leaves);
-                let [root] = hash_pairs(&hasher, &hashes);
-
-                return root;
-            }
-            8 => {
-                let hashes = hash_pairs::<4, _, _>(&hasher, leaves);
-                let hashes = hash_pairs::<2, _, _>(&hasher, &hashes);
-                let [root] = hash_pairs(&hasher, &hashes);
-
-                return root;
-            }
-            16 => {
-                let hashes = hash_pairs::<8, _, _>(&hasher, leaves);
-                let hashes = hash_pairs::<4, _, _>(&hasher, &hashes);
-                let hashes = hash_pairs::<2, _, _>(&hasher, &hashes);
-                let [root] = hash_pairs(&hasher, &hashes);
-
-                return root;
-            }
-            _ => {
-                // We know this is the case
-                assert!(N >= BATCH_HASH_NUM_LEAVES);
-            }
+        // Trees smaller than a batch are hashed one level at a time
+        if N < BATCH_NUM_LEAVES::<H> {
+            let mut nodes = *leaves;
+            // SAFETY: `N` is a power of two, which `TREE_SIZE_WITHOUT_LEAVES` checks
+            return unsafe { perfect_subtree_root(&hasher, &mut nodes) };
         }
 
-        // Stack of intermediate nodes per tree level. The logic here is the same as with a small
-        // tree above, except we store `BATCH_HASH_NUM_PAIRS` hashes per level and do a
-        // post-processing step at the very end to collapse them into a single root hash.
+        // Stack of intermediate nodes per tree level. Each level holds a batch of hashes, the last
+        // one is collapsed into a single root hash at the very end.
         let mut stack =
-            [[[0u8; H::OUT_LEN]; BATCH_HASH_NUM_PAIRS]; ROOT_ONLY_LARGE_STACK_SIZE::<N>];
+            [[[0u8; H::OUT_LEN]; PARALLEL_PAIRS::<H>]; ROOT_ONLY_LARGE_STACK_SIZE::<N, H>];
 
         // This variable allows reusing and reducing stack usage instead of having a separate
         // `current` variable
-        let mut parent_current = [[0u8; H::OUT_LEN]; BATCH_HASH_NUM_LEAVES];
+        let mut parent_current = [[0u8; H::OUT_LEN]; BATCH_NUM_LEAVES::<H>];
         for (num_chunks, chunk_leaves) in leaves
-            .as_chunks::<BATCH_HASH_NUM_LEAVES>()
+            .as_chunks::<{ BATCH_NUM_LEAVES::<H> }>()
             .0
             .iter()
             .enumerate()
         {
-            let current_half = &mut parent_current[BATCH_HASH_NUM_PAIRS..];
+            let current_half = &mut parent_current[PARALLEL_PAIRS::<H>..];
 
-            let current = hash_pairs::<BATCH_HASH_NUM_PAIRS, _, _>(&hasher, chunk_leaves);
+            let current = hash_pairs::<{ PARALLEL_PAIRS::<H> }, _, _>(&hasher, chunk_leaves);
             current_half.copy_from_slice(&current);
 
             // Every bit set to `1` corresponds to an active Merkle Tree level
             let lowest_active_levels = num_chunks.trailing_ones() as usize;
             for parent in &mut stack[..lowest_active_levels] {
-                let parent_half = &mut parent_current[..BATCH_HASH_NUM_PAIRS];
+                let parent_half = &mut parent_current[..PARALLEL_PAIRS::<H>];
                 parent_half.copy_from_slice(parent);
 
-                let current = hash_pairs::<BATCH_HASH_NUM_PAIRS, _, _>(&hasher, &parent_current);
+                let current = hash_pairs::<{ PARALLEL_PAIRS::<H> }, _, _>(&hasher, &parent_current);
 
-                let current_half = &mut parent_current[BATCH_HASH_NUM_PAIRS..];
+                let current_half = &mut parent_current[PARALLEL_PAIRS::<H>..];
                 current_half.copy_from_slice(&current);
             }
 
-            let current_half = &mut parent_current[BATCH_HASH_NUM_PAIRS..];
+            let current_half = &mut parent_current[PARALLEL_PAIRS::<H>..];
 
-            // Place freshly computed 8 hashes into the first inactive level
+            // Place a freshly computed batch of hashes into the first inactive level
             stack[lowest_active_levels].copy_from_slice(current_half);
         }
 
-        let hashes = &stack[ROOT_ONLY_LARGE_STACK_SIZE::<N> - 1];
-        let hashes = hash_pairs::<{ BATCH_HASH_NUM_PAIRS / 2 }, _, _>(&hasher, hashes);
-        let hashes = hash_pairs::<{ BATCH_HASH_NUM_PAIRS / 4 }, _, _>(&hasher, &hashes);
-        let hashes = hash_pairs::<{ BATCH_HASH_NUM_PAIRS / 8 }, _, _>(&hasher, &hashes);
-        let [root] = hash_pairs::<{ BATCH_HASH_NUM_PAIRS / 16 }, _, _>(&hasher, &hashes);
-
-        root
+        // SAFETY: Each level of the stack holds `MerkleHasher::PARALLEL_PAIRS` nodes, which is a
+        // power of two
+        unsafe { perfect_subtree_root(&hasher, &mut stack[ROOT_ONLY_LARGE_STACK_SIZE::<N, H> - 1]) }
     }
 
     /// Get the root of Merkle Tree

@@ -27,6 +27,13 @@ pub const KEY_LEN: usize = 32;
 /// The number of bytes in a block
 pub const BLOCK_LEN: usize = 64;
 
+/// The maximum number of inputs hashed in parallel with SIMD on the target, depends on the target
+/// and enabled features.
+///
+/// Hashing many inputs at once with functions like [`single_block_hash_many_exact()`] is the most
+/// efficient with a multiple of this number of inputs.
+pub const MAX_SIMD_DEGREE: usize = blake3::platform::MAX_SIMD_DEGREE;
+
 /// The number of bytes in a chunk, 1024.
 ///
 /// You don't usually need to think about this number, but it often comes up in benchmarks, because

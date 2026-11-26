@@ -3,8 +3,11 @@
 
 use ab_merkle_tree::blake3::{BalancedMerkleTree, SparseMerkleTree};
 use ab_merkle_tree::sparse::{Leaf, PROOF_ELEMENTS};
+use chacha20::ChaCha8Rng;
+use chacha20::rand_core::{Rng, SeedableRng};
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
+use std::iter;
 use std::num::NonZeroU128;
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -23,6 +26,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     sparse_skip::<32>(c);
     sparse_skip::<64>(c);
     sparse_skip::<128>(c);
+    sparse_run(c);
+    sparse_scattered(c, "isolated-16", 16, 0);
+    sparse_scattered(c, "isolated-1000", 1000, 0);
+    sparse_scattered(c, "mixed", 100, 1000);
+    sparse_scattered(c, "mixed-16", 16, 1000);
 }
 
 /// Benchmarks a fully occupied tree of `2^BITS == N` leaves
@@ -91,6 +99,65 @@ fn sparse_skip<const BITS: u8>(c: &mut Criterion) {
                 black_box(Leaf::Occupied { leaf: &leaf }),
                 black_box(Leaf::Empty { skip_count }),
             ]));
+        });
+    });
+}
+
+/// Benchmarks a tree of intractable `2^128` size with a run of consecutive occupied leaves at an
+/// offset that is not aligned to a power of two, the rest of the leaves are empty
+fn sparse_run(c: &mut Criterion) {
+    let input = (0..1000)
+        .map(|index| [(index % u8::MAX as usize + 1) as u8; 32])
+        .collect::<Vec<_>>();
+    let offset = NonZeroU128::new(0x0123_4567_89ab_cdef_0123_4567_89ab_cdef).unwrap();
+
+    c.bench_function("128/sparse/compute-root-only-run", |b| {
+        b.iter(|| {
+            black_box(SparseMerkleTree::<128>::compute_root_only(
+                [Leaf::Empty { skip_count: offset }]
+                    .into_iter()
+                    .chain(black_box(&input).iter().map(|leaf| Leaf::Occupied { leaf })),
+            ));
+        });
+    });
+}
+
+/// Benchmarks a tree of intractable `2^128` size with `num_isolated` occupied leaves at random
+/// positions and a run of `run` consecutive occupied leaves at an offset that is not aligned to a
+/// power of two, the rest of the leaves are empty
+fn sparse_scattered(c: &mut Criterion, name: &str, num_isolated: usize, run: u128) {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let offset = 0x0123_4567_89ab_cdef_0123_4567_89ab_cdef;
+    let mut indices =
+        iter::repeat_with(|| (u128::from(rng.next_u64()) << 64) | u128::from(rng.next_u64()))
+            .take(num_isolated)
+            .chain(offset..offset + run)
+            .collect::<Vec<_>>();
+    indices.sort_unstable();
+    indices.dedup();
+
+    // Each occupied leaf with the number of empty leaves before it
+    let mut next_index = 0;
+    let input = indices
+        .iter()
+        .map(|&index| {
+            let mut leaf = [0; 32];
+            rng.fill_bytes(&mut leaf);
+            let gap = NonZeroU128::new(index - next_index);
+            next_index = index + 1;
+            (gap, leaf)
+        })
+        .collect::<Vec<_>>();
+
+    c.bench_function(&format!("128/sparse/compute-root-only-{name}"), |b| {
+        b.iter(|| {
+            black_box(SparseMerkleTree::<128>::compute_root_only(
+                black_box(&input).iter().flat_map(|(gap, leaf)| {
+                    gap.map(|skip_count| Leaf::Empty { skip_count })
+                        .into_iter()
+                        .chain([Leaf::Occupied { leaf }])
+                }),
+            ));
         });
     });
 }

@@ -44,8 +44,6 @@ harness = false
 [dependencies]
 ab-blake3 = { workspace = true, optional = true }
 array-reshape = { workspace = true, optional = true }
-# NOTE: The `blake3` dependency is here only for `no-panic` feature
-blake3 = { workspace = true, optional = true }
 no-panic = { workspace = true, optional = true }
 
 [dev-dependencies]
@@ -66,9 +64,7 @@ blake3 = [
 no-panic = [
     "blake3",
     "dep:no-panic",
-    "dep:blake3",
-    # Helps with testing on CPUs without AVX512 support
-    "blake3?/no_avx512",
+    "ab-blake3/no-panic",
 ]
 
 [lints]

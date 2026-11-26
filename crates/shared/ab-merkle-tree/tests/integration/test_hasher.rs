@@ -42,6 +42,54 @@ impl MerkleHasher for SingleLeafTestHasher {
     }
 }
 
+// TODO: Make it a single hasher generic over the number of pairs once
+//  https://github.com/rust-lang/rust/issues/166409 is resolved
+macro_rules! parallel_test_hashers {
+    ($($name:ident: $parallel_pairs:literal),* $(,)?) => {
+        $(
+            /// Same as [`TestHasher`], but hashes pairs in parallel and checks that trees don't
+            /// hash more pairs at once than that
+            #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+            #[derive_const(Default)]
+            pub(crate) struct $name;
+
+            impl MerkleHasher for $name {
+                const OUT_LEN: usize = OUT_LEN;
+                const PARALLEL_PAIRS: usize = $parallel_pairs;
+
+                fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
+                    hash_pair_with_seed(0, pair)
+                }
+
+                fn hash_pairs<const NUM_PAIRS: usize>(
+                    &self,
+                    pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
+                ) -> [[u8; OUT_LEN]; NUM_PAIRS] {
+                    assert!(NUM_PAIRS <= $parallel_pairs, "NUM_PAIRS {NUM_PAIRS}");
+
+                    // Not `map()`, cleanup of its partially initialized output on unwinding
+                    // prevents `no_panic` from proving that callers do not panic
+                    let mut parents = [[0; OUT_LEN]; NUM_PAIRS];
+                    for (parent, pair) in parents.iter_mut().zip(pairs) {
+                        *parent = self.hash_pair(pair);
+                    }
+                    parents
+                }
+            }
+        )*
+    };
+}
+
+parallel_test_hashers!(
+    ParallelTestHasher1: 1,
+    ParallelTestHasher2: 2,
+    ParallelTestHasher4: 4,
+    ParallelTestHasher8: 8,
+    ParallelTestHasher16: 16,
+    ParallelTestHasher32: 32,
+    ParallelTestHasher64: 64,
+);
+
 /// Hasher that depends on the tree size, it only implements [`NewMerkleHasherForTreeSize`]
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct TreeSizeTestHasher {

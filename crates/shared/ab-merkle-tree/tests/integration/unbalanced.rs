@@ -1,5 +1,6 @@
 use crate::test_hasher::{
-    MerkleMountainRange, OUT_LEN, TreeSizeTestHasher, UnbalancedMerkleTree, hash_pair,
+    MerkleMountainRange, OUT_LEN, ParallelTestHasher2, ParallelTestHasher64, TreeSizeTestHasher,
+    UnbalancedMerkleTree, hash_pair,
 };
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize, unbalanced};
 use chacha20::ChaCha8Rng;
@@ -303,6 +304,118 @@ fn test_array<const N: usize>() {
     let computed_root = UnbalancedMerkleTree::compute_root_only_array(&leaves);
 
     assert_eq!(root, computed_root, "N {N}");
+}
+
+/// Hashers that hash pairs in parallel buffer leaves and hash them as perfect subtrees, which
+/// must not change the root, especially around boundaries of the buffer
+#[test]
+#[cfg_attr(miri, ignore = "Takes too long")]
+fn mt_unbalanced_buffered() {
+    test_buffered::<ParallelTestHasher64>();
+}
+
+/// Small trees, such that Miri checks buffering too
+#[test]
+fn mt_unbalanced_buffered_small() {
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let leaves = random_leaves::<ParallelTestHasher2>(&mut rng, 65);
+
+    for num_leaves in 0..=leaves.len() {
+        let leaves = &leaves[..num_leaves];
+        check_buffered::<12, ParallelTestHasher2>(leaves);
+        check_buffered::<64, ParallelTestHasher2>(leaves);
+    }
+}
+
+fn test_buffered<H>()
+where
+    H: MerkleHasher + const NewMerkleHasherForTreeSize + Default,
+{
+    let mut rng = ChaCha8Rng::from_seed(Default::default());
+    let leaves = random_leaves::<H>(&mut rng, 4097);
+
+    // All sizes of a few buffers and sizes around boundaries of buffers of different sizes
+    for num_leaves in (0..=300).chain([511, 512, 513, 1023, 1024, 1025, 4095, 4096, 4097]) {
+        let leaves = &leaves[..num_leaves];
+        check_buffered::<127, H>(leaves);
+        check_buffered::<128, H>(leaves);
+        check_buffered::<300, H>(leaves);
+        check_buffered::<65536, H>(leaves);
+    }
+
+    check_buffered_array::<1, H>(&leaves);
+}
+
+fn check_buffered<const MAX_N: u64, H>(leaves: &[[u8; H::OUT_LEN]])
+where
+    H: MerkleHasher + NewMerkleHasherForTreeSize + Default,
+{
+    let parallel_pairs = H::PARALLEL_PAIRS;
+    let num_leaves = leaves.len();
+    let expected_root = (num_leaves > 0 && num_leaves as u64 <= MAX_N)
+        .then(|| naive_root::<H>(leaves))
+        .map(|root| root.to_vec());
+
+    assert_eq!(
+        unbalanced::UnbalancedMerkleTree::<H>::compute_root_only::<MAX_N, _, _>(
+            leaves.iter().copied()
+        )
+        .map(|root| root.to_vec()),
+        expected_root,
+        "PARALLEL_PAIRS {parallel_pairs} MAX_N {MAX_N} num_leaves {num_leaves}"
+    );
+}
+
+fn check_buffered_array<const N: usize, H>(leaves: &[[u8; H::OUT_LEN]])
+where
+    H: MerkleHasher + const NewMerkleHasherForTreeSize,
+{
+    let parallel_pairs = H::PARALLEL_PAIRS;
+    let leaves = leaves.first_chunk::<N>().unwrap();
+
+    assert_eq!(
+        unbalanced::UnbalancedMerkleTree::<H>::compute_root_only_array(leaves).as_slice(),
+        naive_root::<H>(leaves).as_slice(),
+        "PARALLEL_PAIRS {parallel_pairs} N {N}"
+    );
+}
+
+fn random_leaves<H>(rng: &mut ChaCha8Rng, num_leaves: usize) -> Vec<[u8; H::OUT_LEN]>
+where
+    H: MerkleHasher,
+{
+    let mut leaves = vec![[0u8; H::OUT_LEN]; num_leaves];
+    for hash in &mut leaves {
+        rng.fill_bytes(hash);
+    }
+    leaves
+}
+
+/// Root of a non-empty list of leaves by definition: the left subtree has the largest power of two
+/// leaves that is smaller than the number of leaves
+fn naive_root<H>(leaves: &[[u8; H::OUT_LEN]]) -> [u8; H::OUT_LEN]
+where
+    H: MerkleHasher + NewMerkleHasherForTreeSize,
+{
+    fn subtree_root<H>(hasher: &H, leaves: &[[u8; H::OUT_LEN]]) -> [u8; H::OUT_LEN]
+    where
+        H: MerkleHasher,
+    {
+        if let [leaf] = leaves {
+            return *leaf;
+        }
+
+        let (left, right) = leaves.split_at(1 << (leaves.len() - 1).ilog2());
+        hasher.hash_pair(&[subtree_root(hasher, left), subtree_root(hasher, right)])
+    }
+
+    let hasher = H::new_for_tree_size(leaves.len() as u64);
+    let root = subtree_root(&hasher, leaves);
+    if leaves.len() == 1 {
+        hasher.hash_single_leaf(&root)
+    } else {
+        root
+    }
 }
 
 fn test_basic(number_of_leaves: u64) {

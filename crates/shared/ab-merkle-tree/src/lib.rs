@@ -55,6 +55,7 @@
 #![no_std]
 
 pub mod balanced;
+mod batching;
 #[cfg(feature = "blake3")]
 pub mod blake3;
 pub mod mmr;
@@ -64,8 +65,6 @@ pub mod unbalanced;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-use core::mem;
-
 /// Hash function for inner nodes of Merkle Trees.
 ///
 /// Hashing of many pairs at once is a part of the API, such that hash functions like BLAKE3 can use
@@ -73,6 +72,12 @@ use core::mem;
 pub trait MerkleHasher {
     /// Size of a node hash in bytes
     const OUT_LEN: usize;
+    /// Number of pairs [`Self::hash_pairs()`] hashes in parallel, 1 for hashers that hash pairs one
+    /// by one.
+    ///
+    /// Trees size batches of pairs and buffers for them accordingly, such that hashers without
+    /// parallelism don't pay for batching. Must be a power of two that is not larger than 64.
+    const PARALLEL_PAIRS: usize = 1;
 
     /// Hash a pair of nodes together
     fn hash_pair(&self, pair: &[[u8; Self::OUT_LEN]; 2]) -> [u8; Self::OUT_LEN];
@@ -125,31 +130,4 @@ where
     fn new_for_tree_size(_num_leaves: u64) -> Self {
         H::default()
     }
-}
-
-// TODO: Combine `NUM_PAIRS` and `NUM_LEAVES` into a single generic parameter once compiler is
-//  smart enough to deal with it
-/// Similar to [`MerkleHasher::hash_pairs()`], but takes pairs as a flat list of nodes.
-///
-/// # Panics
-/// Panics when `NUM_LEAVES != NUM_PAIRS * 2`.
-#[inline(always)]
-#[cfg_attr(feature = "no-panic", no_panic::no_panic)]
-fn hash_pairs<const NUM_PAIRS: usize, const NUM_LEAVES: usize, H>(
-    hasher: &H,
-    leaves: &[[u8; H::OUT_LEN]; NUM_LEAVES],
-) -> [[u8; H::OUT_LEN]; NUM_PAIRS]
-where
-    H: MerkleHasher,
-{
-    // This protects the invariant of the function
-    assert_eq!(NUM_LEAVES, NUM_PAIRS * 2);
-
-    // SAFETY: Same size (checked above) and alignment
-    let pairs = unsafe {
-        mem::transmute::<&[[u8; H::OUT_LEN]; NUM_LEAVES], &[[[u8; H::OUT_LEN]; 2]; NUM_PAIRS]>(
-            leaves,
-        )
-    };
-    hasher.hash_pairs(pairs)
 }
