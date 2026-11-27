@@ -555,11 +555,13 @@ fn beacon_chain_body_with_too_many_pot_checkpoints() {
     assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
 }
 
+// Where `usize` is 32-bit, slices can't be longer than `u32::MAX` bytes, and the largest buffer is
+// a multiple of 16 bytes, so a transaction that fits into it also leaves room for padding after it
 #[test]
-#[cfg(not(miri))]
+#[cfg(all(not(miri), target_pointer_width = "64"))]
 #[ignore = "Allocates more than 4 GiB of memory"]
 fn bodies_longer_than_u32_max_bytes_are_rejected() {
-    use crate::transaction::SerializedTransactionLengths;
+    use crate::transaction::{SerializedTransactionLengths, Transaction};
     use ab_io_type::trivial_type::TrivialType;
 
     // Intermediate shard bodies are not here: with at most `u16::MAX` leaf shard blocks with at
@@ -590,7 +592,8 @@ fn bodies_longer_than_u32_max_bytes_are_rejected() {
     )
     .unwrap();
 
-    // One allocation for all cases, so that together they never take more memory than one of them
+    // One allocation of mostly untouched bytes for all cases, so that together they never take more
+    // memory than one of them. Only the last case writes a buffer of the largest capacity on top.
     let len = beacon_chain_body_len(max_num_pot_checkpoints + 1).max(leaf_shard_body_len(1));
     let mut buffer = vec![0u8; to_usize(len) + 15];
     let offset = buffer.as_ptr().align_offset(16);
@@ -664,6 +667,42 @@ fn bodies_longer_than_u32_max_bytes_are_rejected() {
                 "Leaf shard body with seal length {seal_len}"
             );
         }
+    }
+
+    // A transaction that ends where the largest buffer ends is appended to a leaf shard body, but
+    // padding after it doesn't fit, so the body is left unchanged and can be used further
+    {
+        let max_capacity = usize::try_from(OwnedAlignedBuffer::<Align16>::MAX_CAPACITY).unwrap();
+        assert_ne!(max_capacity % 16, 0, "Padding would fit");
+        // The number of transactions and padding take 16 bytes before the first transaction
+        let transaction_len = max_capacity - 16;
+        assert!(len >= u64::try_from(transaction_len).unwrap());
+        let lengths = SerializedTransactionLengths {
+            read_slots: 0,
+            write_slots: 0,
+            payload: 0,
+            seal: u32::try_from(transaction_len - transaction_header_size).unwrap(),
+            padding: [0; _],
+        };
+        bytes[..size_of::<TransactionHeader>()].copy_from_slice(transaction_header().as_bytes());
+        bytes[size_of::<TransactionHeader>()..][..size_of::<SerializedTransactionLengths>()]
+            .copy_from_slice(lengths.as_bytes());
+        let (large_transaction, remainder) =
+            Transaction::try_from_bytes(&bytes[..transaction_len]).unwrap();
+        assert!(remainder.is_empty());
+
+        let mut builder = OwnedLeafShardBody::init(iter::empty()).unwrap();
+        assert_matches!(
+            builder.add_transaction(large_transaction),
+            Err(OwnedLeafShardBodyError::BlockBodyIsTooLarge)
+        );
+        builder.add_transaction(&transaction()).unwrap();
+        let mut expected = OwnedLeafShardBody::init(iter::empty()).unwrap();
+        expected.add_transaction(&transaction()).unwrap();
+        assert!(
+            builder.finish().buffer().as_slice() == expected.finish().buffer().as_slice(),
+            "Body with a transaction after the one that didn't fit"
+        );
     }
 }
 
@@ -2123,6 +2162,49 @@ fn own_segments_constructor_checks_invariants() {
             );
         }
     }
+}
+
+#[test]
+fn builders_reject_too_many_own_segment_roots_and_child_shard_blocks() {
+    // Numbers are checked before anything is iterated, so iterators of any length are cheap
+    let own_segments = || iter::repeat_n((LocalSegmentIndex::ZERO, SegmentRoot::default()), 256);
+    assert_matches!(
+        OwnedBeaconChainBody::new(
+            own_segments(),
+            iter::empty::<IntermediateShardBlockInfo<'_>>(),
+            &[]
+        ),
+        Err(OwnedBeaconChainBodyError::TooManyOwnSegmentRoots { actual: 256 })
+    );
+    assert_matches!(
+        OwnedIntermediateShardBody::new(own_segments(), iter::empty::<LeafShardBlockInfo<'_>>()),
+        Err(OwnedIntermediateShardBodyError::TooManyOwnSegmentRoots { actual: 256 })
+    );
+    assert_matches!(
+        OwnedLeafShardBody::init(own_segments()),
+        Err(OwnedLeafShardBodyError::TooManyOwnSegmentRoots { actual: 256 })
+    );
+
+    let bytes = beacon_chain_body_bytes(&[TestIntermediateShardBlock::new(1, 0, 0, 0, &[])], &[]);
+    let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
+    let intermediate_shard_block = body.intermediate_shard_blocks().iter().next().unwrap();
+    assert_matches!(
+        OwnedBeaconChainBody::new(
+            iter::empty(),
+            iter::repeat_n(intermediate_shard_block, 65536),
+            &[]
+        ),
+        Err(OwnedBeaconChainBodyError::TooManyIntermediateShardBlocks { actual: 65536 })
+    );
+
+    let bytes =
+        intermediate_shard_body_bytes(None, &[TestLeafShardBlock::new(1 | (1 << 10), 0, 0)]);
+    let (body, _remainder) = IntermediateShardBody::try_from_bytes(bytes.as_slice()).unwrap();
+    let leaf_shard_block = body.leaf_shard_blocks().iter().next().unwrap();
+    assert_matches!(
+        OwnedIntermediateShardBody::new(iter::empty(), iter::repeat_n(leaf_shard_block, 65536)),
+        Err(OwnedIntermediateShardBodyError::TooManyLeafShardBlocks { actual: 65536 })
+    );
 }
 
 #[test]
