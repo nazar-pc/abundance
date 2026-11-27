@@ -330,16 +330,17 @@ impl NumShards {
             return None;
         }
 
-        let num_shards = Self {
-            intermediate_shards,
-            leaf_shards_per_intermediate_shard,
-        };
-
-        if num_shards.leaf_shards() > ShardIndex::MAX_SHARDS {
+        // Leaf shards are numbered in the bits of shard indices above those of intermediate shards
+        if u32::from(leaf_shards_per_intermediate_shard.get())
+            > (ShardIndex::MAX_SHARD_INDEX >> INTERMEDIATE_SHARD_BITS)
+        {
             return None;
         }
 
-        Some(num_shards)
+        Some(Self {
+            intermediate_shards,
+            leaf_shards_per_intermediate_shard,
+        })
     }
 
     /// The number of intermediate shards

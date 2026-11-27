@@ -91,3 +91,19 @@ fn derived_shard_indices_are_leaf_shards() {
         assert_eq!(combined_shard_index, shard_index);
     }
 }
+
+#[test]
+fn numbers_of_shards_fit_into_shard_indices() {
+    let new = |intermediate_shards, leaf_shards_per_intermediate_shard| {
+        NumShards::new(
+            NonZeroU16::new(intermediate_shards).unwrap(),
+            NonZeroU16::new(leaf_shards_per_intermediate_shard).unwrap(),
+        )
+    };
+
+    let num_shards = new(1023, 1023).unwrap();
+    assert!(num_shards.leaf_shards() < ShardIndex::MAX_SHARDS);
+    assert_eq!(new(1024, 1), None);
+    assert_eq!(new(1, 1024), None);
+    assert_eq!(new(1, u16::MAX), None);
+}
