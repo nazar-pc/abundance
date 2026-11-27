@@ -2163,6 +2163,49 @@ fn own_segments_constructor_checks_invariants() {
 }
 
 #[test]
+fn builders_reject_too_many_own_segment_roots_and_child_shard_blocks() {
+    // Numbers are checked before anything is iterated, so iterators of any length are cheap
+    let own_segments = || iter::repeat_n((LocalSegmentIndex::ZERO, SegmentRoot::default()), 256);
+    assert_matches!(
+        OwnedBeaconChainBody::new(
+            own_segments(),
+            iter::empty::<IntermediateShardBlockInfo<'_>>(),
+            &[]
+        ),
+        Err(OwnedBeaconChainBodyError::TooManyOwnSegmentRoots { actual: 256 })
+    );
+    assert_matches!(
+        OwnedIntermediateShardBody::new(own_segments(), iter::empty::<LeafShardBlockInfo<'_>>()),
+        Err(OwnedIntermediateShardBodyError::TooManyOwnSegmentRoots { actual: 256 })
+    );
+    assert_matches!(
+        OwnedLeafShardBody::init(own_segments()),
+        Err(OwnedLeafShardBodyError::TooManyOwnSegmentRoots { actual: 256 })
+    );
+
+    let bytes = beacon_chain_body_bytes(&[TestIntermediateShardBlock::new(1, 0, 0, 0, &[])], &[]);
+    let (body, _remainder) = BeaconChainBody::try_from_bytes(bytes.as_slice()).unwrap();
+    let intermediate_shard_block = body.intermediate_shard_blocks().iter().next().unwrap();
+    assert_matches!(
+        OwnedBeaconChainBody::new(
+            iter::empty(),
+            iter::repeat_n(intermediate_shard_block, 65536),
+            &[]
+        ),
+        Err(OwnedBeaconChainBodyError::TooManyIntermediateShardBlocks { actual: 65536 })
+    );
+
+    let bytes =
+        intermediate_shard_body_bytes(None, &[TestLeafShardBlock::new(1 | (1 << 10), 0, 0)]);
+    let (body, _remainder) = IntermediateShardBody::try_from_bytes(bytes.as_slice()).unwrap();
+    let leaf_shard_block = body.leaf_shard_blocks().iter().next().unwrap();
+    assert_matches!(
+        OwnedIntermediateShardBody::new(iter::empty(), iter::repeat_n(leaf_shard_block, 65536)),
+        Err(OwnedIntermediateShardBodyError::TooManyLeafShardBlocks { actual: 65536 })
+    );
+}
+
+#[test]
 fn own_segments_with_local_segment_indices_near_u64_max() {
     // `OwnSegments::iter()` relies on parsers rejecting own segments that go past `u64::MAX`
     for (own_segments, valid) in segments_near_u64_max() {
