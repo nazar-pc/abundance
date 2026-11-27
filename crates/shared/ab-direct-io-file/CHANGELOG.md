@@ -2,7 +2,7 @@
 
 Breaking changes:
 
-* Nightly Rust is required again
+* Nightly Rust is required again, `nightly-2026-11-19` is guaranteed to work, later versions will likely work too
 * Removed `AlignedPage` and `DISK_PAGE_SIZE`, use `OwnedPages` and `SharedPages` instead, whose alignment
   `OwnedPages::ALIGN` is the size of a page
 * Removed `DirectIoFile::read_exact_at()`, `DirectIoFile::write_all_at()`, `DirectIoFile::read_exact_at_raw()` and

@@ -1,7 +1,15 @@
 # 0.3.0
 
+Threaded execution is faster: common instruction handlers take about 30% fewer native instructions, raising the CoreMark
+score from ~2950 to ~3050, and vector instructions are faster too. The new `BasicEagerInstructionFetcher` decodes the
+whole program upfront instead of on every fetch, and most `unsafe` code is gone. Undefined behavior reachable from safe
+code in vector instructions, a wrong program counter at the return trap and many Ssstrict vector issues are fixed.
+Custom instructions and `ecall`/`ebreak` handlers return where execution continues instead of moving the program
+counter, `InstructionFetcher` is an `unsafe` trait and `vl`/`vtype` are stored together as `VectorConfig`.
+
 Breaking changes:
 
+* Nightly Rust is required, `nightly-2026-11-19` is guaranteed to work, later versions will likely work too
 * Minor changes in `InstructionFetcher` API for improved performance of threaded execution
 * `ExecutableInstruction::execute()`, `SystemInstructionHandler::handle_ecall()` and `handle_ebreak()` take the program
   counter by shared reference, and the handlers return `ExecutionResult`: instructions and handlers no longer move the
@@ -47,7 +55,12 @@ Improvements:
   below-the-base-address case into the bounds check that follows it instead of branching on it separately - one
   comparison instead of two on every memory access, with identical behavior as long as the memory region doesn't reach
   the end of the address space, which is now checked at compile time
-* Improved performance and APIs for vector extensions
+* Shorter critical path of threaded execution: handlers read their instruction through the fetcher and load operands
+  from the decoded stream, which takes about 30% fewer native instructions in common handlers on x86-64 (11 instead of
+  17 for `add`, and `jalr` no longer needs a stack frame) and raises the CoreMark score from ~2950 to ~3050
+* Faster vector instructions with improved APIs: arithmetic loops are compiled separately for each `SEW`, which helps
+  auto-vectorization, unmasked unit-stride loads and stores and unmasked `vslideup`/`vslidedown` are copied as whole
+  slices, and the compiler knows that element widths and register counts are powers of two
 * Most `unsafe` code is gone, including all of it in vector instruction implementations outside of the register file,
   with absence of panics still verified by the `no-panic` feature
 * Non-memory vector instructions raise an illegal instruction exception for a non-zero `vstart`, which they never

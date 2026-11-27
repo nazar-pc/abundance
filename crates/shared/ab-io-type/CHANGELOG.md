@@ -1,19 +1,15 @@
 # 0.3.0
 
-Bytes can be parsed safely with the new `TrivialType::try_from_bytes*()` methods, which check enum discriminants, `bool`
-values and lengths, `IoType::try_from_ptr()` and `try_from_mut_ptr()` check memory contents too, and types that
-implement `AnyBitPattern` (any bit pattern is a valid value) can be created from aligned bytes in safe code without
-parsing. Containers have a lifetime for the memory they view and alignment is represented by the new `Alignment` type
-(up to 16 bytes). Metadata is simpler: kinds for specific numbers of fields, variants and elements are removed and the
-remaining kinds are renumbered, so `METADATA` of most types changes, and fixed-capacity bytes and strings store their
-length as `u32`, which changes their layout. Enums with tuple variants can be derived, custom validation can be added to
-derived parsing, and 32-bit RISC-V and Arm targets are supported. Several soundness issues are fixed, including
-out-of-bounds reads and writes in `VariableElements` and invalid values or dangling views created in safe code. Most
-changes are breaking: the derive implements the new trait requirements, but some enums are no longer accepted, and code
-that reads values from bytes, uses removed types, or implements or is generic over the traits needs updates.
+Bytes can be parsed safely: `TrivialType::try_from_bytes*()` and `IoType::try_from_ptr()` validate enum
+discriminants, `bool`s and lengths, and `AnyBitPattern` types are created from aligned bytes without `unsafe`. Several
+soundness issues are fixed, including out-of-bounds access in `VariableElements` and dangling views created in safe
+code, which is why containers have a lifetime now. Metadata encoding and the layout of fixed-capacity bytes and strings
+changed, so `METADATA` of most types is different. Derived implementations mostly keep working, code that reads values
+from bytes or implements the traits manually needs updates.
 
 Breaking changes:
 
+* Nightly Rust is required, `nightly-2026-11-19` is guaranteed to work, later versions will likely work too
 * Metadata kinds for specific numbers of fields, variants and elements (like `Struct3` and `ArrayU8x32`) are removed,
   array lengths, recommended allocations and capacities always take 4 bytes, `TupleStruct` and `EnumNoFields` are merged
   into `Struct` and `Enum`, `MaybeData` has its own kind instead of the metadata of its data, and the remaining kinds
