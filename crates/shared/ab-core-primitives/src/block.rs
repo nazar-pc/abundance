@@ -6,10 +6,11 @@ pub mod header;
 pub mod owned;
 
 use crate::block::body::{
-    BeaconChainBody, GenericBlockBody, IntermediateShardBody, LeafShardBlocksInfo, LeafShardBody,
+    BeaconChainBody, BlockBody, GenericBlockBody, IntermediateShardBody, LeafShardBlocksInfo,
+    LeafShardBody,
 };
 use crate::block::header::{
-    BeaconChainHeader, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
+    BeaconChainHeader, BlockHeader, GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
 };
 #[cfg(feature = "alloc")]
 use crate::block::owned::{
@@ -622,9 +623,6 @@ impl<'a> GenericBlock<'a> for LeafShardBlock<'a> {
 }
 
 /// Block that contains [`BlockHeader`] and [`BlockBody`]
-///
-/// [`BlockHeader`]: crate::block::header::BlockHeader
-/// [`BlockBody`]: crate::block::body::BlockBody
 #[derive(Debug, Clone, From)]
 pub enum Block<'a> {
     /// Block corresponds to the beacon chain
@@ -660,6 +658,26 @@ impl<'a> Block<'a> {
                 let (block_header, remainder) = LeafShardBlock::try_from_bytes(bytes)?;
                 Some((Self::LeafShard(block_header), remainder))
             }
+        }
+    }
+
+    /// Block header
+    #[inline(always)]
+    pub fn header(&self) -> BlockHeader<'a> {
+        match self {
+            Self::BeaconChain(block) => BlockHeader::BeaconChain(block.header.clone()),
+            Self::IntermediateShard(block) => BlockHeader::IntermediateShard(block.header.clone()),
+            Self::LeafShard(block) => BlockHeader::LeafShard(block.header.clone()),
+        }
+    }
+
+    /// Block body
+    #[inline(always)]
+    pub fn body(&self) -> BlockBody<'a> {
+        match self {
+            Self::BeaconChain(block) => BlockBody::BeaconChain(block.body),
+            Self::IntermediateShard(block) => BlockBody::IntermediateShard(block.body),
+            Self::LeafShard(block) => BlockBody::LeafShard(block.body),
         }
     }
 
