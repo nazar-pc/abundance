@@ -555,8 +555,10 @@ fn beacon_chain_body_with_too_many_pot_checkpoints() {
     assert!(BeaconChainBody::try_from_bytes(bytes.as_slice()).is_none());
 }
 
+// Where `usize` is 32-bit, slices can't be longer than `u32::MAX` bytes, and the largest buffer is
+// a multiple of 16 bytes, so a transaction that fits into it also leaves room for padding after it
 #[test]
-#[cfg(not(miri))]
+#[cfg(all(not(miri), target_pointer_width = "64"))]
 #[ignore = "Allocates more than 4 GiB of memory"]
 fn bodies_longer_than_u32_max_bytes_are_rejected() {
     use crate::transaction::{SerializedTransactionLengths, Transaction};
