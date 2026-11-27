@@ -1,5 +1,11 @@
 # 0.3.0
 
+Instruction enums are generic over hart configuration (`HartConfig`) instead of the register type, and vector
+instructions take `ELEN`/`VLEN` from `VectorHartConfig`, rejecting loads and stores with `EEW > ELEN` during decoding.
+Undefined behavior from hidden `Phantom` register variants constructible in safe code is fixed, and reserved masked
+vector encodings no longer decode, as required by Ssstrict. To upgrade, wrap the register type in `BasicHart` or
+`BasicVectorHart`, use `Shamt` for shift amounts and define `Instruction::OWN_ISA_EXTENSIONS` in custom enums.
+
 Breaking changes:
 
 * Nightly Rust is required, `nightly-2026-11-19` is guaranteed to work, later versions will likely work too
