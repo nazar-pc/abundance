@@ -447,6 +447,101 @@ fn seals_of_other_public_keys_are_rejected() {
     assert_eq!(unsealed.with_seal(seal).err(), Some(error));
 }
 
+/// Check that the seal of `header` is valid and covers all bytes before it: changing the last byte
+/// before the seal or the last byte of the signature makes it invalid
+#[cfg(feature = "ed25519")]
+fn check_seal_covers_bytes_before_it<Header>(header: &Header)
+where
+    Header: GenericOwnedBlockHeader,
+{
+    let bytes = header.buffer().as_slice();
+    let (parsed_header, _remainder) = BlockHeader::try_from_bytes(bytes).unwrap();
+    assert!(parsed_header.is_sealed_correctly());
+
+    let seal_offset = bytes.len() - usize::try_from(BlockHeaderSeal::MAX_SIZE).unwrap();
+    for offset in [seal_offset - 1, bytes.len() - 1] {
+        let mut modified_bytes = OwnedAlignedBuffer::<Align16>::from_bytes(bytes);
+        modified_bytes.as_mut_slice()[offset] ^= 1;
+        let (parsed_header, _remainder) =
+            BlockHeader::try_from_bytes(modified_bytes.as_slice()).unwrap();
+        assert!(
+            !parsed_header.is_sealed_correctly(),
+            "Byte at offset {offset} flipped"
+        );
+    }
+}
+
+#[cfg(feature = "ed25519")]
+#[test]
+#[cfg_attr(
+    miri,
+    ignore = "Signs and verifies Ed25519 signatures, too slow under Miri"
+)]
+fn seals_are_signatures_of_pre_seal_hashes() {
+    use ed25519_dalek::{Signer, SigningKey};
+
+    let signing_key = SigningKey::from([1; _]);
+    let public_key = Ed25519PublicKey::from(signing_key.verifying_key());
+    let seal_of = |pre_seal_hash: Blake3Hash| BlockHeaderEd25519Seal {
+        public_key,
+        signature: Ed25519Signature::from(signing_key.sign(pre_seal_hash.as_bytes())),
+    };
+    let consensus_info = BlockHeaderConsensusInfo {
+        solution: Solution {
+            public_key_hash: public_key.hash(),
+            ..Solution::genesis_solution()
+        },
+        ..consensus_info()
+    };
+    // The PoT parameters change comes right before the seal and can have any entropy
+    let consensus_parameters = OwnedBlockHeaderConsensusParameters {
+        pot_parameters_change: Some(BlockHeaderPotParametersChange::from(PotParametersChange {
+            slot: SlotNumber::from(1),
+            slot_iterations: NonZeroU32::MIN,
+            entropy: Blake3Hash::new([2; _]),
+        })),
+        ..consensus_parameters()
+    };
+
+    let unsealed = OwnedBeaconChainHeader::from_parts(
+        &prefix(0),
+        &result(),
+        &consensus_info,
+        &Blake3Hash::default(),
+        &consensus_parameters,
+    )
+    .unwrap();
+    let seal = seal_of(unsealed.pre_seal_hash());
+    check_seal_covers_bytes_before_it(
+        &unsealed.with_seal(BlockHeaderSeal::Ed25519(&seal)).unwrap(),
+    );
+
+    let unsealed = OwnedIntermediateShardHeader::from_parts(
+        &prefix(1),
+        &result(),
+        &consensus_info,
+        &beacon_chain_info(),
+        &Blake3Hash::default(),
+    )
+    .unwrap();
+    let seal = seal_of(unsealed.pre_seal_hash());
+    check_seal_covers_bytes_before_it(
+        &unsealed.with_seal(BlockHeaderSeal::Ed25519(&seal)).unwrap(),
+    );
+
+    let unsealed = OwnedLeafShardHeader::from_parts(
+        &prefix(1 | (1 << 10)),
+        &result(),
+        &consensus_info,
+        &beacon_chain_info(),
+    )
+    .unwrap();
+    let seal = seal_of(unsealed.pre_seal_hash());
+    check_seal_covers_bytes_before_it(
+        &unsealed.with_seal(BlockHeaderSeal::Ed25519(&seal)).unwrap(),
+    );
+}
+
 #[test]
 fn from_parts_into_writes_headers_that_seal_like_owned_ones() {
     let child_shard_blocks_root = Blake3Hash::new([1; _]);
