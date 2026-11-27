@@ -7,12 +7,12 @@ use crate::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedIntermediateShardHeader,
 };
 use crate::block::header::{
-    BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsistencyError,
+    BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsistencyError,
     BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPotParametersChange,
     BlockHeaderPrefix, BlockHeaderSeal, OwnedBlockHeaderConsensusParameters,
 };
 use crate::block::owned::{
-    GenericOwnedBlock, OwnedBeaconChainBlock, OwnedIntermediateShardBlock,
+    GenericOwnedBlock, OwnedBeaconChainBlock, OwnedBlock, OwnedIntermediateShardBlock,
     OwnedIntermediateShardBlockBuilderError, OwnedLeafShardBlock,
 };
 use crate::block::{
@@ -23,7 +23,7 @@ use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
 use crate::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
 use crate::segments::{LocalSegmentIndex, SegmentRoot, SuperSegmentRoot};
-use crate::shard::{NumShards, RealShardKind, ShardIndex};
+use crate::shard::{NumShards, ShardIndex};
 use crate::solutions::{Solution, SolutionRange};
 use crate::transaction::owned::OwnedTransaction;
 use crate::transaction::{Gas, TransactionHeader};
@@ -198,7 +198,7 @@ fn beacon_chain_block_bytes_must_be_16_bytes_aligned() {
     let misaligned = block_bytes(&block, 8);
     let misaligned = &misaligned.as_slice()[8..];
     assert!(BeaconChainBlock::try_from_bytes(misaligned).is_none());
-    assert!(Block::try_from_bytes(misaligned, RealShardKind::BeaconChain).is_none());
+    assert!(Block::try_from_bytes(misaligned).is_none());
 }
 
 #[test]
@@ -216,7 +216,7 @@ fn intermediate_shard_block_bytes_must_be_16_bytes_aligned() {
     let misaligned = block_bytes(&block, 8);
     let misaligned = &misaligned.as_slice()[8..];
     assert!(IntermediateShardBlock::try_from_bytes(misaligned).is_none());
-    assert!(Block::try_from_bytes(misaligned, RealShardKind::IntermediateShard).is_none());
+    assert!(Block::try_from_bytes(misaligned).is_none());
 }
 
 #[test]
@@ -234,7 +234,7 @@ fn leaf_shard_block_bytes_must_be_16_bytes_aligned() {
     let misaligned = block_bytes(&block, 8);
     let misaligned = &misaligned.as_slice()[8..];
     assert!(LeafShardBlock::try_from_bytes(misaligned).is_none());
-    assert!(Block::try_from_bytes(misaligned, RealShardKind::LeafShard).is_none());
+    assert!(Block::try_from_bytes(misaligned).is_none());
 }
 
 #[test]
@@ -243,24 +243,21 @@ fn block_parsers_reject_seals_of_other_public_keys() {
     let intermediate_shard_block = intermediate_shard_block(iter::empty());
     let leaf_shard_block = leaf_shard_block();
 
-    for (shard_kind, bytes, header_size) in [
+    for (bytes, header_size) in [
         (
-            RealShardKind::BeaconChain,
             block_bytes(&beacon_chain_block, 0),
             beacon_chain_block.header().buffer().len(),
         ),
         (
-            RealShardKind::IntermediateShard,
             block_bytes(&intermediate_shard_block, 0),
             intermediate_shard_block.header().buffer().len(),
         ),
         (
-            RealShardKind::LeafShard,
             block_bytes(&leaf_shard_block, 0),
             leaf_shard_block.header().buffer().len(),
         ),
     ] {
-        assert!(Block::try_from_bytes(bytes.as_slice(), shard_kind).is_some());
+        assert!(Block::try_from_bytes(bytes.as_slice()).is_some());
 
         // The header ends with the seal, which ends with the public key and the signature
         let mut bytes = bytes.as_slice().to_vec();
@@ -269,7 +266,7 @@ fn block_parsers_reject_seals_of_other_public_keys() {
         bytes[public_key_offset] ^= 1;
         let bytes = SharedAlignedBuffer::<Align16>::from_bytes(&bytes);
 
-        assert!(Block::try_from_bytes(bytes.as_slice(), shard_kind).is_none());
+        assert!(Block::try_from_bytes(bytes.as_slice()).is_none());
     }
 }
 
@@ -456,19 +453,15 @@ fn intermediate_shard_block_builder_rejects_leaf_shard_blocks_of_other_shards() 
     .unwrap();
     let bytes = parts_bytes(header.buffer(), block.body.buffer(), 0);
     assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_none());
-    assert!(
-        OwnedIntermediateShardBlock::from_buffers(
-            header.buffer().clone(),
-            block.body.buffer().clone()
-        )
-        .is_none()
-    );
+    OwnedIntermediateShardBlock::from_buffers(header.buffer().clone(), block.body.buffer().clone())
+        .unwrap_err();
 }
 
 #[test]
 fn blocks_round_trip() {
     let leaf_shard_block = leaf_shard_block();
     let bytes = block_bytes(&leaf_shard_block, 0);
+
     let (block, _remainder) = LeafShardBlock::try_from_bytes(bytes.as_slice()).unwrap();
     let block = block.to_owned();
     assert_eq!(
@@ -498,6 +491,17 @@ fn blocks_round_trip() {
 
     let beacon_chain_block = beacon_chain_block();
     let bytes = block_bytes(&beacon_chain_block, 0);
+
+    // The header is copied out of the buffer with a whole block, while the body references it.
+    // Without optional consensus parameters the header is shorter than the largest one, so bytes
+    // copied with it don't belong to it.
+    let block = OwnedBeaconChainBlock::from_buffer(bytes.clone()).unwrap();
+    assert!(block.header.buffer().as_slice() == beacon_chain_block.header.buffer().as_slice());
+    assert!(block.body.buffer().as_slice() == beacon_chain_block.body.buffer().as_slice());
+    let bytes_range = bytes.as_slice().as_ptr_range();
+    assert!(!bytes_range.contains(&block.header.buffer().as_slice().as_ptr()));
+    assert!(bytes_range.contains(&block.body.buffer().as_slice().as_ptr()));
+
     let (block, _remainder) = BeaconChainBlock::try_from_bytes(bytes.as_slice()).unwrap();
     let block = block.to_owned();
     assert_eq!(
@@ -522,13 +526,11 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
     );
     let bytes = block_bytes(&block, 0);
     assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_some());
-    assert!(
-        OwnedIntermediateShardBlock::from_buffers(
-            block.header.buffer().clone(),
-            block.body.buffer().clone()
-        )
-        .is_some()
-    );
+    OwnedIntermediateShardBlock::from_buffers(
+        block.header.buffer().clone(),
+        block.body.buffer().clone(),
+    )
+    .unwrap();
 
     // A list of another leaf shard block
     let other_leaf_shard_block_info = OwnedLeafShardBlockInfo::from_block(
@@ -558,13 +560,11 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
         let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
 
         assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_none());
-        assert!(
-            OwnedIntermediateShardBlock::from_buffers(
-                inconsistent_header.buffer().clone(),
-                block.body.buffer().clone()
-            )
-            .is_none()
-        );
+        OwnedIntermediateShardBlock::from_buffers(
+            inconsistent_header.buffer().clone(),
+            block.body.buffer().clone(),
+        )
+        .unwrap_err();
     }
 
     // A beacon chain block without intermediate shard blocks, which claims to have some
@@ -587,13 +587,37 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
     let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
 
     assert!(BeaconChainBlock::try_from_bytes(bytes.as_slice()).is_none());
-    assert!(
-        OwnedBeaconChainBlock::from_buffers(
-            inconsistent_header.buffer().clone(),
-            block.body.buffer().clone()
-        )
-        .is_none()
-    );
+
+    // Buffers and parts are returned back when they don't form a block
+    let (returned_header, returned_body) = OwnedBeaconChainBlock::from_buffers(
+        inconsistent_header.buffer().clone(),
+        block.body.buffer().clone(),
+    )
+    .unwrap_err();
+    assert!(returned_header.as_slice() == inconsistent_header.buffer().as_slice());
+    assert!(returned_body.as_slice() == block.body.buffer().as_slice());
+    // Also when the header or the body can't be parsed
+    let (returned_header, returned_body) = OwnedBeaconChainBlock::from_buffers(
+        block.body.buffer().clone(),
+        block.body.buffer().clone(),
+    )
+    .unwrap_err();
+    assert!(returned_header.as_slice() == block.body.buffer().as_slice());
+    assert!(returned_body.as_slice() == block.body.buffer().as_slice());
+    let (returned_header, returned_body) = OwnedBeaconChainBlock::from_buffers(
+        block.header.buffer().clone(),
+        block.header.buffer().clone(),
+    )
+    .unwrap_err();
+    assert!(returned_header.as_slice() == block.header.buffer().as_slice());
+    assert!(returned_body.as_slice() == block.header.buffer().as_slice());
+    let (returned_header, returned_body) =
+        OwnedBeaconChainBlock::from_parts(inconsistent_header.clone(), block.body.clone())
+            .unwrap_err();
+    assert!(returned_header.buffer().as_slice() == inconsistent_header.buffer().as_slice());
+    assert!(returned_body.buffer().as_slice() == block.body.buffer().as_slice());
+    let (header, body) = block.split();
+    OwnedBeaconChainBlock::from_parts(header, body).unwrap();
 }
 
 #[test]
@@ -639,40 +663,77 @@ fn child_block_roots_are_tree_roots_of_header_roots() {
 /// Header roots commit to bodies through body roots, so this covers both, and both the lowest and
 /// the highest bit are flipped to reach invalid values of counts, flags and padding. Invalid values
 /// that would change the root if accepted, like unexpected flags, can't be caught this way and are
-/// tested separately. Bytes after the block don't belong to it, while owned headers and bodies must
-/// be exactly the bytes of their buffers.
-fn check_encoding_is_canonical<OwnedBlock>(block: &OwnedBlock)
+/// tested separately. Bytes after the block don't belong to it, while owned blocks, headers and
+/// bodies must be exactly the bytes of their buffers.
+fn check_encoding_is_canonical<Owned>(block: &Owned)
 where
-    OwnedBlock: GenericOwnedBlock,
+    Owned: GenericOwnedBlock,
 {
     let header_root = *block.header().root();
-    let mut bytes = block_bytes(block, 0).into_owned();
+    let block_buffer = block_bytes(block, 0);
+    let mut bytes = block_buffer.clone().into_owned();
 
-    let (parsed_block, remainder) =
-        Block::try_from_bytes(bytes.as_slice(), OwnedBlock::SHARD_KIND).unwrap();
+    let (parsed_block, remainder) = Block::try_from_bytes(bytes.as_slice()).unwrap();
     assert!(remainder.is_empty());
     assert_eq!(*parsed_block.header().root(), header_root);
 
+    // The shard kind of a block of any kind is that of its header
+    let header = block.header().buffer();
+    let body = block.body().buffer();
+    assert_eq!(
+        BlockHeader::shard_kind_from_bytes(header.as_slice()),
+        Some(Owned::SHARD_KIND)
+    );
+    for owned_block in [
+        parsed_block.to_owned(),
+        OwnedBlock::from_buffers(header.clone(), body.clone()).unwrap(),
+        OwnedBlock::from_buffer(block_buffer.clone()).unwrap(),
+    ] {
+        let (owned_header, owned_body) = owned_block.split();
+        assert!(
+            owned_header.buffer().as_slice() == header.as_slice(),
+            "Header of a block of any kind"
+        );
+        assert!(
+            owned_body.buffer().as_slice() == body.as_slice(),
+            "Body of a block of any kind"
+        );
+    }
+
+    // The header is copied out of the buffer with a whole block, while the body references it
+    let owned_block = Owned::from_buffer(block_buffer.clone()).unwrap();
+    assert!(owned_block.header().buffer().as_slice() == header.as_slice());
+    assert!(owned_block.body().buffer().as_slice() == body.as_slice());
+    let block_buffer_range = block_buffer.as_slice().as_ptr_range();
+    assert!(!block_buffer_range.contains(&owned_block.header().buffer().as_slice().as_ptr()));
+    assert!(block_buffer_range.contains(&owned_block.body().buffer().as_slice().as_ptr()));
+
     for len in 0..bytes.as_slice().len() {
         assert!(
-            Block::try_from_bytes(&bytes.as_slice()[..len], OwnedBlock::SHARD_KIND).is_none(),
+            Block::try_from_bytes(&bytes.as_slice()[..len]).is_none(),
             "Truncated to {len} out of {} bytes",
             bytes.len()
         );
+        Owned::from_buffer(SharedAlignedBuffer::from_bytes(&bytes.as_slice()[..len])).unwrap_err();
     }
 
     for offset in 0..bytes.as_slice().len() {
         for mask in [0b0000_0001, 0b1000_0000] {
             bytes.as_mut_slice()[offset] ^= mask;
-            if let Some((parsed_block, _remainder)) =
-                Block::try_from_bytes(bytes.as_slice(), OwnedBlock::SHARD_KIND)
-            {
+            let maybe_parsed_block = Block::try_from_bytes(bytes.as_slice());
+            if let Some((parsed_block, _remainder)) = &maybe_parsed_block {
                 assert_ne!(
                     *parsed_block.header().root(),
                     header_root,
                     "Byte at offset {offset} with bits {mask:#010b} flipped"
                 );
             }
+            // A buffer with a whole block is accepted when the block is followed by nothing else
+            assert_eq!(
+                Owned::from_buffer(SharedAlignedBuffer::from_bytes(bytes.as_slice())).is_ok(),
+                maybe_parsed_block.is_some_and(|(_parsed_block, remainder)| remainder.is_empty()),
+                "Byte at offset {offset} with bits {mask:#010b} flipped"
+            );
             bytes.as_mut_slice()[offset] ^= mask;
         }
     }
@@ -680,21 +741,22 @@ where
     let bytes_with_extra_byte =
         SharedAlignedBuffer::<Align16>::from_bytes(&[bytes.as_slice(), &[0]].concat());
     let (parsed_block, remainder) =
-        Block::try_from_bytes(bytes_with_extra_byte.as_slice(), OwnedBlock::SHARD_KIND).unwrap();
+        Block::try_from_bytes(bytes_with_extra_byte.as_slice()).unwrap();
     assert_eq!(remainder, [0]);
     assert_eq!(*parsed_block.header().root(), header_root);
+    let returned_buffer = Owned::from_buffer(bytes_with_extra_byte.clone()).unwrap_err();
+    assert!(returned_buffer.as_slice() == bytes_with_extra_byte.as_slice());
 
     let header_with_extra_byte =
         SharedAlignedBuffer::from_bytes(&[block.header().buffer().as_slice(), &[0]].concat());
-    let returned_buffer =
-        OwnedBlock::Header::from_buffer(header_with_extra_byte.clone()).unwrap_err();
+    let returned_buffer = Owned::Header::from_buffer(header_with_extra_byte.clone()).unwrap_err();
     assert_eq!(
         returned_buffer.as_slice(),
         header_with_extra_byte.as_slice()
     );
     let body_with_extra_byte =
         SharedAlignedBuffer::from_bytes(&[block.body().buffer().as_slice(), &[0]].concat());
-    let returned_buffer = OwnedBlock::Body::from_buffer(body_with_extra_byte.clone()).unwrap_err();
+    let returned_buffer = Owned::Body::from_buffer(body_with_extra_byte.clone()).unwrap_err();
     assert_eq!(returned_buffer.as_slice(), body_with_extra_byte.as_slice());
 }
 

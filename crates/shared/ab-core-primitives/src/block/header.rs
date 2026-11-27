@@ -1336,15 +1336,16 @@ impl<'a> Deref for BlockHeader<'a> {
 }
 
 impl<'a> BlockHeader<'a> {
-    /// Try to create a new instance from provided bytes for provided shard index.
+    /// Try to create a new instance from provided bytes.
     ///
-    /// `bytes` should be 8-bytes aligned.
+    /// `bytes` should be 8-bytes aligned. The shard kind of the header is that of the shard index
+    /// in its prefix, see [`Self::shard_kind_from_bytes()`].
     ///
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
-    pub fn try_from_bytes(bytes: &'a [u8], shard_kind: RealShardKind) -> Option<(Self, &'a [u8])> {
-        match shard_kind {
+    pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        match Self::shard_kind_from_bytes(bytes)? {
             RealShardKind::BeaconChain => {
                 let (header, remainder) = BeaconChainHeader::try_from_bytes(bytes)?;
                 Some((Self::BeaconChain(header), remainder))
@@ -1358,6 +1359,17 @@ impl<'a> BlockHeader<'a> {
                 Some((Self::LeafShard(header), remainder))
             }
         }
+    }
+
+    /// Shard kind of the header that `bytes` start with.
+    ///
+    /// Headers of all shard kinds start with [`BlockHeaderPrefix`], so the shard kind is that of
+    /// its shard index. Returns `None` if there are too few bytes for the prefix, they are not
+    /// 8-bytes aligned or the shard index doesn't correspond to a real shard.
+    #[inline]
+    pub fn shard_kind_from_bytes(bytes: &[u8]) -> Option<RealShardKind> {
+        let (prefix, _remainder) = BlockHeaderPrefix::from_bytes(bytes)?;
+        prefix.shard_index.shard_kind()?.to_real()
     }
 
     #[inline]

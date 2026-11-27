@@ -335,7 +335,7 @@ pub struct BeaconChainBlock<'a> {
 }
 
 impl<'a> BeaconChainBlock<'a> {
-    /// Try to create a new instance from provided bytes for provided shard index.
+    /// Try to create a new instance from provided bytes.
     ///
     /// `bytes` should be 16-bytes aligned.
     ///
@@ -432,7 +432,7 @@ pub struct IntermediateShardBlock<'a> {
 }
 
 impl<'a> IntermediateShardBlock<'a> {
-    /// Try to create a new instance from provided bytes for provided shard index.
+    /// Try to create a new instance from provided bytes.
     ///
     /// `bytes` should be 16-bytes aligned.
     ///
@@ -547,7 +547,7 @@ pub struct LeafShardBlock<'a> {
 }
 
 impl<'a> LeafShardBlock<'a> {
-    /// Try to create a new instance from provided bytes for provided shard index.
+    /// Try to create a new instance from provided bytes.
     ///
     /// `bytes` should be 16-bytes aligned.
     ///
@@ -636,7 +636,8 @@ pub enum Block<'a> {
 impl<'a> Block<'a> {
     /// Try to create a new instance from provided bytes.
     ///
-    /// `bytes` should be 16-byte aligned.
+    /// `bytes` should be 16-byte aligned. The shard kind of the block is that of the shard index in
+    /// the prefix of its header, see [`BlockHeader::shard_kind_from_bytes()`].
     ///
     /// Checks internal consistency of header, body, and block, but no consensus verification is
     /// done.
@@ -644,8 +645,8 @@ impl<'a> Block<'a> {
     /// Returns an instance and remaining bytes on success, `None` if too few bytes were given,
     /// bytes are not properly aligned or input is otherwise invalid.
     #[inline]
-    pub fn try_from_bytes(bytes: &'a [u8], shard_kind: RealShardKind) -> Option<(Self, &'a [u8])> {
-        match shard_kind {
+    pub fn try_from_bytes(bytes: &'a [u8]) -> Option<(Self, &'a [u8])> {
+        match BlockHeader::shard_kind_from_bytes(bytes)? {
             RealShardKind::BeaconChain => {
                 let (block_header, remainder) = BeaconChainBlock::try_from_bytes(bytes)?;
                 Some((Self::BeaconChain(block_header), remainder))

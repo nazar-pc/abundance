@@ -1307,8 +1307,11 @@ where
                             system_contract_states: _,
                         } = storage_item_block;
 
-                        Block::from_buffers(header.buffer().clone(), body)
-                            .ok_or(ReadBlockError::FailedToDecode)
+                        let body = Block::Body::from_buffer(body)
+                            .map_err(|_buffer| ReadBlockError::FailedToDecode)?;
+
+                        Block::from_parts(header.clone(), body)
+                            .map_err(|_parts| ReadBlockError::FailedToDecode)
                     }
                 };
             }

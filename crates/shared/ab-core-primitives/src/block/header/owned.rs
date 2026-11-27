@@ -332,6 +332,44 @@ impl OwnedBeaconChainHeader {
         })
     }
 
+    /// Create an owned header from the beginning of a buffer.
+    ///
+    /// Bytes after the header don't belong to it, the buffer of the owned header ends where the
+    /// header ends, but its allocation still holds them. Returns the buffer back if it doesn't
+    /// start with a header.
+    pub(crate) fn from_buffer_start(
+        buffer: SharedAlignedBuffer,
+    ) -> Result<Self, SharedAlignedBuffer> {
+        let mut header_len = 0;
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((header, remainder)) = BeaconChainHeader::try_from_bytes(buffer) else {
+                return Err(());
+            };
+            header_len = buffer.len() - remainder.len();
+
+            Ok(header)
+        })
+        .map_err(move |()| buffer)?;
+        let header_len = u32::try_from(header_len)
+            .expect("Header is a part of the buffer, whose length is `u32`; qed");
+
+        // SAFETY: Truncation only shortens the buffer, which keeps referencing the same bytes of
+        // the same allocation. The header is not empty, so the allocation is kept, and it only
+        // references bytes within its length.
+        let inner = unsafe {
+            inner.replace_cart(|mut buffer| {
+                buffer.truncate(header_len);
+                buffer
+            })
+        };
+
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
+    }
+
     /// Inner buffer with block header contents
     #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
@@ -624,6 +662,44 @@ impl OwnedIntermediateShardHeader {
         })
     }
 
+    /// Create an owned header from the beginning of a buffer.
+    ///
+    /// Bytes after the header don't belong to it, the buffer of the owned header ends where the
+    /// header ends, but its allocation still holds them. Returns the buffer back if it doesn't
+    /// start with a header.
+    pub(crate) fn from_buffer_start(
+        buffer: SharedAlignedBuffer,
+    ) -> Result<Self, SharedAlignedBuffer> {
+        let mut header_len = 0;
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((header, remainder)) = IntermediateShardHeader::try_from_bytes(buffer) else {
+                return Err(());
+            };
+            header_len = buffer.len() - remainder.len();
+
+            Ok(header)
+        })
+        .map_err(move |()| buffer)?;
+        let header_len = u32::try_from(header_len)
+            .expect("Header is a part of the buffer, whose length is `u32`; qed");
+
+        // SAFETY: Truncation only shortens the buffer, which keeps referencing the same bytes of
+        // the same allocation. The header is not empty, so the allocation is kept, and it only
+        // references bytes within its length.
+        let inner = unsafe {
+            inner.replace_cart(|mut buffer| {
+                buffer.truncate(header_len);
+                buffer
+            })
+        };
+
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
+    }
+
     /// Inner buffer with block header contents
     #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
@@ -899,6 +975,44 @@ impl OwnedLeafShardHeader {
         })
     }
 
+    /// Create an owned header from the beginning of a buffer.
+    ///
+    /// Bytes after the header don't belong to it, the buffer of the owned header ends where the
+    /// header ends, but its allocation still holds them. Returns the buffer back if it doesn't
+    /// start with a header.
+    pub(crate) fn from_buffer_start(
+        buffer: SharedAlignedBuffer,
+    ) -> Result<Self, SharedAlignedBuffer> {
+        let mut header_len = 0;
+        // TODO: Cloning is cheap, but will not be necessary if/when this is resolved:
+        //  https://github.com/unicode-org/icu4x/issues/6665
+        let inner = Yoke::try_attach_to_cart(buffer.clone(), |buffer| {
+            let Some((header, remainder)) = LeafShardHeader::try_from_bytes(buffer) else {
+                return Err(());
+            };
+            header_len = buffer.len() - remainder.len();
+
+            Ok(header)
+        })
+        .map_err(move |()| buffer)?;
+        let header_len = u32::try_from(header_len)
+            .expect("Header is a part of the buffer, whose length is `u32`; qed");
+
+        // SAFETY: Truncation only shortens the buffer, which keeps referencing the same bytes of
+        // the same allocation. The header is not empty, so the allocation is kept, and it only
+        // references bytes within its length.
+        let inner = unsafe {
+            inner.replace_cart(|mut buffer| {
+                buffer.truncate(header_len);
+                buffer
+            })
+        };
+
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
+    }
+
     /// Inner buffer with block header contents
     #[inline(always)]
     pub fn buffer(&self) -> &SharedAlignedBuffer {
@@ -1019,12 +1133,16 @@ pub enum OwnedBlockHeader {
 }
 
 impl OwnedBlockHeader {
-    /// Create an owned header from a buffer
+    /// Create an owned header from a buffer.
+    ///
+    /// The shard kind of the header is that of the shard index in its prefix, see
+    /// [`BlockHeader::shard_kind_from_bytes()`].
     #[inline]
-    pub fn from_buffer(
-        buffer: SharedAlignedBuffer,
-        shard_kind: RealShardKind,
-    ) -> Result<Self, SharedAlignedBuffer> {
+    pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        let Some(shard_kind) = BlockHeader::shard_kind_from_bytes(buffer.as_slice()) else {
+            return Err(buffer);
+        };
+
         Ok(match shard_kind {
             RealShardKind::BeaconChain => {
                 Self::BeaconChain(OwnedBeaconChainHeader::from_buffer(buffer)?)

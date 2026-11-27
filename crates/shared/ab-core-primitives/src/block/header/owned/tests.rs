@@ -1,5 +1,5 @@
 use crate::block::header::owned::{
-    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError,
+    GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedBeaconChainHeaderError, OwnedBlockHeader,
     OwnedIntermediateShardHeader, OwnedIntermediateShardHeaderError, OwnedLeafShardHeader,
     OwnedLeafShardHeaderError,
 };
@@ -151,8 +151,7 @@ where
         "Header must be written after the bytes before it"
     );
 
-    let (parsed_header, remainder) =
-        BlockHeader::try_from_bytes(header_bytes, Header::SHARD_KIND).unwrap();
+    let (parsed_header, remainder) = BlockHeader::try_from_bytes(header_bytes).unwrap();
     assert!(remainder.is_empty());
     assert_eq!(*parsed_header.root(), *header.root());
 }
@@ -287,6 +286,21 @@ fn inconsistent_parts_are_rejected_by_from_parts_and_parser() {
 
         let bytes = with_shared_parts(header, &prefix, &consensus_info());
         assert!(BeaconChainHeader::try_from_bytes(bytes.as_slice()).is_none());
+
+        // Shard indices without a real shard kind are rejected before parsing a header of any
+        // kind, and bytes of a beacon chain header are not a valid header of another kind
+        if prefix
+            .shard_index
+            .shard_kind()
+            .and_then(ShardKind::to_real)
+            .is_none()
+        {
+            assert_eq!(BlockHeader::shard_kind_from_bytes(bytes.as_slice()), None);
+        }
+        assert!(BlockHeader::try_from_bytes(bytes.as_slice()).is_none());
+        let bytes = bytes.into_shared();
+        let returned_buffer = OwnedBlockHeader::from_buffer(bytes.clone()).unwrap_err();
+        assert!(returned_buffer.as_slice() == bytes.as_slice());
     }
 
     let prefix = self::prefix(1);
@@ -891,13 +905,23 @@ where
         "Header in an owned buffer"
     );
 
+    // The shard kind of a header of any kind is that of its shard index
+    assert_eq!(
+        BlockHeader::shard_kind_from_bytes(bytes),
+        Some(Header::SHARD_KIND)
+    );
+    let owned_header = OwnedBlockHeader::from_buffer(header.buffer().clone()).unwrap();
+    assert!(
+        owned_header.buffer().as_slice() == bytes,
+        "Header of any kind in an owned buffer"
+    );
+
     // The parser only requires 8-byte alignment, and bytes after the header don't belong to it
     let extra_bytes = [1; 16];
     let bytes_with_extra_bytes =
         OwnedAlignedBuffer::<Align16>::from_bytes(&[&[0; 8], bytes, &extra_bytes].concat());
     let (parsed_header, remainder) =
-        BlockHeader::try_from_bytes(&bytes_with_extra_bytes.as_slice()[8..], Header::SHARD_KIND)
-            .unwrap();
+        BlockHeader::try_from_bytes(&bytes_with_extra_bytes.as_slice()[8..]).unwrap();
     assert_eq!(remainder, extra_bytes);
     assert!(
         parsed_header.to_owned().buffer().as_slice() == bytes,
