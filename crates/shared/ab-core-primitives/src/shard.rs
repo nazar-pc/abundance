@@ -1,5 +1,8 @@
 //! Shard-related primitives
 
+#[cfg(test)]
+mod tests;
+
 use crate::hashes::Blake3Hash;
 use crate::nano_u256::NanoU256;
 use crate::segments::HistorySize;
@@ -26,12 +29,12 @@ const INTERMEDIATE_SHARD_MASK: u32 = u32::MAX >> (u32::BITS - INTERMEDIATE_SHARD
 ///                          /          \
 ///      Intermediate shard 1            Intermediate shard 2
 ///              /  \                            /  \
-/// Leaf shard 11   Leaf shard 12   Leaf shard 22   Leaf shard 22
+/// Leaf shard 11   Leaf shard 12   Leaf shard 21   Leaf shard 22
 /// ```
 ///
 /// Beacon chain has index 0, intermediate shards indices 1..=1023. Leaf shards share the same least
 /// significant 10 bits as their respective intermediate shards, so leaf shards of intermediate
-/// shard 1 have indices like 1025,2049,3097,etc.
+/// shard 1 have indices like 1025,2049,3073,etc.
 ///
 /// If represented as least significant bits first (as it will be in the formatted address):
 /// ```text
@@ -327,16 +330,17 @@ impl NumShards {
             return None;
         }
 
-        let num_shards = Self {
-            intermediate_shards,
-            leaf_shards_per_intermediate_shard,
-        };
-
-        if num_shards.leaf_shards() > ShardIndex::MAX_SHARDS {
+        // Leaf shards are numbered in the bits of shard indices above those of intermediate shards
+        if u32::from(leaf_shards_per_intermediate_shard.get())
+            > (ShardIndex::MAX_SHARD_INDEX >> INTERMEDIATE_SHARD_BITS)
+        {
             return None;
         }
 
-        Some(num_shards)
+        Some(Self {
+            intermediate_shards,
+            leaf_shards_per_intermediate_shard,
+        })
     }
 
     /// The number of intermediate shards
@@ -368,12 +372,13 @@ impl NumShards {
             .map(ShardIndex)
     }
 
-    /// Iterator over all intermediate shards
+    /// Iterator over all leaf shards
     #[inline(always)]
     pub fn iter_leaf_shards(&self) -> impl Iterator<Item = ShardIndex> {
         self.iter_intermediate_shards()
             .flat_map(|intermediate_shard| {
-                (0..u32::from(self.leaf_shards_per_intermediate_shard.get())).map(
+                // Leaf shards are numbered from 1, 0 is the intermediate shard itself
+                (1..=u32::from(self.leaf_shards_per_intermediate_shard.get())).map(
                     move |leaf_shard_index| {
                         ShardIndex(
                             (leaf_shard_index << INTERMEDIATE_SHARD_BITS) | intermediate_shard.0,
