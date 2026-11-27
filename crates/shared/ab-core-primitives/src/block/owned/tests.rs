@@ -428,7 +428,10 @@ fn intermediate_shard_block_builder_rejects_leaf_shard_blocks_of_other_shards() 
         )
     };
 
-    with_header(1).unwrap();
+    let block = with_header(1)
+        .unwrap()
+        .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+        .unwrap();
     assert_eq!(
         with_header(2).err(),
         Some(
@@ -437,6 +440,28 @@ fn intermediate_shard_block_builder_rejects_leaf_shard_blocks_of_other_shards() 
                 leaf_shard_index: leaf_shard_block.header.header().prefix.shard_index,
             }
         )
+    );
+
+    // Parsers reject the same body with a header of another shard that commits to it
+    let header = block.header.header();
+    let header = OwnedIntermediateShardHeader::from_parts(
+        &prefix(ShardIndex::new(2).unwrap()),
+        header.result,
+        header.consensus_info,
+        header.beacon_chain_info(),
+        header.leaf_shard_blocks_root(),
+    )
+    .unwrap()
+    .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap();
+    let bytes = parts_bytes(header.buffer(), block.body.buffer(), 0);
+    assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_none());
+    assert!(
+        OwnedIntermediateShardBlock::from_buffers(
+            header.buffer().clone(),
+            block.body.buffer().clone()
+        )
+        .is_none()
     );
 }
 
