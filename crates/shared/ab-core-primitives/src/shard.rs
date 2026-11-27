@@ -1,5 +1,8 @@
 //! Shard-related primitives
 
+#[cfg(test)]
+mod tests;
+
 use crate::hashes::Blake3Hash;
 use crate::nano_u256::NanoU256;
 use crate::segments::HistorySize;
@@ -368,12 +371,13 @@ impl NumShards {
             .map(ShardIndex)
     }
 
-    /// Iterator over all intermediate shards
+    /// Iterator over all leaf shards
     #[inline(always)]
     pub fn iter_leaf_shards(&self) -> impl Iterator<Item = ShardIndex> {
         self.iter_intermediate_shards()
             .flat_map(|intermediate_shard| {
-                (0..u32::from(self.leaf_shards_per_intermediate_shard.get())).map(
+                // Leaf shards are numbered from 1, 0 is the intermediate shard itself
+                (1..=u32::from(self.leaf_shards_per_intermediate_shard.get())).map(
                     move |leaf_shard_index| {
                         ShardIndex(
                             (leaf_shard_index << INTERMEDIATE_SHARD_BITS) | intermediate_shard.0,
