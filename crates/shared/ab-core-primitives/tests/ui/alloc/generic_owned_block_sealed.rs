@@ -39,6 +39,13 @@ impl GenericOwnedBlock for CustomBlock {
         &self.body
     }
 
+    fn from_parts(
+        header: Self::Header,
+        body: Self::Body,
+    ) -> Result<Self, (Self::Header, Self::Body)> {
+        Err((header, body))
+    }
+
     fn from_buffers(_header: SharedAlignedBuffer, _body: SharedAlignedBuffer) -> Option<Self> {
         None
     }

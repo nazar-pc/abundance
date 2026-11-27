@@ -591,6 +591,15 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
         )
         .is_none()
     );
+
+    // Parts are returned back when they don't form a block
+    let (returned_header, returned_body) =
+        OwnedBeaconChainBlock::from_parts(inconsistent_header.clone(), block.body.clone())
+            .unwrap_err();
+    assert!(returned_header.buffer().as_slice() == inconsistent_header.buffer().as_slice());
+    assert!(returned_body.buffer().as_slice() == block.body.buffer().as_slice());
+    let (header, body) = block.split();
+    OwnedBeaconChainBlock::from_parts(header, body).unwrap();
 }
 
 #[test]
