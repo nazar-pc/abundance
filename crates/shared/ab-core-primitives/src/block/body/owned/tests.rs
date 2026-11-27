@@ -1297,6 +1297,32 @@ fn owned_intermediate_shard_body_with_inconsistent_leaf_shard_blocks() {
             Err(OwnedIntermediateShardBodyError::InconsistentLeafShardBlocks)
         );
     }
+
+    // Blocks of the same shard with equal numbers, and local segment indices that don't increase,
+    // also across a block without segments
+    for (blocks, consistent) in [
+        (&[(0, Some(5)), (1, None), (2, Some(6))][..], true),
+        (&[(0, None), (0, None)], false),
+        (&[(0, Some(5)), (1, Some(5))], false),
+        (&[(0, Some(5)), (1, None), (2, Some(5))], false),
+    ] {
+        let leaf_shard_blocks = blocks
+            .iter()
+            .map(|&(number, first_local_segment_index)| {
+                TestLeafShardBlock::with_segments(
+                    1 | (1 << 10),
+                    number,
+                    first_local_segment_index.map(|index| segments(index, 1)),
+                )
+            })
+            .collect::<Vec<_>>();
+        let bytes = intermediate_shard_body_bytes(None, &leaf_shard_blocks);
+        assert_eq!(
+            IntermediateShardBody::try_from_bytes(bytes.as_slice()).is_some(),
+            consistent,
+            "{blocks:?}"
+        );
+    }
 }
 
 /// Check that the intermediate shard body with `leaf_shard_blocks` is rejected by the parser, and
@@ -1367,6 +1393,34 @@ fn owned_beacon_chain_body_with_inconsistent_intermediate_shard_blocks() {
         assert_matches!(
             new_body(vec![infos[first].clone(), infos[second].clone()]),
             Err(OwnedBeaconChainBodyError::InconsistentIntermediateShardBlocks)
+        );
+    }
+
+    // Blocks of the same shard with equal numbers, and local segment indices that don't increase,
+    // also across a block without segments
+    for (blocks, consistent) in [
+        (&[(0, Some(5)), (1, None), (2, Some(6))][..], true),
+        (&[(0, None), (0, None)], false),
+        (&[(0, Some(5)), (1, Some(5))], false),
+        (&[(0, Some(5)), (1, None), (2, Some(5))], false),
+    ] {
+        let intermediate_shard_blocks = blocks
+            .iter()
+            .map(|&(number, first_local_segment_index)| {
+                TestIntermediateShardBlock::with_segments(
+                    1,
+                    number,
+                    first_local_segment_index.map(|index| segments(index, 1)),
+                    0,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let bytes = beacon_chain_body_bytes(&intermediate_shard_blocks, &[]);
+        assert_eq!(
+            BeaconChainBody::try_from_bytes(bytes.as_slice()).is_some(),
+            consistent,
+            "{blocks:?}"
         );
     }
 }

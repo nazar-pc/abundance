@@ -1,13 +1,15 @@
 use crate::address::Address;
-use crate::block::body::owned::{GenericOwnedBlockBody, OwnedLeafShardBlockInfo};
+use crate::block::body::owned::{
+    GenericOwnedBlockBody, OwnedIntermediateShardBlockInfo, OwnedLeafShardBlockInfo,
+};
 use crate::block::body::{IntermediateShardBlockInfo, LeafShardBlockInfo};
 use crate::block::header::owned::{
     GenericOwnedBlockHeader, OwnedBeaconChainHeader, OwnedIntermediateShardHeader,
 };
 use crate::block::header::{
     BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo, BlockHeaderConsistencyError,
-    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPrefix,
-    BlockHeaderSeal, OwnedBlockHeaderConsensusParameters,
+    BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters, BlockHeaderPotParametersChange,
+    BlockHeaderPrefix, BlockHeaderSeal, OwnedBlockHeaderConsensusParameters,
 };
 use crate::block::owned::{
     GenericOwnedBlock, OwnedBeaconChainBlock, OwnedIntermediateShardBlock,
@@ -19,7 +21,8 @@ use crate::block::{
 };
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
 use crate::hashes::Blake3Hash;
-use crate::pot::{PotOutput, SlotNumber};
+use crate::pot::{PotCheckpoints, PotOutput, PotParametersChange, SlotNumber};
+use crate::segments::{LocalSegmentIndex, SegmentRoot, SuperSegmentRoot};
 use crate::shard::{NumShards, RealShardKind, ShardIndex};
 use crate::solutions::{Solution, SolutionRange};
 use crate::transaction::owned::OwnedTransaction;
@@ -425,7 +428,10 @@ fn intermediate_shard_block_builder_rejects_leaf_shard_blocks_of_other_shards() 
         )
     };
 
-    with_header(1).unwrap();
+    let block = with_header(1)
+        .unwrap()
+        .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+        .unwrap();
     assert_eq!(
         with_header(2).err(),
         Some(
@@ -434,6 +440,28 @@ fn intermediate_shard_block_builder_rejects_leaf_shard_blocks_of_other_shards() 
                 leaf_shard_index: leaf_shard_block.header.header().prefix.shard_index,
             }
         )
+    );
+
+    // Parsers reject the same body with a header of another shard that commits to it
+    let header = block.header.header();
+    let header = OwnedIntermediateShardHeader::from_parts(
+        &prefix(ShardIndex::new(2).unwrap()),
+        header.result,
+        header.consensus_info,
+        header.beacon_chain_info(),
+        header.leaf_shard_blocks_root(),
+    )
+    .unwrap()
+    .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap();
+    let bytes = parts_bytes(header.buffer(), block.body.buffer(), 0);
+    assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_none());
+    assert!(
+        OwnedIntermediateShardBlock::from_buffers(
+            header.buffer().clone(),
+            block.body.buffer().clone()
+        )
+        .is_none()
     );
 }
 
@@ -603,4 +631,173 @@ fn child_block_roots_are_tree_roots_of_header_roots() {
             assert_ne!(leaf_shard_blocks_root, *leaf_shard_block_root);
         }
     }
+}
+
+/// Check that `block` has a single encoding: every truncated encoding is rejected, and every
+/// encoding with a bit flipped in one byte is either rejected or has a different header root.
+///
+/// Header roots commit to bodies through body roots, so this covers both, and both the lowest and
+/// the highest bit are flipped to reach invalid values of counts, flags and padding. Invalid values
+/// that would change the root if accepted, like unexpected flags, can't be caught this way and are
+/// tested separately. Bytes after the block don't belong to it, while owned headers and bodies must
+/// be exactly the bytes of their buffers.
+fn check_encoding_is_canonical<OwnedBlock>(block: &OwnedBlock)
+where
+    OwnedBlock: GenericOwnedBlock,
+{
+    let header_root = *block.header().root();
+    let mut bytes = block_bytes(block, 0).into_owned();
+
+    let (parsed_block, remainder) =
+        Block::try_from_bytes(bytes.as_slice(), OwnedBlock::SHARD_KIND).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(*parsed_block.header().root(), header_root);
+
+    for len in 0..bytes.as_slice().len() {
+        assert!(
+            Block::try_from_bytes(&bytes.as_slice()[..len], OwnedBlock::SHARD_KIND).is_none(),
+            "Truncated to {len} out of {} bytes",
+            bytes.len()
+        );
+    }
+
+    for offset in 0..bytes.as_slice().len() {
+        for mask in [0b0000_0001, 0b1000_0000] {
+            bytes.as_mut_slice()[offset] ^= mask;
+            if let Some((parsed_block, _remainder)) =
+                Block::try_from_bytes(bytes.as_slice(), OwnedBlock::SHARD_KIND)
+            {
+                assert_ne!(
+                    *parsed_block.header().root(),
+                    header_root,
+                    "Byte at offset {offset} with bits {mask:#010b} flipped"
+                );
+            }
+            bytes.as_mut_slice()[offset] ^= mask;
+        }
+    }
+
+    let bytes_with_extra_byte =
+        SharedAlignedBuffer::<Align16>::from_bytes(&[bytes.as_slice(), &[0]].concat());
+    let (parsed_block, remainder) =
+        Block::try_from_bytes(bytes_with_extra_byte.as_slice(), OwnedBlock::SHARD_KIND).unwrap();
+    assert_eq!(remainder, [0]);
+    assert_eq!(*parsed_block.header().root(), header_root);
+
+    let header_with_extra_byte =
+        SharedAlignedBuffer::from_bytes(&[block.header().buffer().as_slice(), &[0]].concat());
+    let returned_buffer =
+        OwnedBlock::Header::from_buffer(header_with_extra_byte.clone()).unwrap_err();
+    assert_eq!(
+        returned_buffer.as_slice(),
+        header_with_extra_byte.as_slice()
+    );
+    let body_with_extra_byte =
+        SharedAlignedBuffer::from_bytes(&[block.body().buffer().as_slice(), &[0]].concat());
+    let returned_buffer = OwnedBlock::Body::from_buffer(body_with_extra_byte.clone()).unwrap_err();
+    assert_eq!(returned_buffer.as_slice(), body_with_extra_byte.as_slice());
+}
+
+#[test]
+#[cfg_attr(
+    miri,
+    ignore = "Parses tens of thousands of mutated blocks, too slow under Miri"
+)]
+fn block_encodings_are_canonical() {
+    let own_segment_roots = [SegmentRoot::from([1; _]), SegmentRoot::from([2; _])];
+    let own_segments = || {
+        own_segment_roots
+            .iter()
+            .enumerate()
+            .map(|(offset, &segment_root)| {
+                let offset = u64::try_from(offset).unwrap();
+                (LocalSegmentIndex::from(10 + offset), segment_root)
+            })
+    };
+
+    // Leaf shard blocks of the same intermediate shard with and without own segments, with
+    // transactions that have padding after them. Two of them with own segments make the record of
+    // the intermediate shard block in the beacon chain body end with padding.
+    let leaf_shard_blocks = [
+        (ShardIndex::new(1 | (1 << 10)).unwrap(), true),
+        (ShardIndex::new(1 | (2 << 10)).unwrap(), false),
+        (ShardIndex::new(1 | (3 << 10)).unwrap(), true),
+    ]
+    .map(|(shard_index, with_own_segments)| {
+        let mut builder =
+            OwnedLeafShardBlock::init(own_segments().take(if with_own_segments { 2 } else { 0 }))
+                .unwrap();
+        builder.add_transaction(&transaction()).unwrap();
+        builder.add_transaction(&transaction()).unwrap();
+        builder
+            .with_header(
+                &prefix(shard_index),
+                Blake3Hash::new([3; _]),
+                &consensus_info(),
+                &beacon_chain_info(),
+            )
+            .unwrap()
+            .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+            .unwrap()
+    });
+    let leaf_shard_block_infos = leaf_shard_blocks
+        .each_ref()
+        .map(|leaf_shard_block| OwnedLeafShardBlockInfo::from_block(&leaf_shard_block.block()));
+
+    let intermediate_shard_block = OwnedIntermediateShardBlock::init(
+        own_segments(),
+        leaf_shard_block_infos
+            .iter()
+            .map(|leaf_shard_block_info| leaf_shard_block_info.info().clone()),
+    )
+    .unwrap()
+    .with_header(
+        &prefix(ShardIndex::new(1).unwrap()),
+        Blake3Hash::new([4; _]),
+        &consensus_info(),
+        &beacon_chain_info(),
+    )
+    .unwrap()
+    .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap();
+    let intermediate_shard_block_info =
+        OwnedIntermediateShardBlockInfo::from_block(&intermediate_shard_block.block());
+
+    // All optional consensus parameters are present
+    let beacon_chain_block = OwnedBeaconChainBlock::init(
+        own_segments(),
+        iter::once(intermediate_shard_block_info.info().clone()),
+        &[PotCheckpoints::default()],
+    )
+    .unwrap()
+    .with_header(
+        &prefix(ShardIndex::BEACON_CHAIN),
+        Blake3Hash::new([5; _]),
+        &consensus_info(),
+        &OwnedBlockHeaderConsensusParameters {
+            fixed_parameters: BlockHeaderFixedConsensusParameters {
+                solution_range: SolutionRange::MAX,
+                slot_iterations: NonZeroU32::MIN,
+                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap(),
+            },
+            super_segment_root: Some(SuperSegmentRoot::from([6; _])),
+            next_solution_range: Some(SolutionRange::from(7)),
+            pot_parameters_change: Some(BlockHeaderPotParametersChange::from(
+                PotParametersChange {
+                    slot: SlotNumber::from(8),
+                    slot_iterations: NonZeroU32::MIN,
+                    entropy: Blake3Hash::new([9; _]),
+                },
+            )),
+        },
+    )
+    .unwrap()
+    .with_seal(BlockHeaderSeal::Ed25519(&seal()))
+    .unwrap();
+
+    for leaf_shard_block in &leaf_shard_blocks {
+        check_encoding_is_canonical(leaf_shard_block);
+    }
+    check_encoding_is_canonical(&intermediate_shard_block);
+    check_encoding_is_canonical(&beacon_chain_block);
 }
