@@ -1019,12 +1019,16 @@ pub enum OwnedBlockHeader {
 }
 
 impl OwnedBlockHeader {
-    /// Create an owned header from a buffer
+    /// Create an owned header from a buffer.
+    ///
+    /// The shard kind of the header is that of the shard index in its prefix, see
+    /// [`BlockHeader::shard_kind_from_bytes()`].
     #[inline]
-    pub fn from_buffer(
-        buffer: SharedAlignedBuffer,
-        shard_kind: RealShardKind,
-    ) -> Result<Self, SharedAlignedBuffer> {
+    pub fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        let Some(shard_kind) = BlockHeader::shard_kind_from_bytes(buffer.as_slice()) else {
+            return Err(buffer);
+        };
+
         Ok(match shard_kind {
             RealShardKind::BeaconChain => {
                 Self::BeaconChain(OwnedBeaconChainHeader::from_buffer(buffer)?)

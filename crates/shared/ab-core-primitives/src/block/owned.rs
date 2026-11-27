@@ -677,24 +677,25 @@ impl OwnedBlock {
         }
     }
 
-    /// Create owned block from buffers
+    /// Create owned block from buffers.
+    ///
+    /// The shard kind of the block is that of the shard index in the prefix of its header, see
+    /// [`BlockHeader::shard_kind_from_bytes()`].
     #[inline]
-    pub fn from_buffers(
-        header: SharedAlignedBuffer,
-        body: SharedAlignedBuffer,
-        shard_kind: RealShardKind,
-    ) -> Option<Self> {
-        Some(match shard_kind {
-            RealShardKind::BeaconChain => {
-                Self::BeaconChain(OwnedBeaconChainBlock::from_buffers(header, body)?)
-            }
-            RealShardKind::IntermediateShard => {
-                Self::IntermediateShard(OwnedIntermediateShardBlock::from_buffers(header, body)?)
-            }
-            RealShardKind::LeafShard => {
-                Self::LeafShard(OwnedLeafShardBlock::from_buffers(header, body)?)
-            }
-        })
+    pub fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
+        Some(
+            match BlockHeader::shard_kind_from_bytes(header.as_slice())? {
+                RealShardKind::BeaconChain => {
+                    Self::BeaconChain(OwnedBeaconChainBlock::from_buffers(header, body)?)
+                }
+                RealShardKind::IntermediateShard => Self::IntermediateShard(
+                    OwnedIntermediateShardBlock::from_buffers(header, body)?,
+                ),
+                RealShardKind::LeafShard => {
+                    Self::LeafShard(OwnedLeafShardBlock::from_buffers(header, body)?)
+                }
+            },
+        )
     }
 
     /// Get block
