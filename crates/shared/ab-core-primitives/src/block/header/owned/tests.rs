@@ -5,10 +5,10 @@ use crate::block::header::owned::{
 };
 use crate::block::header::{
     BeaconChainHeader, BlockHeader, BlockHeaderBeaconChainInfo, BlockHeaderConsensusInfo,
-    BlockHeaderConsistencyError, BlockHeaderEd25519Seal, BlockHeaderFixedConsensusParameters,
-    BlockHeaderPotParametersChange, BlockHeaderPrefix, BlockHeaderResult, BlockHeaderSeal,
-    GenericBlockHeader, IntermediateShardHeader, LeafShardHeader,
-    OwnedBlockHeaderConsensusParameters,
+    BlockHeaderConsensusParameters, BlockHeaderConsistencyError, BlockHeaderEd25519Seal,
+    BlockHeaderFixedConsensusParameters, BlockHeaderPotParametersChange, BlockHeaderPrefix,
+    BlockHeaderResult, BlockHeaderSeal, GenericBlockHeader, IntermediateShardHeader,
+    LeafShardHeader, OwnedBlockHeaderConsensusParameters,
 };
 use crate::block::{BlockNumber, BlockRoot, BlockTimestamp};
 use crate::ed25519::{Ed25519PublicKey, Ed25519Signature};
@@ -763,6 +763,117 @@ fn fixed_consensus_parameters_from_unaligned_bytes() {
         BlockHeaderFixedConsensusParameters::try_from_bytes(&buffer.as_slice()[1..]),
         Some((fixed_parameters, &[1][..]))
     );
+}
+
+#[test]
+fn invalid_consensus_parameters_are_rejected() {
+    let fixed_parameters_bytes = |slot_iterations: u32, num_shards: NumShardsUnchecked| {
+        [
+            &SolutionRange::MAX.to_bytes()[..],
+            &slot_iterations.to_le_bytes(),
+            num_shards.as_bytes(),
+        ]
+        .concat()
+    };
+    let num_shards = NumShardsUnchecked {
+        intermediate_shards: 1,
+        leaf_shards_per_intermediate_shard: 1,
+    };
+    assert_eq!(
+        BlockHeaderFixedConsensusParameters::try_from_bytes(&fixed_parameters_bytes(1, num_shards)),
+        Some((
+            BlockHeaderFixedConsensusParameters {
+                solution_range: SolutionRange::MAX,
+                slot_iterations: NonZeroU32::MIN,
+                num_shards: NumShards::new(NonZeroU16::MIN, NonZeroU16::MIN).unwrap(),
+            },
+            &[][..]
+        ))
+    );
+    for (slot_iterations, num_shards) in [
+        (0, num_shards),
+        (
+            1,
+            NumShardsUnchecked {
+                intermediate_shards: 0,
+                ..num_shards
+            },
+        ),
+        (
+            1,
+            NumShardsUnchecked {
+                leaf_shards_per_intermediate_shard: 0,
+                ..num_shards
+            },
+        ),
+        // More intermediate shards than shard indices have room for
+        (
+            1,
+            NumShardsUnchecked {
+                intermediate_shards: 1024,
+                ..num_shards
+            },
+        ),
+    ] {
+        assert!(
+            BlockHeaderFixedConsensusParameters::try_from_bytes(&fixed_parameters_bytes(
+                slot_iterations,
+                num_shards
+            ))
+            .is_none(),
+            "{slot_iterations} slot iterations, {num_shards:?}"
+        );
+    }
+
+    let pot_parameters_change_bytes = |slot_iterations: u32| {
+        [
+            &SlotNumber::from(1).to_bytes()[..],
+            &slot_iterations.to_le_bytes(),
+            Blake3Hash::new([2; _]).as_bytes(),
+        ]
+        .concat()
+    };
+    let valid_pot_parameters_change_bytes = pot_parameters_change_bytes(1);
+    let (pot_parameters_change, remainder) =
+        BlockHeaderPotParametersChange::try_from_bytes(&valid_pot_parameters_change_bytes).unwrap();
+    assert!(remainder.is_empty());
+    assert_eq!(
+        PotParametersChange::from(*pot_parameters_change),
+        PotParametersChange {
+            slot: SlotNumber::from(1),
+            slot_iterations: NonZeroU32::MIN,
+            entropy: Blake3Hash::new([2; _]),
+        }
+    );
+    assert!(
+        BlockHeaderPotParametersChange::try_from_bytes(&pot_parameters_change_bytes(0)).is_none()
+    );
+
+    // Bytes for all optional parameters follow the bitflags, so only unexpected bitflags are
+    // rejected
+    let optional_parameters_bytes = [
+        SuperSegmentRoot::from([3; _]).as_ref(),
+        &SolutionRange::from(4).to_bytes(),
+        &valid_pot_parameters_change_bytes,
+    ]
+    .concat();
+    for bitflags in 0..=u8::MAX {
+        let bytes = [
+            fixed_parameters_bytes(1, num_shards).as_slice(),
+            &[bitflags],
+            &optional_parameters_bytes,
+        ]
+        .concat();
+        assert_eq!(
+            BlockHeaderConsensusParameters::try_from_bytes(&bytes).is_some(),
+            bitflags
+                & !(BlockHeaderConsensusParameters::SUPER_SEGMENT_ROOT_MASK
+                    | BlockHeaderConsensusParameters::NEXT_SOLUTION_RANGE_MASK
+                    | BlockHeaderConsensusParameters::POT_PARAMETERS_CHANGE_MASK)
+                == 0,
+            "Bitflags {bitflags:#010b}"
+        );
+    }
 }
 
 /// `to_owned()` of a parsed header copies the bytes it was parsed from, which are the bytes
