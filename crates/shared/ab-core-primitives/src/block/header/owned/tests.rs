@@ -1022,6 +1022,10 @@ where
         parsed_header.to_owned().buffer().as_slice() == bytes,
         "Header at an address that is not 16-byte aligned, followed by other bytes"
     );
+
+    // But it doesn't accept headers at addresses that are not 8-byte aligned
+    let misaligned_bytes = OwnedAlignedBuffer::<Align16>::from_bytes(&[&[0; 4], bytes].concat());
+    assert!(BlockHeader::try_from_bytes(&misaligned_bytes.as_slice()[4..]).is_none());
 }
 
 #[test]
