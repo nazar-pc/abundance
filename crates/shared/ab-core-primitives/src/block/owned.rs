@@ -84,8 +84,13 @@ pub impl(self) trait GenericOwnedBlock:
         body: Self::Body,
     ) -> Result<Self, (Self::Header, Self::Body)>;
 
-    /// Create owned block from buffers
-    fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self>;
+    /// Create owned block from buffers.
+    ///
+    /// Returns them back if they don't contain a header and a body of a block.
+    fn from_buffers(
+        header: SharedAlignedBuffer,
+        body: SharedAlignedBuffer,
+    ) -> Result<Self, (SharedAlignedBuffer, SharedAlignedBuffer)>;
 
     /// Get regular block out of the owned version
     fn block(&self) -> Self::Block<'_>;
@@ -137,7 +142,10 @@ impl GenericOwnedBlock for OwnedBeaconChainBlock {
     }
 
     #[inline(always)]
-    fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
+    fn from_buffers(
+        header: SharedAlignedBuffer,
+        body: SharedAlignedBuffer,
+    ) -> Result<Self, (SharedAlignedBuffer, SharedAlignedBuffer)> {
         Self::from_buffers(header, body)
     }
 
@@ -184,14 +192,25 @@ impl OwnedBeaconChainBlock {
         Ok(block)
     }
 
-    /// Create owned block from buffers
+    /// Create owned block from buffers.
+    ///
+    /// Returns them back if they don't contain a header and a body of a block.
     #[inline]
-    pub fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
-        Self::from_parts(
-            OwnedBeaconChainHeader::from_buffer(header).ok()?,
-            OwnedBeaconChainBody::from_buffer(body).ok()?,
-        )
-        .ok()
+    pub fn from_buffers(
+        header: SharedAlignedBuffer,
+        body: SharedAlignedBuffer,
+    ) -> Result<Self, (SharedAlignedBuffer, SharedAlignedBuffer)> {
+        let header = match OwnedBeaconChainHeader::from_buffer(header) {
+            Ok(header) => header,
+            Err(header) => return Err((header, body)),
+        };
+        let body = match OwnedBeaconChainBody::from_buffer(body) {
+            Ok(body) => body,
+            Err(body) => return Err((header.buffer().clone(), body)),
+        };
+
+        Self::from_parts(header, body)
+            .map_err(|(header, body)| (header.buffer().clone(), body.buffer().clone()))
     }
 
     /// Create an owned version of a borrowed block, whose header corresponds to the body: borrowed
@@ -328,7 +347,10 @@ impl GenericOwnedBlock for OwnedIntermediateShardBlock {
     }
 
     #[inline(always)]
-    fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
+    fn from_buffers(
+        header: SharedAlignedBuffer,
+        body: SharedAlignedBuffer,
+    ) -> Result<Self, (SharedAlignedBuffer, SharedAlignedBuffer)> {
         Self::from_buffers(header, body)
     }
 
@@ -370,14 +392,25 @@ impl OwnedIntermediateShardBlock {
         Ok(block)
     }
 
-    /// Create owned block from buffers
+    /// Create owned block from buffers.
+    ///
+    /// Returns them back if they don't contain a header and a body of a block.
     #[inline]
-    pub fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
-        Self::from_parts(
-            OwnedIntermediateShardHeader::from_buffer(header).ok()?,
-            OwnedIntermediateShardBody::from_buffer(body).ok()?,
-        )
-        .ok()
+    pub fn from_buffers(
+        header: SharedAlignedBuffer,
+        body: SharedAlignedBuffer,
+    ) -> Result<Self, (SharedAlignedBuffer, SharedAlignedBuffer)> {
+        let header = match OwnedIntermediateShardHeader::from_buffer(header) {
+            Ok(header) => header,
+            Err(header) => return Err((header, body)),
+        };
+        let body = match OwnedIntermediateShardBody::from_buffer(body) {
+            Ok(body) => body,
+            Err(body) => return Err((header.buffer().clone(), body)),
+        };
+
+        Self::from_parts(header, body)
+            .map_err(|(header, body)| (header.buffer().clone(), body.buffer().clone()))
     }
 
     /// Create an owned version of a borrowed block, whose header corresponds to the body: borrowed
@@ -548,7 +581,10 @@ impl GenericOwnedBlock for OwnedLeafShardBlock {
     }
 
     #[inline(always)]
-    fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
+    fn from_buffers(
+        header: SharedAlignedBuffer,
+        body: SharedAlignedBuffer,
+    ) -> Result<Self, (SharedAlignedBuffer, SharedAlignedBuffer)> {
         Self::from_buffers(header, body)
     }
 
@@ -586,14 +622,25 @@ impl OwnedLeafShardBlock {
         Ok(block)
     }
 
-    /// Create owned block from buffers
+    /// Create owned block from buffers.
+    ///
+    /// Returns them back if they don't contain a header and a body of a block.
     #[inline]
-    pub fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
-        Self::from_parts(
-            OwnedLeafShardHeader::from_buffer(header).ok()?,
-            OwnedLeafShardBody::from_buffer(body).ok()?,
-        )
-        .ok()
+    pub fn from_buffers(
+        header: SharedAlignedBuffer,
+        body: SharedAlignedBuffer,
+    ) -> Result<Self, (SharedAlignedBuffer, SharedAlignedBuffer)> {
+        let header = match OwnedLeafShardHeader::from_buffer(header) {
+            Ok(header) => header,
+            Err(header) => return Err((header, body)),
+        };
+        let body = match OwnedLeafShardBody::from_buffer(body) {
+            Ok(body) => body,
+            Err(body) => return Err((header.buffer().clone(), body)),
+        };
+
+        Self::from_parts(header, body)
+            .map_err(|(header, body)| (header.buffer().clone(), body.buffer().clone()))
     }
 
     /// Create an owned version of a borrowed block, whose header corresponds to the body: borrowed
@@ -748,22 +795,28 @@ impl OwnedBlock {
     /// Create owned block from buffers.
     ///
     /// The shard kind of the block is that of the shard index in the prefix of its header, see
-    /// [`BlockHeader::shard_kind_from_bytes()`].
+    /// [`BlockHeader::shard_kind_from_bytes()`]. Returns buffers back if they don't contain a
+    /// header and a body of a block.
     #[inline]
-    pub fn from_buffers(header: SharedAlignedBuffer, body: SharedAlignedBuffer) -> Option<Self> {
-        Some(
-            match BlockHeader::shard_kind_from_bytes(header.as_slice())? {
-                RealShardKind::BeaconChain => {
-                    Self::BeaconChain(OwnedBeaconChainBlock::from_buffers(header, body)?)
-                }
-                RealShardKind::IntermediateShard => Self::IntermediateShard(
-                    OwnedIntermediateShardBlock::from_buffers(header, body)?,
-                ),
-                RealShardKind::LeafShard => {
-                    Self::LeafShard(OwnedLeafShardBlock::from_buffers(header, body)?)
-                }
-            },
-        )
+    pub fn from_buffers(
+        header: SharedAlignedBuffer,
+        body: SharedAlignedBuffer,
+    ) -> Result<Self, (SharedAlignedBuffer, SharedAlignedBuffer)> {
+        let Some(shard_kind) = BlockHeader::shard_kind_from_bytes(header.as_slice()) else {
+            return Err((header, body));
+        };
+
+        Ok(match shard_kind {
+            RealShardKind::BeaconChain => {
+                Self::BeaconChain(OwnedBeaconChainBlock::from_buffers(header, body)?)
+            }
+            RealShardKind::IntermediateShard => {
+                Self::IntermediateShard(OwnedIntermediateShardBlock::from_buffers(header, body)?)
+            }
+            RealShardKind::LeafShard => {
+                Self::LeafShard(OwnedLeafShardBlock::from_buffers(header, body)?)
+            }
+        })
     }
 
     /// Get block

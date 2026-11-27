@@ -501,7 +501,7 @@ fn beacon_chain_blocks_with_inconsistent_intermediate_shard_blocks_root_are_reje
 
         let consistent = BeaconChainBlock::try_from_bytes(bytes.as_slice()).is_some();
         assert_eq!(
-            OwnedBeaconChainBlock::from_buffers(header.buffer().clone(), body.clone()).is_some(),
+            OwnedBeaconChainBlock::from_buffers(header.buffer().clone(), body.clone()).is_ok(),
             consistent
         );
         consistent

@@ -156,7 +156,7 @@ where
     let header_buffer = SharedAlignedBuffer::from_bytes(header_buffer);
     let body_buffer = SharedAlignedBuffer::from_bytes(body_buffer);
 
-    Block::from_buffers(header_buffer, body_buffer)
+    Block::from_buffers(header_buffer, body_buffer).ok()
 }
 
 /// Segment archiver task error

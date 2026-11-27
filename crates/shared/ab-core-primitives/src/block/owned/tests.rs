@@ -453,13 +453,8 @@ fn intermediate_shard_block_builder_rejects_leaf_shard_blocks_of_other_shards() 
     .unwrap();
     let bytes = parts_bytes(header.buffer(), block.body.buffer(), 0);
     assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_none());
-    assert!(
-        OwnedIntermediateShardBlock::from_buffers(
-            header.buffer().clone(),
-            block.body.buffer().clone()
-        )
-        .is_none()
-    );
+    OwnedIntermediateShardBlock::from_buffers(header.buffer().clone(), block.body.buffer().clone())
+        .unwrap_err();
 }
 
 #[test]
@@ -519,13 +514,11 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
     );
     let bytes = block_bytes(&block, 0);
     assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_some());
-    assert!(
-        OwnedIntermediateShardBlock::from_buffers(
-            block.header.buffer().clone(),
-            block.body.buffer().clone()
-        )
-        .is_some()
-    );
+    OwnedIntermediateShardBlock::from_buffers(
+        block.header.buffer().clone(),
+        block.body.buffer().clone(),
+    )
+    .unwrap();
 
     // A list of another leaf shard block
     let other_leaf_shard_block_info = OwnedLeafShardBlockInfo::from_block(
@@ -555,13 +548,11 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
         let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
 
         assert!(IntermediateShardBlock::try_from_bytes(bytes.as_slice()).is_none());
-        assert!(
-            OwnedIntermediateShardBlock::from_buffers(
-                inconsistent_header.buffer().clone(),
-                block.body.buffer().clone()
-            )
-            .is_none()
-        );
+        OwnedIntermediateShardBlock::from_buffers(
+            inconsistent_header.buffer().clone(),
+            block.body.buffer().clone(),
+        )
+        .unwrap_err();
     }
 
     // A beacon chain block without intermediate shard blocks, which claims to have some
@@ -584,15 +575,30 @@ fn blocks_with_inconsistent_child_block_roots_are_rejected() {
     let bytes = parts_bytes(inconsistent_header.buffer(), block.body.buffer(), 0);
 
     assert!(BeaconChainBlock::try_from_bytes(bytes.as_slice()).is_none());
-    assert!(
-        OwnedBeaconChainBlock::from_buffers(
-            inconsistent_header.buffer().clone(),
-            block.body.buffer().clone()
-        )
-        .is_none()
-    );
 
-    // Parts are returned back when they don't form a block
+    // Buffers and parts are returned back when they don't form a block
+    let (returned_header, returned_body) = OwnedBeaconChainBlock::from_buffers(
+        inconsistent_header.buffer().clone(),
+        block.body.buffer().clone(),
+    )
+    .unwrap_err();
+    assert!(returned_header.as_slice() == inconsistent_header.buffer().as_slice());
+    assert!(returned_body.as_slice() == block.body.buffer().as_slice());
+    // Also when the header or the body can't be parsed
+    let (returned_header, returned_body) = OwnedBeaconChainBlock::from_buffers(
+        block.body.buffer().clone(),
+        block.body.buffer().clone(),
+    )
+    .unwrap_err();
+    assert!(returned_header.as_slice() == block.body.buffer().as_slice());
+    assert!(returned_body.as_slice() == block.body.buffer().as_slice());
+    let (returned_header, returned_body) = OwnedBeaconChainBlock::from_buffers(
+        block.header.buffer().clone(),
+        block.header.buffer().clone(),
+    )
+    .unwrap_err();
+    assert!(returned_header.as_slice() == block.header.buffer().as_slice());
+    assert!(returned_body.as_slice() == block.header.buffer().as_slice());
     let (returned_header, returned_body) =
         OwnedBeaconChainBlock::from_parts(inconsistent_header.clone(), block.body.clone())
             .unwrap_err();
