@@ -53,6 +53,10 @@ impl GenericOwnedBlock for CustomBlock {
         Err((header, body))
     }
 
+    fn from_buffer(buffer: SharedAlignedBuffer) -> Result<Self, SharedAlignedBuffer> {
+        Err(buffer)
+    }
+
     fn block(&self) -> Self::Block<'_> {
         unimplemented!()
     }
