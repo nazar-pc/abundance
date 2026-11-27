@@ -26,12 +26,12 @@ const INTERMEDIATE_SHARD_MASK: u32 = u32::MAX >> (u32::BITS - INTERMEDIATE_SHARD
 ///                          /          \
 ///      Intermediate shard 1            Intermediate shard 2
 ///              /  \                            /  \
-/// Leaf shard 11   Leaf shard 12   Leaf shard 22   Leaf shard 22
+/// Leaf shard 11   Leaf shard 12   Leaf shard 21   Leaf shard 22
 /// ```
 ///
 /// Beacon chain has index 0, intermediate shards indices 1..=1023. Leaf shards share the same least
 /// significant 10 bits as their respective intermediate shards, so leaf shards of intermediate
-/// shard 1 have indices like 1025,2049,3097,etc.
+/// shard 1 have indices like 1025,2049,3073,etc.
 ///
 /// If represented as least significant bits first (as it will be in the formatted address):
 /// ```text
