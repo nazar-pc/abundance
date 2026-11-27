@@ -2,6 +2,7 @@
 
 Breaking changes:
 
+* Nightly Rust is required, `nightly-2026-11-19` is guaranteed to work, later versions will likely work too
 * `#[instruction]` now takes instruction alignment from an `ALIGNMENT` associated constant instead of an `alignment()`
   method
 * Execution changes mirror API changes in `ab-riscv-interpreter`

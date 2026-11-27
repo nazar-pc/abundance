@@ -1,10 +1,8 @@
 # 0.2.0
 
-Buffers are no longer limited to contents aligned to 16 bytes at the beginning of an allocation. Alignment of the
-contents is a type parameter of buffers, allocations can be aligned to up to 4096 bytes (for direct I/O, for example),
-contents can start at an offset within the allocation, and shared buffers can be sliced without copying. Buffers are
-still 16 bytes in size. Empty buffers are not backed by an allocation, and owned buffers don't use atomic operations.
-Existing code works with the default `Align16` alignment, but some call sites need type annotations.
+Alignment of the contents is a type parameter now (`Align16` by default, up to `Align4096` for direct I/O), shared
+buffers can be sliced and split without copying, and allocation failures can be handled instead of panicking. Existing
+code mostly keeps working, but some call sites need type annotations and `append()` returns `Result`.
 
 Breaking changes:
 
@@ -44,6 +42,7 @@ New features:
     `read_to_alignment()`
   * `io-type` feature adds `read_trivial()`, `read_trivial_array()` and `read_trivial_slice()` to
     `SharedAlignedBufferReader` for values of `ab-io-type`'s trivial types, it requires nightly Rust like `ab-io-type`
+    (`nightly-2026-11-19` is guaranteed to work)
   * `SharedAlignedBuffer::try_into_owned()` converts the last reference into an owned buffer with the same offset
   * `SharedAlignedBuffer::into_standalone()` copies the contents unless they already cover the whole allocation, so that
     a small buffer doesn't keep a large allocation alive

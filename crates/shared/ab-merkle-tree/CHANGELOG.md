@@ -1,19 +1,14 @@
 # 0.3.0
 
-Trees are generic over the new `MerkleHasher` trait, so hash functions other than BLAKE3 and nodes of other sizes can be
-used, and hashers of balanced and unbalanced trees can commit to the size of the tree. BLAKE3 is behind the optional
-`blake3` feature, trees that use it are aliased in the `blake3` module, and their roots and proofs are the same as in
-0.2.0. Hashers tell trees how many pairs they hash in parallel, so roots and proofs of unbalanced trees and runs of
-consecutive occupied leaves of sparse trees are hashed as perfect subtrees with SIMD, which is 3-4 times faster for
-large inputs with BLAKE3 on x86-64 with AVX-512, and paths of isolated occupied leaves of sparse trees are hashed
-together, which is 3-5 times faster for them, while hashers without parallelism pay no extra stack for it.
-`UnbalancedMerkleTree::compute_root_only_sparse()` computes roots of trees whose leaves are mostly zeroes without
-hashing every leaf, and several invalid parameters and inputs that resulted in wrong roots, rejected proofs or panics
-are now rejected at compile time or handled correctly. Existing code needs the `blake3` feature, the aliases from the
-`blake3` module and `*_dynamic_len*()` methods for iterators that are not `TrustedLen`.
+Trees are generic over the new `MerkleHasher` trait and BLAKE3 is behind the optional `blake3` feature, trees in the
+`blake3` module produce the same roots and proofs as 0.2.0. Unbalanced and sparse trees hash many pairs at once with
+SIMD, which is up to 5 times faster with BLAKE3 on x86-64 with AVX-512. Several cases that produced wrong roots,
+rejected valid proofs or panicked are fixed or rejected at compile time. To upgrade, enable the `blake3` feature, use
+aliases from the `blake3` module and `*_dynamic_len*()` methods for iterators that are not `TrustedLen`.
 
 Breaking changes:
 
+* Nightly Rust is required, `nightly-2026-11-19` is guaranteed to work, later versions will likely work too
 * All trees are generic over the hasher, aliases of trees with the default BLAKE3 hasher are in the new `blake3` module
 * BLAKE3 is behind the `blake3` feature, which is not enabled by default
 * `UnbalancedMerkleTree` methods that take an iterator of leaves require it to be `TrustedLen`, `*_dynamic_len*()`

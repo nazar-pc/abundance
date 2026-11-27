@@ -2,6 +2,7 @@
 
 Breaking changes:
 
+* Nightly Rust is required, `nightly-2026-11-19` is guaranteed to work, later versions will likely work too
 * `Instruction::alignment()` is replaced by the `Instruction::ALIGNMENT` associated constant
 * Changed APIs around vector extensions for better type safety and performance
 * Instruction enums are generic over hart configuration (`HartConfig`) instead of the register type, `BasicHart` and

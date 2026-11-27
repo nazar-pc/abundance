@@ -2,6 +2,7 @@
 
 Breaking changes:
 
+* Nightly Rust is required, `nightly-2026-11-19` is guaranteed to work, later versions will likely work too
 * Minor changes in `InstructionFetcher` API for improved performance of threaded execution
 * `ExecutableInstruction::execute()`, `SystemInstructionHandler::handle_ecall()` and `handle_ebreak()` take the program
   counter by shared reference, and the handlers return `ExecutionResult`: instructions and handlers no longer move the
