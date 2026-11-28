@@ -1,6 +1,6 @@
 use crate::test_hasher::{
-    MerkleMountainRange, OUT_LEN, ParallelTestHasher2, ParallelTestHasher64, TreeSizeTestHasher,
-    UnbalancedMerkleTree, hash_pair,
+    MerkleMountainRange, OUT_LEN, ParallelTestHasher, TreeSizeTestHasher, UnbalancedMerkleTree,
+    hash_pair,
 };
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize, unbalanced};
 use chacha20::ChaCha8Rng;
@@ -311,19 +311,19 @@ fn test_array<const N: usize>() {
 #[test]
 #[cfg_attr(miri, ignore = "Takes too long")]
 fn mt_unbalanced_buffered() {
-    test_buffered::<ParallelTestHasher64>();
+    test_buffered::<ParallelTestHasher<64>>();
 }
 
 /// Small trees, such that Miri checks buffering too
 #[test]
 fn mt_unbalanced_buffered_small() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let leaves = random_leaves::<ParallelTestHasher2>(&mut rng, 65);
+    let leaves = random_leaves::<ParallelTestHasher<2>>(&mut rng, 65);
 
     for num_leaves in 0..=leaves.len() {
         let leaves = &leaves[..num_leaves];
-        check_buffered::<12, ParallelTestHasher2>(leaves);
-        check_buffered::<64, ParallelTestHasher2>(leaves);
+        check_buffered::<12, ParallelTestHasher<2>>(leaves);
+        check_buffered::<64, ParallelTestHasher<2>>(leaves);
     }
 }
 
@@ -385,14 +385,14 @@ where
 #[test]
 fn mt_unbalanced_buffered_proofs() {
     let mut rng = ChaCha8Rng::from_seed(Default::default());
-    let leaves = random_leaves::<ParallelTestHasher2>(&mut rng, 33);
+    let leaves = random_leaves::<ParallelTestHasher<2>>(&mut rng, 33);
 
     // Every number of leaves in the last buffer of 8 and 16 leaves, and a few full buffers
     for num_leaves in (0..=17).chain([31, 32, 33]) {
         let leaves = &leaves[..num_leaves];
         for target_index in 0..=num_leaves {
-            check_buffered_proof::<12, ParallelTestHasher2>(leaves, target_index);
-            check_buffered_proof::<64, ParallelTestHasher2>(leaves, target_index);
+            check_buffered_proof::<12, ParallelTestHasher<2>>(leaves, target_index);
+            check_buffered_proof::<64, ParallelTestHasher<2>>(leaves, target_index);
         }
     }
 }

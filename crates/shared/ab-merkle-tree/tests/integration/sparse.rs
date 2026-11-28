@@ -1,7 +1,5 @@
 use crate::test_hasher::{
-    BalancedMerkleTree, OUT_LEN, ParallelTestHasher1, ParallelTestHasher2, ParallelTestHasher4,
-    ParallelTestHasher8, ParallelTestHasher16, ParallelTestHasher32, ParallelTestHasher64,
-    SparseMerkleTree, hash_pair,
+    BalancedMerkleTree, OUT_LEN, ParallelTestHasher, SparseMerkleTree, hash_pair,
 };
 use ab_merkle_tree::sparse::Leaf;
 use ab_merkle_tree::{MerkleHasher, sparse};
@@ -290,12 +288,12 @@ fn smt_32_verify() {
 #[test]
 #[cfg_attr(miri, ignore = "Takes too long")]
 fn smt_buffered() {
-    test_buffered::<ParallelTestHasher2>();
-    test_buffered::<ParallelTestHasher4>();
-    test_buffered::<ParallelTestHasher8>();
-    test_buffered::<ParallelTestHasher16>();
-    test_buffered::<ParallelTestHasher32>();
-    test_buffered::<ParallelTestHasher64>();
+    test_buffered::<ParallelTestHasher<2>>();
+    test_buffered::<ParallelTestHasher<4>>();
+    test_buffered::<ParallelTestHasher<8>>();
+    test_buffered::<ParallelTestHasher<16>>();
+    test_buffered::<ParallelTestHasher<32>>();
+    test_buffered::<ParallelTestHasher<64>>();
 }
 
 fn test_buffered<H>()
@@ -593,12 +591,12 @@ enum Item {
 #[test]
 #[cfg_attr(miri, ignore = "Takes too long")]
 fn smt_lanes() {
-    test_lanes::<ParallelTestHasher2, ParallelTestHasher1>();
-    test_lanes::<ParallelTestHasher4, ParallelTestHasher1>();
-    test_lanes::<ParallelTestHasher8, ParallelTestHasher1>();
-    test_lanes::<ParallelTestHasher16, ParallelTestHasher1>();
-    test_lanes::<ParallelTestHasher32, ParallelTestHasher1>();
-    test_lanes::<ParallelTestHasher64, ParallelTestHasher1>();
+    test_lanes::<ParallelTestHasher<2>, ParallelTestHasher<1>>();
+    test_lanes::<ParallelTestHasher<4>, ParallelTestHasher<1>>();
+    test_lanes::<ParallelTestHasher<8>, ParallelTestHasher<1>>();
+    test_lanes::<ParallelTestHasher<16>, ParallelTestHasher<1>>();
+    test_lanes::<ParallelTestHasher<32>, ParallelTestHasher<1>>();
+    test_lanes::<ParallelTestHasher<64>, ParallelTestHasher<1>>();
 }
 
 /// Small trees and few leaves, such that Miri checks lanes too
@@ -613,12 +611,12 @@ fn smt_lanes_small() {
         &[0, 1, 2, 3, 4, 5, 6, 7],
     ] {
         for zeroes in [false, true] {
-            check_lanes::<3, ParallelTestHasher2, ParallelTestHasher1>(
+            check_lanes::<3, ParallelTestHasher<2>, ParallelTestHasher<1>>(
                 &mut rng, indices, zeroes, true,
             );
         }
     }
-    check_lanes::<5, ParallelTestHasher2, ParallelTestHasher1>(
+    check_lanes::<5, ParallelTestHasher<2>, ParallelTestHasher<1>>(
         &mut rng,
         &[1, 9, 10, 17, 30, 31],
         false,
@@ -627,23 +625,23 @@ fn smt_lanes_small() {
     // A run across multiples of the buffer size, followed by an isolated leaf
     let indices = (0..20).chain([40]).collect::<Vec<_>>();
     for zeroes in [false, true] {
-        check_lanes::<6, ParallelTestHasher2, ParallelTestHasher1>(
+        check_lanes::<6, ParallelTestHasher<2>, ParallelTestHasher<1>>(
             &mut rng, &indices, zeroes, true,
         );
     }
-    check_lanes::<128, ParallelTestHasher4, ParallelTestHasher1>(
+    check_lanes::<128, ParallelTestHasher<4>, ParallelTestHasher<1>>(
         &mut rng,
         &[0, 5, 1 << 64, (1 << 127) + 3, u128::MAX - 1, u128::MAX],
         false,
         true,
     );
-    check_lanes::<128, ParallelTestHasher2, ParallelTestHasher1>(
+    check_lanes::<128, ParallelTestHasher<2>, ParallelTestHasher<1>>(
         &mut rng,
         &[(1 << 127) + 1, (1 << 127) + 1000, u128::MAX - 2],
         true,
         false,
     );
-    check_too_many_leaves::<ParallelTestHasher2, ParallelTestHasher1>();
+    check_too_many_leaves::<ParallelTestHasher<2>, ParallelTestHasher<1>>();
 }
 
 fn test_lanes<H, Sequential>()

@@ -1,6 +1,6 @@
 use ab_blake3::{BLOCK_LEN, KEY_LEN, MAX_SIMD_DEGREE, OUT_LEN};
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize};
-use array_reshape::{Flatten, FlattenEach, Rechunk};
+use array_reshape::FlattenEach;
 use const_fn_specialization::const_fn_specialization;
 use core::gca;
 
@@ -10,38 +10,33 @@ use core::gca;
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Blake3StaticMerkleHasher<const KEY: [u8; KEY_LEN]>;
 
-// TODO: Define `OUT_LEN` as `gca!(OUT_LEN)` in both implementations and use `[u8; OUT_LEN]` in
-//  signatures, which makes reshaping in their bodies unnecessary, once
-//  https://github.com/rust-lang/rust/issues/166409 is resolved
 impl<const KEY: [u8; KEY_LEN]> MerkleHasher for Blake3StaticMerkleHasher<KEY> {
-    const OUT_LEN: usize = OUT_LEN;
+    const OUT_LEN: usize = gca!(OUT_LEN);
     const PARALLEL_PAIRS: usize = MAX_SIMD_DEGREE;
 
     #[inline(always)]
-    fn hash_pair(&self, pair: &[[u8; gca!(Self::OUT_LEN)]; 2]) -> [u8; gca!(Self::OUT_LEN)] {
-        let hash = ab_blake3::single_block_keyed_hash(self.node_key(), pair.as_flattened());
-        // Reshaping inside `Option` results in fewer copies of the hash than after `expect()`
-        hash.map(|hash| [hash].flatten())
+    fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
+        ab_blake3::single_block_keyed_hash(self.node_key(), pair.as_flattened())
             .expect("Exactly one block worth of data; qed")
     }
 
     #[inline(always)]
     fn hash_pairs<const NUM_PAIRS: usize>(
         &self,
-        pairs: &[[[u8; gca!(Self::OUT_LEN)]; 2]; NUM_PAIRS],
-    ) -> [[u8; gca!(Self::OUT_LEN)]; NUM_PAIRS] {
+        pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
+    ) -> [[u8; OUT_LEN]; NUM_PAIRS] {
         let mut hashes = [[0; _]; NUM_PAIRS];
         ab_blake3::single_block_keyed_hash_many_exact(
             self.node_key(),
             pairs.flatten_each_ref::<BLOCK_LEN>(),
-            hashes.rechunk_mut(),
+            &mut hashes,
         );
         hashes
     }
 
     #[inline(always)]
-    fn hash_single_leaf(&self, leaf: &[u8; gca!(Self::OUT_LEN)]) -> [u8; gca!(Self::OUT_LEN)] {
-        [self.single_leaf_root(core::array::from_ref(leaf).flatten_ref::<OUT_LEN>())].flatten()
+    fn hash_single_leaf(&self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
+        self.single_leaf_root(leaf)
     }
 }
 
@@ -77,34 +72,32 @@ pub struct Blake3SizedMerkleHasher<const BASE_KEY: [u8; KEY_LEN]> {
 }
 
 impl<const BASE_KEY: [u8; KEY_LEN]> MerkleHasher for Blake3SizedMerkleHasher<BASE_KEY> {
-    const OUT_LEN: usize = OUT_LEN;
+    const OUT_LEN: usize = gca!(OUT_LEN);
     const PARALLEL_PAIRS: usize = MAX_SIMD_DEGREE;
 
     #[inline(always)]
-    fn hash_pair(&self, pair: &[[u8; gca!(Self::OUT_LEN)]; 2]) -> [u8; gca!(Self::OUT_LEN)] {
-        let hash = ab_blake3::single_block_keyed_hash(self.node_key(), pair.as_flattened());
-        // Reshaping inside `Option` results in fewer copies of the hash than after `expect()`
-        hash.map(|hash| [hash].flatten())
+    fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
+        ab_blake3::single_block_keyed_hash(self.node_key(), pair.as_flattened())
             .expect("Exactly one block worth of data; qed")
     }
 
     #[inline(always)]
     fn hash_pairs<const NUM_PAIRS: usize>(
         &self,
-        pairs: &[[[u8; gca!(Self::OUT_LEN)]; 2]; NUM_PAIRS],
-    ) -> [[u8; gca!(Self::OUT_LEN)]; NUM_PAIRS] {
+        pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
+    ) -> [[u8; OUT_LEN]; NUM_PAIRS] {
         let mut hashes = [[0; _]; NUM_PAIRS];
         ab_blake3::single_block_keyed_hash_many_exact(
             self.node_key(),
             pairs.flatten_each_ref::<BLOCK_LEN>(),
-            hashes.rechunk_mut(),
+            &mut hashes,
         );
         hashes
     }
 
     #[inline(always)]
-    fn hash_single_leaf(&self, leaf: &[u8; gca!(Self::OUT_LEN)]) -> [u8; gca!(Self::OUT_LEN)] {
-        [self.single_leaf_root(core::array::from_ref(leaf).flatten_ref::<OUT_LEN>())].flatten()
+    fn hash_single_leaf(&self, leaf: &[u8; OUT_LEN]) -> [u8; OUT_LEN] {
+        self.single_leaf_root(leaf)
     }
 }
 

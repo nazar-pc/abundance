@@ -1,3 +1,9 @@
+# 0.4.0
+
+Breaking changes:
+
+* Newer nightly Rust is required, `nightly-2026-11-28` is guaranteed to work, later versions will likely work too
+
 # 0.3.0
 
 Trees are generic over the new `MerkleHasher` trait and BLAKE3 is behind the optional `blake3` feature, trees in the
