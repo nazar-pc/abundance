@@ -734,6 +734,7 @@ dependencies = [
  "async-lock",
  "cargo-gpu-install",
  "chacha20 0.10.2",
+ "criterion",
  "derive_more",
  "futures",
  "parking_lot 0.13.0",
