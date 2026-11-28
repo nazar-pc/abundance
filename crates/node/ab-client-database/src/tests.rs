@@ -992,11 +992,14 @@ fn fork_with_unknown_parent_is_rejected() {
 fn known_block_is_rejected() {
     // genesis - c1 .. c10 (best block), then `c(10 - B)` is persisted again
     //
-    // `B` goes up to `block_confirmation_depth - 2`, the deepest block offset where fork blocks are
-    // accepted. A copy at a block offset up to `soft_confirmation_depth` would be written to disk,
-    // a deeper copy would only be kept in memory.
+    // The original block is still in memory below block offset `soft_confirmation_depth` (3 in
+    // tests) and already written from there on. A copy would be written to disk up to block offset
+    // `soft_confirmation_depth`, because the next persist walk goes on from there through blocks in
+    // memory, and would only be kept in memory deeper than that. `B` = 2 and 3 straddle the first
+    // boundary, 3 and `block_confirmation_depth - 2` lie on either side of the second, and
+    // `block_confirmation_depth - 2` is the deepest block offset where fork blocks are accepted.
     let block_confirmation_depth = 8;
-    for block_offset in 0..=block_confirmation_depth - 2 {
+    for block_offset in [2, 3, block_confirmation_depth - 2] {
         let storage_backend = MemoryStorageBackend::new();
         let database = open_database_with_options(DatabaseOptions {
             block_confirmation_depth: BlockNumber::from(block_confirmation_depth),
@@ -1050,12 +1053,15 @@ fn known_genesis_block_is_rejected() {
 
 #[test]
 #[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
-fn reopen_after_fork_at_every_height() {
+fn reopen_after_fork_at_boundary_heights() {
     // genesis - c1 .. c(F-1) -+- cF .. c25 (best block)
     //                         \- aF (written before `cF`)
     //
-    // For every `F`, reopened, then extended and reopened again
-    for fork_number in 1..=20 {
+    // Reopening reads blocks up to `c22` and prunes `aF` once `c(F + 4)` is read (the fork pruning
+    // block offset is `block_confirmation_depth - 1`, 4 in tests). `F` is the first block after
+    // genesis, the last height pruned while reopening and the deepest one that is still a fork
+    // after reopening. Each is reopened, then extended and reopened again.
+    for fork_number in [1, 18, 19] {
         let storage_backend = MemoryStorageBackend::new();
         let database = open_database(&storage_backend);
         let mut chain = vec![database.best_root()];
