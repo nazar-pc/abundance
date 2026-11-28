@@ -840,7 +840,7 @@ version = "0.1.0"
 
 [[package]]
 name = "ab-riscv-macros-impl"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "ab-riscv-macros-common",
  "proc-macro2",
