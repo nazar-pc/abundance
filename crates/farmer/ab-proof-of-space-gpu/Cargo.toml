@@ -14,7 +14,13 @@ include = [
 [package.metadata.docs.rs]
 all-features = true
 
-# TODO: Benches
+[lib]
+# Necessary for CLI options to work on benches
+bench = false
+
+[[bench]]
+name = "encoding"
+harness = false
 
 [dependencies]
 ab-blake3 = { workspace = true }
@@ -39,6 +45,7 @@ wgpu = { workspace = true }
 
 [dev-dependencies]
 chacha20 = { workspace = true, features = ["rng"] }
+criterion = { workspace = true }
 futures = { workspace = true, features = ["executor"] }
 rand = { workspace = true }
 
