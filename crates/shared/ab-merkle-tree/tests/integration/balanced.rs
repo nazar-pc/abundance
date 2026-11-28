@@ -1,6 +1,5 @@
 use crate::test_hasher::{
-    BalancedMerkleTree, MerkleMountainRange, OUT_LEN, ParallelTestHasher8, ParallelTestHasher32,
-    UnbalancedMerkleTree,
+    BalancedMerkleTree, MerkleMountainRange, OUT_LEN, ParallelTestHasher, UnbalancedMerkleTree,
 };
 use ab_merkle_tree::balanced::PROOF_ELEMENTS;
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize, balanced};
@@ -63,8 +62,8 @@ fn test_parallel_pairs<const N: usize>() {
 
     let expected_tree = BalancedMerkleTree::new(&leaves);
 
-    test_parallel_pairs_hasher::<N, ParallelTestHasher8>(&leaves, &expected_tree);
-    test_parallel_pairs_hasher::<N, ParallelTestHasher32>(&leaves, &expected_tree);
+    test_parallel_pairs_hasher::<N, ParallelTestHasher<8>>(&leaves, &expected_tree);
+    test_parallel_pairs_hasher::<N, ParallelTestHasher<32>>(&leaves, &expected_tree);
 }
 
 fn test_parallel_pairs_hasher<const N: usize, H>(

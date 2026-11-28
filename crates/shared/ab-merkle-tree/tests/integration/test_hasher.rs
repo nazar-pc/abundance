@@ -2,6 +2,7 @@
 
 use ab_merkle_tree::{MerkleHasher, NewMerkleHasherForTreeSize, balanced, mmr, sparse, unbalanced};
 use array_reshape::Flatten;
+use core::gca;
 
 /// Size of a node hash of test hashers in bytes, different from BLAKE3 to exercise generic sizes
 pub(crate) const OUT_LEN: usize = 16;
@@ -42,53 +43,35 @@ impl MerkleHasher for SingleLeafTestHasher {
     }
 }
 
-// TODO: Make it a single hasher generic over the number of pairs once
-//  https://github.com/rust-lang/rust/issues/166409 is resolved
-macro_rules! parallel_test_hashers {
-    ($($name:ident: $parallel_pairs:literal),* $(,)?) => {
-        $(
-            /// Same as [`TestHasher`], but hashes pairs in parallel and checks that trees don't
-            /// hash more pairs at once than that
-            #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-            #[derive_const(Default)]
-            pub(crate) struct $name;
+/// Same as [`TestHasher`], but hashes `PARALLEL_PAIRS` pairs in parallel and checks that trees
+/// don't hash more pairs at once than that
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive_const(Default)]
+pub(crate) struct ParallelTestHasher<const PARALLEL_PAIRS: usize>;
 
-            impl MerkleHasher for $name {
-                const OUT_LEN: usize = OUT_LEN;
-                const PARALLEL_PAIRS: usize = $parallel_pairs;
+impl<const PARALLEL_PAIRS: usize> MerkleHasher for ParallelTestHasher<PARALLEL_PAIRS> {
+    const OUT_LEN: usize = gca!(OUT_LEN);
+    const PARALLEL_PAIRS: usize = gca!(PARALLEL_PAIRS);
 
-                fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
-                    hash_pair_with_seed(0, pair)
-                }
+    fn hash_pair(&self, pair: &[[u8; OUT_LEN]; 2]) -> [u8; OUT_LEN] {
+        hash_pair_with_seed(0, pair)
+    }
 
-                fn hash_pairs<const NUM_PAIRS: usize>(
-                    &self,
-                    pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
-                ) -> [[u8; OUT_LEN]; NUM_PAIRS] {
-                    assert!(NUM_PAIRS <= $parallel_pairs, "NUM_PAIRS {NUM_PAIRS}");
+    fn hash_pairs<const NUM_PAIRS: usize>(
+        &self,
+        pairs: &[[[u8; OUT_LEN]; 2]; NUM_PAIRS],
+    ) -> [[u8; OUT_LEN]; NUM_PAIRS] {
+        assert!(NUM_PAIRS <= PARALLEL_PAIRS, "NUM_PAIRS {NUM_PAIRS}");
 
-                    // Not `map()`, cleanup of its partially initialized output on unwinding
-                    // prevents `no_panic` from proving that callers do not panic
-                    let mut parents = [[0; OUT_LEN]; NUM_PAIRS];
-                    for (parent, pair) in parents.iter_mut().zip(pairs) {
-                        *parent = self.hash_pair(pair);
-                    }
-                    parents
-                }
-            }
-        )*
-    };
+        // Not `map()`, cleanup of its partially initialized output on unwinding prevents
+        // `no_panic` from proving that callers do not panic
+        let mut parents = [[0; OUT_LEN]; NUM_PAIRS];
+        for (parent, pair) in parents.iter_mut().zip(pairs) {
+            *parent = self.hash_pair(pair);
+        }
+        parents
+    }
 }
-
-parallel_test_hashers!(
-    ParallelTestHasher1: 1,
-    ParallelTestHasher2: 2,
-    ParallelTestHasher4: 4,
-    ParallelTestHasher8: 8,
-    ParallelTestHasher16: 16,
-    ParallelTestHasher32: 32,
-    ParallelTestHasher64: 64,
-);
 
 /// Hasher that depends on the tree size, it only implements [`NewMerkleHasherForTreeSize`]
 #[derive(Debug, Copy, Clone)]
