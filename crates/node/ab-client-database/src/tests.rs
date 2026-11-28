@@ -1,24 +1,27 @@
 use crate::page_group::temporary::StorageItemTemporary;
+use crate::page_group::temporary::segment_headers::StorageItemTemporarySegmentHeaders;
 use crate::page_group::temporary::shard_max_local_segment_indices::{
     ShardMaxLocalSegmentIndex, StorageItemTemporaryShardMaxLocalSegmentIndices,
 };
-use crate::storage_backend::{
-    ClientDatabaseStorageBackend, OwnedPages, SharedPages, StorageBackendError,
+use crate::page_group::temporary::super_segment_headers::StorageItemTemporarySuperSegmentHeaders;
+use crate::storage_backend::{ClientDatabaseStorageBackend, OwnedPages, SharedPages};
+use crate::storage_backend_adapter::storage_item::{
+    StorageItem, StorageItemError, min_segment_item_overhead,
 };
-use crate::storage_backend_adapter::storage_item::StorageItemError;
 use crate::storage_backend_adapter::{
-    StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers,
+    StorageBackendAdapter, StorageItemHandlerArg, StorageItemHandlers, WriteLocation,
 };
 use crate::test_utils::{
-    Database, DatabaseOptions, IntermediateShardBlockSegments, MemoryStorageBackend,
-    PAGE_GROUP_SIZE, beacon_chain_block, beacon_chain_block_with_shard_segments,
-    block_confirmation_depth, database_options, genesis_block_builder, highest_persisted_number,
-    open_database, open_database_with_options, persist_beacon_chain_block, persist_block,
-    persist_chain, reopen, segment_header, super_segment, super_segment_header,
+    Database, DatabaseOptions, Fault, HugeStorageBackend, IntermediateShardBlockSegments,
+    MemoryStorageBackend, PAGE_GROUP_SIZE, beacon_chain_block,
+    beacon_chain_block_with_shard_segments, block_confirmation_depth, database_options,
+    genesis_block_builder, highest_persisted_number, open_database, open_database_with_options,
+    persist_beacon_chain_block, persist_block, persist_chain, reopen, segment_header,
+    super_segment, super_segment_header,
 };
 use crate::{
     ClientDatabase, ClientDatabaseBlock, ClientDatabaseError, ClientDatabaseFormatError,
-    ClientDatabaseFormatOptions,
+    ClientDatabaseFormatOptions, FullBlock,
 };
 use ab_aligned_buffer::SharedAlignedBuffer;
 use ab_client_api::{
@@ -29,14 +32,19 @@ use ab_client_api::{
 use ab_core_primitives::address::Address;
 use ab_core_primitives::block::owned::OwnedBeaconChainBlock;
 use ab_core_primitives::block::{BlockNumber, BlockRoot};
-use ab_core_primitives::segments::{LocalSegmentIndex, SegmentRoot, SuperSegmentIndex};
+use ab_core_primitives::hashes::Blake3Hash;
+use ab_core_primitives::segments::{
+    ArchivedBlockProgress, LastArchivedBlock, LocalSegmentIndex, SegmentHeader, SegmentIndex,
+    SegmentRoot, SuperSegment, SuperSegmentHeader, SuperSegmentIndex,
+};
 use ab_core_primitives::shard::ShardIndex;
 use ab_core_primitives::trees::BlockMerkleMountainRange;
 use ab_io_type::unaligned::Unaligned;
-use futures::channel::oneshot;
 use futures::executor::block_on;
 use std::collections::BTreeSet;
 use std::num::{NonZeroU32, NonZeroUsize};
+use std::pin::pin;
+use std::task::{Context, Poll, Waker};
 use std::{assert_matches, io, iter};
 use triomphe::Arc;
 
@@ -984,11 +992,14 @@ fn fork_with_unknown_parent_is_rejected() {
 fn known_block_is_rejected() {
     // genesis - c1 .. c10 (best block), then `c(10 - B)` is persisted again
     //
-    // `B` goes up to `block_confirmation_depth - 2`, the deepest block offset where fork blocks are
-    // accepted. A copy at a block offset up to `soft_confirmation_depth` would be written to disk,
-    // a deeper copy would only be kept in memory.
+    // The original block is still in memory below block offset `soft_confirmation_depth` (3 in
+    // tests) and already written from there on. A copy would be written to disk up to block offset
+    // `soft_confirmation_depth`, because the next persist walk goes on from there through blocks in
+    // memory, and would only be kept in memory deeper than that. `B` = 2 and 3 straddle the first
+    // boundary, 3 and `block_confirmation_depth - 2` lie on either side of the second, and
+    // `block_confirmation_depth - 2` is the deepest block offset where fork blocks are accepted.
     let block_confirmation_depth = 8;
-    for block_offset in 0..=block_confirmation_depth - 2 {
+    for block_offset in [2, 3, block_confirmation_depth - 2] {
         let storage_backend = MemoryStorageBackend::new();
         let database = open_database_with_options(DatabaseOptions {
             block_confirmation_depth: BlockNumber::from(block_confirmation_depth),
@@ -1042,12 +1053,15 @@ fn known_genesis_block_is_rejected() {
 
 #[test]
 #[cfg_attr(miri, ignore = "Fork logic is safe code, too slow under Miri")]
-fn reopen_after_fork_at_every_height() {
+fn reopen_after_fork_at_boundary_heights() {
     // genesis - c1 .. c(F-1) -+- cF .. c25 (best block)
     //                         \- aF (written before `cF`)
     //
-    // For every `F`, reopened, then extended and reopened again
-    for fork_number in 1..=20 {
+    // Reopening reads blocks up to `c22` and prunes `aF` once `c(F + 4)` is read (the fork pruning
+    // block offset is `block_confirmation_depth - 1`, 4 in tests). `F` is the first block after
+    // genesis, the last height pruned while reopening and the deepest one that is still a fork
+    // after reopening. Each is reopened, then extended and reopened again.
+    for fork_number in [1, 18, 19] {
         let storage_backend = MemoryStorageBackend::new();
         let database = open_database(&storage_backend);
         let mut chain = vec![database.best_root()];
@@ -1742,33 +1756,6 @@ fn format_without_force_only_formats_unformatted_storage() {
     );
 }
 
-/// Storage backend with the max number of pages, which is never read from or written to
-#[derive(Debug)]
-struct HugeStorageBackend;
-
-impl ClientDatabaseStorageBackend for HugeStorageBackend {
-    fn num_pages(&self) -> u32 {
-        u32::MAX
-    }
-
-    fn read(
-        &self,
-        _buffer: OwnedPages,
-        _num_pages: u32,
-        _offset: u32,
-    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, OwnedPages)> {
-        unreachable!("Not read from")
-    }
-
-    fn write(
-        &self,
-        _buffer: SharedPages,
-        _offset: u32,
-    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)> {
-        unreachable!("Not written to")
-    }
-}
-
 #[test]
 fn format_rejects_invalid_page_group_size() {
     let storage_backend = MemoryStorageBackend::new();
@@ -1807,7 +1794,9 @@ fn format_rejects_invalid_page_group_size() {
 
     // Storage backend is large enough, but the page group doesn't fit into a buffer for reading it
     let result = block_on(ClientDatabase::<OwnedBeaconChainBlock, _>::format(
-        &HugeStorageBackend,
+        &HugeStorageBackend {
+            first_page: SharedPages::EMPTY,
+        },
         ClientDatabaseFormatOptions {
             page_group_size: NonZeroU32::MAX,
             force: true,
@@ -1971,4 +1960,629 @@ fn blocks_read_from_in_flight_writes_outlive_reuse_of_write_buffer() {
         assert_chain_block(block, &chain, number);
     }
     assert_chain_blocks(&database, &chain);
+}
+
+/// Write location of the persisted block with `block_root`
+fn persisted_write_location(database: &Database, block_root: &BlockRoot) -> WriteLocation {
+    let state = database.inner.state.read_blocking();
+    let block = state
+        .data
+        .blocks
+        .iter()
+        .flatten()
+        .find(|block| *block.header().root() == *block_root)
+        .unwrap();
+    let FullBlock::Persisted {
+        header: _,
+        write_location,
+    } = block.full_block()
+    else {
+        panic!("Block {block_root} is not persisted");
+    };
+
+    write_location
+}
+
+/// Error of persisting `segment_headers`
+fn persist_segment_headers_error(
+    database: &Database,
+    segment_headers: Vec<SegmentHeader>,
+) -> io::Error {
+    let result = block_on(database.persist_segment_headers(segment_headers));
+    let Err(PersistSegmentHeadersError::StorageItemWriteError { error }) = result else {
+        panic!("Unexpected result: {result:?}");
+    };
+
+    error
+}
+
+/// Check that `error` is an error of a write that was refused because an earlier write failed
+fn assert_refused_after_write_failure(error: io::Error) {
+    assert_eq!(error.kind(), io::ErrorKind::Interrupted);
+    assert_eq!(
+        error.to_string(),
+        "Previous write operation failed, writes are not allowed until restart"
+    );
+}
+
+#[test]
+fn storage_items_of_all_kinds_survive_reopen_across_page_groups() {
+    // Storage items in page groups of 4 pages, `H` is the page group header, `-` is an unused page:
+    //
+    // page group 0: H (permanent), -, -, -
+    // page group 1: H, segment headers, shard max local segment indices, super segment headers
+    // page group 2: H, genesis, c1, c2
+    // page group 3: H, segment headers (2 pages), - (the next storage item doesn't fit)
+    // page group 4: H, segment headers (3 pages, the largest storage item)
+    // page group 5: H, c3, shard max local segment indices, super segment headers
+    // page group 6: H, segment headers (written after reopening), -, -
+    let page_group_size = NonZeroU32::new(4).unwrap();
+    let storage_backend =
+        MemoryStorageBackend::with_size(7 * page_group_size.get(), page_group_size);
+    let database = open_database(&storage_backend);
+    let shard_index = ShardIndex::new(1).unwrap();
+    let mut chain = vec![database.best_root()];
+
+    block_on(database.persist_segment_headers(vec![segment_header(0)])).unwrap();
+    block_on(
+        database.persist_super_segments(&[super_segment(0, &[(ShardIndex::BEACON_CHAIN, 0)])]),
+    )
+    .unwrap();
+    chain.extend(persist_chain(&database, chain[0], 1..=5, 0));
+    // 48 segment headers take 2 pages, 144 take 3 pages
+    for local_segment_indices in [1..=48, 49..=192] {
+        block_on(
+            database.persist_segment_headers(local_segment_indices.map(segment_header).collect()),
+        )
+        .unwrap();
+    }
+    chain.push(persist_block(&database, 6, chain[5], 0).unwrap());
+    block_on(database.persist_super_segments(&[super_segment(
+        1,
+        &[(ShardIndex::BEACON_CHAIN, 1), (shard_index, 0)],
+    )]))
+    .unwrap();
+
+    let database = reopen(database, &storage_backend);
+
+    let page_offsets = chain[..=3]
+        .iter()
+        .map(|block_root| persisted_write_location(&database, block_root).page_offset)
+        .collect::<Vec<_>>();
+    assert_eq!(page_offsets, [9, 10, 11, 21]);
+    assert_eq!(database.last_segment_header(), Some(segment_header(192)));
+    for local_segment_index in 0..=192 {
+        assert_eq!(
+            database.get_segment_header(LocalSegmentIndex::from(local_segment_index)),
+            Some(segment_header(local_segment_index))
+        );
+    }
+    assert_eq!(
+        database.last_super_segment_header(),
+        Some(super_segment_header(1))
+    );
+    for super_segment_index in 0..=1 {
+        assert_eq!(
+            database.get_super_segment_header(SuperSegmentIndex::from(super_segment_index)),
+            Some(super_segment_header(super_segment_index))
+        );
+    }
+    assert_eq!(
+        database.shard_max_local_segment_index(ShardIndex::BEACON_CHAIN),
+        Some(LocalSegmentIndex::ONE)
+    );
+    assert_eq!(
+        database.shard_max_local_segment_index(shard_index),
+        Some(LocalSegmentIndex::ZERO)
+    );
+    assert_persisted_chain(&database, chain, 6);
+
+    // Writing continues in the free page group
+    block_on(database.persist_segment_headers(vec![segment_header(193)])).unwrap();
+    let database = reopen(database, &storage_backend);
+    assert_eq!(database.last_segment_header(), Some(segment_header(193)));
+}
+
+#[test]
+fn writes_are_refused_once_storage_is_full() {
+    // Two temporary page groups of 4 pages hold six storage items of one page
+    let page_group_size = NonZeroU32::new(4).unwrap();
+    let storage_backend =
+        MemoryStorageBackend::with_size(3 * page_group_size.get(), page_group_size);
+    let database = open_database(&storage_backend);
+    for local_segment_index in 0..=5 {
+        block_on(database.persist_segment_headers(vec![segment_header(local_segment_index)]))
+            .unwrap();
+    }
+
+    let error = persist_segment_headers_error(&database, vec![segment_header(6)]);
+    assert_eq!(error.kind(), io::ErrorKind::StorageFull);
+    assert_refused_after_write_failure(persist_segment_headers_error(
+        &database,
+        vec![segment_header(7)],
+    ));
+
+    let database = reopen(database, &storage_backend);
+    assert_eq!(database.last_segment_header(), Some(segment_header(5)));
+    for local_segment_index in 0..=5 {
+        assert_eq!(
+            database.get_segment_header(LocalSegmentIndex::from(local_segment_index)),
+            Some(segment_header(local_segment_index))
+        );
+    }
+}
+
+#[test]
+fn storage_item_must_fit_into_page_group_with_page_group_header() {
+    // With page groups of 4 pages, the largest storage item takes 3 pages
+    let empty_storage_item_bytes =
+        StorageItemTemporary::SegmentHeaders(StorageItemTemporarySegmentHeaders {
+            segment_headers: Vec::new(),
+        })
+        .total_bytes()
+        .unwrap();
+    let max_num_segment_headers = u64::try_from(
+        (3 * OwnedPages::ALIGN as usize
+            - min_segment_item_overhead()
+            - empty_storage_item_bytes as usize)
+            / size_of::<SegmentHeader>(),
+    )
+    .unwrap();
+    let new_database = || {
+        let page_group_size = NonZeroU32::new(4).unwrap();
+        let storage_backend =
+            MemoryStorageBackend::with_size(2 * page_group_size.get(), page_group_size);
+        let database = open_database(&storage_backend);
+        (storage_backend, database)
+    };
+    let segment_headers = |num_segment_headers| {
+        (0..num_segment_headers)
+            .map(segment_header)
+            .collect::<Vec<_>>()
+    };
+
+    let (storage_backend, database) = new_database();
+    block_on(database.persist_segment_headers(segment_headers(max_num_segment_headers))).unwrap();
+    let database = reopen(database, &storage_backend);
+    assert_eq!(
+        database.last_segment_header(),
+        Some(segment_header(max_num_segment_headers - 1))
+    );
+
+    let (_storage_backend, database) = new_database();
+    let error =
+        persist_segment_headers_error(&database, segment_headers(max_num_segment_headers + 1));
+    assert_eq!(error.kind(), io::ErrorKind::QuotaExceeded);
+    assert!(
+        error
+            .to_string()
+            .starts_with("Storage item is too large: 4 pages"),
+        "{error}"
+    );
+}
+
+#[test]
+fn writes_are_refused_after_a_write_failure() {
+    for (fault, expected_error) in [
+        (Fault::Error, (io::ErrorKind::Other, "Write failed")),
+        (
+            Fault::Cancel,
+            (
+                io::ErrorKind::Interrupted,
+                "Storage backend write was aborted",
+            ),
+        ),
+    ] {
+        let storage_backend = MemoryStorageBackend::new();
+        let database = open_database(&storage_backend);
+        block_on(database.persist_segment_headers(vec![segment_header(0)])).unwrap();
+
+        storage_backend.fail_write(0, fault);
+        let error = persist_segment_headers_error(&database, vec![segment_header(1)]);
+        assert_eq!(
+            (error.kind(), error.to_string().as_str()),
+            expected_error,
+            "{fault:?}"
+        );
+        assert_refused_after_write_failure(persist_segment_headers_error(
+            &database,
+            vec![segment_header(2)],
+        ));
+
+        let database = reopen(database, &storage_backend);
+        assert_eq!(
+            database.last_segment_header(),
+            Some(segment_header(0)),
+            "{fault:?}"
+        );
+    }
+}
+
+#[test]
+fn writes_wait_for_a_free_write_buffer_entry() {
+    // The only write buffer entry is occupied by a write that is held back
+    let storage_backend = MemoryStorageBackend::new();
+    let database =
+        open_database_with_options(buffered_database_options(&storage_backend, 1)).unwrap();
+    storage_backend.hold_writes();
+    block_on(database.persist_segment_headers(vec![segment_header(0)])).unwrap();
+
+    {
+        let mut persist = pin!(database.persist_segment_headers(vec![segment_header(1)]));
+        let mut context = Context::from_waker(Waker::noop());
+        assert!(persist.as_mut().poll(&mut context).is_pending());
+        assert!(persist.as_mut().poll(&mut context).is_pending());
+
+        storage_backend.release_writes();
+        assert_matches!(persist.as_mut().poll(&mut context), Poll::Ready(Ok(())));
+    }
+
+    let database = reopen(database, &storage_backend);
+    assert_eq!(database.last_segment_header(), Some(segment_header(1)));
+}
+
+#[test]
+fn segment_headers_are_included_block_confirmation_depth_plus_one_after_last_archived_block() {
+    // Segment `2` ends in the middle of block 20, which segment `3` completes
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let block_confirmation_depth = block_confirmation_depth(&database);
+    let segment_headers = [0, 10, 20, 20, 30]
+        .into_iter()
+        .zip(0..)
+        .map(
+            |(last_archived_block_number, local_segment_index)| SegmentHeader {
+                last_archived_block: LastArchivedBlock {
+                    number: BlockNumber::from(last_archived_block_number).into(),
+                    archived_progress: if local_segment_index == 2 {
+                        ArchivedBlockProgress::new_partial(NonZeroU32::MIN)
+                    } else {
+                        ArchivedBlockProgress::new_complete()
+                    },
+                },
+                ..segment_header(local_segment_index)
+            },
+        )
+        .collect::<Vec<_>>();
+    let assert_segment_headers_for_block = |cases: &[(u64, &[usize])]| {
+        for &(block_number, local_segment_indices) in cases {
+            let expected = local_segment_indices
+                .iter()
+                .map(|&local_segment_index| segment_headers[local_segment_index])
+                .collect::<Vec<_>>();
+            assert_eq!(
+                database.segment_headers_for_block(BlockNumber::from(block_number)),
+                expected,
+                "{block_number}"
+            );
+        }
+    };
+
+    assert_segment_headers_for_block(&[(1, &[])]);
+
+    // The genesis segment is only included in block 1
+    block_on(database.persist_segment_headers(segment_headers[..1].to_vec())).unwrap();
+    assert_segment_headers_for_block(&[(1, &[0]), (1 + block_confirmation_depth, &[])]);
+
+    block_on(database.persist_segment_headers(segment_headers[1..].to_vec())).unwrap();
+    assert_segment_headers_for_block(&[
+        (0, &[]),
+        (1, &[0]),
+        (1 + block_confirmation_depth, &[]),
+        (10 + block_confirmation_depth, &[]),
+        (11 + block_confirmation_depth, &[1]),
+        (12 + block_confirmation_depth, &[]),
+        (21 + block_confirmation_depth, &[2, 3]),
+        (31 + block_confirmation_depth, &[4]),
+        (32 + block_confirmation_depth, &[]),
+    ]);
+}
+
+#[test]
+fn super_segment_headers_are_found_by_block_number_and_segment_index() {
+    // Super segments with segments `0`, `1 ..= 3` and `4` target blocks 4, 8 and 12. A super
+    // segment never targets the genesis block, there is no history before it to archive.
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let super_segment_headers = [(0, 1, 4), (3, 3, 8), (4, 1, 12)]
+        .into_iter()
+        .zip(0..)
+        .map(
+            |((max_segment_index, num_segments, target_block_number), super_segment_index)| {
+                SuperSegmentHeader {
+                    max_segment_index: SegmentIndex::from(max_segment_index).into(),
+                    target_beacon_chain_block_number: BlockNumber::from(target_block_number).into(),
+                    num_segments,
+                    ..super_segment_header(super_segment_index)
+                }
+            },
+        )
+        .collect::<Vec<_>>();
+    let previous_super_segment_header =
+        |block_number| database.previous_super_segment_header(BlockNumber::from(block_number));
+    let super_segment_header_for_segment_index = |segment_index| {
+        database.get_super_segment_header_for_segment_index(SegmentIndex::from(segment_index))
+    };
+
+    assert_eq!(previous_super_segment_header(5), None);
+    assert_eq!(super_segment_header_for_segment_index(0), None);
+
+    block_on(
+        database.persist_super_segments(
+            &super_segment_headers
+                .iter()
+                .map(|&header| SuperSegment {
+                    header,
+                    segment_roots: [].into(),
+                })
+                .collect::<Vec<_>>(),
+        ),
+    )
+    .unwrap();
+
+    for (block_number, expected) in [
+        (0, None),
+        (1, None),
+        (4, None),
+        (5, Some(0)),
+        (8, Some(0)),
+        (9, Some(1)),
+        (12, Some(1)),
+        (13, Some(2)),
+        (100, Some(2)),
+    ] {
+        assert_eq!(
+            previous_super_segment_header(block_number),
+            expected.map(|index: usize| super_segment_headers[index]),
+            "{block_number}"
+        );
+    }
+    for (segment_index, expected) in [
+        (0, Some(0)),
+        (1, Some(1)),
+        (2, Some(1)),
+        (3, Some(1)),
+        (4, Some(2)),
+        (5, None),
+    ] {
+        assert_eq!(
+            super_segment_header_for_segment_index(segment_index),
+            expected.map(|index: usize| super_segment_headers[index]),
+            "{segment_index}"
+        );
+    }
+}
+
+#[test]
+fn first_block_on_fresh_database_replaces_genesis_block() {
+    // c100 (with an unknown parent, replaces genesis) - c101 .. c106 (best block, `c100 .. c103`
+    // are persisted)
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let genesis_root = database.best_root();
+
+    let mut chain = vec![persist_block(&database, 100, BlockRoot::default(), 0).unwrap()];
+    assert_eq!(database.best_root(), chain[0]);
+    assert!(database.header(&genesis_root).is_none());
+    chain.extend(persist_chain(&database, chain[0], 101..=106, 0));
+
+    let database = reopen(database, &storage_backend);
+
+    let best_root = chain[3];
+    assert_eq!(database.best_root(), best_root);
+    assert!(database.header(&genesis_root).is_none());
+    assert_eq!(ancestor_root(&database, 99, &best_root), None);
+    for (number, block_root) in (100..).zip(&chain[..=3]) {
+        assert_eq!(
+            ancestor_root(&database, number, &best_root),
+            Some(*block_root)
+        );
+        let block = block_on(database.block(block_root)).unwrap();
+        assert_eq!(*block.header.root(), *block_root);
+    }
+    persist_block(&database, 104, best_root, 0).unwrap();
+}
+
+#[test]
+fn ancestor_header_follows_fork_across_several_block_numbers() {
+    // genesis -+- c1 .. c4 (best block)
+    //          \- a1 - a2 - a3
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let mut chain = vec![database.best_root()];
+    chain.extend(persist_chain(&database, chain[0], 1..=4, 0));
+    let mut fork_chain = vec![chain[0]];
+    fork_chain.extend(persist_chain(&database, chain[0], 1..=3, 1));
+    assert_eq!(database.best_root(), chain[4]);
+
+    for (number, descendant_root, expected_root) in [
+        (1, fork_chain[3], fork_chain[1]),
+        (2, fork_chain[3], fork_chain[2]),
+        (1, fork_chain[2], fork_chain[1]),
+        (0, fork_chain[3], chain[0]),
+        (1, chain[3], chain[1]),
+        (1, chain[4], chain[1]),
+    ] {
+        assert_eq!(
+            ancestor_root(&database, number, &descendant_root),
+            Some(expected_root),
+            "{number} {descendant_root}"
+        );
+    }
+}
+
+/// Database with a persisted block `c2`, whose root is returned with the storage backend
+fn database_with_persisted_block() -> (MemoryStorageBackend, Database, BlockRoot) {
+    let storage_backend = MemoryStorageBackend::new();
+    let database = open_database(&storage_backend);
+    let chain = persist_chain(&database, database.best_root(), 1..=6, 0);
+    let block_root = chain[1];
+    // Blocks are read from the storage backend once persisted
+    block_on(database.block(&block_root)).unwrap();
+
+    (storage_backend, database, block_root)
+}
+
+/// Error of reading the block with `block_root`
+fn read_block_error(database: &Database, block_root: &BlockRoot) -> io::Error {
+    let result = block_on(database.block(block_root));
+    let Err(ReadBlockError::StorageItemReadError { error }) = result else {
+        panic!("Unexpected result: {result:?}");
+    };
+
+    error
+}
+
+#[test]
+fn persisted_block_read_fails_on_corrupted_page() {
+    let (storage_backend, database, block_root) = database_with_persisted_block();
+    let WriteLocation {
+        page_offset,
+        num_pages: _,
+    } = persisted_write_location(&database, &block_root);
+    let (result, page) = block_on(storage_backend.read(OwnedPages::EMPTY, 1, page_offset)).unwrap();
+    result.unwrap();
+    // The storage item follows the prefix, which takes the overhead without the two checksums of
+    // the suffix, and its size follows the sequence number and the variant in the prefix
+    let storage_item_offset = min_segment_item_overhead() - 2 * Blake3Hash::SIZE;
+    let storage_item_size_offset = size_of::<u64>() + size_of::<u8>();
+    let storage_item_size = u32::from_le_bytes(
+        page.as_slice()[storage_item_size_offset..][..size_of::<u32>()]
+            .try_into()
+            .unwrap(),
+    ) as usize;
+    let suffix_offset = storage_item_offset + storage_item_size;
+    let stored_checksum = |offset: usize| {
+        Blake3Hash::new(
+            page.as_slice()[offset..][..Blake3Hash::SIZE]
+                .try_into()
+                .unwrap(),
+        )
+    };
+    let storage_item_checksum_error = |byte_offset: usize| {
+        let byte_offset = u32::try_from(byte_offset).unwrap();
+        storage_backend.flip_byte(page_offset, byte_offset);
+        let error = read_block_error(&database, &block_root);
+        storage_backend.flip_byte(page_offset, byte_offset);
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        *error
+            .into_inner()
+            .unwrap()
+            .downcast::<StorageItemError>()
+            .unwrap()
+    };
+
+    let error = storage_item_checksum_error(storage_item_offset);
+    let StorageItemError::StorageItemChecksumMismatch { expected, actual } = error else {
+        panic!("Unexpected error: {error:?}");
+    };
+    assert_ne!(expected, actual);
+    assert_eq!(actual, stored_checksum(suffix_offset));
+
+    // The first byte of the repeat of the prefix checksum at the end of the suffix
+    let prefix_checksum_repeat_offset = suffix_offset + Blake3Hash::SIZE;
+    let error = storage_item_checksum_error(prefix_checksum_repeat_offset);
+    let StorageItemError::RepeatChecksumMismatch { expected, actual } = error else {
+        panic!("Unexpected error: {error:?}");
+    };
+    assert_eq!(expected, stored_checksum(prefix_checksum_repeat_offset));
+    let mut corrupted_checksum = *expected;
+    corrupted_checksum[0] ^= u8::MAX;
+    assert_eq!(*actual, corrupted_checksum);
+
+    block_on(database.block(&block_root)).unwrap();
+}
+
+#[test]
+fn persisted_block_read_fails_on_failed_backend_read() {
+    let (storage_backend, database, block_root) = database_with_persisted_block();
+
+    for (fault, expected_error) in [
+        (Fault::Error, (io::ErrorKind::Other, "Read failed")),
+        (
+            Fault::Cancel,
+            (
+                io::ErrorKind::Interrupted,
+                "Storage backend read was aborted",
+            ),
+        ),
+    ] {
+        storage_backend.fail_read(0, fault);
+        let error = read_block_error(&database, &block_root);
+        assert_eq!(
+            (error.kind(), error.to_string().as_str()),
+            expected_error,
+            "{fault:?}"
+        );
+    }
+    block_on(database.block(&block_root)).unwrap();
+}
+
+#[test]
+fn persisted_block_read_fails_on_storage_item_that_is_not_block() {
+    // The write location of the block is replaced with that of another storage item
+    let (_storage_backend, database, block_root) = database_with_persisted_block();
+    let storage_items = [
+        (
+            StorageItemTemporary::SegmentHeaders(StorageItemTemporarySegmentHeaders {
+                segment_headers: vec![segment_header(0)],
+            }),
+            "SegmentHeaders",
+        ),
+        (
+            StorageItemTemporary::SuperSegmentHeaders(StorageItemTemporarySuperSegmentHeaders {
+                super_segment_headers: vec![super_segment_header(0)],
+            }),
+            "SuperSegmentHeaders",
+        ),
+        (
+            StorageItemTemporary::ShardMaxLocalSegmentIndices(
+                StorageItemTemporaryShardMaxLocalSegmentIndices {
+                    shard_max_local_segment_indices: Vec::new(),
+                },
+            ),
+            "ShardMaxLocalSegmentIndices",
+        ),
+    ];
+
+    for (storage_item, name) in storage_items {
+        let storage_item_write_location = block_on(async {
+            let state = database.inner.state.read().await;
+            state
+                .storage_backend_adapter
+                .write()
+                .await
+                .write_storage_item(storage_item)
+                .await
+        })
+        .unwrap();
+        {
+            let mut state = database.inner.state.write_blocking();
+            let block = state
+                .data
+                .blocks
+                .iter_mut()
+                .flatten()
+                .find(|block| *block.header().root() == block_root)
+                .unwrap();
+            #[expect(
+                clippy::rest_pattern_accessible_field,
+                reason = "Do not need other fields"
+            )]
+            let (ClientDatabaseBlock::Persisted { write_location, .. }
+            | ClientDatabaseBlock::PersistedConfirmed { write_location, .. }) = block
+            else {
+                panic!("Block is not persisted");
+            };
+            *write_location = storage_item_write_location;
+        }
+
+        let error = read_block_error(&database, &block_root);
+        assert_eq!(error.kind(), io::ErrorKind::Other, "{name}");
+        assert_eq!(
+            error.to_string(),
+            format!("Unexpected storage item: `{name}`")
+        );
+    }
 }
