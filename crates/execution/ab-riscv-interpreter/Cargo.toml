@@ -12,6 +12,7 @@ edition = "2024"
 include = [
     "/examples",
     "/src",
+    "/tests",
     "/build.rs",
     "/Cargo.toml",
     "/CHANGELOG.md",
