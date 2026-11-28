@@ -11,6 +11,7 @@ edition = "2024"
 rust-version = "1.89"
 include = [
     "/src",
+    "/tests",
     "/Cargo.toml",
     "/CHANGELOG.md",
 ]
