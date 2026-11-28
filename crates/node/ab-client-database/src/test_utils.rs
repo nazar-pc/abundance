@@ -214,6 +214,33 @@ impl MemoryStorageBackend {
     }
 }
 
+/// Storage backend with the max number of pages, which is never read from or written to
+#[derive(Debug)]
+pub(crate) struct HugeStorageBackend;
+
+impl ClientDatabaseStorageBackend for HugeStorageBackend {
+    fn num_pages(&self) -> u32 {
+        u32::MAX
+    }
+
+    fn read(
+        &self,
+        _buffer: OwnedPages,
+        _num_pages: u32,
+        _offset: u32,
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, OwnedPages)> {
+        unreachable!("Not read from")
+    }
+
+    fn write(
+        &self,
+        _buffer: SharedPages,
+        _offset: u32,
+    ) -> oneshot::Receiver<(Result<(), StorageBackendError>, SharedPages)> {
+        unreachable!("Not written to")
+    }
+}
+
 pub(crate) type Database = ClientDatabase<OwnedBeaconChainBlock, MemoryStorageBackend>;
 
 fn consensus_info() -> BlockHeaderConsensusInfo {
