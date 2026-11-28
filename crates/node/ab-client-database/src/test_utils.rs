@@ -43,6 +43,45 @@ use triomphe::Arc;
 const NUM_PAGES: u32 = 4096;
 pub(crate) const PAGE_GROUP_SIZE: NonZeroU32 = NonZeroU32::new(256).unwrap();
 
+/// How a read or write scheduled with [`MemoryStorageBackend::fail_read()`] or
+/// [`MemoryStorageBackend::fail_write()`] fails
+#[derive(Debug, Copy, Clone)]
+pub(crate) enum Fault {
+    /// The request finishes with an I/O error
+    Error,
+    /// The request is cancelled, its result is never sent
+    Cancel,
+}
+
+/// Fault of a read or write that is scheduled after a number of requests, clones share the same
+/// schedule
+#[derive(Default, Clone)]
+struct ScheduledFault {
+    /// Number of requests that still succeed before the fault and the fault itself
+    inner: Arc<Mutex<Option<(usize, Fault)>>>,
+}
+
+impl ScheduledFault {
+    /// Schedule `fault` after `num_requests` more requests, replacing a previously scheduled fault
+    fn set(&self, num_requests: usize, fault: Fault) {
+        *self.inner.lock().unwrap() = Some((num_requests, fault));
+    }
+
+    /// Count a new request, returns the fault if it fails
+    fn take(&self) -> Option<Fault> {
+        let mut inner = self.inner.lock().unwrap();
+        let (remaining_requests, fault) = inner.as_mut()?;
+        let Some(new_remaining_requests) = remaining_requests.checked_sub(1) else {
+            let fault = *fault;
+            inner.take();
+            return Some(fault);
+        };
+        *remaining_requests = new_remaining_requests;
+
+        None
+    }
+}
+
 /// Write that is held back by [`MemoryStorageBackend::hold_writes()`]
 struct HeldWrite {
     buffer: SharedPages,
@@ -59,6 +98,10 @@ pub(crate) struct MemoryStorageBackend {
     remaining_writes: Arc<Mutex<Option<usize>>>,
     /// Writes that neither reached the pages nor finished yet, `None` means writes are not held
     held_writes: Arc<Mutex<Option<Vec<HeldWrite>>>>,
+    /// Read that fails, see [`Self::fail_read()`]
+    read_fault: ScheduledFault,
+    /// Write that fails, see [`Self::fail_write()`]
+    write_fault: ScheduledFault,
 }
 
 impl fmt::Debug for MemoryStorageBackend {
@@ -80,6 +123,19 @@ impl ClientDatabaseStorageBackend for MemoryStorageBackend {
         offset: u32,
     ) -> oneshot::Receiver<(Result<(), StorageBackendError>, OwnedPages)> {
         let (sender, receiver) = oneshot::channel();
+
+        if let Some(fault) = self.read_fault.take() {
+            match fault {
+                Fault::Error => {
+                    sender
+                        .send((Err(io::Error::other("Read failed").into()), buffer))
+                        .unwrap();
+                }
+                Fault::Cancel => drop(sender),
+            }
+            return receiver;
+        }
+
         let offset = (offset * OwnedPages::ALIGN) as usize;
         let length = (num_pages * OwnedPages::ALIGN) as usize;
 
@@ -104,6 +160,18 @@ impl ClientDatabaseStorageBackend for MemoryStorageBackend {
         let (sender, receiver) = oneshot::channel();
         assert!(buffer.len().is_multiple_of(SharedPages::ALIGN));
 
+        if let Some(fault) = self.write_fault.take() {
+            match fault {
+                Fault::Error => {
+                    sender
+                        .send((Err(io::Error::other("Write failed").into()), buffer))
+                        .unwrap();
+                }
+                Fault::Cancel => drop(sender),
+            }
+            return receiver;
+        }
+
         if let Some(held_writes) = self.held_writes.lock().unwrap().as_mut() {
             held_writes.push(HeldWrite {
                 buffer,
@@ -121,25 +189,49 @@ impl ClientDatabaseStorageBackend for MemoryStorageBackend {
 impl MemoryStorageBackend {
     /// Create a new formatted storage backend
     pub(crate) fn new() -> Self {
+        Self::with_size(NUM_PAGES, PAGE_GROUP_SIZE)
+    }
+
+    /// Create a new storage backend of `num_pages` pages formatted with `page_group_size`
+    pub(crate) fn with_size(num_pages: u32, page_group_size: NonZeroU32) -> Self {
         let storage_backend = Self {
             bytes: Arc::new(Mutex::new(vec![
                 0;
-                (NUM_PAGES * OwnedPages::ALIGN) as usize
+                (num_pages * OwnedPages::ALIGN) as usize
             ])),
             remaining_writes: Arc::default(),
             held_writes: Arc::default(),
+            read_fault: ScheduledFault::default(),
+            write_fault: ScheduledFault::default(),
         };
 
         block_on(ClientDatabase::<OwnedBeaconChainBlock, Self>::format(
             &storage_backend,
             ClientDatabaseFormatOptions {
-                page_group_size: PAGE_GROUP_SIZE,
+                page_group_size,
                 force: true,
             },
         ))
         .unwrap();
 
         storage_backend
+    }
+
+    /// Fail the read after `num_reads` more reads with `fault`, other reads succeed
+    pub(crate) fn fail_read(&self, num_reads: usize, fault: Fault) {
+        self.read_fault.set(num_reads, fault);
+    }
+
+    /// Fail the write after `num_writes` more writes with `fault` without it reaching the pages,
+    /// other writes succeed
+    pub(crate) fn fail_write(&self, num_writes: usize, fault: Fault) {
+        self.write_fault.set(num_writes, fault);
+    }
+
+    /// Flip all bits of the byte at `byte_offset` in the page at `page_offset`
+    pub(crate) fn flip_byte(&self, page_offset: u32, byte_offset: u32) {
+        let offset = page_offset * OwnedPages::ALIGN + byte_offset;
+        self.bytes.lock().unwrap()[offset as usize] ^= u8::MAX;
     }
 
     /// Only let `num_writes` more writes reach the pages and silently drop the rest, `None` lets
@@ -214,9 +306,13 @@ impl MemoryStorageBackend {
     }
 }
 
-/// Storage backend with the max number of pages, which is never read from or written to
+/// Storage backend with the max number of pages, only the first page can be read and nothing can be
+/// written
 #[derive(Debug)]
-pub(crate) struct HugeStorageBackend;
+pub(crate) struct HugeStorageBackend {
+    /// Contents of the first page
+    pub(crate) first_page: SharedPages,
+}
 
 impl ClientDatabaseStorageBackend for HugeStorageBackend {
     fn num_pages(&self) -> u32 {
@@ -225,11 +321,20 @@ impl ClientDatabaseStorageBackend for HugeStorageBackend {
 
     fn read(
         &self,
-        _buffer: OwnedPages,
-        _num_pages: u32,
-        _offset: u32,
+        mut buffer: OwnedPages,
+        num_pages: u32,
+        offset: u32,
     ) -> oneshot::Receiver<(Result<(), StorageBackendError>, OwnedPages)> {
-        unreachable!("Not read from")
+        assert_eq!((num_pages, offset), (1, 0), "Only the first page is read");
+        let (sender, receiver) = oneshot::channel();
+
+        buffer.truncate(0);
+        let result = buffer
+            .append(&self.first_page)
+            .map_err(StorageBackendError::from);
+        sender.send((result, buffer)).unwrap();
+
+        receiver
     }
 
     fn write(
