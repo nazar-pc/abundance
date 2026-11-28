@@ -829,13 +829,13 @@ jobs:
     strategy:
       matrix:
         platform:
-          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '' }
-          - { name: linux-x86_64, runner: ubuntu-26.04, target: '' }
-          - { name: macos-aarch64, runner: macos-26, target: '' }
-          - { name: windows-aarch64, runner: windows-11-arm, target: '' }
-          - { name: windows-x86_64, runner: windows-2025, target: '' }
+          - { name: linux-aarch64, runner: ubuntu-26.04-arm, target: '', cpu: native }
+          - { name: linux-x86_64, runner: ubuntu-26.04, target: '', cpu: native }
+          - { name: macos-aarch64, runner: macos-26, target: '', cpu: native }
+          - { name: windows-aarch64, runner: windows-11-arm, target: '', cpu: native }
           # No-panic runs on a faster `aarch64` runner
-          - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu }
+          - { name: linux-riscv64a23, runner: ubuntu-26.04-arm, target: riscv64a23-unknown-linux-gnu, cpu: '' }
+          - { name: windows-x86_64, runner: windows-11-arm, target: x86_64-pc-windows-msvc, cpu: znver4 }
         type:
           - default
           - features
@@ -853,11 +853,14 @@ jobs:
       - *target-setup-step
 
       # Increase the inlining threshold to make sure the compiler can see that some functions do not panic.
-      # Native CPU and LTO to allow the compiler to apply more optimizations and prove lack of panics in more cases.
+      # Specific target CPU and LTO to allow the compiler to apply more optimizations and prove lack of panics in more
+      # cases.
       - name: Set up RUSTFLAGS
         shell: bash
+        env:
+          TARGET_CPU_FLAG: ${{ matrix.platform.cpu != '' && format('-C target-cpu={0}', matrix.platform.cpu) || '' }}
         run: |
-          echo "RUSTFLAGS=${RUSTFLAGS} -Cllvm-args=--inline-threshold=10000 -C embed-bitcode -C lto -Z dylib-lto ${{ matrix.platform.target == '' && '-C target-cpu=native' || '' }}" >> $GITHUB_ENV
+          echo "RUSTFLAGS=${RUSTFLAGS} -Cllvm-args=--inline-threshold=10000 -C embed-bitcode -C lto -Z dylib-lto ${TARGET_CPU_FLAG}" >> $GITHUB_ENV
 
       - name: Ensure no panics in annotated code
         shell: bash
