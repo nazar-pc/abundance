@@ -9,6 +9,7 @@ authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 include = [
     "/src",
+    "/tests",
     "/Cargo.toml",
     "/CHANGELOG.md",
     "/README.md",
